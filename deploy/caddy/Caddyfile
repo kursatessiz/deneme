@@ -1,0 +1,40 @@
+{
+  email admin@yourdomain.com
+}
+
+# Web Dashboard & Public Booking Pages
+{$WEB_DOMAIN:panel.yourdomain.com} {
+  encode zstd gzip
+
+  # Security headers
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    X-XSS-Protection "1; mode=block"
+    Referrer-Policy "strict-origin-when-cross-origin"
+  }
+
+  reverse_proxy web:3000 {
+    header_up Host {host}
+    header_up X-Real-IP {remote_host}
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto {scheme}
+  }
+}
+
+# Backend Core REST & WebSocket API
+{$API_DOMAIN:api.yourdomain.com} {
+  encode zstd gzip
+
+  header {
+    Access-Control-Allow-Credentials "true"
+  }
+
+  reverse_proxy api:4000 {
+    header_up Host {host}
+    header_up X-Real-IP {remote_host}
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto {scheme}
+  }
+}

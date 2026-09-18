@@ -1,0 +1,188 @@
+name: Agentic CI/CD Pipeline (Build, Test, Deploy & Auto-Rollback)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME_API: ${{ github.repository }}/api
+  IMAGE_NAME_WEB: ${{ github.repository }}/web
+
+jobs:
+  # ============================================================================
+  # 1. Quality Gate: Lint, Typecheck & Validate
+  # ============================================================================
+  quality-gate:
+    name: Code Quality & Schema Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.4
+
+      - name: Cache pnpm Modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate Prisma Schema
+        run: |
+          cd packages/database
+          npx prisma validate
+
+      - name: Typecheck Shared & Packages
+        run: pnpm turbo run typecheck
+
+  # ============================================================================
+  # 2. Build & Push Docker Images to GitHub Container Registry (GHCR)
+  # ============================================================================
+  build-and-push:
+    name: Build & Push Container Images (Offload from 6GB VPS)
+    needs: quality-gate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set Image Tag
+        id: meta
+        run: echo "tag=sha-${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Build NestJS Core API Image
+      - name: Build & Push API Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./deploy/docker/api.Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_API }}:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_API }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Build Next.js 15 Standalone Web Image
+      - name: Build & Push Web Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./deploy/docker/web.Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_WEB }}:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_WEB }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================================
+  # 3. Deploy to Ubuntu 24.04 Server with Self-Healing Smoke Test & Auto-Rollback
+  # ============================================================================
+  deploy-and-verify:
+    name: Zero-Downtime Deploy & Agentic Self-Healing
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure SSH Key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.UBUNTU_SSH_PRIVATE_KEY }}
+
+      - name: Add Server to Known Hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.UBUNTU_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Sync Deploy Files to Server
+        run: |
+          ssh ${{ secrets.UBUNTU_USER }}@${{ secrets.UBUNTU_HOST }} "mkdir -p /opt/pilates-studio/caddy /opt/pilates-studio/scripts"
+          scp deploy/docker-compose.prod.yml ${{ secrets.UBUNTU_USER }}@${{ secrets.UBUNTU_HOST }}:/opt/pilates-studio/
+          scp deploy/caddy/Caddyfile ${{ secrets.UBUNTU_USER }}@${{ secrets.UBUNTU_HOST }}:/opt/pilates-studio/caddy/
+          scp deploy/scripts/* ${{ secrets.UBUNTU_USER }}@${{ secrets.UBUNTU_HOST }}:/opt/pilates-studio/scripts/
+          ssh ${{ secrets.UBUNTU_USER }}@${{ secrets.UBUNTU_HOST }} "chmod +x /opt/pilates-studio/scripts/*.sh"
+
+      - name: Execute Deployment on Ubuntu Server
+        run: |
+          ssh ${{ secrets.UBUNTU_USER }}@${{ secrets.UBUNTU_HOST }} << 'EOF'
+            set -e
+            cd /opt/pilates-studio
+
+            # Login to GHCR on server
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Export current release tag
+            export API_IMAGE="ghcr.io/${{ env.IMAGE_NAME_API }}:${{ needs.build-and-push.outputs.image_tag }}"
+            export WEB_IMAGE="ghcr.io/${{ env.IMAGE_NAME_WEB }}:${{ needs.build-and-push.outputs.image_tag }}"
+
+            # Pull newly published images
+            echo "Pulling images..."
+            docker compose -f docker-compose.prod.yml pull api web
+
+            # Apply Prisma Database Migrations
+            echo "Applying Prisma migrations..."
+            docker compose -f docker-compose.prod.yml run --rm api npx prisma migrate deploy || true
+
+            # Rolling restart
+            echo "Starting updated services..."
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+          EOF
+
+      - name: Run Agentic Smoke Test (Health Probe)
+        id: smoke_test
+        continue-on-error: true
+        run: |
+          ssh ${{ secrets.UBUNTU_USER }}@${{ secrets.UBUNTU_HOST }} "bash /opt/pilates-studio/scripts/healthcheck.sh"
+
+      - name: Trigger Automated Rollback on Smoke Test Failure
+        if: steps.smoke_test.outcome == 'failure'
+        run: |
+          echo "🚨 SMOKE TEST FAILED! INITIATING AGENTIC AUTO-ROLLBACK..."
+          ssh ${{ secrets.UBUNTU_USER }}@${{ secrets.UBUNTU_HOST }} "bash /opt/pilates-studio/scripts/rollback.sh latest"
+          echo "::error::Deployment failed health checks. System rolled back to previous stable release."
+          exit 1
+
+      - name: Record Successful Release
+        if: steps.smoke_test.outcome == 'success'
+        run: |
+          echo "🎉 Deployment successfully verified by Agentic Smoke Test!" >> $GITHUB_STEP_SUMMARY
+          echo "🏷️ Active Release Tag: ${{ needs.build-and-push.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY

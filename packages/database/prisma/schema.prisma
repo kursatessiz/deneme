@@ -1,0 +1,374 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPER_ADMIN
+  STUDIO_ADMIN
+  TRAINER
+  RECEPTIONIST
+  MEMBER
+}
+
+enum SessionType {
+  PRIVATE_REFORMER
+  DUET_REFORMER
+  TRIO_REFORMER
+  GROUP_REFORMER
+  CADILLAC_PILATES
+  MAT_PILATES
+  EMS_TRAINING
+  CLINICAL_PILATES
+}
+
+enum BookingStatus {
+  CONFIRMED
+  ATTENDED
+  CANCELLED_EARLY
+  CANCELLED_LATE
+  NO_SHOW
+  WAITLIST
+}
+
+enum PackageStatus {
+  ACTIVE
+  FROZEN
+  EXPIRED
+  DEPLETED
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD_POS
+  BANK_TRANSFER
+  ONLINE_IYZICO
+  ONLINE_PAYTR
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  REFUNDED
+  FAILED
+}
+
+enum CommissionType {
+  PER_SESSION_FIXED
+  PERCENTAGE
+  MONTHLY_SALARY
+}
+
+model Studio {
+  id                        String              @id @default(uuid()) @db.Uuid
+  name                      String              @db.VarChar(100)
+  slug                      String              @unique @db.VarChar(60)
+  phone                     String?             @db.VarChar(30)
+  email                     String?             @db.VarChar(100)
+  address                   String?             @db.Text
+  logoUrl                   String?             @map("logo_url") @db.Text
+  primaryColor              String?             @default("#0f172a") @map("primary_color") @db.VarChar(20)
+  secondaryColor            String?             @default("#38bdf8") @map("secondary_color") @db.VarChar(20)
+  cancellationDeadlineHours Int                 @default(4) @map("cancellation_deadline_hours")
+  reminderHoursBefore       Int                 @default(2) @map("reminder_hours_before")
+  maxAdvanceBookingDays     Int                 @default(14) @map("max_advance_booking_days")
+  isActive                  Boolean             @default(true) @map("is_active")
+  createdAt                 DateTime            @default(now()) @map("created_at")
+  updatedAt                 DateTime            @updatedAt @map("updated_at")
+
+  branches                  Branch[]
+  rooms                     Room[]
+  users                     User[]
+  packageDefinitions        PackageDefinition[]
+  memberPackages            MemberPackage[]
+  schedules                 SessionSchedule[]
+  bookings                  Booking[]
+  payments                  Payment[]
+  notificationLogs          NotificationLog[]
+  auditLogs                 AuditLog[]
+
+  @@map("studios")
+}
+
+model Branch {
+  id        String   @id @default(uuid()) @db.Uuid
+  studioId  String   @map("studio_id") @db.Uuid
+  name      String   @db.VarChar(100)
+  address   String?  @db.Text
+  phone     String?  @db.VarChar(30)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  studio    Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  rooms     Room[]
+  schedules SessionSchedule[]
+
+  @@index([studioId])
+  @@map("branches")
+}
+
+model Room {
+  id        String      @id @default(uuid()) @db.Uuid
+  studioId  String      @map("studio_id") @db.Uuid
+  branchId  String?     @map("branch_id") @db.Uuid
+  name      String      @db.VarChar(100) // e.g. "Reformer Odası 1", "Cadillac Stüdyosu"
+  capacity  Int         @default(1)
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  studio    Studio      @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  branch    Branch?     @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  equipment Equipment[]
+  schedules SessionSchedule[]
+
+  @@index([studioId])
+  @@map("rooms")
+}
+
+model Equipment {
+  id            String   @id @default(uuid()) @db.Uuid
+  studioId      String   @map("studio_id") @db.Uuid
+  roomId        String?  @map("room_id") @db.Uuid
+  name          String   @db.VarChar(100) // e.g. "Reformer Yatak #1", "Cadillac Trapeze"
+  serialNumber  String?  @map("serial_number") @db.VarChar(100)
+  isMaintenance Boolean  @default(false) @map("is_maintenance")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  room          Room?    @relation(fields: [roomId], references: [id], onDelete: SetNull)
+
+  @@index([studioId])
+  @@map("equipment")
+}
+
+model User {
+  id               String          @id @default(uuid()) @db.Uuid
+  studioId         String?         @map("studio_id") @db.Uuid
+  email            String?         @db.VarChar(120)
+  phone            String          @db.VarChar(30)
+  passwordHash     String          @map("password_hash") @db.VarChar(255)
+  firstName        String          @map("first_name") @db.VarChar(60)
+  lastName         String          @map("last_name") @db.VarChar(60)
+  role             Role            @default(MEMBER)
+  avatarUrl        String?         @map("avatar_url") @db.Text
+  refreshTokenHash String?         @map("refresh_token_hash") @db.VarChar(255)
+  isActive         Boolean         @default(true) @map("is_active")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  studio           Studio?         @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  memberProfile    MemberProfile?
+  trainerProfile   TrainerProfile?
+  auditLogs        AuditLog[]
+
+  @@unique([studioId, phone])
+  @@unique([studioId, email])
+  @@index([studioId, role])
+  @@map("users")
+}
+
+model MemberProfile {
+  id                    String          @id @default(uuid()) @db.Uuid
+  userId                String          @unique @map("user_id") @db.Uuid
+  studioId              String          @map("studio_id") @db.Uuid
+  birthDate             DateTime?       @map("birth_date") @db.Date
+  emergencyContactName  String?         @map("emergency_contact_name") @db.VarChar(100)
+  emergencyContactPhone String?         @map("emergency_contact_phone") @db.VarChar(30)
+  medicalConditions     String?         @map("medical_conditions") @db.Text
+  notes                 String?         @db.Text
+  hasSignedWaiver       Boolean         @default(false) @map("has_signed_waiver")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
+
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packages              MemberPackage[]
+  bookings              Booking[]
+  payments              Payment[]
+
+  @@index([studioId])
+  @@map("member_profiles")
+}
+
+model TrainerProfile {
+  id              String            @id @default(uuid()) @db.Uuid
+  userId          String            @unique @map("user_id") @db.Uuid
+  studioId        String            @map("studio_id") @db.Uuid
+  bio             String?           @db.Text
+  specialties     SessionType[]
+  commissionType  CommissionType    @default(PER_SESSION_FIXED) @map("commission_type")
+  commissionValue Decimal           @default(300.00) @map("commission_value") @db.Decimal(10, 2)
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schedules       SessionSchedule[]
+
+  @@index([studioId])
+  @@map("trainer_profiles")
+}
+
+model PackageDefinition {
+  id                String          @id @default(uuid()) @db.Uuid
+  studioId          String          @map("studio_id") @db.Uuid
+  name              String          @db.VarChar(100) // e.g. "10 Seans Birebir Reformer"
+  sessionType       SessionType     @map("session_type")
+  totalSessions     Int             @map("total_sessions")
+  validityDays      Int             @map("validity_days") // e.g. 60 days
+  price             Decimal         @db.Decimal(10, 2)
+  freezeDaysAllowed Int             @default(15) @map("freeze_days_allowed")
+  isActive          Boolean         @default(true) @map("is_active")
+  createdAt         DateTime        @default(now()) @map("created_at")
+
+  studio            Studio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  memberPackages    MemberPackage[]
+
+  @@index([studioId, isActive])
+  @@map("package_definitions")
+}
+
+model MemberPackage {
+  id                  String               @id @default(uuid()) @db.Uuid
+  studioId            String               @map("studio_id") @db.Uuid
+  memberId            String               @map("member_id") @db.Uuid
+  packageDefinitionId String               @map("package_definition_id") @db.Uuid
+  sessionType         SessionType          @map("session_type")
+  totalSessions       Int                  @map("total_sessions")
+  usedSessions        Int                  @default(0) @map("used_sessions")
+  remainingSessions   Int                  @map("remaining_sessions")
+  status              PackageStatus        @default(ACTIVE)
+  startDate           DateTime             @default(now()) @map("start_date")
+  endDate             DateTime             @map("end_date")
+  frozenUntil         DateTime?            @map("frozen_until")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+
+  studio              Studio               @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  member              MemberProfile        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  packageDefinition   PackageDefinition    @relation(fields: [packageDefinitionId], references: [id])
+  freezeHistories     PackageFreezeHistory[]
+  bookings            Booking[]
+  payments            Payment[]
+
+  @@index([studioId, memberId, status])
+  @@map("member_packages")
+}
+
+model PackageFreezeHistory {
+  id              String        @id @default(uuid()) @db.Uuid
+  memberPackageId String        @map("member_package_id") @db.Uuid
+  freezeStartDate DateTime      @map("freeze_start_date")
+  freezeEndDate   DateTime      @map("freeze_end_date")
+  reason          String?       @db.Text
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  memberPackage   MemberPackage @relation(fields: [memberPackageId], references: [id], onDelete: Cascade)
+
+  @@index([memberPackageId])
+  @@map("package_freeze_history")
+}
+
+model SessionSchedule {
+  id                 String        @id @default(uuid()) @db.Uuid
+  studioId           String        @map("studio_id") @db.Uuid
+  branchId           String?       @map("branch_id") @db.Uuid
+  roomId             String?       @map("room_id") @db.Uuid
+  trainerId          String        @map("trainer_id") @db.Uuid
+  sessionType        SessionType   @map("session_type")
+  title              String        @db.VarChar(120)
+  startTime          DateTime      @map("start_time")
+  endTime            DateTime      @map("end_time")
+  capacity           Int           @default(1)
+  bookedCount        Int           @default(0) @map("booked_count")
+  isCancelled        Boolean       @default(false) @map("is_cancelled")
+  cancellationReason String?       @map("cancellation_reason") @db.Text
+  createdAt          DateTime      @default(now()) @map("created_at")
+
+  studio             Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  branch             Branch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  room               Room?         @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  trainer            TrainerProfile @relation(fields: [trainerId], references: [id])
+  bookings           Booking[]
+
+  @@index([studioId, startTime, endTime])
+  @@index([trainerId, startTime, endTime])
+  @@map("session_schedules")
+}
+
+model Booking {
+  id                 String        @id @default(uuid()) @db.Uuid
+  studioId           String        @map("studio_id") @db.Uuid
+  scheduleId         String        @map("schedule_id") @db.Uuid
+  memberId           String        @map("member_id") @db.Uuid
+  memberPackageId    String        @map("member_package_id") @db.Uuid
+  status             BookingStatus @default(CONFIRMED)
+  checkInAt          DateTime?     @map("check_in_at")
+  cancelledAt        DateTime?     @map("cancelled_at")
+  cancellationReason String?       @map("cancellation_reason") @db.Text
+  isLateCancellation Boolean       @default(false) @map("is_late_cancellation")
+  createdAt          DateTime      @default(now()) @map("created_at")
+
+  studio             Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  schedule           SessionSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  member             MemberProfile @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberPackage      MemberPackage @relation(fields: [memberPackageId], references: [id])
+
+  @@unique([scheduleId, memberId])
+  @@index([studioId, status])
+  @@index([memberId])
+  @@map("bookings")
+}
+
+model Payment {
+  id                String        @id @default(uuid()) @db.Uuid
+  studioId          String        @map("studio_id") @db.Uuid
+  memberId          String        @map("member_id") @db.Uuid
+  memberPackageId   String?       @map("member_package_id") @db.Uuid
+  amount            Decimal       @db.Decimal(10, 2)
+  paymentMethod     PaymentMethod @map("payment_method")
+  paymentStatus     PaymentStatus @default(COMPLETED) @map("payment_status")
+  receiptNumber     String?       @map("receipt_number") @db.VarChar(60)
+  providerReference String?       @map("provider_reference") @db.VarChar(120)
+  notes             String?       @db.Text
+  paidAt            DateTime      @default(now()) @map("paid_at")
+
+  studio            Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  member            MemberProfile @relation(fields: [memberId], references: [id])
+  memberPackage     MemberPackage? @relation(fields: [memberPackageId], references: [id], onDelete: SetNull)
+
+  @@index([studioId, paidAt])
+  @@map("payments")
+}
+
+model NotificationLog {
+  id             String    @id @default(uuid()) @db.Uuid
+  studioId       String    @map("studio_id") @db.Uuid
+  recipientPhone String    @map("recipient_phone") @db.VarChar(30)
+  channel        String    @db.VarChar(20) // SMS, WHATSAPP, PUSH
+  type           String    @db.VarChar(50) // REMINDER, PACKAGE_EXPIRY, CANCEL_ALERT
+  content        String    @db.Text
+  status         String    @db.VarChar(20) // SENT, FAILED, PENDING
+  errorMessage   String?   @map("error_message") @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  studio         Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@index([studioId, createdAt])
+  @@map("notification_logs")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  studioId   String   @map("studio_id") @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  action     String   @db.VarChar(60) // e.g. "PACKAGE_ASSIGN", "BOOKING_CANCEL"
+  entityType String   @map("entity_type") @db.VarChar(60)
+  entityId   String?  @map("entity_id") @db.VarChar(60)
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  studio     Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([studioId, createdAt])
+  @@map("audit_logs")
+}
