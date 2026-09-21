@@ -46,14 +46,26 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Validate Prisma Schema
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/test?schema=public"
         run: |
           cd packages/database
           npx prisma validate
+
+      - name: Generate Prisma Client
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/test?schema=public"
+        run: |
+          cd packages/database
+          npx prisma generate
 
       - name: Typecheck Shared & Packages
         run: pnpm turbo run typecheck
 
       - name: Run Automated Unit Tests (Jest)
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/test?schema=public"
+          JWT_SECRET: "test-secret-key-for-unit-testing-purposes-only-12345"
         run: pnpm turbo run test
 
   # ============================================================================
