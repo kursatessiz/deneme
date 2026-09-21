@@ -53,6 +53,9 @@ jobs:
       - name: Typecheck Shared & Packages
         run: pnpm turbo run typecheck
 
+      - name: Run Automated Unit Tests (Jest)
+        run: pnpm turbo run test
+
   # ============================================================================
   # 2. Build & Push Docker Images to GitHub Container Registry (GHCR)
   # ============================================================================

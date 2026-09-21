@@ -12,8 +12,8 @@ echo "⚠️ INITIATING AUTOMATED ROLLBACK TO: ${PREV_TAG}..."
 
 cd "${APP_DIR}"
 
-export API_IMAGE="ghcr.io/${GITHUB_REPOSITORY:-your-org/pilates-studio}/api:${PREV_TAG}"
-export WEB_IMAGE="ghcr.io/${GITHUB_REPOSITORY:-your-org/pilates-studio}/web:${PREV_TAG}"
+export API_IMAGE="ghcr.io/${GITHUB_REPOSITORY:-pro-emtia/deneme}/api:${PREV_TAG}"
+export WEB_IMAGE="ghcr.io/${GITHUB_REPOSITORY:-pro-emtia/deneme}/web:${PREV_TAG}"
 
 echo "1. Pulling previous images..."
 docker compose -f docker-compose.prod.yml pull api web

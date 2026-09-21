@@ -1,0 +1,18 @@
+name: ✨ Yeni Özellik Talebi (Feature Request)
+description: Stüdyo yönetimi için yeni bir özellik veya modül önerin
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: feature-description
+    attributes:
+      label: Özellik Açıklaması
+      description: Eklenmesini istediğiniz özellik ne işe yarayacak?
+    validations:
+      required: true
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Kullanım Senaryosu
+      description: Stüdyo yöneticisi, eğitmen veya üye bu özelliği nasıl kullanacak?
+    validations:
+      required: true

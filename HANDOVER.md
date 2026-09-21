@@ -6,7 +6,8 @@ Bu dosya, projeyi başka bir bilgisayarda Antigravity veya herhangi bir yapay ze
 
 ## 1. Projenin Mevcut Durumu
 
-- **Depo:** [https://github.com/kursatessiz/pilates-studio](https://github.com/kursatessiz/pilates-studio)
+- **Depo:** [https://github.com/pro-emtia/deneme](https://github.com/pro-emtia/deneme)
+- **Organizasyon:** `pro-emtia` | **Repo:** `deneme`
 - **Mimari:** Full TypeScript Monorepo (Turborepo + pnpm)
 - **Durum:** Temel mimari, veri modelleri, API, Web paneli, mobil iskelet, Ubuntu 24.04 üretim altyapısı ve gece 03:00 otomatik derleme/dağıtım scriptleri tamamlanıp Git'e aktarıldı (`main` branch).
 

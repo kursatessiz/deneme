@@ -1,6 +1,9 @@
 # Pilates Studio OS 🧘‍♀️✨
 ### Modern Çoklu Kiracılı (Multi-Tenant) Boutique Pilates Stüdyo Yönetim Sistemi
 
+[![CI](https://github.com/pro-emtia/deneme/actions/workflows/ci.yml/badge.svg)](https://github.com/pro-emtia/deneme/actions/workflows/ci.yml)
+[![Repository](https://img.shields.io/badge/GitHub-pro--emtia%2Fdeneme-blue?logo=github)](https://github.com/pro-emtia/deneme)
+
 Birbirinden bağımsız çalışan pilates stüdyoları için randevu takvimi, kalan seans kredisi takibi, eğitmen hakedişleri, sağlık/fıtık uyarıları ve otomatik SMS bildirimlerini tek çatı altında toplayan TypeScript Monorepo platformu.
 
 ---

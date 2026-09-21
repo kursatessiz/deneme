@@ -25,7 +25,7 @@ services:
 
   # NestJS Core API + BullMQ Queue
   api:
-    image: ${API_IMAGE:-ghcr.io/your-org/pilates-api:latest}
+    image: ${API_IMAGE:-ghcr.io/pro-emtia/deneme/api:latest}
     container_name: pilates_api
     restart: unless-stopped
     environment:
@@ -61,7 +61,7 @@ services:
 
   # Next.js 15 Standalone Web & Admin Dashboard
   web:
-    image: ${WEB_IMAGE:-ghcr.io/your-org/pilates-web:latest}
+    image: ${WEB_IMAGE:-ghcr.io/pro-emtia/deneme/web:latest}
     container_name: pilates_web
     restart: unless-stopped
     environment:

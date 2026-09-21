@@ -1,0 +1,38 @@
+name: 🐛 Hata Bildirimi (Bug Report)
+description: Sistemde karşılaştığınız bir hatayı bildirin
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Pilates Studio OS için hata bildirimi oluşturuyorsunuz. Lütfen aşağıdaki bilgileri eksiksiz doldurun.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Hatayı Tarif Edin
+      description: Karşılaştığınız hatayı detaylıca açıklayın.
+    validations:
+      required: true
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Hatayı Tekrarlama Adımları
+      description: Hatayı yeniden tetiklemek için sırasıyla ne yapılması gerekir?
+      placeholder: |
+        1. /calendar sayfasına gidin
+        2. 'Yeni Seans Aç' butonuna tıklayın
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: İlgili Bileşen
+      options:
+        - "apps/web (Yönetim Paneli / Dashboard)"
+        - "apps/api (Backend REST API)"
+        - "apps/mobile (Expo Mobil Uygulama)"
+        - "packages/database (Prisma / Postgres)"
+        - "deploy (Docker / Caddy / CI/CD)"
+    validations:
+      required: true
