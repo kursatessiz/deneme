@@ -103,7 +103,7 @@ jobs:
 
       # Build NestJS Core API Image
       - name: Build & Push API Image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./deploy/docker/api.Dockerfile
@@ -116,7 +116,7 @@ jobs:
 
       # Build Next.js 15 Standalone Web Image
       - name: Build & Push Web Image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./deploy/docker/web.Dockerfile
