@@ -14,13 +14,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@prisma/client": "^6.4.1",
+    "@prisma/client": "^7.10.0",
     "@pilates/shared": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "prisma": "^6.4.1",
+    "@types/node": "^26.6.1",
+    "prisma": "^7.10.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.2"
+    "typescript": "^7.0.2"
   }
 }
