@@ -66,6 +66,7 @@ describe('SchedulesService', () => {
           startTime: now.toISOString(),
           endTime: oneHourLater.toISOString(),
           capacity: 1,
+          isRecurring: false,
         }),
       ).rejects.toThrow(ConflictException);
     });
@@ -83,6 +84,7 @@ describe('SchedulesService', () => {
           startTime: now.toISOString(),
           endTime: past.toISOString(),
           capacity: 1,
+          isRecurring: false,
         }),
       ).rejects.toThrow(BadRequestException);
     });
