@@ -18,6 +18,7 @@
     "@pilates/shared": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "prisma": "^6.4.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.2"
