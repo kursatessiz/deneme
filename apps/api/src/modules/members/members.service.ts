@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { CreateMemberInput, AssignPackageToMemberInput, FreezePackageInput } from '@platform/shared';
-import type { SetHomeBranchInput } from '@platform/shared';
+import type { MemberDetailDTO, SetHomeBranchInput } from '@platform/shared';
 import { assertBranchAccess } from '../branches/branch-access';
 import { ReferralsService } from '../feedback/referrals.service';
 
@@ -161,24 +161,45 @@ export class MembersService {
       const existingMembership = await tx.membership.findUnique({
         where: { userId_studioId: { userId: user.id, studioId } },
       });
-      if (existingMembership) {
+      // A partner-guest membership for this phone is promoted to a real
+      // member in place (flag cleared, row reused); any other existing
+      // membership is a real member already and cannot be re-created.
+      if (existingMembership && !existingMembership.isPartnerGuest) {
         throw new ConflictException('Bu telefon numarasına sahip bir üyelik bu işletmede zaten mevcut');
       }
 
-      const membership = await tx.membership.create({
-        data: {
-          userId: user.id,
-          studioId,
-          roleTemplateId: roleTemplate.id,
-          status: 'ACTIVE',
-          joinedAt: new Date(),
-        },
-      });
+      const membership = existingMembership
+        ? await tx.membership.update({
+            where: { id: existingMembership.id },
+            data: {
+              roleTemplateId: roleTemplate.id,
+              status: 'ACTIVE',
+              joinedAt: existingMembership.joinedAt ?? new Date(),
+              isPartnerGuest: false,
+            },
+          })
+        : await tx.membership.create({
+            data: {
+              userId: user.id,
+              studioId,
+              roleTemplateId: roleTemplate.id,
+              status: 'ACTIVE',
+              joinedAt: new Date(),
+            },
+          });
 
-      const memberProfile = await tx.memberProfile.create({
-        data: {
+      const memberProfile = await tx.memberProfile.upsert({
+        where: { membershipId: membership.id },
+        create: {
           membershipId: membership.id,
           studioId,
+          birthDate: dto.birthDate ? new Date(dto.birthDate) : null,
+          emergencyContactName: dto.emergencyContactName || null,
+          emergencyContactPhone: dto.emergencyContactPhone || null,
+          medicalConditions: dto.medicalConditions || null,
+          notes: dto.notes || null,
+        },
+        update: {
           birthDate: dto.birthDate ? new Date(dto.birthDate) : null,
           emergencyContactName: dto.emergencyContactName || null,
           emergencyContactPhone: dto.emergencyContactPhone || null,
@@ -298,9 +319,9 @@ export class MembersService {
   }
 
   /** Shapes a member profile row into a response, masking contact/health fields by permission. */
-  private toDetail(member: any, tenant: TenantContext) {
+  private toDetail(member: any, tenant: TenantContext): MemberDetailDTO {
     const user = member.membership?.user;
-    const dto: Record<string, unknown> = {
+    const dto: MemberDetailDTO = {
       id: member.id,
       membershipId: member.membershipId,
       studioId: member.studioId,
@@ -309,6 +330,7 @@ export class MembersService {
       birthDate: member.birthDate,
       familyGroupId: member.familyGroupId ?? null,
       notes: member.notes ?? null,
+      isPartnerGuest: member.membership?.isPartnerGuest ?? false,
       packages: member.packages,
       bookings: member.bookings,
       payments: member.payments,

@@ -169,10 +169,13 @@ export class InvitesService {
       });
       if (current?.status === 'ACTIVE') throw new ConflictException('Bu işletmede zaten aktif üyeliğiniz var');
 
+      // Completing real onboarding always promotes a partner-guest
+      // membership to a real member (the flag is cleared, the row is
+      // reused rather than duplicated).
       const membership = current
         ? await tx.membership.update({
             where: { id: current.id },
-            data: { status: 'ACTIVE', roleTemplateId: invite.roleTemplateId, joinedAt: now },
+            data: { status: 'ACTIVE', roleTemplateId: invite.roleTemplateId, joinedAt: now, isPartnerGuest: false },
           })
         : await tx.membership.create({
             data: {

@@ -62,8 +62,10 @@ export class ChurnService {
     const studio = await this.prisma.studio.findUniqueOrThrow({ where: { id: studioId }, select: { churnWeights: true } });
     const weights = parseChurnWeights(studio.churnWeights);
 
+    // Partner-guest memberships are excluded from churn scoring: they have
+    // never onboarded into the app and are not real members to retain.
     const members = await this.prisma.memberProfile.findMany({
-      where: { studioId, membership: { status: 'ACTIVE' } },
+      where: { studioId, membership: { status: 'ACTIVE', isPartnerGuest: false } },
       select: { id: true, membership: { select: { joinedAt: true } } },
     });
     if (members.length === 0) return { studioId, membersScored: 0 };

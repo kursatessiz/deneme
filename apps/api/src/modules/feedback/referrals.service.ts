@@ -33,6 +33,15 @@ export class ReferralsService {
 
     let row = await this.prisma.referralCode.findUnique({ where: { memberId: tenant.memberProfileId } });
     if (!row) {
+      // Partner guests never onboarded into the app; a referral code is
+      // only generated for a real member.
+      const member = await this.prisma.memberProfile.findFirst({
+        where: { id: tenant.memberProfileId, studioId: tenant.studioId },
+        select: { membership: { select: { isPartnerGuest: true } } },
+      });
+      if (member?.membership.isPartnerGuest) {
+        throw new ForbiddenException('Bu işlemi yalnızca üyeler yapabilir');
+      }
       row = await this.createCodeWithRetry(tenant.studioId, tenant.memberProfileId);
     }
 
