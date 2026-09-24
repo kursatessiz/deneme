@@ -20,6 +20,7 @@ export default function HesabimLayout() {
       <Stack.Screen name="potansiyel-uyeler" options={{ title: 'Potansiyel üyeler', headerShown: false }} />
       <Stack.Screen name="otomatik-mesajlar" options={{ title: 'Otomatik mesajlar' }} />
       <Stack.Screen name="riskli-uyeler" options={{ title: 'Riskli üyeler' }} />
+      <Stack.Screen name="arkadasini-getir" options={{ title: 'Arkadaşını getir' }} />
     </Stack>
   );
 }

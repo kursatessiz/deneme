@@ -217,3 +217,15 @@ export enum BadgeKind {
   EARLY_BIRD = 'EARLY_BIRD',
   VARIETY = 'VARIETY',
 }
+
+export enum ReferralStatus {
+  PENDING = 'PENDING',
+  QUALIFIED = 'QUALIFIED',
+  REWARDED = 'REWARDED',
+  VOIDED = 'VOIDED',
+}
+
+/** Only EXTRA_UNITS exists while no gift-card module is on main (see W15). */
+export enum ReferralRewardType {
+  EXTRA_UNITS = 'EXTRA_UNITS',
+}

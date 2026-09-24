@@ -47,6 +47,14 @@ export const CreateMemberSchema = z.object({
   emergencyContactPhone: z.string().optional(),
   medicalConditions: z.string().optional(),
   notes: z.string().optional(),
+  /** Short code from another member's "Arkadaşını getir" share link. */
+  referralCode: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9]{4,24}$/, 'Geçersiz tavsiye kodu')
+    .optional()
+    .or(z.literal('')),
 });
 export type CreateMemberInput = z.infer<typeof CreateMemberSchema>;
 
@@ -628,6 +636,14 @@ export const PublicLeadFormSchema = z.object({
    * silently drops the submission instead.
    */
   website: z.string().max(500).optional().default(''),
+  /** Short code from another member's "Arkadaşını getir" share link. */
+  referralCode: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9]{4,24}$/, 'Geçersiz tavsiye kodu')
+    .optional()
+    .or(z.literal('')),
 });
 export type PublicLeadFormInput = z.infer<typeof PublicLeadFormSchema>;
 
