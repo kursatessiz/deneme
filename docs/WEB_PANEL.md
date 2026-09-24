@@ -1,8 +1,9 @@
 # Web paneli (apps/web) mimarisi
 
 Bu doküman W2.1 kapsamında kurulan temeli anlatır: kimlik doğrulama, oturum,
-izne göre menü ve tema. Takvim sürükle-bırak, üye kartı, paket satışı, rol
-ekranı ve finans gibi ekranlar sonraki backlog öğelerinde (2.2-2.4) gelir.
+izne göre menü ve tema. Takvim sürükle-bırak, üye kartı ve paket satışı (2.2)
+ile finans (2.4) gibi ekranlar sonraki backlog öğelerinde gelir. Ayarlar
+ekranları (2.3) aşağıda anlatılıyor.
 
 ## Neden BFF (Backend-for-Frontend)
 
@@ -114,9 +115,61 @@ kartında (`packages` sayfası) kullanılır; başka hiçbir yerde gradyan yoktu
 4. `pnpm --filter @platform/web dev` (`3000` portu), `http://localhost:3000/giris`
    adresinden giriş yapın.
 
+## Ayarlar (2.3)
+
+`apps/web/src/app/(dashboard)/ayarlar/` altında altı sayfa; hepsi
+`PageGuard` ile korunur ve içindeki her aksiyon (buton, form bölümü)
+`useDashboardSession()`'dan okuduğu izinlere göre gizlenir. Nav'da tek bir
+"Ayarlar" girişi vardır (`lib/nav.ts`), görünürlüğü altı sayfanın izinlerinin
+birleşimidir; sayfa içindeki bölümler kendi izinlerine göre ayrıca gizlenir
+(ör. `/ayarlar/isletme` yalnızca `notifications.manage` olan bir kullanıcıya
+sadece bildirim kanalları bölümünü gösterir).
+
+- `ayarlar/` -- izin verilen bölümlere giden kartların olduğu giriş sayfası.
+- `ayarlar/roller/` -- rol tanımları (`roles.manage`): izin kataloğu alan
+  bazlı gruplanmış (`packages/shared/src/permissions.ts` -- `PERMISSION_AREAS`)
+  checkbox editörüyle oluşturma/düzenleme/silme, personel rol ataması. Bunun
+  için eksik olan `role-templates` API modülü eklendi
+  (`apps/api/src/modules/role-templates`): rol CRUD, personel listesi, rol
+  atama; hepsi `roles.manage` + `studioId` kapsamı + audit log ile. İşletme
+  sahibi rolü salt okunur ve her zaman tüm izinlere sahiptir (CLAUDE.md kural
+  5); `member` anahtarı `MembersService` içinde sabit arandığından silinemez.
+- `ayarlar/gorunum/` -- işletme teması (`studio.settings.view`/`manage`):
+  aile, logo, birincil renk, aileye ait gradyan seçimi; `lib/settings/theme-preview.ts`
+  `resolveTheme()`'i doğrudan kullanarak kaydedilmeden önce canlı önizleme
+  üretir. Kişisel görünüm (aile geçersiz kılma + açık/koyu/sistem) herkese
+  açıktır (`/me/appearance`).
+- `ayarlar/subeler/` -- şube CRUD, personelin şube erişimi, son 30 gün şube
+  özeti (`branches.manage` / `reports.view`).
+- `ayarlar/isletme/` -- yalnızca uç noktası var olan ayarlar bölüm bölüm:
+  iptal politikası (`catalog.manage`), check-in penceresi
+  (`studio.settings.manage`), bildirim kanal sırası + SMS bakiyesi
+  (`notifications.manage`), oyunlaştırma aç/kapa (`studio.settings.manage`),
+  Google yorum linki + tavsiye ödül birimi (`studio.settings.manage`), gömülü
+  widget izinli kökenler (`integrations.manage`; okuma uç noktası yok, form
+  kaydettiğinde listenin tamamını değiştirir).
+- `ayarlar/entegrasyonlar/` -- API anahtarları (`integrations.manage`: oluştur
+  -- gizli anahtar tek seferlik gösterim + kopyala --, listele, iptal et),
+  webhook'lar (oluştur, listele, gizli anahtar döndür, teslimat geçmişi,
+  yeniden gönder, test olayı), partner platform bağlantıları
+  (`integrations.partners.manage`: listele, oluştur, aç/kapa; kimlik bilgisi
+  her zaman yalnızca yazılır, hiçbir uç nokta geri döndürmez).
+
+Ortak sunum bileşenleri `apps/web/src/components/settings/ui.tsx`'te (düz
+yüzey + ince çizgi, iç içe kart yok; birincil buton gradyan slotlarından
+biridir). Saf yardımcılar ve testleri `apps/web/src/lib/settings/`:
+`role-permission-grouping.ts` (izin gruplama, rol fark özeti),
+`theme-preview.ts` (form durumundan `resolveTheme()` önizlemesi),
+`url-validation.ts` (webhook/embed/Google yorum linki doğrulamasını shared
+şemalardan yeniden kullanır, böylece istemci hata mesajı API'ninkiyle
+çakışmaz).
+
 ## Testler
 
 `apps/web/src/lib/bff/*.spec.ts` ve `apps/web/src/lib/nav.spec.ts`, saf
 fonksiyonları kapsar: path sanitizer, çerez seçenekleri, CSRF/origin
-kontrolü ve izin->menü filtrelemesi. `pnpm --filter @platform/web test`
-(veya kökten `pnpm turbo run test`).
+kontrolü ve izin->menü filtrelemesi. `apps/web/src/lib/settings/*.spec.ts`
+(2.3) izin gruplama/rol farkı, tema önizleme eşlemesi ve webhook/embed/Google
+yorum linki doğrulamasını kapsar. `pnpm --filter @platform/web test` (veya
+kökten `pnpm turbo run test`). API tarafında yeni `role-templates` uç
+noktaları `apps/api/test/e2e/role-templates.e2e-spec.ts` ile test edilir.

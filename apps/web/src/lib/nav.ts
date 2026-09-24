@@ -1,5 +1,5 @@
 import type { PermissionKey } from '@platform/shared';
-import { Calendar, LayoutDashboard, Package, UserCog, Users } from 'lucide-react';
+import { Calendar, LayoutDashboard, Package, Settings, UserCog, Users } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 export interface NavItem {
@@ -22,6 +22,22 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { key: 'members', label: 'Üyeler', href: '/members', icon: Users, permissions: ['members.view'] },
   { key: 'packages', label: 'Paket Tanımları', href: '/packages', icon: Package, permissions: ['catalog.view'] },
   { key: 'trainers', label: 'Eğitmenler', href: '/trainers', icon: UserCog, permissions: ['schedule.view'] },
+  {
+    key: 'settings',
+    label: 'Ayarlar',
+    href: '/ayarlar',
+    icon: Settings,
+    permissions: [
+      'studio.settings.view',
+      'studio.settings.manage',
+      'roles.manage',
+      'staff.manage',
+      'branches.manage',
+      'notifications.manage',
+      'integrations.manage',
+      'integrations.partners.manage',
+    ],
+  },
 ];
 
 /** Owners see everything; everyone else needs at least one of an item's permissions (or the item declares none). */
