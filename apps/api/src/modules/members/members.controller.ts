@@ -11,6 +11,8 @@ import {
   AssignPackageToMemberInput,
   FreezePackageSchema,
   FreezePackageInput,
+  UnfreezePackageSchema,
+  UnfreezePackageInput,
   SetHomeBranchSchema,
   SetHomeBranchInput,
 } from '@platform/shared';
@@ -82,5 +84,15 @@ export class MembersController {
     @ZodBody(FreezePackageSchema) body: FreezePackageInput,
   ) {
     return this.membersService.freezePackage(packageId, tenant, body);
+  }
+
+  @Post('packages/:packageId/unfreeze')
+  @RequirePermission('packages.sell')
+  async unfreezePackage(
+    @Param('packageId') packageId: string,
+    @Tenant() tenant: TenantContext,
+    @ZodBody(UnfreezePackageSchema) body: UnfreezePackageInput,
+  ) {
+    return this.membersService.unfreezePackage(packageId, tenant, body);
   }
 }

@@ -138,6 +138,11 @@ export const FreezePackageSchema = z.object({
 });
 export type FreezePackageInput = z.infer<typeof FreezePackageSchema>;
 
+export const UnfreezePackageSchema = z.object({
+  studioId: z.string().uuid(),
+});
+export type UnfreezePackageInput = z.infer<typeof UnfreezePackageSchema>;
+
 /** https-only, used for anything a staff member pastes as a link (meeting URL, video source). */
 export const HttpsUrlSchema = z
   .string()
@@ -198,6 +203,28 @@ export const CreateScheduleSchema = z
     message: 'Elle bağlantı için https bağlantısı giriniz',
   });
 export type CreateScheduleInput = z.infer<typeof CreateScheduleSchema>;
+
+/**
+ * Moves or edits an existing, not-yet-cancelled session: calendar drag-drop
+ * sends only startTime/endTime, the edit form may also change resource,
+ * trainer, branch, title or capacity. At least one field must be present.
+ */
+export const UpdateScheduleSchema = z
+  .object({
+    branchId: z.string().uuid().nullable().optional(),
+    resourceId: z.string().uuid().nullable().optional(),
+    trainerId: z.string().uuid().nullable().optional(),
+    title: z.string().trim().min(3, 'Seans başlığı giriniz').optional(),
+    startTime: z.string().datetime().optional(),
+    endTime: z.string().datetime().optional(),
+    capacity: z.number().int().positive().optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: 'Güncellenecek en az bir alan giriniz' })
+  .refine((v) => !v.startTime || !v.endTime || new Date(v.endTime) > new Date(v.startTime), {
+    path: ['endTime'],
+    message: 'Bitiş saati başlangıçtan sonra olmalıdır',
+  });
+export type UpdateScheduleInput = z.infer<typeof UpdateScheduleSchema>;
 
 export const BookSessionSchema = z.object({
   studioId: z.string().uuid(),
