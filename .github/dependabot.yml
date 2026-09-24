@@ -14,6 +14,14 @@ updates:
       default-days: 7
       semver-major-days: 14
     open-pull-requests-limit: 10
+    # Expo pins exact react / react-native versions per SDK. They move only
+    # with an Expo SDK upgrade (npx expo install --fix), never on their own.
+    ignore:
+      - dependency-name: react-native
+      - dependency-name: react
+        update-types: [version-update:semver-minor, version-update:semver-major]
+      - dependency-name: '@types/react'
+        update-types: [version-update:semver-minor, version-update:semver-major]
     groups:
       minor-and-patch:
         update-types: [minor, patch]
