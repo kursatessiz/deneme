@@ -1,127 +1,127 @@
 # Raporlar (W13)
 
-Bu dokuman `reports` API modulunun urettigi her metrigi tam olarak tanimlar.
-Uygulama: `apps/api/src/modules/reports`. Paylasilan tipler ve dogrulayicilar:
+Bu doküman `reports` API modülünün ürettiği her metriği tam olarak tanımlar.
+Uygulama: `apps/api/src/modules/reports`. Paylaşılan tipler ve doğrulayıcılar:
 `packages/shared/src/types.ts` (rapor DTO'lari) ve
 `packages/shared/src/validators.ts` (`ReportRangeSchema`, `ReportFiltersSchema`,
 `RevenueGranularitySchema`).
 
 ## Ortak kurallar
 
-- Tum uc noktalar `GET /reports/studio/:studioId/<rapor>` altindadir, `reports.view`
+- Tüm uç noktalar `GET /reports/studio/:studioId/<rapor>` altındadır, `reports.view`
   izni gerektirir ve `StudioScoped()` (JWT + `StudioTenantGuard` + `PermissionGuard`)
   ile korunur.
-- Sube kisitli personel (`tenant.branchIds !== null`) yalnizca kendi subelerinin
-  ve subesiz (studyo geneli) kayitlarin verisini gorur; bu, `branch-access.ts`
-  ile ayni kuraldir (`apps/api/src/modules/branches/branch-access.ts`).
-- `branchId` sorgu parametresi verilirse, cagiranin o subeye erisimi olmalidir
-  (aksi halde 403); erisimi varsa yalnizca o subenin verisi doner.
-- Tarih araligi `from`/`to` sorgu parametreleriyle verilir (`ReportRangeSchema`);
-  verilmezse son 30 gun, aralik en fazla 1 yil olabilir, aksi halde 400.
-- Para tutarlari her zaman `Prisma.Decimal` ile toplanir ve ondalik dizgi
-  (`"1234.56"`) olarak doner; kayan noktali (float) toplama kullanilmaz.
-- Her rapor `?format=csv` ile UTF-8 BOM'lu, noktali virgulle ayrilmis, Turkce
-  basliklı bir CSV doner (Excel TR uyumlu). Aksi halde JSON doner.
-- Zaman dilimi donusumleri her zaman `Studio.timezone` alanina gore yapilir ve
-  SQL'de `AT TIME ZONE 'UTC' AT TIME ZONE <tz>` ile hesaplanir (veritabaninda
-  saatler UTC'yi temsil eden `timestamp without time zone` olarak saklanir).
+- Şube kısıtlı personel (`tenant.branchIds !== null`) yalnızca kendi şubelerinin
+  ve şubesiz (stüdyo geneli) kayıtların verisini görür; bu, `branch-access.ts`
+  ile aynı kuraldır (`apps/api/src/modules/branches/branch-access.ts`).
+- `branchId` sorgu parametresi verilirse, çağıranın o şubeye erişimi olmalıdır
+  (aksi halde 403); erişimi varsa yalnızca o şubenin verisi döner.
+- Tarih aralığı `from`/`to` sorgu parametreleriyle verilir (`ReportRangeSchema`);
+  verilmezse son 30 gün, aralık en fazla 1 yıl olabilir, aksi halde 400.
+- Para tutarları her zaman `Prisma.Decimal` ile toplanır ve ondalık dizgi
+  (`"1234.56"`) olarak döner; kayan noktalı (float) toplama kullanılmaz.
+- Her rapor `?format=csv` ile UTF-8 BOM'lu, noktalı virgülle ayrılmış, Türkçe
+  başlıklı bir CSV döner (Excel TR uyumlu). Aksi halde JSON döner.
+- Zaman dilimi dönüşümleri her zaman `Studio.timezone` alanına göre yapılır ve
+  SQL'de `AT TIME ZONE 'UTC' AT TIME ZONE <tz>` ile hesaplanır (veritabanında
+  saatler UTC'yi temsil eden `timestamp without time zone` olarak saklanır).
 - Gelir brüt olarak raporlanır: tamamen iade edilmiş (REFUNDED) ödemeler de
   `total` içinde kalır. İade tutarları `refundTotal`, net gelir `netTotal`
   (`total - refundTotal`) alanındadır.
 
 ## 1. Doluluk (`GET /reports/studio/:studioId/occupancy`)
 
-- **Gune gore (`byDay`)**: iptal edilmemis seanslar, studyo saatine gore gun
-  bazinda gruplanir. `sessions` = seans sayisi, `capacity` = kapasitelerin
-  toplami, `booked` = durumu `CONFIRMED`, `ATTENDED` veya `NO_SHOW` olan
-  rezervasyon sayisi (yer kaplayan her rezervasyon), `attended` = durumu
+- **Güne göre (`byDay`)**: iptal edilmemiş seanslar, stüdyo saatine göre gün
+  bazında gruplanır. `sessions` = seans sayısı, `capacity` = kapasitelerin
+  toplamı, `booked` = durumu `CONFIRMED`, `ATTENDED` veya `NO_SHOW` olan
+  rezervasyon sayısı (yer kaplayan her rezervasyon), `attended` = durumu
   `ATTENDED` olanlar, `occupancy` = `booked / capacity` (kapasite 0 ise 0).
-- **Hizmet turune gore (`byServiceType`)**: ayni metrikler `ServiceType`
-  bazinda.
-- **Isi haritasi (`heatmap`)**: 7 (haftanin gunu, 0 = Pazartesi .. 6 = Pazar,
-  studyo saatine gore) x 24 (saat, studyo saatine gore) hucrelik tam matris;
-  veri olmayan hucreler sifirla doldurulur.
+- **Hizmet türüne göre (`byServiceType`)**: aynı metrikler `ServiceType`
+  bazında.
+- **Isı haritası (`heatmap`)**: 7 (haftanın günü, 0 = Pazartesi .. 6 = Pazar,
+  stüdyo saatine göre) x 24 (saat, stüdyo saatine göre) hücrelik tam matris;
+  veri olmayan hücreler sıfırla doldurulur.
 
 ## 2. Gelir (`GET /reports/studio/:studioId/revenue`)
 
-- Yalnizca `paymentStatus = COMPLETED` odemeler sayilir.
-- `granularity` sorgu parametresi `day` (varsayilan), `week` veya `month`
-  olabilir; `byPeriod` bu aralikta `paid_at` uzerinden `date_trunc` ile
-  gruplanir (studyo saatine cevrilerek).
-- `byMethod`: `Payment.paymentMethod` enum degerine gore toplam ve odeme
-  sayisi.
-- `byPackage`: odemenin bagli oldugu `MemberPackage.packageDefinitionId`'ye
-  gore toplam; paketsiz odemeler `packageDefinitionId: null`,
-  `packageDefinitionName: "Paketsiz"` altinda toplanir.
-- `total`: araliktaki tum tamamlanmis odemelerin toplami.
+- Yalnızca `paymentStatus = COMPLETED` ödemeler sayılır.
+- `granularity` sorgu parametresi `day` (varsayılan), `week` veya `month`
+  olabilir; `byPeriod` bu aralıkta `paid_at` üzerinden `date_trunc` ile
+  gruplanır (stüdyo saatine çevrilerek).
+- `byMethod`: `Payment.paymentMethod` enum değerine göre toplam ve ödeme
+  sayısı.
+- `byPackage`: ödemenin bağlı olduğu `MemberPackage.packageDefinitionId`'ye
+  göre toplam; paketsiz ödemeler `packageDefinitionId: null`,
+  `packageDefinitionName: "Paketsiz"` altında toplanır.
+- `total`: aralıktaki tüm tamamlanmış ödemelerin toplamı.
 
-## 3. Uyeler (`GET /reports/studio/:studioId/members`)
+## 3. Üyeler (`GET /reports/studio/:studioId/members`)
 
-- `activeMembers`: `Membership.status = ACTIVE` olan uye sayisi (sube
-  filtresi varsa `MemberProfile.homeBranchId` uzerinden).
-- `newMembers`: `Membership.joinedAt` aralik icinde olan aktif uyeler.
-- `revenue`: araliktaki tamamlanmis odemelerin toplami (ayni sube kapsami).
-- `arpu`: `revenue / activeMembers` (aktif uye 0 ise "0.00").
-- `churnedMembers`: bkz. "Kayip (churn) ve yenileme tanimi" asagida.
+- `activeMembers`: `Membership.status = ACTIVE` olan üye sayısı (şube
+  filtresi varsa `MemberProfile.homeBranchId` üzerinden).
+- `newMembers`: `Membership.joinedAt` aralık içinde olan aktif üyeler.
+- `revenue`: aralıktaki tamamlanmış ödemelerin toplamı (aynı şube kapsamı).
+- `arpu`: `revenue / activeMembers` (aktif üye 0 ise "0.00").
+- `churnedMembers`: bkz. "Kayıp (churn) ve yenileme tanımı" aşağıda.
 
-## 4. Yenileme orani (`GET /reports/studio/:studioId/renewal`)
+## 4. Yenileme oranı (`GET /reports/studio/:studioId/renewal`)
 
-- **Taban kume**: her uyenin, `MemberPackage.endDate` degeri aralik icinde
+- **Taban küme**: her üyenin, `MemberPackage.endDate` değeri aralık içinde
   olan **en son biten** paketi (`DISTINCT ON (member_id) ... ORDER BY
-  end_date DESC`). Bu kumenin buyuklugu `expiredPackages`.
-- **Yenilendi mi?**: o uyenin, bu paketin bitiminden **sonra** baslayan bir
-  sonraki paketi var mi ve baslangici bitisten en fazla **14 gun** sonra mi?
-  Evetse yenilenmis sayilir (`renewedPackages`).
+  end_date DESC`). Bu kümenin büyüklüğü `expiredPackages`.
+- **Yenilendi mi?**: o üyenin, bu paketin bitiminden **sonra** başlayan bir
+  sonraki paketi var mı ve başlangıcı bitişten en fazla **14 gün** sonra mı?
+  Evet ise yenilenmiş sayılır (`renewedPackages`).
 - `renewalRate = renewedPackages / expiredPackages` (payda 0 ise 0).
 - Saf hesaplama `apps/api/src/modules/reports/report-calculations.ts`
-  icindeki `isRenewed` / `isChurned` / `computeRenewalRate` fonksiyonlarinda
+  içindeki `isRenewed` / `isChurned` / `computeRenewalRate` fonksiyonlarında
   birim testlidir.
 
-### Kayip (churn) ve yenileme tanimi
+### Kayıp (churn) ve yenileme tanımı
 
-Bir uye, yukaridaki taban kumedeki paketi icin 14 gun icinde yeni bir paket
-almamissa (hic almamis olsa da olur) **kaybedilmis (churned)** sayilir.
-`churnedMembers` bu kumedeki kaybedilen uye sayisidir (`isRenewed` false
+Bir üye, yukarıdaki taban kümedeki paketi için 14 gün içinde yeni bir paket
+almamışsa (hiç almamış olsa da olur) **kaybedilmiş (churned)** sayılır.
+`churnedMembers` bu kümedeki kaybedilen üye sayısıdır (`isRenewed` false
 olanlar = `isChurned` true olanlar).
 
 ## 5. Kohortlar (`GET /reports/studio/:studioId/cohorts`)
 
-- Tarih araligi almaz (`branchId` filtresi haric); her uyenin **ilk paket
-  satin alma ayi** (`MIN(MemberPackage.startDate)`, aya yuvarlanmis) o
-  uyenin kohortunu belirler.
-- Her kohort icin, kohort ayindan itibaren en fazla 12 ay (dahil) icin
-  "elde tutma (retention)" hesaplanir: bir uye o ay **aktif** sayilir eger
-  o ay iceren bir paketi varsa (`start_date <= ay <= end_date`, ay bazinda)
+- Tarih aralığı almaz (`branchId` filtresi hariç); her üyenin **ilk paket
+  satın alma ayı** (`MIN(MemberPackage.startDate)`, aya yuvarlanmış) o
+  üyenin kohortunu belirler.
+- Her kohort için, kohort ayından itibaren en fazla 12 ay (dahil) için
+  "elde tutma (retention)" hesaplanır: bir üye o ay **aktif** sayılır eğer
+  o ay içeren bir paketi varsa (`start_date <= ay <= end_date`, ay bazında)
   **veya** o ay `ATTENDED` durumunda bir rezervasyonu varsa.
-- `retention[0]` her zaman kohort ayinin kendisidir (satin alma ayi, cogu
-  uye icin 1.0'a yakin olmasi beklenir; tanim geregi paketi olan herkes o ay
+- `retention[0]` her zaman kohort ayının kendisidir (satın alma ayı, çoğu
+  üye için 1.0'a yakın olması beklenir; tanım gereği paketi olan herkes o ay
   aktiftir).
-- Saf kohort insasi (gruplama + oran hesabi)
-  `apps/api/src/modules/reports/report-calculations.ts` icindeki
+- Saf kohort inşası (gruplama + oran hesabı)
+  `apps/api/src/modules/reports/report-calculations.ts` içindeki
   `buildCohorts` fonksiyonunda birim testlidir.
 
-## 6. Egitmen performansi (`GET /reports/studio/:studioId/trainers`)
+## 6. Eğitmen performansı (`GET /reports/studio/:studioId/trainers`)
 
-- `SessionSchedule.trainerId` dolu olan, iptal edilmemis, araliktaki
-  seanslar egitmene gore gruplanir.
+- `SessionSchedule.trainerId` dolu olan, iptal edilmemiş, aralıktaki
+  seanslar eğitmene göre gruplanır.
 - `sessions`, `capacity`, `booked`, `attended`, `occupancy`: doluluk
-  raporuyla ayni tanim, egitmen bazinda.
-- `noShows`: durumu `NO_SHOW` olan rezervasyon sayisi.
-- `lateCancellations`: durumu `CANCELLED_LATE` olan rezervasyon sayisi.
-- `substitutions`: `SessionSchedule.originalTrainerId` dolu ve o egitmenin
-  kendi id'sinden farkli oldugu seans sayisi (yani bu egitmen, planlanan
-  baska bir egitmenin yerine derse girmis).
+  raporuyla aynı tanım, eğitmen bazında.
+- `noShows`: durumu `NO_SHOW` olan rezervasyon sayısı.
+- `lateCancellations`: durumu `CANCELLED_LATE` olan rezervasyon sayısı.
+- `substitutions`: `SessionSchedule.originalTrainerId` dolu ve o eğitmenin
+  kendi id'sinden farklı olduğu seans sayısı (yani bu eğitmen, planlanan
+  başka bir eğitmenin yerine derse girmiş).
 
-## CSV disa aktarma
+## CSV dışa aktarma
 
-`apps/api/src/common/csv.ts` (`toCsv`) her raporun kendi Turkce basliklı
-satirlarina donusturulmesiyle kullanilir (`apps/api/src/modules/reports/reports.csv.ts`).
-Bicim: UTF-8 BOM onek, alanlar `;` ile ayrilir, satirlar `\r\n` ile biter,
-`"`/`;`/satir sonu iceren alanlar RFC 4180'e gore tirnaklanir.
+`apps/api/src/common/csv.ts` (`toCsv`) her raporun kendi Türkçe başlıklı
+satırlarına dönüştürülmesiyle kullanılır (`apps/api/src/modules/reports/reports.csv.ts`).
+Biçim: UTF-8 BOM önek, alanlar `;` ile ayrılır, satırlar `\r\n` ile biter,
+`"`/`;`/satır sonu içeren alanlar RFC 4180'e göre tırnaklanır.
 
-## Bilinen sinirlamalar / ileride yapilacaklar
+## Bilinen sınırlamalar / ileride yapılacaklar
 
-- Buyuk veri hacimlerinde `member_packages(end_date)` ve
-  `member_packages(start_date)` uzerinde ek indeks faydali olabilir; mevcut
-  olcekte gerekli gorulmedi (bkz. `packages/database/prisma/migrations`,
-  bu is icin ek migration eklenmedi).
+- Büyük veri hacimlerinde `member_packages(end_date)` ve
+  `member_packages(start_date)` üzerinde ek indeks faydalı olabilir; mevcut
+  ölçekte gerekli görülmedi (bkz. `packages/database/prisma/migrations`,
+  bu iş için ek migration eklenmedi).
