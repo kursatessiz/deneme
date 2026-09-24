@@ -19,6 +19,8 @@ import {
   LeaveWaitlistInput,
   SubstituteTrainerSchema,
   SubstituteTrainerInput,
+  CancelSessionSchema,
+  CancelSessionInput,
 } from '@platform/shared';
 
 @Controller('schedules')
@@ -126,5 +128,16 @@ export class SchedulesController {
     @ZodBody(SubstituteTrainerSchema) body: SubstituteTrainerInput,
   ) {
     return this.schedulesService.substituteTrainer(tenant, user.id, scheduleId, body);
+  }
+
+  @Post(':scheduleId/cancel-session')
+  @RequirePermission('schedule.manage')
+  async cancelSession(
+    @Param('scheduleId', ParseUUIDPipe) scheduleId: string,
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodBody(CancelSessionSchema) body: CancelSessionInput,
+  ) {
+    return this.schedulesService.cancelSession(tenant, user.id, scheduleId, body);
   }
 }

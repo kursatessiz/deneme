@@ -531,6 +531,7 @@ model ResourceType {
   name               String   @db.VarChar(80)
   /// true: members pick a specific unit ("reformer 3") when booking
   selectableByMember Boolean  @default(false) @map("selectable_by_member")
+  isActive           Boolean  @default(true) @map("is_active")
   createdAt          DateTime @default(now()) @map("created_at")
 
   studio     Studio                    @relation(fields: [studioId], references: [id], onDelete: Cascade)
@@ -577,6 +578,7 @@ model CancellationPolicy {
   lateCancelChargeUnits Int      @default(1) @map("late_cancel_charge_units")
   noShowChargeUnits     Int      @default(1) @map("no_show_charge_units")
   isDefault             Boolean  @default(false) @map("is_default")
+  isActive              Boolean  @default(true) @map("is_active")
   createdAt             DateTime @default(now()) @map("created_at")
 
   studio       Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)

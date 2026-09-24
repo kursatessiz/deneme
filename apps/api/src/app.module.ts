@@ -13,6 +13,7 @@ import { OtpModule } from './modules/otp/otp.module';
 import { InvitesModule } from './modules/invites/invites.module';
 import { MeModule } from './modules/me/me.module';
 import { AppearanceModule } from './modules/appearance/appearance.module';
+import { CatalogModule } from './modules/catalog/catalog.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -34,6 +35,7 @@ import { validateEnv } from './config/env';
     InvitesModule,
     MeModule,
     AppearanceModule,
+    CatalogModule,
     HealthModule,
   ],
 })

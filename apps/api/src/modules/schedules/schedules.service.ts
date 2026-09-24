@@ -18,6 +18,7 @@ import type {
   JoinWaitlistInput,
   LeaveWaitlistInput,
   SubstituteTrainerInput,
+  CancelSessionInput,
   NotificationCategory,
 } from '@platform/shared';
 import { Prisma } from '@platform/database';
@@ -712,6 +713,106 @@ export class SchedulesService {
       }
     }
     return promoted;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Whole-session cancellation
+  // ---------------------------------------------------------------------------
+
+  /**
+   * The business cancels the whole session: every confirmed booking becomes
+   * a studio cancellation with a full refund, resources are released and the
+   * waitlist is closed. The schedule row is flipped first inside the
+   * transaction, which serializes against concurrent bookings (they update
+   * the same row with isCancelled = false), so no booking slips through.
+   */
+  async cancelSession(tenant: TenantContext, actorUserId: string, scheduleId: string, dto: CancelSessionInput) {
+    const studioId = tenant.studioId;
+    const reason = dto.reason ?? 'Seans işletme tarafından iptal edildi';
+    const now = new Date();
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const flipped = await tx.sessionSchedule.updateMany({
+        where: { id: scheduleId, studioId, isCancelled: false },
+        data: { isCancelled: true, cancellationReason: dto.reason ?? null, bookedCount: 0 },
+      });
+      if (flipped.count === 0) {
+        const exists = await tx.sessionSchedule.findFirst({ where: { id: scheduleId, studioId }, select: { id: true } });
+        if (!exists) throw new NotFoundException('Ders seansı bulunamadı');
+        throw new BadRequestException('Bu seans zaten iptal edilmiştir');
+      }
+
+      const schedule = await tx.sessionSchedule.findUniqueOrThrow({ where: { id: scheduleId } });
+      const bookings = await tx.booking.findMany({
+        where: { studioId, scheduleId, status: 'CONFIRMED' },
+        include: { memberPackage: { select: { entitlementKind: true } } },
+      });
+
+      const cancelledMemberIds: string[] = [];
+      for (const booking of bookings) {
+        const transitioned = await tx.booking.updateMany({
+          where: { id: booking.id, studioId, status: 'CONFIRMED' },
+          data: {
+            status: 'CANCELLED_EARLY',
+            cancelledAt: now,
+            cancellationReason: reason,
+            isLateCancellation: false,
+            penaltyUnits: 0,
+          },
+        });
+        if (transitioned.count === 0) continue;
+        if (booking.memberPackage && booking.memberPackage.entitlementKind !== 'TIME_UNLIMITED') {
+          await this.refund(tx, studioId, booking.memberPackageId, booking.unitsCharged);
+        }
+        cancelledMemberIds.push(booking.memberId);
+      }
+
+      await tx.bookingResource.updateMany({
+        where: { studioId, booking: { scheduleId } },
+        data: { isActive: false },
+      });
+      const waitlist = await tx.waitlist.updateMany({
+        where: { studioId, scheduleId, status: { in: ['WAITING', 'OFFERED'] } },
+        data: { status: 'CANCELLED', resolvedAt: now, failureReason: 'Seans iptal edildi' },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          studioId,
+          userId: actorUserId,
+          action: 'schedule.session.cancel',
+          entityType: 'SessionSchedule',
+          entityId: scheduleId,
+          metadata: {
+            reason: dto.reason ?? null,
+            cancelledBookingCount: cancelledMemberIds.length,
+            cancelledWaitlistCount: waitlist.count,
+          },
+        },
+      });
+
+      return { schedule, cancelledMemberIds, cancelledWaitlistCount: waitlist.count };
+    });
+
+    let membersNotified = 0;
+    if (dto.notifyMembers) {
+      const body = `${result.schedule.title} seansı işletme tarafından iptal edildi.${dto.reason ? ` Neden: ${dto.reason}` : ''} Kullandığınız hak paketinize iade edildi.`;
+      for (const memberId of result.cancelledMemberIds) {
+        const sent = await this.notifyMember(studioId, memberId, 'BOOKING_CHANGE', {
+          title: 'Seans iptal edildi',
+          body,
+          data: { scheduleId, type: 'SESSION_CANCELLED' },
+        });
+        if (sent) membersNotified++;
+      }
+    }
+
+    return {
+      scheduleId,
+      cancelledBookingCount: result.cancelledMemberIds.length,
+      cancelledWaitlistCount: result.cancelledWaitlistCount,
+      membersNotified,
+    };
   }
 
   // ---------------------------------------------------------------------------
