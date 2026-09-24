@@ -6,13 +6,13 @@ edilir; sunucu yalnızca önceden build edilmiş image'ları çeker.
 
 ## 1. Kaynak bütçesi
 
-| Service | Memory limit | vCPU limit | Notes |
+| Servis | Bellek limiti | vCPU limiti | Notlar |
 | --- | --- | --- | --- |
-| PostgreSQL 16 | 768 MB | 1.5 | `shared_buffers=512MB`, `max_connections=100` |
+| PostgreSQL 16 | 1 GB | 1.5 | `shared_buffers=512MB`, `max_connections=100` |
 | Redis 7 | 320 MB | 0.5 | `maxmemory 256mb`, `allkeys-lru` eviction |
-| NestJS API | 768 MB | 1.0 | Node heap capped at 512 MB; the rest covers native memory |
-| Next.js web | 768 MB | 1.0 | `output: 'standalone'`, Node heap capped at 512 MB |
-| Caddy | 128 MB | 0.5 | Automatic Let's Encrypt SSL, HTTP/3 |
+| NestJS API | 768 MB | 1.0 | Node heap 512 MB ile sınırlı; kalan pay native bellek için |
+| Next.js web | 768 MB | 1.0 | `output: 'standalone'`, Node heap 512 MB ile sınırlı |
+| Caddy | 128 MB | 0.5 | Otomatik Let's Encrypt SSL, HTTP/3 |
 
 Bu limitler `deploy/docker-compose.prod.yml` içinde zorunlu kılınır. `server-init.sh` tarafından
 yapılandırılan 4 GB'lık bir swapfile, kısa süreli spike'ları (ani yükselmeleri) emer.
@@ -21,6 +21,32 @@ Build'ler sunucuda asla çalıştırılmaz: bir `next build` veya TypeScript der
 veritabanının yanında 6 GB'lık bir host'un kaldırabileceğinin çok üzerinde RAM kullanımına yol
 açabilir. Tüm image'lar GitHub Actions runner'larında build edilir ve burada yalnızca çekilir
 (bkz. `docs/CICD_GUIDE.md`).
+
+### Ölçülen kullanım (24 Eylül 2026)
+
+Production compose yığını, seed verisiyle (4 işletme, 41 kullanıcı) çalıştırıldı ve her uç noktaya
+30 saniye boyunca 100 eş zamanlı bağlantıyla yük verildi. Yük aynı makineden üretildiği için
+istek/saniye değerleri gerçek sunucudakinden biraz düşüktür.
+
+| Servis | Boşta | Yük altında (en yüksek) |
+| --- | --- | --- |
+| API | 49 MB | 82 MB, CPU %109 |
+| Web | 36 MB | 59 MB, CPU %106 |
+| PostgreSQL | 59 MB | 89 MB, CPU %33 |
+| Redis | 4 MB | 5 MB |
+| Caddy | 13 MB | 13 MB |
+
+| Uç nokta | İstek/sn | Ortalama gecikme |
+| --- | --- | --- |
+| `/health` | ~1.230 | 81 ms |
+| Üye listesi (yetki + ilişkili veri) | ~95 | 1,0 sn |
+| Seans listesi | ~75 | 1,3 sn |
+| Web `/dashboard` | ~820 | 121 ms |
+
+Sonuç: 6 GB RAM / 4 vCPU fazlasıyla yeterli; toplam kullanım ~250 MB. Darboğaz, ağır liste uç
+noktalarında API'nin tek CPU çekirdeğidir (Node tek iş parçacıklı). Liste uç noktalarına sayfalama
+ve alan seçimi (backlog 2.1) kapasiteyi birkaç kat artırır; gerekirse aynı sunucuda ikinci bir API
+kopyası çalıştırılabilir. İlk aşama için 4 GB / 2 vCPU da yeterli olur.
 
 ## 2. Sunucu kurulumu
 

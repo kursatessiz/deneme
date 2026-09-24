@@ -1,5 +1,12 @@
-import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
-import { LoginSchema } from '@platform/shared';
+import { Body, Controller, Get, HttpCode, Post, Put, Req, UseGuards } from '@nestjs/common';
+import type { Request } from 'express';
+import {
+  LoginSchema,
+  PinLoginSchema,
+  RequestLoginOtpSchema,
+  SetPinSchema,
+  VerifyLoginOtpSchema,
+} from '@platform/shared';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -14,6 +21,31 @@ export class AuthController {
   @HttpCode(200)
   async login(@ZodBody(LoginSchema) body: ReturnType<typeof LoginSchema.parse>) {
     return this.authService.login(body);
+  }
+
+  @Post('otp/request')
+  @HttpCode(202)
+  async requestOtp(@ZodBody(RequestLoginOtpSchema) body: ReturnType<typeof RequestLoginOtpSchema.parse>, @Req() req: Request) {
+    return this.authService.requestLoginOtp(body.phone, req.ip ?? null);
+  }
+
+  @Post('otp/verify')
+  @HttpCode(200)
+  async verifyOtp(@ZodBody(VerifyLoginOtpSchema) body: ReturnType<typeof VerifyLoginOtpSchema.parse>) {
+    return this.authService.verifyLoginOtp(body.phone, body.code);
+  }
+
+  @Post('pin/login')
+  @HttpCode(200)
+  async pinLogin(@ZodBody(PinLoginSchema) body: ReturnType<typeof PinLoginSchema.parse>) {
+    return this.authService.pinLogin(body.phone, body.pin);
+  }
+
+  @Put('pin')
+  @HttpCode(204)
+  @UseGuards(JwtAuthGuard)
+  async setPin(@CurrentUser() user: AuthUser, @ZodBody(SetPinSchema) body: ReturnType<typeof SetPinSchema.parse>) {
+    await this.authService.setPin(user.id, body.pin);
   }
 
   // Not behind JwtAuthGuard: the access token is usually expired by the time

@@ -21,6 +21,11 @@ enum MembershipStatus {
   PASSIVE
 }
 
+enum OtpPurpose {
+  LOGIN
+  INVITE
+}
+
 enum InviteChannel {
   SHOWN
   WHATSAPP
@@ -287,22 +292,24 @@ model Branch {
 // ---------------------------------------------------------------------------
 
 model User {
-  id               String    @id @default(uuid()) @db.Uuid
+  id                String    @id @default(uuid()) @db.Uuid
   /// E.164, e.g. +905321112233
-  phone            String    @unique @db.VarChar(20)
-  email            String?   @unique @db.VarChar(120)
-  firstName        String    @map("first_name") @db.VarChar(60)
-  lastName         String    @map("last_name") @db.VarChar(60)
-  pinHash          String?   @map("pin_hash") @db.VarChar(255)
-  passwordHash     String?   @map("password_hash") @db.VarChar(255)
-  phoneVerifiedAt  DateTime? @map("phone_verified_at")
+  phone             String    @unique @db.VarChar(20)
+  email             String?   @unique @db.VarChar(120)
+  firstName         String    @map("first_name") @db.VarChar(60)
+  lastName          String    @map("last_name") @db.VarChar(60)
+  pinHash           String?   @map("pin_hash") @db.VarChar(255)
+  passwordHash      String?   @map("password_hash") @db.VarChar(255)
+  phoneVerifiedAt   DateTime? @map("phone_verified_at")
   /// Platform owner. Not a tenant role; bypasses studio scoping.
-  isSuperAdmin     Boolean   @default(false) @map("is_super_admin")
-  avatarUrl        String?   @map("avatar_url") @db.Text
-  refreshTokenHash String?   @map("refresh_token_hash") @db.VarChar(255)
-  isActive         Boolean   @default(true) @map("is_active")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  isSuperAdmin      Boolean   @default(false) @map("is_super_admin")
+  avatarUrl         String?   @map("avatar_url") @db.Text
+  refreshTokenHash  String?   @map("refresh_token_hash") @db.VarChar(255)
+  failedPinAttempts Int       @default(0) @map("failed_pin_attempts")
+  pinLockedUntil    DateTime? @map("pin_locked_until")
+  isActive          Boolean   @default(true) @map("is_active")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
   memberships        Membership[]
   invitesCreated     InviteToken[]      @relation("InviteCreatedBy")
@@ -383,6 +390,7 @@ model InviteToken {
   channel         InviteChannel
   expiresAt       DateTime      @map("expires_at")
   usedAt          DateTime?     @map("used_at")
+  revokedAt       DateTime?     @map("revoked_at")
   createdAt       DateTime      @default(now()) @map("created_at")
 
   studio       Studio       @relation(fields: [studioId], references: [id], onDelete: Cascade)
@@ -391,6 +399,24 @@ model InviteToken {
 
   @@index([studioId, phone])
   @@map("invite_tokens")
+}
+
+/// One-time codes for login and invite acceptance. Only an HMAC of the
+/// code is stored. Not tenant-scoped: a phone number is global.
+model OtpChallenge {
+  id         String     @id @default(uuid()) @db.Uuid
+  phone      String     @db.VarChar(20)
+  purpose    OtpPurpose
+  codeHash   String     @map("code_hash") @db.VarChar(128)
+  attempts   Int        @default(0)
+  expiresAt  DateTime   @map("expires_at")
+  consumedAt DateTime?  @map("consumed_at")
+  requestIp  String?    @map("request_ip") @db.VarChar(45)
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  @@index([phone, purpose, createdAt])
+  @@index([requestIp, createdAt])
+  @@map("otp_challenges")
 }
 
 /// Contract / KVKK texts. studioId null means a platform-wide template.
@@ -963,7 +989,8 @@ model SmsTransaction {
 
 model NotificationLog {
   id                String              @id @default(uuid()) @db.Uuid
-  studioId          String              @map("studio_id") @db.Uuid
+  /// Null for platform messages such as login codes.
+  studioId          String?             @map("studio_id") @db.Uuid
   recipientPhone    String              @map("recipient_phone") @db.VarChar(20)
   channel           NotificationChannel
   /// Template key, e.g. BOOKING_REMINDER, PACKAGE_EXPIRY, INVITE
@@ -976,7 +1003,7 @@ model NotificationLog {
   errorMessage      String?             @map("error_message") @db.Text
   createdAt         DateTime            @default(now()) @map("created_at")
 
-  studio         Studio            @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  studio         Studio?           @relation(fields: [studioId], references: [id], onDelete: Cascade)
   fallbackOf     NotificationLog?  @relation("NotificationFallback", fields: [fallbackOfId], references: [id])
   fallbacks      NotificationLog[] @relation("NotificationFallback")
   smsTransaction SmsTransaction?
