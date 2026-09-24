@@ -1,7 +1,7 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@platform/database';
 import { ALL_PERMISSIONS, resolvePermissions } from '@platform/shared';
-import type { AssignRoleTemplateInput, CreateRoleTemplateInput, RoleTemplateDTO, StaffMembershipDTO, UpdateRoleTemplateInput } from '@platform/shared';
+import type { AssignRoleTemplateInput, CreateRoleTemplateInput, PermissionKey, RoleTemplateDTO, StaffMembershipDTO, UpdateRoleTemplateInput } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
 
@@ -22,6 +22,7 @@ export class RoleTemplatesService {
   }
 
   async create(tenant: TenantContext, actorUserId: string, dto: CreateRoleTemplateInput): Promise<RoleTemplateDTO> {
+    assertCanGrant(tenant, dto.permissions);
     const key = slugifyRoleKey(dto.name);
     try {
       const role = await this.prisma.$transaction(async (tx) => {
@@ -59,6 +60,14 @@ export class RoleTemplatesService {
     if (existing.isOwner) {
       throw new BadRequestException('İşletme sahibi rolü değiştirilemez, her zaman tüm izinlere sahiptir');
     }
+    // Every member of the studio holds the member role, so only the owner may
+    // change what it grants.
+    if (existing.key === 'member' && !isOwnerLike(tenant)) {
+      throw new ForbiddenException('Üye rolünü yalnızca işletme sahibi değiştirebilir');
+    }
+    // A manager can neither grant nor strip permissions they do not hold.
+    assertCanGrant(tenant, existing.permissions.map((p) => p.permissionKey));
+    if (dto.permissions) assertCanGrant(tenant, dto.permissions);
 
     const role = await this.prisma.$transaction(async (tx) => {
       if (dto.permissions) {
@@ -96,6 +105,7 @@ export class RoleTemplatesService {
     if (existing.isOwner || existing.key === 'member') {
       throw new BadRequestException('Bu rol silinemez');
     }
+    assertCanGrant(tenant, existing.permissions.map((p) => p.permissionKey));
     const inUse = await this.prisma.membership.count({ where: { roleTemplateId } });
     if (inUse > 0) {
       throw new ConflictException('Bu role atanmış personel var; önce personeli başka bir role taşıyın');
@@ -148,6 +158,19 @@ export class RoleTemplatesService {
     if (!target) throw new BadRequestException('Rol bulunamadı');
     if (target.isOwner) {
       throw new BadRequestException('İşletme sahibi rolü atama yoluyla verilemez');
+    }
+    if (!isOwnerLike(tenant)) {
+      // No self-promotion (or self-lockout) through role assignment.
+      if (membershipId === tenant.membershipId) {
+        throw new ForbiddenException('Kendi rolünüzü değiştiremezsiniz');
+      }
+      // Cannot hand out, or take away, permissions the actor does not hold.
+      const [targetKeys, currentKeys] = await Promise.all([
+        this.prisma.roleTemplatePermission.findMany({ where: { roleTemplateId: target.id }, select: { permissionKey: true } }),
+        this.prisma.roleTemplatePermission.findMany({ where: { roleTemplateId: membership.roleTemplateId }, select: { permissionKey: true } }),
+      ]);
+      assertCanGrant(tenant, targetKeys.map((k) => k.permissionKey));
+      assertCanGrant(tenant, currentKeys.map((k) => k.permissionKey));
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -238,4 +261,17 @@ function slugifyRoleKey(name: string): string {
     .slice(0, 32);
   const suffix = Math.random().toString(36).slice(2, 8);
   return `${base || 'rol'}-${suffix}`;
+}
+
+/** Owners and super-admins may grant anything; everyone else only what they hold. */
+function isOwnerLike(tenant: TenantContext): boolean {
+  return tenant.isOwner || tenant.isSuperAdmin;
+}
+
+function assertCanGrant(tenant: TenantContext, keys: readonly string[]): void {
+  if (isOwnerLike(tenant)) return;
+  const missing = keys.filter((k) => !tenant.permissions.has(k as PermissionKey));
+  if (missing.length > 0) {
+    throw new ForbiddenException('Sahip olmadığınız izinleri veremez veya kaldıramazsınız');
+  }
 }

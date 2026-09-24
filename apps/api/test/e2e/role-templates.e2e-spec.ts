@@ -152,4 +152,53 @@ describe('Role templates (e2e)', () => {
       expect(res.status).toBe(403);
     });
   });
+
+  describe('privilege boundaries for non-owner managers', () => {
+    let managerRoleId: string;
+    let receptionMembershipId: string;
+    let memberRoleId: string;
+
+    beforeAll(async () => {
+      receptionMembershipId = (await prisma.membership.findFirstOrThrow({ where: { studioId: ZEN, user: { phone: RECEPTION_PHONE } } })).id;
+      memberRoleId = (await prisma.roleTemplate.findUniqueOrThrow({ where: { studioId_key: { studioId: ZEN, key: 'member' } } })).id;
+      const created = await as(ownerToken)
+        .post('/role-templates')
+        .send({ studioId: ZEN, name: `Sinirli yonetici ${Date.now().toString(36)}`, permissions: ['roles.manage', 'members.view'] });
+      expect(created.status).toBe(201);
+      managerRoleId = created.body.id;
+      createdRoleIds.push(managerRoleId);
+      const moved = await as(ownerToken).put(`/role-templates/staff/${trainerMembershipId}`).send({ roleTemplateId: managerRoleId });
+      expect(moved.status).toBe(200);
+    });
+
+    it('cannot create a role with a permission the manager does not hold', async () => {
+      const res = await as(trainerToken)
+        .post('/role-templates')
+        .send({ studioId: ZEN, name: `Yetki yukseltme ${Date.now().toString(36)}`, permissions: ['members.view', 'reports.view'] });
+      expect(res.status).toBe(403);
+    });
+
+    it('can create a role within its own permissions', async () => {
+      const res = await as(trainerToken)
+        .post('/role-templates')
+        .send({ studioId: ZEN, name: `Alt rol ${Date.now().toString(36)}`, permissions: ['members.view'] });
+      expect(res.status).toBe(201);
+      createdRoleIds.push(res.body.id);
+    });
+
+    it('cannot change its own role', async () => {
+      const res = await as(trainerToken).put(`/role-templates/staff/${trainerMembershipId}`).send({ roleTemplateId: managerRoleId });
+      expect(res.status).toBe(403);
+    });
+
+    it('cannot reassign staff whose current role holds permissions the manager lacks', async () => {
+      const res = await as(trainerToken).put(`/role-templates/staff/${receptionMembershipId}`).send({ roleTemplateId: managerRoleId });
+      expect(res.status).toBe(403);
+    });
+
+    it('cannot edit the member role', async () => {
+      const res = await as(trainerToken).put(`/role-templates/${memberRoleId}`).send({ permissions: ['members.view'] });
+      expect([403, 404]).toContain(res.status);
+    });
+  });
 });
