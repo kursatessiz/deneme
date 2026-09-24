@@ -157,3 +157,32 @@ export function canTransitionLeadStage(from: LeadStage, to: LeadStage): boolean 
   if (from === to) return false;
   return LEAD_STAGE_TRANSITIONS[from].includes(to);
 }
+
+/** How a studio issues e-invoices; NONE never auto-issues one. */
+export enum EInvoiceMode {
+  NONE = 'NONE',
+  EARSIV = 'EARSIV',
+  EFATURA = 'EFATURA',
+}
+
+/** e-invoice integrator adapter. MOCK is deterministic and disabled in production. */
+export enum EInvoiceProvider {
+  MOCK = 'MOCK',
+  PARASUT = 'PARASUT',
+  ELOGO = 'ELOGO',
+  FORIBA = 'FORIBA',
+  UYUMSOFT = 'UYUMSOFT',
+}
+
+export enum InvoiceStatus {
+  DRAFT = 'DRAFT',
+  ISSUED = 'ISSUED',
+  CANCELLED = 'CANCELLED',
+  FAILED = 'FAILED',
+}
+
+/** Whether a billing profile is a private individual (TCKN) or a company (VKN). */
+export enum BillingProfileKind {
+  INDIVIDUAL = 'INDIVIDUAL',
+  COMPANY = 'COMPANY',
+}

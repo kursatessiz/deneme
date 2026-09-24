@@ -20,6 +20,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
 import { LeadsModule } from './modules/leads/leads.module';
+import { InvoicingModule } from './modules/invoicing/invoicing.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -48,6 +49,7 @@ import { validateEnv } from './config/env';
     ReportsModule,
     PayrollModule,
     LeadsModule,
+    InvoicingModule,
     HealthModule,
   ],
 })
