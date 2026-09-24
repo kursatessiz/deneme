@@ -369,3 +369,135 @@ export interface ProviderCheckoutResult {
   status: 'PENDING' | 'COMPLETED';
   checkoutUrl?: string;
 }
+
+// ---------------------------------------------------------------------------
+// W13: reports
+// ---------------------------------------------------------------------------
+
+export interface OccupancyDayRowDTO {
+  /** ISO date (yyyy-mm-dd) in the studio timezone. */
+  date: string;
+  sessions: number;
+  capacity: number;
+  booked: number;
+  attended: number;
+  /** booked / capacity, 0..1 */
+  occupancy: number;
+}
+
+export interface OccupancyServiceRowDTO {
+  serviceTypeId: string;
+  serviceTypeName: string;
+  sessions: number;
+  capacity: number;
+  booked: number;
+  attended: number;
+  occupancy: number;
+}
+
+export interface OccupancyHeatmapCellDTO {
+  /** 0 (Monday) .. 6 (Sunday), ISO weekday - 1, in the studio timezone. */
+  weekday: number;
+  /** 0..23, in the studio timezone. */
+  hour: number;
+  sessions: number;
+  capacity: number;
+  booked: number;
+  occupancy: number;
+}
+
+export interface OccupancyReportDTO {
+  from: string;
+  to: string;
+  byDay: OccupancyDayRowDTO[];
+  byServiceType: OccupancyServiceRowDTO[];
+  heatmap: OccupancyHeatmapCellDTO[];
+}
+
+export interface RevenuePeriodRowDTO {
+  /** ISO date (day/week start) or yyyy-MM for month granularity. */
+  period: string;
+  amount: string;
+  paymentCount: number;
+}
+
+export interface RevenueMethodRowDTO {
+  paymentMethod: string;
+  amount: string;
+  paymentCount: number;
+}
+
+export interface RevenuePackageRowDTO {
+  packageDefinitionId: string | null;
+  packageDefinitionName: string;
+  amount: string;
+  paymentCount: number;
+}
+
+export type ReportGranularity = 'day' | 'week' | 'month';
+
+export interface RevenueReportDTO {
+  from: string;
+  to: string;
+  granularity: ReportGranularity;
+  total: string;
+  byPeriod: RevenuePeriodRowDTO[];
+  byMethod: RevenueMethodRowDTO[];
+  byPackage: RevenuePackageRowDTO[];
+  /** Only present when Payment.refundedAmount exists in the current schema. */
+  /** Sum of refundedAmount over the payments in range. */
+  refundTotal: string;
+  /** total - refundTotal */
+  netTotal: string;
+}
+
+export interface MembersReportDTO {
+  from: string;
+  to: string;
+  activeMembers: number;
+  newMembers: number;
+  churnedMembers: number;
+  revenue: string;
+  /** revenue / activeMembers, as a decimal string; "0.00" when no active members. */
+  arpu: string;
+}
+
+export interface RenewalReportDTO {
+  from: string;
+  to: string;
+  expiredPackages: number;
+  renewedPackages: number;
+  /** renewedPackages / expiredPackages, 0..1; 0 when expiredPackages is 0. */
+  renewalRate: number;
+}
+
+export interface CohortRowDTO {
+  /** yyyy-MM of the member's first package purchase. */
+  cohortMonth: string;
+  cohortSize: number;
+  /** retention[0] is month 0 (the cohort month itself), up to 11 months later. */
+  retention: number[];
+}
+
+export interface CohortReportDTO {
+  cohorts: CohortRowDTO[];
+}
+
+export interface TrainerReportRowDTO {
+  trainerProfileId: string;
+  trainerName: string;
+  sessions: number;
+  capacity: number;
+  booked: number;
+  attended: number;
+  occupancy: number;
+  noShows: number;
+  lateCancellations: number;
+  substitutions: number;
+}
+
+export interface TrainerReportDTO {
+  from: string;
+  to: string;
+  trainers: TrainerReportRowDTO[];
+}

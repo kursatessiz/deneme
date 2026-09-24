@@ -13,6 +13,7 @@ export default function HesabimLayout() {
       <Stack.Screen name="isletme-temasi" options={{ title: 'İşletme teması' }} />
       <Stack.Screen name="ana-sube" options={{ title: 'Ana şubem' }} />
       <Stack.Screen name="subeler" options={{ title: 'Şube özeti' }} />
+      <Stack.Screen name="raporlar" options={{ title: 'Raporlar' }} />
     </Stack>
   );
 }
