@@ -7,24 +7,36 @@
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "jest"
   },
   "dependencies": {
+    "@fontsource/archivo": "^5.3.0",
+    "@fontsource/figtree": "^5.3.0",
+    "@fontsource/fraunces": "^5.3.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
+    "@fontsource/manrope": "^5.3.0",
+    "@fontsource/nunito-sans": "^5.3.0",
+    "@fontsource/schibsted-grotesk": "^5.3.0",
     "@platform/shared": "workspace:*",
     "clsx": "^2.1.1",
     "lucide-react": "^0.475.0",
     "next": "^15.5.26",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "tailwind-merge": "^3.7.0"
+    "tailwind-merge": "^3.7.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.14",
     "@types/node": "^22.20.4",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.6.1",
+    "jest": "^29.7.0",
     "postcss": "^8.5.28",
     "tailwindcss": "^3.4.19",
+    "ts-jest": "^29.4.13",
     "typescript": "^5.9.3"
   }
 }

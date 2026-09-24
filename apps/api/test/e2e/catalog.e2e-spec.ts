@@ -202,6 +202,27 @@ describe('Catalog e2e', () => {
     });
   });
 
+  describe('package definitions (read-only)', () => {
+    it('lists active package definitions for the studio, scoped to it', async () => {
+      const res = await request(server)
+        .get(`/catalog/package-definitions/studio/${ZEN}`)
+        .set('Authorization', `Bearer ${ownerToken}`);
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      for (const pkg of res.body) {
+        expect(pkg.studioId).toBe(ZEN);
+        expect(pkg.isActive).toBe(true);
+      }
+    });
+
+    it('trainer gets 403 (no catalog.view)', async () => {
+      const res = await request(server)
+        .get(`/catalog/package-definitions/studio/${ZEN}`)
+        .set('Authorization', `Bearer ${trainerToken}`);
+      expect(res.status).toBe(403);
+    });
+  });
+
   describe('permission enforcement', () => {
     it('trainer gets 403 creating a resource type (no catalog.manage)', async () => {
       const res = await request(server)
