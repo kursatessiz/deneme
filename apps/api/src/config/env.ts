@@ -11,6 +11,9 @@ export const EnvSchema = z
     JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
     CORS_ORIGIN: z.string().optional(),
     SMS_PROVIDER: z.enum(['MOCK', 'NETGSM', 'ILETI_MERKEZI']).default('MOCK'),
+    PUSH_PROVIDER: z.enum(['MOCK', 'EXPO']).default('MOCK'),
+    /** Optional Expo access token when "enhanced push security" is on. */
+    EXPO_ACCESS_TOKEN: z.string().min(10).optional(),
     APP_VERSION: z.string().default('0.0.0'),
     /** Base URL of the web/mobile deep-link host; invite links are built on it. */
     PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),

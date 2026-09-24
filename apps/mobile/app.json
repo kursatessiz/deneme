@@ -2,6 +2,7 @@
   "expo": {
     "name": "Platform",
     "slug": "platform-app",
+    "scheme": "platform",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -18,6 +19,19 @@
         "backgroundColor": "#0f172a"
       },
       "package": "com.platform.member"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#3f6b52"
+        }
+      ]
+    ],
+    "extra": {
+      "apiUrl": "http://localhost:4000"
     }
   }
 }
