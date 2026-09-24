@@ -22,6 +22,7 @@ erDiagram
     Studio ||--o{ MemberSubscription : has
     Studio ||--o{ SmsWallet : has
     Studio ||--o{ NotificationLog : has
+    Studio ||--o{ PayrollRun : has
 
     User ||--o{ Membership : creates
     Membership ||--o| MemberProfile : member
@@ -79,6 +80,9 @@ erDiagram
     Studio ||--o{ MessageTemplate : overrides
     Studio ||--o{ CommunicationConsent : has
     User ||--o{ CommunicationConsent : grants
+    Branch ||--o{ PayrollRun : scopes
+    PayrollRun ||--o{ PayrollLine : has
+    TrainerProfile ||--o{ PayrollLine : earns
 ```
 
 ## Platform Seviyesi
@@ -164,6 +168,15 @@ erDiagram
 | `notification_logs` | Giden mesajlar: WhatsApp, SMS, push, email; fallback zinciri | (studio_id, created_at) index; tekrar deneme zincirleri için (fallback_of_id) kendine referans |
 | `message_templates` | Kanal başına mesaj şablonu ({{ad}} yer tutucularıyla); studio_id null olan satırlar süper adminin küresel varsayılanı, doldurulmuş satırlar kiracı geçersiz kılması | (studio_id, key, channel, locale) benzersiz; key index |
 | `communication_consents` | Ticari mesaj için İYS tarzı onay durumu (kanal başına) | (studio_id, user_id, channel) benzersiz; (studio_id, status) ve (iys_synced_at) index |
+
+## Hakediş Bordrosu (Payroll, W14)
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `payroll_runs` | Bir dönem (opsiyonel şube kapsamlı) için hakediş çalıştırması: durum (taslak, onaylandı, ödendi), toplamlar | (studio_id, branch_id, period_start, period_end) index; (studio_id, status) index |
+| `payroll_lines` | Çalıştırma başına antrenör satırı: seans/katılımcı sayıları, brüt, düzeltme, net, hesaplama detayı (JSON) | (run_id, trainer_profile_id) benzersiz; (studio_id, trainer_profile_id) index |
+
+Formül ve durum makinesi için bkz. `docs/PAYROLL.md`.
 
 ## Denetim (Audit)
 
