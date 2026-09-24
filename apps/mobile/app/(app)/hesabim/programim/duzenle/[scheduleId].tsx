@@ -4,6 +4,7 @@ import { StyleSheet, Text } from 'react-native';
 
 import { UpdateScheduleSchema } from '@platform/shared';
 
+import { DateTimeField } from '../../../../../src/components/DateTimeField';
 import { PermissionGate } from '../../../../../src/components/PermissionGate';
 import { PrimaryButton } from '../../../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../../../src/components/ScreenContainer';
@@ -66,13 +67,8 @@ function DuzenleContent() {
     <ScreenContainer>
       <Text style={[styles.title, { color: colors.textPrimary }]}>Seansı düzenle</Text>
       <TextField label="Başlık" value={title} onChangeText={setTitle} errorMessage={fieldErrors.title} />
-      <TextField
-        label="Başlangıç (ISO)"
-        value={startTime}
-        onChangeText={setStartTime}
-        errorMessage={fieldErrors.startTime}
-      />
-      <TextField label="Bitiş (ISO)" value={endTime} onChangeText={setEndTime} errorMessage={fieldErrors.endTime} />
+      <DateTimeField label="Başlangıç" value={startTime} onChange={setStartTime} errorMessage={fieldErrors.startTime} />
+      <DateTimeField label="Bitiş" value={endTime} onChange={setEndTime} errorMessage={fieldErrors.endTime} />
       <TextField label="Kontenjan" value={capacity} onChangeText={setCapacity} keyboardType="number-pad" />
       {error ? <Text style={[styles.error, { color: palette.danger }]}>{error}</Text> : null}
       <PrimaryButton label="Kaydet" onPress={handleSubmit} loading={isSubmitting} />

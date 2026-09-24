@@ -26,6 +26,7 @@ import type {
 } from '@platform/shared';
 import { Prisma, PaymentMethod, PaymentProvider, PaymentStatus, PackageDefinition } from '@platform/database';
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
+import { maskLeaderboardName } from '@platform/shared';
 
 type Tx = Prisma.TransactionClient;
 
@@ -453,7 +454,8 @@ export class PaymentsService {
 
   async listPayments(tenant: TenantContext, query: ListPaymentsQuery) {
     const scope = branchScope(tenant, query.branchId);
-    return this.prisma.payment.findMany({
+    const canViewContact = tenant.permissions.has('members.contact.view');
+    const payments = await this.prisma.payment.findMany({
       where: {
         studioId: tenant.studioId,
         ...scope,
@@ -463,8 +465,26 @@ export class PaymentsService {
         ...(query.paymentMethod ? { paymentMethod: query.paymentMethod } : {}),
         ...(query.paymentStatus ? { paymentStatus: query.paymentStatus } : {}),
       },
+      include: { member: { include: { membership: { include: { user: true } } } } },
       orderBy: { paidAt: 'desc' },
     });
+    return payments.map(({ member, ...payment }) => ({
+      ...payment,
+      memberDisplayName: this.paymentMemberDisplayName(member.membership.user.firstName, member.membership.user.lastName, canViewContact),
+    }));
+  }
+
+  /**
+   * First name plus the initial of the last name by default (see
+   * `maskLeaderboardName`); the full last name only when the caller has
+   * `members.contact.view`.
+   */
+  private paymentMemberDisplayName(firstName: string, lastName: string, canViewContact: boolean): string {
+    if (canViewContact) {
+      const full = `${firstName.trim()} ${lastName.trim()}`.trim();
+      return full || firstName.trim();
+    }
+    return maskLeaderboardName(firstName, lastName);
   }
 
   async listMyPayments(tenant: TenantContext) {

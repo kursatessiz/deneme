@@ -215,7 +215,7 @@ export function PaymentsTab() {
                   </td>
                   <td className="px-4 py-2.5">
                     <a href={`/members/${p.memberId}`} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
-                      {p.memberId.slice(0, 8)}...
+                      {p.memberDisplayName ?? `${p.memberId.slice(0, 8)}...`}
                     </a>
                   </td>
                   <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
