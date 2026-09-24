@@ -5,7 +5,7 @@ import { clearTokens, getAccessToken, getRefreshToken, setTokens } from './token
 const DEFAULT_API_URL = 'http://localhost:4000';
 
 /** API base URL: EXPO_PUBLIC_API_URL overrides app.json's extra.apiUrl. */
-function resolveApiUrl(): string {
+export function resolveApiUrl(): string {
   const fromEnv = process.env.EXPO_PUBLIC_API_URL;
   if (fromEnv) return fromEnv;
   const extra = Constants.expoConfig?.extra as { apiUrl?: string } | undefined;
