@@ -1,12 +1,12 @@
-import { UserRole, SessionType, BookingStatus, PackageStatus, PaymentMethod, PaymentStatus, CommissionType } from './enums';
-
-export interface StudioConfig {
-  cancellationDeadlineHours: number; // e.g. 4 hours before session
-  maxAdvanceBookingDays: number;     // e.g. 14 days ahead
-  reminderHoursBefore: number;       // e.g. 2 hours before session
-  allowWaitlist: boolean;
-  maxWaitlistPerSession: number;
-}
+import {
+  BookingStatus,
+  CommissionType,
+  EntitlementKind,
+  MembershipStatus,
+  PackageStatus,
+} from './enums';
+import type { PermissionKey } from './permissions';
+import type { GradientPresetKey } from './design/tokens';
 
 export interface StudioDTO {
   id: string;
@@ -15,59 +15,111 @@ export interface StudioDTO {
   phone?: string | null;
   email?: string | null;
   address?: string | null;
+  timezone: string;
   logoUrl?: string | null;
-  primaryColor?: string | null;
-  secondaryColor?: string | null;
-  config: StudioConfig;
+  themePrimary: string;
+  gradientPresetKey: GradientPresetKey;
+  maxAdvanceBookingDays: number;
+  reminderHoursBefore: number;
   isActive: boolean;
-  createdAt: string;
 }
 
+/** Global identity. Tenancy is described by memberships. */
 export interface UserDTO {
   id: string;
-  studioId?: string | null;
-  email: string;
   phone: string;
+  email?: string | null;
   firstName: string;
   lastName: string;
-  role: UserRole;
   avatarUrl?: string | null;
-  isActive: boolean;
+  isSuperAdmin: boolean;
+}
+
+export interface MembershipDTO {
+  id: string;
+  studioId: string;
+  studioName: string;
+  studioSlug: string;
+  status: MembershipStatus;
+  roleKey: string;
+  roleName: string;
+  isOwner: boolean;
+  permissions: PermissionKey[];
+  memberProfileId?: string | null;
+  trainerProfileId?: string | null;
+}
+
+export interface SessionUserDTO extends UserDTO {
+  memberships: MembershipDTO[];
 }
 
 export interface MemberProfileDTO {
   id: string;
-  userId: string;
+  membershipId: string;
   studioId: string;
+  firstName: string;
+  lastName: string;
+  /** Omitted unless the caller has members.contact.view */
+  phone?: string;
+  email?: string | null;
   birthDate?: string | null;
-  emergencyContactName?: string | null;
-  emergencyContactPhone?: string | null;
-  medicalConditions?: string | null; // Bel fıtığı, skolyoz, boyun düzleşmesi vb.
+  /** Omitted unless the caller has members.health.view */
+  medicalConditions?: string | null;
   notes?: string | null;
-  hasSignedWaiver: boolean;
-  activePackagesCount: number;
-  remainingCreditsTotal: number;
+  familyGroupId?: string | null;
 }
 
 export interface TrainerProfileDTO {
   id: string;
-  userId: string;
+  membershipId: string;
   studioId: string;
+  firstName: string;
+  lastName: string;
   bio?: string | null;
-  specialties: SessionType[];
-  commissionType: CommissionType;
-  commissionValue: number; // e.g. 350 for fixed 350TL or 35 for 35%
+  qualifiedServiceTypeIds: string[];
+  commissionRule?: { id: string; name: string; type: CommissionType; value: number } | null;
+}
+
+export interface ResourceTypeDTO {
+  id: string;
+  name: string;
+  selectableByMember: boolean;
+}
+
+export interface ResourceDTO {
+  id: string;
+  resourceTypeId: string;
+  branchId?: string | null;
+  parentResourceId?: string | null;
+  name: string;
+  capacity: number;
+  isMaintenance: boolean;
+}
+
+export interface ServiceTypeDTO {
+  id: string;
+  name: string;
+  description?: string | null;
+  durationMin: number;
+  capacity: number;
+  minRepeatIntervalDays?: number | null;
+  allowedEntitlementKinds: EntitlementKind[];
+  requiresQualification: boolean;
+  requiredResourceTypes: { resourceTypeId: string; quantity: number }[];
+  isActive: boolean;
 }
 
 export interface PackageDefinitionDTO {
   id: string;
   studioId: string;
   name: string;
-  sessionType: SessionType;
-  totalSessions: number;
+  entitlementKind: EntitlementKind;
+  totalUnits?: number | null;
   validityDays: number;
   price: number;
   freezeDaysAllowed: number;
+  isTransferable: boolean;
+  services: { serviceTypeId: string; unitCost: number }[];
   isActive: boolean;
 }
 
@@ -76,10 +128,10 @@ export interface MemberPackageDTO {
   memberId: string;
   packageDefinitionId: string;
   packageDefinitionName: string;
-  sessionType: SessionType;
-  totalSessions: number;
-  usedSessions: number;
-  remainingSessions: number;
+  entitlementKind: EntitlementKind;
+  totalUnits?: number | null;
+  usedUnits: number;
+  remainingUnits?: number | null;
   status: PackageStatus;
   startDate: string;
   endDate: string;
@@ -90,11 +142,13 @@ export interface SessionScheduleDTO {
   id: string;
   studioId: string;
   branchId?: string | null;
-  roomId?: string | null;
-  roomName?: string | null;
-  trainerId: string;
-  trainerName: string;
-  sessionType: SessionType;
+  serviceTypeId: string;
+  serviceTypeName: string;
+  resourceId?: string | null;
+  resourceName?: string | null;
+  trainerId?: string | null;
+  trainerName?: string | null;
+  originalTrainerId?: string | null;
   title: string;
   startTime: string;
   endTime: string;
@@ -108,9 +162,10 @@ export interface BookingDTO {
   scheduleId: string;
   memberId: string;
   memberName: string;
-  memberPhone: string;
-  memberPackageId: string;
+  memberPackageId?: string | null;
   status: BookingStatus;
+  unitsCharged: number;
+  resourceIds: string[];
   checkInAt?: string | null;
   bookedAt: string;
 }
@@ -121,5 +176,6 @@ export interface DashboardMetricsDTO {
   activeMembersCount: number;
   expiringPackagesCount: number;
   monthlyRevenue: number;
-  reformerOccupancyRate: number; // percentage e.g. 84.5
+  /** Booked seats / capacity over today's sessions, percent. */
+  occupancyRate: number;
 }

@@ -11,26 +11,25 @@ export class StudiosService {
       where: { isActive: true },
       include: {
         branches: {
-          include: {
-            rooms: true,
-          },
+          include: { resources: true },
         },
       },
     });
   }
 
   async findBySlug(slug: string) {
-    const studio = await this.prisma.studio.findUnique({
-      where: { slug },
-      include: {
-        branches: {
-          include: {
-            rooms: true,
-          },
-        },
-        packageDefinitions: {
-          where: { isActive: true },
-        },
+    const studio = await this.prisma.studio.findFirst({
+      where: { slug, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        logoUrl: true,
+        themePrimary: true,
+        gradientPresetKey: true,
+        address: true,
+        phone: true,
+        timezone: true,
       },
     });
 
@@ -71,20 +70,17 @@ export class StudiosService {
     const activeMembersCount = await this.prisma.memberProfile.count({
       where: {
         studioId,
-        user: { isActive: true },
+        membership: { status: 'ACTIVE' },
       },
     });
 
-    // 3. Expiring packages (within next 7 days or <= 2 sessions left)
+    // 3. Expiring packages (within next 7 days or <= 2 units left)
     const sevenDaysLater = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const expiringPackagesCount = await this.prisma.memberPackage.count({
       where: {
         studioId,
         status: 'ACTIVE',
-        OR: [
-          { remainingSessions: { lte: 2 } },
-          { endDate: { lte: sevenDaysLater } },
-        ],
+        OR: [{ remainingUnits: { lte: 2 } }, { endDate: { lte: sevenDaysLater } }],
       },
     });
 
@@ -100,9 +96,9 @@ export class StudiosService {
 
     const monthlyRevenue = payments.reduce((sum, p) => sum + Number(p.amount), 0);
 
-    // 5. Reformer occupancy rate (today's capacity vs booked)
+    // 5. Occupancy rate (today's booked seats vs capacity)
     const totalCapacity = todaySchedules.reduce((acc, s) => acc + s.capacity, 0);
-    const reformerOccupancyRate = totalCapacity > 0 ? (todayAttendeesCount / totalCapacity) * 100 : 0;
+    const occupancyRate = totalCapacity > 0 ? (todayAttendeesCount / totalCapacity) * 100 : 0;
 
     return {
       todaySessionsCount,
@@ -110,7 +106,7 @@ export class StudiosService {
       activeMembersCount,
       expiringPackagesCount,
       monthlyRevenue,
-      reformerOccupancyRate: Math.round(reformerOccupancyRate * 10) / 10,
+      occupancyRate: Math.round(occupancyRate * 10) / 10,
     };
   }
 }

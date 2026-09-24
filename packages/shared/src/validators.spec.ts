@@ -5,7 +5,7 @@ import {
   CreateScheduleSchema,
   BookSessionSchema,
   CancelBookingSchema,
-  SessionType,
+  EntitlementKind,
   PaymentMethod,
 } from './index';
 
@@ -50,7 +50,6 @@ describe('Shared Zod Validators', () => {
       phone: '05553334455',
       email: 'ayse@example.com',
       medicalConditions: 'L4-L5 Bel Fıtığı başlangıcı',
-      hasSignedWaiver: true,
     };
 
     it('should validate a full valid member profile', () => {
@@ -66,6 +65,11 @@ describe('Shared Zod Validators', () => {
       expect(result.success).toBe(false);
     });
 
+    it('should normalize the phone number to E.164', () => {
+      const result = CreateMemberSchema.parse(validMember);
+      expect(result.phone).toBe('+905553334455');
+    });
+
     it('should reject invalid phone format if too short', () => {
       const result = CreateMemberSchema.safeParse({
         ...validMember,
@@ -76,31 +80,38 @@ describe('Shared Zod Validators', () => {
   });
 
   describe('CreatePackageDefinitionSchema', () => {
-    it('should validate standard 10 session reformer package', () => {
-      const input = {
-        studioId: '123e4567-e89b-12d3-a456-426614174000',
-        name: '10 Seans Birebir Reformer',
-        sessionType: SessionType.PRIVATE_REFORMER,
-        totalSessions: 10,
-        validityDays: 60,
-        price: 12000,
-        freezeDaysAllowed: 15,
-      };
-      const result = CreatePackageDefinitionSchema.safeParse(input);
+    const base = {
+      studioId: '123e4567-e89b-12d3-a456-426614174000',
+      name: '10 Seans Birebir',
+      entitlementKind: EntitlementKind.SESSION_COUNT,
+      totalUnits: 10,
+      validityDays: 60,
+      price: 12000,
+      services: [{ serviceTypeId: '123e4567-e89b-12d3-a456-426614174001', unitCost: 1 }],
+    };
+
+    it('should validate a session-count package', () => {
+      expect(CreatePackageDefinitionSchema.safeParse(base).success).toBe(true);
+    });
+
+    it('should allow a time-based unlimited package without units', () => {
+      const { totalUnits: _omit, ...rest } = base;
+      const result = CreatePackageDefinitionSchema.safeParse({
+        ...rest,
+        entitlementKind: EntitlementKind.TIME_UNLIMITED,
+      });
       expect(result.success).toBe(true);
     });
 
-    it('should reject negative price', () => {
-      const input = {
-        studioId: '123e4567-e89b-12d3-a456-426614174000',
-        name: 'Bedava Paket',
-        sessionType: SessionType.PRIVATE_REFORMER,
-        totalSessions: 10,
-        validityDays: 60,
-        price: -500,
-      };
-      const result = CreatePackageDefinitionSchema.safeParse(input);
+    it('should require units for credit packages', () => {
+      const { totalUnits: _omit, ...rest } = base;
+      const result = CreatePackageDefinitionSchema.safeParse({ ...rest, entitlementKind: EntitlementKind.CREDIT });
       expect(result.success).toBe(false);
+    });
+
+    it('should reject negative price and empty service list', () => {
+      expect(CreatePackageDefinitionSchema.safeParse({ ...base, price: -500 }).success).toBe(false);
+      expect(CreatePackageDefinitionSchema.safeParse({ ...base, services: [] }).success).toBe(false);
     });
   });
 

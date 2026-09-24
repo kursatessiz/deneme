@@ -1,26 +1,25 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { TrainersService } from './trainers.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { StudioTenantGuard } from '../auth/guards/studio-tenant.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { StudioScoped, RequirePermission, SelfService } from '../auth/decorators/require-permission.decorator';
+import { Tenant } from '../auth/decorators/current-user.decorator';
+import type { TenantContext } from '../auth/tenant-context';
 
 @Controller('trainers')
-@UseGuards(JwtAuthGuard, StudioTenantGuard, RolesGuard)
+@StudioScoped()
 export class TrainersController {
   constructor(private trainersService: TrainersService) {}
 
   @Get('studio/:studioId')
-  @Roles('STUDIO_ADMIN', 'RECEPTIONIST')
-  async findAll(@Param('studioId') studioId: string) {
-    return this.trainersService.findAll(studioId);
+  @RequirePermission('schedule.view')
+  async findAll(@Tenant() tenant: TenantContext) {
+    return this.trainersService.findAll(tenant);
   }
 
   @Get(':trainerId/commission/studio/:studioId')
-  @Roles('STUDIO_ADMIN')
+  @SelfService()
   async getCommission(
     @Param('trainerId') trainerId: string,
-    @Param('studioId') studioId: string,
+    @Tenant() tenant: TenantContext,
     @Query('month') month?: string,
     @Query('year') year?: string,
   ) {
@@ -28,6 +27,6 @@ export class TrainersController {
     const m = month ? parseInt(month, 10) : current.getMonth() + 1;
     const y = year ? parseInt(year, 10) : current.getFullYear();
 
-    return this.trainersService.calculateCommissionReport(studioId, trainerId, m, y);
+    return this.trainersService.calculateCommissionReport(tenant, trainerId, m, y);
   }
 }

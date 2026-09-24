@@ -1,14 +1,21 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards, ForbiddenException } from '@nestjs/common';
 import { StudiosService } from './studios.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { StudioTenantGuard } from '../auth/guards/studio-tenant.guard';
+import { StudioScoped, RequirePermission } from '../auth/decorators/require-permission.decorator';
+import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
+import type { AuthUser, TenantContext } from '../auth/tenant-context';
 
 @Controller('studios')
 export class StudiosController {
   constructor(private studiosService: StudiosService) {}
 
+  /** Platform-wide listing: super-admin only. */
   @Get()
-  async findAll() {
+  @UseGuards(JwtAuthGuard)
+  async findAll(@CurrentUser() user: AuthUser) {
+    if (!user.isSuperAdmin) {
+      throw new ForbiddenException('Bu işlem için yetkiniz yok');
+    }
     return this.studiosService.findAll();
   }
 
@@ -18,8 +25,9 @@ export class StudiosController {
   }
 
   @Get(':studioId/metrics')
-  @UseGuards(JwtAuthGuard, StudioTenantGuard)
-  async getMetrics(@Param('studioId') studioId: string) {
-    return this.studiosService.getDashboardMetrics(studioId);
+  @StudioScoped()
+  @RequirePermission('reports.view')
+  async getMetrics(@Tenant() tenant: TenantContext) {
+    return this.studiosService.getDashboardMetrics(tenant.studioId);
   }
 }

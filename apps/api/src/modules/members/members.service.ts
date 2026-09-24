@@ -1,88 +1,65 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import * as bcrypt from 'bcrypt';
-import {
-  CreateMemberInput,
-  AssignPackageToMemberInput,
-} from '@platform/shared';
+import type { TenantContext } from '../auth/tenant-context';
+import { CreateMemberInput, AssignPackageToMemberInput, FreezePackageInput } from '@platform/shared';
 
 @Injectable()
 export class MembersService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(studioId: string, search?: string) {
-    return this.prisma.memberProfile.findMany({
+  async findAll(tenant: TenantContext, search?: string) {
+    const members = await this.prisma.memberProfile.findMany({
       where: {
-        studioId,
-        user: {
-          isActive: true,
-          ...(search
-            ? {
-                OR: [
-                  { firstName: { contains: search, mode: 'insensitive' } },
-                  { lastName: { contains: search, mode: 'insensitive' } },
-                  { phone: { contains: search } },
-                ],
-              }
-            : {}),
-        },
+        studioId: tenant.studioId,
+        ...(search
+          ? {
+              membership: {
+                user: {
+                  OR: [
+                    { firstName: { contains: search, mode: 'insensitive' } },
+                    { lastName: { contains: search, mode: 'insensitive' } },
+                    { phone: { contains: search } },
+                  ],
+                },
+              },
+            }
+          : {}),
       },
       include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            phone: true,
-            email: true,
-            avatarUrl: true,
-            createdAt: true,
-          },
-        },
+        membership: { include: { user: true } },
         packages: {
           where: { status: 'ACTIVE' },
-          include: {
-            packageDefinition: true,
-          },
+          include: { packageDefinition: true },
         },
-        _count: {
-          select: {
-            bookings: true,
-          },
-        },
+        _count: { select: { bookings: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    return members.map((m) => this.toDetail(m, tenant));
   }
 
-  async findById(memberId: string, studioId: string) {
+  async findById(memberId: string, tenant: TenantContext) {
     const member = await this.prisma.memberProfile.findFirst({
-      where: { id: memberId, studioId },
+      where: { id: memberId, studioId: tenant.studioId },
       include: {
-        user: true,
+        membership: { include: { user: true } },
         packages: {
-          include: {
-            packageDefinition: true,
-            freezeHistories: true,
-          },
+          include: { packageDefinition: true, freezeHistories: true },
           orderBy: { createdAt: 'desc' },
         },
         bookings: {
           include: {
             schedule: {
               include: {
-                trainer: {
-                  include: { user: true },
-                },
+                trainer: { include: { membership: { include: { user: true } } } },
               },
             },
           },
           orderBy: { createdAt: 'desc' },
           take: 20,
         },
-        payments: {
-          orderBy: { paidAt: 'desc' },
-        },
+        payments: { orderBy: { paidAt: 'desc' } },
       },
     });
 
@@ -90,66 +67,79 @@ export class MembersService {
       throw new NotFoundException('Üye bulunamadı');
     }
 
-    return member;
+    return this.toDetail(member, tenant);
   }
 
-  async createMember(dto: CreateMemberInput) {
-    // Check if phone exists in this studio
-    const existing = await this.prisma.user.findFirst({
-      where: {
-        studioId: dto.studioId,
-        phone: dto.phone,
-      },
-    });
+  async createMember(tenant: TenantContext, dto: CreateMemberInput) {
+    const studioId = tenant.studioId;
 
-    if (existing) {
-      throw new BadRequestException('Bu telefon numarasıyla kayıtlı bir üye zaten mevcut');
+    const roleTemplate = await this.prisma.roleTemplate.findFirst({
+      where: { studioId, key: 'member' },
+    });
+    if (!roleTemplate) {
+      throw new NotFoundException('Üye rol şablonu bulunamadı');
     }
 
-    // Default password is last 6 digits of phone or "123456"
-    const rawPass = dto.phone.slice(-6) || '123456';
-    const passwordHash = await bcrypt.hash(rawPass, 10);
-
     return this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
+      let user = await tx.user.findUnique({ where: { phone: dto.phone } });
+      if (!user) {
+        user = await tx.user.create({
+          data: {
+            phone: dto.phone,
+            email: dto.email || null,
+            firstName: dto.firstName,
+            lastName: dto.lastName,
+            passwordHash: null,
+          },
+        });
+      }
+
+      const existingMembership = await tx.membership.findUnique({
+        where: { userId_studioId: { userId: user.id, studioId } },
+      });
+      if (existingMembership) {
+        throw new ConflictException('Bu telefon numarasına sahip bir üyelik bu işletmede zaten mevcut');
+      }
+
+      const membership = await tx.membership.create({
         data: {
-          studioId: dto.studioId,
-          firstName: dto.firstName,
-          lastName: dto.lastName,
-          phone: dto.phone,
-          email: dto.email || null,
-          passwordHash,
-          role: 'MEMBER',
+          userId: user.id,
+          studioId,
+          roleTemplateId: roleTemplate.id,
+          status: 'ACTIVE',
+          joinedAt: new Date(),
         },
       });
 
       const memberProfile = await tx.memberProfile.create({
         data: {
-          userId: user.id,
-          studioId: dto.studioId,
+          membershipId: membership.id,
+          studioId,
           birthDate: dto.birthDate ? new Date(dto.birthDate) : null,
-          emergencyContactName: dto.emergencyContactName,
-          emergencyContactPhone: dto.emergencyContactPhone,
-          medicalConditions: dto.medicalConditions,
-          notes: dto.notes,
-          hasSignedWaiver: dto.hasSignedWaiver,
+          emergencyContactName: dto.emergencyContactName || null,
+          emergencyContactPhone: dto.emergencyContactPhone || null,
+          medicalConditions: dto.medicalConditions || null,
+          notes: dto.notes || null,
         },
-        include: {
-          user: true,
-        },
+        include: { membership: { include: { user: true } } },
       });
 
-      return memberProfile;
+      return this.toDetail(memberProfile, tenant);
     });
   }
 
-  async assignPackage(dto: AssignPackageToMemberInput) {
-    const pkgDef = await this.prisma.packageDefinition.findFirst({
-      where: { id: dto.packageDefinitionId, studioId: dto.studioId },
-    });
+  async assignPackage(tenant: TenantContext, dto: AssignPackageToMemberInput) {
+    const studioId = tenant.studioId;
 
+    const [pkgDef, member] = await Promise.all([
+      this.prisma.packageDefinition.findFirst({ where: { id: dto.packageDefinitionId, studioId } }),
+      this.prisma.memberProfile.findFirst({ where: { id: dto.memberId, studioId } }),
+    ]);
     if (!pkgDef) {
       throw new NotFoundException('Paket tanımı bulunamadı');
+    }
+    if (!member) {
+      throw new NotFoundException('Üye bulunamadı');
     }
 
     const startDate = dto.startDate ? new Date(dto.startDate) : new Date();
@@ -158,13 +148,13 @@ export class MembersService {
     return this.prisma.$transaction(async (tx) => {
       const memberPackage = await tx.memberPackage.create({
         data: {
-          studioId: dto.studioId,
+          studioId,
           memberId: dto.memberId,
           packageDefinitionId: pkgDef.id,
-          sessionType: pkgDef.sessionType,
-          totalSessions: pkgDef.totalSessions,
-          usedSessions: 0,
-          remainingSessions: pkgDef.totalSessions,
+          entitlementKind: pkgDef.entitlementKind,
+          totalUnits: pkgDef.totalUnits,
+          usedUnits: 0,
+          remainingUnits: pkgDef.totalUnits,
           status: 'ACTIVE',
           startDate,
           endDate,
@@ -173,7 +163,7 @@ export class MembersService {
 
       await tx.payment.create({
         data: {
-          studioId: dto.studioId,
+          studioId,
           memberId: dto.memberId,
           memberPackageId: memberPackage.id,
           amount: dto.paidAmount,
@@ -187,25 +177,26 @@ export class MembersService {
     });
   }
 
-  async freezePackage(packageId: string, studioId: string, days: number, reason: string) {
+  async freezePackage(packageId: string, tenant: TenantContext, dto: FreezePackageInput) {
+    const studioId = tenant.studioId;
+
     const memberPackage = await this.prisma.memberPackage.findFirst({
       where: { id: packageId, studioId },
       include: { packageDefinition: true },
     });
-
     if (!memberPackage) {
       throw new NotFoundException('Paket bulunamadı');
     }
 
-    if (days > memberPackage.packageDefinition.freezeDaysAllowed) {
+    if (dto.days > memberPackage.packageDefinition.freezeDaysAllowed) {
       throw new BadRequestException(
         `Bu paket en fazla ${memberPackage.packageDefinition.freezeDaysAllowed} gün dondurulabilir.`,
       );
     }
 
     const now = new Date();
-    const freezeUntil = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
-    const newEndDate = new Date(memberPackage.endDate.getTime() + days * 24 * 60 * 60 * 1000);
+    const freezeUntil = new Date(now.getTime() + dto.days * 24 * 60 * 60 * 1000);
+    const newEndDate = new Date(memberPackage.endDate.getTime() + dto.days * 24 * 60 * 60 * 1000);
 
     return this.prisma.$transaction(async (tx) => {
       await tx.packageFreezeHistory.create({
@@ -213,7 +204,7 @@ export class MembersService {
           memberPackageId: packageId,
           freezeStartDate: now,
           freezeEndDate: freezeUntil,
-          reason,
+          reason: dto.reason,
         },
       });
 
@@ -226,5 +217,37 @@ export class MembersService {
         },
       });
     });
+  }
+
+  /** Shapes a member profile row into a response, masking contact/health fields by permission. */
+  private toDetail(member: any, tenant: TenantContext) {
+    const user = member.membership?.user;
+    const dto: Record<string, unknown> = {
+      id: member.id,
+      membershipId: member.membershipId,
+      studioId: member.studioId,
+      firstName: user?.firstName,
+      lastName: user?.lastName,
+      birthDate: member.birthDate,
+      familyGroupId: member.familyGroupId ?? null,
+      notes: member.notes ?? null,
+      packages: member.packages,
+      bookings: member.bookings,
+      payments: member.payments,
+      bookingsCount: member._count?.bookings,
+    };
+
+    // Any phone number, including the emergency contact's, is contact data.
+    if (tenant.permissions.has('members.contact.view')) {
+      dto.phone = user?.phone;
+      dto.email = user?.email;
+      dto.emergencyContactPhone = member.emergencyContactPhone ?? null;
+    }
+    if (tenant.permissions.has('members.health.view')) {
+      dto.medicalConditions = member.medicalConditions ?? null;
+      dto.emergencyContactName = member.emergencyContactName ?? null;
+    }
+
+    return dto;
   }
 }

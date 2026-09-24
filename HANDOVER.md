@@ -44,7 +44,7 @@ CI/CD ve güvenlik (çalışır ve yerelde uçtan uca test edildi):
 - CodeQL, dependency review, TruffleHog, zizmor, actionlint, OpenSSF Scorecard, Dependabot (7 gün bekleme, major'lar ayrı PR). Tüm action'lar SHA ile sabitli.
 - Ajan workflow'ları (maliyet kademeli): Haiku issue etiketleme ve CI hata teşhisi; Haiku/Sonnet PR inceleme (diff boyutuna göre); `@claude` Sonnet, `/opus` ile Opus. `CLAUDE_AGENTS_ENABLED` değişkeni ve API anahtarı eklenene kadar pasif.
 
-Eksikler: web API'ye bağlı değil; mobil iskelet; SMS/WhatsApp sağlayıcı yok; süper-admin yok; migration klasörü yok (1.1'de ilk migration oluşturulacak); test kapsamı düşük.
+Eksikler: canlı güvenlik senaryoları (23 senaryo, yerelde geçti) Jest e2e testine çevrilip CI'da Postgres ile koşmalı; yüzde bazlı hakediş için seans fiyat kaynağı tanımlanmalı; web API'ye bağlı değil; mobil iskelet; SMS/WhatsApp sağlayıcı yok; süper-admin yok; test kapsamı düşük.
 
 Sahibin yapması gereken GitHub ayarları: `docs/CICD_GUIDE.md` "Repository settings" bölümü.
 
@@ -83,8 +83,8 @@ Ekle:
 - 0.3 `docs/design-refs/` klasörü ve `packages/shared/src/design/tokens.ts` iskeleti (yapıldı)
 
 ### 1. Şema ve çekirdek API
-- 1.1 Bölüm 5'teki şema revizyonu, migration, yeni seed (iki stüdyo + bir PT + bir fizyoterapi örneği)
-- 1.2 Permission kataloğu, `RoleTemplate`, `PermissionGuard`, `@RequirePermission`
+- 1.1 Bölüm 5'teki şema revizyonu, migration, yeni seed (iki stüdyo + bir PT + bir fizyoterapi örneği) (yapıldı: ilk migration, veritabanı seviyesinde ekipman çakışma kısıtı, tek sahip / tek aktif abonelik kısıtları, 4 işletmeli seed)
+- 1.2 Permission kataloğu, `RoleTemplate`, `PermissionGuard`, `@RequirePermission` (yapıldı: varsayılan reddeden guard, her istekte üyelik ve izinlerin DB'den yüklenmesi, eğitmen telefon göremez; kalan: rol yönetimi uç noktaları)
 - 1.3 Global `User` + `Membership` + telefon OTP auth + `InviteToken` uç noktaları
 - 1.4 `ServiceType`, `Resource`, çakışma kontrolü kaynak bazlı; bekleme listesi; iptal politikası motoru; eğitmen yerine geçme
 - 1.5 Hak modeli (seans/süre/kredi), dondurma, devir, aile hesabı
