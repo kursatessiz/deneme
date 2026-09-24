@@ -3,6 +3,7 @@ import { PaymentsService } from './payments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PaymentProviderRegistry } from './providers/payment-provider.registry';
+import { PromotionsService } from '../promotions/promotions.service';
 import { PaymentProvider, PaymentStatus } from '@platform/database';
 import type { TenantContext } from '../auth/tenant-context';
 
@@ -29,6 +30,9 @@ describe('PaymentsService - refunds', () => {
     branchId: null,
     amount: '1000.00',
     refundedAmount: '0.00',
+    giftCardAmount: '0.00',
+    giftCardRefunded: '0.00',
+    giftCardId: null,
     currency: 'TRY',
     paymentStatus: PaymentStatus.COMPLETED,
     provider: PaymentProvider.MOCK,
@@ -50,6 +54,7 @@ describe('PaymentsService - refunds', () => {
       prisma as unknown as PrismaService,
       { notifyUser: jest.fn() } as unknown as NotificationsService,
       providers as unknown as PaymentProviderRegistry,
+      {} as unknown as PromotionsService,
     );
   });
 

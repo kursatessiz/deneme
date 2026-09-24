@@ -2,6 +2,8 @@ import {
   BookingStatus,
   CommissionType,
   EntitlementKind,
+  GiftCardStatus,
+  GiftCardTransactionType,
   MemberSubscriptionStatus,
   MembershipStatus,
   PackageStatus,
@@ -9,6 +11,7 @@ import {
   PaymentMethod,
   PaymentProvider,
   PaymentStatus,
+  PromoCodeKind,
 } from './enums';
 import type { PermissionKey } from './permissions';
 import type { AppearancePreference, GradientPresetKey, TenantTheme } from './design/tokens';
@@ -368,4 +371,96 @@ export interface ProviderCheckoutResult {
   /** Mock adapter resolves immediately; real adapters return a redirect URL instead. */
   status: 'PENDING' | 'COMPLETED';
   checkoutUrl?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Sales tools: trial offers, promo codes, gift cards (W9)
+// ---------------------------------------------------------------------------
+
+/** Public listing of a studio's active trial offers (no auth, by slug). */
+export interface TrialOfferDTO {
+  packageDefinitionId: string;
+  name: string;
+  price: string;
+  currency: string;
+  totalUnits: number | null;
+  validityDays: number;
+}
+
+export interface PromoCodeDTO {
+  id: string;
+  studioId: string;
+  code: string;
+  kind: PromoCodeKind;
+  value: string;
+  validFrom?: string | null;
+  validTo?: string | null;
+  maxRedemptions?: number | null;
+  redeemedCount: number;
+  perUserLimit: number;
+  minAmount?: string | null;
+  applicablePackageDefinitionIds: string[];
+  newMembersOnly: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface PromoRedemptionDTO {
+  id: string;
+  promoCodeId: string;
+  userId: string;
+  paymentId: string;
+  discountAmount: string;
+  createdAt: string;
+}
+
+/** Preview of what a code would discount, without redeeming it. */
+export interface PromoPreviewDTO {
+  valid: boolean;
+  reason?: string;
+  basePrice: string;
+  discountAmount: string;
+  finalAmount: string;
+  bonusUnits: number;
+}
+
+export interface GiftCardDTO {
+  id: string;
+  studioId: string;
+  last4: string;
+  initialAmount: string;
+  balance: string;
+  currency: string;
+  purchaserUserId?: string | null;
+  recipientName?: string | null;
+  recipientPhone?: string | null;
+  message?: string | null;
+  expiresAt?: string | null;
+  status: GiftCardStatus;
+  createdAt: string;
+}
+
+/** Returned once, right after a gift card is issued: the only time the full code is shown. */
+export interface GiftCardIssuedDTO extends GiftCardDTO {
+  code: string;
+}
+
+export interface GiftCardTransactionDTO {
+  id: string;
+  giftCardId: string;
+  type: GiftCardTransactionType;
+  amount: string;
+  paymentId?: string | null;
+  actorUserId?: string | null;
+  note?: string | null;
+  createdAt: string;
+}
+
+/** Member self-service balance check result; never reveals the studio-wide card list. */
+export interface GiftCardBalanceDTO {
+  last4: string;
+  balance: string;
+  currency: string;
+  status: GiftCardStatus;
+  expiresAt?: string | null;
 }

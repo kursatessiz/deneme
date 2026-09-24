@@ -112,6 +112,33 @@ enum PaymentAttemptStatus {
   PENDING
 }
 
+/// W9 sales tools: promo codes, gift cards, trial offers.
+enum PromoCodeKind {
+  PERCENT
+  FIXED_AMOUNT
+  FREE_UNITS
+}
+
+enum GiftCardStatus {
+  ACTIVE
+  REDEEMED
+  EXPIRED
+  CANCELLED
+}
+
+enum GiftCardTransactionType {
+  ISSUE
+  REDEEM
+  REFUND
+  ADJUST
+}
+
+/// What a RedemptionCounter row tracks a per-user count against.
+enum RedemptionCounterSubject {
+  TRIAL_PACKAGE
+  PROMO_CODE
+}
+
 enum SubscriptionStatus {
   TRIALING
   ACTIVE
@@ -316,6 +343,12 @@ model Studio {
   auditLogs             AuditLog[]
   messageTemplates      MessageTemplate[]
   communicationConsents CommunicationConsent[]
+  trialRedemptions      TrialRedemption[]
+  promoCodes            PromoCode[]
+  promoRedemptions      PromoRedemption[]
+  giftCards             GiftCard[]
+  giftCardTransactions  GiftCardTransaction[]
+  redemptionCounters    RedemptionCounter[]
 
   @@map("studios")
 }
@@ -404,6 +437,11 @@ model User {
   smsTransactions       SmsTransaction[]
   auditLogs             AuditLog[]
   communicationConsents CommunicationConsent[]
+  trialRedemptions      TrialRedemption[]
+  promoCodesCreated     PromoCode[]              @relation("PromoCodeCreatedBy")
+  promoRedemptions      PromoRedemption[]
+  giftCardsPurchased    GiftCard[]               @relation("GiftCardPurchaser")
+  giftCardTransactions  GiftCardTransaction[]    @relation("GiftCardTransactionActor")
 
   @@map("users")
 }
@@ -752,14 +790,19 @@ model PackageDefinition {
   isTransferable    Boolean         @default(false) @map("is_transferable")
   maxFamilyMembers  Int             @default(1) @map("max_family_members")
   isActive          Boolean         @default(true) @map("is_active")
+  /// W9: a trial offer. Limited to trialLimitPerUser purchases per global user at this studio.
+  isTrial           Boolean         @default(false) @map("is_trial")
+  trialLimitPerUser Int             @default(1) @map("trial_limit_per_user")
   createdAt         DateTime        @default(now()) @map("created_at")
 
-  studio         Studio                     @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  services       PackageDefinitionService[]
-  memberPackages MemberPackage[]
-  subscriptions  MemberSubscription[]
+  studio           Studio                     @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  services         PackageDefinitionService[]
+  memberPackages   MemberPackage[]
+  subscriptions    MemberSubscription[]
+  trialRedemptions TrialRedemption[]
 
   @@index([studioId, isActive])
+  @@index([studioId, isTrial])
   @@map("package_definitions")
 }
 
@@ -800,6 +843,7 @@ model MemberPackage {
   bookings          Booking[]
   payments          Payment[]
   waitlistEntries   Waitlist[]
+  trialRedemptions  TrialRedemption[]
 
   @@index([studioId, memberId, status])
   @@map("member_packages")
@@ -1039,18 +1083,32 @@ model Payment {
   /// created its MemberPackage: { packageDefinitionId, startDate }.
   metadata             Json?
   paidAt               DateTime         @default(now()) @map("paid_at")
+  /// W9: promo code applied to this sale, and the amount it discounted off the list price.
+  promoCodeId          String?          @map("promo_code_id") @db.Uuid
+  discountAmount       Decimal          @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  /// W9: gift card used to cover part or all of this sale, and how much of it (and of any
+  /// refund) has moved through that card so far.
+  giftCardId           String?          @map("gift_card_id") @db.Uuid
+  giftCardAmount       Decimal          @default(0) @map("gift_card_amount") @db.Decimal(10, 2)
+  giftCardRefunded     Decimal          @default(0) @map("gift_card_refunded") @db.Decimal(10, 2)
 
-  studio             Studio              @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  member             MemberProfile       @relation(fields: [memberId], references: [id])
-  memberPackage      MemberPackage?      @relation(fields: [memberPackageId], references: [id], onDelete: SetNull)
-  memberSubscription MemberSubscription? @relation(fields: [memberSubscriptionId], references: [id], onDelete: SetNull)
-  storedCard         StoredCard?         @relation(fields: [storedCardId], references: [id], onDelete: SetNull)
-  branch             Branch?             @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  studio             Studio                @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  member             MemberProfile         @relation(fields: [memberId], references: [id])
+  memberPackage      MemberPackage?        @relation(fields: [memberPackageId], references: [id], onDelete: SetNull)
+  memberSubscription MemberSubscription?   @relation(fields: [memberSubscriptionId], references: [id], onDelete: SetNull)
+  storedCard         StoredCard?           @relation(fields: [storedCardId], references: [id], onDelete: SetNull)
+  branch             Branch?               @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  promoCode          PromoCode?            @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
+  giftCard           GiftCard?             @relation(fields: [giftCardId], references: [id], onDelete: SetNull)
   attempts           PaymentAttempt[]
+  promoRedemption    PromoRedemption?
+  giftCardTxs        GiftCardTransaction[]
 
   @@index([studioId, paidAt])
   @@index([branchId, paidAt])
   @@index([provider, providerReference])
+  @@index([promoCodeId])
+  @@index([giftCardId])
   @@map("payments")
 }
 
@@ -1126,6 +1184,150 @@ model PaymentAttempt {
 
   @@index([memberSubscriptionId])
   @@map("payment_attempts")
+}
+
+// ---------------------------------------------------------------------------
+// W9: sales tools (trial offers, promo codes, gift cards)
+// ---------------------------------------------------------------------------
+
+/// One (studioId, userId, packageDefinitionId) trial purchase, so the trial
+/// limit check + insert stays race-safe under concurrent checkouts.
+model TrialRedemption {
+  id                  String   @id @default(uuid()) @db.Uuid
+  studioId            String   @map("studio_id") @db.Uuid
+  userId              String   @map("user_id") @db.Uuid
+  packageDefinitionId String   @map("package_definition_id") @db.Uuid
+  memberPackageId     String   @map("member_package_id") @db.Uuid
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  studio            Studio            @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  packageDefinition PackageDefinition @relation(fields: [packageDefinitionId], references: [id], onDelete: Cascade)
+  memberPackage     MemberPackage     @relation(fields: [memberPackageId], references: [id], onDelete: Cascade)
+  user              User              @relation(fields: [userId], references: [id])
+
+  @@index([studioId, userId, packageDefinitionId])
+  @@map("trial_redemptions")
+}
+
+/// Generic per-user redemption counter, shared by the trial-offer limit and
+/// the promo code per-user limit. Race-safe: a conditional updateMany
+/// (count < limit) increments an existing row, a unique-constraint-guarded
+/// create seeds the first one.
+model RedemptionCounter {
+  id        String                   @id @default(uuid()) @db.Uuid
+  studioId  String                   @map("studio_id") @db.Uuid
+  subject   RedemptionCounterSubject
+  subjectId String                   @map("subject_id") @db.Uuid
+  userId    String                   @map("user_id") @db.Uuid
+  count     Int                      @default(0)
+  updatedAt DateTime                 @updatedAt @map("updated_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@unique([studioId, subject, subjectId, userId])
+  @@map("redemption_counters")
+}
+
+model PromoCode {
+  id                             String        @id @default(uuid()) @db.Uuid
+  studioId                       String        @map("studio_id") @db.Uuid
+  /// Always stored upper-case; unique per studio, case-insensitively.
+  code                           String        @db.VarChar(40)
+  kind                           PromoCodeKind
+  value                          Decimal       @db.Decimal(10, 2)
+  validFrom                      DateTime?     @map("valid_from")
+  validTo                        DateTime?     @map("valid_to")
+  maxRedemptions                 Int?          @map("max_redemptions")
+  redeemedCount                  Int           @default(0) @map("redeemed_count")
+  perUserLimit                   Int           @default(1) @map("per_user_limit")
+  minAmount                      Decimal?      @map("min_amount") @db.Decimal(10, 2)
+  /// Empty means every package definition of the studio qualifies.
+  applicablePackageDefinitionIds String[]      @default([]) @map("applicable_package_definition_ids")
+  newMembersOnly                 Boolean       @default(false) @map("new_members_only")
+  isActive                       Boolean       @default(true) @map("is_active")
+  createdByUserId                String        @map("created_by_user_id") @db.Uuid
+  createdAt                      DateTime      @default(now()) @map("created_at")
+  updatedAt                      DateTime      @updatedAt @map("updated_at")
+
+  studio      Studio            @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  createdBy   User              @relation("PromoCodeCreatedBy", fields: [createdByUserId], references: [id])
+  redemptions PromoRedemption[]
+  payments    Payment[]
+
+  @@unique([studioId, code])
+  @@index([studioId, isActive])
+  @@map("promo_codes")
+}
+
+/// One redemption of a promo code, tied 1:1 to the payment it discounted.
+model PromoRedemption {
+  id             String   @id @default(uuid()) @db.Uuid
+  promoCodeId    String   @map("promo_code_id") @db.Uuid
+  studioId       String   @map("studio_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  paymentId      String   @unique @map("payment_id") @db.Uuid
+  discountAmount Decimal  @map("discount_amount") @db.Decimal(10, 2)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  promoCode PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  studio    Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  payment   Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([promoCodeId, userId])
+  @@index([studioId, userId])
+  @@map("promo_redemptions")
+}
+
+/// A gift card's real code is shown once, at creation. Only its sha256 hash
+/// and last 4 characters are stored, so a leaked database row cannot be
+/// spent, and balance checks are a constant-time indexed hash lookup.
+model GiftCard {
+  id              String         @id @default(uuid()) @db.Uuid
+  studioId        String         @map("studio_id") @db.Uuid
+  codeHash        String         @map("code_hash") @db.VarChar(64)
+  last4           String         @map("last4") @db.VarChar(4)
+  initialAmount   Decimal        @map("initial_amount") @db.Decimal(10, 2)
+  balance         Decimal        @db.Decimal(10, 2)
+  currency        String         @default("TRY") @db.VarChar(3)
+  purchaserUserId String?        @map("purchaser_user_id") @db.Uuid
+  recipientName   String?        @map("recipient_name") @db.VarChar(120)
+  recipientPhone  String?        @map("recipient_phone") @db.VarChar(20)
+  message         String?        @db.Text
+  expiresAt       DateTime?      @map("expires_at")
+  status          GiftCardStatus @default(ACTIVE)
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  studio       Studio                @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  purchaser    User?                 @relation("GiftCardPurchaser", fields: [purchaserUserId], references: [id], onDelete: SetNull)
+  transactions GiftCardTransaction[]
+  payments     Payment[]
+
+  @@unique([studioId, codeHash])
+  @@index([studioId, status])
+  @@index([purchaserUserId])
+  @@map("gift_cards")
+}
+
+model GiftCardTransaction {
+  id          String                  @id @default(uuid()) @db.Uuid
+  giftCardId  String                  @map("gift_card_id") @db.Uuid
+  studioId    String                  @map("studio_id") @db.Uuid
+  type        GiftCardTransactionType
+  amount      Decimal                 @db.Decimal(10, 2)
+  paymentId   String?                 @map("payment_id") @db.Uuid
+  actorUserId String?                 @map("actor_user_id") @db.Uuid
+  note        String?                 @db.Text
+  createdAt   DateTime                @default(now()) @map("created_at")
+
+  giftCard GiftCard @relation(fields: [giftCardId], references: [id], onDelete: Cascade)
+  studio   Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  payment  Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  actor    User?    @relation("GiftCardTransactionActor", fields: [actorUserId], references: [id])
+
+  @@index([giftCardId, createdAt])
+  @@map("gift_card_transactions")
 }
 
 model Expense {

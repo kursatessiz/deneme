@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { PromotionsModule } from '../promotions/promotions.module';
 import { PaymentsController } from './payments.controller';
 import { PaymentsWebhookController } from './payments-webhook.controller';
 import { DunningController } from './dunning.controller';
@@ -11,7 +12,7 @@ import { PaytrPaymentProvider } from './providers/paytr-payment.provider';
 import { PaymentProviderRegistry } from './providers/payment-provider.registry';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, PromotionsModule],
   controllers: [PaymentsController, PaymentsWebhookController, DunningController],
   providers: [
     PaymentsService,
