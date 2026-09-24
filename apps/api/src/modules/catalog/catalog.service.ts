@@ -235,6 +235,7 @@ export class CatalogService {
           cancellationPolicyId: dto.cancellationPolicyId,
           commissionRuleId: dto.commissionRuleId,
           requiresQualification: dto.requiresQualification,
+          healthActivityType: dto.healthActivityType,
           requiredResourceTypes: {
             create: dto.requiredResourceTypes.map((r) => ({ resourceTypeId: r.resourceTypeId, quantity: r.quantity })),
           },
@@ -287,6 +288,7 @@ export class CatalogService {
             cancellationPolicyId: dto.cancellationPolicyId === null ? null : dto.cancellationPolicyId,
             commissionRuleId: dto.commissionRuleId === null ? null : dto.commissionRuleId,
             requiresQualification: dto.requiresQualification,
+            healthActivityType: dto.healthActivityType,
           },
           include: { requiredResourceTypes: true },
         });

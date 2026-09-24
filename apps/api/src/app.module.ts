@@ -32,6 +32,7 @@ import { ApiKeysModule } from './modules/api-keys/api-keys.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { PublicApiModule } from './modules/public-api/public-api.module';
 import { PartnersModule } from './modules/partners/partners.module';
+import { MemberHealthModule } from './modules/member-health/member-health.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -73,6 +74,7 @@ import { validateEnv } from './config/env';
     PublicApiModule,
     PartnersModule,
     HealthModule,
+    MemberHealthModule,
   ],
 })
 export class AppModule {}

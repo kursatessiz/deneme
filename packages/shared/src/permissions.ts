@@ -15,7 +15,9 @@ export const PERMISSIONS = {
 
   'members.view': 'Üye listesini ve kartını görüntüleme',
   'members.contact.view': 'Üye telefon ve e-posta bilgisini görme',
-  'members.health.view': 'Üye sağlık notlarını görme',
+  // Also gates the opt-in Apple Health / Health Connect trend view on the
+  // member card (W21); the member's shareWithStudio toggle must be on too.
+  'members.health.view': 'Üye sağlık notlarını ve sağlık verisi eğilimlerini görme',
   'members.manage': 'Üye ekleme, düzenleme, davet gönderme',
 
   'catalog.view': 'Hizmet, kaynak ve iptal politikası kataloğunu görüntüleme',

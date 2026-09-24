@@ -66,7 +66,15 @@
         {
           "cameraPermission": "Stüdyo QR kodunu ve check-in kodlarını taramak için kameraya erişim gerekir."
         }
-      ]
+      ],
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "Katıldığınız seansları ve isterseniz günlük adım, aktif enerji ve dinlenme nabzınızı okumak için Sağlık verilerinize erişim istiyoruz. Yalnızca Hesabım > Sağlık entegrasyonu ekranından açtığınızda kullanılır.",
+          "NSHealthUpdateUsageDescription": "Katıldığınız bir seans bittiğinde, seans türünü ve süresini Sağlık uygulamanıza antrenman olarak yazmak için izin istiyoruz. Yalnızca Hesabım > Sağlık entegrasyonu ekranından açtığınızda kullanılır."
+        }
+      ],
+      "react-native-health-connect"
     ],
     "extra": {
       "apiUrl": "http://localhost:4000"

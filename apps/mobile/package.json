@@ -19,6 +19,7 @@
     "@expo-google-fonts/nunito-sans": "^0.4.2",
     "@expo-google-fonts/schibsted-grotesk": "^0.4.2",
     "@expo/ui": "~57.0.20",
+    "@kingstinct/react-native-healthkit": "^16.0.0",
     "@platform/shared": "workspace:*",
     "expo": "~57.0.25",
     "expo-calendar": "~57.0.5",
@@ -38,6 +39,7 @@
     "react-native": "0.86.3",
     "react-native-android-widget": "^0.22.1",
     "react-native-qrcode-svg": "^6.3.26",
+    "react-native-health-connect": "^4.1.3",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-svg": "15.15.5"
