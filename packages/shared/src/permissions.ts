@@ -40,6 +40,9 @@ export const PERMISSIONS = {
 
   'notifications.manage': 'Bildirim şablonları ve SMS kredisi',
   'reports.view': 'Raporları görüntüleme',
+
+  'leads.view': 'Potansiyel üyeleri görüntüleme',
+  'leads.manage': 'Potansiyel üye ekleme, aşama değiştirme, üyeliğe dönüştürme',
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
@@ -83,6 +86,8 @@ export const DEFAULT_ROLE_TEMPLATES: readonly DefaultRoleTemplate[] = [
       'packages.sell',
       'finance.view',
       'finance.manage',
+      'leads.view',
+      'leads.manage',
     ],
   },
   {

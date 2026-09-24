@@ -20,6 +20,8 @@ erDiagram
     Studio ||--o{ Payment : has
     Studio ||--o{ SmsWallet : has
     Studio ||--o{ NotificationLog : has
+    Studio ||--o{ Lead : has
+    Studio ||--o{ LeadActivity : has
 
     User ||--o{ Membership : creates
     Membership ||--o| MemberProfile : member
@@ -64,6 +66,12 @@ erDiagram
     Booking ||--o{ BookingResource : assigns
 
     NotificationLog ||--o{ SmsTransaction : triggers
+
+    Lead ||--o{ LeadActivity : logs
+    Membership ||--o{ Lead : owns
+    Membership ||--o{ LeadActivity : acts_on
+    ServiceType ||--o{ Lead : interests
+    Branch ||--o{ Lead : at
 ```
 
 ## Platform Seviyesi
@@ -145,6 +153,15 @@ erDiagram
 | `sms_transactions` | SMS defteri: satın alma, kullanım, düzeltme, iade | (studio_id, created_at) index; notification_log_id benzersiz |
 | `notification_logs` | Giden mesajlar: WhatsApp, SMS, push, email; fallback zinciri | (studio_id, created_at) index; tekrar deneme zincirleri için (fallback_of_id) kendine referans |
 
+## Potansiyel Müşteri Hattı (W11)
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `leads` | Henüz üye olmamış aday: kaynak (web formu, Instagram, kapıdan gelen, tavsiye, telefon, diğer), aşama (yeni, görüşüldü, deneme planlandı, deneme yapıldı, üye oldu, kaybedildi), sorumlu personel, bir sonraki takip tarihi, UTM alanları; üyeliğe dönüşünce `converted_membership_id` doldurulur | (studio_id, stage) index; (studio_id, phone) index; (studio_id, next_follow_up_at) index; `leads_open_phone_key`: (studio_id, phone) üzerinde **kısmi (partial) benzersiz index**, yalnızca stage NOT IN (WON, LOST) olan satırları kapsar -- Prisma şemasında ifade edilemediği için migration dosyasında elle eklenmiştir; `prisma migrate diff` bu index'i sürekli fark (drift) olarak gösterir, bu beklenen bir durumdur |
+| `lead_activities` | Bir adayın geçmişi: not, arama, mesaj, aşama değişikliği, deneme dersi kaydı | (lead_id, created_at) index |
+
+Açık (WON/LOST olmayan) bir aday aynı telefonla tekrar başvurursa (web formundan veya personel tarafından), yeni bir `leads` satırı açılmaz; bu, o adayın geçmişine bir `lead_activities` notu olarak eklenir (bkz. `LeadsService.create` ve `LeadsService.submitPublicForm`, `apps/api/src/modules/leads/leads.service.ts`). Aday WON veya LOST olduktan sonra aynı telefonla yeni bir aday açılabilir.
+
 ## Denetim (Audit)
 
 | Tablo | Amaç | Kısıtlar |
@@ -181,6 +198,8 @@ erDiagram
 8. **Stüdyo Başına Bir Owner Rolü**: (studio_id) WHERE is_owner üzerindeki benzersiz index, her stüdyo için tam olarak bir owner rol şablonu bulunmasını zorunlu kılar.
 
 9. **Stüdyo Başına Bir Canlı Abonelik**: (studio_id) WHERE status IN ('TRIALING', 'ACTIVE', 'PAST_DUE') üzerindeki benzersiz index, kiracı başına yalnızca bir aktif abonelik olmasını zorunlu kılar.
+
+10. **Açık Aday Başına Tek Telefon**: `leads_open_phone_key`, (studio_id, phone) üzerinde WHERE stage NOT IN ('WON', 'LOST') kısmi benzersiz index'i, aynı stüdyoda aynı telefonla birden fazla açık aday satırı oluşmasını engeller; kapanmış (WON/LOST) adaylar bu kısıtın dışındadır.
 
 ## Konvansiyonlar
 
