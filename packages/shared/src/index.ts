@@ -12,3 +12,4 @@ export * from './automations';
 export * from './churn';
 export * from './gamification';
 export * from './feedback';
+export * from './partners';

@@ -74,6 +74,10 @@ export class SchedulesService {
         bookings: {
           include: {
             member: { include: { membership: { include: { user: true } } } },
+            // W20: lets staff label a partner-booked attendee with the
+            // provider name (e.g. "ClassPass") instead of showing it as an
+            // ordinary member.
+            partnerConnection: { select: { provider: true, label: true } },
           },
         },
       },
@@ -279,14 +283,27 @@ export class SchedulesService {
         endTime: { gt: schedule.startTime },
         booking: { status: { in: ['CONFIRMED', 'ATTENDED'] } },
       },
-      include: { booking: { include: { member: { include: { membership: { include: { user: true } } } } } } },
+      include: {
+        booking: {
+          include: {
+            member: { include: { membership: { include: { user: true } } } },
+            // W20: labels a partner-booked spot holder with the provider
+            // name for staff, instead of showing them as an ordinary member.
+            partnerConnection: { select: { provider: true, label: true } },
+          },
+        },
+      },
     });
 
     const occupantsByResource = new Map<string, SpotOccupant[]>();
     for (const hold of activeHolds) {
       const list = occupantsByResource.get(hold.resourceId) ?? [];
       const user = hold.booking.member.membership.user;
-      list.push({ memberId: hold.booking.memberId, memberName: `${user.firstName} ${user.lastName}`.trim() });
+      const baseName = `${user.firstName} ${user.lastName}`.trim();
+      const memberName = hold.booking.partnerConnection
+        ? `${baseName} (${hold.booking.partnerConnection.label} - ${hold.booking.partnerConnection.provider})`
+        : baseName;
+      list.push({ memberId: hold.booking.memberId, memberName });
       occupantsByResource.set(hold.resourceId, list);
     }
 

@@ -45,6 +45,8 @@ export const PERMISSIONS = {
 
   'leads.view': 'Potansiyel üyeleri görüntüleme',
   'leads.manage': 'Potansiyel üye ekleme, aşama değiştirme, üyeliğe dönüştürme',
+
+  'integrations.partners.manage': 'Toplayıcı/pazaryeri partner bağlantılarını yönetme',
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;

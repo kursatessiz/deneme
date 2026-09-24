@@ -64,6 +64,16 @@ export const EnvSchema = z
     FORIBA_PASSWORD: z.string().min(1).optional(),
     UYUMSOFT_USERNAME: z.string().min(1).optional(),
     UYUMSOFT_PASSWORD: z.string().min(1).optional(),
+
+    // W20 partner integrations: AES-256-GCM key encrypting PartnerConnection
+    // credentials at rest, 32 raw bytes base64-encoded. Optional in
+    // dev/test; required in production once any partner connection exists
+    // (checked in PartnersService, since it is a data-dependent rule this
+    // schema alone cannot express).
+    INTEGRATION_ENCRYPTION_KEY: z
+      .string()
+      .refine((v) => Buffer.from(v, 'base64').length === 32, 'must be base64 for exactly 32 bytes')
+      .optional(),
   })
   .superRefine((env, ctx) => {
     if (env.OTP_TEST_CODE && env.NODE_ENV !== 'test') {

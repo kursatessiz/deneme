@@ -97,6 +97,23 @@ enum PaymentProvider {
   PAYTR
 }
 
+/// W20 aggregator/marketplace partner. MOCK is the only one implemented for
+/// real; the others are placeholders until a studio signs a contract (see
+/// docs/PARTNERS.md).
+enum PartnerProvider {
+  MOCK
+  CLASSPASS
+  URBAN_SPORTS
+  WELLHUB
+  OTHER
+}
+
+enum PartnerConnectionStatus {
+  ACTIVE
+  PAUSED
+  DISABLED
+}
+
 /// Auto-renewing member billing subscription, distinct from the platform
 /// Subscription (Studio -> Plan) above.
 enum MemberSubscriptionStatus {
@@ -475,6 +492,10 @@ model Studio {
   sessionRatings        SessionRating[]
   referralCodes         ReferralCode[]
   referrals             Referral[]
+  partnerConnections     PartnerConnection[]
+  partnerGuests          PartnerGuest[]
+  partnerSpotAllocations PartnerSpotAllocation[]
+  partnerWebhookEvents   PartnerWebhookEvent[]
 
   @@map("studios")
 }
@@ -576,6 +597,7 @@ model User {
   giftCardTransactions  GiftCardTransaction[]    @relation("GiftCardTransactionActor")
   riskSnapshotsContacted MemberRiskSnapshot[]    @relation("RiskSnapshotContactedBy")
   referredAs            Referral[]
+  partnerGuestOf        PartnerGuest[]
 
   @@map("users")
 }
@@ -1141,6 +1163,7 @@ model SessionSchedule {
   originalTrainer TrainerProfile? @relation("ScheduleOriginalTrainer", fields: [originalTrainerId], references: [id])
   bookings        Booking[]
   waitlist        Waitlist[]
+  partnerSpotAllocations PartnerSpotAllocation[]
 
   @@index([studioId, startTime, endTime])
   @@index([trainerId, startTime, endTime])
@@ -1165,18 +1188,34 @@ model Booking {
   /// Set once a "rate your session" push has been sent for this booking,
   /// so promptRecentAttendees() never sends it twice.
   ratingPromptSentAt DateTime?     @map("rating_prompt_sent_at")
+  /// W20: set when this booking was created by a partner/marketplace
+  /// integration (ClassPass, Urban Sports Club, Wellhub, ...) rather than
+  /// the studio or the member themselves. memberId still always points at a
+  /// real MemberProfile (see docs/PARTNERS.md for why); partnerGuestId
+  /// carries the partner's own guest identity for display/reporting.
+  partnerConnectionId    String?  @map("partner_connection_id") @db.Uuid
+  externalReservationId  String?  @map("external_reservation_id") @db.VarChar(120)
+  partnerGuestId         String?  @map("partner_guest_id") @db.Uuid
+  /// True once a partner-side cancellation has been applied to this booking;
+  /// such cancellations follow the partner's own policy flag, not the
+  /// studio's CancellationPolicy (see PartnerConnectionConfig).
+  partnerCancelled       Boolean  @default(false) @map("partner_cancelled")
   createdAt          DateTime      @default(now()) @map("created_at")
 
-  studio        Studio            @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  schedule      SessionSchedule   @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  member        MemberProfile     @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  memberPackage MemberPackage?    @relation(fields: [memberPackageId], references: [id])
-  resources     BookingResource[]
-  rating        SessionRating?
+  studio            Studio            @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  schedule          SessionSchedule   @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  member            MemberProfile     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberPackage     MemberPackage?    @relation(fields: [memberPackageId], references: [id])
+  partnerConnection PartnerConnection? @relation(fields: [partnerConnectionId], references: [id], onDelete: SetNull)
+  partnerGuest      PartnerGuest?      @relation(fields: [partnerGuestId], references: [id], onDelete: SetNull)
+  resources         BookingResource[]
+  rating            SessionRating?
 
   @@unique([scheduleId, memberId])
+  @@unique([partnerConnectionId, externalReservationId])
   @@index([studioId, status])
   @@index([memberId])
+  @@index([partnerConnectionId])
   @@map("bookings")
 }
 
@@ -2221,4 +2260,111 @@ model Invoice {
   @@index([branchId])
   @@index([status])
   @@map("invoices")
+}
+
+// ---------------------------------------------------------------------------
+// W20: Aggregator / marketplace partner integrations
+// ---------------------------------------------------------------------------
+
+/// A studio's connection to one aggregator/marketplace partner. Credentials
+/// are AES-256-GCM encrypted with INTEGRATION_ENCRYPTION_KEY before storage
+/// (see apps/api/src/common/crypto/credential-cipher.ts) and never decrypted
+/// back out through any API response. `config` is plain, non-secret Json
+/// validated by PartnerConnectionConfigSchema in @platform/shared.
+model PartnerConnection {
+  id                   String                  @id @default(uuid()) @db.Uuid
+  studioId             String                  @map("studio_id") @db.Uuid
+  provider             PartnerProvider
+  label                String                  @db.VarChar(80)
+  status               PartnerConnectionStatus @default(ACTIVE)
+  /// Base64 of iv (12 bytes) + authTag (16 bytes) + ciphertext, see
+  /// credential-cipher.ts. Null only for provider=MOCK in dev/test, where
+  /// encryption is optional (INTEGRATION_ENCRYPTION_KEY unset).
+  encryptedCredentials String?                 @map("encrypted_credentials") @db.Text
+  config               Json                    @default("{}")
+  lastSyncAt           DateTime?               @map("last_sync_at")
+  /// Consecutive outbound sync failures; reset to 0 on the next success.
+  consecutiveFailures  Int                     @default(0) @map("consecutive_failures")
+  createdAt            DateTime                @default(now()) @map("created_at")
+  updatedAt            DateTime                @updatedAt @map("updated_at")
+
+  studio        Studio                  @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  guests        PartnerGuest[]
+  allocations   PartnerSpotAllocation[]
+  bookings      Booking[]
+  webhookEvents PartnerWebhookEvent[]
+
+  @@unique([studioId, provider, label])
+  @@index([studioId, status])
+  @@map("partner_connections")
+}
+
+/// A guest brought in by a partner reservation. Always carries the partner's
+/// own identity (name, and phone when the partner supplied one); `userId`
+/// points at a global User (rule 6) so the guest can be recognised across
+/// repeat visits by phone. When the partner gives no phone, a placeholder
+/// User is created (isPlaceholder=true) purely to satisfy Booking.memberId,
+/// and PartnerGuest - not that placeholder - is the source of truth for the
+/// guest's displayed name.
+model PartnerGuest {
+  id              String   @id @default(uuid()) @db.Uuid
+  studioId        String   @map("studio_id") @db.Uuid
+  connectionId    String   @map("connection_id") @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  externalGuestId String?  @map("external_guest_id") @db.VarChar(120)
+  phone           String?  @db.VarChar(20)
+  fullName        String   @map("full_name") @db.VarChar(120)
+  isPlaceholder   Boolean  @default(false) @map("is_placeholder")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  studio     Studio            @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  connection PartnerConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookings   Booking[]
+
+  @@index([studioId, connectionId])
+  @@index([connectionId, externalGuestId])
+  @@map("partner_guests")
+}
+
+/// Spots reserved out of a session's free capacity for one partner
+/// connection. reservedSpots must never exceed the schedule's remaining
+/// capacity at the time it is set; released automatically (isReleased=true)
+/// releaseHoursBeforeStart hours before the session start, freeing the spots
+/// back to the general pool.
+model PartnerSpotAllocation {
+  id            String   @id @default(uuid()) @db.Uuid
+  studioId      String   @map("studio_id") @db.Uuid
+  connectionId  String   @map("connection_id") @db.Uuid
+  scheduleId    String   @map("schedule_id") @db.Uuid
+  reservedSpots Int      @default(0) @map("reserved_spots")
+  usedSpots     Int      @default(0) @map("used_spots")
+  releaseAt     DateTime @map("release_at")
+  isReleased    Boolean  @default(false) @map("is_released")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  studio     Studio            @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  connection PartnerConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  schedule   SessionSchedule   @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, scheduleId])
+  @@index([studioId, releaseAt, isReleased])
+  @@map("partner_spot_allocations")
+}
+
+/// Replay protection for inbound partner webhooks: the partner's own eventId
+/// is unique per connection, so a re-delivered webhook is a no-op.
+model PartnerWebhookEvent {
+  id           String   @id @default(uuid()) @db.Uuid
+  studioId     String   @map("studio_id") @db.Uuid
+  connectionId String   @map("connection_id") @db.Uuid
+  eventId      String   @map("event_id") @db.VarChar(120)
+  eventType    String   @map("event_type") @db.VarChar(40)
+  receivedAt   DateTime @default(now()) @map("received_at")
+
+  studio     Studio            @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  connection PartnerConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, eventId])
+  @@map("partner_webhook_events")
 }
