@@ -305,3 +305,61 @@ export const CancelSessionSchema = z.object({
   notifyMembers: z.boolean().default(true),
 });
 export type CancelSessionInput = z.infer<typeof CancelSessionSchema>;
+
+// ---------------------------------------------------------------------------
+// Branches
+// ---------------------------------------------------------------------------
+
+const optionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .transform((v) => (v === '' ? null : v))
+    .nullable()
+    .optional();
+
+export const CreateBranchSchema = z.object({
+  studioId: z.string().uuid(),
+  name: z.string().trim().min(2, 'Şube adı giriniz').max(100),
+  address: optionalText(500),
+  phone: optionalText(30),
+  email: z.string().trim().email('Geçerli bir e-posta giriniz').max(120).nullable().optional(),
+  timezone: optionalText(60),
+  sortOrder: z.number().int().min(0).max(999).default(0),
+});
+export type CreateBranchInput = z.infer<typeof CreateBranchSchema>;
+
+export const UpdateBranchSchema = CreateBranchSchema.omit({ studioId: true })
+  .partial()
+  .extend({ isActive: z.boolean().optional() });
+export type UpdateBranchInput = z.infer<typeof UpdateBranchSchema>;
+
+/** Empty list means the staff member may act on every branch. */
+export const SetStaffBranchesSchema = z.object({
+  branchIds: z.array(z.string().uuid()).max(100),
+});
+export type SetStaffBranchesInput = z.infer<typeof SetStaffBranchesSchema>;
+
+export const SetHomeBranchSchema = z.object({
+  branchId: z.string().uuid().nullable(),
+});
+export type SetHomeBranchInput = z.infer<typeof SetHomeBranchSchema>;
+
+/** Reporting window; defaults to the last 30 days, at most one year. */
+export const ReportRangeSchema = z
+  .object({
+    from: z.coerce.date().optional(),
+    to: z.coerce.date().optional(),
+  })
+  .transform(({ from, to }) => {
+    const end = to ?? new Date();
+    const start = from ?? new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    return { from: start, to: end };
+  })
+  .refine((r) => r.from < r.to, { message: 'Başlangıç tarihi bitişten önce olmalıdır', path: ['from'] })
+  .refine((r) => r.to.getTime() - r.from.getTime() <= 366 * 24 * 60 * 60 * 1000, {
+    message: 'Rapor aralığı en fazla bir yıl olabilir',
+    path: ['to'],
+  });
+export type ReportRange = z.infer<typeof ReportRangeSchema>;

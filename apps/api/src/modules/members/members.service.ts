@@ -2,15 +2,19 @@ import { Injectable, NotFoundException, BadRequestException, ConflictException }
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { CreateMemberInput, AssignPackageToMemberInput, FreezePackageInput } from '@platform/shared';
+import type { SetHomeBranchInput } from '@platform/shared';
+import { assertBranchAccess } from '../branches/branch-access';
 
 @Injectable()
 export class MembersService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(tenant: TenantContext, search?: string) {
+  async findAll(tenant: TenantContext, search?: string, homeBranchId?: string) {
+    if (homeBranchId) assertBranchAccess(tenant, homeBranchId);
     const members = await this.prisma.memberProfile.findMany({
       where: {
         studioId: tenant.studioId,
+        ...(homeBranchId ? { homeBranchId } : {}),
         ...(search
           ? {
               membership: {
@@ -37,6 +41,24 @@ export class MembersService {
     });
 
     return members.map((m) => this.toDetail(m, tenant));
+  }
+
+  /** Staff set a member's home branch; members may set their own. Null clears it. */
+  async setHomeBranch(tenant: TenantContext, memberId: string, dto: SetHomeBranchInput) {
+    const member = await this.prisma.memberProfile.findFirst({ where: { id: memberId, studioId: tenant.studioId } });
+    if (!member) throw new NotFoundException('Üye bulunamadı');
+    if (dto.branchId) {
+      const branch = await this.prisma.branch.findFirst({
+        where: { id: dto.branchId, studioId: tenant.studioId, isActive: true },
+      });
+      if (!branch) throw new BadRequestException('Seçilen şube bu işletmede bulunamadı veya pasif');
+    }
+    const updated = await this.prisma.memberProfile.update({
+      where: { id: member.id },
+      data: { homeBranchId: dto.branchId },
+      select: { id: true, homeBranchId: true },
+    });
+    return { memberId: updated.id, homeBranchId: updated.homeBranchId };
   }
 
   async findById(memberId: string, tenant: TenantContext) {

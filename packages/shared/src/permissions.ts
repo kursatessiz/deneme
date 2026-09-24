@@ -11,6 +11,7 @@ export const PERMISSIONS = {
   'studio.settings.manage': 'İşletme ayarlarını ve temayı düzenleme',
   'roles.manage': 'Rol ve yetkileri yönetme',
   'staff.manage': 'Personel davet etme ve yönetme',
+  'branches.manage': 'Şube ekleme, düzenleme ve personelin şube erişimini belirleme',
 
   'members.view': 'Üye listesini ve kartını görüntüleme',
   'members.contact.view': 'Üye telefon ve e-posta bilgisini görme',

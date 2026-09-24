@@ -50,6 +50,7 @@ describe('InvitesService', () => {
       permissions: new Set(permissions as any),
       memberProfileId: null,
       trainerProfileId: null,
+      branchIds: null,
     };
   }
 

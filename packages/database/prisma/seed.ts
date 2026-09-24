@@ -398,6 +398,12 @@ async function createZen(
   });
   count('branches');
 
+  // Second location: multi-branch scheduling, staff branch access and per-branch reports.
+  const secondBranch = await prisma.branch.create({
+    data: { studioId: studio.id, name: 'Kadikoy Sube', address: 'Moda Cad. No:12 Kadikoy, Istanbul', sortOrder: 1 },
+  });
+  count('branches');
+
   const policy = await prisma.cancellationPolicy.create({
     data: {
       studioId: studio.id,
@@ -435,6 +441,10 @@ async function createZen(
 
   const salon = await prisma.resource.create({
     data: { studioId: studio.id, branchId: branch.id, resourceTypeId: rtSalon.id, name: 'Ana Salon', capacity: 8 },
+  });
+  count('resources');
+  await prisma.resource.create({
+    data: { studioId: studio.id, branchId: secondBranch.id, resourceTypeId: rtSalon.id, name: 'Kadikoy Salon', capacity: 6 },
   });
   count('resources');
 

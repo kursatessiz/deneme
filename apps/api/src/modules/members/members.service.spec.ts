@@ -17,6 +17,7 @@ describe('MembersService', () => {
     permissions: new Set(['members.view', 'members.manage', 'members.contact.view', 'members.health.view']),
     memberProfileId: null,
     trainerProfileId: null,
+    branchIds: null,
   };
 
   const mockPrisma = {

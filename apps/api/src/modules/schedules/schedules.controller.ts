@@ -36,11 +36,12 @@ export class SchedulesController {
     @Query('endDate') endDate: string,
     @Query('trainerId') trainerId?: string,
     @Query('resourceId') resourceId?: string,
+    @Query('branchId') branchId?: string,
   ) {
     const start = startDate ? new Date(startDate) : new Date();
     const end = endDate ? new Date(endDate) : new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    return this.schedulesService.getSchedules(tenant, start, end, trainerId, resourceId);
+    return this.schedulesService.getSchedules(tenant, start, end, trainerId, resourceId, branchId);
   }
 
   @Post()

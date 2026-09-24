@@ -1,6 +1,6 @@
-import { Controller, Get, Post, Param, Query } from '@nestjs/common';
+import { Controller, ForbiddenException, Get, Post, Param, ParseUUIDPipe, Put, Query } from '@nestjs/common';
 import { MembersService } from './members.service';
-import { StudioScoped, RequirePermission } from '../auth/decorators/require-permission.decorator';
+import { StudioScoped, RequirePermission, SelfService } from '../auth/decorators/require-permission.decorator';
 import { Tenant } from '../auth/decorators/current-user.decorator';
 import { ZodBody } from '../../common/zod-body.pipe';
 import type { TenantContext } from '../auth/tenant-context';
@@ -11,6 +11,8 @@ import {
   AssignPackageToMemberInput,
   FreezePackageSchema,
   FreezePackageInput,
+  SetHomeBranchSchema,
+  SetHomeBranchInput,
 } from '@platform/shared';
 
 @Controller('members')
@@ -20,8 +22,29 @@ export class MembersController {
 
   @Get('studio/:studioId')
   @RequirePermission('members.view')
-  async findAll(@Tenant() tenant: TenantContext, @Query('search') search?: string) {
-    return this.membersService.findAll(tenant, search);
+  async findAll(
+    @Tenant() tenant: TenantContext,
+    @Query('search') search?: string,
+    @Query('homeBranchId') homeBranchId?: string,
+  ) {
+    return this.membersService.findAll(tenant, search, homeBranchId);
+  }
+
+  @Put('self/home-branch')
+  @SelfService()
+  async setOwnHomeBranch(@Tenant() tenant: TenantContext, @ZodBody(SetHomeBranchSchema) body: SetHomeBranchInput) {
+    if (!tenant.memberProfileId) throw new ForbiddenException('Bu işletmede üye profiliniz yok');
+    return this.membersService.setHomeBranch(tenant, tenant.memberProfileId, body);
+  }
+
+  @Put(':memberId/home-branch')
+  @RequirePermission('members.manage')
+  async setHomeBranch(
+    @Param('memberId', ParseUUIDPipe) memberId: string,
+    @Tenant() tenant: TenantContext,
+    @ZodBody(SetHomeBranchSchema) body: SetHomeBranchInput,
+  ) {
+    return this.membersService.setHomeBranch(tenant, memberId, body);
   }
 
   @Get(':memberId/studio/:studioId')

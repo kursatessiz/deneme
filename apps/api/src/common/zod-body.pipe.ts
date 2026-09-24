@@ -1,4 +1,4 @@
-import { BadRequestException, Body, PipeTransform } from '@nestjs/common';
+import { BadRequestException, Body, PipeTransform, Query } from '@nestjs/common';
 import type { ZodTypeAny, z } from 'zod';
 
 /** Validates with a shared Zod schema and returns 400 with field messages. */
@@ -18,3 +18,6 @@ export class ZodValidationPipe<T extends ZodTypeAny> implements PipeTransform<un
 }
 
 export const ZodBody = <T extends ZodTypeAny>(schema: T) => Body(new ZodValidationPipe(schema));
+
+/** Same as ZodBody for the whole query string. */
+export const ZodQuery = <T extends ZodTypeAny>(schema: T) => Query(new ZodValidationPipe(schema));

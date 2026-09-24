@@ -33,6 +33,7 @@ function membership(overrides: Record<string, unknown> = {}) {
     roleTemplate: { isOwner: false, permissions: [{ permissionKey: 'members.view' }, { permissionKey: 'unknown.key' }] },
     memberProfile: null,
     trainerProfile: { id: 't1' },
+    branchAccess: [],
     ...overrides,
   };
 }
@@ -57,6 +58,29 @@ describe('StudioTenantGuard', () => {
     expect(request.tenant?.studioId).toBe(STUDIO_A);
     expect([...(request.tenant?.permissions ?? [])]).toEqual(['members.view']);
     expect(request.tenant?.trainerProfileId).toBe('t1');
+  });
+
+  it('staff without branch grants may act on every branch', async () => {
+    prisma.membership.findUnique.mockResolvedValue(membership());
+    const req: Partial<AuthenticatedRequest> = { user, params: { studioId: STUDIO_A } };
+    await guard.canActivate(ctx(req));
+    expect(req.tenant?.branchIds).toBeNull();
+  });
+
+  it('branch grants restrict staff to those branches', async () => {
+    prisma.membership.findUnique.mockResolvedValue(membership({ branchAccess: [{ branchId: 'b1' }, { branchId: 'b2' }] }));
+    const req: Partial<AuthenticatedRequest> = { user, params: { studioId: STUDIO_A } };
+    await guard.canActivate(ctx(req));
+    expect([...(req.tenant?.branchIds ?? [])]).toEqual(['b1', 'b2']);
+  });
+
+  it('the owner is never branch-restricted', async () => {
+    prisma.membership.findUnique.mockResolvedValue(
+      membership({ roleTemplate: { isOwner: true, permissions: [] }, branchAccess: [{ branchId: 'b1' }] }),
+    );
+    const req: Partial<AuthenticatedRequest> = { user, params: { studioId: STUDIO_A } };
+    await guard.canActivate(ctx(req));
+    expect(req.tenant?.branchIds).toBeNull();
   });
 
   it('accepts the studio from the x-studio-id header', async () => {
@@ -150,6 +174,7 @@ describe('PermissionGuard', () => {
     permissions: new Set(['members.view', 'schedule.view'] as const),
     memberProfileId: null,
     trainerProfileId: null,
+    branchIds: null,
   };
 
   function handlerWith(meta: Record<string, unknown>) {

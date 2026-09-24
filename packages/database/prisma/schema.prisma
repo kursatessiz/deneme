@@ -283,15 +283,44 @@ model Branch {
   name      String   @db.VarChar(100)
   address   String?  @db.Text
   phone     String?  @db.VarChar(30)
+  email     String?  @db.VarChar(120)
+  /// Null uses the studio's timezone.
+  timezone  String?  @db.VarChar(60)
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
-  studio    Studio            @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  resources Resource[]
-  schedules SessionSchedule[]
-  expenses  Expense[]
+  studio      Studio             @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  resources   Resource[]
+  schedules   SessionSchedule[]
+  expenses    Expense[]
+  payments    Payment[]
+  staffAccess MembershipBranch[]
+  homeMembers MemberProfile[]    @relation("MemberHomeBranch")
 
+  @@unique([studioId, name])
+  /// Target of composite foreign keys that pin a row to the branch's studio.
+  @@unique([id, studioId])
   @@index([studioId])
   @@map("branches")
+}
+
+/// Branches a staff membership may act on. No rows means every branch;
+/// the owner role is never restricted.
+model MembershipBranch {
+  membershipId String   @map("membership_id") @db.Uuid
+  branchId     String   @map("branch_id") @db.Uuid
+  studioId     String   @map("studio_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  /// Composite key: a grant can only point at a branch of the same studio.
+  branch     Branch     @relation(fields: [branchId, studioId], references: [id, studioId], onDelete: Cascade)
+
+  @@id([membershipId, branchId])
+  @@index([studioId])
+  @@map("membership_branches")
 }
 
 // ---------------------------------------------------------------------------
@@ -346,12 +375,13 @@ model Membership {
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")
 
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  studio         Studio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  roleTemplate   RoleTemplate    @relation(fields: [roleTemplateId], references: [id])
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studio         Studio             @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  roleTemplate   RoleTemplate       @relation(fields: [roleTemplateId], references: [id])
   memberProfile  MemberProfile?
   trainerProfile TrainerProfile?
   consents       Consent[]
+  branchAccess   MembershipBranch[]
 
   @@unique([userId, studioId])
   @@index([studioId, status])
@@ -469,6 +499,8 @@ model MemberProfile {
   membershipId          String    @unique @map("membership_id") @db.Uuid
   studioId              String    @map("studio_id") @db.Uuid
   familyGroupId         String?   @map("family_group_id") @db.Uuid
+  /// Where the member usually trains; members may still book any branch.
+  homeBranchId          String?   @map("home_branch_id") @db.Uuid
   birthDate             DateTime? @map("birth_date") @db.Date
   emergencyContactName  String?   @map("emergency_contact_name") @db.VarChar(100)
   emergencyContactPhone String?   @map("emergency_contact_phone") @db.VarChar(20)
@@ -479,6 +511,7 @@ model MemberProfile {
 
   membership         Membership         @relation(fields: [membershipId], references: [id], onDelete: Cascade)
   familyGroup        FamilyGroup?       @relation(fields: [familyGroupId], references: [id], onDelete: SetNull)
+  homeBranch         Branch?            @relation("MemberHomeBranch", fields: [homeBranchId], references: [id], onDelete: SetNull)
   packages           MemberPackage[]
   bookings           Booking[]
   waitlistEntries    Waitlist[]
@@ -933,6 +966,8 @@ model Payment {
   studioId          String        @map("studio_id") @db.Uuid
   memberId          String        @map("member_id") @db.Uuid
   memberPackageId   String?       @map("member_package_id") @db.Uuid
+  /// Branch where the sale happened, for per-branch revenue.
+  branchId          String?       @map("branch_id") @db.Uuid
   amount            Decimal       @db.Decimal(10, 2)
   paymentMethod     PaymentMethod @map("payment_method")
   paymentStatus     PaymentStatus @default(COMPLETED) @map("payment_status")
@@ -944,8 +979,10 @@ model Payment {
   studio        Studio         @relation(fields: [studioId], references: [id], onDelete: Cascade)
   member        MemberProfile  @relation(fields: [memberId], references: [id])
   memberPackage MemberPackage? @relation(fields: [memberPackageId], references: [id], onDelete: SetNull)
+  branch        Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
   @@index([studioId, paidAt])
+  @@index([branchId, paidAt])
   @@map("payments")
 }
 

@@ -24,6 +24,7 @@ import type {
 import { Prisma } from '@platform/database';
 import type { CancellationPolicy, MemberPackage } from '@platform/database';
 import { evaluateCancellation, evaluateNoShow, FALLBACK_POLICY, PolicyTerms } from './cancellation-policy';
+import { assertBranchAccess, branchScope } from '../branches/branch-access';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const CAPACITY_FULL = 'Bu seansın kontenjanı doludur';
@@ -47,9 +48,11 @@ export class SchedulesService {
     endDate: Date,
     trainerId?: string,
     resourceId?: string,
+    branchId?: string,
   ) {
     const studioId = tenant.studioId;
     const canViewContact = tenant.permissions.has('members.contact.view');
+    const scope = branchScope(tenant, branchId);
 
     const schedules = await this.prisma.sessionSchedule.findMany({
       where: {
@@ -58,6 +61,7 @@ export class SchedulesService {
         endTime: { lte: endDate },
         ...(trainerId ? { trainerId } : {}),
         ...(resourceId ? { resourceId } : {}),
+        ...scope,
       },
       include: {
         resource: true,
@@ -94,6 +98,14 @@ export class SchedulesService {
       throw new BadRequestException('Bitiş saati başlangıç saatinden sonra olmalıdır');
     }
 
+    let branchId = dto.branchId ?? null;
+    if (branchId) {
+      const branch = await this.prisma.branch.findFirst({ where: { id: branchId, studioId, isActive: true } });
+      if (!branch) {
+        throw new BadRequestException('Seçilen şube bu işletmede bulunamadı veya pasif');
+      }
+    }
+
     if (dto.resourceId) {
       const resource = await this.prisma.resource.findFirst({
         where: { id: dto.resourceId, studioId, isMaintenance: false },
@@ -101,7 +113,17 @@ export class SchedulesService {
       if (!resource) {
         throw new BadRequestException('Seçilen kaynak bu işletmede bulunamadı veya bakımdadır');
       }
+      if (resource.branchId && branchId && resource.branchId !== branchId) {
+        throw new BadRequestException('Seçilen kaynak başka bir şubeye ait');
+      }
+      // A room of a branch places the session in that branch.
+      branchId = branchId ?? resource.branchId;
     }
+
+    if (tenant.branchIds !== null && !branchId) {
+      throw new BadRequestException('Şube seçiniz');
+    }
+    assertBranchAccess(tenant, branchId);
 
     if (dto.trainerId) {
       const trainer = await this.prisma.trainerProfile.findFirst({
@@ -140,7 +162,7 @@ export class SchedulesService {
           tx.sessionSchedule.create({
             data: {
               studioId,
-              branchId: dto.branchId,
+              branchId,
               serviceTypeId: serviceType.id,
               resourceId: dto.resourceId,
               trainerId: dto.trainerId,
@@ -159,6 +181,7 @@ export class SchedulesService {
   }
 
   async bookSession(tenant: TenantContext, dto: BookSessionInput) {
+    await this.assertScheduleBranch(tenant, dto.scheduleId);
     return this.book(tenant.studioId, dto);
   }
 
@@ -337,6 +360,7 @@ export class SchedulesService {
   }
 
   async cancelBooking(tenant: TenantContext, dto: CancelBookingInput) {
+    await this.assertBookingBranch(tenant, dto.bookingId);
     return this.cancel(tenant, dto, dto.waivePenalty);
   }
 
@@ -439,6 +463,7 @@ export class SchedulesService {
 
   async markNoShow(tenant: TenantContext, bookingId: string, dto: MarkNoShowInput) {
     const studioId = tenant.studioId;
+    await this.assertBookingBranch(tenant, bookingId);
     const booking = await this.prisma.booking.findFirst({
       where: { id: bookingId, studioId },
       include: {
@@ -498,6 +523,7 @@ export class SchedulesService {
   }
 
   async checkIn(tenant: TenantContext, bookingId: string) {
+    await this.assertBookingBranch(tenant, bookingId);
     const booking = await this.prisma.booking.findFirst({
       where: { id: bookingId, studioId: tenant.studioId },
     });
@@ -524,6 +550,7 @@ export class SchedulesService {
     if (!schedule) {
       throw new NotFoundException('Ders seansı bulunamadı');
     }
+    assertBranchAccess(tenant, schedule.branchId);
     const canViewContact = tenant.permissions.has('members.contact.view');
     const entries = await this.prisma.waitlist.findMany({
       where: { studioId: tenant.studioId, scheduleId },
@@ -534,6 +561,7 @@ export class SchedulesService {
   }
 
   async joinWaitlist(tenant: TenantContext, dto: JoinWaitlistInput) {
+    await this.assertScheduleBranch(tenant, dto.scheduleId);
     return this.join(tenant.studioId, dto);
   }
 
@@ -626,6 +654,8 @@ export class SchedulesService {
     }
     if (selfOnly) {
       this.assertSelf(tenant, entry.memberId, 'Yalnızca kendi bekleme listesi kaydınızı silebilirsiniz');
+    } else {
+      await this.assertScheduleBranch(tenant, entry.scheduleId);
     }
     const updated = await this.prisma.waitlist.updateMany({
       where: { id: entry.id, studioId: tenant.studioId, status: 'WAITING' },
@@ -728,6 +758,7 @@ export class SchedulesService {
    */
   async cancelSession(tenant: TenantContext, actorUserId: string, scheduleId: string, dto: CancelSessionInput) {
     const studioId = tenant.studioId;
+    await this.assertScheduleBranch(tenant, scheduleId);
     const reason = dto.reason ?? 'Seans işletme tarafından iptal edildi';
     const now = new Date();
 
@@ -825,6 +856,7 @@ export class SchedulesService {
     if (!schedule) {
       throw new NotFoundException('Ders seansı bulunamadı');
     }
+    assertBranchAccess(tenant, schedule.branchId);
     if (schedule.isCancelled) {
       throw new BadRequestException('Bu seans iptal edilmiştir');
     }
@@ -901,6 +933,25 @@ export class SchedulesService {
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
+
+  /** Branch-restricted staff may only act on sessions of their branches. Missing rows are left to the caller's 404. */
+  private async assertScheduleBranch(tenant: TenantContext, scheduleId: string) {
+    if (tenant.branchIds === null) return;
+    const schedule = await this.prisma.sessionSchedule.findFirst({
+      where: { id: scheduleId, studioId: tenant.studioId },
+      select: { branchId: true },
+    });
+    if (schedule) assertBranchAccess(tenant, schedule.branchId);
+  }
+
+  private async assertBookingBranch(tenant: TenantContext, bookingId: string) {
+    if (tenant.branchIds === null) return;
+    const booking = await this.prisma.booking.findFirst({
+      where: { id: bookingId, studioId: tenant.studioId },
+      select: { schedule: { select: { branchId: true } } },
+    });
+    if (booking) assertBranchAccess(tenant, booking.schedule.branchId);
+  }
 
   private assertSelf(tenant: TenantContext, memberId: string, message: string) {
     if (!tenant.memberProfileId || memberId !== tenant.memberProfileId) {

@@ -172,7 +172,7 @@ export class AuthService {
               },
             },
             roleTemplate: { include: { permissions: true } },
-            memberProfile: { select: { id: true } },
+            memberProfile: { select: { id: true, homeBranchId: true } },
             trainerProfile: { select: { id: true } },
           },
           orderBy: { createdAt: 'asc' },
@@ -195,6 +195,7 @@ export class AuthService {
       }),
       memberProfileId: m.memberProfile?.id ?? null,
       trainerProfileId: m.trainerProfile?.id ?? null,
+      homeBranchId: m.memberProfile?.homeBranchId ?? null,
       theme: toTenantTheme(m.studio),
     }));
 

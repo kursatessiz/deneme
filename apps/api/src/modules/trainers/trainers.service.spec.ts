@@ -17,6 +17,7 @@ describe('TrainersService', () => {
     permissions: new Set(['commissions.view.all']),
     memberProfileId: null,
     trainerProfileId: null,
+    branchIds: null,
   };
 
   const mockPrisma = {
