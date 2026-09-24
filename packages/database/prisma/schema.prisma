@@ -316,6 +316,8 @@ model Studio {
   auditLogs             AuditLog[]
   messageTemplates      MessageTemplate[]
   communicationConsents CommunicationConsent[]
+  automationRules       AutomationRule[]
+  automationRuns        AutomationRun[]
 
   @@map("studios")
 }
@@ -404,6 +406,7 @@ model User {
   smsTransactions       SmsTransaction[]
   auditLogs             AuditLog[]
   communicationConsents CommunicationConsent[]
+  automationRuns        AutomationRun[]
 
   @@map("users")
 }
@@ -1314,6 +1317,84 @@ model CommunicationConsent {
   @@index([studioId, status])
   @@index([iysSyncedAt])
   @@map("communication_consents")
+}
+
+// ---------------------------------------------------------------------------
+// W10: automated marketing and lifecycle flows
+// ---------------------------------------------------------------------------
+
+enum AutomationRuleType {
+  /// No attendance for N days and no active package.
+  WIN_BACK
+  /// A package ends in N days, or has at most M remaining units.
+  PACKAGE_EXPIRING
+  BIRTHDAY
+  /// N hours after a member's first ATTENDED booking.
+  FIRST_CLASS_FOLLOW_UP
+  /// N hours before a booking's session starts.
+  BOOKING_REMINDER
+  NO_SHOW_FOLLOW_UP
+}
+
+enum AutomationRunStatus {
+  SENT
+  SKIPPED
+  FAILED
+}
+
+/// A tenant-configured lifecycle/marketing rule. Params are validated against
+/// the shared discriminated-union Zod schema for `type` (see
+/// AutomationRuleParamsSchema in @platform/shared); never a hardcoded enum
+/// of session/business logic (rule 7).
+model AutomationRule {
+  id            String             @id @default(uuid()) @db.Uuid
+  studioId      String             @map("studio_id") @db.Uuid
+  type          AutomationRuleType
+  name          String             @db.VarChar(100)
+  /// Type-specific thresholds, e.g. { "noAttendanceDays": 30 }.
+  params        Json
+  /// MessageTemplate.key to render and send (see MESSAGE_TEMPLATE_KEYS).
+  templateKey   String             @map("template_key") @db.VarChar(60)
+  /// Optional preferred channel; falls back to the tenant's channel order.
+  channel       NotificationChannel?
+  /// Derived from `type` at creation time (reminders are transactional,
+  /// win-back/birthday are marketing) and re-validated by the evaluator.
+  isTransactional Boolean          @default(true) @map("is_transactional")
+  isActive      Boolean            @default(false) @map("is_active")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  studio Studio           @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  runs   AutomationRun[]
+
+  @@index([studioId, type])
+  @@index([studioId, isActive])
+  @@map("automation_rules")
+}
+
+/// One delivery attempt for one rule/user/target. The unique constraint is
+/// the at-most-once delivery guard: the evaluator inserts this row before
+/// sending, so a second evaluation of the same target is a no-op.
+model AutomationRun {
+  id            String               @id @default(uuid()) @db.Uuid
+  ruleId        String               @map("rule_id") @db.Uuid
+  studioId      String               @map("studio_id") @db.Uuid
+  userId        String               @map("user_id") @db.Uuid
+  /// The entity that triggered this run, e.g. a bookingId or memberPackageId.
+  targetRef     String               @map("target_ref") @db.VarChar(80)
+  scheduledFor  DateTime             @map("scheduled_for")
+  sentAt        DateTime?            @map("sent_at")
+  status        AutomationRunStatus
+  reason        String?              @db.Text
+  createdAt     DateTime             @default(now()) @map("created_at")
+
+  rule   AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  studio Studio         @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, userId, targetRef])
+  @@index([studioId, ruleId, createdAt])
+  @@map("automation_runs")
 }
 
 // ---------------------------------------------------------------------------

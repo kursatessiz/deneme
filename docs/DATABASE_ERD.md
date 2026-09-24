@@ -1,6 +1,6 @@
-# Pilates Studio OS Veritabanı Şeması
+# Platform Veritabanı Şeması
 
-Pilates Studio OS, her kiracının (stüdyonun) tam veri izolasyonuyla bağımsız çalıştığı çok kiracılı (multi-tenant) bir butik stüdyo yönetim sistemidir. Veritabanı, sıkı kiracı kapsamını (tenant scoping) zorunlu kılar: kiracı verisi içeren her tablo bir `studio_id` kolonu taşır ve tüm sorgular bununla filtrelenmelidir. Kullanıcılar global kapsamlıdır ve E.164 telefon numarasıyla (benzersiz) tanımlanır; RoleTemplate'ler aracılığıyla rol tabanlı izinler atayan Membership kayıtları üzerinden stüdyolara katılırlar. Hizmet türleri, kaynak türleri ve form kelime dağarcığı gibi sektöre özgü kavramlar enum değil, kiracı verisidir; bu da her stüdyonun kendi kataloğunu ve iş akışlarını tanımlamasına olanak tanır.
+Platform, her kiracının (stüdyonun) tam veri izolasyonuyla bağımsız çalıştığı çok kiracılı (multi-tenant) bir üyelik ve randevu SaaS'ıdır. Veritabanı, sıkı kiracı kapsamını (tenant scoping) zorunlu kılar: kiracı verisi içeren her tablo bir `studio_id` kolonu taşır ve tüm sorgular bununla filtrelenmelidir. Kullanıcılar global kapsamlıdır ve E.164 telefon numarasıyla (benzersiz) tanımlanır; RoleTemplate'ler aracılığıyla rol tabanlı izinler atayan Membership kayıtları üzerinden stüdyolara katılırlar. Hizmet türleri, kaynak türleri ve form kelime dağarcığı gibi sektöre özgü kavramlar enum değil, kiracı verisidir; bu da her stüdyonun kendi kataloğunu ve iş akışlarını tanımlamasına olanak tanır.
 
 ## Varlık-İlişki Diyagramı (Entity-Relationship Diagram)
 
@@ -79,6 +79,11 @@ erDiagram
     Studio ||--o{ MessageTemplate : overrides
     Studio ||--o{ CommunicationConsent : has
     User ||--o{ CommunicationConsent : grants
+
+    Studio ||--o{ AutomationRule : configures
+    Studio ||--o{ AutomationRun : has
+    AutomationRule ||--o{ AutomationRun : produces
+    User ||--o{ AutomationRun : targeted_by
 ```
 
 ## Platform Seviyesi
@@ -164,6 +169,15 @@ erDiagram
 | `notification_logs` | Giden mesajlar: WhatsApp, SMS, push, email; fallback zinciri | (studio_id, created_at) index; tekrar deneme zincirleri için (fallback_of_id) kendine referans |
 | `message_templates` | Kanal başına mesaj şablonu ({{ad}} yer tutucularıyla); studio_id null olan satırlar süper adminin küresel varsayılanı, doldurulmuş satırlar kiracı geçersiz kılması | (studio_id, key, channel, locale) benzersiz; key index |
 | `communication_consents` | Ticari mesaj için İYS tarzı onay durumu (kanal başına) | (studio_id, user_id, channel) benzersiz; (studio_id, status) ve (iys_synced_at) index |
+
+## Otomasyon (Otomatik Pazarlama ve Yaşam Döngüsü Akışları)
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `automation_rules` | Kiracı kuralı: tür (WIN_BACK, PACKAGE_EXPIRING, BIRTHDAY, FIRST_CLASS_FOLLOW_UP, BOOKING_REMINDER, NO_SHOW_FOLLOW_UP), tür başına doğrulanmış `params` JSON, hedef `message_templates.key`, aktif/pasif | (studio_id, type) ve (studio_id, is_active) index |
+| `automation_runs` | Bir kural/kullanıcı/hedef için tek gönderim denemesi; en-fazla-bir-kez teslimatın koruma anahtarı | (rule_id, user_id, target_ref) benzersiz; (studio_id, rule_id, created_at) index |
+
+`automation_rules.params`, `packages/shared/src/automations.ts` içindeki `AutomationRuleParamsSchema` (Zod ayrık birleşimi) ile doğrulanır; kural 7 gereği enum değildir. `automation_runs` satırı, değerlendirici göndermeden **önce** oluşturulur (insert-first) ve unique kısıt bir sonraki değerlendirme döngüsünün aynı hedefi tekrar göndermesini engeller (idempotency guard). Bkz. `docs/AUTOMATIONS.md`.
 
 ## Denetim (Audit)
 

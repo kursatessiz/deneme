@@ -33,6 +33,7 @@ export default function HesabimScreen() {
   const { user, memberships, activeMembership, signOut } = useSession();
   const canManageTheme = activeMembership?.permissions.includes('studio.settings.manage') ?? false;
   const canViewReports = activeMembership?.permissions.includes('reports.view') ?? false;
+  const canManageAutomations = activeMembership?.permissions.includes('notifications.manage') ?? false;
   const isMember = Boolean(activeMembership?.memberProfileId);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -75,6 +76,9 @@ export default function HesabimScreen() {
         {canViewReports ? <MenuLink label="Şube özeti" onPress={() => router.push('/(app)/hesabim/subeler')} /> : null}
         {canManageTheme ? (
           <MenuLink label="İşletme teması" onPress={() => router.push('/(app)/hesabim/isletme-temasi')} />
+        ) : null}
+        {canManageAutomations ? (
+          <MenuLink label="Otomatik mesajlar" onPress={() => router.push('/(app)/hesabim/otomatik-mesajlar')} />
         ) : null}
       </View>
 

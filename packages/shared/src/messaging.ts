@@ -64,6 +64,11 @@ export const MESSAGE_TEMPLATE_KEYS = [
   'PACKAGE_EXPIRING',
   'PAYMENT_FAILED',
   'OTP',
+  // W10: automated marketing and lifecycle flows (see automations.ts)
+  'BIRTHDAY',
+  'WIN_BACK',
+  'FIRST_CLASS_FOLLOW_UP',
+  'NO_SHOW_FOLLOW_UP',
 ] as const;
 export type MessageTemplateKey = (typeof MESSAGE_TEMPLATE_KEYS)[number];
 
