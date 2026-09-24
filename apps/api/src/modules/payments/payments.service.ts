@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { InvoicingService } from '../invoicing/invoicing.service';
 import { PaymentProviderRegistry } from './providers/payment-provider.registry';
+import { PromotionsService } from '../promotions/promotions.service';
 import type { TenantContext } from '../auth/tenant-context';
 import type {
   CancelSubscriptionInput,
@@ -36,6 +37,7 @@ export class PaymentsService {
     private notifications: NotificationsService,
     private providers: PaymentProviderRegistry,
     private invoicing: InvoicingService,
+    private promotions: PromotionsService,
   ) {}
 
   /**
@@ -53,6 +55,18 @@ export class PaymentsService {
     } catch (err) {
       this.logger.warn(`Auto-issue invoice failed for payment ${paymentId}: ${err instanceof Error ? err.message : err}`);
     }
+  }
+
+  /**
+   * Resolves the userId (global) for a member profile, for trial/promo
+   * redemption tracking, which is keyed by user rather than member profile.
+   */
+  private async resolveUserId(studioId: string, memberId: string): Promise<string> {
+    const member = await this.prisma.memberProfile.findFirstOrThrow({
+      where: { id: memberId, studioId },
+      include: { membership: true },
+    });
+    return member.membership.userId;
   }
 
   // ---------------------------------------------------------------------------
@@ -74,9 +88,17 @@ export class PaymentsService {
       throw new BadRequestException('Şube seçiniz');
     }
 
+    const hasPromoOrGiftCard = Boolean(dto.promoCode || dto.giftCardCode);
+
     if (dto.paymentMethod === PaymentMethod.BANK_TRANSFER) {
       if (!dto.bankReference) {
         throw new BadRequestException('Havale/EFT referansı zorunludur');
+      }
+      // A pending bank transfer only activates on later confirmation, so a
+      // promo/gift-card redemption here could not be reserved atomically
+      // with the sale; require an immediate payment method instead.
+      if (hasPromoOrGiftCard) {
+        throw new BadRequestException('Promosyon kodu ve hediye kartı yalnızca anlık ödemelerde kullanılabilir');
       }
       const payment = await this.prisma.payment.create({
         data: {
@@ -95,21 +117,34 @@ export class PaymentsService {
       return { payment, memberPackage: null, pending: true };
     }
 
+    const userId = await this.resolveUserId(studioId, dto.memberId);
+    const pricing = hasPromoOrGiftCard
+      ? await this.promotions.previewSalePricing(studioId, userId, pkgDef, new Prisma.Decimal(dto.paidAmount), {
+          promoCode: dto.promoCode,
+          giftCardCode: dto.giftCardCode,
+          giftCardAmount: dto.giftCardAmount,
+        })
+      : null;
+    const methodAmount = pricing ? pricing.methodAmount.toNumber() : dto.paidAmount;
+
     if (dto.paymentMethod === PaymentMethod.ONLINE_IYZICO || dto.paymentMethod === PaymentMethod.ONLINE_PAYTR) {
       const provider = dto.paymentMethod === PaymentMethod.ONLINE_IYZICO ? PaymentProvider.IYZICO : PaymentProvider.PAYTR;
       const checkout = await this.providers.get(provider).createCheckout({
         studioId,
         memberId: dto.memberId,
-        amount: dto.paidAmount,
+        amount: methodAmount,
         currency: dto.currency,
         installmentCount: dto.installmentCount,
         description: `${pkgDef.name} paket satışı`,
         reference: `sell_${dto.memberId}_${pkgDef.id}_${Date.now()}`,
       });
       if (checkout.status === 'COMPLETED') {
-        const { payment, memberPackage } = await this.completeSale(studioId, dto, pkgDef, branchId, provider, checkout.providerReference);
+        const { payment, memberPackage } = await this.completeSale(studioId, dto, pkgDef, branchId, provider, checkout.providerReference, userId);
         await this.maybeAutoIssueInvoice(studioId, payment.id);
         return { payment, memberPackage, pending: false };
+      }
+      if (hasPromoOrGiftCard) {
+        throw new BadRequestException('Promosyon kodu ve hediye kartı yalnızca anlık ödemelerde kullanılabilir');
       }
       const payment = await this.prisma.payment.create({
         data: {
@@ -134,13 +169,13 @@ export class PaymentsService {
     // is simply recording money already collected outside the platform.
     let providerRef: string | undefined;
     let provider: PaymentProvider | undefined;
-    if (dto.card && dto.paymentMethod === PaymentMethod.CREDIT_CARD_POS) {
+    if (dto.card && dto.paymentMethod === PaymentMethod.CREDIT_CARD_POS && methodAmount > 0) {
       provider = PaymentProvider.MOCK;
       const charge = await this.providers.get(provider).chargeStoredCard({
         studioId,
         memberId: dto.memberId,
         cardToken: dto.card.providerCardToken,
-        amount: dto.paidAmount,
+        amount: methodAmount,
         currency: dto.currency,
         installmentCount: dto.installmentCount,
         description: `${pkgDef.name} paket satışı`,
@@ -152,7 +187,7 @@ export class PaymentsService {
       providerRef = charge.providerReference;
     }
 
-    const { payment, memberPackage } = await this.completeSale(studioId, dto, pkgDef, branchId, provider, providerRef);
+    const { payment, memberPackage } = await this.completeSale(studioId, dto, pkgDef, branchId, provider, providerRef, userId);
     await this.maybeAutoIssueInvoice(studioId, payment.id);
     return { payment, memberPackage, pending: false };
   }
@@ -168,11 +203,22 @@ export class PaymentsService {
     });
     if (!pkgDef) throw new NotFoundException('Paket tanımı bulunamadı');
     const member = await this.prisma.memberProfile.findFirstOrThrow({ where: { id: dto.memberId, studioId } });
+    const userId = await this.resolveUserId(studioId, dto.memberId);
+
+    const hasPromoOrGiftCard = Boolean(dto.promoCode || dto.giftCardCode);
+    const pricing = hasPromoOrGiftCard
+      ? await this.promotions.previewSalePricing(studioId, userId, pkgDef, pkgDef.price, {
+          promoCode: dto.promoCode,
+          giftCardCode: dto.giftCardCode,
+          giftCardAmount: dto.giftCardAmount,
+        })
+      : null;
+    const methodAmount = pricing ? pricing.methodAmount.toNumber() : Number(pkgDef.price);
 
     const checkout = await this.providers.default.createCheckout({
       studioId,
       memberId: dto.memberId,
-      amount: Number(pkgDef.price),
+      amount: methodAmount,
       currency: 'TRY',
       installmentCount: dto.installmentCount,
       description: `${pkgDef.name} paket satın alma`,
@@ -188,6 +234,9 @@ export class PaymentsService {
       paidAmount: Number(pkgDef.price),
       currency: 'TRY',
       installmentCount: dto.installmentCount,
+      promoCode: dto.promoCode,
+      giftCardCode: dto.giftCardCode,
+      giftCardAmount: dto.giftCardAmount,
     };
 
     if (checkout.status === 'COMPLETED') {
@@ -198,11 +247,15 @@ export class PaymentsService {
         member.homeBranchId ?? null,
         this.providers.default.name,
         checkout.providerReference,
+        userId,
       );
       await this.maybeAutoIssueInvoice(studioId, payment.id);
       return { payment, memberPackage, pending: false, checkoutUrl: checkout.checkoutUrl };
     }
 
+    if (hasPromoOrGiftCard) {
+      throw new BadRequestException('Promosyon kodu ve hediye kartı yalnızca anlık ödemelerde kullanılabilir');
+    }
     const payment = await this.prisma.payment.create({
       data: {
         studioId,
@@ -272,7 +325,13 @@ export class PaymentsService {
     return { paymentId: payment.id, memberPackage: result };
   }
 
-  /** Shared atomic creation of Payment + MemberPackage for every immediate-payment path. */
+  /**
+   * Shared atomic creation of Payment + MemberPackage for every
+   * immediate-payment path. Trial eligibility, promo code redemption and
+   * gift card debit are all resolved and reserved here, inside the same
+   * transaction as the package/payment rows, so none of them can be left
+   * half-applied.
+   */
   private async completeSale(
     studioId: string,
     dto: SellPackageInput,
@@ -280,14 +339,44 @@ export class PaymentsService {
     branchId: string | null,
     provider: PaymentProvider | undefined,
     providerReference: string | undefined,
+    userId: string,
   ) {
     return this.prisma.$transaction(async (tx) => {
+      if (pkgDef.isTrial) {
+        await this.promotions.reserveTrialSlot(tx, studioId, userId, pkgDef);
+      }
+
+      const basePrice = new Prisma.Decimal(dto.paidAmount).toDecimalPlaces(2);
+      let discountAmount = new Prisma.Decimal(0);
+      let bonusUnits = 0;
+      let promoCodeId: string | undefined;
+      if (dto.promoCode) {
+        const applied = await this.promotions.applyPromoCodeTx(tx, studioId, userId, dto.promoCode, pkgDef, basePrice);
+        discountAmount = applied.discountAmount;
+        bonusUnits = applied.bonusUnits;
+        promoCodeId = applied.promoCode.id;
+      }
+      const amountAfterDiscount = basePrice.minus(discountAmount);
+
+      let giftCardAmount = new Prisma.Decimal(0);
+      let giftCardId: string | undefined;
+      if (dto.giftCardCode) {
+        const requested =
+          dto.giftCardAmount !== undefined
+            ? Prisma.Decimal.min(new Prisma.Decimal(dto.giftCardAmount), amountAfterDiscount)
+            : amountAfterDiscount;
+        const applied = await this.promotions.applyGiftCardTx(tx, studioId, dto.giftCardCode, requested);
+        giftCardAmount = applied.amountApplied;
+        giftCardId = applied.giftCardId;
+      }
+
       const memberPackage = await this.createMemberPackageTx(
         tx,
         studioId,
         dto.memberId,
         pkgDef,
         dto.startDate ? new Date(dto.startDate) : new Date(),
+        bonusUnits,
       );
       const payment = await tx.payment.create({
         data: {
@@ -295,7 +384,7 @@ export class PaymentsService {
           memberId: dto.memberId,
           memberPackageId: memberPackage.id,
           branchId,
-          amount: dto.paidAmount,
+          amount: amountAfterDiscount,
           currency: dto.currency,
           paymentMethod: dto.paymentMethod,
           paymentStatus: PaymentStatus.COMPLETED,
@@ -303,13 +392,36 @@ export class PaymentsService {
           providerReference,
           installmentCount: dto.installmentCount,
           notes: dto.notes,
+          promoCodeId,
+          discountAmount,
+          giftCardId,
+          giftCardAmount,
         },
       });
+
+      if (promoCodeId) {
+        await this.promotions.recordPromoRedemption(tx, studioId, userId, promoCodeId, payment.id, discountAmount);
+      }
+      if (giftCardId) {
+        await this.promotions.recordGiftCardRedemption(tx, studioId, giftCardId, giftCardAmount, payment.id, userId);
+      }
+      if (pkgDef.isTrial) {
+        await this.promotions.recordTrialRedemption(tx, studioId, userId, pkgDef.id, memberPackage.id);
+      }
+
       return { payment, memberPackage };
     });
   }
 
-  private async createMemberPackageTx(tx: Tx, studioId: string, memberId: string, pkgDef: PackageDefinition, startDate: Date) {
+  private async createMemberPackageTx(
+    tx: Tx,
+    studioId: string,
+    memberId: string,
+    pkgDef: PackageDefinition,
+    startDate: Date,
+    bonusUnits = 0,
+  ) {
+    const totalUnits = pkgDef.totalUnits !== null && bonusUnits > 0 ? pkgDef.totalUnits + bonusUnits : pkgDef.totalUnits;
     const endDate = new Date(startDate.getTime() + pkgDef.validityDays * 24 * 60 * 60 * 1000);
     return tx.memberPackage.create({
       data: {
@@ -317,9 +429,9 @@ export class PaymentsService {
         memberId,
         packageDefinitionId: pkgDef.id,
         entitlementKind: pkgDef.entitlementKind,
-        totalUnits: pkgDef.totalUnits,
+        totalUnits,
         usedUnits: 0,
-        remainingUnits: pkgDef.totalUnits,
+        remainingUnits: totalUnits,
         status: 'ACTIVE',
         startDate,
         endDate,
@@ -375,13 +487,34 @@ export class PaymentsService {
     const newRefunded = alreadyRefunded.plus(requested);
     const fullyRefunded = newRefunded.gte(paid);
 
+    // A payment partly or fully paid with a gift card returns that portion
+    // to the card, proportional to how much of the payment this refund
+    // covers, capped by what has not already been returned to the card.
+    const giftCardAmount = new Prisma.Decimal(payment.giftCardAmount);
+    const giftCardAlreadyRefunded = new Prisma.Decimal(payment.giftCardRefunded);
+    const giftCardRemaining = giftCardAmount.minus(giftCardAlreadyRefunded);
+    let giftCardCredit = new Prisma.Decimal(0);
+    if (giftCardAmount.gt(0) && paid.gt(0)) {
+      giftCardCredit = requested.times(giftCardAmount).dividedBy(paid).toDecimalPlaces(2);
+      if (giftCardCredit.gt(giftCardRemaining)) giftCardCredit = giftCardRemaining;
+      if (giftCardCredit.gt(requested)) giftCardCredit = requested;
+    }
+    const newGiftCardRefunded = giftCardAlreadyRefunded.plus(giftCardCredit);
+
     // Reserve first: the conditional update on the snapshot means only one of
     // two concurrent refunds proceeds, so the provider is never asked to
     // refund more than was paid.
     const reserved = await this.prisma.payment.updateMany({
-      where: { id: payment.id, studioId, refundedAmount: payment.refundedAmount, paymentStatus: PaymentStatus.COMPLETED },
+      where: {
+        id: payment.id,
+        studioId,
+        refundedAmount: payment.refundedAmount,
+        giftCardRefunded: payment.giftCardRefunded,
+        paymentStatus: PaymentStatus.COMPLETED,
+      },
       data: {
         refundedAmount: newRefunded,
+        giftCardRefunded: newGiftCardRefunded,
         paymentStatus: fullyRefunded ? PaymentStatus.REFUNDED : PaymentStatus.COMPLETED,
       },
     });
@@ -389,14 +522,16 @@ export class PaymentsService {
       throw new ConflictException('Bu ödeme başka bir işlemde güncellendi, tekrar deneyin');
     }
 
-    if (payment.providerReference) {
+    // Only the non-gift-card portion of this refund goes through the provider.
+    const providerPortion = requested.minus(giftCardCredit);
+    if (payment.providerReference && providerPortion.gt(0)) {
       const providerName = payment.provider ?? PaymentProvider.MOCK;
       let refundResult: { success: boolean; failureMessage?: string };
       try {
         refundResult = await this.providers.get(providerName).refund({
           studioId,
           providerReference: payment.providerReference,
-          amount: requested.toNumber(),
+          amount: providerPortion.toNumber(),
           currency: payment.currency,
           reason: dto.reason,
         });
@@ -406,11 +541,17 @@ export class PaymentsService {
       if (!refundResult.success) {
         // Release the reservation made above; guarded so it only undoes this refund.
         await this.prisma.payment.updateMany({
-          where: { id: payment.id, studioId, refundedAmount: newRefunded },
-          data: { refundedAmount: alreadyRefunded, paymentStatus: PaymentStatus.COMPLETED },
+          where: { id: payment.id, studioId, refundedAmount: newRefunded, giftCardRefunded: newGiftCardRefunded },
+          data: { refundedAmount: alreadyRefunded, giftCardRefunded: giftCardAlreadyRefunded, paymentStatus: PaymentStatus.COMPLETED },
         });
         throw new BadRequestException(refundResult.failureMessage ?? 'İade sağlayıcı tarafından reddedildi');
       }
+    }
+
+    if (giftCardCredit.gt(0) && payment.giftCardId) {
+      await this.prisma.$transaction((tx) =>
+        this.promotions.refundToGiftCard(tx, studioId, payment.giftCardId as string, giftCardCredit, payment.id, actorUserId),
+      );
     }
 
     await this.prisma.auditLog.create({

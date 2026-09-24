@@ -108,3 +108,52 @@ Bu API'de BullMQ henüz kurulmamıştır (yalnızca bir bağımlılık olarak `p
 `NODE_ENV=production` iken mock sağlayıcı devre dışıdır: online ödeme, kayıtlı kartla tahsilat, iade ve mock webhook'ları reddedilir ("Online ödeme henüz yapılandırılmadı"). Böylece gerçek sağlayıcı bilgileri girilmeden canlı ortamda ücretsiz paket açılamaz. Nakit, POS ve havale kayıtları sağlayıcı gerektirmediği için çalışmaya devam eder.
 
 İade önce veritabanında koşullu olarak ayrılır, sonra sağlayıcıya gönderilir; sağlayıcı reddederse ayrım geri alınır. Tutarlar her yerde ondalık (Decimal) olarak hesaplanır. Webhook'taki tutar beklenen ödeme tutarıyla eşleşmezse ödeme tamamlanmaz.
+
+## Satış araçları (W9): deneme dersi, promosyon kodu, hediye kartı
+
+Bu bölüm `apps/api/src/modules/promotions` altındaki modülü ve `PaymentsService.sellPackage` / `memberCheckout` içine nasıl entegre edildiğini özetler.
+
+### Deneme dersi teklifleri
+
+- `PackageDefinition.isTrial` bir paketi deneme teklifi yapar; `trialLimitPerUser` (varsayılan 1) bu paketi bir kullanıcının kaç kez satın alabileceğini belirler. Limit, kullanıcının bu stüdyodaki tüm üyelikleri (Membership) üzerinden global kullanıcı kimliğine (`User.id`) göre izlenir, tek bir `member_profile`'a göre değil.
+- `GET /studios/public/:slug/trial-offers` — JWT gerektirmez, yalnızca ad, fiyat, birim sayısı ve geçerlilik süresini döndürür. Herkese açık rezervasyon/kayıt sayfası için tasarlanmıştır.
+- Bir deneme paketi `POST /payments/sell` veya `POST /payments/checkout/self` ile satın alındığında, satışın işlem (transaction) bloğu içinde `redemption_counters` tablosunda tek bir `INSERT ... ON CONFLICT DO UPDATE ... WHERE count < limit` deyimiyle hem kontrol hem rezervasyon yapılır; limit doluysa satış `409 Conflict` ile reddedilir ve hiçbir kayıt oluşmaz.
+
+### Promosyon kodları
+
+- Model: `PromoCode` (stüdyo başına, kod her zaman büyük harfle saklanır ve `(studioId, code)` üzerinde benzersizdir), `PromoRedemption` (bir ödemeye uygulanan tek kullanım kaydı).
+- Tür (`kind`): `PERCENT` (yüzde), `FIXED_AMOUNT` (sabit tutar, fiyatı aşamaz), `FREE_UNITS` (fiyata dokunmaz, oluşturulan `MemberPackage`'a ekstra birim ekler). İndirim her zaman yarım yukarı (half-up) 2 ondalık basamağa yuvarlanır ve fiyatı asla negatif yapmaz.
+- Kısıtlar: `validFrom`/`validTo`, `maxRedemptions` (toplam), `perUserLimit` (varsayılan 1), `minAmount`, `applicablePackageDefinitionIds` (boş = tüm paketler), `newMembersOnly` (bu stüdyoda daha önce tamamlanmış ödemesi olmayan kullanıcı).
+- Doğrulama uç noktası: `GET /promotions/promo-codes/validate/self` (üye self-servis) — kodu **kullanmadan** indirimi önizler.
+- Yeniden kullanım (redemption) her zaman satış işleminin (transaction) içinde olur: toplam limit `promo_codes.redeemed_count` üzerinde koşullu `updateMany` (`redeemedCount < maxRedemptions`) ile, kullanıcı başına limit `redemption_counters` üzerindeki aynı atomik sayaçla korunur. Eşzamanlı N istekten yalnızca izin verilen kadarı başarılı olur.
+- Promosyon kodu ve hediye kartı yalnızca **anlık tamamlanan** ödemelerde (nakit, kart okutmalı, veya senkron tamamlanan online checkout) kullanılabilir; havale/EFT veya sonuçlanması bekleyen (PENDING) bir online checkout ile birlikte gönderilirse `400 Bad Request` döner. Bunun nedeni, bekleyen bir ödemenin daha sonra (webhook veya personel onayıyla) tamamlanması durumunda indirim/hediye kartı rezervasyonunun satışla aynı işlem (transaction) içinde atomik olarak yapılamamasıdır.
+
+### Hediye kartları
+
+- Model: `GiftCard` (kod yalnızca sha256 özeti + son 4 hane olarak saklanır; gerçek kod yalnızca oluşturulduğu anda bir kez döndürülür), `GiftCardTransaction` (ISSUE/REDEEM/REFUND/ADJUST).
+- Kod üretimi: karışıklığa yol açabilecek karakterler (0/O, 1/I/L) hariç tutulan bir alfabeden, kriptografik olarak rastgele 16 karakter (`apps/api/src/modules/promotions/gift-card-code.ts`).
+- Personel `POST /promotions/gift-cards` (`promotions.manage`) ile kart satar; bu bir `Payment` kaydı oluşturur (nakit/kart/havale, satın alan üyeye bağlı).
+- Üye (veya personel adına) paket satın alırken `giftCardCode` (ve opsiyonel `giftCardAmount`) gönderir; kartın bakiyesi `gift_cards.balance` üzerinde koşullu `updateMany` (`balance >= amount`) ile atomik olarak düşülür — eşzamanlı iki harcamadan yalnızca biri başarılı olur. Kalan tutar normal ödeme yöntemiyle (nakit, kart, online) tahsil edilir.
+- Bir ödemenin hediye kartıyla karşılanan kısmı iade edildiğinde, iade tutarına orantılı pay karta geri yatırılır (`Payment.giftCardRefunded` ile takip edilir, çift iadeye karşı korumalıdır).
+- Üye self-servis bakiye sorgusu: `GET /promotions/gift-cards/check?code=...` — kod, sabit zamanlı (constant-time) bir karşılaştırma yerine sha256 özetinin indeksli eşitlik sorgusuyla bulunur; dakikada aşırı deneme Redis tabanlı bir hız sınırlayıcıyla (`GiftCardRateLimitGuard`) engellenir.
+- `GET /promotions/gift-cards/mine` — üyenin satın aldığı kartların listesi (mobil "Hediye kartlarım").
+
+### İzin
+
+- `promotions.manage` — promosyon kodu CRUD, kullanım listesi, hediye kartı satışı/listesi/iptali/düzeltmesi. Varsayılan olarak yalnızca işletme sahibinde bulunur.
+- Kod/kart **kullanımı** (satış sırasında) ayrı bir izin gerektirmez; mevcut `packages.sell` iznine sahip personel (örn. resepsiyon) zaten satış uç noktalarını çağırabildiği için otomatik olarak kullanabilir.
+
+### Uç noktalar
+
+| Uç nokta | İzin | Açıklama |
+|----------|------|----------|
+| `GET /studios/public/:slug/trial-offers` | yok (JWT'siz) | Bir stüdyonun aktif deneme tekliflerini listeler |
+| `POST /promotions/promo-codes`, `PUT /promotions/promo-codes/:id`, `GET /promotions/promo-codes`, `GET /promotions/promo-codes/:id` | `promotions.manage` | Promosyon kodu CRUD |
+| `GET /promotions/promo-codes/:id/redemptions` | `promotions.manage` | Bir kodun kullanım geçmişi |
+| `GET /promotions/promo-codes/validate/self` | self-servis | Kodu kullanmadan indirimi önizler |
+| `POST /promotions/gift-cards` | `promotions.manage` | Hediye kartı satışı (Payment kaydı oluşturur), kodu bir kez döndürür |
+| `GET /promotions/gift-cards`, `GET /promotions/gift-cards/:id`, `GET /promotions/gift-cards/:id/transactions` | `promotions.manage` | Hediye kartı listesi, detay, hareket dökümü |
+| `POST /promotions/gift-cards/:id/cancel`, `POST /promotions/gift-cards/:id/adjust` | `promotions.manage` | İptal ve manuel bakiye düzeltmesi (ikisi de denetlenir/audited) |
+| `GET /promotions/gift-cards/check` | self-servis, hız sınırlı | Üyenin kod ile bakiye sorgusu |
+| `GET /promotions/gift-cards/mine` | self-servis | Üyenin satın aldığı kartlar |
+| `POST /payments/sell`, `POST /payments/checkout/self` | mevcut izinler | `promoCode`, `giftCardCode`, `giftCardAmount` alanları eklendi |

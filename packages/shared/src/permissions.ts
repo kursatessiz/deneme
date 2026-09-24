@@ -29,6 +29,7 @@ export const PERMISSIONS = {
   'attendance.manage': 'Yoklama alma ve check-in',
 
   'packages.sell': 'Paket satışı, dondurma ve devir',
+  'promotions.manage': 'Promosyon kodu ve hediye kartı yönetimi',
 
   'measurements.view': 'Ölçümleri görüntüleme',
   'measurements.manage': 'Ölçüm kaydetme',
