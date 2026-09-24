@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
+import { buildHesabimMenu } from '../../../src/lib/staffMenu';
 import { useSession } from '../../../src/lib/session';
 import { radii, spacing, typography, useThemeColors } from '../../../src/theme';
 
@@ -31,18 +32,13 @@ export default function HesabimScreen() {
   const router = useRouter();
   const colors = useThemeColors();
   const { user, memberships, activeMembership, signOut } = useSession();
-  const canManageTheme = activeMembership?.permissions.includes('studio.settings.manage') ?? false;
-  const canViewReports = activeMembership?.permissions.includes('reports.view') ?? false;
-  const canViewLeads = activeMembership?.permissions.includes('leads.view') ?? false;
-  const canManageAutomations = activeMembership?.permissions.includes('notifications.manage') ?? false;
-  const canCheckInMembers = activeMembership?.permissions.includes('attendance.manage') ?? false;
-  const canManageIntegrations = activeMembership?.permissions.includes('integrations.manage') ?? false;
-  const canManagePartners = activeMembership?.permissions.includes('integrations.partners.manage') ?? false;
-  const canManageContent = activeMembership?.permissions.includes('content.manage') ?? false;
   const isMember = Boolean(activeMembership?.memberProfileId);
   const isTrainer = Boolean(activeMembership?.trainerProfileId);
-  const canViewOwnCommission = isTrainer && (activeMembership?.permissions.includes('commissions.view.own') ?? false);
-  const canViewPayroll = activeMembership?.permissions.includes('commissions.view.all') ?? false;
+  const menu = buildHesabimMenu({
+    permissions: activeMembership?.permissions ?? [],
+    isMember,
+    isTrainer,
+  });
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const handleSignOut = async () => {
@@ -75,46 +71,9 @@ export default function HesabimScreen() {
       </View>
 
       <View style={styles.menu}>
-        <MenuLink label="Bildirim ayarları" onPress={() => router.push('/(app)/hesabim/bildirimler')} />
-        <MenuLink label="Takvim aboneliği" onPress={() => router.push('/(app)/hesabim/takvim')} />
-        <MenuLink label="PIN değiştir" onPress={() => router.push('/(app)/hesabim/pin')} />
-        <MenuLink label="Görünüm" onPress={() => router.push('/(app)/hesabim/gorunum')} />
-        {isMember ? <MenuLink label="Ana şubem" onPress={() => router.push('/(app)/hesabim/ana-sube')} /> : null}
-        {isMember ? <MenuLink label="Ödemelerim" onPress={() => router.push('/(app)/hesabim/odemelerim')} /> : null}
-        {isMember ? <MenuLink label="Başarılarım" onPress={() => router.push('/(app)/hesabim/basarilarim')} /> : null}
-        {isMember ? <MenuLink label="Arkadaşını getir" onPress={() => router.push('/(app)/hesabim/arkadasini-getir')} /> : null}
-        {isMember ? <MenuLink label="Sağlık entegrasyonu" onPress={() => router.push('/(app)/hesabim/saglik')} /> : null}
-        {canViewOwnCommission ? <MenuLink label="Hakedişim" onPress={() => router.push('/(app)/hesabim/hakedisim')} /> : null}
-        {canViewPayroll ? <MenuLink label="Bordro" onPress={() => router.push('/(app)/hesabim/bordro')} /> : null}
-        {isMember ? <MenuLink label="Faturalarım" onPress={() => router.push('/(app)/hesabim/faturalarim')} /> : null}
-        {isMember ? <MenuLink label="QR ile giriş" onPress={() => router.push('/(app)/hesabim/qr-ile-giris')} /> : null}
-        {canCheckInMembers ? (
-          <MenuLink label="Üye QR tarama" onPress={() => router.push('/(app)/hesabim/resepsiyon-tarama')} />
-        ) : null}
-        {canManageTheme ? <MenuLink label="Kiosk modu" onPress={() => router.push('/(app)/hesabim/kiosk-modu')} /> : null}
-        {canViewReports ? <MenuLink label="Şube özeti" onPress={() => router.push('/(app)/hesabim/subeler')} /> : null}
-        {canViewReports ? <MenuLink label="Raporlar" onPress={() => router.push('/(app)/hesabim/raporlar')} /> : null}
-        {canViewReports ? (
-          <MenuLink label="Riskli üyeler" onPress={() => router.push('/(app)/hesabim/riskli-uyeler')} />
-        ) : null}
-        {canViewLeads ? (
-          <MenuLink label="Potansiyel üyeler" onPress={() => router.push('/(app)/hesabim/potansiyel-uyeler')} />
-        ) : null}
-        {canManageTheme ? (
-          <MenuLink label="İşletme teması" onPress={() => router.push('/(app)/hesabim/isletme-temasi')} />
-        ) : null}
-        {canManageAutomations ? (
-          <MenuLink label="Otomatik mesajlar" onPress={() => router.push('/(app)/hesabim/otomatik-mesajlar')} />
-        ) : null}
-        {canManageIntegrations ? (
-          <MenuLink label="Entegrasyonlar" onPress={() => router.push('/(app)/hesabim/entegrasyonlar')} />
-        ) : null}
-        {canManagePartners ? (
-          <MenuLink label="Partner platformlar" onPress={() => router.push('/(app)/hesabim/partner-platformlar')} />
-        ) : null}
-        {canManageContent ? (
-          <MenuLink label="Video içerikleri" onPress={() => router.push('/(app)/hesabim/video-icerikleri')} />
-        ) : null}
+        {menu.map((item) => (
+          <MenuLink key={item.key} label={item.label} onPress={() => router.push(item.route as never)} />
+        ))}
       </View>
 
       <PrimaryButton label="Çıkış yap" onPress={handleSignOut} loading={isSigningOut} variant="danger" />
