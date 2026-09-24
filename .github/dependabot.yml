@@ -17,6 +17,21 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+      # Packages that must move to a new major together. A lone
+      # @nestjs/testing 12 next to @nestjs/core 11, or @prisma/client 7
+      # next to the prisma 6 CLI, can only fail.
+      nestjs-major:
+        patterns: ['@nestjs/*', 'reflect-metadata', 'rxjs']
+        update-types: [major]
+      prisma-major:
+        patterns: ['prisma', '@prisma/*']
+        update-types: [major]
+      react-native-major:
+        patterns: ['expo', 'expo-*', 'react-native', 'react', 'react-dom', '@types/react', '@types/react-dom']
+        update-types: [major]
+      next-major:
+        patterns: ['next', 'eslint-config-next']
+        update-types: [major]
     commit-message:
       prefix: build(deps)
 
