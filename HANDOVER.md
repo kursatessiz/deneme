@@ -124,6 +124,40 @@ Dependabot npm major sürümlerini önermez; bunlar kod değişikliği gerektire
 - 6.1 `deploy/scripts/server-init.sh` ile sunucu kurulumu, ilk dağıtım, yedek doğrulama
 - 6.2 Gerçek Netgsm/İleti Merkezi ve WhatsApp Cloud API hesapları ile test
 
+## 6b. Rekabet analizi ve endüstri lideri backlog'u (24 Eylül 2026)
+
+İncelenen platformlar: Mindbody, Mariana Tek, Momence, Arketa, Glofox, WellnessLiving, bsport, Zenoti, TeamUp, Walla; Türkiye'de Stuvio, GymKod, BulutGym, piSEANS, Gymtekno ve klinik yazılımları.
+
+Liderlerin şu anki üç farkı: (1) sahibin panelinde ayrılma riski tahmini, (2) uygulamayı günlük kullanılan bir ürüne çeviren içerik ve topluluk katmanı, (3) ürünün içine gömülü pazarlama otomasyonu ve CRM.
+
+Bizim şimdiden önde olduğumuz yerler: ekipman seviyesinde çift rezervasyonun veritabanında engellenmesi, birden çok işletmede tek kimlik, izin tabanlı roller, sürümlü KVKK onayları, tek platformda çok sektör.
+
+### P0: gelir çekirdeği ve Türkiye zorunlulukları
+- Online ödeme, otomatik yenilenen üyelik, başarısız ödemeyi tekrar deneme (dunning), taksit; havale/IBAN tahsilat kaydı (5.1)
+- Geç iptal ve gelmeme için otomatik ücret veya hak düşümü (1.4 iptal politikası motoru)
+- Bekleme listesinden otomatik yer atama ve anında push/WhatsApp teklifi (1.4)
+- Ekipman seçim ekranı ("reformer 3", "kort 2"): altyapı hazır, arayüz yok (3.3)
+- WhatsApp Cloud API şablon mesajları, SMS'e düşme; İYS entegrasyonu ile kampanya izni kontrolü, işlemsel ve ticari mesaj ayrımı (1.6)
+- e-Arşiv/e-Fatura entegratörü (5.3'ten öne alındı)
+- Deneme dersi teklifi, promosyon kodu, hediye kartı
+
+### P1: elde tutma ve büyüme
+- Otomatik akışlar: kaybolan üyeyi geri kazanma, paket bitiyor, doğum günü, ilk dersten sonra takip
+- Potansiyel müşteri hattı (web formu ve Instagram'dan gelen talep, deneme dersi, üyelik)
+- Ayrılma riski skoru: önce kural tabanlı (katılım düşüşü, paket bitişi), sonra model
+- Raporlar: doluluk, gelir, üye başına gelir, yenileme oranı, kohortlar, eğitmen performansı
+- Eğitmen hakedişinin otomatik bordro çıktısı
+- Ders sonrası puan ve Google yorumu yönlendirme; arkadaşını getir programı
+
+### P2: fark yaratanlar
+- Topluluk ve oyunlaştırma: seri, kilometre taşları (50. ders), rozetler, aylık hedefler
+- Tablet check-in kiosku, QR, turnike ve kapı entegrasyonu
+- Web sitesine gömülebilir rezervasyon widget'ı, herkese açık API ve webhook
+- İsteğe bağlı video kütüphanesi ve canlı yayın
+- Wellhub (Gympass) gibi toplayıcı entegrasyonları
+- Apple Health / Health Connect ile ölçüm paylaşımı
+- Çok şube ve franchise görünümü
+
 ## 7. Sahibin sağlayacağı girdiler (henüz gelmedi)
 - Tasarım referans ekran görüntüleri (3–4 ekran: ana, takvim, üye kartı, rezervasyon)
 - İki stüdyonun gerçek hizmet türü / paket / eğitmen ücret / iptal kuralı listesi
