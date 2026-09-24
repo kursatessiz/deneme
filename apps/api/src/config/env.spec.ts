@@ -32,4 +32,18 @@ describe('validateEnv', () => {
       }).NODE_ENV,
     ).toBe('production');
   });
+
+  it('accepts OTP_TEST_CODE only in the test environment', () => {
+    expect(validateEnv({ ...base, NODE_ENV: 'test', OTP_TEST_CODE: '482915' }).OTP_TEST_CODE).toBe('482915');
+    expect(() => validateEnv({ ...base, NODE_ENV: 'development', OTP_TEST_CODE: '482915' })).toThrow(/OTP_TEST_CODE/);
+    expect(() =>
+      validateEnv({
+        ...base,
+        NODE_ENV: 'production',
+        REDIS_URL: 'redis://r:6379',
+        CORS_ORIGIN: 'https://panel.example.com',
+        OTP_TEST_CODE: '482915',
+      }),
+    ).toThrow(/OTP_TEST_CODE/);
+  });
 });

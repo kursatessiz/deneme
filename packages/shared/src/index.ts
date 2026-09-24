@@ -4,3 +4,4 @@ export * from './validators';
 export * from './permissions';
 export * from './phone';
 export * from './design';
+export * from './notifications';

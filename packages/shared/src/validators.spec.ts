@@ -127,3 +127,20 @@ describe('Shared Zod Validators', () => {
     });
   });
 });
+
+import { PinSchema, isWeakPin } from './validators';
+
+describe('PIN rules', () => {
+  it.each(['000000', '111111', '123456', '234567', '890123', '654321', '109876'])('rejects weak PIN %s', (pin) => {
+    expect(isWeakPin(pin)).toBe(true);
+    expect(PinSchema.safeParse(pin).success).toBe(false);
+  });
+
+  it.each(['482915', '100200', '731946'])('accepts %s', (pin) => {
+    expect(PinSchema.safeParse(pin).success).toBe(true);
+  });
+
+  it.each(['12345', '1234567', 'abcdef', '12 345'])('rejects malformed %s', (pin) => {
+    expect(PinSchema.safeParse(pin).success).toBe(false);
+  });
+});

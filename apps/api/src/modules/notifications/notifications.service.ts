@@ -4,11 +4,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationChannel, NotificationStatus } from '@platform/database';
 
 export interface SendSmsParams {
-  studioId: string;
+  /** Null for platform messages (login codes). */
+  studioId: string | null;
   phone: string;
   message: string;
-  type: 'REMINDER' | 'PACKAGE_EXPIRY' | 'CANCEL_ALERT' | 'CONFIRMATION';
+  type: 'REMINDER' | 'PACKAGE_EXPIRY' | 'CANCEL_ALERT' | 'CONFIRMATION' | 'LOGIN_OTP' | 'INVITE_OTP' | 'INVITE_LINK';
+  /** Codes and invite links: never written to logs or the database. */
+  sensitive?: boolean;
 }
+
+const REDACTED = '[gizli icerik]';
 
 @Injectable()
 export class NotificationsService {
@@ -23,9 +28,14 @@ export class NotificationsService {
   }
 
   async sendSms(params: SendSmsParams): Promise<{ success: boolean; messageId?: string }> {
-    this.logger.log(`[SMS Queue] To: ${params.phone} | Type: ${params.type} | Msg: "${params.message}"`);
+    const loggable = params.sensitive ? REDACTED : params.message;
+    this.logger.log(`[SMS Queue] To: ${params.phone} | Type: ${params.type} | Msg: "${loggable}"`);
 
     if (this.isMock) {
+      // Local development only: show the real text so codes can be used.
+      if (params.sensitive && this.config.get<string>('NODE_ENV') === 'development') {
+        this.logger.warn(`[MOCK SMS] ${params.phone}: ${params.message}`);
+      }
       this.logger.log(`[MOCK SMS] Simulated SMS sent to ${params.phone}`);
       await this.logNotification(params, NotificationStatus.SENT);
       return { success: true, messageId: `mock-${Date.now()}` };
@@ -69,7 +79,7 @@ export class NotificationsService {
           recipientPhone: params.phone,
           channel: NotificationChannel.SMS,
           type: params.type,
-          content: params.message,
+          content: params.sensitive ? REDACTED : params.message,
           status,
           errorMessage: error,
         },

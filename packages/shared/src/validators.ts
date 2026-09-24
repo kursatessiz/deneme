@@ -117,3 +117,40 @@ export const CancelBookingSchema = z.object({
   reason: z.string().max(500).optional(),
 });
 export type CancelBookingInput = z.infer<typeof CancelBookingSchema>;
+
+/** Six digits, not all the same and not a straight ascending/descending run. */
+export function isWeakPin(pin: string): boolean {
+  if (/^(\d)\1+$/.test(pin)) return true;
+  const digits = pin.split('').map(Number);
+  const ascending = digits.every((d, i) => i === 0 || d === (digits[i - 1] + 1) % 10);
+  const descending = digits.every((d, i) => i === 0 || d === (digits[i - 1] + 9) % 10);
+  return ascending || descending;
+}
+
+export const PinSchema = z
+  .string()
+  .regex(/^\d{6}$/, 'PIN 6 haneli bir sayı olmalıdır')
+  .refine((pin) => !isWeakPin(pin), 'Bu PIN çok kolay tahmin edilir, başka bir PIN seçin');
+
+export const OtpCodeSchema = z.string().regex(/^\d{6}$/, 'Doğrulama kodu 6 haneli olmalıdır');
+
+export const RequestLoginOtpSchema = z.object({ phone: PhoneSchema });
+export type RequestLoginOtpInput = z.infer<typeof RequestLoginOtpSchema>;
+
+export const VerifyLoginOtpSchema = z.object({ phone: PhoneSchema, code: OtpCodeSchema });
+export type VerifyLoginOtpInput = z.infer<typeof VerifyLoginOtpSchema>;
+
+export const PinLoginSchema = z.object({ phone: PhoneSchema, pin: z.string().regex(/^\d{6}$/) });
+export type PinLoginInput = z.infer<typeof PinLoginSchema>;
+
+export const SetPinSchema = z.object({ pin: PinSchema });
+export type SetPinInput = z.infer<typeof SetPinSchema>;
+
+export const AcceptInviteSchema = z.object({
+  code: OtpCodeSchema,
+  /** Required when the user has no PIN yet. */
+  pin: PinSchema.optional(),
+  acceptedDocumentVersionIds: z.array(z.string().uuid()).max(10),
+  device: z.string().max(200).optional(),
+});
+export type AcceptInviteInput = z.infer<typeof AcceptInviteSchema>;

@@ -12,8 +12,18 @@ export const EnvSchema = z
     CORS_ORIGIN: z.string().optional(),
     SMS_PROVIDER: z.enum(['MOCK', 'NETGSM', 'ILETI_MERKEZI']).default('MOCK'),
     APP_VERSION: z.string().default('0.0.0'),
+    /** Base URL of the web/mobile deep-link host; invite links are built on it. */
+    PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
+    /** Fixed OTP for automated tests. Rejected outside NODE_ENV=test. */
+    OTP_TEST_CODE: z
+      .string()
+      .regex(/^\d{6}$/)
+      .optional(),
   })
   .superRefine((env, ctx) => {
+    if (env.OTP_TEST_CODE && env.NODE_ENV !== 'test') {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['OTP_TEST_CODE'], message: 'only allowed when NODE_ENV=test' });
+    }
     if (env.NODE_ENV !== 'production') return;
     if (!env.REDIS_URL) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['REDIS_URL'], message: 'required in production' });

@@ -91,7 +91,7 @@ Dependabot npm major sürümlerini önermez; bunlar kod değişikliği gerektire
 ### 1. Şema ve çekirdek API
 - 1.1 Bölüm 5'teki şema revizyonu, migration, yeni seed (iki stüdyo + bir PT + bir fizyoterapi örneği) (yapıldı: ilk migration, veritabanı seviyesinde ekipman çakışma kısıtı, tek sahip / tek aktif abonelik kısıtları, 4 işletmeli seed)
 - 1.2 Permission kataloğu, `RoleTemplate`, `PermissionGuard`, `@RequirePermission` (yapıldı: varsayılan reddeden guard, her istekte üyelik ve izinlerin DB'den yüklenmesi, eğitmen telefon göremez; kalan: rol yönetimi uç noktaları)
-- 1.3 Global `User` + `Membership` + telefon OTP auth + `InviteToken` uç noktaları
+- 1.3 Global `User` + `Membership` + telefon OTP auth + `InviteToken` uç noktaları (yapıldı: OTP ile giriş, PIN ve kilitleme, QR/SMS davet, KVKK ve sözleşme onayı; SMS şimdilik mock; WhatsApp gönderimi 1.6'da)
 - 1.4 `ServiceType`, `Resource`, çakışma kontrolü kaynak bazlı; bekleme listesi; iptal politikası motoru; eğitmen yerine geçme
 - 1.5 Hak modeli (seans/süre/kredi), dondurma, devir, aile hesabı
 - 1.6 Bildirim soyutlaması: kanal adaptörleri, şablonlar, fallback, SMS kredi düşümü, hatırlatma job'ları
