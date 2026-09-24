@@ -29,6 +29,7 @@ async function forward(
   req: NextRequest,
   apiPath: string,
   accessToken: string | null,
+  body: ArrayBuffer | undefined,
 ): Promise<Response> {
   const url = new URL(`${apiInternalBaseUrl()}/${apiPath}${req.nextUrl.search}`);
   const headers = stripHopByHopHeaders(req.headers);
@@ -37,16 +38,15 @@ async function forward(
   const studioId = req.headers.get('x-studio-id') ?? req.cookies.get(ACTIVE_STUDIO_COOKIE)?.value;
   if (studioId) headers.set('x-studio-id', studioId);
 
-  const hasBody = !['GET', 'HEAD'].includes(req.method);
-  const body = hasBody ? await req.arrayBuffer() : undefined;
-  if (hasBody && body && body.byteLength > 0) {
+  const hasBody = body !== undefined && body.byteLength > 0;
+  if (hasBody) {
     headers.set('content-type', headers.get('content-type') ?? 'application/json');
   }
 
   return fetch(url, {
     method: req.method,
     headers,
-    body: hasBody && body && body.byteLength > 0 ? body : undefined,
+    body: hasBody ? body : undefined,
     redirect: 'manual',
   });
 }
@@ -104,33 +104,38 @@ async function handle(req: NextRequest, context: { params: Promise<{ path: strin
 
   const accessToken = req.cookies.get(ACCESS_TOKEN_COOKIE)?.value ?? null;
   const refreshToken = req.cookies.get(REFRESH_TOKEN_COOKIE)?.value ?? null;
+  // Read the body once: a refresh-and-retry must replay the same bytes.
+  const requestBody = ['GET', 'HEAD'].includes(req.method) ? undefined : await req.arrayBuffer();
 
   // auth/login, auth/otp/verify, auth/pin/login: the body carries tokens
   // that must become cookies and never reach the browser as JSON.
   if (isTokenIssuingPath(apiPath) && req.method === 'POST') {
-    const apiRes = await forward(req, apiPath, null);
+    const apiRes = await forward(req, apiPath, null, requestBody);
     if (!apiRes.ok) return (await toNextResponse(apiRes)).res as NextResponse;
-    const { body, res } = await toNextResponse(apiRes, ['accessToken', 'refreshToken']);
-    const tokens = body as Partial<TokenPair> | null;
-    if (tokens?.accessToken && tokens.refreshToken) {
-      setSessionCookies(res, { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
+    // Read the tokens from the API's own JSON, then send the browser the
+    // same payload without them.
+    const json = ((await apiRes.json().catch(() => null)) ?? {}) as Record<string, unknown>;
+    const { accessToken: issuedAccess, refreshToken: issuedRefresh, ...rest } = json;
+    const res = NextResponse.json(rest, { status: apiRes.status });
+    if (typeof issuedAccess === 'string' && typeof issuedRefresh === 'string') {
+      setSessionCookies(res, { accessToken: issuedAccess, refreshToken: issuedRefresh });
     }
     return res;
   }
 
   if (isLogoutPath(apiPath) && req.method === 'POST') {
-    if (accessToken) await forward(req, apiPath, accessToken).catch(() => undefined);
-    const res = NextResponse.json({}, { status: 204 });
+    if (accessToken) await forward(req, apiPath, accessToken, requestBody).catch(() => undefined);
+    const res = new NextResponse(null, { status: 204 });
     clearSessionCookies(res);
     return res;
   }
 
-  let apiRes = await forward(req, apiPath, accessToken);
+  let apiRes = await forward(req, apiPath, accessToken, requestBody);
 
   if (apiRes.status === 401 && refreshToken) {
     const refreshed = await refreshAccessToken(refreshToken);
     if (refreshed) {
-      apiRes = await forward(req, apiPath, refreshed.accessToken);
+      apiRes = await forward(req, apiPath, refreshed.accessToken, requestBody);
       const { res } = await toNextResponse(apiRes);
       setSessionCookies(res, refreshed);
       return res;
