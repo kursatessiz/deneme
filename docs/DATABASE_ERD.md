@@ -27,6 +27,12 @@ erDiagram
     Studio ||--o{ LeadActivity : has
     Studio ||--o| InvoiceSettings : configures
     Studio ||--o{ InvoiceCounter : sequences
+    Studio ||--o{ PartnerConnection : integrates
+    PartnerConnection ||--o{ PartnerGuest : brings
+    PartnerConnection ||--o{ PartnerSpotAllocation : allots
+    PartnerConnection ||--o{ PartnerWebhookEvent : receives
+    PartnerConnection ||--o{ Booking : books
+    PartnerGuest ||--o| User : identifies
     Studio ||--o{ Invoice : issues
     Studio ||--o{ BillingProfile : has
 
@@ -306,6 +312,19 @@ Puanlama fonksiyonu (`apps/api/src/modules/churn/churn-scoring.ts`) saf ve iş k
 | `studios.embed_allowed_origins` | Gömülebilir rezervasyon widget'ının çerçevelenmesine izin verilen kökenler; boş liste herhangi bir kökene izin verir (`frame-ancestors *`) | - |
 
 Ayrıntılar için `docs/PUBLIC_API.md`.
+
+## Toplayıcı / Pazaryeri Partner Entegrasyonları (W20)
+
+Sağlayıcıdan bağımsız (provider-agnostic) bir çerçeve: ClassPass, Urban Sports Club, Wellhub/Gympass ve yerel Türkiye eşdeğerleri için ortak bir adaptör arayüzü, artı gerçek sözleşme/kimlik bilgisi gerektirmeyen bir MOCK adaptör. Gerçek sağlayıcılar için ne gerektiği `docs/PARTNERS.md` içindedir.
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `partner_connections` | Bir stüdyonun bir partnere bağlantısı: sağlayıcı (MOCK/CLASSPASS/URBAN_SPORTS/WELLHUB/OTHER), etiket, durum (aktif/duraklatıldı/devre dışı), AES-256-GCM ile şifrelenmiş kimlik bilgisi (`encrypted_credentials`, hiçbir uç nokta tarafından asla döndürülmez), yapılandırma (`config`: paylaşılan hizmet türleri/şubeler, seans başına partner yer kontenjanı, ziyaret başına ödeme oranı, kontenjanın seanstan kaç saat önce serbest bırakılacağı), son senkronizasyon zamanı, ardışık senkronizasyon hatası sayacı | (studio_id, provider, label) benzersiz; (studio_id, status) index |
+| `partner_guests` | Bir partner rezervasyonunun getirdiği misafirin kimliği: tam ad, (varsa) telefon, partnerin kendi misafir kimliği, bağlı global `User` | (studio_id, connection_id) index; (connection_id, external_guest_id) index |
+| `partner_spot_allocations` | Bir seans için bir partner bağlantısına ayrılan yer kontenjanı: ayrılan/kullanılan yer sayısı, serbest bırakılma zamanı | (connection_id, schedule_id) benzersiz; (studio_id, release_at, is_released) index |
+| `partner_webhook_events` | Gelen partner webhook olaylarının tekrar (replay) koruması: partnerin kendi olay kimliği bağlantı başına benzersizdir | (connection_id, event_id) benzersiz |
+
+`bookings` tablosuna eklenenler: `partner_connection_id` (nullable), `external_reservation_id` (nullable, partnerin kendi rezervasyon kimliği), `partner_guest_id` (nullable), `partner_cancelled` (bool, partner tarafından iptal edildiğinde true). `member_id` her zaman dolu kalır (NOT NULL değişmedi): partner misafiri bir `MemberProfile`'a bağlanır ki `Booking.member_id` kısıtı bozulmasın ve mevcut ~30 modülün (hakediş, oyunlaştırma, geri bildirim, otomasyon, raporlar) hepsi partner rezervasyonlarını değişiklik gerektirmeden aynı şekilde işleyebilsin; partnerin kendi kimliği ve görünen adı `partner_guests` üzerindendir (bkz. `docs/PARTNERS.md`, "Tasarım kararı"). (partner_connection_id, external_reservation_id) benzersiz kısıtı idempotency sağlar (PostgreSQL'de NULL değerler birbirinden farklı sayıldığından normal rezervasyonlar bu kısıttan etkilenmez).
 
 ## Denetim (Audit)
 

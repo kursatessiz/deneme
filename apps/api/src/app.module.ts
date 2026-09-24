@@ -31,6 +31,7 @@ import { CheckInModule } from './modules/checkin/checkin.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { PublicApiModule } from './modules/public-api/public-api.module';
+import { PartnersModule } from './modules/partners/partners.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -70,6 +71,7 @@ import { validateEnv } from './config/env';
     ApiKeysModule,
     WebhooksModule,
     PublicApiModule,
+    PartnersModule,
     HealthModule,
   ],
 })
