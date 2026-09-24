@@ -35,6 +35,7 @@ export default function HesabimScreen() {
   const canViewReports = activeMembership?.permissions.includes('reports.view') ?? false;
   const canViewLeads = activeMembership?.permissions.includes('leads.view') ?? false;
   const canManageAutomations = activeMembership?.permissions.includes('notifications.manage') ?? false;
+  const canCheckInMembers = activeMembership?.permissions.includes('attendance.manage') ?? false;
   const isMember = Boolean(activeMembership?.memberProfileId);
   const isTrainer = Boolean(activeMembership?.trainerProfileId);
   const canViewOwnCommission = isTrainer && (activeMembership?.permissions.includes('commissions.view.own') ?? false);
@@ -82,6 +83,11 @@ export default function HesabimScreen() {
         {canViewOwnCommission ? <MenuLink label="Hakedişim" onPress={() => router.push('/(app)/hesabim/hakedisim')} /> : null}
         {canViewPayroll ? <MenuLink label="Bordro" onPress={() => router.push('/(app)/hesabim/bordro')} /> : null}
         {isMember ? <MenuLink label="Faturalarım" onPress={() => router.push('/(app)/hesabim/faturalarim')} /> : null}
+        {isMember ? <MenuLink label="QR ile giriş" onPress={() => router.push('/(app)/hesabim/qr-ile-giris')} /> : null}
+        {canCheckInMembers ? (
+          <MenuLink label="Üye QR tarama" onPress={() => router.push('/(app)/hesabim/resepsiyon-tarama')} />
+        ) : null}
+        {canManageTheme ? <MenuLink label="Kiosk modu" onPress={() => router.push('/(app)/hesabim/kiosk-modu')} /> : null}
         {canViewReports ? <MenuLink label="Şube özeti" onPress={() => router.push('/(app)/hesabim/subeler')} /> : null}
         {canViewReports ? <MenuLink label="Raporlar" onPress={() => router.push('/(app)/hesabim/raporlar')} /> : null}
         {canViewReports ? (

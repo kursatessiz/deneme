@@ -405,6 +405,9 @@ model Studio {
   /// rewarded (EXTRA_UNITS is the only reward type while no gift-card
   /// module exists on main).
   referralRewardUnits    Int      @default(1) @map("referral_reward_units")
+  /// QR check-in window around a session's start time (W17).
+  checkInWindowBeforeMinutes Int  @default(30) @map("check_in_window_before_minutes")
+  checkInWindowAfterMinutes  Int  @default(15) @map("check_in_window_after_minutes")
   /// Channel order and fallback, e.g. { "order": ["WHATSAPP", "SMS"] }
   notificationSettings   Json     @default("{\"order\":[\"WHATSAPP\",\"SMS\"]}") @map("notification_settings")
   /// Churn risk scoring weights (W12). Null means the shared defaults apply;
@@ -475,6 +478,8 @@ model Studio {
   sessionRatings        SessionRating[]
   referralCodes         ReferralCode[]
   referrals             Referral[]
+  checkInPoints         CheckInPoint[]
+  kioskDevices          KioskDevice[]
 
   @@map("studios")
 }
@@ -500,9 +505,11 @@ model Branch {
   payments    Payment[]
   staffAccess MembershipBranch[]
   homeMembers MemberProfile[]    @relation("MemberHomeBranch")
-  payrollRuns PayrollRun[]
-  leads       Lead[]
-  invoices    Invoice[]
+  payrollRuns   PayrollRun[]
+  leads         Lead[]
+  invoices      Invoice[]
+  checkInPoints CheckInPoint[]
+  kioskDevices  KioskDevice[]
 
   @@unique([studioId, name])
   /// Target of composite foreign keys that pin a row to the branch's studio.
@@ -576,6 +583,7 @@ model User {
   giftCardTransactions  GiftCardTransaction[]    @relation("GiftCardTransactionActor")
   riskSnapshotsContacted MemberRiskSnapshot[]    @relation("RiskSnapshotContactedBy")
   referredAs            Referral[]
+  kioskDevicesCreated   KioskDevice[]            @relation("KioskDeviceCreatedBy")
 
   @@map("users")
 }
@@ -1227,6 +1235,58 @@ model Waitlist {
   @@unique([scheduleId, memberId])
   @@index([scheduleId, status, position])
   @@map("waitlist")
+}
+
+// ---------------------------------------------------------------------------
+// Check-in kiosk and QR (W17)
+// ---------------------------------------------------------------------------
+
+/// A static, branch-bound QR point a member scans to check in (a poster at
+/// the entrance). Only the SHA-256 hash of the point token is stored; the
+/// raw token is returned once, on creation or rotation, for the QR image.
+/// No turnstile/door integration: this only marks a booking ATTENDED.
+model CheckInPoint {
+  id        String   @id @default(uuid()) @db.Uuid
+  studioId  String   @map("studio_id") @db.Uuid
+  branchId  String   @map("branch_id") @db.Uuid
+  name      String   @db.VarChar(100)
+  tokenHash String   @unique @map("token_hash") @db.VarChar(64)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([studioId])
+  @@index([branchId])
+  @@map("check_in_points")
+}
+
+/// A tablet paired to one branch as a check-in kiosk. Pairing is a one-time
+/// code (hashed, short-lived); once paired the kiosk holds a long-lived
+/// kiosk-scoped JWT (typ "kiosk") that only KioskAuthGuard accepts.
+/// Revocation (revokedAt) is checked on every kiosk request.
+model KioskDevice {
+  id                   String    @id @default(uuid()) @db.Uuid
+  studioId             String    @map("studio_id") @db.Uuid
+  branchId             String    @map("branch_id") @db.Uuid
+  name                 String    @db.VarChar(100)
+  pairingCodeHash      String?   @map("pairing_code_hash") @db.VarChar(64)
+  pairingCodeExpiresAt DateTime? @map("pairing_code_expires_at")
+  pairedAt             DateTime? @map("paired_at")
+  lastSeenAt           DateTime? @map("last_seen_at")
+  revokedAt            DateTime? @map("revoked_at")
+  createdByUserId      String    @map("created_by_user_id") @db.Uuid
+  createdAt            DateTime  @default(now()) @map("created_at")
+
+  studio    Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  branch    Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdBy User   @relation("KioskDeviceCreatedBy", fields: [createdByUserId], references: [id])
+
+  @@index([studioId])
+  @@index([branchId])
+  @@map("kiosk_devices")
 }
 
 // ---------------------------------------------------------------------------
