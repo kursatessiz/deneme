@@ -701,6 +701,7 @@ model MemberPackage {
   transfers         PackageTransfer[]
   bookings          Booking[]
   payments          Payment[]
+  waitlistEntries   Waitlist[]
 
   @@index([studioId, memberId, status])
   @@map("member_packages")
@@ -803,6 +804,8 @@ model Booking {
   cancelledAt        DateTime?     @map("cancelled_at")
   cancellationReason String?       @map("cancellation_reason") @db.Text
   isLateCancellation Boolean       @default(false) @map("is_late_cancellation")
+  /// Units kept by the business under the cancellation / no-show policy.
+  penaltyUnits       Int           @default(0) @map("penalty_units")
   createdAt          DateTime      @default(now()) @map("created_at")
 
   studio        Studio            @relation(fields: [studioId], references: [id], onDelete: Cascade)
@@ -842,18 +845,24 @@ model BookingResource {
 }
 
 model Waitlist {
-  id         String         @id @default(uuid()) @db.Uuid
-  studioId   String         @map("studio_id") @db.Uuid
-  scheduleId String         @map("schedule_id") @db.Uuid
-  memberId   String         @map("member_id") @db.Uuid
-  position   Int
-  status     WaitlistStatus @default(WAITING)
-  offeredAt  DateTime?      @map("offered_at")
-  createdAt  DateTime       @default(now()) @map("created_at")
+  id              String         @id @default(uuid()) @db.Uuid
+  studioId        String         @map("studio_id") @db.Uuid
+  scheduleId      String         @map("schedule_id") @db.Uuid
+  memberId        String         @map("member_id") @db.Uuid
+  /// Package charged when the entry is promoted to a booking.
+  memberPackageId String?        @map("member_package_id") @db.Uuid
+  position        Int
+  status          WaitlistStatus @default(WAITING)
+  offeredAt       DateTime?      @map("offered_at")
+  resolvedAt      DateTime?      @map("resolved_at")
+  /// Why a promotion attempt failed (e.g. package ran out of units).
+  failureReason   String?        @map("failure_reason") @db.VarChar(200)
+  createdAt       DateTime       @default(now()) @map("created_at")
 
-  studio   Studio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  schedule SessionSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  member   MemberProfile   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  studio        Studio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  schedule      SessionSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  member        MemberProfile   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberPackage MemberPackage?  @relation(fields: [memberPackageId], references: [id], onDelete: SetNull)
 
   @@unique([scheduleId, memberId])
   @@index([scheduleId, status, position])

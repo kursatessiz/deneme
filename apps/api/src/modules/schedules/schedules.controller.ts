@@ -1,9 +1,9 @@
-import { Controller, Get, Post, Param, Query, Patch } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Patch, ParseUUIDPipe } from '@nestjs/common';
 import { SchedulesService } from './schedules.service';
 import { StudioScoped, RequirePermission, SelfService } from '../auth/decorators/require-permission.decorator';
-import { Tenant } from '../auth/decorators/current-user.decorator';
+import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import { ZodBody } from '../../common/zod-body.pipe';
-import type { TenantContext } from '../auth/tenant-context';
+import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import {
   CreateScheduleSchema,
   CreateScheduleInput,
@@ -11,6 +11,14 @@ import {
   BookSessionInput,
   CancelBookingSchema,
   CancelBookingInput,
+  MarkNoShowSchema,
+  MarkNoShowInput,
+  JoinWaitlistSchema,
+  JoinWaitlistInput,
+  LeaveWaitlistSchema,
+  LeaveWaitlistInput,
+  SubstituteTrainerSchema,
+  SubstituteTrainerInput,
 } from '@platform/shared';
 
 @Controller('schedules')
@@ -65,7 +73,58 @@ export class SchedulesController {
 
   @Patch('check-in/:bookingId')
   @RequirePermission('attendance.manage')
-  async checkIn(@Param('bookingId') bookingId: string, @Tenant() tenant: TenantContext) {
+  async checkIn(@Param('bookingId', ParseUUIDPipe) bookingId: string, @Tenant() tenant: TenantContext) {
     return this.schedulesService.checkIn(tenant, bookingId);
+  }
+
+  @Patch('no-show/:bookingId')
+  @RequirePermission('attendance.manage')
+  async markNoShow(
+    @Param('bookingId', ParseUUIDPipe) bookingId: string,
+    @Tenant() tenant: TenantContext,
+    @ZodBody(MarkNoShowSchema) body: MarkNoShowInput,
+  ) {
+    return this.schedulesService.markNoShow(tenant, bookingId, body);
+  }
+
+  @Get('waitlist/:scheduleId')
+  @RequirePermission('bookings.view')
+  async getWaitlist(@Param('scheduleId', ParseUUIDPipe) scheduleId: string, @Tenant() tenant: TenantContext) {
+    return this.schedulesService.getWaitlist(tenant, scheduleId);
+  }
+
+  @Post('waitlist')
+  @RequirePermission('bookings.manage')
+  async joinWaitlist(@Tenant() tenant: TenantContext, @ZodBody(JoinWaitlistSchema) body: JoinWaitlistInput) {
+    return this.schedulesService.joinWaitlist(tenant, body);
+  }
+
+  @Post('waitlist/self')
+  @SelfService()
+  async joinWaitlistSelf(@Tenant() tenant: TenantContext, @ZodBody(JoinWaitlistSchema) body: JoinWaitlistInput) {
+    return this.schedulesService.joinWaitlistSelf(tenant, body);
+  }
+
+  @Post('waitlist/leave')
+  @RequirePermission('bookings.manage')
+  async leaveWaitlist(@Tenant() tenant: TenantContext, @ZodBody(LeaveWaitlistSchema) body: LeaveWaitlistInput) {
+    return this.schedulesService.leaveWaitlist(tenant, body);
+  }
+
+  @Post('waitlist/leave/self')
+  @SelfService()
+  async leaveWaitlistSelf(@Tenant() tenant: TenantContext, @ZodBody(LeaveWaitlistSchema) body: LeaveWaitlistInput) {
+    return this.schedulesService.leaveWaitlistSelf(tenant, body);
+  }
+
+  @Post(':scheduleId/substitute')
+  @RequirePermission('schedule.manage')
+  async substituteTrainer(
+    @Param('scheduleId', ParseUUIDPipe) scheduleId: string,
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodBody(SubstituteTrainerSchema) body: SubstituteTrainerInput,
+  ) {
+    return this.schedulesService.substituteTrainer(tenant, user.id, scheduleId, body);
   }
 }

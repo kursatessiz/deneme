@@ -115,8 +115,38 @@ export const CancelBookingSchema = z.object({
   bookingId: z.string().uuid(),
   cancelledBy: z.enum(['MEMBER', 'STUDIO']),
   reason: z.string().max(500).optional(),
+  /** Staff only: return every unit even for a late cancellation. Ignored on self-service. */
+  waivePenalty: z.boolean().default(false),
 });
 export type CancelBookingInput = z.infer<typeof CancelBookingSchema>;
+
+export const MarkNoShowSchema = z.object({
+  /** Staff override: keep no units for this no-show. */
+  waivePenalty: z.boolean().default(false),
+});
+export type MarkNoShowInput = z.infer<typeof MarkNoShowSchema>;
+
+export const JoinWaitlistSchema = z.object({
+  studioId: z.string().uuid(),
+  scheduleId: z.string().uuid(),
+  memberId: z.string().uuid(),
+  /** Package charged automatically when a seat opens. */
+  memberPackageId: z.string().uuid().optional(),
+});
+export type JoinWaitlistInput = z.infer<typeof JoinWaitlistSchema>;
+
+export const LeaveWaitlistSchema = z.object({
+  waitlistId: z.string().uuid(),
+});
+export type LeaveWaitlistInput = z.infer<typeof LeaveWaitlistSchema>;
+
+export const SubstituteTrainerSchema = z.object({
+  trainerId: z.string().uuid(),
+  reason: z.string().trim().max(500).optional(),
+  /** Tell booked members about the change. */
+  notifyMembers: z.boolean().default(true),
+});
+export type SubstituteTrainerInput = z.infer<typeof SubstituteTrainerSchema>;
 
 /** Six digits, not all the same and not a straight ascending/descending run. */
 export function isWeakPin(pin: string): boolean {
