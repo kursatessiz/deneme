@@ -7,3 +7,4 @@ export * from './design';
 export * from './notifications';
 export * from './me';
 export * from './messaging';
+export * from './churn';
