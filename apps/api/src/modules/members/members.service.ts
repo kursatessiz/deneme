@@ -4,10 +4,14 @@ import type { TenantContext } from '../auth/tenant-context';
 import { CreateMemberInput, AssignPackageToMemberInput, FreezePackageInput } from '@platform/shared';
 import type { SetHomeBranchInput } from '@platform/shared';
 import { assertBranchAccess } from '../branches/branch-access';
+import { ReferralsService } from '../feedback/referrals.service';
 
 @Injectable()
 export class MembersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private referrals: ReferralsService,
+  ) {}
 
   async findAll(tenant: TenantContext, search?: string, homeBranchId?: string) {
     if (homeBranchId) assertBranchAccess(tenant, homeBranchId);
@@ -181,6 +185,10 @@ export class MembersService {
         },
         include: { membership: { include: { user: true } } },
       });
+
+      if (dto.referralCode) {
+        await this.referrals.recordReferral(tx, studioId, user.id, dto.referralCode);
+      }
 
       return this.toDetail(memberProfile, tenant);
     });

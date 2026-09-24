@@ -6,6 +6,7 @@ export default function SeansLayout() {
     <Stack>
       <Stack.Screen name="index" options={{ title: 'Seanslar' }} />
       <Stack.Screen name="[scheduleId]" options={{ title: 'Seans' }} />
+      <Stack.Screen name="degerlendir/[bookingId]" options={{ title: 'Seansı değerlendir' }} />
     </Stack>
   );
 }

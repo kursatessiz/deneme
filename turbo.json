@@ -32,6 +32,12 @@
         "build"
       ]
     },
+    "@platform/database#typecheck": {
+      "dependsOn": [
+        "^build",
+        "build"
+      ]
+    },
     "test": {
       "dependsOn": [
         "^build"

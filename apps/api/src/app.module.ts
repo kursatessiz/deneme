@@ -26,6 +26,7 @@ import { JobsModule } from './modules/jobs/jobs.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
 import { ChurnModule } from './modules/churn/churn.module';
 import { GamificationModule } from './modules/gamification/gamification.module';
+import { FeedbackModule } from './modules/feedback/feedback.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -60,6 +61,7 @@ import { validateEnv } from './config/env';
     PromotionsModule,
     ChurnModule,
     GamificationModule,
+    FeedbackModule,
     HealthModule,
   ],
 })
