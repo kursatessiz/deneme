@@ -265,9 +265,11 @@ export class GamificationService {
   ): Promise<void> {
     const member = await this.prisma.memberProfile.findUnique({
       where: { id: memberId },
-      select: { membership: { select: { userId: true } } },
+      select: { membership: { select: { userId: true, isPartnerGuest: true } } },
     });
-    if (!member) return;
+    // Partner guests never onboarded into the app; do not push engagement
+    // notifications at them until they become a real member.
+    if (!member || member.membership.isPartnerGuest) return;
     for (const badge of badges) {
       try {
         await this.notifications.notifyUser({
@@ -443,7 +445,7 @@ export class GamificationService {
     const rangeEnd = new Date(Date.UTC(year, monthNum, 1) + DAY_MS);
 
     const optedIn = await this.prisma.memberProfile.findMany({
-      where: { studioId: tenant.studioId, leaderboardOptIn: true, membership: { status: 'ACTIVE' } },
+      where: { studioId: tenant.studioId, leaderboardOptIn: true, membership: { status: 'ACTIVE', isPartnerGuest: false } },
       select: { id: true, membership: { select: { user: { select: { firstName: true, lastName: true } } } } },
     });
     if (optedIn.length === 0) return { month, entries: [] };

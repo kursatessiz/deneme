@@ -61,6 +61,36 @@ export const CreateMemberSchema = z.object({
 });
 export type CreateMemberInput = z.infer<typeof CreateMemberSchema>;
 
+/**
+ * Staff-facing member list/detail response shape (MembersService.findAll /
+ * findById). `phone`, `email`, `emergencyContactPhone`, `medicalConditions`
+ * and `emergencyContactName` are only present when the caller holds the
+ * matching view permission. `isPartnerGuest` marks a membership auto-created
+ * by a partner (aggregator) webhook guest who has not onboarded into the
+ * app themselves (see docs/PARTNERS.md); staff lists show it as a label
+ * rather than hiding these rows.
+ */
+export interface MemberDetailDTO {
+  id: string;
+  membershipId: string;
+  studioId: string;
+  firstName?: string;
+  lastName?: string;
+  birthDate: string | Date | null;
+  familyGroupId: string | null;
+  notes: string | null;
+  isPartnerGuest: boolean;
+  packages: unknown[];
+  bookings: unknown[];
+  payments: unknown[];
+  bookingsCount?: number;
+  phone?: string;
+  email?: string | null;
+  emergencyContactPhone?: string | null;
+  medicalConditions?: string | null;
+  emergencyContactName?: string | null;
+}
+
 export const CreateInviteSchema = z.object({
   studioId: z.string().uuid(),
   fullName: z.string().trim().min(3, 'Ad soyad giriniz'),

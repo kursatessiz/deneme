@@ -33,11 +33,13 @@ describe('MembersService', () => {
     membership: {
       findUnique: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
     },
     memberProfile: {
       create: jest.fn(),
       findFirst: jest.fn(),
       findMany: jest.fn(),
+      upsert: jest.fn(),
     },
     packageDefinition: {
       findFirst: jest.fn(),
@@ -107,7 +109,7 @@ describe('MembersService', () => {
       });
       mockPrisma.membership.findUnique.mockResolvedValueOnce(null);
       mockPrisma.membership.create.mockResolvedValueOnce({ id: 'membership-new' });
-      mockPrisma.memberProfile.create.mockResolvedValueOnce({
+      mockPrisma.memberProfile.upsert.mockResolvedValueOnce({
         id: 'member-1',
         membershipId: 'membership-new',
         studioId: STUDIO_ID,
@@ -127,6 +129,38 @@ describe('MembersService', () => {
     it('should throw NotFoundException when the studio has no member role template', async () => {
       mockPrisma.roleTemplate.findFirst.mockResolvedValueOnce(null);
       await expect(service.createMember(tenant, dto)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should promote an existing partner-guest membership instead of throwing, and reuse the same row', async () => {
+      mockPrisma.roleTemplate.findFirst.mockResolvedValueOnce({ id: 'role-member', key: 'member' });
+      mockPrisma.user.findUnique.mockResolvedValueOnce({ id: 'user-1', phone: dto.phone, firstName: 'Partner', lastName: 'Misafiri' });
+      mockPrisma.membership.findUnique.mockResolvedValueOnce({
+        id: 'membership-guest',
+        userId: 'user-1',
+        studioId: STUDIO_ID,
+        joinedAt: new Date('2026-01-01T00:00:00.000Z'),
+        isPartnerGuest: true,
+      });
+      mockPrisma.membership.update.mockResolvedValueOnce({ id: 'membership-guest', isPartnerGuest: false });
+      mockPrisma.memberProfile.upsert.mockResolvedValueOnce({
+        id: 'member-1',
+        membershipId: 'membership-guest',
+        studioId: STUDIO_ID,
+        membership: { user: { firstName: 'Ayşe', lastName: 'Yılmaz', phone: dto.phone, email: null }, isPartnerGuest: false },
+      });
+
+      await service.createMember(tenant, dto);
+
+      expect(mockPrisma.membership.create).not.toHaveBeenCalled();
+      expect(mockPrisma.membership.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'membership-guest' },
+          data: expect.objectContaining({ status: 'ACTIVE', isPartnerGuest: false }),
+        }),
+      );
+      expect(mockPrisma.memberProfile.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { membershipId: 'membership-guest' } }),
+      );
     });
   });
 });

@@ -25,7 +25,9 @@ export class WinBackEvaluator implements RuleEvaluator {
     const cutoff = addDays(now, -params.noAttendanceDays);
 
     const members = await this.prisma.memberProfile.findMany({
-      where: { studioId, membership: { status: MembershipStatus.ACTIVE } },
+      // Partner-guest memberships are excluded: marketing automations only
+      // target people who have onboarded into the app themselves.
+      where: { studioId, membership: { status: MembershipStatus.ACTIVE, isPartnerGuest: false } },
       select: {
         id: true,
         membership: { select: { userId: true, user: { select: { firstName: true } } } },
