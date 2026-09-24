@@ -1,9 +1,13 @@
-import { Controller, Get, Param, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Param, Put, UseGuards, ForbiddenException } from '@nestjs/common';
 import { StudiosService } from './studios.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { StudioScoped, RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
+import { ZodBody } from '../../common/zod-body.pipe';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
+import { UpdateEmbedSettingsSchema } from '@platform/shared';
+import type { UpdateEmbedSettingsInput } from '@platform/shared';
+
 
 @Controller('studios')
 export class StudiosController {
@@ -29,5 +33,17 @@ export class StudiosController {
   @RequirePermission('reports.view')
   async getMetrics(@Tenant() tenant: TenantContext) {
     return this.studiosService.getDashboardMetrics(tenant.studioId);
+  }
+
+  /** The booking widget's allowed embed origins (W18); empty allows any origin. */
+  @Put(':studioId/embed-settings')
+  @StudioScoped()
+  @RequirePermission('integrations.manage')
+  async updateEmbedSettings(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodBody(UpdateEmbedSettingsSchema) body: UpdateEmbedSettingsInput,
+  ) {
+    return this.studiosService.updateEmbedSettings(tenant.studioId, user.id, body.embedAllowedOrigins);
   }
 }

@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { InvoicingService } from '../invoicing/invoicing.service';
 import { PaymentProviderRegistry } from './providers/payment-provider.registry';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { PromotionsService } from '../promotions/promotions.service';
 import type { TenantContext } from '../auth/tenant-context';
 import type {
@@ -38,6 +39,7 @@ export class PaymentsService {
     private providers: PaymentProviderRegistry,
     private invoicing: InvoicingService,
     private promotions: PromotionsService,
+    private webhooks: WebhooksService,
   ) {}
 
   /**
@@ -46,6 +48,11 @@ export class PaymentsService {
    * provider failure is already recorded as a FAILED Invoice inside
    * InvoicingService, and any unexpected error here is only logged, so a
    * document generation problem never undoes or blocks the payment itself.
+   *
+   * Also emits the payment.completed webhook, since every immediate-payment
+   * completion path (sale, self checkout, bank transfer confirmation,
+   * provider webhook) already calls this helper right after the payment
+   * transitions to COMPLETED.
    */
   private async maybeAutoIssueInvoice(studioId: string, paymentId: string): Promise<void> {
     try {
@@ -55,6 +62,7 @@ export class PaymentsService {
     } catch (err) {
       this.logger.warn(`Auto-issue invoice failed for payment ${paymentId}: ${err instanceof Error ? err.message : err}`);
     }
+    await this.webhooks.emit(studioId, 'payment.completed', { paymentId });
   }
 
   /**
@@ -575,6 +583,12 @@ export class PaymentsService {
         this.logger.warn(`Invoice cancel-on-refund failed for payment ${payment.id}: ${err instanceof Error ? err.message : err}`);
       }
     }
+
+    await this.webhooks.emit(studioId, 'payment.refunded', {
+      paymentId: payment.id,
+      amount: requested.toFixed(2),
+      fullyRefunded,
+    });
 
     return this.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
   }

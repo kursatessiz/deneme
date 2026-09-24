@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { CreateMemberInput, AssignPackageToMemberInput, FreezePackageInput } from '@platform/shared';
 import type { SetHomeBranchInput } from '@platform/shared';
@@ -11,6 +12,7 @@ export class MembersService {
   constructor(
     private prisma: PrismaService,
     private referrals: ReferralsService,
+    private webhooks: WebhooksService,
   ) {}
 
   async findAll(tenant: TenantContext, search?: string, homeBranchId?: string) {
@@ -132,7 +134,7 @@ export class MembersService {
     return this.toDetail(member, tenant);
   }
 
-  async createMember(tenant: TenantContext, dto: CreateMemberInput) {
+  private async createMemberTx(tenant: TenantContext, dto: CreateMemberInput) {
     const studioId = tenant.studioId;
 
     const roleTemplate = await this.prisma.roleTemplate.findFirst({
@@ -192,6 +194,16 @@ export class MembersService {
 
       return this.toDetail(memberProfile, tenant);
     });
+  }
+
+  async createMember(tenant: TenantContext, dto: CreateMemberInput) {
+    const detail = await this.createMemberTx(tenant, dto);
+    await this.webhooks.emit(tenant.studioId, 'member.created', {
+      membershipId: detail.membershipId,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+    });
+    return detail;
   }
 
   async assignPackage(tenant: TenantContext, dto: AssignPackageToMemberInput) {

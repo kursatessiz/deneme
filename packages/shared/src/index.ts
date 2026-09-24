@@ -13,3 +13,4 @@ export * from './churn';
 export * from './gamification';
 export * from './feedback';
 export * from './checkin';
+export * from './open-platform';
