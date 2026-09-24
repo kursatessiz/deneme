@@ -24,6 +24,11 @@ updates:
     directories: [/deploy/docker]
     schedule:
       interval: weekly
+    # Stay on the Node.js LTS line; moving to the next LTS is a deliberate
+    # change (engines, CI node-version and images together), not a bot PR.
+    ignore:
+      - dependency-name: node
+        update-types: [version-update:semver-major]
     commit-message:
       prefix: build(docker)
 
