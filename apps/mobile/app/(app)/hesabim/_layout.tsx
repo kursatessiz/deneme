@@ -22,6 +22,7 @@ export default function HesabimLayout() {
       <Stack.Screen name="riskli-uyeler" options={{ title: 'Riskli üyeler' }} />
       <Stack.Screen name="arkadasini-getir" options={{ title: 'Arkadaşını getir' }} />
       <Stack.Screen name="entegrasyonlar" options={{ title: 'Entegrasyonlar' }} />
+      <Stack.Screen name="partner-platformlar" options={{ title: 'Partner platformlar' }} />
     </Stack>
   );
 }
