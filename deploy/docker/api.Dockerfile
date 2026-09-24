@@ -3,7 +3,7 @@
 # No OS packages are installed: busybox wget covers the healthcheck and
 # compose `init: true` provides PID 1 signal handling.
 
-FROM node:22-alpine AS base
+FROM node:25-alpine AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
 RUN npm install -g pnpm@9.15.4
 WORKDIR /app
@@ -26,7 +26,7 @@ RUN pnpm --filter @platform/api deploy --prod /out \
  && cd /out/node_modules/@platform/database \
  && ./node_modules/.bin/prisma generate --schema prisma/schema.prisma
 
-FROM node:22-alpine AS runner
+FROM node:25-alpine AS runner
 ENV NODE_ENV=production PORT=4000 NODE_OPTIONS=--max-old-space-size=512
 WORKDIR /app
 COPY --from=builder --chown=node:node /out/node_modules ./node_modules

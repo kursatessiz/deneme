@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Multi-stage image for the Next.js app (standalone output).
 
-FROM node:22-alpine AS base
+FROM node:25-alpine AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
 RUN npm install -g pnpm@9.15.4
 WORKDIR /app
@@ -17,7 +17,7 @@ COPY apps/web apps/web
 ENV NEXT_TELEMETRY_DISABLED=1 NODE_ENV=production
 RUN pnpm --filter @platform/web... run build
 
-FROM node:22-alpine AS runner
+FROM node:25-alpine AS runner
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 \
     NODE_OPTIONS=--max-old-space-size=512
 WORKDIR /app
