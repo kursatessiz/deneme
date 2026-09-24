@@ -176,7 +176,7 @@ Sahip, bölüm 6b'deki tüm maddelerin turnike ve kapı entegrasyonu hariç uygu
 | W10 | Otomatik akışlar | Kural motoru ve zamanlanmış işler: geri kazanma, paket bitiyor, doğum günü, ilk ders sonrası |
 | W11 | Potansiyel müşteri hattı | Web formu uç noktası, aşamalar, deneme dersine ve üyeliğe dönüşüm |
 | W12 | Ayrılma riski | Kural tabanlı skor, riskli üye listesi |
-| W13 | Raporlar | Doluluk, gelir, üye başına gelir, yenileme oranı, kohort, eğitmen performansı |
+| W13 | Raporlar | Doluluk, gelir, üye başına gelir, yenileme oranı, kohort, eğitmen performansı. Yapıldı: `GET /reports/studio/:studioId/{occupancy,revenue,members,renewal,cohorts,trainers}` (`reports.view`, opsiyonel `branchId`, `from`/`to`, gelir için `granularity`), her rapor için `?format=csv` (UTF-8 BOM, noktalı virgül, Türkçe başlıklar), şube kısıtlı personel kendi şubesiyle sınırlı, para tutarları `Prisma.Decimal` ile toplanıp ondalık dizgi döner. Mobilde Hesabım > Raporlar (doluluk, son 30 gün gelir, yenileme oranı, en yoğun 5 eğitmen; grafik kütüphanesi yok, tema renkleriyle basit çubuklar). Metrik tanımları: `docs/REPORTS.md`. Kalan: `Payment.refundedAmount` sütunu W6 ile gelince gelir raporundaki `refundTotal` otomatik dolacak (kod zaten savunmacı yazıldı); web paneli rapor ekranları ayrı bir işten (ileride) |
 | W14 | Hakediş bordrosu | Dönemsel eğitmen hakedişi hesaplama ve CSV çıktısı |
 | W15 | Puan ve tavsiye | Ders sonrası puan, Google yorum yönlendirmesi, arkadaşını getir |
 | W16 | Oyunlaştırma | Seri, kilometre taşı, rozet, aylık hedef |

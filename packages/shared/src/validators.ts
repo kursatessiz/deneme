@@ -467,3 +467,15 @@ export const ListPaymentsQuerySchema = z.object({
   paymentStatus: z.nativeEnum(PaymentStatus).optional(),
 });
 export type ListPaymentsQuery = z.infer<typeof ListPaymentsQuerySchema>;
+/** Optional branch filter and export format, alongside ReportRangeSchema. */
+export const ReportFiltersSchema = z.object({
+  branchId: z.string().uuid().optional(),
+  format: z.enum(['json', 'csv']).default('json'),
+});
+export type ReportFilters = z.infer<typeof ReportFiltersSchema>;
+
+/** Revenue report bucketing, alongside ReportRangeSchema and ReportFiltersSchema. */
+export const RevenueGranularitySchema = z.object({
+  granularity: z.enum(['day', 'week', 'month']).default('day'),
+});
+export type RevenueGranularityQuery = z.infer<typeof RevenueGranularitySchema>;
