@@ -1,38 +1,38 @@
 name: Bug report
-description: Report a bug in the platform
+description: Platformdaki bir hatayı bildirin
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        You are filing a bug report for the platform. Please fill in the fields below as
-        completely as you can.
+        Platform için bir hata bildirimi dolduruyorsunuz. Lütfen aşağıdaki alanları
+        elinizden geldiğince eksiksiz doldurun.
   - type: textarea
     id: what-happened
     attributes:
-      label: Describe the bug
-      description: Explain the bug in detail.
+      label: Hatayı açıklayın
+      description: Hatayı ayrıntılı olarak açıklayın.
     validations:
       required: true
   - type: textarea
     id: steps-to-reproduce
     attributes:
-      label: Steps to reproduce
-      description: What steps reliably reproduce the bug?
+      label: Yeniden üretme adımları
+      description: Hatayı hangi adımlar güvenilir şekilde yeniden üretiyor?
       placeholder: |
-        1. Go to /calendar
-        2. Click "New session"
+        1. /calendar sayfasına gidin
+        2. "New session" düğmesine tıklayın
         3. ...
     validations:
       required: true
   - type: dropdown
     id: component
     attributes:
-      label: Affected component
+      label: Etkilenen bileşen
       options:
-        - "apps/web (admin panel / dashboard)"
+        - "apps/web (yönetim paneli / dashboard)"
         - "apps/api (backend REST API)"
-        - "apps/mobile (Expo mobile app)"
+        - "apps/mobile (Expo mobil uygulama)"
         - "packages/database (Prisma / Postgres)"
         - "deploy (Docker / Caddy / CI/CD)"
     validations:
