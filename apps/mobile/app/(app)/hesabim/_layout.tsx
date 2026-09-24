@@ -23,6 +23,8 @@ export default function HesabimLayout() {
       <Stack.Screen name="arkadasini-getir" options={{ title: 'Arkadaşını getir' }} />
       <Stack.Screen name="entegrasyonlar" options={{ title: 'Entegrasyonlar' }} />
       <Stack.Screen name="partner-platformlar" options={{ title: 'Partner platformlar' }} />
+      <Stack.Screen name="saglik" options={{ title: 'Sağlık entegrasyonu' }} />
+      <Stack.Screen name="saglik-ozet" options={{ title: 'Sağlık' }} />
     </Stack>
   );
 }

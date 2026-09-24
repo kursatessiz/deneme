@@ -82,6 +82,7 @@ export default function HesabimScreen() {
         {isMember ? <MenuLink label="Ödemelerim" onPress={() => router.push('/(app)/hesabim/odemelerim')} /> : null}
         {isMember ? <MenuLink label="Başarılarım" onPress={() => router.push('/(app)/hesabim/basarilarim')} /> : null}
         {isMember ? <MenuLink label="Arkadaşını getir" onPress={() => router.push('/(app)/hesabim/arkadasini-getir')} /> : null}
+        {isMember ? <MenuLink label="Sağlık entegrasyonu" onPress={() => router.push('/(app)/hesabim/saglik')} /> : null}
         {canViewOwnCommission ? <MenuLink label="Hakedişim" onPress={() => router.push('/(app)/hesabim/hakedisim')} /> : null}
         {canViewPayroll ? <MenuLink label="Bordro" onPress={() => router.push('/(app)/hesabim/bordro')} /> : null}
         {isMember ? <MenuLink label="Faturalarım" onPress={() => router.push('/(app)/hesabim/faturalarim')} /> : null}
