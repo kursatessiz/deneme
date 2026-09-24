@@ -30,6 +30,9 @@ const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? 'Demo1234!';
 // Tables in no particular order: TRUNCATE ... CASCADE handles FK order for us.
 const ALL_TABLES = [
   'audit_logs',
+  'health_sync_records',
+  'health_daily_summaries',
+  'member_health_settings',
   'automation_runs',
   'automation_rules',
   'communication_consents',
@@ -149,6 +152,24 @@ async function main() {
         'Bu sozlesme, uye ile isletme arasindaki paket satin alma, iptal ve devir sartlarini ' +
         'duzenleyen ornek bir taslak metindir. Gercek kullanimdan once hukuk danismani ' +
         'tarafindan gozden gecirilmelidir.',
+      publishedAt: new Date(),
+    },
+  });
+  count('document_versions');
+  // Separate, optional consent for the health integration (W21): never part
+  // of onboarding's required documents, only shown when the member opts in.
+  await prisma.documentVersion.create({
+    data: {
+      studioId: null,
+      type: DocumentType.HEALTH_DATA,
+      version: 1,
+      title: 'Saglik Verisi Paylasimi Acik Riza Metni',
+      body:
+        'Bu metin, Apple Health / Health Connect entegrasyonu ile adim, aktif enerji ve ' +
+        'dinlenme nabzi gunluk ozetlerinizin isletmeyle paylasilmasina iliskin acik riza ' +
+        'metninin ornek bir taslagidir. Ozel nitelikli kisisel veri oldugundan onay her zaman ' +
+        'geri alinabilir ve veri her zaman silinebilir. Gercek kullanimdan once hukuk ' +
+        'danismani tarafindan gozden gecirilmelidir.',
       publishedAt: new Date(),
     },
   });

@@ -4,6 +4,7 @@ import {
   EntitlementKind,
   GiftCardStatus,
   GiftCardTransactionType,
+  HealthActivityType,
   MemberSubscriptionStatus,
   MembershipStatus,
   PackageStatus,
@@ -153,6 +154,7 @@ export interface ServiceTypeDTO {
   minRepeatIntervalDays?: number | null;
   allowedEntitlementKinds: EntitlementKind[];
   requiresQualification: boolean;
+  healthActivityType: HealthActivityType;
   requiredResourceTypes: { resourceTypeId: string; quantity: number }[];
   isActive: boolean;
 }

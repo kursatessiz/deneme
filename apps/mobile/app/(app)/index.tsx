@@ -8,6 +8,7 @@ import { GradientSurface } from '../../src/components/GradientSurface';
 import { ScreenContainer } from '../../src/components/ScreenContainer';
 import { ApiError, apiRequest } from '../../src/lib/api';
 import { addBookingToDeviceCalendar, CalendarSyncError } from '../../src/lib/calendarSync';
+import { syncAllPendingWorkouts, syncTodayAggregatesIfOptedIn } from '../../src/health';
 import { useSession } from '../../src/lib/session';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../src/theme';
 import { refreshWidgets } from '../../src/widgets';
@@ -147,7 +148,16 @@ export default function HomeScreen() {
   useEffect(() => {
     loadBookings();
     loadPendingRatings();
-  }, [loadBookings, loadPendingRatings]);
+    // Health sync (W21): best-effort, silent, privacy-gated entirely
+    // server-side (writeWorkouts/readAggregates/shareWithStudio + consent).
+    // A no-op everywhere except a real device build with the member opted in.
+    if (isMember && activeMembership?.studioId && activeMembership.memberProfileId) {
+      const studioId = activeMembership.studioId;
+      const memberId = activeMembership.memberProfileId;
+      syncAllPendingWorkouts(studioId, memberId).catch(() => undefined);
+      syncTodayAggregatesIfOptedIn(studioId).catch(() => undefined);
+    }
+  }, [loadBookings, loadPendingRatings, isMember, activeMembership?.studioId, activeMembership?.memberProfileId]);
 
   return (
     <ScreenContainer>
