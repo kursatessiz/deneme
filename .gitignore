@@ -64,3 +64,6 @@ backups/
 
 # Next.js generated
 next-env.d.ts
+
+# Local agent worktrees
+.claude/worktrees/
