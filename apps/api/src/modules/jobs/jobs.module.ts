@@ -6,6 +6,7 @@ import { PaymentsModule } from '../payments/payments.module';
 import { ChurnModule } from '../churn/churn.module';
 import { FeedbackModule } from '../feedback/feedback.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
+import { PartnersModule } from '../partners/partners.module';
 import { JobsService } from './jobs.service';
 import { SchedulerController } from './scheduler.controller';
 import { SchedulerProcessor } from './scheduler.processor';
@@ -30,6 +31,7 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
     ChurnModule,
     FeedbackModule,
     WebhooksModule,
+    PartnersModule,
     ...(redisConfigured
       ? [
           BullModule.forRoot({ connection: { url: process.env.REDIS_URL } }),
