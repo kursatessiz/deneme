@@ -3,7 +3,7 @@ import { PrismaClient, Role, SessionType, PackageStatus, BookingStatus, PaymentM
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Seeding Pilates Studio OS Database...');
+  console.log('Seeding Platform Database...');
 
   // Clean existing data
   await prisma.auditLog.deleteMany({});
@@ -53,7 +53,7 @@ async function main() {
     },
   });
 
-  console.log(`✅ Studios created: ${studioA.name} & ${studioB.name}`);
+  console.log(`Studios created: ${studioA.name} & ${studioB.name}`);
 
   // 2. Create Branches & Rooms for Studio A
   const branchA = await prisma.branch.create({
@@ -254,8 +254,8 @@ async function main() {
     },
   });
 
-  console.log('✅ Seed completed successfully!');
-  console.log('🔑 Credentials:');
+  console.log('Seed completed successfully!');
+  console.log('Credentials:');
   console.log('   Admin (Zen Pilates):  elif@zenpilates.com / admin123');
   console.log('   Trainer (Selin):      selin@zenpilates.com / admin123');
   console.log('   Member (Ayşe Demir):  ayse.demir@example.com / admin123');

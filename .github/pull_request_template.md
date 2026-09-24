@@ -1,11 +1,11 @@
-## 📝 Değişiklik Özeti
-<!-- Bu PR neyi değiştiriyor veya hangi özelliği ekliyor? -->
+## Summary
+<!-- What does this PR change or add? -->
 
-## 🔗 İlgili Görev / Issue
-<!-- Örnek: Fixes #12 veya Closes #45 -->
+## Related issue
+<!-- e.g. Fixes #12 or Closes #45 -->
 
-## ✅ Kontrol Listesi (Checklist)
-- [ ] TypeScript derlemesi hatasız geçti (`pnpm turbo run typecheck`)
-- [ ] Birim testleri yazıldı ve başarılı (`pnpm turbo run test`)
-- [ ] Çoklu stüdyo (Multi-tenant) veri izolasyonu (`studioId`) kontrol edildi
-- [ ] Yeni bir migration varsa geriye dönük uyumlu
+## Checklist
+- [ ] TypeScript compiles cleanly (`pnpm turbo run typecheck`)
+- [ ] Unit tests written and passing (`pnpm turbo run test`)
+- [ ] Multi-tenant data isolation (`studioId`) checked where relevant
+- [ ] New migrations, if any, are backward compatible

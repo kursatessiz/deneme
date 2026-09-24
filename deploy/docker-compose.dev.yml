@@ -1,12 +1,12 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: pilates_dev_postgres
+    container_name: app_dev_postgres
     restart: always
     environment:
-      POSTGRES_USER: pilates_user
+      POSTGRES_USER: app_user
       POSTGRES_PASSWORD: dev_password
-      POSTGRES_DB: pilates_dev
+      POSTGRES_DB: app_dev
     ports:
       - "5432:5432"
     volumes:
@@ -14,7 +14,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: pilates_dev_redis
+    container_name: app_dev_redis
     restart: always
     command: redis-server --requirepass dev_redis_pass
     ports:

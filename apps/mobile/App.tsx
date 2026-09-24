@@ -55,9 +55,9 @@ export default function App() {
               <Text style={styles.confirmedText}>Onaylandı</Text>
             </View>
           </View>
-          <Text style={styles.sessionDetail}>⏱ {nextSession.time}</Text>
-          <Text style={styles.sessionDetail}>👤 Eğitmen: {nextSession.trainer}</Text>
-          <Text style={styles.sessionDetail}>📍 {nextSession.room}</Text>
+          <Text style={styles.sessionDetail}>{nextSession.time}</Text>
+          <Text style={styles.sessionDetail}>Eğitmen: {nextSession.trainer}</Text>
+          <Text style={styles.sessionDetail}>{nextSession.room}</Text>
 
           <TouchableOpacity style={styles.qrButton} activeOpacity={0.8}>
             <Text style={styles.qrButtonText}>Check-in QR Kodunu Göster</Text>
@@ -71,7 +71,7 @@ export default function App() {
 
         {/* Studio Cancellation Policy Notice */}
         <View style={styles.noticeBox}>
-          <Text style={styles.noticeTitle}>📌 İptal Kuralı</Text>
+          <Text style={styles.noticeTitle}>İptal Kuralı</Text>
           <Text style={styles.noticeText}>
             Ders saatine en geç 4 saat kalana kadar ücretsiz iptal edebilirsiniz. 4 saatten az kalan iptallerde seans kredisi düşülür.
           </Text>
