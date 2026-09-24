@@ -64,6 +64,10 @@ erDiagram
     Booking ||--o{ BookingResource : assigns
 
     NotificationLog ||--o{ SmsTransaction : triggers
+
+    Studio ||--o{ MessageTemplate : overrides
+    Studio ||--o{ CommunicationConsent : has
+    User ||--o{ CommunicationConsent : grants
 ```
 
 ## Platform Seviyesi
@@ -144,6 +148,8 @@ erDiagram
 | `sms_wallets` | Stüdyo SMS kredi bakiyesi | studio_id benzersiz; balance >= 0 |
 | `sms_transactions` | SMS defteri: satın alma, kullanım, düzeltme, iade | (studio_id, created_at) index; notification_log_id benzersiz |
 | `notification_logs` | Giden mesajlar: WhatsApp, SMS, push, email; fallback zinciri | (studio_id, created_at) index; tekrar deneme zincirleri için (fallback_of_id) kendine referans |
+| `message_templates` | Kanal başına mesaj şablonu ({{ad}} yer tutucularıyla); studio_id null olan satırlar süper adminin küresel varsayılanı, doldurulmuş satırlar kiracı geçersiz kılması | (studio_id, key, channel, locale) benzersiz; key index |
+| `communication_consents` | Ticari mesaj için İYS tarzı onay durumu (kanal başına) | (studio_id, user_id, channel) benzersiz; (studio_id, status) ve (iys_synced_at) index |
 
 ## Denetim (Audit)
 

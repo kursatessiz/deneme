@@ -27,7 +27,9 @@ const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? 'Demo1234!';
 // Tables in no particular order: TRUNCATE ... CASCADE handles FK order for us.
 const ALL_TABLES = [
   'audit_logs',
+  'communication_consents',
   'notification_logs',
+  'message_templates',
   'sms_transactions',
   'sms_wallets',
   'expenses',
@@ -172,7 +174,110 @@ async function main() {
   // Guc PT, via two separate Membership rows.
   await linkCrossTenantIdentity(zen, guc, passwordHash);
 
+  await seedMessaging({ zen: zen.studioId, flow: flow.studioId, guc: guc.studioId, denge: denge.studioId });
+
   printSummary();
+}
+
+// ---------------------------------------------------------------------------
+// W7: messaging - SMS wallets, global message templates, sample consent
+// ---------------------------------------------------------------------------
+
+async function seedMessaging(studioIds: { zen: string; flow: string; guc: string; denge: string }) {
+  // Every tenant already gets an SmsWallet in scaffoldTenant(); top it up so
+  // the e2e suite has enough headroom without touching that shared helper.
+  await prisma.smsWallet.updateMany({
+    where: { studioId: { in: Object.values(studioIds) } },
+    data: { balance: 1000 },
+  });
+
+  await createGlobalMessageTemplates();
+
+  // Zen's demo member (+905321000016, used across the e2e suite) opts in to
+  // both channels, so its commercial-consent tests have something to see.
+  const demoMember = await prisma.user.findUnique({ where: { phone: '+905321000016' } });
+  if (demoMember) {
+    for (const channel of ['SMS', 'WHATSAPP'] as const) {
+      await prisma.communicationConsent.create({
+        data: {
+          studioId: studioIds.zen,
+          userId: demoMember.id,
+          channel,
+          status: 'GRANTED',
+          source: 'seed',
+          grantedAt: new Date(),
+        },
+      });
+      count('communication_consents');
+    }
+  }
+}
+
+interface GlobalTemplateSeed {
+  key: string;
+  body: string;
+  whatsappTemplateName: string;
+}
+
+const GLOBAL_TEMPLATES: GlobalTemplateSeed[] = [
+  {
+    key: 'BOOKING_REMINDER',
+    body: 'Merhaba {{firstName}}, {{serviceName}} dersiniz {{startTime}} saatinde başlayacak.',
+    whatsappTemplateName: 'booking_reminder_tr',
+  },
+  {
+    key: 'BOOKING_CANCELLED_BY_STUDIO',
+    body: 'Merhaba {{firstName}}, {{startTime}} saatindeki {{serviceName}} dersiniz işletme tarafından iptal edildi.',
+    whatsappTemplateName: 'booking_cancelled_tr',
+  },
+  {
+    key: 'WAITLIST_PROMOTED',
+    body: 'Merhaba {{firstName}}, bekleme listesinde olduğunuz {{serviceName}} dersinde yer açıldı, rezervasyonunuz onaylandı.',
+    whatsappTemplateName: 'waitlist_promoted_tr',
+  },
+  {
+    key: 'PACKAGE_EXPIRING',
+    body: 'Merhaba {{firstName}}, {{packageName}} paketinizdeki {{remainingUnits}} hakkınızın son kullanım tarihi {{expiryDate}}.',
+    whatsappTemplateName: 'package_expiring_tr',
+  },
+  {
+    key: 'PAYMENT_FAILED',
+    body: 'Merhaba {{firstName}}, {{amount}} TL tutarındaki ödemeniz alınamadı. Lütfen ödeme bilgilerinizi güncelleyin.',
+    whatsappTemplateName: 'payment_failed_tr',
+  },
+  {
+    key: 'OTP',
+    body: 'Doğrulama kodunuz: {{code}}',
+    whatsappTemplateName: 'otp_tr',
+  },
+];
+
+async function createGlobalMessageTemplates() {
+  for (const t of GLOBAL_TEMPLATES) {
+    await prisma.messageTemplate.create({
+      data: {
+        studioId: null,
+        key: t.key,
+        channel: 'SMS',
+        locale: 'tr',
+        body: t.body,
+        isTransactional: true,
+      },
+    });
+    count('message_templates');
+    await prisma.messageTemplate.create({
+      data: {
+        studioId: null,
+        key: t.key,
+        channel: 'WHATSAPP',
+        locale: 'tr',
+        body: t.body,
+        whatsappTemplateName: t.whatsappTemplateName,
+        isTransactional: true,
+      },
+    });
+    count('message_templates');
+  }
 }
 
 // ---------------------------------------------------------------------------
