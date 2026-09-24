@@ -67,3 +67,9 @@ next-env.d.ts
 
 # Local agent worktrees
 .claude/worktrees/
+
+# Mobile EAS build/submit credentials (never committed; owner provides locally or as EAS secrets)
+apps/mobile/google-service-account.json
+apps/mobile/*.p8
+apps/mobile/*.jks
+apps/mobile/*.keystore
