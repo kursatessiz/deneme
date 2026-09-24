@@ -10,6 +10,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { GamificationService } from '../gamification/gamification.service';
+import { VideoMeetingService } from '../video/providers/video-meeting.service';
 import type { TenantContext } from '../auth/tenant-context';
 import type {
   CreateScheduleInput,
@@ -21,8 +22,11 @@ import type {
   SubstituteTrainerInput,
   CancelSessionInput,
   NotificationCategory,
+  UpdateSessionMeetingInput,
+  JoinSessionResultDTO,
 } from '@platform/shared';
-import { Prisma } from '@platform/database';
+import { isWithinJoinWindow } from '@platform/shared';
+import { Prisma, SessionDeliveryMode } from '@platform/database';
 import type { CancellationPolicy, MemberPackage } from '@platform/database';
 import { evaluateCancellation, evaluateNoShow, FALLBACK_POLICY, PolicyTerms } from './cancellation-policy';
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
@@ -44,6 +48,7 @@ export class SchedulesService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private gamification: GamificationService,
+    private videoMeeting: VideoMeetingService,
   ) {}
 
   async getSchedules(
@@ -80,10 +85,15 @@ export class SchedulesService {
       orderBy: { startTime: 'asc' },
     });
 
-    return schedules.map((schedule) => ({
-      ...schedule,
-      bookings: schedule.bookings.map((booking) => this.maskBookingContact(booking, canViewContact)),
-    }));
+    return schedules.map((schedule) => {
+      // The meeting link is never listed; it is only ever returned by
+      // joinSession, within the join window, to a booked member.
+      const { meetingProvider: _mp, meetingUrl: _mu, ...rest } = schedule;
+      return {
+        ...rest,
+        bookings: schedule.bookings.map((booking) => this.maskBookingContact(booking, canViewContact)),
+      };
+    });
   }
 
   /**
@@ -118,6 +128,8 @@ export class SchedulesService {
       capacity: s.capacity,
       bookedCount: s.bookedCount,
       isCancelled: s.isCancelled,
+      deliveryMode: s.deliveryMode,
+      onlineCapacity: s.onlineCapacity,
     }));
   }
 
@@ -195,6 +207,13 @@ export class SchedulesService {
       await this.assertNoConflict(studioId, slot.start, slot.end, dto.trainerId, dto.resourceId);
     }
 
+    // ONLINE/HYBRID sessions get a meeting link up front. Recurring
+    // occurrences share the same link, same as a recurring in-person room.
+    const meeting =
+      dto.deliveryMode === SessionDeliveryMode.IN_PERSON
+        ? null
+        : this.videoMeeting.createLink(dto.meetingProvider!, { scheduleId: '', studioId, manualUrl: dto.manualMeetingUrl });
+
     const created = await this.prisma.$transaction((tx) =>
       Promise.all(
         slots.map((slot) =>
@@ -209,6 +228,10 @@ export class SchedulesService {
               startTime: slot.start,
               endTime: slot.end,
               capacity,
+              deliveryMode: dto.deliveryMode,
+              onlineCapacity: dto.onlineCapacity ?? null,
+              meetingProvider: meeting?.provider ?? null,
+              meetingUrl: meeting?.url ?? null,
             },
             include: { resource: true, trainer: { include: { membership: { include: { user: true } } } } },
           }),
@@ -735,9 +758,24 @@ export class SchedulesService {
     if (!booking) {
       throw new NotFoundException('Rezervasyon bulunamadı');
     }
+    return this.doCheckIn(tenant.studioId, bookingId);
+  }
 
+  /** Member self-service check-in (used by W19's join-session flow). */
+  async checkInForMember(tenant: TenantContext, bookingId: string) {
+    const booking = await this.prisma.booking.findFirst({
+      where: { id: bookingId, studioId: tenant.studioId },
+    });
+    if (!booking) {
+      throw new NotFoundException('Rezervasyon bulunamadı');
+    }
+    this.assertSelf(tenant, booking.memberId, 'Yalnızca kendi rezervasyonunuz için giriş yapabilirsiniz');
+    return this.doCheckIn(tenant.studioId, bookingId);
+  }
+
+  private async doCheckIn(studioId: string, bookingId: string) {
     const updated = await this.prisma.booking.updateMany({
-      where: { id: bookingId, studioId: tenant.studioId, status: 'CONFIRMED' },
+      where: { id: bookingId, studioId, status: 'CONFIRMED' },
       data: { status: 'ATTENDED', checkInAt: new Date() },
     });
     if (updated.count === 0) {
@@ -752,6 +790,88 @@ export class SchedulesService {
     }
 
     return this.prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
+  }
+
+  // ---------------------------------------------------------------------------
+  // W19: live online sessions
+  // ---------------------------------------------------------------------------
+
+  /** Staff sets or replaces a session's delivery mode and meeting link. */
+  async updateSessionMeeting(tenant: TenantContext, scheduleId: string, dto: UpdateSessionMeetingInput) {
+    await this.assertScheduleBranch(tenant, scheduleId);
+    const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: scheduleId, studioId: tenant.studioId } });
+    if (!schedule) {
+      throw new NotFoundException('Ders seansı bulunamadı');
+    }
+
+    const meeting =
+      dto.deliveryMode === SessionDeliveryMode.IN_PERSON
+        ? null
+        : this.videoMeeting.createLink(dto.meetingProvider!, {
+            scheduleId,
+            studioId: tenant.studioId,
+            manualUrl: dto.manualMeetingUrl,
+          });
+
+    return this.prisma.sessionSchedule.update({
+      where: { id: scheduleId },
+      data: {
+        deliveryMode: dto.deliveryMode,
+        onlineCapacity: dto.onlineCapacity ?? null,
+        meetingProvider: meeting?.provider ?? null,
+        meetingUrl: meeting?.url ?? null,
+      },
+    });
+  }
+
+  /**
+   * The only place a meeting link is ever handed out: to a member with a
+   * CONFIRMED/ATTENDED booking on this session, only from
+   * JOIN_WINDOW_MINUTES_BEFORE start until the session ends. Joining marks
+   * attendance (idempotent - an already-ATTENDED booking just gets the link
+   * again) so gamification and reports see the member as having shown up.
+   */
+  async joinSession(tenant: TenantContext, scheduleId: string): Promise<JoinSessionResultDTO> {
+    if (!tenant.memberProfileId) {
+      throw new ForbiddenException('Yalnızca üyeler katılabilir');
+    }
+    const schedule = await this.prisma.sessionSchedule.findFirst({
+      where: { id: scheduleId, studioId: tenant.studioId },
+    });
+    if (!schedule) {
+      throw new NotFoundException('Ders seansı bulunamadı');
+    }
+    if (schedule.deliveryMode === SessionDeliveryMode.IN_PERSON || !schedule.meetingUrl) {
+      throw new BadRequestException('Bu seans çevrimiçi katılıma açık değildir');
+    }
+
+    const booking = await this.prisma.booking.findFirst({
+      where: {
+        studioId: tenant.studioId,
+        scheduleId,
+        memberId: tenant.memberProfileId,
+        status: { in: ['CONFIRMED', 'ATTENDED'] },
+      },
+    });
+    if (!booking) {
+      throw new ForbiddenException('Bu seansa katılabilmek için onaylı bir rezervasyonunuz olmalıdır');
+    }
+
+    const now = new Date();
+    if (!isWithinJoinWindow(schedule.startTime, schedule.endTime, now)) {
+      throw new BadRequestException('Katılım bağlantısı yalnızca seans başlamadan 15 dakika önce ile bitişi arasında kullanılabilir');
+    }
+
+    if (booking.status === 'CONFIRMED') {
+      await this.doCheckIn(tenant.studioId, booking.id);
+    }
+
+    return {
+      joinUrl: schedule.meetingUrl,
+      scheduleId: schedule.id,
+      startTime: schedule.startTime.toISOString(),
+      endTime: schedule.endTime.toISOString(),
+    };
   }
 
   // ---------------------------------------------------------------------------

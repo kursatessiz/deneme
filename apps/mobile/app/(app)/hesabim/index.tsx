@@ -35,6 +35,7 @@ export default function HesabimScreen() {
   const canViewReports = activeMembership?.permissions.includes('reports.view') ?? false;
   const canViewLeads = activeMembership?.permissions.includes('leads.view') ?? false;
   const canManageAutomations = activeMembership?.permissions.includes('notifications.manage') ?? false;
+  const canManageContent = activeMembership?.permissions.includes('content.manage') ?? false;
   const isMember = Boolean(activeMembership?.memberProfileId);
   const isTrainer = Boolean(activeMembership?.trainerProfileId);
   const canViewOwnCommission = isTrainer && (activeMembership?.permissions.includes('commissions.view.own') ?? false);
@@ -95,6 +96,9 @@ export default function HesabimScreen() {
         ) : null}
         {canManageAutomations ? (
           <MenuLink label="Otomatik mesajlar" onPress={() => router.push('/(app)/hesabim/otomatik-mesajlar')} />
+        ) : null}
+        {canManageContent ? (
+          <MenuLink label="Video içerikleri" onPress={() => router.push('/(app)/hesabim/video-icerikleri')} />
         ) : null}
       </View>
 

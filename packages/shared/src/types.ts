@@ -225,6 +225,9 @@ export interface SessionScheduleSummaryDTO {
   capacity: number;
   bookedCount: number;
   isCancelled: boolean;
+  /** W19: ONLINE/HYBRID sessions can be joined once the join window opens; the link itself is never listed here. */
+  deliveryMode: 'IN_PERSON' | 'ONLINE' | 'HYBRID';
+  onlineCapacity?: number | null;
 }
 
 export interface BookingDTO {

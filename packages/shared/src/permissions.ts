@@ -45,6 +45,9 @@ export const PERMISSIONS = {
 
   'leads.view': 'Potansiyel üyeleri görüntüleme',
   'leads.manage': 'Potansiyel üye ekleme, aşama değiştirme, üyeliğe dönüştürme',
+
+  'content.view': 'Video kütüphanesi içeriklerini ve izlenme raporlarını görüntüleme',
+  'content.manage': 'Video içeriği ekleme, düzenleme, yayınlama ve seans yayın bağlantısı ayarlama',
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;

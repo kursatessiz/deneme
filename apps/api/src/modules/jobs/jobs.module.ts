@@ -5,6 +5,7 @@ import { AutomationsModule } from '../automations/automations.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { ChurnModule } from '../churn/churn.module';
 import { FeedbackModule } from '../feedback/feedback.module';
+import { VideoModule } from '../video/video.module';
 import { JobsService } from './jobs.service';
 import { SchedulerController } from './scheduler.controller';
 import { SchedulerProcessor } from './scheduler.processor';
@@ -28,6 +29,7 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
     PaymentsModule,
     ChurnModule,
     FeedbackModule,
+    VideoModule,
     ...(redisConfigured
       ? [
           BullModule.forRoot({ connection: { url: process.env.REDIS_URL } }),
