@@ -1,13 +1,18 @@
-import { randomBytes, createHash, timingSafeEqual } from 'crypto';
+import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 
 /**
  * API key format: pk_live_<prefix>_<secret>. The prefix (8 url-safe chars)
  * is stored in the clear and shown in listings so a key can be recognised;
  * the secret (32 url-safe chars) is only ever returned once, at creation or
- * rotation, and only its sha256 hash is stored.
+ * rotation, and only its scrypt hash (salted with the prefix) is stored.
+ * The secret is ~190 bits of randomness, so a low scrypt cost is enough and
+ * keeps per-request verification cheap.
  */
 const PREFIX_LENGTH = 8;
 const SECRET_LENGTH = 32;
+/** Low cost on purpose: high-entropy random secrets, verified on every request. */
+const SCRYPT_OPTIONS = { N: 1024, r: 8, p: 1 } as const;
+const HASH_BYTES = 32;
 const KEY_PATTERN = /^pk_live_([A-Za-z0-9]{8})_([A-Za-z0-9]{32})$/;
 
 function randomToken(length: number): string {
@@ -25,7 +30,7 @@ export interface GeneratedApiKey {
   plaintext: string;
   /** Non-secret prefix, safe to store and display. */
   prefix: string;
-  /** sha256 hex digest of the secret part, stored instead of the plaintext. */
+  /** scrypt hex digest of the secret part (salt: prefix), stored instead of the plaintext. */
   secretHash: string;
 }
 
@@ -35,12 +40,12 @@ export function generateApiKey(): GeneratedApiKey {
   return {
     plaintext: `pk_live_${prefix}_${secret}`,
     prefix,
-    secretHash: hashSecret(secret),
+    secretHash: hashSecret(secret, prefix),
   };
 }
 
-export function hashSecret(secret: string): string {
-  return createHash('sha256').update(secret).digest('hex');
+export function hashSecret(secret: string, prefix: string): string {
+  return scryptSync(secret, `api-key:${prefix}`, HASH_BYTES, SCRYPT_OPTIONS).toString('hex');
 }
 
 export interface ParsedApiKey {
@@ -56,8 +61,8 @@ export function parseApiKey(raw: string): ParsedApiKey | null {
 }
 
 /** Constant-time comparison of a candidate secret against the stored hash. */
-export function verifySecret(candidateSecret: string, storedHash: string): boolean {
-  const candidateHash = hashSecret(candidateSecret);
+export function verifySecret(candidateSecret: string, prefix: string, storedHash: string): boolean {
+  const candidateHash = hashSecret(candidateSecret, prefix);
   const a = Buffer.from(candidateHash, 'hex');
   const b = Buffer.from(storedHash, 'hex');
   if (a.length !== b.length) return false;

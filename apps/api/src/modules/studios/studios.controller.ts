@@ -1,17 +1,13 @@
 import { Controller, Get, Param, Put, UseGuards, ForbiddenException } from '@nestjs/common';
-import { z } from 'zod';
 import { StudiosService } from './studios.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { StudioScoped, RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import { ZodBody } from '../../common/zod-body.pipe';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
+import { UpdateEmbedSettingsSchema } from '@platform/shared';
+import type { UpdateEmbedSettingsInput } from '@platform/shared';
 
-const UpdateEmbedSettingsSchema = z.object({
-  /** Empty list means any origin may frame /embed/<slug> (frame-ancestors *). */
-  embedAllowedOrigins: z.array(z.string().url()).max(20),
-});
-type UpdateEmbedSettingsInput = z.infer<typeof UpdateEmbedSettingsSchema>;
 
 @Controller('studios')
 export class StudiosController {

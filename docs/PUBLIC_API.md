@@ -11,7 +11,7 @@ işletme paneli veya mobil "Hesabım > Entegrasyonlar" ekranından anahtar
 oluşturur.
 
 - Biçim: `pk_live_<8 karakter önek>_<32 karakter gizli kısım>`.
-- Yalnızca sha256 özeti (`secretHash`) veritabanında saklanır; düz metin
+- Yalnızca önekle tuzlanmış scrypt özeti (`secretHash`) veritabanında saklanır; düz metin
   yalnızca oluşturma anında bir kez döner (`plaintext` alanı). Anahtar
   kaybedilirse yeniden oluşturmak gerekir; mevcut anahtar tekrar gösterilemez.
 - Karşılaştırma sabit zamanlıdır (`crypto.timingSafeEqual`), zamanlama

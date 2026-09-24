@@ -11,7 +11,7 @@ describe('api-key.util', () => {
   it('never stores the plaintext secret, only its hash', () => {
     const key = generateApiKey();
     const parsed = parseApiKey(key.plaintext)!;
-    expect(key.secretHash).toBe(hashSecret(parsed.secret));
+    expect(key.secretHash).toBe(hashSecret(parsed.secret, parsed.prefix));
     expect(key.secretHash).not.toContain(parsed.secret);
   });
 
@@ -33,13 +33,13 @@ describe('api-key.util', () => {
   it('verifies the correct secret against its hash', () => {
     const key = generateApiKey();
     const parsed = parseApiKey(key.plaintext)!;
-    expect(verifySecret(parsed.secret, key.secretHash)).toBe(true);
+    expect(verifySecret(parsed.secret, parsed.prefix, key.secretHash)).toBe(true);
   });
 
   it('rejects an incorrect secret, including one of a different length', () => {
     const key = generateApiKey();
-    expect(verifySecret('wrong-secret-wrong-secret-wrong', key.secretHash)).toBe(false);
-    expect(verifySecret('short', key.secretHash)).toBe(false);
+    expect(verifySecret('wrong-secret-wrong-secret-wrong', key.prefix, key.secretHash)).toBe(false);
+    expect(verifySecret('short', key.prefix, key.secretHash)).toBe(false);
   });
 
   it('produces different keys on each call', () => {

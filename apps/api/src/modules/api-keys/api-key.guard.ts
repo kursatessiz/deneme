@@ -35,7 +35,7 @@ export class ApiKeyGuard implements CanActivate {
     // constant-time comparison so no timing signal distinguishes a wrong
     // secret for a real prefix from a wrong prefix.
     const apiKey = await this.prisma.apiKey.findUnique({ where: { prefix: parsed.prefix } });
-    if (!apiKey || !verifySecret(parsed.secret, apiKey.secretHash)) {
+    if (!apiKey || !verifySecret(parsed.secret, parsed.prefix, apiKey.secretHash)) {
       throw new UnauthorizedException('Geçersiz API anahtarı');
     }
     if (apiKey.revokedAt) {

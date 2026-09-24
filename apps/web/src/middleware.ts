@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { EMBED_ORIGIN_PATTERN, STUDIO_SLUG_PATTERN } from '@platform/shared';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -11,15 +12,19 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
   const slug = request.nextUrl.pathname.split('/')[2];
-  if (!slug) return response;
+  // Only a well-formed slug is ever put into the API URL (no path traversal
+  // or query injection into the server-side request).
+  if (!slug || !STUDIO_SLUG_PATTERN.test(slug)) return response;
 
   let frameAncestors = '*';
   try {
-    const res = await fetch(`${API_BASE_URL}/studios/public/${slug}`, { signal: AbortSignal.timeout(2000) });
+    const res = await fetch(`${API_BASE_URL}/studios/public/${encodeURIComponent(slug)}`, { signal: AbortSignal.timeout(2000) });
     if (res.ok) {
       const studio = (await res.json()) as { embedAllowedOrigins?: string[] };
-      if (studio.embedAllowedOrigins && studio.embedAllowedOrigins.length > 0) {
-        frameAncestors = studio.embedAllowedOrigins.join(' ');
+      // Re-validate before putting values into a header: only plain https origins.
+      const origins = (studio.embedAllowedOrigins ?? []).filter((o) => EMBED_ORIGIN_PATTERN.test(o));
+      if (origins.length > 0) {
+        frameAncestors = origins.join(' ');
       }
     }
   } catch {

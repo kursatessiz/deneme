@@ -146,3 +146,19 @@ export function maskPhone(phone: string): string {
   const last2 = digits.slice(-2);
   return `+${digits.slice(0, 2)} *** *** ** ${last2}`;
 }
+
+/**
+ * An embed origin allowed to frame /embed/<slug>: https scheme, host and
+ * optional port only. Anything else (paths, spaces, `;`) could inject CSP
+ * directives, so it is rejected here and filtered again in the web middleware.
+ */
+export const EMBED_ORIGIN_PATTERN = /^https:\/\/[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+(:\d{1,5})?$/i;
+
+/** Studio slug as used in public URLs. */
+export const STUDIO_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
+
+export const UpdateEmbedSettingsSchema = z.object({
+  /** Empty list means any origin may frame /embed/<slug> (frame-ancestors *). */
+  embedAllowedOrigins: z.array(z.string().regex(EMBED_ORIGIN_PATTERN, 'Geçersiz origin (ör. https://ornek.com)')).max(20),
+});
+export type UpdateEmbedSettingsInput = z.infer<typeof UpdateEmbedSettingsSchema>;
