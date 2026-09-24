@@ -8,3 +8,4 @@ export * from './notifications';
 export * from './me';
 export * from './messaging';
 export * from './tax-id';
+export * from './automations';

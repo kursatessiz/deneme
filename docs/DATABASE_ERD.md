@@ -1,6 +1,6 @@
-# Pilates Studio OS Veritabanı Şeması
+# Platform Veritabanı Şeması
 
-Pilates Studio OS, her kiracının (stüdyonun) tam veri izolasyonuyla bağımsız çalıştığı çok kiracılı (multi-tenant) bir butik stüdyo yönetim sistemidir. Veritabanı, sıkı kiracı kapsamını (tenant scoping) zorunlu kılar: kiracı verisi içeren her tablo bir `studio_id` kolonu taşır ve tüm sorgular bununla filtrelenmelidir. Kullanıcılar global kapsamlıdır ve E.164 telefon numarasıyla (benzersiz) tanımlanır; RoleTemplate'ler aracılığıyla rol tabanlı izinler atayan Membership kayıtları üzerinden stüdyolara katılırlar. Hizmet türleri, kaynak türleri ve form kelime dağarcığı gibi sektöre özgü kavramlar enum değil, kiracı verisidir; bu da her stüdyonun kendi kataloğunu ve iş akışlarını tanımlamasına olanak tanır.
+Platform, her kiracının (stüdyonun) tam veri izolasyonuyla bağımsız çalıştığı çok kiracılı (multi-tenant) bir üyelik ve randevu SaaS'ıdır. Veritabanı, sıkı kiracı kapsamını (tenant scoping) zorunlu kılar: kiracı verisi içeren her tablo bir `studio_id` kolonu taşır ve tüm sorgular bununla filtrelenmelidir. Kullanıcılar global kapsamlıdır ve E.164 telefon numarasıyla (benzersiz) tanımlanır; RoleTemplate'ler aracılığıyla rol tabanlı izinler atayan Membership kayıtları üzerinden stüdyolara katılırlar. Hizmet türleri, kaynak türleri ve form kelime dağarcığı gibi sektöre özgü kavramlar enum değil, kiracı verisidir; bu da her stüdyonun kendi kataloğunu ve iş akışlarını tanımlamasına olanak tanır.
 
 ## Varlık-İlişki Diyagramı (Entity-Relationship Diagram)
 
@@ -98,6 +98,11 @@ erDiagram
     Membership ||--o{ LeadActivity : acts_on
     ServiceType ||--o{ Lead : interests
     Branch ||--o{ Lead : at
+
+    Studio ||--o{ AutomationRule : configures
+    Studio ||--o{ AutomationRun : has
+    AutomationRule ||--o{ AutomationRun : produces
+    User ||--o{ AutomationRun : targeted_by
 ```
 
 ## Platform Seviyesi
@@ -210,6 +215,15 @@ Formül ve durum makinesi için bkz. `docs/PAYROLL.md`.
 | `lead_activities` | Bir adayın geçmişi: not, arama, mesaj, aşama değişikliği, deneme dersi kaydı | (lead_id, created_at) index |
 
 Açık (WON/LOST olmayan) bir aday aynı telefonla tekrar başvurursa (web formundan veya personel tarafından), yeni bir `leads` satırı açılmaz; bu, o adayın geçmişine bir `lead_activities` notu olarak eklenir (bkz. `LeadsService.create` ve `LeadsService.submitPublicForm`, `apps/api/src/modules/leads/leads.service.ts`). Aday WON veya LOST olduktan sonra aynı telefonla yeni bir aday açılabilir.
+
+## Otomasyon (Otomatik Pazarlama ve Yaşam Döngüsü Akışları)
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `automation_rules` | Kiracı kuralı: tür (WIN_BACK, PACKAGE_EXPIRING, BIRTHDAY, FIRST_CLASS_FOLLOW_UP, BOOKING_REMINDER, NO_SHOW_FOLLOW_UP), tür başına doğrulanmış `params` JSON, hedef `message_templates.key`, aktif/pasif | (studio_id, type) ve (studio_id, is_active) index |
+| `automation_runs` | Bir kural/kullanıcı/hedef için tek gönderim denemesi; en-fazla-bir-kez teslimatın koruma anahtarı | (rule_id, user_id, target_ref) benzersiz; (studio_id, rule_id, created_at) index |
+
+`automation_rules.params`, `packages/shared/src/automations.ts` içindeki `AutomationRuleParamsSchema` (Zod ayrık birleşimi) ile doğrulanır; kural 7 gereği enum değildir. `automation_runs` satırı, değerlendirici göndermeden **önce** oluşturulur (insert-first) ve unique kısıt bir sonraki değerlendirme döngüsünün aynı hedefi tekrar göndermesini engeller (idempotency guard). Bkz. `docs/AUTOMATIONS.md`.
 
 ## Denetim (Audit)
 

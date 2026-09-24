@@ -1,5 +1,6 @@
 import {
   PrismaClient,
+  Prisma,
   EntitlementKind,
   BookingStatus,
   WaitlistStatus,
@@ -27,6 +28,8 @@ const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? 'Demo1234!';
 // Tables in no particular order: TRUNCATE ... CASCADE handles FK order for us.
 const ALL_TABLES = [
   'audit_logs',
+  'automation_runs',
+  'automation_rules',
   'communication_consents',
   'notification_logs',
   'message_templates',
@@ -193,6 +196,10 @@ async function seedMessaging(studioIds: { zen: string; flow: string; guc: string
 
   await createGlobalMessageTemplates();
 
+  for (const studioId of Object.values(studioIds)) {
+    await createDefaultAutomationRules(studioId);
+  }
+
   // Zen's demo member (+905321000016, used across the e2e suite) opts in to
   // both channels, so its commercial-consent tests have something to see.
   const demoMember = await prisma.user.findUnique({ where: { phone: '+905321000016' } });
@@ -250,10 +257,117 @@ const GLOBAL_TEMPLATES: GlobalTemplateSeed[] = [
     body: 'Doğrulama kodunuz: {{code}}',
     whatsappTemplateName: 'otp_tr',
   },
+  // W10: automated marketing and lifecycle flows.
+  {
+    key: 'BIRTHDAY',
+    body: 'İyi ki doğdun {{firstName}}! {{studioName}} ailesi olarak doğum gününüzü kutlarız.',
+    whatsappTemplateName: 'birthday_tr',
+  },
+  {
+    key: 'WIN_BACK',
+    body: 'Merhaba {{firstName}}, sizi bir süredir aramızda göremedik. {{studioName}} olarak sizi tekrar aramızda görmek isteriz.',
+    whatsappTemplateName: 'win_back_tr',
+  },
+  {
+    key: 'FIRST_CLASS_FOLLOW_UP',
+    body: 'Merhaba {{firstName}}, {{studioName}}\'deki ilk dersiniz nasıl geçti? Görüşleriniz bizim için değerli.',
+    whatsappTemplateName: 'first_class_follow_up_tr',
+  },
+  {
+    key: 'NO_SHOW_FOLLOW_UP',
+    body: 'Merhaba {{firstName}}, {{startTime}} saatindeki {{serviceName}} dersinize katılamadınız. Yeni bir rezervasyon oluşturmak ister misiniz?',
+    whatsappTemplateName: 'no_show_follow_up_tr',
+  },
 ];
+
+/**
+ * Default automation rules for a tenant. Everything is inactive except the
+ * booking reminder, which already had an equivalent tenant setting
+ * (Studio.reminderHoursBefore) so it is safe to turn on by default.
+ */
+const DEFAULT_AUTOMATION_RULES: {
+  type: 'WIN_BACK' | 'PACKAGE_EXPIRING' | 'BIRTHDAY' | 'FIRST_CLASS_FOLLOW_UP' | 'BOOKING_REMINDER' | 'NO_SHOW_FOLLOW_UP';
+  name: string;
+  params: Record<string, unknown>;
+  templateKey: string;
+  isActive: boolean;
+  isTransactional: boolean;
+}[] = [
+  {
+    type: 'BOOKING_REMINDER',
+    name: 'Seans hatırlatması',
+    params: { type: 'BOOKING_REMINDER', hoursBefore: 2 },
+    templateKey: 'BOOKING_REMINDER',
+    isActive: true,
+    isTransactional: true,
+  },
+  {
+    type: 'PACKAGE_EXPIRING',
+    name: 'Paket bitiş hatırlatması',
+    params: { type: 'PACKAGE_EXPIRING', daysBefore: 7 },
+    templateKey: 'PACKAGE_EXPIRING',
+    isActive: false,
+    isTransactional: true,
+  },
+  {
+    type: 'WIN_BACK',
+    name: 'Kayıp üye kazanma',
+    params: { type: 'WIN_BACK', noAttendanceDays: 30, requireNoActivePackage: true },
+    templateKey: 'WIN_BACK',
+    isActive: false,
+    isTransactional: false,
+  },
+  {
+    type: 'BIRTHDAY',
+    name: 'Doğum günü mesajı',
+    params: { type: 'BIRTHDAY', daysBefore: 0 },
+    templateKey: 'BIRTHDAY',
+    isActive: false,
+    isTransactional: false,
+  },
+  {
+    type: 'FIRST_CLASS_FOLLOW_UP',
+    name: 'İlk ders sonrası geri bildirim',
+    params: { type: 'FIRST_CLASS_FOLLOW_UP', hoursAfter: 24 },
+    templateKey: 'FIRST_CLASS_FOLLOW_UP',
+    isActive: false,
+    isTransactional: true,
+  },
+  {
+    type: 'NO_SHOW_FOLLOW_UP',
+    name: 'Gelmeme sonrası hatırlatma',
+    params: { type: 'NO_SHOW_FOLLOW_UP', hoursAfter: 2 },
+    templateKey: 'NO_SHOW_FOLLOW_UP',
+    isActive: false,
+    isTransactional: true,
+  },
+];
+
+async function createDefaultAutomationRules(studioId: string) {
+  for (const rule of DEFAULT_AUTOMATION_RULES) {
+    await prisma.automationRule.create({
+      data: {
+        studioId,
+        type: rule.type,
+        name: rule.name,
+        params: rule.params as Prisma.InputJsonValue,
+        templateKey: rule.templateKey,
+        isActive: rule.isActive,
+        isTransactional: rule.isTransactional,
+      },
+    });
+    count('automation_rules');
+  }
+}
+
+// W10: win-back and birthday are unsolicited marketing outreach, so their
+// global templates require İYS consent (isTransactional: false). Every other
+// template concerns the member's own booking/package and stays transactional.
+const MARKETING_TEMPLATE_KEYS = new Set(['WIN_BACK', 'BIRTHDAY']);
 
 async function createGlobalMessageTemplates() {
   for (const t of GLOBAL_TEMPLATES) {
+    const isTransactional = !MARKETING_TEMPLATE_KEYS.has(t.key);
     await prisma.messageTemplate.create({
       data: {
         studioId: null,
@@ -261,7 +375,7 @@ async function createGlobalMessageTemplates() {
         channel: 'SMS',
         locale: 'tr',
         body: t.body,
-        isTransactional: true,
+        isTransactional,
       },
     });
     count('message_templates');
@@ -273,7 +387,7 @@ async function createGlobalMessageTemplates() {
         locale: 'tr',
         body: t.body,
         whatsappTemplateName: t.whatsappTemplateName,
-        isTransactional: true,
+        isTransactional,
       },
     });
     count('message_templates');
