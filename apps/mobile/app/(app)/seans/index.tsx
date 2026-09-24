@@ -54,6 +54,7 @@ export default function SeanslarScreen() {
         endTime: item.endTime,
         capacity: String(item.capacity),
         bookedCount: String(item.bookedCount),
+        deliveryMode: item.deliveryMode,
       },
     });
   };
@@ -81,6 +82,11 @@ export default function SeanslarScreen() {
             </Text>
             {item.trainerName ? (
               <Text style={[styles.subtitle, fonts.body, { color: colors.textSecondary }]}>{item.trainerName}</Text>
+            ) : null}
+            {item.deliveryMode !== 'IN_PERSON' ? (
+              <Text style={[styles.subtitle, fonts.bodyStrong, { color: colors.primary }]}>
+                {item.deliveryMode === 'ONLINE' ? 'Çevrimiçi' : 'Hibrit (yüz yüze + çevrimiçi)'}
+              </Text>
             ) : null}
           </View>
           <Text style={[styles.capacity, fonts.body, { color: colors.textSecondary }]}>

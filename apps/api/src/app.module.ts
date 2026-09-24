@@ -33,6 +33,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { PublicApiModule } from './modules/public-api/public-api.module';
 import { PartnersModule } from './modules/partners/partners.module';
 import { MemberHealthModule } from './modules/member-health/member-health.module';
+import { VideoModule } from './modules/video/video.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -73,6 +74,7 @@ import { validateEnv } from './config/env';
     WebhooksModule,
     PublicApiModule,
     PartnersModule,
+    VideoModule,
     HealthModule,
     MemberHealthModule,
   ],

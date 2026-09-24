@@ -23,6 +23,8 @@ import {
   CancelSessionInput,
   ChangeSpotSchema,
   ChangeSpotInput,
+  UpdateSessionMeetingSchema,
+  UpdateSessionMeetingInput,
 } from '@platform/shared';
 
 @Controller('schedules')
@@ -125,6 +127,27 @@ export class SchedulesController {
   @RequirePermission('attendance.manage')
   async checkIn(@Param('bookingId', ParseUUIDPipe) bookingId: string, @Tenant() tenant: TenantContext) {
     return this.schedulesService.checkIn(tenant, bookingId);
+  }
+
+  @Patch(':scheduleId/meeting')
+  @RequirePermission('schedule.manage')
+  async updateSessionMeeting(
+    @Param('scheduleId', ParseUUIDPipe) scheduleId: string,
+    @Tenant() tenant: TenantContext,
+    @ZodBody(UpdateSessionMeetingSchema) body: UpdateSessionMeetingInput,
+  ) {
+    return this.schedulesService.updateSessionMeeting(tenant, scheduleId, body);
+  }
+
+  /**
+   * The join link is returned only here: to a member with a
+   * confirmed/attended booking, only within the join window. Never
+   * appears in the calendar listing or spot map responses.
+   */
+  @Post('sessions/:scheduleId/join')
+  @SelfService()
+  async joinSession(@Param('scheduleId', ParseUUIDPipe) scheduleId: string, @Tenant() tenant: TenantContext) {
+    return this.schedulesService.joinSession(tenant, scheduleId);
   }
 
   @Patch('no-show/:bookingId')

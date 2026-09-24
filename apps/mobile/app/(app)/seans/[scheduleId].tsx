@@ -1,9 +1,9 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { onColor } from '@platform/shared';
-import type { MemberPackageDTO, ScheduleSpotsDTO, SpotDTO, SpotGroupDTO, SpotStatus } from '@platform/shared';
+import { isWithinJoinWindow, onColor } from '@platform/shared';
+import type { JoinSessionResultDTO, MemberPackageDTO, ScheduleSpotsDTO, SpotDTO, SpotGroupDTO, SpotStatus } from '@platform/shared';
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
@@ -177,6 +177,7 @@ export default function SeansDetailScreen() {
     endTime?: string;
     capacity?: string;
     bookedCount?: string;
+    deliveryMode?: string;
   }>();
   const scheduleId = params.scheduleId;
   const fonts = useThemeFonts();
@@ -192,6 +193,32 @@ export default function SeansDetailScreen() {
   const [notice, setNotice] = useState<string | undefined>();
   const [isBooking, setIsBooking] = useState(false);
   const [booked, setBooked] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+  const [joinError, setJoinError] = useState<string | undefined>();
+
+  const isOnline = params.deliveryMode === 'ONLINE' || params.deliveryMode === 'HYBRID';
+  // Re-evaluated on every render so the button appears/disappears live as the clock crosses the window.
+  const canJoinNow =
+    isOnline && params.startTime && params.endTime
+      ? isWithinJoinWindow(new Date(params.startTime), new Date(params.endTime), new Date())
+      : false;
+
+  const handleJoin = async () => {
+    if (!studioId || !scheduleId) return;
+    setIsJoining(true);
+    setJoinError(undefined);
+    try {
+      const result = await apiRequest<JoinSessionResultDTO>(`/schedules/sessions/${scheduleId}/join`, {
+        method: 'POST',
+        studioId,
+      });
+      await Linking.openURL(result.joinUrl);
+    } catch (e) {
+      setJoinError(e instanceof ApiError ? e.message : 'Katılım bağlantısı alınamadı.');
+    } finally {
+      setIsJoining(false);
+    }
+  };
 
   const loadSpots = useCallback(async () => {
     if (!studioId || !scheduleId) return;
@@ -265,6 +292,21 @@ export default function SeansDetailScreen() {
         <Text style={[styles.subtitle, fonts.body, { color: colors.textSecondary }]}>{params.trainerName}</Text>
       ) : null}
 
+      {isOnline ? (
+        <View style={styles.joinSection}>
+          {canJoinNow ? (
+            <>
+              <PrimaryButton label="Seansa katıl" onPress={handleJoin} loading={isJoining} />
+              {joinError ? <Text style={[styles.message, { color: palette.danger }]}>{joinError}</Text> : null}
+            </>
+          ) : (
+            <Text style={[styles.subtitle, fonts.body, { color: colors.textSecondary }]}>
+              Katılım bağlantısı seans başlamadan 15 dakika önce burada görünecek.
+            </Text>
+          )}
+        </View>
+      ) : null}
+
       {!spotsData ? <ActivityIndicator style={styles.loader} /> : null}
 
       {spotsData && hasSpots ? (
@@ -311,6 +353,7 @@ const styles = StyleSheet.create({
   title: { fontSize: typography.size.xl, marginBottom: spacing[1] },
   subtitle: { fontSize: typography.size.sm, marginBottom: spacing[1] },
   loader: { marginTop: spacing[4] },
+  joinSection: { marginTop: spacing[3], marginBottom: spacing[3] },
   spotsSection: { marginTop: spacing[4], marginBottom: spacing[4] },
   groupBlock: { marginBottom: spacing[4] },
   groupTitle: { fontSize: typography.size.md, marginBottom: spacing[2] },
