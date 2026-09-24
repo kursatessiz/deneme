@@ -8,7 +8,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "backgroundColor": "#0f172a"
+      "backgroundColor": "#14120f"
     },
     "ios": {
       "supportsTablet": true,
@@ -16,7 +16,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0f172a"
+        "backgroundColor": "#14120f"
       },
       "package": "com.platform.member"
     },
@@ -26,7 +26,39 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#3f6b52"
+          "color": "#2F6F5E"
+        }
+      ],
+      [
+        "expo-widgets",
+        {
+          "groupIdentifier": "group.com.platform.member",
+          "widgets": [
+            {
+              "name": "NextSessionWidget",
+              "displayName": "Sonraki Ders",
+              "description": "Sonraki dersiniz ve aktif paketinizde kalan hak.",
+              "supportedFamilies": ["systemSmall", "systemMedium"],
+              "ios": {
+                "supportedFamilies": ["systemSmall", "systemMedium"]
+              }
+            }
+          ]
+        }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "NextSessionWidget",
+              "label": "Sonraki Ders",
+              "description": "Sonraki dersiniz ve aktif paketinizde kalan hak.",
+              "minWidth": "180dp",
+              "minHeight": "110dp",
+              "resizeMode": "horizontal"
+            }
+          ]
         }
       ]
     ],
