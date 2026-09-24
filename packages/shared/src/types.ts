@@ -738,3 +738,25 @@ export interface GiftCardBalanceDTO {
   status: GiftCardStatus;
   expiresAt?: string | null;
 }
+
+export interface RoleTemplateDTO {
+  id: string;
+  studioId: string;
+  key: string;
+  name: string;
+  isOwner: boolean;
+  isSystem: boolean;
+  permissions: string[];
+}
+
+/** A staff (non-member) membership, for the role-assignment screen. */
+export interface StaffMembershipDTO {
+  membershipId: string;
+  userId: string;
+  fullName: string;
+  phone: string;
+  status: string;
+  roleTemplateId: string;
+  roleName: string;
+  isOwner: boolean;
+}

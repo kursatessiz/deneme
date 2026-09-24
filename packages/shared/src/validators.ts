@@ -18,6 +18,7 @@ import {
 } from './enums';
 import { normalizePhone } from './phone';
 import { TaxNumberSchema, TcknSchema, VknSchema } from './tax-id';
+import { ALL_PERMISSIONS, PermissionKeySchema } from './permissions';
 
 const CURRENCY_CODE = z.string().length(3).default('TRY');
 
@@ -889,3 +890,25 @@ export const CheckGiftCardBalanceSchema = z.object({
   code: z.string().trim().min(8).max(40),
 });
 export type CheckGiftCardBalanceInput = z.infer<typeof CheckGiftCardBalanceSchema>;
+
+// ---------------------------------------------------------------------------
+// Role templates (2.3 -- Roller ve yetkiler)
+// ---------------------------------------------------------------------------
+
+export const CreateRoleTemplateSchema = z.object({
+  studioId: z.string().uuid(),
+  name: z.string().trim().min(2, 'Rol adı giriniz').max(80),
+  permissions: z.array(PermissionKeySchema).max(ALL_PERMISSIONS.length),
+});
+export type CreateRoleTemplateInput = z.infer<typeof CreateRoleTemplateSchema>;
+
+export const UpdateRoleTemplateSchema = z.object({
+  name: z.string().trim().min(2, 'Rol adı giriniz').max(80).optional(),
+  permissions: z.array(PermissionKeySchema).max(ALL_PERMISSIONS.length).optional(),
+});
+export type UpdateRoleTemplateInput = z.infer<typeof UpdateRoleTemplateSchema>;
+
+export const AssignRoleTemplateSchema = z.object({
+  roleTemplateId: z.string().uuid(),
+});
+export type AssignRoleTemplateInput = z.infer<typeof AssignRoleTemplateSchema>;
