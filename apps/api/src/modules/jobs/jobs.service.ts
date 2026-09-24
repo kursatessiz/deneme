@@ -1,4 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import type { Queue } from 'bullmq';
+import { SCHEDULER_QUEUE } from './jobs.constants';
 import { AutomationRunnerService, RunOutcome } from '../automations/automation-runner.service';
 import { DunningService, DunningOutcome } from '../payments/dunning.service';
 import { ConsentService } from '../notifications/consent/consent.service';
@@ -8,6 +11,7 @@ import { ReferralsService } from '../feedback/referrals.service';
 import { WebhookDispatcherService, DispatchOutcome } from '../webhooks/webhook-dispatcher.service';
 import { PartnerSyncService, PartnerSyncOutcome } from '../partners/partner-sync.service';
 import { JoinReminderService } from '../video/join-reminder.service';
+import { SmsProviderBalanceService, SmsProviderBalanceResult } from '../notifications/sms-provider-balance.service';
 
 export interface SchedulerRunResult {
   runAt: string;
@@ -20,6 +24,7 @@ export interface SchedulerRunResult {
   webhooks: DispatchOutcome;
   partnerSync: PartnerSyncOutcome;
   joinReminders: { reminded: number };
+  smsProviderBalance: SmsProviderBalanceResult;
 }
 
 /**
@@ -38,6 +43,12 @@ export interface SchedulerRunResult {
 @Injectable()
 export class JobsService {
   private readonly logger = new Logger(JobsService.name);
+  /** Set at the end of every heartbeat run; read by the admin system health endpoint. */
+  private lastRunAt: Date | null = null;
+
+  getLastRunAt(): Date | null {
+    return this.lastRunAt;
+  }
 
   constructor(
     private readonly automations: AutomationRunnerService,
@@ -49,7 +60,16 @@ export class JobsService {
     private readonly webhookDispatcher: WebhookDispatcherService,
     private readonly partnerSync: PartnerSyncService,
     private readonly joinReminders: JoinReminderService,
+    private readonly smsProviderBalance: SmsProviderBalanceService,
+    @Optional() @InjectQueue(SCHEDULER_QUEUE) private readonly queue?: Queue,
   ) {}
+
+  /** Waiting + delayed job count on the scheduler queue, or null without Redis. Used by admin system health. */
+  async getQueueDepth(): Promise<number | null> {
+    if (!this.queue) return null;
+    const counts = await this.queue.getJobCounts('waiting', 'delayed');
+    return (counts.waiting ?? 0) + (counts.delayed ?? 0);
+  }
 
   async runAll(now = new Date()): Promise<SchedulerRunResult> {
     const automations = await this.automations.runDueRules(now);
@@ -61,6 +81,7 @@ export class JobsService {
     const webhooks = await this.webhookDispatcher.dispatchDue(now);
     const partnerSyncResult = await this.partnerSync.runSync(now);
     const joinReminders = await this.joinReminders.sendDueReminders(now);
+    const smsProviderBalance = await this.smsProviderBalance.checkIfDue(now);
 
     this.logger.log(
       `Scheduler heartbeat at ${now.toISOString()}: ${automations.length} automation rule(s), ` +
@@ -68,9 +89,10 @@ export class JobsService {
         `churn ${churn.studiosProcessed} studio(s), ${ratingPrompts.prompted} rating prompt(s), ${referrals.evaluated} referral(s), ` +
         `webhooks ${webhooks.succeeded} succeeded/${webhooks.failed} retrying/${webhooks.abandoned} abandoned, ` +
         `partner sync ${partnerSyncResult.availabilityPushed} push(es), ` +
-        `${joinReminders.reminded} join reminder(s)`,
+        `${joinReminders.reminded} join reminder(s), sms provider balance ${smsProviderBalance.status}`,
     );
 
+    this.lastRunAt = now;
     return {
       runAt: now.toISOString(),
       automations,
@@ -82,6 +104,7 @@ export class JobsService {
       webhooks,
       partnerSync: partnerSyncResult,
       joinReminders,
+      smsProviderBalance,
     };
   }
 }

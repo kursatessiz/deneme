@@ -1,7 +1,5 @@
-import { BadRequestException, Body, Controller, ForbiddenException, Post, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import type { AuthUser } from '../auth/tenant-context';
+import { BadRequestException, Body, Controller, Post } from '@nestjs/common';
+import { SuperAdminOnly } from '../auth/decorators/super-admin-only.decorator';
 import { JobsService } from './jobs.service';
 
 /**
@@ -11,15 +9,12 @@ import { JobsService } from './jobs.service';
  * Redis use, and what an external cron may call in place of BullMQ.
  */
 @Controller('admin/scheduler')
+@SuperAdminOnly()
 export class SchedulerController {
   constructor(private readonly jobs: JobsService) {}
 
   @Post('run')
-  @UseGuards(JwtAuthGuard)
-  async run(@CurrentUser() user: AuthUser, @Body() body: { now?: string }) {
-    if (!user.isSuperAdmin) {
-      throw new ForbiddenException('Bu işlem için yetkiniz yok');
-    }
+  async run(@Body() body: { now?: string }) {
     // A custom clock is for tests and local runs only: in production it
     // could fire future reminders and campaigns early.
     if (body?.now && process.env.NODE_ENV === 'production') {

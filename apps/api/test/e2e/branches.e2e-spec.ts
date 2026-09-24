@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
-import { PrismaClient } from '@platform/database';
+import { PrismaClient, Prisma } from '@platform/database';
 import { AppModule } from '../../src/app.module';
 
 /**
@@ -37,6 +37,8 @@ describe('Branches (e2e)', () => {
 
   const scheduleIds: string[] = [];
   const branchIds: string[] = [];
+  let proPlanId: string | undefined;
+  let proPlanOriginalLimits: Record<string, unknown> = {};
 
   const login = async (phone: string) => {
     const res = await request(server).post('/auth/login').send({ emailOrPhone: phone, password: DEMO_PASSWORD });
@@ -98,9 +100,19 @@ describe('Branches (e2e)', () => {
     ownerToken = await login('+905321000002');
     trainerToken = await login(TRAINER_PHONE);
     memberToken = await login(MEMBER_PHONE);
+
+    // Zen is seeded at its plan's branch limit (backlog 4.1: plan limit
+    // enforcement). This suite creates extra branches, so raise the limit
+    // for its duration; restored in afterAll.
+    proPlanId = (await prisma.plan.findFirstOrThrow({ where: { key: 'pro' } })).id;
+    proPlanOriginalLimits = (await prisma.plan.findUniqueOrThrow({ where: { id: proPlanId } })).limits as Record<string, unknown>;
+    await prisma.plan.update({ where: { id: proPlanId }, data: { limits: { ...proPlanOriginalLimits, maxBranches: 20 } } });
   });
 
   afterAll(async () => {
+    if (proPlanId) {
+      await prisma.plan.update({ where: { id: proPlanId }, data: { limits: proPlanOriginalLimits as Prisma.InputJsonValue } });
+    }
     await prisma.membershipBranch.deleteMany({ where: { membershipId: trainerMembershipId } });
     await prisma.memberProfile.updateMany({ where: { id: { in: [selfMemberId, otherMemberId] } }, data: { homeBranchId: null } });
     await prisma.booking.deleteMany({ where: { scheduleId: { in: scheduleIds } } });
