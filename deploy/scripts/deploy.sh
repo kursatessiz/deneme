@@ -44,7 +44,7 @@ compose pull api web
 
 compose up -d postgres redis
 compose run --rm --no-deps api \
-  sh -c 'cd node_modules/@pilates/database && ./node_modules/.bin/prisma migrate deploy --schema prisma/schema.prisma'
+  sh -c 'cd node_modules/@platform/database && ./node_modules/.bin/prisma migrate deploy --schema prisma/schema.prisma'
 
 # Wait for container healthchecks; the smoke test below makes the decision.
 compose up -d --remove-orphans --wait --wait-timeout 120 || true

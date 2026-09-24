@@ -9,7 +9,7 @@ import {
   CreateScheduleInput,
   BookSessionInput,
   CancelBookingInput,
-} from '@pilates/shared';
+} from '@platform/shared';
 
 @Injectable()
 export class SchedulesService {

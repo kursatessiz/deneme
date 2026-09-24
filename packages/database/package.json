@@ -1,5 +1,5 @@
 {
-  "name": "@pilates/database",
+  "name": "@platform/database",
   "version": "1.0.0",
   "private": true,
   "main": "./dist/index.js",
@@ -15,7 +15,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@pilates/shared": "workspace:*",
+    "@platform/shared": "workspace:*",
     "@prisma/client": "^6.19.3",
     "prisma": "^6.19.3"
   },

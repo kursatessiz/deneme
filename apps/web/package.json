@@ -1,5 +1,5 @@
 {
-  "name": "@pilates/web",
+  "name": "@platform/web",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@pilates/shared": "workspace:*",
+    "@platform/shared": "workspace:*",
     "clsx": "^2.1.1",
     "lucide-react": "^0.475.0",
     "next": "^15.5.26",

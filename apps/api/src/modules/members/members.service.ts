@@ -4,7 +4,7 @@ import * as bcrypt from 'bcrypt';
 import {
   CreateMemberInput,
   AssignPackageToMemberInput,
-} from '@pilates/shared';
+} from '@platform/shared';
 
 @Injectable()
 export class MembersService {

@@ -1,5 +1,5 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
-import { Role } from '@pilates/database';
+import { Role } from '@platform/database';
 
 @Injectable()
 export class StudioTenantGuard implements CanActivate {

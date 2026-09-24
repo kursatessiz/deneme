@@ -1,5 +1,5 @@
 {
-  "name": "@pilates/api",
+  "name": "@platform/api",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -23,8 +23,8 @@
     "@nestjs/platform-express": "^11.2.6",
     "@nestjs/swagger": "^11.4.7",
     "@nestjs/terminus": "^11.1.1",
-    "@pilates/database": "workspace:*",
-    "@pilates/shared": "workspace:*",
+    "@platform/database": "workspace:*",
+    "@platform/shared": "workspace:*",
     "@prisma/client": "^6.19.3",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.81.5",

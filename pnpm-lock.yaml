@@ -57,10 +57,10 @@ importers:
       '@nestjs/terminus':
         specifier: ^11.1.1
         version: 11.1.1(@nestjs/common@11.2.6(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.6)(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3))(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      '@pilates/database':
+      '@platform/database':
         specifier: workspace:*
         version: link:../../packages/database
-      '@pilates/shared':
+      '@platform/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@prisma/client':
@@ -133,7 +133,7 @@ importers:
 
   apps/mobile:
     dependencies:
-      '@pilates/shared':
+      '@platform/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       expo:
@@ -161,7 +161,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@pilates/shared':
+      '@platform/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       clsx:
@@ -207,7 +207,7 @@ importers:
 
   packages/database:
     dependencies:
-      '@pilates/shared':
+      '@platform/shared':
         specifier: workspace:*
         version: link:../shared
       '@prisma/client':

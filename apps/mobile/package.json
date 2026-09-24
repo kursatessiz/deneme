@@ -1,5 +1,5 @@
 {
-  "name": "@pilates/mobile",
+  "name": "@platform/mobile",
   "version": "1.0.0",
   "private": true,
   "main": "index.js",
@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@pilates/shared": "workspace:*",
+    "@platform/shared": "workspace:*",
     "expo": "~57.0.25",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",

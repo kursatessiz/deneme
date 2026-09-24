@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { DashboardMetricsDTO } from '@pilates/shared';
+import { DashboardMetricsDTO } from '@platform/shared';
 
 @Injectable()
 export class StudiosService {

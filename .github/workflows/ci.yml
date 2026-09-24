@@ -40,7 +40,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Validate Prisma schema
-        run: pnpm --filter @pilates/database exec prisma validate
+        run: pnpm --filter @platform/database exec prisma validate
 
       - name: Build
         run: pnpm turbo run build

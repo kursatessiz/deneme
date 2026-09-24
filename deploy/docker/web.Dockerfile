@@ -10,12 +10,12 @@ FROM base AS builder
 COPY pnpm-lock.yaml package.json pnpm-workspace.yaml turbo.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/web/package.json apps/web/
-RUN pnpm install --frozen-lockfile --filter @pilates/web...
+RUN pnpm install --frozen-lockfile --filter @platform/web...
 
 COPY packages/shared packages/shared
 COPY apps/web apps/web
 ENV NEXT_TELEMETRY_DISABLED=1 NODE_ENV=production
-RUN pnpm --filter @pilates/web... run build
+RUN pnpm --filter @platform/web... run build
 
 FROM node:22-alpine AS runner
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 \

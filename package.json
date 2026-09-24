@@ -1,8 +1,8 @@
 {
-  "name": "pilates-studio-os",
+  "name": "platform",
   "version": "1.0.0",
   "private": true,
-  "description": "Multi-Tenant Boutique Pilates Studio Management System",
+  "description": "Multi-tenant platform for membership and appointment based businesses",
   "workspaces": [
     "apps/*",
     "packages/*"

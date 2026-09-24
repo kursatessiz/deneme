@@ -13,17 +13,17 @@ COPY pnpm-lock.yaml package.json pnpm-workspace.yaml turbo.json ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/database/package.json packages/database/
 COPY apps/api/package.json apps/api/
-RUN pnpm install --frozen-lockfile --filter @pilates/api...
+RUN pnpm install --frozen-lockfile --filter @platform/api...
 
 COPY packages/shared packages/shared
 COPY packages/database packages/database
 COPY apps/api apps/api
-RUN pnpm --filter @pilates/api... run build
+RUN pnpm --filter @platform/api... run build
 
 # Self-contained production tree: prod dependencies only, workspace packages
 # copied in, Prisma client generated against the copied schema.
-RUN pnpm --filter @pilates/api deploy --prod /out \
- && cd /out/node_modules/@pilates/database \
+RUN pnpm --filter @platform/api deploy --prod /out \
+ && cd /out/node_modules/@platform/database \
  && ./node_modules/.bin/prisma generate --schema prisma/schema.prisma
 
 FROM node:22-alpine AS runner

@@ -9,7 +9,7 @@ import {
   CreateMemberInput,
   AssignPackageToMemberSchema,
   AssignPackageToMemberInput,
-} from '@pilates/shared';
+} from '@platform/shared';
 
 @Controller('members')
 @UseGuards(JwtAuthGuard, StudioTenantGuard, RolesGuard)

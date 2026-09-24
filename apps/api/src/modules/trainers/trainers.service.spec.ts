@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TrainersService } from './trainers.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { CommissionType, SessionType } from '@pilates/shared';
+import { CommissionType, SessionType } from '@platform/shared';
 
 describe('TrainersService', () => {
   let service: TrainersService;

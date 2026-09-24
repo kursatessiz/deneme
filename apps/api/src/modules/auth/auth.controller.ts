@@ -2,7 +2,7 @@ import { Controller, Post, Body, Get, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
-import { LoginSchema, LoginInput } from '@pilates/shared';
+import { LoginSchema, LoginInput } from '@platform/shared';
 
 @Controller('auth')
 export class AuthController {

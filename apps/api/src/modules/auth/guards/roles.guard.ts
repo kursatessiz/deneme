@@ -1,6 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Role } from '@pilates/database';
+import { Role } from '@platform/database';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 
 @Injectable()

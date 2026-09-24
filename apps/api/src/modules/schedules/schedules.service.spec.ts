@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SchedulesService } from './schedules.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { SessionType } from '@pilates/shared';
+import { SessionType } from '@platform/shared';
 
 describe('SchedulesService', () => {
   let service: SchedulesService;

@@ -20,7 +20,7 @@ import {
   BookSessionInput,
   CancelBookingSchema,
   CancelBookingInput,
-} from '@pilates/shared';
+} from '@platform/shared';
 
 @Controller('schedules')
 @UseGuards(JwtAuthGuard, StudioTenantGuard)
