@@ -2,6 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationChannel, NotificationStatus } from '@platform/database';
+import type { NotificationCategory } from '@platform/shared';
+import { PushService, PushMessage } from './push.service';
+import { NotificationPreferencesService } from './notification-preferences.service';
 
 export interface SendSmsParams {
   /** Null for platform messages (login codes). */
@@ -23,8 +26,41 @@ export class NotificationsService {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
+    private push: PushService,
+    private preferences: NotificationPreferencesService,
   ) {
     this.isMock = this.config.get<string>('SMS_PROVIDER', 'MOCK') === 'MOCK';
+  }
+
+  /**
+   * Category notifications honour the user's preferences: push first, SMS
+   * as well when the user enabled it for this category. Security messages
+   * (codes, invites) must use sendSms directly and are never filtered.
+   */
+  async notifyUser(params: {
+    userId: string;
+    studioId: string | null;
+    category: NotificationCategory;
+    message: PushMessage;
+    smsText?: string;
+  }): Promise<{ push: number; sms: boolean }> {
+    const channels = await this.preferences.channelsFor(params.userId, params.category);
+    const pushed = channels.push ? await this.push.sendToUser(params.userId, params.message) : 0;
+
+    let smsSent = false;
+    if (channels.sms && params.smsText) {
+      const user = await this.prisma.user.findUnique({ where: { id: params.userId }, select: { phone: true } });
+      if (user) {
+        const result = await this.sendSms({
+          studioId: params.studioId,
+          phone: user.phone,
+          message: params.smsText,
+          type: 'REMINDER',
+        });
+        smsSent = result.success;
+      }
+    }
+    return { push: pushed, sms: smsSent };
   }
 
   async sendSms(params: SendSmsParams): Promise<{ success: boolean; messageId?: string }> {
