@@ -296,12 +296,22 @@ export class PartnerReservationsService {
       });
     }
 
+    // A phone that already belongs to a membership in this studio stays
+    // exactly as it is (a real member must never be demoted back to guest
+    // status, or have their existing membership touched at all).
     let membership = await tx.membership.findUnique({
       where: { userId_studioId: { userId: user.id, studioId } },
     });
     if (!membership) {
       membership = await tx.membership.create({
-        data: { userId: user.id, studioId, roleTemplateId: roleTemplate.id, status: MembershipStatus.ACTIVE, joinedAt: new Date() },
+        data: {
+          userId: user.id,
+          studioId,
+          roleTemplateId: roleTemplate.id,
+          status: MembershipStatus.ACTIVE,
+          joinedAt: new Date(),
+          isPartnerGuest: true,
+        },
       });
     }
 

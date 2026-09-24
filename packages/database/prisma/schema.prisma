@@ -652,6 +652,13 @@ model Membership {
   roleTemplateId String           @map("role_template_id") @db.Uuid
   status         MembershipStatus @default(INVITED)
   joinedAt       DateTime?        @map("joined_at")
+  /// True only for a membership auto-created by a partner (aggregator)
+  /// webhook guest who has never onboarded into the app themselves. Such
+  /// guests must be excluded from automation targeting, bulk/marketing
+  /// messaging, churn scoring, gamification pushes and referral/rating
+  /// prompts until they complete real onboarding or staff converts them,
+  /// at which point this is cleared (see docs/PARTNERS.md).
+  isPartnerGuest Boolean          @default(false) @map("is_partner_guest")
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")
 
@@ -668,6 +675,7 @@ model Membership {
 
   @@unique([userId, studioId])
   @@index([studioId, status])
+  @@index([studioId, isPartnerGuest])
   @@map("memberships")
 }
 
