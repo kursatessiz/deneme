@@ -286,7 +286,7 @@ export class SchedulesService {
     const studioId = tenant.studioId;
     const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: scheduleId, studioId } });
     if (!schedule) {
-      throw new NotFoundException('Ders seansı bulunamadı');
+      throw new NotFoundException('Seans bulunamadı');
     }
     assertBranchAccess(tenant, schedule.branchId);
 
@@ -450,7 +450,7 @@ export class SchedulesService {
       include: { serviceType: { include: { requiredResourceTypes: { include: { resourceType: true } } } } },
     });
     if (!schedule) {
-      throw new NotFoundException('Ders seansı bulunamadı');
+      throw new NotFoundException('Seans bulunamadı');
     }
     if (schedule.isCancelled) {
       throw new BadRequestException('Bu seans iptal edilmiştir');
@@ -916,7 +916,7 @@ export class SchedulesService {
     await this.assertScheduleBranch(tenant, scheduleId);
     const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: scheduleId, studioId: tenant.studioId } });
     if (!schedule) {
-      throw new NotFoundException('Ders seansı bulunamadı');
+      throw new NotFoundException('Seans bulunamadı');
     }
 
     const meeting =
@@ -954,7 +954,7 @@ export class SchedulesService {
       where: { id: scheduleId, studioId: tenant.studioId },
     });
     if (!schedule) {
-      throw new NotFoundException('Ders seansı bulunamadı');
+      throw new NotFoundException('Seans bulunamadı');
     }
     if (schedule.deliveryMode === SessionDeliveryMode.IN_PERSON || !schedule.meetingUrl) {
       throw new BadRequestException('Bu seans çevrimiçi katılıma açık değildir');
@@ -997,7 +997,7 @@ export class SchedulesService {
   async getWaitlist(tenant: TenantContext, scheduleId: string) {
     const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: scheduleId, studioId: tenant.studioId } });
     if (!schedule) {
-      throw new NotFoundException('Ders seansı bulunamadı');
+      throw new NotFoundException('Seans bulunamadı');
     }
     assertBranchAccess(tenant, schedule.branchId);
     const canViewContact = tenant.permissions.has('members.contact.view');
@@ -1022,7 +1022,7 @@ export class SchedulesService {
   private async join(studioId: string, dto: JoinWaitlistInput) {
     const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: dto.scheduleId, studioId } });
     if (!schedule) {
-      throw new NotFoundException('Ders seansı bulunamadı');
+      throw new NotFoundException('Seans bulunamadı');
     }
     if (schedule.isCancelled) {
       throw new BadRequestException('Bu seans iptal edilmiştir');
@@ -1218,7 +1218,7 @@ export class SchedulesService {
       });
       if (flipped.count === 0) {
         const exists = await tx.sessionSchedule.findFirst({ where: { id: scheduleId, studioId }, select: { id: true } });
-        if (!exists) throw new NotFoundException('Ders seansı bulunamadı');
+        if (!exists) throw new NotFoundException('Seans bulunamadı');
         throw new BadRequestException('Bu seans zaten iptal edilmiştir');
       }
 
@@ -1303,7 +1303,7 @@ export class SchedulesService {
     const studioId = tenant.studioId;
     const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: scheduleId, studioId } });
     if (!schedule) {
-      throw new NotFoundException('Ders seansı bulunamadı');
+      throw new NotFoundException('Seans bulunamadı');
     }
     assertBranchAccess(tenant, schedule.branchId);
     if (schedule.isCancelled) {
