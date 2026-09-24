@@ -23,6 +23,8 @@ erDiagram
     Studio ||--o{ SmsWallet : has
     Studio ||--o{ NotificationLog : has
     Studio ||--o{ PayrollRun : has
+    Studio ||--o{ Lead : has
+    Studio ||--o{ LeadActivity : has
 
     User ||--o{ Membership : creates
     Membership ||--o| MemberProfile : member
@@ -83,6 +85,12 @@ erDiagram
     Branch ||--o{ PayrollRun : scopes
     PayrollRun ||--o{ PayrollLine : has
     TrainerProfile ||--o{ PayrollLine : earns
+
+    Lead ||--o{ LeadActivity : logs
+    Membership ||--o{ Lead : owns
+    Membership ||--o{ LeadActivity : acts_on
+    ServiceType ||--o{ Lead : interests
+    Branch ||--o{ Lead : at
 ```
 
 ## Platform Seviyesi
@@ -178,6 +186,15 @@ erDiagram
 
 Formül ve durum makinesi için bkz. `docs/PAYROLL.md`.
 
+## Potansiyel Müşteri Hattı (W11)
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `leads` | Henüz üye olmamış aday: kaynak (web formu, Instagram, kapıdan gelen, tavsiye, telefon, diğer), aşama (yeni, görüşüldü, deneme planlandı, deneme yapıldı, üye oldu, kaybedildi), sorumlu personel, bir sonraki takip tarihi, UTM alanları; üyeliğe dönüşünce `converted_membership_id` doldurulur | (studio_id, stage) index; (studio_id, phone) index; (studio_id, next_follow_up_at) index; (studio_id, open_phone) benzersiz: `open_phone` aday açıkken telefonu, üye olunca veya kaybedilince NULL tutar; böylece aynı telefondan tek açık aday olur ve kısıt Prisma şemasında ifade edilebilir |
+| `lead_activities` | Bir adayın geçmişi: not, arama, mesaj, aşama değişikliği, deneme dersi kaydı | (lead_id, created_at) index |
+
+Açık (WON/LOST olmayan) bir aday aynı telefonla tekrar başvurursa (web formundan veya personel tarafından), yeni bir `leads` satırı açılmaz; bu, o adayın geçmişine bir `lead_activities` notu olarak eklenir (bkz. `LeadsService.create` ve `LeadsService.submitPublicForm`, `apps/api/src/modules/leads/leads.service.ts`). Aday WON veya LOST olduktan sonra aynı telefonla yeni bir aday açılabilir.
+
 ## Denetim (Audit)
 
 | Tablo | Amaç | Kısıtlar |
@@ -216,6 +233,8 @@ Formül ve durum makinesi için bkz. `docs/PAYROLL.md`.
 9. **Stüdyo Başına Bir Canlı Abonelik**: (studio_id) WHERE status IN ('TRIALING', 'ACTIVE', 'PAST_DUE') üzerindeki benzersiz index, kiracı başına yalnızca bir aktif abonelik olmasını zorunlu kılar.
 
 10. **İade Sınırı** (uygulama seviyesinde, `PaymentsService.refundPayment` içinde koşullu `updateMany` ile): `refunded_amount`, okunan anlık değer üzerinden koşullu güncellenir; eşzamanlı iki iade isteği `amount`'u asla aşamaz ve ikinci istek `409 Conflict` alır.
+
+10. **Açık Aday Başına Tek Telefon**: (studio_id, open_phone) benzersiz kısıtı, aynı işletmede aynı telefonla birden fazla açık aday oluşmasını engeller. `open_phone` yalnızca aday açıkken dolu olduğu için kapanmış (WON/LOST) adaylar kısıtın dışında kalır.
 
 ## Konvansiyonlar
 

@@ -91,4 +91,5 @@ kaldıracak şema revizyonunu da içerir.
 - Sunucu kurulumu ve ilk deploy: [`docs/UBUNTU_24_04_SETUP.md`](docs/UBUNTU_24_04_SETUP.md)
 - CI/CD pipeline, secret'lar ve agentic workflow'lar: [`docs/CICD_GUIDE.md`](docs/CICD_GUIDE.md)
 - Veritabanı şeması genel bakışı: [`docs/DATABASE_ERD.md`](docs/DATABASE_ERD.md)
+- Potansiyel müşteri hattı ve web formu: [`docs/LEADS.md`](docs/LEADS.md)
 - Güvenlik politikası ve zafiyet bildirimi: [`SECURITY.md`](SECURITY.md)
