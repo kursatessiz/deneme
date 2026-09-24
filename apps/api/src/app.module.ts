@@ -15,6 +15,7 @@ import { MeModule } from './modules/me/me.module';
 import { AppearanceModule } from './modules/appearance/appearance.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { BranchesModule } from './modules/branches/branches.module';
+import { RoleTemplatesModule } from './modules/role-templates/role-templates.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { ReportsModule } from './modules/reports/reports.module';
@@ -57,6 +58,7 @@ import { validateEnv } from './config/env';
     AppearanceModule,
     CatalogModule,
     BranchesModule,
+    RoleTemplatesModule,
     CalendarModule,
     PaymentsModule,
     ReportsModule,

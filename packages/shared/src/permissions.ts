@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 /**
  * Permission catalogue: the single source of permission keys. Role templates
  * store subsets of these keys; every API endpoint declares one of them with
@@ -63,6 +65,31 @@ export const ALL_PERMISSIONS = Object.keys(PERMISSIONS) as PermissionKey[];
 export function isPermissionKey(value: string): value is PermissionKey {
   return Object.prototype.hasOwnProperty.call(PERMISSIONS, value);
 }
+
+/**
+ * Area a permission belongs to, for grouping the role-template editor's UI.
+ * Kept here (next to the catalogue) so a new permission key gets an area at
+ * the same time it is added.
+ */
+export const PERMISSION_AREAS = {
+  'İşletme ve roller': ['studio.settings.view', 'studio.settings.manage', 'roles.manage', 'staff.manage', 'branches.manage'],
+  Üyeler: ['members.view', 'members.contact.view', 'members.health.view', 'members.manage'],
+  Katalog: ['catalog.view', 'catalog.manage'],
+  Takvim: ['schedule.view', 'schedule.manage'],
+  Rezervasyon: ['bookings.view', 'bookings.manage', 'attendance.manage'],
+  Satış: ['packages.sell', 'promotions.manage'],
+  Ölçümler: ['measurements.view', 'measurements.manage'],
+  Finans: ['finance.view', 'finance.manage', 'commissions.view.own', 'commissions.view.all', 'payroll.manage'],
+  Bildirim: ['notifications.manage', 'reports.view'],
+  'Potansiyel üyeler': ['leads.view', 'leads.manage'],
+  Entegrasyon: ['integrations.manage', 'integrations.partners.manage'],
+  İçerik: ['content.view', 'content.manage'],
+} as const satisfies Record<string, readonly PermissionKey[]>;
+
+export type PermissionArea = keyof typeof PERMISSION_AREAS;
+
+/** Zod schema for a single permission key, reused by the role-template validators. */
+export const PermissionKeySchema = z.string().refine(isPermissionKey, { message: 'Bilinmeyen izin anahtarı' }) as z.ZodType<PermissionKey>;
 
 export interface DefaultRoleTemplate {
   key: string;

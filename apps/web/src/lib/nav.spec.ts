@@ -28,6 +28,13 @@ describe('filterNavByPermissions', () => {
     expect(keys).not.toContain('calendar');
     expect(keys).not.toContain('trainers');
   });
+
+  it('a manager with roles.manage sees settings; a trainer without any settings permission does not', () => {
+    const manager = filterNavByPermissions(NAV_ITEMS, ['roles.manage'], false);
+    expect(manager.map((i) => i.key)).toContain('settings');
+    const trainer = filterNavByPermissions(NAV_ITEMS, ['schedule.view'], false);
+    expect(trainer.map((i) => i.key)).not.toContain('settings');
+  });
 });
 
 describe('hasAnyPermission', () => {
