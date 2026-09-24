@@ -1,5 +1,6 @@
 import type { MeUpcomingBookingsDTO, UpcomingBookingDTO } from '@platform/shared';
 import { onColor } from '@platform/shared';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -82,7 +83,9 @@ export default function HomeScreen() {
   const { theme } = useTheme();
   const fonts = useThemeFonts();
   const c = theme.colors;
+  const router = useRouter();
   const { user, activeMembership } = useSession();
+  const isMember = Boolean(activeMembership?.memberProfileId);
   const [bookings, setBookings] = useState<UpcomingBookingDTO[] | null>(null);
   const [loadError, setLoadError] = useState<string | undefined>();
   const onBand = onColor(theme.gradient.stops[0]);
@@ -112,6 +115,26 @@ export default function HomeScreen() {
         <Text style={[styles.name, fonts.display, { color: onBand }]}>Merhaba, {user?.firstName ?? ''}</Text>
       </GradientSurface>
 
+      {isMember ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Bu haftanın seanslarını gör"
+          onPress={() => router.push('/(app)/seans')}
+          style={[
+            styles.link,
+            {
+              borderColor: c.border,
+              backgroundColor: c.surface,
+              borderRadius: theme.family.radii.card,
+              borderWidth: theme.family.cardBorder ? 1 : 0,
+            },
+          ]}
+        >
+          <Text style={[styles.linkTitle, fonts.bodyStrong, { color: c.textPrimary }]}>Bu haftanın seansları</Text>
+          <Text style={[styles.linkSubtitle, fonts.body, { color: c.textSecondary }]}>Seans seçip yerinizi ayırın</Text>
+        </Pressable>
+      ) : null}
+
       <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: c.textSecondary }]}>Yaklaşan rezervasyonlarım</Text>
 
       {bookings === null && !loadError ? <ActivityIndicator color={c.textPrimary} /> : null}
@@ -138,6 +161,19 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: typography.size['2xl'],
+  },
+  link: {
+    minHeight: 56,
+    padding: spacing[4],
+    justifyContent: 'center',
+    marginBottom: spacing[5],
+  },
+  linkTitle: {
+    fontSize: typography.size.md,
+    marginBottom: 2,
+  },
+  linkSubtitle: {
+    fontSize: typography.size.sm,
   },
   sectionTitle: {
     fontSize: typography.size.sm,

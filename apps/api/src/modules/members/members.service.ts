@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { CreateMemberInput, AssignPackageToMemberInput, FreezePackageInput } from '@platform/shared';
@@ -59,6 +59,42 @@ export class MembersService {
       select: { id: true, homeBranchId: true },
     });
     return { memberId: updated.id, homeBranchId: updated.homeBranchId };
+  }
+
+  /**
+   * The caller's own active, unexpired packages, optionally narrowed to
+   * those covering one service type. Used by the mobile booking flow to
+   * offer a package when reserving a spot.
+   */
+  async getSelfPackages(tenant: TenantContext, serviceTypeId?: string) {
+    if (!tenant.memberProfileId) {
+      throw new ForbiddenException('Bu işletmede üye profiliniz yok');
+    }
+    const packages = await this.prisma.memberPackage.findMany({
+      where: {
+        studioId: tenant.studioId,
+        memberId: tenant.memberProfileId,
+        status: 'ACTIVE',
+        endDate: { gte: new Date() },
+        ...(serviceTypeId ? { packageDefinition: { services: { some: { serviceTypeId } } } } : {}),
+      },
+      include: { packageDefinition: true },
+      orderBy: { endDate: 'asc' },
+    });
+    return packages.map((p) => ({
+      id: p.id,
+      memberId: p.memberId,
+      packageDefinitionId: p.packageDefinitionId,
+      packageDefinitionName: p.packageDefinition.name,
+      entitlementKind: p.entitlementKind,
+      totalUnits: p.totalUnits,
+      usedUnits: p.usedUnits,
+      remainingUnits: p.remainingUnits,
+      status: p.status,
+      startDate: p.startDate,
+      endDate: p.endDate,
+      frozenUntil: p.frozenUntil,
+    }));
   }
 
   async findById(memberId: string, tenant: TenantContext) {

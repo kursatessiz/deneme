@@ -589,6 +589,11 @@ model Resource {
   serialNumber     String?  @map("serial_number") @db.VarChar(100)
   isMaintenance    Boolean  @default(false) @map("is_maintenance")
   isActive         Boolean  @default(true) @map("is_active")
+  /// Grid coordinates for an optional spot map (e.g. equipment inside a room).
+  layoutX          Int?     @map("layout_x")
+  layoutY          Int?     @map("layout_y")
+  /// Short visible label on a spot map, e.g. "3" or "Kort 2".
+  label            String?  @db.VarChar(40)
   createdAt        DateTime @default(now()) @map("created_at")
 
   studio           Studio            @relation(fields: [studioId], references: [id], onDelete: Cascade)

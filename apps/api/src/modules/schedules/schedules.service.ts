@@ -25,6 +25,8 @@ import { Prisma } from '@platform/database';
 import type { CancellationPolicy, MemberPackage } from '@platform/database';
 import { evaluateCancellation, evaluateNoShow, FALLBACK_POLICY, PolicyTerms } from './cancellation-policy';
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
+import { deriveSpotStatus, SpotOccupant } from './spots';
+import type { ScheduleSpotsDTO, SpotGroupDTO } from '@platform/shared';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const CAPACITY_FULL = 'Bu seansın kontenjanı doludur';
@@ -79,6 +81,41 @@ export class SchedulesService {
     return schedules.map((schedule) => ({
       ...schedule,
       bookings: schedule.bookings.map((booking) => this.maskBookingContact(booking, canViewContact)),
+    }));
+  }
+
+  /**
+   * A lightweight session list for members browsing what to book: no
+   * per-booking detail (who else is enrolled stays private), just enough to
+   * pick a session and open its spot map.
+   */
+  async getSchedulesSelf(tenant: TenantContext, startDate: Date, endDate: Date) {
+    const schedules = await this.prisma.sessionSchedule.findMany({
+      where: { studioId: tenant.studioId, startTime: { gte: startDate }, endTime: { lte: endDate }, isCancelled: false },
+      include: {
+        resource: true,
+        serviceType: true,
+        trainer: { include: { membership: { include: { user: true } } } },
+      },
+      orderBy: { startTime: 'asc' },
+    });
+
+    return schedules.map((s) => ({
+      id: s.id,
+      studioId: s.studioId,
+      branchId: s.branchId,
+      serviceTypeId: s.serviceTypeId,
+      serviceTypeName: s.serviceType.name,
+      resourceId: s.resourceId,
+      resourceName: s.resource?.name ?? null,
+      trainerId: s.trainerId,
+      trainerName: s.trainer ? `${s.trainer.membership.user.firstName} ${s.trainer.membership.user.lastName}`.trim() : null,
+      title: s.title,
+      startTime: s.startTime,
+      endTime: s.endTime,
+      capacity: s.capacity,
+      bookedCount: s.bookedCount,
+      isCancelled: s.isCancelled,
     }));
   }
 
@@ -191,16 +228,182 @@ export class SchedulesService {
     return this.book(tenant.studioId, dto);
   }
 
+  // ---------------------------------------------------------------------------
+  // Spot map
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Member-selectable resources for a session: the room's equipment when the
+   * session has a room, otherwise the branch's standalone selectable
+   * resources. Available to members and staff alike; who took a spot is
+   * hidden from members and revealed to staff only with bookings.view.
+   */
+  async getSpots(tenant: TenantContext, scheduleId: string): Promise<ScheduleSpotsDTO> {
+    const studioId = tenant.studioId;
+    const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: scheduleId, studioId } });
+    if (!schedule) {
+      throw new NotFoundException('Ders seansı bulunamadı');
+    }
+    assertBranchAccess(tenant, schedule.branchId);
+
+    const candidates = schedule.resourceId
+      ? await this.prisma.resource.findMany({
+          where: { studioId, isActive: true, parentResourceId: schedule.resourceId, resourceType: { selectableByMember: true } },
+          include: { resourceType: true },
+          orderBy: [{ label: 'asc' }, { name: 'asc' }],
+        })
+      : await this.prisma.resource.findMany({
+          where: {
+            studioId,
+            isActive: true,
+            parentResourceId: null,
+            resourceType: { selectableByMember: true },
+            ...(schedule.branchId ? { OR: [{ branchId: schedule.branchId }, { branchId: null }] } : {}),
+          },
+          include: { resourceType: true },
+          orderBy: [{ label: 'asc' }, { name: 'asc' }],
+        });
+
+    if (candidates.length === 0) {
+      return { scheduleId, roomResourceId: schedule.resourceId, groups: [] };
+    }
+
+    const activeHolds = await this.prisma.bookingResource.findMany({
+      where: {
+        studioId,
+        resourceId: { in: candidates.map((c) => c.id) },
+        isActive: true,
+        startTime: { lt: schedule.endTime },
+        endTime: { gt: schedule.startTime },
+        booking: { status: { in: ['CONFIRMED', 'ATTENDED'] } },
+      },
+      include: { booking: { include: { member: { include: { membership: { include: { user: true } } } } } } },
+    });
+
+    const occupantsByResource = new Map<string, SpotOccupant[]>();
+    for (const hold of activeHolds) {
+      const list = occupantsByResource.get(hold.resourceId) ?? [];
+      const user = hold.booking.member.membership.user;
+      list.push({ memberId: hold.booking.memberId, memberName: `${user.firstName} ${user.lastName}`.trim() });
+      occupantsByResource.set(hold.resourceId, list);
+    }
+
+    const canViewNames = tenant.permissions.has('bookings.view');
+    const groups = new Map<string, SpotGroupDTO>();
+    for (const resource of candidates) {
+      const occupants = occupantsByResource.get(resource.id) ?? [];
+      const derived = deriveSpotStatus({
+        isMaintenance: resource.isMaintenance,
+        capacity: resource.capacity,
+        occupants,
+        callerMemberId: tenant.memberProfileId,
+      });
+      const group = groups.get(resource.resourceTypeId) ?? {
+        resourceTypeId: resource.resourceTypeId,
+        resourceTypeName: resource.resourceType.name,
+        spots: [],
+      };
+      group.spots.push({
+        id: resource.id,
+        name: resource.name,
+        label: resource.label,
+        layoutX: resource.layoutX,
+        layoutY: resource.layoutY,
+        capacity: resource.capacity,
+        status: derived.status,
+        takenByMemberName: derived.status === 'TAKEN' && canViewNames ? (derived.takenBy?.memberName ?? null) : null,
+      });
+      groups.set(resource.resourceTypeId, group);
+    }
+
+    return { scheduleId, roomResourceId: schedule.resourceId, groups: [...groups.values()] };
+  }
+
+  /** Staff changing the spot of any booking in a branch they can act on. */
+  async changeSpot(tenant: TenantContext, bookingId: string, resourceIds: string[]) {
+    await this.assertBookingBranch(tenant, bookingId);
+    return this.doChangeSpot(tenant.studioId, bookingId, resourceIds);
+  }
+
+  /** Members changing the spot of their own booking. */
+  async changeSpotSelf(tenant: TenantContext, bookingId: string, resourceIds: string[]) {
+    const booking = await this.prisma.booking.findFirst({ where: { id: bookingId, studioId: tenant.studioId } });
+    if (!booking) {
+      throw new NotFoundException('Rezervasyon bulunamadı');
+    }
+    this.assertSelf(tenant, booking.memberId, 'Yalnızca kendi rezervasyonunuzun yerini değiştirebilirsiniz');
+    return this.doChangeSpot(tenant.studioId, bookingId, resourceIds);
+  }
+
+  /**
+   * Replaces a booking's held resources atomically: the old rows are
+   * deleted and the new ones created in the same transaction, so a
+   * concurrent booking of the same spot is caught by the exclusion
+   * constraint and turned into a 409, never a partial swap.
+   */
+  private async doChangeSpot(studioId: string, bookingId: string, resourceIds: string[]) {
+    return this.prisma.$transaction(async (tx) => {
+      const booking = await tx.booking.findFirst({
+        where: { id: bookingId, studioId },
+        include: { schedule: true },
+      });
+      if (!booking) {
+        throw new NotFoundException('Rezervasyon bulunamadı');
+      }
+      if (booking.status !== 'CONFIRMED') {
+        throw new BadRequestException('Yalnızca onaylı rezervasyonların yeri değiştirilebilir');
+      }
+
+      await tx.bookingResource.deleteMany({ where: { studioId, bookingId: booking.id } });
+
+      for (const resourceId of resourceIds) {
+        const resource = await tx.resource.findFirst({ where: { id: resourceId, studioId } });
+        if (!resource) {
+          throw new BadRequestException('Seçilen kaynak bu işletmede bulunamadı');
+        }
+        if (resource.isMaintenance) {
+          throw new BadRequestException('Seçilen yer bakımdadır');
+        }
+        try {
+          await tx.bookingResource.create({
+            data: {
+              studioId,
+              bookingId: booking.id,
+              resourceId,
+              startTime: booking.schedule.startTime,
+              endTime: booking.schedule.endTime,
+              exclusive: resource.capacity === 1,
+            },
+          });
+        } catch (err) {
+          if (this.isExclusionViolation(err)) {
+            throw new ConflictException('Seçilen yer bu saat için dolu');
+          }
+          throw err;
+        }
+      }
+
+      return tx.bookingResource.findMany({ where: { studioId, bookingId: booking.id } });
+    });
+  }
+
   private async book(studioId: string, dto: BookSessionInput) {
     const schedule = await this.prisma.sessionSchedule.findFirst({
       where: { id: dto.scheduleId, studioId },
-      include: { serviceType: true },
+      include: { serviceType: { include: { requiredResourceTypes: { include: { resourceType: true } } } } },
     });
     if (!schedule) {
       throw new NotFoundException('Ders seansı bulunamadı');
     }
     if (schedule.isCancelled) {
       throw new BadRequestException('Bu seans iptal edilmiştir');
+    }
+
+    const requiresSelectableSpot = (schedule.serviceType.requiredResourceTypes ?? []).some(
+      (r) => r.resourceType.selectableByMember,
+    );
+    if (requiresSelectableSpot && (!dto.resourceIds || dto.resourceIds.length === 0)) {
+      throw new BadRequestException('Bu hizmet için bir yer seçmelisiniz');
     }
 
     const member = await this.prisma.memberProfile.findFirst({ where: { id: dto.memberId, studioId } });

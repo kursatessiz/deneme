@@ -210,10 +210,16 @@ describe('API e2e', () => {
     // it exercises deliberately drains the package to DEPLETED.
     beforeAll(async () => {
       const coverage = await prisma.packageDefinitionService.findFirst({
-        where: { unitCost: 1, packageDefinition: { studioId: ZEN, isActive: true } },
+        // No required selectable resource type: this scenario tests unit
+        // depletion, not spot picking, so it must not need resourceIds.
+        where: {
+          unitCost: 1,
+          packageDefinition: { studioId: ZEN, isActive: true },
+          serviceType: { requiredResourceTypes: { none: { resourceType: { selectableByMember: true } } } },
+        },
         include: { packageDefinition: true },
       });
-      if (!coverage) throw new Error('seed data missing a 1-unit-cost package/service coverage for Zen');
+      if (!coverage) throw new Error('seed data missing a 1-unit-cost package/service coverage for Zen with no spot requirement');
       serviceTypeId = coverage.serviceTypeId;
 
       const member = await prisma.memberProfile.findFirstOrThrow({ where: { studioId: ZEN } });
