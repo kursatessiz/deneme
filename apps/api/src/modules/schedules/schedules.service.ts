@@ -27,6 +27,7 @@ import type { CancellationPolicy, MemberPackage } from '@platform/database';
 import { evaluateCancellation, evaluateNoShow, FALLBACK_POLICY, PolicyTerms } from './cancellation-policy';
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
 import { deriveSpotStatus, SpotOccupant } from './spots';
+import { sortByClosestStart } from '../checkin/checkin-window';
 import type { ScheduleSpotsDTO, SpotGroupDTO } from '@platform/shared';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -752,6 +753,84 @@ export class SchedulesService {
     }
 
     return this.prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
+  }
+
+  /**
+   * Check-in entry point shared by the static/dynamic QR flows and the kiosk
+   * (W17). Unlike the staff `checkIn` above, a re-scan of an already
+   * attended booking is not an error: it is the common case (a member
+   * walking back past the poster, or a flaky scan retried by the app).
+   * Runs the same gamification hook as the staff check-in.
+   */
+  async checkInForMember(studioId: string, bookingId: string, expectedMemberId: string) {
+    const booking = await this.prisma.booking.findFirst({ where: { id: bookingId, studioId } });
+    if (!booking) {
+      throw new NotFoundException('Rezervasyon bulunamadı');
+    }
+    if (booking.memberId !== expectedMemberId) {
+      throw new ForbiddenException('Bu rezervasyon size ait değil');
+    }
+    if (booking.status === 'ATTENDED') {
+      return booking;
+    }
+
+    const updated = await this.prisma.booking.updateMany({
+      where: { id: bookingId, studioId, status: 'CONFIRMED' },
+      data: { status: 'ATTENDED', checkInAt: new Date() },
+    });
+    if (updated.count === 0) {
+      // A concurrent scan may have won the transition; that is still success.
+      const current = await this.prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
+      if (current.status === 'ATTENDED') return current;
+      throw new BadRequestException('Yalnızca onaylı rezervasyonlar için giriş yapılabilir');
+    }
+
+    // Best-effort, same as the staff check-in: never fail a QR/kiosk check-in.
+    try {
+      await this.gamification.onAttendance(bookingId);
+    } catch (err) {
+      this.logger.warn(`Gamification evaluation failed for booking ${bookingId}: ${(err as Error).message}`);
+    }
+
+    return this.prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
+  }
+
+  /**
+   * Candidate CONFIRMED or already-ATTENDED bookings for a member that fall
+   * inside the studio's check-in window, in the given branch (or a
+   * branch-less schedule), ordered by how close the session start is to
+   * now. Used by the QR/kiosk flows to resolve "the booking" for a scan
+   * without asking the member to pick one when there is exactly one match;
+   * including ATTENDED keeps a re-scan of the same window idempotent.
+   */
+  async findCheckInCandidates(
+    studioId: string,
+    memberId: string,
+    /** null means every branch (unrestricted staff or a studio-wide kiosk/point). */
+    allowedBranchIds: ReadonlySet<string> | null,
+    windowStart: Date,
+    windowEnd: Date,
+  ) {
+    const bookings = await this.prisma.booking.findMany({
+      where: {
+        studioId,
+        memberId,
+        // ATTENDED is included so a re-scan inside the same window finds the
+        // booking it already checked in (idempotent), instead of reporting
+        // "no reservation" once the first scan flips its status.
+        status: { in: ['CONFIRMED', 'ATTENDED'] },
+        schedule: {
+          isCancelled: false,
+          startTime: { gte: windowStart, lte: windowEnd },
+          ...(allowedBranchIds
+            ? { OR: [{ branchId: { in: [...allowedBranchIds] } }, { branchId: null }] }
+            : {}),
+        },
+      },
+      include: { schedule: true },
+      orderBy: { schedule: { startTime: 'asc' } },
+    });
+    return sortByClosestStart(bookings, (b) => b.schedule.startTime, new Date());
   }
 
   // ---------------------------------------------------------------------------
