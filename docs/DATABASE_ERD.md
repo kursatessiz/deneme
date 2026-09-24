@@ -75,9 +75,9 @@ erDiagram
 
 | Tablo | Amaç | Kısıtlar |
 |-------|---------|-------------|
-| `studios` | Kiracı: marka, saat dilimi, bildirim ayarları | slug benzersiz |
+| `studios` | Kiracı: marka (logo, varsayılan tema ailesi `theme_family`, ana renk, gradyan), saat dilimi, bildirim ayarları | slug benzersiz |
 | `branches` | Stüdyo lokasyonları | studio_id index |
-| `users` | E.164 telefon ile tanımlanan global kullanıcılar | phone benzersiz, email benzersiz |
+| `users` | E.164 telefon ile tanımlanan global kullanıcılar; görünüm tercihi (`theme_family` boşsa işletmenin teması, `color_scheme` SYSTEM/LIGHT/DARK) | phone benzersiz, email benzersiz |
 | `memberships` | Rol tabanlı erişimle kullanıcı-stüdyo bağlantıları | (user_id, studio_id) benzersiz; (studio_id, status) index |
 | `role_templates` | Stüdyo başına izin kümeleri; owner rolü zorunlu | (studio_id, key) benzersiz; stüdyo başına bir owner |
 | `role_template_permissions` | Bir rol tarafından verilen izinler | role_template_id index |

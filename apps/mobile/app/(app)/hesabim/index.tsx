@@ -30,7 +30,8 @@ function MenuLink({ label, onPress }: MenuLinkProps) {
 export default function HesabimScreen() {
   const router = useRouter();
   const colors = useThemeColors();
-  const { user, memberships, signOut } = useSession();
+  const { user, memberships, activeMembership, signOut } = useSession();
+  const canManageTheme = activeMembership?.permissions.includes('studio.settings.manage') ?? false;
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const handleSignOut = async () => {
@@ -65,6 +66,10 @@ export default function HesabimScreen() {
       <View style={styles.menu}>
         <MenuLink label="Bildirim ayarları" onPress={() => router.push('/(app)/hesabim/bildirimler')} />
         <MenuLink label="PIN değiştir" onPress={() => router.push('/(app)/hesabim/pin')} />
+        <MenuLink label="Görünüm" onPress={() => router.push('/(app)/hesabim/gorunum')} />
+        {canManageTheme ? (
+          <MenuLink label="İşletme teması" onPress={() => router.push('/(app)/hesabim/isletme-temasi')} />
+        ) : null}
       </View>
 
       <PrimaryButton label="Çıkış yap" onPress={handleSignOut} loading={isSigningOut} variant="danger" />

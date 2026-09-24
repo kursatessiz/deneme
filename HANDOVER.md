@@ -158,6 +158,36 @@ Bizim şimdiden önde olduğumuz yerler: ekipman seviyesinde çift rezervasyonun
 - Apple Health / Health Connect ile ölçüm paylaşımı
 - Çok şube ve franchise görünümü
 
+### 6c. Uygulama sırası (sahibin onayı, 24 Eylül 2026)
+
+Sahip, bölüm 6b'deki tüm maddelerin turnike ve kapı entegrasyonu hariç uygulanmasını istedi. Ek istekler: tüm tema aileleri sunulacak (işletme varsayılanı seçer, kullanıcı kendi cihazında değiştirebilir), çok şube yönetimi zorunlu, mobilde takvime ekleme ve ana ekran widget'ı olacak. Her madde ayrı PR'dır.
+
+| No | Madde | Kapsam |
+|----|-------|--------|
+| W1 | Katalog yönetimi (1.4 kalanı) | Hizmet türü, kaynak türü, kaynak, iptal politikası uç noktaları; seansın tamamını iptal etme (iade ve bildirimle) |
+| W2 | Çok şube | Şube CRUD, personelin erişebildiği şubeler, şubeye göre takvim/kaynak/üye filtresi, üyenin ana şubesi, şubeler arası özet; birden çok işletmenin sahibi için birleşik (franchise) görünüm |
+| W3 | Tema aileleri | Stüdyo Noir, Nefes, Saha, Atölye token setleri; işletme varsayılanı, kullanıcı tercihi (tema ve açık/koyu), mobil ve web tema sağlayıcısı. Yapıldı: dört aile (yazı tipi, köşe, nötr renkler, beşer gradyan, açık ve koyu mod, WCAG testleri), `resolveTheme()` ve web için `themeCssVariables()`, işletme teması uç noktası (audit log), kullanıcı görünüm uç noktası, mobilde tema sağlayıcısı, fontlar, gradyanlı birincil buton ve başlık bandı, Hesabım altında Görünüm ve İşletme teması ekranları. Kalan: web panelinin temaya bağlanması 2.1 ile |
+| W4 | Takvim ve widget | Rezervasyonu cihaz takvimine ekleme, kişisel ICS takvim aboneliği, iOS widget (`expo-widgets`) ve Android widget (`react-native-android-widget`): sıradaki seans ve kalan hak |
+| W5 | Ekipman seçim ekranı | Kaynak doluluk uç noktası, mobilde yerleşim planı üzerinden seçim |
+| W6 | Ödeme | Sağlayıcı soyutlaması (iyzico, PayTR; mock), kart saklama, otomatik yenilenen üyelik, dunning, taksit, havale/IBAN kaydı |
+| W7 | Mesajlaşma | WhatsApp Cloud API şablonları, SMS'e düşme, İYS izin kontrolü, işlemsel ve ticari mesaj ayrımı |
+| W8 | e-Arşiv / e-Fatura | Entegratör soyutlaması (mock), ödeme sonrası belge kesme |
+| W9 | Satış araçları | Deneme dersi teklifi, promosyon kodu, hediye kartı |
+| W10 | Otomatik akışlar | Kural motoru ve zamanlanmış işler: geri kazanma, paket bitiyor, doğum günü, ilk ders sonrası |
+| W11 | Potansiyel müşteri hattı | Web formu uç noktası, aşamalar, deneme dersine ve üyeliğe dönüşüm |
+| W12 | Ayrılma riski | Kural tabanlı skor, riskli üye listesi |
+| W13 | Raporlar | Doluluk, gelir, üye başına gelir, yenileme oranı, kohort, eğitmen performansı |
+| W14 | Hakediş bordrosu | Dönemsel eğitmen hakedişi hesaplama ve CSV çıktısı |
+| W15 | Puan ve tavsiye | Ders sonrası puan, Google yorum yönlendirmesi, arkadaşını getir |
+| W16 | Oyunlaştırma | Seri, kilometre taşı, rozet, aylık hedef |
+| W17 | Check-in kiosku | Tablet kiosk modu, statik işletme QR'ı ve üyenin dinamik QR'ı (turnike hariç) |
+| W18 | Açık platform | Gömülebilir rezervasyon widget'ı, API anahtarlı herkese açık API, webhook |
+| W19 | Video | İsteğe bağlı video kütüphanesi, canlı yayın bağlantıları, paketle erişim |
+| W20 | Toplayıcılar | Wellhub benzeri toplayıcılar için adaptör arayüzü ve mock |
+| W21 | Sağlık verisi | Apple Health / Health Connect ile ölçüm paylaşımı (üye izniyle) |
+
+Kapsam dışı: turnike ve kapı entegrasyonu.
+
 ## 7. Sahibin sağlayacağı girdiler (henüz gelmedi)
 - Tasarım referans ekran görüntüleri (3–4 ekran: ana, takvim, üye kartı, rezervasyon)
 - İki stüdyonun gerçek hizmet türü / paket / eğitmen ücret / iptal kuralı listesi

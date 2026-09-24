@@ -25,6 +25,7 @@ export class StudiosService {
         name: true,
         slug: true,
         logoUrl: true,
+        themeFamily: true,
         themePrimary: true,
         gradientPresetKey: true,
         address: true,

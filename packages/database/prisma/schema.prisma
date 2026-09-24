@@ -47,6 +47,12 @@ enum BookingStatus {
   WAITLIST
 }
 
+enum ColorSchemePreference {
+  SYSTEM
+  LIGHT
+  DARK
+}
+
 enum WaitlistStatus {
   WAITING
   OFFERED
@@ -224,10 +230,11 @@ model Studio {
   email                  String?  @db.VarChar(120)
   address                String?  @db.Text
   timezone               String   @default("Europe/Istanbul") @db.VarChar(60)
-  // Theme: logo, one primary color and one predefined gradient preset.
+  // Theme: logo, default theme family, one primary color and one gradient preset of that family.
   logoUrl                String?  @map("logo_url") @db.Text
-  themePrimary           String   @default("#3f6b52") @map("theme_primary") @db.VarChar(7)
-  gradientPresetKey      String   @default("sage") @map("gradient_preset_key") @db.VarChar(40)
+  themeFamily            String   @default("atolye") @map("theme_family") @db.VarChar(20)
+  themePrimary           String   @default("#2F6F5E") @map("theme_primary") @db.VarChar(7)
+  gradientPresetKey      String   @default("atolye-orman") @map("gradient_preset_key") @db.VarChar(40)
   reminderHoursBefore    Int      @default(2) @map("reminder_hours_before")
   maxAdvanceBookingDays  Int      @default(14) @map("max_advance_booking_days")
   /// Channel order and fallback, e.g. { "order": ["WHATSAPP", "SMS"] }
@@ -292,24 +299,27 @@ model Branch {
 // ---------------------------------------------------------------------------
 
 model User {
-  id                String    @id @default(uuid()) @db.Uuid
+  id                String                @id @default(uuid()) @db.Uuid
   /// E.164, e.g. +905321112233
-  phone             String    @unique @db.VarChar(20)
-  email             String?   @unique @db.VarChar(120)
-  firstName         String    @map("first_name") @db.VarChar(60)
-  lastName          String    @map("last_name") @db.VarChar(60)
-  pinHash           String?   @map("pin_hash") @db.VarChar(255)
-  passwordHash      String?   @map("password_hash") @db.VarChar(255)
-  phoneVerifiedAt   DateTime? @map("phone_verified_at")
+  phone             String                @unique @db.VarChar(20)
+  email             String?               @unique @db.VarChar(120)
+  firstName         String                @map("first_name") @db.VarChar(60)
+  lastName          String                @map("last_name") @db.VarChar(60)
+  pinHash           String?               @map("pin_hash") @db.VarChar(255)
+  passwordHash      String?               @map("password_hash") @db.VarChar(255)
+  phoneVerifiedAt   DateTime?             @map("phone_verified_at")
   /// Platform owner. Not a tenant role; bypasses studio scoping.
-  isSuperAdmin      Boolean   @default(false) @map("is_super_admin")
-  avatarUrl         String?   @map("avatar_url") @db.Text
-  refreshTokenHash  String?   @map("refresh_token_hash") @db.VarChar(255)
-  failedPinAttempts Int       @default(0) @map("failed_pin_attempts")
-  pinLockedUntil    DateTime? @map("pin_locked_until")
-  isActive          Boolean   @default(true) @map("is_active")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
+  isSuperAdmin      Boolean               @default(false) @map("is_super_admin")
+  avatarUrl         String?               @map("avatar_url") @db.Text
+  refreshTokenHash  String?               @map("refresh_token_hash") @db.VarChar(255)
+  failedPinAttempts Int                   @default(0) @map("failed_pin_attempts")
+  pinLockedUntil    DateTime?             @map("pin_locked_until")
+  /// Appearance override; null follows the tenant's theme family.
+  themeFamily       String?               @map("theme_family") @db.VarChar(20)
+  colorScheme       ColorSchemePreference @default(SYSTEM) @map("color_scheme")
+  isActive          Boolean               @default(true) @map("is_active")
+  createdAt         DateTime              @default(now()) @map("created_at")
+  updatedAt         DateTime              @updatedAt @map("updated_at")
 
   memberships        Membership[]
   pushDevices        PushDevice[]

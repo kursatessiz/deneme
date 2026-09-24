@@ -6,7 +6,8 @@ import {
   PackageStatus,
 } from './enums';
 import type { PermissionKey } from './permissions';
-import type { GradientPresetKey } from './design/tokens';
+import type { AppearancePreference, GradientPresetKey, TenantTheme } from './design/tokens';
+import type { ThemeFamilyKey } from './design/themes';
 
 export interface StudioDTO {
   id: string;
@@ -17,6 +18,7 @@ export interface StudioDTO {
   address?: string | null;
   timezone: string;
   logoUrl?: string | null;
+  themeFamily: ThemeFamilyKey;
   themePrimary: string;
   gradientPresetKey: GradientPresetKey;
   maxAdvanceBookingDays: number;
@@ -47,10 +49,13 @@ export interface MembershipDTO {
   permissions: PermissionKey[];
   memberProfileId?: string | null;
   trainerProfileId?: string | null;
+  /** The studio's brand and default theme family, for theming the app. */
+  theme: TenantTheme;
 }
 
 export interface SessionUserDTO extends UserDTO {
   memberships: MembershipDTO[];
+  appearance: AppearancePreference;
 }
 
 export interface MemberProfileDTO {
