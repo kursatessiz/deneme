@@ -29,7 +29,14 @@ export class PackageExpiringEvaluator implements RuleEvaluator {
     const studio = await this.prisma.studio.findUniqueOrThrow({ where: { id: studioId }, select: { timezone: true } });
 
     const packages = await this.prisma.memberPackage.findMany({
-      where: { studioId, status: PackageStatus.ACTIVE, OR: or, member: { membership: { status: MembershipStatus.ACTIVE } } },
+      // Partner-guest memberships are excluded: marketing automations only
+      // target people who have onboarded into the app themselves.
+      where: {
+        studioId,
+        status: PackageStatus.ACTIVE,
+        OR: or,
+        member: { membership: { status: MembershipStatus.ACTIVE, isPartnerGuest: false } },
+      },
       select: {
         id: true,
         endDate: true,

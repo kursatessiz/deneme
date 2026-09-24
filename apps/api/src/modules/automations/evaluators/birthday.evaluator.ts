@@ -27,7 +27,9 @@ export class BirthdayEvaluator implements RuleEvaluator {
     const targetDay = target.getUTCDate();
 
     const members = await this.prisma.memberProfile.findMany({
-      where: { studioId, birthDate: { not: null }, membership: { status: MembershipStatus.ACTIVE } },
+      // Partner-guest memberships are excluded: marketing automations only
+      // target people who have onboarded into the app themselves.
+      where: { studioId, birthDate: { not: null }, membership: { status: MembershipStatus.ACTIVE, isPartnerGuest: false } },
       select: {
         id: true,
         birthDate: true,

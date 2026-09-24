@@ -145,7 +145,7 @@ erDiagram
 | `branches` | Stüdyo lokasyonları: adres, iletişim, saat dilimi (boşsa işletmeninki), sıra, aktiflik | (studio_id, name) benzersiz; (id, studio_id) benzersiz (bileşik yabancı anahtar hedefi); studio_id index |
 | `membership_branches` | Personelin işlem yapabileceği şubeler; kayıt yoksa tüm şubeler, işletme sahibi hiçbir zaman kısıtlanmaz | (membership_id, branch_id) birincil anahtar; (branch_id, studio_id) bileşik yabancı anahtar ile şubenin aynı işletmeye ait olması zorunlu |
 | `users` | E.164 telefon ile tanımlanan global kullanıcılar; görünüm tercihi (`theme_family` boşsa işletmenin teması, `color_scheme` SYSTEM/LIGHT/DARK) | phone benzersiz, email benzersiz |
-| `memberships` | Rol tabanlı erişimle kullanıcı-stüdyo bağlantıları | (user_id, studio_id) benzersiz; (studio_id, status) index |
+| `memberships` | Rol tabanlı erişimle kullanıcı-stüdyo bağlantıları; `is_partner_guest` yalnızca bir partner (toplayıcı) webhook'unun oluşturduğu, kendisi henüz stüdyoya gerçekten katılmamış misafirlerde true olur - mesajlaşma/etkileşim akışları (otomasyon, churn, oyunlaştırma push, puanlama, tavsiye kodu) bu satırları hariç tutar; kişi normal onboarding'i tamamladığında veya personel onu üyeye dönüştürdüğünde temizlenir (bkz. `docs/PARTNERS.md`, "Partner misafirleri ve mesajlaşma") | (user_id, studio_id) benzersiz; (studio_id, status) index; (studio_id, is_partner_guest) index |
 | `role_templates` | Stüdyo başına izin kümeleri; owner rolü zorunlu | (studio_id, key) benzersiz; stüdyo başına bir owner |
 | `role_template_permissions` | Bir rol tarafından verilen izinler | role_template_id index |
 | `invite_tokens` | Token hash ile QR/bağlantı onboarding'i | token_hash benzersiz; (studio_id, phone) index |
@@ -333,6 +333,8 @@ Sağlayıcıdan bağımsız (provider-agnostic) bir çerçeve: ClassPass, Urban 
 | `partner_webhook_events` | Gelen partner webhook olaylarının tekrar (replay) koruması: partnerin kendi olay kimliği bağlantı başına benzersizdir | (connection_id, event_id) benzersiz |
 
 `bookings` tablosuna eklenenler: `partner_connection_id` (nullable), `external_reservation_id` (nullable, partnerin kendi rezervasyon kimliği), `partner_guest_id` (nullable), `partner_cancelled` (bool, partner tarafından iptal edildiğinde true). `member_id` her zaman dolu kalır (NOT NULL değişmedi): partner misafiri bir `MemberProfile`'a bağlanır ki `Booking.member_id` kısıtı bozulmasın ve mevcut ~30 modülün (hakediş, oyunlaştırma, geri bildirim, otomasyon, raporlar) hepsi partner rezervasyonlarını değişiklik gerektirmeden aynı şekilde işleyebilsin; partnerin kendi kimliği ve görünen adı `partner_guests` üzerindendir (bkz. `docs/PARTNERS.md`, "Tasarım kararı"). (partner_connection_id, external_reservation_id) benzersiz kısıtı idempotency sağlar (PostgreSQL'de NULL değerler birbirinden farklı sayıldığından normal rezervasyonlar bu kısıttan etkilenmez).
+
+Sahip kararı: partner misafiri kendisi stüdyoya katılana kadar mesajlaşma/etkileşim açısından sıradan bir üye sayılmaz. `memberships.is_partner_guest` bu ayrımı taşır ve otomasyon, churn, oyunlaştırma push, puanlama ve tavsiye kodu üretimi bu satırları hariç tutar; kendi rezervasyonuna ait işlemsel hatırlatmalar (randevu, no-show takibi) etkilenmez. Ayrıntı: `docs/PARTNERS.md`, "Partner misafirleri ve mesajlaşma".
 
 ## Sağlık Entegrasyonu (Apple Health / Health Connect, W21)
 

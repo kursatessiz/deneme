@@ -30,6 +30,9 @@ export class RatingPromptService {
         status: 'ATTENDED',
         ratingPromptSentAt: null,
         schedule: { endTime: { gte: windowStart, lte: now } },
+        // Partner guests never onboarded into the app; do not engage them
+        // with rating prompts until they become a real member.
+        member: { membership: { isPartnerGuest: false } },
       },
       include: { member: { include: { membership: true } }, schedule: { include: { serviceType: true } } },
       take: BATCH_LIMIT,
