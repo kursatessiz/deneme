@@ -84,7 +84,7 @@ pnpm dev
 
 Planlanan çalışmalar için `HANDOVER.md` (backlog, bölüm 6) dosyasına bakın; bu, `SessionType`
 gibi pilatese özgü alanları kiracı tarafından yapılandırılabilir hizmet türleri lehine
-kaldıracak şema revizyonunu da içerir.
+kaldıracak şema revizyonunu da içerir. 
 
 ## Dokümantasyon
 
