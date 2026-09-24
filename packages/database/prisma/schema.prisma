@@ -190,6 +190,31 @@ enum DocumentType {
   KVKK_NOTICE
   EXPLICIT_CONSENT
   HEALTH_WAIVER
+  /// KVKK explicit consent text for special-category health data sync (W21).
+  HEALTH_DATA
+}
+
+/// Generic activity mapped from a tenant's ServiceType, used only to label
+/// Apple Health / Health Connect workouts. Never sector-specific (W21).
+enum HealthActivityType {
+  STRENGTH
+  FLEXIBILITY
+  YOGA
+  PILATES
+  DANCE
+  MARTIAL_ARTS
+  SWIMMING
+  CYCLING
+  RUNNING
+  WALKING
+  TENNIS
+  OTHER
+}
+
+/// Device health platform a workout or aggregate was written from / to (W21).
+enum HealthPlatform {
+  APPLE_HEALTH
+  HEALTH_CONNECT
 }
 
 enum NotificationChannel {
@@ -475,6 +500,9 @@ model Studio {
   sessionRatings        SessionRating[]
   referralCodes         ReferralCode[]
   referrals             Referral[]
+  memberHealthSettings  MemberHealthSettings[]
+  healthSyncRecords     HealthSyncRecord[]
+  healthDailySummaries  HealthDailySummary[]
 
   @@map("studios")
 }
@@ -751,6 +779,9 @@ model MemberProfile {
   ratingsGiven       SessionRating[]
   referralCode       ReferralCode?
   referralsMade      Referral[]           @relation("ReferralReferrer")
+  healthSettings     MemberHealthSettings?
+  healthSyncRecords  HealthSyncRecord[]
+  healthDailySummaries HealthDailySummary[]
 
   @@index([studioId])
   @@map("member_profiles")
@@ -955,6 +986,9 @@ model ServiceType {
   commissionRuleId        String?           @map("commission_rule_id") @db.Uuid
   /// Only trainers with a TrainerQualification for this service may teach it.
   requiresQualification   Boolean           @default(false) @map("requires_qualification")
+  /// Maps this tenant-defined service to a generic Apple Health / Health
+  /// Connect workout type (W21). Never hardcoded per sector; defaults to OTHER.
+  healthActivityType      HealthActivityType @default(OTHER) @map("health_activity_type")
   isActive                Boolean           @default(true) @map("is_active")
   createdAt               DateTime          @default(now()) @map("created_at")
   updatedAt               DateTime          @updatedAt @map("updated_at")
@@ -1173,6 +1207,7 @@ model Booking {
   memberPackage MemberPackage?    @relation(fields: [memberPackageId], references: [id])
   resources     BookingResource[]
   rating        SessionRating?
+  healthSyncRecords HealthSyncRecord[]
 
   @@unique([scheduleId, memberId])
   @@index([studioId, status])
@@ -2221,4 +2256,72 @@ model Invoice {
   @@index([branchId])
   @@index([status])
   @@map("invoices")
+}
+
+// ---------------------------------------------------------------------------
+// Apple Health / Android Health Connect integration (W21)
+// ---------------------------------------------------------------------------
+
+/// One row per member: privacy-first, all-off-by-default toggles for the
+/// health integration. Health data is special-category personal data under
+/// KVKK, so every write path checks these plus an active HEALTH_DATA Consent.
+model MemberHealthSettings {
+  id              String   @id @default(uuid()) @db.Uuid
+  memberId        String   @unique @map("member_id") @db.Uuid
+  studioId        String   @map("studio_id") @db.Uuid
+  /// Write attended-session workouts to the device's health store.
+  writeWorkouts   Boolean  @default(false) @map("write_workouts")
+  /// Read daily step / active energy / resting heart rate aggregates on-device.
+  readAggregates  Boolean  @default(false) @map("read_aggregates")
+  /// Second, separate opt-in: upload the daily aggregates to the server so
+  /// staff with members.health.view can see trends on the member card.
+  shareWithStudio Boolean  @default(false) @map("share_with_studio")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  member MemberProfile @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  studio Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@map("member_health_settings")
+}
+
+/// Tracks which bookings have already been written to a health platform so a
+/// booking is never written twice, even across devices (server-side half of
+/// the idempotency guarantee; the mobile app also tracks this locally).
+model HealthSyncRecord {
+  id        String         @id @default(uuid()) @db.Uuid
+  studioId  String         @map("studio_id") @db.Uuid
+  memberId  String         @map("member_id") @db.Uuid
+  bookingId String         @map("booking_id") @db.Uuid
+  platform  HealthPlatform
+  syncedAt  DateTime       @default(now()) @map("synced_at")
+
+  studio  Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  member  MemberProfile @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  booking Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, bookingId, platform])
+  @@index([studioId, memberId])
+  @@map("health_sync_records")
+}
+
+/// Daily aggregate only (never raw samples), uploaded solely when the member
+/// has both readAggregates and shareWithStudio on and an active HEALTH_DATA
+/// consent. One row per member per day.
+model HealthDailySummary {
+  id               String   @id @default(uuid()) @db.Uuid
+  studioId         String   @map("studio_id") @db.Uuid
+  memberId         String   @map("member_id") @db.Uuid
+  date             DateTime @db.Date
+  steps            Int?
+  activeEnergyKcal Decimal? @map("active_energy_kcal") @db.Decimal(6, 1)
+  restingHeartRate Int?     @map("resting_heart_rate")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  studio Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  member MemberProfile @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, date])
+  @@index([studioId, memberId, date])
+  @@map("health_daily_summaries")
 }

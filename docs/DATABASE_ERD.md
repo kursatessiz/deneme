@@ -285,6 +285,16 @@ Puanlama fonksiyonu (`apps/api/src/modules/churn/churn-scoring.ts`) saf ve iş k
 
 `bookings.rating_prompt_sent_at` (nullable): "seansını değerlendir" push bildiriminin gönderildiği an; `RatingPromptService.promptRecentAttendees()` için idempotency anahtarıdır. `studios.google_review_url` (nullable, yalnızca g.page/search.google.com/local/writereview/google.com/maps ile başlayan https bağlantı) ve `studios.referral_reward_units` (varsayılan 1) çalışma zamanı kuralları için `docs/FEEDBACK_REFERRAL.md` içindedir.
 
+## Sağlık Entegrasyonu (Apple Health / Health Connect, W21)
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `member_health_settings` | Üye başına gizlilik öncelikli açık/kapalı ayarları: `write_workouts` (katılınan dersleri sağlığa yaz), `read_aggregates` (günlük özetleri cihazda oku), `share_with_studio` (bu özetleri işletmeyle paylaş, ayrı bir onay). Üçü de varsayılan `false` | (member_id) benzersiz |
+| `health_sync_records` | Bir rezervasyonun bir platforma daha önce yazıldığını izler; aynı rezervasyon aynı platforma asla iki kez yazılmaz (mobil uygulama da aynı anahtarla cihaz üzerinde ayrıca önbellekler) | (member_id, booking_id, platform) benzersiz; (studio_id, member_id) index |
+| `health_daily_summaries` | Yalnızca günlük özet (adım, aktif enerji kcal, dinlenme nabzı); ham örnek asla saklanmaz | (member_id, date) benzersiz; (studio_id, member_id, date) index |
+
+`service_types.health_activity_type` (varsayılan `OTHER`) bir hizmetin genel `HealthActivityType` (STRENGTH, FLEXIBILITY, YOGA, PILATES, DANCE, MARTIAL_ARTS, SWIMMING, CYCLING, RUNNING, WALKING, TENNIS, OTHER) ile eşlemesidir; sektöre özgü kod içermez, kiracı verisidir. Sağlık verisi KVKK kapsamında özel nitelikli kişisel veridir: `document_versions.type = HEALTH_DATA` ayrı, isteğe bağlı bir onam metnidir (zorunlu üyelik belgelerinden biri değildir); yükleme uç noktaları bu türden aktif bir `consents` kaydı olmadan 403 döner. Üyenin "Verilerimi sil" eylemi `health_daily_summaries` ve `health_sync_records` satırlarını kalıcı olarak siler, `member_health_settings`'i sıfırlar, HEALTH_DATA onayını geri alır ve bir `audit_logs` kaydı (`member_health.data_deleted`) oluşturur. Personel görünümü `members.health.view` iznini (mevcut izin, üye sağlık notları görünürlüğüyle paylaşılır) VE üyenin `share_with_studio` açığını gerektirir; şube kısıtlı personel yalnızca kendi şubesindeki üyeleri görür. Detaylar: `docs/HEALTH_INTEGRATION.md`.
+
 ## Denetim (Audit)
 
 | Tablo | Amaç | Kısıtlar |

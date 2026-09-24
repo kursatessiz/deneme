@@ -3,7 +3,7 @@ import { CatalogService } from './catalog.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { TenantContext } from '../auth/tenant-context';
-import { EntitlementKind } from '@platform/shared';
+import { EntitlementKind, HealthActivityType } from '@platform/shared';
 
 describe('CatalogService', () => {
   let service: CatalogService;
@@ -149,6 +149,7 @@ describe('CatalogService', () => {
           allowedEntitlementKinds: [EntitlementKind.SESSION_COUNT],
           cancellationPolicyId: 'other-tenant-policy',
           requiresQualification: false,
+          healthActivityType: HealthActivityType.OTHER,
           requiredResourceTypes: [],
         }),
       ).rejects.toThrow(NotFoundException);
@@ -165,6 +166,7 @@ describe('CatalogService', () => {
           capacity: 1,
           allowedEntitlementKinds: [EntitlementKind.SESSION_COUNT],
           requiresQualification: false,
+          healthActivityType: HealthActivityType.OTHER,
           requiredResourceTypes: [{ resourceTypeId: 'other-tenant-resource-type', quantity: 1 }],
         }),
       ).rejects.toThrow(BadRequestException);

@@ -82,6 +82,8 @@ export enum DocumentType {
   KVKK_NOTICE = 'KVKK_NOTICE',
   EXPLICIT_CONSENT = 'EXPLICIT_CONSENT',
   HEALTH_WAIVER = 'HEALTH_WAIVER',
+  /** KVKK explicit consent text for special-category health data sync (W21). */
+  HEALTH_DATA = 'HEALTH_DATA',
 }
 
 export enum SmsTransactionType {
@@ -228,4 +230,31 @@ export enum ReferralStatus {
 /** Only EXTRA_UNITS exists while no gift-card module is on main (see W15). */
 export enum ReferralRewardType {
   EXTRA_UNITS = 'EXTRA_UNITS',
+}
+
+/**
+ * Generic workout type mapped from a tenant's ServiceType (W21). Kept
+ * deliberately sector-neutral: it never encodes a business's own vocabulary,
+ * only the closest Apple Health / Health Connect workout category. Defaults
+ * to OTHER and is never hardcoded per sector.
+ */
+export enum HealthActivityType {
+  STRENGTH = 'STRENGTH',
+  FLEXIBILITY = 'FLEXIBILITY',
+  YOGA = 'YOGA',
+  PILATES = 'PILATES',
+  DANCE = 'DANCE',
+  MARTIAL_ARTS = 'MARTIAL_ARTS',
+  SWIMMING = 'SWIMMING',
+  CYCLING = 'CYCLING',
+  RUNNING = 'RUNNING',
+  WALKING = 'WALKING',
+  TENNIS = 'TENNIS',
+  OTHER = 'OTHER',
+}
+
+/** Which device health store a workout or aggregate was written from / to (W21). */
+export enum HealthPlatform {
+  APPLE_HEALTH = 'APPLE_HEALTH',
+  HEALTH_CONNECT = 'HEALTH_CONNECT',
 }

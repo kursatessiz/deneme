@@ -60,7 +60,15 @@
             }
           ]
         }
-      ]
+      ],
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "Katıldığınız derslerinizi ve isterseniz günlük adım, aktif enerji ve dinlenme nabzınızı okumak için Sağlık verilerinize erişim istiyoruz. Yalnızca Hesabım > Sağlık entegrasyonu ekranından açtığınızda kullanılır.",
+          "NSHealthUpdateUsageDescription": "Katıldığınız bir ders bittiğinde, ders türünü ve süresini Sağlık uygulamanıza antrenman olarak yazmak için izin istiyoruz. Yalnızca Hesabım > Sağlık entegrasyonu ekranından açtığınızda kullanılır."
+        }
+      ],
+      "react-native-health-connect"
     ],
     "extra": {
       "apiUrl": "http://localhost:4000"

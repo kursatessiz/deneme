@@ -5,6 +5,7 @@ import {
   EInvoiceMode,
   EInvoiceProvider,
   EntitlementKind,
+  HealthActivityType,
   InvoiceStatus,
   InviteChannel,
   LeadSource,
@@ -296,6 +297,8 @@ export const CreateServiceTypeSchema = z.object({
   cancellationPolicyId: z.string().uuid().optional(),
   commissionRuleId: z.string().uuid().optional(),
   requiresQualification: z.boolean().default(false),
+  /** Which generic Apple Health / Health Connect workout this service maps to. Never sector-specific. */
+  healthActivityType: z.nativeEnum(HealthActivityType).default(HealthActivityType.OTHER),
   requiredResourceTypes: z
     .array(z.object({ resourceTypeId: z.string().uuid(), quantity: z.number().int().positive().default(1) }))
     .default([]),
@@ -314,6 +317,7 @@ export const UpdateServiceTypeSchema = z.object({
   cancellationPolicyId: z.string().uuid().nullable().optional(),
   commissionRuleId: z.string().uuid().nullable().optional(),
   requiresQualification: z.boolean().optional(),
+  healthActivityType: z.nativeEnum(HealthActivityType).optional(),
   requiredResourceTypes: z
     .array(z.object({ resourceTypeId: z.string().uuid(), quantity: z.number().int().positive().default(1) }))
     .optional(),
