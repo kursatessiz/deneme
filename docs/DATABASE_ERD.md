@@ -25,6 +25,10 @@ erDiagram
     Studio ||--o{ PayrollRun : has
     Studio ||--o{ Lead : has
     Studio ||--o{ LeadActivity : has
+    Studio ||--o| InvoiceSettings : configures
+    Studio ||--o{ InvoiceCounter : sequences
+    Studio ||--o{ Invoice : issues
+    Studio ||--o{ BillingProfile : has
 
     User ||--o{ Membership : creates
     Membership ||--o| MemberProfile : member
@@ -64,6 +68,9 @@ erDiagram
     MemberSubscription ||--o{ Payment : bills
     MemberSubscription ||--o{ PaymentAttempt : attempts
     Payment ||--o{ PaymentAttempt : records
+    Payment ||--o| Invoice : billed_as
+    Branch ||--o{ Invoice : issued_from
+    MemberProfile ||--o| BillingProfile : declares
 
     TrainerProfile ||--o{ SessionSchedule : teaches
     TrainerProfile ||--o{ TrainerQualification : has
@@ -166,6 +173,15 @@ erDiagram
 | `member_subscriptions` | Bir pakete bağlı, otomatik yenilenen üye aboneliği: durum (aktif, ödeme gecikmiş, iptal, duraklatıldı), dönem tarihleri, sonraki tahsilat zamanı, dönem sonunda iptal bayrağı, taksit sayısı | (studio_id, member_id) index; (status, next_charge_at) index (dunning taramasi için) |
 | `payment_attempts` | Bir aboneliğin tahsilat denemesi (dunning): deneme numarası, durum, hata kodu, sonraki deneme zamanı | member_subscription_id index |
 | `expenses` | İşletme giderleri: kategori, tutar, spent_at, kaydeden kullanıcı | (studio_id, spent_at) index; (branch_id) opsiyonel |
+
+## e-Arşiv / e-Fatura (W8)
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `invoice_settings` | Stüdyo başına fatura yapılandırması: unvan, vergi dairesi, vergi numarası (VKN/TCKN, shared'de checksum doğrulanır), e-fatura modu (yok/e-Arşiv/e-Fatura), entegratör sağlayıcısı, varsayılan KDV oranı, seri kodu, ödeme sonrası otomatik kesim bayrağı | studio_id benzersiz |
+| `invoice_counters` | Stüdyo + seri + yıl başına atomik sıra sayacı; fatura oluşturulurken aynı transaction içinde artırılır | (studio_id, series_prefix, year) birincil anahtar |
+| `billing_profiles` | Üyenin fatura kimliği: bireysel (TCKN opsiyonel, yoksa e-Arşiv'in standart tüketici TCKN'si "11111111111" kullanılır) veya şirket (unvan, vergi dairesi, VKN zorunlu) | member_id benzersiz; studio_id index |
+| `invoices` | Bir ödemeye bağlı e-Arşiv/e-Fatura belgesi: seri+yıl+sıra numarası, alıcı ve kalem anlık görüntüsü (JSON), ara toplam/KDV/toplam (KDV dahil fiyattan geriye bölünerek hesaplanır), durum (taslak, kesildi, iptal, başarısız), sağlayıcı ve sağlayıcı referansı, PDF bağlantısı, iptal/hata gerekçesi | payment_id benzersiz; (studio_id, number) benzersiz; (studio_id, issue_date) index; (branch_id) index; (status) index |
 
 ## Bildirimler ve SMS
 
