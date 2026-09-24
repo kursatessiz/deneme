@@ -92,9 +92,9 @@ erDiagram
 
 | Tablo | Amaç | Kısıtlar |
 |-------|---------|-------------|
-| `resource_types` | Kaynak sınıfları: oda, reformer, EMS cihazı, kort | (studio_id, name) benzersiz |
-| `resources` | Tekil kaynak birimleri; hiyerarşik (oda ekipman içerir) | (studio_id, resource_type_id) index; capacity >= 1 |
-| `cancellation_policies` | İptal kuralları: ücretsiz süre, geç iptal ücreti, gelmeme (no-show) ücreti | studio_id index |
+| `resource_types` | Kaynak sınıfları: oda, reformer, EMS cihazı, kort | (studio_id, name) benzersiz; `is_active` (W1: aktif kaynağı olan bir tür pasifleştirilemez) |
+| `resources` | Tekil kaynak birimleri; hiyerarşik (oda ekipman içerir) | (studio_id, resource_type_id) index; capacity >= 1; `is_active`, `is_maintenance` |
+| `cancellation_policies` | İptal kuralları: ücretsiz süre, geç iptal ücreti, gelmeme (no-show) ücreti | studio_id index; `is_active`; stüdyo başına en fazla bir `is_default = true` satır (uygulama seviyesinde, katalog modülünde transaction ile korunur) |
 | `commission_rules` | Antrenör komisyonu: sabit, yüzde veya maaş | studio_id index |
 | `service_types` | Rezerve edilebilir hizmetler: "Özel reformer", "EMS 20 dk" | (studio_id, name) benzersiz; min_repeat_interval_days opsiyonel |
 | `service_type_resource_types` | Hizmet rezervasyonu başına gerekli kaynaklar | (service_type_id, resource_type_id) bileşik anahtar |
