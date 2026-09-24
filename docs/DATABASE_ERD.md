@@ -181,8 +181,8 @@ erDiagram
 
 | Tablo | Amaç | Kısıtlar |
 |-------|---------|-------------|
-| `session_schedules` | Dersler ve randevular: zaman, antrenör, kaynaklar, kapasite | (studio_id, start_time, end_time) index; (trainer_id, start_time, end_time) index; (resource_id, start_time, end_time) index; capacity > 0; 0 <= booked_count <= capacity |
-| `bookings` | Üye rezervasyonları: durum (onaylı, katıldı, erken veya geç iptal, gelmedi), tahsil edilen birimler, politika gereği işletmede kalan birimler (`penalty_units`) | (studio_id, status) index; (member_id) index; (schedule_id, member_id) benzersiz; `penalty_units` 0 ile `units_charged` arasında (check) |
+| `session_schedules` | Dersler ve randevular: zaman, antrenör, kaynaklar, kapasite, teslim şekli (`delivery_mode`: IN_PERSON/ONLINE/HYBRID, W19), çevrimiçi kapasite, yayın bağlantısı (`meeting_provider`, `meeting_url`) | (studio_id, start_time, end_time) index; (trainer_id, start_time, end_time) index; (resource_id, start_time, end_time) index; capacity > 0; 0 <= booked_count <= capacity; `meeting_url` yalnızca https, hiçbir listeleme uç noktasında dönmez (bkz. `docs/VIDEO.md`) |
+| `bookings` | Üye rezervasyonları: durum (onaylı, katıldı, erken veya geç iptal, gelmedi), tahsil edilen birimler, politika gereği işletmede kalan birimler (`penalty_units`), katılım bağlantısı hatırlatmasının gönderildiği an (`join_reminder_sent_at`, W19) | (studio_id, status) index; (member_id) index; (schedule_id, member_id) benzersiz; `penalty_units` 0 ile `units_charged` arasında (check) |
 | `booking_resources` | Rezervasyona kaynak birimi ataması ("reformer 3"); schedule zamanlarının kopyası | (resource_id, start_time, end_time) index; (booking_id, resource_id) benzersiz; tek kapasiteli kaynaklar için çakışma yok (veritabanı exclusion constraint) |
 | `waitlist` | Üye bekleme listesi kuyruğu: konum, durum (bekliyor, teklif edildi, terfi etti, süresi doldu, iptal), yer açılınca düşülecek paket (`member_package_id`), sonuçlanma zamanı ve başarısızlık gerekçesi | (schedule_id, member_id) benzersiz; (schedule_id, status, position) index |
 
@@ -196,6 +196,14 @@ alanını `ATTENDED` yapmak için kullanılır. Detaylar: `docs/CHECKIN.md`.
 | `studios.check_in_window_before_minutes` / `check_in_window_after_minutes` | Bir taramanın seans başlangıcına göre kabul edildiği pencere (varsayılan 30 / 15 dk) | `Int`, varsayılan sırasıyla 30 ve 15 |
 | `check_in_points` | Şubeye bağlı statik giriş QR'ı (poster): ad, aktif/pasif; ham kod saklanmaz, yalnızca `token_hash` | `token_hash` benzersiz (SHA-256); (studio_id) ve (branch_id) index |
 | `kiosk_devices` | Şubeye eşleştirilmiş tablet: eşleştirme kodu (tek seferlik, SHA-256 hash, 10 dk geçerli), eşleştirme/son görülme/iptal zamanları | (studio_id) ve (branch_id) index; `pairing_code_hash` yalnızca eşleştirme bekleyen cihazlarda dolu |
+
+## Video (W19): Canlı Yayın ve İsteğe Bağlı Kütüphane
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `video_contents` | İsteğe bağlı video içeriği: başlık, süre, kaynak (`provider`: yalnızca EXTERNAL_URL uygulandı, UPLOADED ayrılmış), görünürlük (tüm üyeler / aktif paketi olanlar / belirli paketler), izleme başına opsiyonel kredi maliyeti, yayın durumu | (studio_id, is_published) index; `source_url` yalnızca https |
+| `video_content_packages` | SPECIFIC_PACKAGES görünürlüğünde içeriği açan paket tanımları | (video_content_id, package_definition_id) birincil anahtar |
+| `video_views` | Üye başına izleme kaydı: kaldığı yer, tamamlanma zamanı, kredi tahsilatının yapıldığı an (`credit_charged_at`) | (video_content_id, member_id) benzersiz; kredi tahsilatı bu benzersiz satır üzerinde koşullu güncelleme ile tam olarak bir kez yapılır |
 
 ## Ölçümler
 

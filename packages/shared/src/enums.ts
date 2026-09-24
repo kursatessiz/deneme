@@ -258,3 +258,29 @@ export enum HealthPlatform {
   APPLE_HEALTH = 'APPLE_HEALTH',
   HEALTH_CONNECT = 'HEALTH_CONNECT',
 }
+
+/** W19: how a session is delivered. IN_PERSON is the default for every existing session. */
+export enum SessionDeliveryMode {
+  IN_PERSON = 'IN_PERSON',
+  ONLINE = 'ONLINE',
+  HYBRID = 'HYBRID',
+}
+
+/** W19: which adapter produced a session's meeting link. */
+export enum VideoMeetingProviderKind {
+  MANUAL = 'MANUAL',
+  JITSI = 'JITSI',
+}
+
+/** W19: on-demand library content source. UPLOADED is reserved, not implemented yet. */
+export enum VideoContentProvider {
+  EXTERNAL_URL = 'EXTERNAL_URL',
+  UPLOADED = 'UPLOADED',
+}
+
+/** W19: who can see/watch a piece of on-demand content. */
+export enum VideoContentVisibility {
+  MEMBERS_WITH_ACTIVE_PACKAGE = 'MEMBERS_WITH_ACTIVE_PACKAGE',
+  ALL_MEMBERS = 'ALL_MEMBERS',
+  SPECIFIC_PACKAGES = 'SPECIFIC_PACKAGES',
+}

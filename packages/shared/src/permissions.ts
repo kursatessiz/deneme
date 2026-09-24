@@ -51,6 +51,9 @@ export const PERMISSIONS = {
   'integrations.manage': 'API anahtarı ve webhook yönetimi',
 
   'integrations.partners.manage': 'Toplayıcı/pazaryeri partner bağlantılarını yönetme',
+
+  'content.view': 'Video kütüphanesi içeriklerini ve izlenme raporlarını görüntüleme',
+  'content.manage': 'Video içeriği ekleme, düzenleme, yayınlama ve seans yayın bağlantısı ayarlama',
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
