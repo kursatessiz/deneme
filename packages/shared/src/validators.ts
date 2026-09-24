@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CommissionType, EntitlementKind, InviteChannel, PaymentMethod, PaymentStatus } from './enums';
+import { CommissionType, EntitlementKind, InviteChannel, LeadSource, LeadStage, PaymentMethod, PaymentStatus } from './enums';
 import { normalizePhone } from './phone';
 
 const CURRENCY_CODE = z.string().length(3).default('TRY');
@@ -512,3 +512,95 @@ export const AdjustPayrollLineSchema = z.object({
   note: z.string().trim().min(3, 'Düzeltme için bir açıklama giriniz').max(500),
 });
 export type AdjustPayrollLineInput = z.infer<typeof AdjustPayrollLineSchema>;
+
+// ---------------------------------------------------------------------------
+// Leads (W11)
+// ---------------------------------------------------------------------------
+
+export const CreateLeadSchema = z.object({
+  studioId: z.string().uuid(),
+  branchId: z.string().uuid().optional(),
+  fullName: z.string().trim().min(2, 'Ad soyad giriniz').max(150),
+  phone: PhoneSchema,
+  email: z.string().trim().email('Geçersiz e-posta formatı').max(120).optional().or(z.literal('')),
+  source: z.nativeEnum(LeadSource).default(LeadSource.OTHER),
+  sourceDetail: z.string().trim().max(200).optional(),
+  interestServiceTypeId: z.string().uuid().optional(),
+  ownerMembershipId: z.string().uuid().optional(),
+  nextFollowUpAt: z.string().datetime().optional(),
+  utmSource: z.string().trim().max(100).optional(),
+  utmMedium: z.string().trim().max(100).optional(),
+  utmCampaign: z.string().trim().max(100).optional(),
+  notes: z.string().trim().max(2000).optional(),
+});
+export type CreateLeadInput = z.infer<typeof CreateLeadSchema>;
+
+export const UpdateLeadSchema = CreateLeadSchema.omit({ studioId: true, phone: true })
+  .partial()
+  .extend({ phone: PhoneSchema.optional() });
+export type UpdateLeadInput = z.infer<typeof UpdateLeadSchema>;
+
+export const LeadListQuerySchema = z.object({
+  stage: z.nativeEnum(LeadStage).optional(),
+  source: z.nativeEnum(LeadSource).optional(),
+  ownerMembershipId: z.string().uuid().optional(),
+  branchId: z.string().uuid().optional(),
+  search: z.string().trim().max(150).optional(),
+  overdue: z.coerce.boolean().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+export type LeadListQuery = z.infer<typeof LeadListQuerySchema>;
+
+export const ChangeLeadStageSchema = z
+  .object({
+    stage: z.nativeEnum(LeadStage),
+    lostReason: z.string().trim().max(500).optional(),
+  })
+  .refine((v) => v.stage !== LeadStage.LOST || Boolean(v.lostReason), {
+    message: 'Kayıp nedeni giriniz',
+    path: ['lostReason'],
+  });
+export type ChangeLeadStageInput = z.infer<typeof ChangeLeadStageSchema>;
+
+export const AssignLeadOwnerSchema = z.object({
+  ownerMembershipId: z.string().uuid().nullable(),
+});
+export type AssignLeadOwnerInput = z.infer<typeof AssignLeadOwnerSchema>;
+
+export const AddLeadActivitySchema = z.object({
+  type: z.enum(['NOTE', 'CALL', 'MESSAGE']),
+  body: z.string().trim().min(1, 'Not giriniz').max(2000),
+});
+export type AddLeadActivityInput = z.infer<typeof AddLeadActivitySchema>;
+
+export const ConvertLeadSchema = z.object({
+  birthDate: z.string().optional(),
+  emergencyContactName: z.string().trim().max(150).optional(),
+  emergencyContactPhone: z.string().trim().max(30).optional(),
+  notes: z.string().trim().max(2000).optional(),
+});
+export type ConvertLeadInput = z.infer<typeof ConvertLeadSchema>;
+
+export const BookLeadTrialSchema = z.object({
+  scheduleId: z.string().uuid(),
+});
+export type BookLeadTrialInput = z.infer<typeof BookLeadTrialSchema>;
+
+/** Public, unauthenticated web-form submission (POST /public/studios/:slug/leads). */
+export const PublicLeadFormSchema = z.object({
+  fullName: z.string().trim().min(2, 'Ad soyad giriniz').max(150),
+  phone: PhoneSchema,
+  email: z.string().trim().email('Geçersiz e-posta formatı').max(120).optional().or(z.literal('')),
+  interest: z.string().trim().max(200).optional(),
+  consent: z.literal(true, { errorMap: () => ({ message: 'İletişim izni gereklidir' }) }),
+  /**
+   * Honeypot: a hidden field real visitors never fill in. Deliberately not
+   * constrained to be empty here -- rejecting it at validation would answer
+   * a bot with a 400 instead of the same constant 202 as a real submission,
+   * which would tell it the field was noticed. The service checks it and
+   * silently drops the submission instead.
+   */
+  website: z.string().max(500).optional().default(''),
+});
+export type PublicLeadFormInput = z.infer<typeof PublicLeadFormSchema>;

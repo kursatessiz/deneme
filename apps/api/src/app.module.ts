@@ -19,6 +19,7 @@ import { CalendarModule } from './modules/calendar/calendar.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
+import { LeadsModule } from './modules/leads/leads.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -46,6 +47,7 @@ import { validateEnv } from './config/env';
     PaymentsModule,
     ReportsModule,
     PayrollModule,
+    LeadsModule,
     HealthModule,
   ],
 })

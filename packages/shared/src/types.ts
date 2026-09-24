@@ -554,3 +554,51 @@ export interface PayrollRunDTO {
   createdAt: string;
   lines?: PayrollLineDTO[];
 }
+
+// ---------------------------------------------------------------------------
+// Leads (W11)
+// ---------------------------------------------------------------------------
+
+export interface LeadDTO {
+  id: string;
+  studioId: string;
+  branchId: string | null;
+  fullName: string;
+  phone: string;
+  email: string | null;
+  source: string;
+  sourceDetail: string | null;
+  interestServiceTypeId: string | null;
+  interestServiceTypeName: string | null;
+  stage: string;
+  lostReason: string | null;
+  ownerMembershipId: string | null;
+  ownerName: string | null;
+  nextFollowUpAt: string | null;
+  convertedMembershipId: string | null;
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LeadActivityDTO {
+  id: string;
+  type: string;
+  body: string;
+  actorName: string | null;
+  createdAt: string;
+}
+
+export interface LeadDetailDTO extends LeadDTO {
+  activities: LeadActivityDTO[];
+}
+
+export interface LeadListResponseDTO {
+  items: LeadDTO[];
+  total: number;
+  page: number;
+  limit: number;
+}
