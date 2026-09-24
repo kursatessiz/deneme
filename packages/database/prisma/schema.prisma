@@ -173,6 +173,32 @@ enum PayrollRunStatus {
   PAID
 }
 
+enum LeadSource {
+  WEB_FORM
+  INSTAGRAM
+  WALK_IN
+  REFERRAL
+  PHONE
+  OTHER
+}
+
+enum LeadStage {
+  NEW
+  CONTACTED
+  TRIAL_BOOKED
+  TRIAL_DONE
+  WON
+  LOST
+}
+
+enum LeadActivityType {
+  NOTE
+  CALL
+  MESSAGE
+  STAGE_CHANGE
+  TRIAL_BOOKED
+}
+
 // ---------------------------------------------------------------------------
 // Platform level (super-admin)
 // ---------------------------------------------------------------------------
@@ -324,6 +350,8 @@ model Studio {
   communicationConsents CommunicationConsent[]
   payrollRuns           PayrollRun[]
   payrollLines          PayrollLine[]
+  leads                 Lead[]
+  leadActivities        LeadActivity[]
 
   @@map("studios")
 }
@@ -350,6 +378,7 @@ model Branch {
   staffAccess MembershipBranch[]
   homeMembers MemberProfile[]    @relation("MemberHomeBranch")
   payrollRuns PayrollRun[]
+  leads       Lead[]
 
   @@unique([studioId, name])
   /// Target of composite foreign keys that pin a row to the branch's studio.
@@ -438,6 +467,9 @@ model Membership {
   trainerProfile TrainerProfile?
   consents       Consent[]
   branchAccess   MembershipBranch[]
+  leadsOwned     Lead[]             @relation("LeadOwner")
+  leadsConverted Lead[]             @relation("LeadConverted")
+  leadActivities LeadActivity[]     @relation("LeadActivityActor")
 
   @@unique([userId, studioId])
   @@index([studioId, status])
@@ -792,6 +824,7 @@ model ServiceType {
   qualifiedTrainers     TrainerQualification[]
   packageServices       PackageDefinitionService[]
   schedules             SessionSchedule[]
+  leads                 Lead[]
 
   @@unique([studioId, name])
   @@map("service_types")
@@ -1389,6 +1422,73 @@ model CommunicationConsent {
   @@index([studioId, status])
   @@index([iysSyncedAt])
   @@map("communication_consents")
+}
+
+// ---------------------------------------------------------------------------
+// Lead pipeline (W11)
+// ---------------------------------------------------------------------------
+
+/// A prospect, not yet a member. Converts into a User/Membership/MemberProfile
+/// on WON. The migration that creates this table hand-adds a partial unique
+/// index on (studio_id, phone) covering only open leads (stage not in
+/// WON/LOST), since Prisma cannot express a partial unique index in the
+/// schema; `prisma migrate diff` will therefore show it as drift, which is
+/// expected and documented in that migration's header comment.
+model Lead {
+  id                    String     @id @default(uuid()) @db.Uuid
+  studioId              String     @map("studio_id") @db.Uuid
+  branchId              String?    @map("branch_id") @db.Uuid
+  fullName              String     @map("full_name") @db.VarChar(150)
+  /// E.164, e.g. +905321112233
+  phone                 String     @db.VarChar(20)
+  /// Equals phone while the lead is open (not WON/LOST), null otherwise;
+  /// the unique key below allows one open lead per phone per studio.
+  openPhone             String?    @map("open_phone") @db.VarChar(20)
+  email                 String?    @db.VarChar(120)
+  source                LeadSource @default(OTHER)
+  sourceDetail          String?    @map("source_detail") @db.VarChar(200)
+  interestServiceTypeId String?    @map("interest_service_type_id") @db.Uuid
+  stage                 LeadStage  @default(NEW)
+  lostReason            String?    @map("lost_reason") @db.Text
+  ownerMembershipId     String?    @map("owner_membership_id") @db.Uuid
+  nextFollowUpAt        DateTime?  @map("next_follow_up_at")
+  convertedMembershipId String?    @map("converted_membership_id") @db.Uuid
+  utmSource             String?    @map("utm_source") @db.VarChar(100)
+  utmMedium             String?    @map("utm_medium") @db.VarChar(100)
+  utmCampaign           String?    @map("utm_campaign") @db.VarChar(100)
+  notes                 String?    @db.Text
+  createdAt             DateTime   @default(now()) @map("created_at")
+  updatedAt             DateTime   @updatedAt @map("updated_at")
+
+  studio              Studio         @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  branch              Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  interestServiceType ServiceType?   @relation(fields: [interestServiceTypeId], references: [id], onDelete: SetNull)
+  ownerMembership     Membership?    @relation("LeadOwner", fields: [ownerMembershipId], references: [id], onDelete: SetNull)
+  convertedMembership Membership?    @relation("LeadConverted", fields: [convertedMembershipId], references: [id], onDelete: SetNull)
+  activities          LeadActivity[]
+
+  @@index([studioId, stage])
+  @@unique([studioId, openPhone])
+  @@index([studioId, phone])
+  @@index([studioId, nextFollowUpAt])
+  @@map("leads")
+}
+
+model LeadActivity {
+  id                String           @id @default(uuid()) @db.Uuid
+  leadId            String           @map("lead_id") @db.Uuid
+  studioId          String           @map("studio_id") @db.Uuid
+  type              LeadActivityType
+  body              String           @db.Text
+  actorMembershipId String?          @map("actor_membership_id") @db.Uuid
+  createdAt         DateTime         @default(now()) @map("created_at")
+
+  lead            Lead        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  studio          Studio      @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  actorMembership Membership? @relation("LeadActivityActor", fields: [actorMembershipId], references: [id], onDelete: SetNull)
+
+  @@index([leadId, createdAt])
+  @@map("lead_activities")
 }
 
 // ---------------------------------------------------------------------------

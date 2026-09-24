@@ -111,3 +111,49 @@ export enum PaymentAttemptStatus {
   FAILED = 'FAILED',
   PENDING = 'PENDING',
 }
+
+export enum LeadSource {
+  WEB_FORM = 'WEB_FORM',
+  INSTAGRAM = 'INSTAGRAM',
+  WALK_IN = 'WALK_IN',
+  REFERRAL = 'REFERRAL',
+  PHONE = 'PHONE',
+  OTHER = 'OTHER',
+}
+
+export enum LeadStage {
+  NEW = 'NEW',
+  CONTACTED = 'CONTACTED',
+  TRIAL_BOOKED = 'TRIAL_BOOKED',
+  TRIAL_DONE = 'TRIAL_DONE',
+  WON = 'WON',
+  LOST = 'LOST',
+}
+
+export enum LeadActivityType {
+  NOTE = 'NOTE',
+  CALL = 'CALL',
+  MESSAGE = 'MESSAGE',
+  STAGE_CHANGE = 'STAGE_CHANGE',
+  TRIAL_BOOKED = 'TRIAL_BOOKED',
+}
+
+/**
+ * Valid forward stage transitions. WON is terminal (no way back to an
+ * earlier stage); LOST requires a reason and can be reached from any
+ * non-terminal stage; a lead may not move backwards otherwise.
+ */
+export const LEAD_STAGE_TRANSITIONS: Record<LeadStage, readonly LeadStage[]> = {
+  [LeadStage.NEW]: [LeadStage.CONTACTED, LeadStage.TRIAL_BOOKED, LeadStage.WON, LeadStage.LOST],
+  [LeadStage.CONTACTED]: [LeadStage.TRIAL_BOOKED, LeadStage.WON, LeadStage.LOST],
+  [LeadStage.TRIAL_BOOKED]: [LeadStage.TRIAL_DONE, LeadStage.WON, LeadStage.LOST],
+  [LeadStage.TRIAL_DONE]: [LeadStage.WON, LeadStage.LOST],
+  [LeadStage.WON]: [],
+  [LeadStage.LOST]: [],
+};
+
+/** True when moving a lead from `from` to `to` is an allowed transition. */
+export function canTransitionLeadStage(from: LeadStage, to: LeadStage): boolean {
+  if (from === to) return false;
+  return LEAD_STAGE_TRANSITIONS[from].includes(to);
+}
