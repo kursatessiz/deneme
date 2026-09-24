@@ -9,7 +9,7 @@ edilir; sunucu yalnızca önceden build edilmiş image'ları çeker.
 | Servis | Bellek limiti | vCPU limiti | Notlar |
 | --- | --- | --- | --- |
 | PostgreSQL 16 | 1 GB | 1.5 | `shared_buffers=512MB`, `max_connections=100` |
-| Redis 7 | 320 MB | 0.5 | `maxmemory 256mb`, `allkeys-lru` eviction |
+| Redis 7 | 320 MB | 0.5 | `maxmemory 256mb`, `noeviction` (BullMQ kuyruk verisi silinmemeli; önbellek anahtarları TTL ile yazılır) |
 | NestJS API | 768 MB | 1.0 | Node heap 512 MB ile sınırlı; kalan pay native bellek için |
 | Next.js web | 768 MB | 1.0 | `output: 'standalone'`, Node heap 512 MB ile sınırlı |
 | Caddy | 128 MB | 0.5 | Otomatik Let's Encrypt SSL, HTTP/3 |

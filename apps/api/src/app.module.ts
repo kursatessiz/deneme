@@ -21,6 +21,8 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
 import { LeadsModule } from './modules/leads/leads.module';
 import { InvoicingModule } from './modules/invoicing/invoicing.module';
+import { AutomationsModule } from './modules/automations/automations.module';
+import { JobsModule } from './modules/jobs/jobs.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -50,6 +52,8 @@ import { validateEnv } from './config/env';
     PayrollModule,
     LeadsModule,
     InvoicingModule,
+    AutomationsModule,
+    JobsModule,
     HealthModule,
   ],
 })
