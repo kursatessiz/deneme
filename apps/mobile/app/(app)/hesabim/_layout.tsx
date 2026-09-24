@@ -19,6 +19,7 @@ export default function HesabimLayout() {
       <Stack.Screen name="bordro" options={{ title: 'Bordro' }} />
       <Stack.Screen name="potansiyel-uyeler" options={{ title: 'Potansiyel üyeler', headerShown: false }} />
       <Stack.Screen name="otomatik-mesajlar" options={{ title: 'Otomatik mesajlar' }} />
+      <Stack.Screen name="riskli-uyeler" options={{ title: 'Riskli üyeler' }} />
     </Stack>
   );
 }

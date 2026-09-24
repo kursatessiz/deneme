@@ -256,6 +256,15 @@ Açık (WON/LOST olmayan) bir aday aynı telefonla tekrar başvurursa (web formu
 | `gift_card_transactions` | Kart hareketleri: satış, kullanım, iade, manuel düzeltme | `(gift_card_id, created_at)` index |
 | `payments.promo_code_id`, `.discount_amount`, `.gift_card_id`, `.gift_card_amount`, `.gift_card_refunded` | Bir ödemeye uygulanan promosyon indirimi ve hediye kartından karşılanan tutar; iade edilen hediye kartı payı | `(promo_code_id)` ve `(gift_card_id)` index |
 
+## Ayrılma Riski (Churn Risk, W12)
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `member_risk_snapshots` | Aktif üye başına en güncel ayrılma riski puanı (0-100), seviyesi (LOW/MEDIUM/HIGH), gerekçeleri (JSON: makine anahtarı + Türkçe etiket + puan), yeni üye bayrağı, önceki puan, görüşüldü/ertelendi durumu | `member_id` benzersiz (üye başına tek satır, `ChurnService.recomputeStudio` upsert eder); (studio_id, level, score) index |
+| `member_risk_history` | Her yeniden hesaplamada üye başına bir satır: puan, seviye, hesaplama zamanı; haftalık değişim ve özet trendleri için kullanılır | (studio_id, member_id, computed_at) index; (studio_id, computed_at) index |
+
+Puanlama fonksiyonu (`apps/api/src/modules/churn/churn-scoring.ts`) saf ve iş kuralı olduğu için `apps/api` içinde yaşar; ağırlıkları `studios.churn_weights` (JSONB, null ise `packages/shared/src/churn.ts` içindeki varsayılanlar geçerli olur) üzerinden kiracı ayarlanabilir. Sinyaller, ağırlıklar ve seviye eşikleri için bkz. `docs/CHURN.md`.
+
 ## Denetim (Audit)
 
 | Tablo | Amaç | Kısıtlar |
