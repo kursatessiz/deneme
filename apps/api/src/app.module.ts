@@ -25,6 +25,7 @@ import { AutomationsModule } from './modules/automations/automations.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
 import { ChurnModule } from './modules/churn/churn.module';
+import { GamificationModule } from './modules/gamification/gamification.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -58,6 +59,7 @@ import { validateEnv } from './config/env';
     JobsModule,
     PromotionsModule,
     ChurnModule,
+    GamificationModule,
     HealthModule,
   ],
 })

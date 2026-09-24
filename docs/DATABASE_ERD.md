@@ -265,6 +265,16 @@ Açık (WON/LOST olmayan) bir aday aynı telefonla tekrar başvurursa (web formu
 
 Puanlama fonksiyonu (`apps/api/src/modules/churn/churn-scoring.ts`) saf ve iş kuralı olduğu için `apps/api` içinde yaşar; ağırlıkları `studios.churn_weights` (JSONB, null ise `packages/shared/src/churn.ts` içindeki varsayılanlar geçerli olur) üzerinden kiracı ayarlanabilir. Sinyaller, ağırlıklar ve seviye eşikleri için bkz. `docs/CHURN.md`.
 
+## Oyunlaştırma (W16)
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `badge_definitions` | Rozet tanımı, veri olarak (kod değil): `studio_id` null olan satırlar her kiracıya sunulan küresel varsayılanlardır, kiracı kendi rozetlerini de ekleyebilir. `kind` (MILESTONE_SESSIONS, STREAK_WEEKS, MONTHLY_GOAL_MET, FIRST_SESSION, EARLY_BIRD, VARIETY) ve `threshold` (kind'a göre şekillenen Json; `@platform/shared`'daki paylaşılan Zod discriminated union ile doğrulanır) | (studio_id, key) benzersiz; (studio_id, is_active) index |
+| `member_badges` | Bir üyenin kazandığı bir rozet; `source_ref` genellikle tetikleyen booking id'sidir | (member_id, badge_definition_id) benzersiz -- kazanma her zaman idempotenttir; (studio_id, member_id) index |
+| `member_goals` | Üyenin kendi belirlediği aylık seans hedefi ("YYYY-MM"); ilerleme hiçbir zaman burada saklanmaz, her okumada katılım geçmişinden hesaplanır | (member_id, month) benzersiz; (studio_id, month) index |
+
+`studios.gamification_enabled` (varsayılan true) oyunlaştırmayı stüdyo bazında kapatır; kapalıyken `GamificationService.onAttendance` hiçbir rozet vermez ama check-in'in kendisi hiçbir zaman başarısız olmaz (best-effort, try/catch). `member_profiles.leaderboard_opt_in` (varsayılan false) gizlilik öncelikli liderlik tablosu katılımıdır; katılmayan üyeler listede hiç görünmez, katılanlar yalnızca ad + soyadın ilk harfiyle görünür. Seri ve kilometre taşı hesaplamaları stüdyonun saat dilimine göre ISO hafta bazlı saf fonksiyonlardır (`apps/api/src/modules/gamification/gamification-calculations.ts`). Detaylar: `docs/GAMIFICATION.md`.
+
 ## Denetim (Audit)
 
 | Tablo | Amaç | Kısıtlar |

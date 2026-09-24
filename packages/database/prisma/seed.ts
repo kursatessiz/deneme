@@ -11,9 +11,11 @@ import {
   SubscriptionStatus,
   DocumentType,
   MembershipStatus,
+  BadgeKind as PrismaBadgeKind,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { DEFAULT_ROLE_TEMPLATES, ALL_PERMISSIONS, normalizePhone, THEME_FAMILIES } from '@platform/shared';
+import { DEFAULT_ROLE_TEMPLATES, ALL_PERMISSIONS, normalizePhone, THEME_FAMILIES, BadgeKind } from '@platform/shared';
+import type { BadgeThresholdParams } from '@platform/shared';
 
 // Seed is a development-only tool: it truncates every table before writing,
 // so it must never run against a production database (see CLAUDE.md).
@@ -122,6 +124,7 @@ async function main() {
   const businessTypeTemplates = await createBusinessTypeTemplates();
   const plans = await createPlans();
   await createSmsPackages();
+  await createGamificationDefaults();
   const kvkkDoc = await prisma.documentVersion.create({
     data: {
       studioId: null,
@@ -477,6 +480,74 @@ async function createSmsPackages() {
   for (const p of packages) {
     await prisma.smsPackage.create({ data: p });
     count('sms_packages');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// W16: gamification global badge defaults (studioId null, offered to every tenant)
+// ---------------------------------------------------------------------------
+
+async function createGamificationDefaults() {
+  const badges: { key: string; name: string; description: string; kind: BadgeKind; threshold: BadgeThresholdParams }[] = [
+    {
+      key: 'first-session',
+      name: 'İlk adım',
+      description: 'İlk seansına katıldın.',
+      kind: BadgeKind.FIRST_SESSION,
+      threshold: { kind: BadgeKind.FIRST_SESSION },
+    },
+    ...[1, 10, 25, 50, 100, 250].map((sessions) => ({
+      key: `milestone-${sessions}`,
+      name: `${sessions}. seans`,
+      description: `Toplam ${sessions} seansa katıldın.`,
+      kind: BadgeKind.MILESTONE_SESSIONS,
+      threshold: { kind: BadgeKind.MILESTONE_SESSIONS, sessions } as BadgeThresholdParams,
+    })),
+    ...[4, 8, 12].map((weeks) => ({
+      key: `streak-${weeks}-weeks`,
+      name: `${weeks} haftalık seri`,
+      description: `${weeks} hafta üst üste en az bir seansa katıldın.`,
+      kind: BadgeKind.STREAK_WEEKS,
+      threshold: { kind: BadgeKind.STREAK_WEEKS, weeks, minSessionsPerWeek: 1 } as BadgeThresholdParams,
+    })),
+    {
+      key: 'variety-3',
+      name: 'Çok yönlü',
+      description: '3 farklı hizmet türünde seansa katıldın.',
+      kind: BadgeKind.VARIETY,
+      threshold: { kind: BadgeKind.VARIETY, distinctServiceTypes: 3 },
+    },
+    {
+      key: 'early-bird',
+      name: 'Erken kuş',
+      description: 'Saat 08:00\'den önce başlayan bir seansa katıldın.',
+      kind: BadgeKind.EARLY_BIRD,
+      threshold: { kind: BadgeKind.EARLY_BIRD, beforeHour: 8 },
+    },
+    {
+      key: 'monthly-goal-met',
+      name: 'Hedefini tuttur',
+      description: 'Bir ayın hedefini tamamladın.',
+      kind: BadgeKind.MONTHLY_GOAL_MET,
+      threshold: { kind: BadgeKind.MONTHLY_GOAL_MET },
+    },
+  ];
+
+  for (const badge of badges) {
+    await prisma.badgeDefinition.create({
+      data: {
+        studioId: null,
+        key: badge.key,
+        name: badge.name,
+        description: badge.description,
+        // Prisma's generated BadgeKind is structurally identical to the shared
+        // one but a distinct nominal type; cast once at this boundary.
+        kind: badge.kind as unknown as PrismaBadgeKind,
+        threshold: badge.threshold,
+        isActive: true,
+      },
+    });
+    count('badge_definitions');
   }
 }
 

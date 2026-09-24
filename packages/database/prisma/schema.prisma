@@ -267,6 +267,16 @@ enum LeadActivityType {
   TRIAL_BOOKED
 }
 
+/// Gamification (W16): the condition a BadgeDefinition awards on.
+enum BadgeKind {
+  MILESTONE_SESSIONS
+  STREAK_WEEKS
+  MONTHLY_GOAL_MET
+  FIRST_SESSION
+  EARLY_BIRD
+  VARIETY
+}
+
 // ---------------------------------------------------------------------------
 // Platform level (super-admin)
 // ---------------------------------------------------------------------------
@@ -380,6 +390,8 @@ model Studio {
   /// Churn risk scoring weights (W12). Null means the shared defaults apply;
   /// see packages/shared/src/churn.ts (ChurnWeightsSchema).
   churnWeights           Json?    @map("churn_weights")
+  /// Streaks, milestones, badges and monthly goals (W16). On by default.
+  gamificationEnabled    Boolean  @default(true) @map("gamification_enabled")
   isActive               Boolean  @default(true) @map("is_active")
   createdAt              DateTime @default(now()) @map("created_at")
   updatedAt              DateTime @updatedAt @map("updated_at")
@@ -437,6 +449,9 @@ model Studio {
   redemptionCounters    RedemptionCounter[]
   memberRiskSnapshots   MemberRiskSnapshot[]
   memberRiskHistory     MemberRiskHistory[]
+  badgeDefinitions      BadgeDefinition[]
+  memberBadges          MemberBadge[]
+  memberGoals           MemberGoal[]
 
   @@map("studios")
 }
@@ -687,6 +702,8 @@ model MemberProfile {
   emergencyContactPhone String?   @map("emergency_contact_phone") @db.VarChar(20)
   medicalConditions     String?   @map("medical_conditions") @db.Text
   notes                 String?   @db.Text
+  /// Privacy-first opt-in for the monthly leaderboard; off by default.
+  leaderboardOptIn      Boolean   @default(false) @map("leaderboard_opt_in")
   createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt             DateTime  @updatedAt @map("updated_at")
 
@@ -705,6 +722,8 @@ model MemberProfile {
   billingProfile     BillingProfile?
   riskSnapshot       MemberRiskSnapshot?
   riskHistory        MemberRiskHistory[]
+  badges             MemberBadge[]
+  goals              MemberGoal[]
 
   @@index([studioId])
   @@map("member_profiles")
@@ -1879,6 +1898,74 @@ model MemberRiskHistory {
   @@index([studioId, memberId, computedAt])
   @@index([studioId, computedAt])
   @@map("member_risk_history")
+}
+
+// ---------------------------------------------------------------------------
+// Gamification (W16): streaks, milestones, badges, monthly goals
+// ---------------------------------------------------------------------------
+
+/// Badge as data, not code. `studioId` null means a global default (offered
+/// to every tenant); a tenant may also define its own. `threshold` is a Json
+/// blob shaped by `kind`, validated against a shared Zod discriminated union.
+model BadgeDefinition {
+  id          String    @id @default(uuid()) @db.Uuid
+  studioId    String?   @map("studio_id") @db.Uuid
+  key         String    @db.VarChar(60)
+  name        String    @db.VarChar(100)
+  description String?   @db.Text
+  kind        BadgeKind
+  threshold   Json
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  studio Studio?       @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  awards MemberBadge[]
+
+  /// Global defaults (studioId null) and a tenant's own keys must each be unique.
+  @@unique([studioId, key])
+  @@index([studioId, isActive])
+  @@map("badge_definitions")
+}
+
+/// One row per member per badge ever earned; the unique constraint makes
+/// awarding idempotent (re-evaluation can never double-award).
+model MemberBadge {
+  id                String   @id @default(uuid()) @db.Uuid
+  studioId          String   @map("studio_id") @db.Uuid
+  memberId          String   @map("member_id") @db.Uuid
+  badgeDefinitionId String   @map("badge_definition_id") @db.Uuid
+  earnedAt          DateTime @default(now()) @map("earned_at")
+  /// Booking id (or other trigger) that caused the award, for troubleshooting.
+  sourceRef         String?  @map("source_ref") @db.VarChar(100)
+
+  studio          Studio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  member          MemberProfile   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  badgeDefinition BadgeDefinition @relation(fields: [badgeDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, badgeDefinitionId])
+  @@index([studioId, memberId])
+  @@map("member_badges")
+}
+
+/// A member's self-set monthly session target. Progress is always computed
+/// from attendance at read time, never stored here.
+model MemberGoal {
+  id             String   @id @default(uuid()) @db.Uuid
+  studioId       String   @map("studio_id") @db.Uuid
+  memberId       String   @map("member_id") @db.Uuid
+  /// "YYYY-MM" in the studio's timezone.
+  month          String   @db.VarChar(7)
+  targetSessions Int      @map("target_sessions")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  studio Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  member MemberProfile @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, month])
+  @@index([studioId, month])
+  @@map("member_goals")
 }
 
 // ---------------------------------------------------------------------------
