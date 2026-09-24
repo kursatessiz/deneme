@@ -1,5 +1,17 @@
 import type { PermissionKey } from '@platform/shared';
-import { Calendar, CheckSquare, LayoutDashboard, Package, Settings, UserCog, Users } from 'lucide-react';
+import {
+  AlertTriangle,
+  BarChart3,
+  Calendar,
+  CheckSquare,
+  LayoutDashboard,
+  Package,
+  Settings,
+  UserCog,
+  UserPlus,
+  Users,
+  Wallet,
+} from 'lucide-react';
 import type { ComponentType } from 'react';
 
 export interface NavItem {
@@ -18,11 +30,23 @@ export interface NavItem {
  */
 export const NAV_ITEMS: readonly NavItem[] = [
   { key: 'dashboard', label: 'Genel Bakış', href: '/dashboard', icon: LayoutDashboard, permissions: [] },
-  { key: 'calendar', label: 'Ders Takvimi', href: '/calendar', icon: Calendar, permissions: ['schedule.view'] },
+  { key: 'calendar', label: 'Takvim', href: '/calendar', icon: Calendar, permissions: ['schedule.view'] },
   { key: 'attendance', label: 'Yoklama', href: '/attendance', icon: CheckSquare, permissions: ['attendance.manage'] },
   { key: 'members', label: 'Üyeler', href: '/members', icon: Users, permissions: ['members.view'] },
   { key: 'packages', label: 'Paket Tanımları', href: '/packages', icon: Package, permissions: ['catalog.view'] },
   { key: 'trainers', label: 'Eğitmenler', href: '/trainers', icon: UserCog, permissions: ['schedule.view'] },
+
+  { key: 'finance', label: 'Finans', href: '/finans', icon: Wallet, permissions: ['finance.view', 'finance.manage', 'promotions.manage'] },
+  {
+    key: 'payroll',
+    label: 'Hakediş',
+    href: '/finans/bordro',
+    icon: Wallet,
+    permissions: ['commissions.view.own', 'commissions.view.all', 'payroll.manage'],
+  },
+  { key: 'reports', label: 'Raporlar', href: '/raporlar', icon: BarChart3, permissions: ['reports.view'] },
+  { key: 'leads', label: 'Adaylar', href: '/adaylar', icon: UserPlus, permissions: ['leads.view'] },
+  { key: 'churn', label: 'Riskli Üyeler', href: '/riskli-uyeler', icon: AlertTriangle, permissions: ['reports.view'] },
   {
     key: 'settings',
     label: 'Ayarlar',
@@ -38,8 +62,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
       'integrations.manage',
       'integrations.partners.manage',
     ],
-  },
-];
+  },];
 
 /** Owners see everything; everyone else needs at least one of an item's permissions (or the item declares none). */
 export function filterNavByPermissions(

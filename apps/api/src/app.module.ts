@@ -35,6 +35,7 @@ import { PublicApiModule } from './modules/public-api/public-api.module';
 import { PartnersModule } from './modules/partners/partners.module';
 import { MemberHealthModule } from './modules/member-health/member-health.module';
 import { VideoModule } from './modules/video/video.module';
+import { ExpensesModule } from './modules/expenses/expenses.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -68,6 +69,7 @@ import { validateEnv } from './config/env';
     AutomationsModule,
     JobsModule,
     PromotionsModule,
+    ExpensesModule,
     ChurnModule,
     GamificationModule,
     FeedbackModule,

@@ -760,3 +760,20 @@ export interface StaffMembershipDTO {
   roleName: string;
   isOwner: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Expenses (W2.4)
+// ---------------------------------------------------------------------------
+
+export interface ExpenseDTO {
+  id: string;
+  studioId: string;
+  branchId: string | null;
+  category: string;
+  amount: string;
+  spentAt: string;
+  note: string | null;
+  createdByUserId: string;
+  createdByName: string | null;
+  createdAt: string;
+}

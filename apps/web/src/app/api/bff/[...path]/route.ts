@@ -3,6 +3,7 @@ import { apiInternalBaseUrl } from '@/lib/server-env';
 import { sanitizeApiPath } from '@/lib/bff/path';
 import { hasValidCsrfHeader, isSameOriginRequest, methodNeedsCsrfCheck } from '@/lib/bff/csrf';
 import { stripHopByHopHeaders } from '@/lib/bff/headers';
+import { buildPassthroughResponseInit, isJsonResponse } from '@/lib/bff/proxy-response';
 import {
   ACCESS_TOKEN_COOKIE,
   ACTIVE_STUDIO_COOKIE,
@@ -74,11 +75,10 @@ function clearSessionCookies(res: NextResponse) {
 }
 
 async function toNextResponse(apiRes: Response, dropKeys: readonly string[] = []): Promise<{ body: unknown; res: NextResponse }> {
-  const contentType = apiRes.headers.get('content-type') ?? '';
-  if (!contentType.includes('application/json')) {
+  if (!isJsonResponse(apiRes)) {
     const buf = await apiRes.arrayBuffer();
-    const res = new NextResponse(buf, { status: apiRes.status });
-    const headers = stripHopByHopHeaders(apiRes.headers);
+    const { status, headers } = buildPassthroughResponseInit(apiRes);
+    const res = new NextResponse(buf, { status });
     headers.forEach((value, key) => res.headers.set(key, value));
     return { body: null, res };
   }
