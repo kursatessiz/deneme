@@ -1457,7 +1457,7 @@ export class SchedulesService {
         where: { studioId, trainerId, isCancelled: false, ...overlap },
       });
       if (trainerConflict) {
-        throw new ConflictException('Seçilen eğitmenin bu saat aralığında başka bir dersi bulunmaktadır');
+        throw new ConflictException('Seçilen eğitmenin bu saat aralığında başka bir seansı bulunmaktadır');
       }
     }
 

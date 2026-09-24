@@ -27,7 +27,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   CALL: 'Arama',
   MESSAGE: 'Mesaj',
   STAGE_CHANGE: 'Aşama değişikliği',
-  TRIAL_BOOKED: 'Deneme dersi',
+  TRIAL_BOOKED: 'Deneme seansı',
 };
 
 /** W11 mobile: lead detail with quick actions for staff who have leads.view/manage. */

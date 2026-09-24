@@ -30,7 +30,7 @@ const RULE_TYPE_LABELS: Record<AutomationRuleType, string> = {
   WIN_BACK: 'Kayıp üye kazanma',
   PACKAGE_EXPIRING: 'Paket bitiş hatırlatması',
   BIRTHDAY: 'Doğum günü mesajı',
-  FIRST_CLASS_FOLLOW_UP: 'İlk ders sonrası geri bildirim',
+  FIRST_CLASS_FOLLOW_UP: 'İlk seans sonrası geri bildirim',
   BOOKING_REMINDER: 'Seans hatırlatması',
   NO_SHOW_FOLLOW_UP: 'Gelmeme sonrası hatırlatma',
 };
