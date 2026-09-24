@@ -22,10 +22,35 @@ export const EnvSchema = z
       .string()
       .regex(/^\d{6}$/)
       .optional(),
+
+    /** Default payment provider for online checkouts and card charges. MOCK is deterministic. */
+    PAYMENT_PROVIDER: z.enum(['MOCK', 'IYZICO', 'PAYTR']).default('MOCK'),
+    /** iyzico credentials, required only when PAYMENT_PROVIDER=IYZICO. */
+    IYZICO_API_KEY: z.string().min(1).optional(),
+    IYZICO_SECRET_KEY: z.string().min(1).optional(),
+    IYZICO_BASE_URL: z.string().url().optional(),
+    /** PayTR credentials, required only when PAYMENT_PROVIDER=PAYTR. */
+    PAYTR_MERCHANT_ID: z.string().min(1).optional(),
+    PAYTR_MERCHANT_KEY: z.string().min(1).optional(),
+    PAYTR_MERCHANT_SALT: z.string().min(1).optional(),
   })
   .superRefine((env, ctx) => {
     if (env.OTP_TEST_CODE && env.NODE_ENV !== 'test') {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['OTP_TEST_CODE'], message: 'only allowed when NODE_ENV=test' });
+    }
+    if (env.PAYMENT_PROVIDER === 'IYZICO' && (!env.IYZICO_API_KEY || !env.IYZICO_SECRET_KEY)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['IYZICO_API_KEY'],
+        message: 'IYZICO_API_KEY and IYZICO_SECRET_KEY are required when PAYMENT_PROVIDER=IYZICO',
+      });
+    }
+    if (env.PAYMENT_PROVIDER === 'PAYTR' && (!env.PAYTR_MERCHANT_ID || !env.PAYTR_MERCHANT_KEY || !env.PAYTR_MERCHANT_SALT)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['PAYTR_MERCHANT_ID'],
+        message: 'PAYTR_MERCHANT_ID, PAYTR_MERCHANT_KEY and PAYTR_MERCHANT_SALT are required when PAYMENT_PROVIDER=PAYTR',
+      });
     }
     if (env.NODE_ENV !== 'production') return;
     if (!env.REDIS_URL) {

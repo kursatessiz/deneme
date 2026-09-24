@@ -1,6 +1,8 @@
 import { z } from 'zod';
-import { CommissionType, EntitlementKind, InviteChannel, PaymentMethod } from './enums';
+import { CommissionType, EntitlementKind, InviteChannel, PaymentMethod, PaymentStatus } from './enums';
 import { normalizePhone } from './phone';
+
+const CURRENCY_CODE = z.string().length(3).default('TRY');
 
 /** Accepts common formats and outputs E.164. */
 export const PhoneSchema = z
@@ -363,3 +365,91 @@ export const ReportRangeSchema = z
     path: ['to'],
   });
 export type ReportRange = z.infer<typeof ReportRangeSchema>;
+
+// ---------------------------------------------------------------------------
+// Payments (W6)
+// ---------------------------------------------------------------------------
+
+/** Card token supplied by a client-side provider SDK/tokenization step, never a raw PAN. */
+export const CardTokenSchema = z.object({
+  providerCardToken: z.string().trim().min(4).max(200),
+  last4: z
+    .string()
+    .trim()
+    .regex(/^\d{4}$/, 'Son 4 hane 4 rakam olmalıdır'),
+  brand: z.string().trim().min(2).max(20),
+  expMonth: z.number().int().min(1).max(12),
+  expYear: z.number().int().min(new Date().getFullYear()).max(new Date().getFullYear() + 20),
+});
+export type CardTokenInput = z.infer<typeof CardTokenSchema>;
+
+/** Staff sell a package with an immediate payment: cash, card-present, bank transfer or online checkout. */
+export const SellPackageSchema = z.object({
+  studioId: z.string().uuid(),
+  memberId: z.string().uuid(),
+  packageDefinitionId: z.string().uuid(),
+  branchId: z.string().uuid().optional(),
+  startDate: z.string().datetime().optional(),
+  paymentMethod: z.nativeEnum(PaymentMethod),
+  paidAmount: z.number().nonnegative(),
+  currency: CURRENCY_CODE,
+  installmentCount: z.number().int().min(1).max(12).default(1),
+  /** Bank transfer reference (IBAN description / dekont no); required for BANK_TRANSFER. */
+  bankReference: z.string().trim().max(120).optional(),
+  /** Card token for a card-present sale, charged through the provider adapter. */
+  card: CardTokenSchema.optional(),
+  notes: z.string().max(500).optional(),
+});
+export type SellPackageInput = z.infer<typeof SellPackageSchema>;
+
+/** Member self-service checkout: always an online checkout against the default provider. */
+export const MemberCheckoutSchema = z.object({
+  studioId: z.string().uuid(),
+  memberId: z.string().uuid(),
+  packageDefinitionId: z.string().uuid(),
+  installmentCount: z.number().int().min(1).max(12).default(1),
+});
+export type MemberCheckoutInput = z.infer<typeof MemberCheckoutSchema>;
+
+/** Staff confirm a pending bank transfer payment; this activates/extends the package. */
+export const ConfirmBankTransferSchema = z.object({
+  paymentId: z.string().uuid(),
+});
+export type ConfirmBankTransferInput = z.infer<typeof ConfirmBankTransferSchema>;
+
+export const CreateSubscriptionSchema = z.object({
+  studioId: z.string().uuid(),
+  memberId: z.string().uuid(),
+  packageDefinitionId: z.string().uuid(),
+  storedCardId: z.string().uuid(),
+  installmentCount: z.number().int().min(1).max(12).default(1),
+  startDate: z.string().datetime().optional(),
+});
+export type CreateSubscriptionInput = z.infer<typeof CreateSubscriptionSchema>;
+
+export const CancelSubscriptionSchema = z.object({
+  /** True stops the next renewal but keeps the current period active until it ends. */
+  atPeriodEnd: z.boolean().default(true),
+});
+export type CancelSubscriptionInput = z.infer<typeof CancelSubscriptionSchema>;
+
+export const PauseSubscriptionSchema = z.object({
+  reason: z.string().max(500).optional(),
+});
+export type PauseSubscriptionInput = z.infer<typeof PauseSubscriptionSchema>;
+
+export const RefundPaymentSchema = z.object({
+  /** Omitted means a full refund of the remaining (unrefunded) amount. */
+  amount: z.number().positive().optional(),
+  reason: z.string().trim().min(3, 'İade nedeni giriniz').max(500),
+});
+export type RefundPaymentInput = z.infer<typeof RefundPaymentSchema>;
+
+export const ListPaymentsQuerySchema = z.object({
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+  branchId: z.string().uuid().optional(),
+  paymentMethod: z.nativeEnum(PaymentMethod).optional(),
+  paymentStatus: z.nativeEnum(PaymentStatus).optional(),
+});
+export type ListPaymentsQuery = z.infer<typeof ListPaymentsQuerySchema>;

@@ -18,6 +18,8 @@ erDiagram
     Studio ||--o{ Booking : has
     Studio ||--o{ Waitlist : has
     Studio ||--o{ Payment : has
+    Studio ||--o{ StoredCard : has
+    Studio ||--o{ MemberSubscription : has
     Studio ||--o{ SmsWallet : has
     Studio ||--o{ NotificationLog : has
 
@@ -48,8 +50,17 @@ erDiagram
     MemberProfile ||--o{ Booking : makes
     MemberProfile ||--o{ Waitlist : joins
     MemberProfile ||--o{ Payment : pays
+    MemberProfile ||--o{ StoredCard : owns
+    MemberProfile ||--o{ MemberSubscription : subscribes
     MemberProfile ||--o{ MeasurementEntry : records
     MemberProfile ||--o{ PackageTransfer : transfers
+
+    PackageDefinition ||--o{ MemberSubscription : renews_as
+    StoredCard ||--o{ MemberSubscription : charges
+    StoredCard ||--o{ Payment : charges
+    MemberSubscription ||--o{ Payment : bills
+    MemberSubscription ||--o{ PaymentAttempt : attempts
+    Payment ||--o{ PaymentAttempt : records
 
     TrainerProfile ||--o{ SessionSchedule : teaches
     TrainerProfile ||--o{ TrainerQualification : has
@@ -134,7 +145,10 @@ erDiagram
 
 | Tablo | Amaç | Kısıtlar |
 |-------|---------|-------------|
-| `payments` | Üye işlemleri: tutar, yöntem (nakit, kart, banka, online), durum, satışın yapıldığı şube | (studio_id, paid_at) index; (branch_id, paid_at) index |
+| `payments` | Üye işlemleri: tutar, para birimi, iade edilen tutar, yöntem (nakit, kart, banka, online), durum, sağlayıcı (mock/iyzico/paytr) ve sağlayıcı referansı, taksit sayısı, satışın yapıldığı şube, beklemedeki (örn. havale) ödemeler için paket bilgisini taşıyan `metadata` | (studio_id, paid_at) index; (branch_id, paid_at) index; (provider, provider_reference) index |
+| `stored_cards` | Üye başına saklanan kart: yalnızca sağlayıcı kart token'ı + son 4 hane + marka + son kullanma tarihi; PAN veya CVV asla saklanmaz | (studio_id, member_id) index |
+| `member_subscriptions` | Bir pakete bağlı, otomatik yenilenen üye aboneliği: durum (aktif, ödeme gecikmiş, iptal, duraklatıldı), dönem tarihleri, sonraki tahsilat zamanı, dönem sonunda iptal bayrağı, taksit sayısı | (studio_id, member_id) index; (status, next_charge_at) index (dunning taramasi için) |
+| `payment_attempts` | Bir aboneliğin tahsilat denemesi (dunning): deneme numarası, durum, hata kodu, sonraki deneme zamanı | member_subscription_id index |
 | `expenses` | İşletme giderleri: kategori, tutar, spent_at, kaydeden kullanıcı | (studio_id, spent_at) index; (branch_id) opsiyonel |
 
 ## Bildirimler ve SMS
@@ -181,6 +195,8 @@ erDiagram
 8. **Stüdyo Başına Bir Owner Rolü**: (studio_id) WHERE is_owner üzerindeki benzersiz index, her stüdyo için tam olarak bir owner rol şablonu bulunmasını zorunlu kılar.
 
 9. **Stüdyo Başına Bir Canlı Abonelik**: (studio_id) WHERE status IN ('TRIALING', 'ACTIVE', 'PAST_DUE') üzerindeki benzersiz index, kiracı başına yalnızca bir aktif abonelik olmasını zorunlu kılar.
+
+10. **İade Sınırı** (uygulama seviyesinde, `PaymentsService.refundPayment` içinde koşullu `updateMany` ile): `refunded_amount`, okunan anlık değer üzerinden koşullu güncellenir; eşzamanlı iki iade isteği `amount`'u asla aşamaz ve ikinci istek `409 Conflict` alır.
 
 ## Konvansiyonlar
 

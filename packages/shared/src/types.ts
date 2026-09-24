@@ -2,8 +2,13 @@ import {
   BookingStatus,
   CommissionType,
   EntitlementKind,
+  MemberSubscriptionStatus,
   MembershipStatus,
   PackageStatus,
+  PaymentAttemptStatus,
+  PaymentMethod,
+  PaymentProvider,
+  PaymentStatus,
 } from './enums';
 import type { PermissionKey } from './permissions';
 import type { AppearancePreference, GradientPresetKey, TenantTheme } from './design/tokens';
@@ -231,4 +236,81 @@ export interface PortfolioSummaryDTO {
   to: string;
   studios: StudioPortfolioItemDTO[];
   totals: Omit<StudioPortfolioItemDTO, 'studioId' | 'studioName'>;
+}
+
+// ---------------------------------------------------------------------------
+// Payments (W6)
+// ---------------------------------------------------------------------------
+
+export interface StoredCardDTO {
+  id: string;
+  memberId: string;
+  provider: PaymentProvider;
+  last4: string;
+  brand: string;
+  expMonth: number;
+  expYear: number;
+  isDefault: boolean;
+}
+
+export interface PaymentDTO {
+  id: string;
+  studioId: string;
+  memberId: string;
+  memberPackageId?: string | null;
+  memberSubscriptionId?: string | null;
+  branchId?: string | null;
+  amount: string;
+  currency: string;
+  refundedAmount: string;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  provider?: PaymentProvider | null;
+  installmentCount: number;
+  receiptNumber?: string | null;
+  providerReference?: string | null;
+  notes?: string | null;
+  paidAt: string;
+}
+
+export interface MemberSubscriptionDTO {
+  id: string;
+  memberId: string;
+  packageDefinitionId: string;
+  packageDefinitionName: string;
+  storedCardId?: string | null;
+  status: MemberSubscriptionStatus;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  nextChargeAt: string;
+  cancelAtPeriodEnd: boolean;
+  installmentCount: number;
+}
+
+export interface PaymentAttemptDTO {
+  id: string;
+  memberSubscriptionId: string;
+  attemptNumber: number;
+  status: PaymentAttemptStatus;
+  failureCode?: string | null;
+  nextRetryAt?: string | null;
+  createdAt: string;
+}
+
+/** Result of a provider checkout/charge call, shared by every adapter. */
+export interface ProviderChargeResult {
+  success: boolean;
+  providerReference: string;
+  /** Present only for a stored-card charge that produced or reused a token. */
+  cardToken?: { token: string; last4: string; brand: string; expMonth: number; expYear: number };
+  failureCode?: string;
+  failureMessage?: string;
+}
+
+/** Result of starting a hosted/online checkout (member self-service or staff online sale). */
+export interface ProviderCheckoutResult {
+  providerReference: string;
+  /** Mock adapter resolves immediately; real adapters return a redirect URL instead. */
+  status: 'PENDING' | 'COMPLETED';
+  checkoutUrl?: string;
 }
