@@ -65,6 +65,16 @@ export class NotificationSettingsService {
           note: input.note,
         },
       });
+      await tx.auditLog.create({
+        data: {
+          studioId: input.studioId,
+          userId: actorUserId,
+          action: 'sms_wallet.top_up',
+          entityType: 'SmsWallet',
+          entityId: wallet.id,
+          metadata: { credits: input.credits, balanceAfter: updated.balance, note: input.note ?? null },
+        },
+      });
       return { wallet: updated, transaction };
     });
   }

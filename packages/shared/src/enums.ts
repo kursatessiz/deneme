@@ -86,6 +86,13 @@ export enum DocumentType {
   HEALTH_DATA = 'HEALTH_DATA',
 }
 
+/** Feature flag resolution order: TENANT, then BUSINESS_TYPE, then GLOBAL. */
+export enum FeatureFlagScope {
+  GLOBAL = 'GLOBAL',
+  BUSINESS_TYPE = 'BUSINESS_TYPE',
+  TENANT = 'TENANT',
+}
+
 export enum SmsTransactionType {
   PURCHASE = 'PURCHASE',
   USAGE = 'USAGE',

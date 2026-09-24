@@ -7,5 +7,6 @@ import { InvitesService } from './invites.service';
   imports: [AuthModule],
   controllers: [InvitesController],
   providers: [InvitesService],
+  exports: [InvitesService],
 })
 export class InvitesModule {}

@@ -1,7 +1,7 @@
-import { Controller, ForbiddenException, Get, Post, Put, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put } from '@nestjs/common';
 import { NotificationSettingsSchema, TopUpSmsWalletSchema } from '@platform/shared';
 import type { NotificationSettings, TopUpSmsWalletInput } from '@platform/shared';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { SuperAdminOnly } from '../../auth/decorators/super-admin-only.decorator';
 import { CurrentUser, Tenant } from '../../auth/decorators/current-user.decorator';
 import { RequirePermission, StudioScoped } from '../../auth/decorators/require-permission.decorator';
 import { ZodBody } from '../../../common/zod-body.pipe';
@@ -46,15 +46,12 @@ export class SmsWalletController {
 
 /** Platform-wide manual SMS credit top-up: super admin only. */
 @Controller('sms-wallet')
-@UseGuards(JwtAuthGuard)
+@SuperAdminOnly()
 export class SmsWalletAdminController {
   constructor(private readonly settings: NotificationSettingsService) {}
 
   @Post('top-up')
   async topUp(@CurrentUser() user: AuthUser, @ZodBody(TopUpSmsWalletSchema) body: TopUpSmsWalletInput) {
-    if (!user.isSuperAdmin) {
-      throw new ForbiddenException('Bu işlem için yetkiniz yok');
-    }
     return this.settings.topUp(user.id, body);
   }
 }

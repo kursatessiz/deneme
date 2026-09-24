@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OtpService } from '../otp/otp.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuthService } from '../auth/auth.service';
+import { PlanLimitsService } from '../admin/plan-limits.service';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
 
 const VALID_TOKEN = 'a'.repeat(43);
@@ -66,6 +67,7 @@ describe('InvitesService', () => {
         { provide: NotificationsService, useValue: mockNotifications },
         { provide: AuthService, useValue: mockAuth },
         { provide: ConfigService, useValue: mockConfig },
+        { provide: PlanLimitsService, useValue: { assertWithinLimit: jest.fn() } },
       ],
     }).compile();
 

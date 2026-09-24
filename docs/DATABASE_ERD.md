@@ -238,7 +238,7 @@ alanını `ATTENDED` yapmak için kullanılır. Detaylar: `docs/CHECKIN.md`.
 | `sms_wallets` | Stüdyo SMS kredi bakiyesi | studio_id benzersiz; balance >= 0 |
 | `sms_transactions` | SMS defteri: satın alma, kullanım, düzeltme, iade | (studio_id, created_at) index; notification_log_id benzersiz |
 | `notification_logs` | Giden mesajlar: WhatsApp, SMS, push, email; fallback zinciri | (studio_id, created_at) index; tekrar deneme zincirleri için (fallback_of_id) kendine referans |
-| `message_templates` | Kanal başına mesaj şablonu ({{ad}} yer tutucularıyla); studio_id null olan satırlar süper adminin küresel varsayılanı, doldurulmuş satırlar kiracı geçersiz kılması | (studio_id, key, channel, locale) benzersiz; key index |
+| `message_templates` | Kanal başına mesaj şablonu ({{ad}} yer tutucularıyla); studio_id null olan satırlar süper adminin küresel varsayılanı, doldurulmuş satırlar kiracı geçersiz kılması | (studio_id, key, channel, locale) NULLS NOT DISTINCT ile benzersiz; key index |
 | `communication_consents` | Ticari mesaj için İYS tarzı onay durumu (kanal başına) | (studio_id, user_id, channel) benzersiz; (studio_id, status) ve (iys_synced_at) index |
 
 ## Hakediş Bordrosu (Payroll, W14)
@@ -378,6 +378,8 @@ Sahip kararı: partner misafiri kendisi stüdyoya katılana kadar mesajlaşma/et
 6. **Feature Flag'ler NULLS NOT DISTINCT**: (key, scope, business_type_template_id, studio_id) benzersiz index, NULL'ları farklı değerler olarak ele alır, yinelenen global bayrakları ve platform dokümanlarını önler.
 
 7. **Doküman Sürümleri NULLS NOT DISTINCT**: (studio_id, type, version) NULLS NOT DISTINCT ile benzersiz index, yinelenen platform dokümanlarını önler (studio_id null).
+
+7b. **Mesaj Şablonları NULLS NOT DISTINCT** (backlog 4.1-4.3, migration `20260925000000_super_admin`): (studio_id, key, channel, locale) benzersiz index'i NULLS NOT DISTINCT'e çevrildi; öncesinde studio_id null olan (küresel varsayılan) satırlar için yinelenen kayıtlara izin veriliyordu, feature_flags ve document_versions'da zaten uygulanan düzeltmeyle aynı kapsam.
 
 8. **Stüdyo Başına Bir Owner Rolü**: (studio_id) WHERE is_owner üzerindeki benzersiz index, her stüdyo için tam olarak bir owner rol şablonu bulunmasını zorunlu kılar.
 

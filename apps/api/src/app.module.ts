@@ -34,6 +34,8 @@ import { PublicApiModule } from './modules/public-api/public-api.module';
 import { PartnersModule } from './modules/partners/partners.module';
 import { MemberHealthModule } from './modules/member-health/member-health.module';
 import { VideoModule } from './modules/video/video.module';
+import { AdminModule } from './modules/admin/admin.module';
+import { PlanLimitsModule } from './modules/admin/plan-limits.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -45,6 +47,7 @@ import { validateEnv } from './config/env';
     }),
     PrismaModule,
     RedisModule,
+    PlanLimitsModule,
     AuthModule,
     StudiosModule,
     MembersModule,
@@ -77,6 +80,7 @@ import { validateEnv } from './config/env';
     VideoModule,
     HealthModule,
     MemberHealthModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

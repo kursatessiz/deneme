@@ -10,6 +10,7 @@ import { WhatsAppCloudAdapter } from './channels/whatsapp-cloud.adapter';
 import { SmsNetgsmAdapter } from './channels/sms-netgsm.adapter';
 import { SmsIletiMerkeziAdapter } from './channels/sms-iletimerkezi.adapter';
 import { NotificationSettingsService } from './settings/notification-settings.service';
+import { SmsProviderBalanceService } from './sms-provider-balance.service';
 import {
   NotificationSettingsController,
   SmsWalletAdminController,
@@ -30,6 +31,7 @@ import {
     SmsNetgsmAdapter,
     SmsIletiMerkeziAdapter,
     NotificationSettingsService,
+    SmsProviderBalanceService,
   ],
   exports: [
     NotificationsService,
@@ -38,6 +40,7 @@ import {
     TemplateService,
     ConsentService,
     NotificationSettingsService,
+    SmsProviderBalanceService,
   ],
 })
 export class NotificationsModule {}

@@ -44,7 +44,7 @@ CI/CD ve güvenlik (çalışır ve yerelde uçtan uca test edildi):
 - CodeQL, dependency review, TruffleHog, zizmor, actionlint, OpenSSF Scorecard, Dependabot (7 gün bekleme, major'lar ayrı PR). Tüm action'lar SHA ile sabitli.
 - Ajan workflow'ları (maliyet kademeli): Haiku issue etiketleme ve CI hata teşhisi; Haiku/Sonnet PR inceleme (diff boyutuna göre); `@claude` Sonnet, `/opus` ile Opus. `CLAUDE_AGENTS_ENABLED` değişkeni ve API anahtarı eklenene kadar pasif.
 
-Eksikler: canlı güvenlik senaryoları (23 senaryo, yerelde geçti) Jest e2e testine çevrilip CI'da Postgres ile koşmalı; web API'ye bağlı değil; mobil iskelet; SMS/WhatsApp sağlayıcı yok; süper-admin yok; test kapsamı düşük.
+Eksikler: canlı güvenlik senaryoları (23 senaryo, yerelde geçti) Jest e2e testine çevrilip CI'da Postgres ile koşmalı; mobil iskelet; SMS/WhatsApp sağlayıcı yok; test kapsamı düşük. Süper-admin paneli backlog 4.1-4.3 ile eklendi (bkz. bölüm 6, `docs/SUPER_ADMIN.md`).
 
 Sahibin yapması gereken GitHub ayarları: `docs/CICD_GUIDE.md` "Repository settings" bölümü.
 
@@ -111,9 +111,9 @@ Dependabot npm major sürümlerini önermez; bunlar kod değişikliği gerektire
 - 3.6 Push bildirim, EAS Build, mağaza yayını
 
 ### 4. Süper-admin
-- 4.1 Tenant CRUD, plan/limit, işletme tipi şablonları, feature flag
-- 4.2 SMS paketleri, kredi yükleme, sağlayıcı bakiye job'ı, eşik uyarısı
-- 4.3 Benchmark dashboard, sistem sağlığı, global şablonlar
+- 4.1 Tenant CRUD, plan/limit, işletme tipi şablonları, feature flag (yapıldı: tek `SuperAdminGuard` + `@SuperAdminOnly()` altında `/admin/*` uç noktaları; önceden dağınık `if (!user.isSuperAdmin)` kontrolleri bu guard'a taşındı; tenant oluşturma stüdyo + varsayılan rol şablonları + deneme aboneliği + sahip daveti üretir (mevcut davet/onboarding akışı yeniden kullanıldı); suspend/reactivate `Studio.isActive`; plan atama ve `maxBranches`/`maxActiveMembers`/`maxStaff` limitleri üye/personel/şube oluşturma uç noktalarında 402 ile zorunlu kılınıyor (`PlanLimitsService`, kendi global modülünde); işletme türü şablonu CRUD + "kiracıya uygula" (eksik hizmet/kaynak türlerini doldurur, var olanı değiştirmez); feature flag CRUD + tek çözümleyici `FeatureFlagsService.isFeatureEnabled(studioId, key)` (TENANT > BUSINESS_TYPE > GLOBAL); detaylar `docs/SUPER_ADMIN.md`)
+- 4.2 SMS paketleri, kredi yükleme, sağlayıcı bakiye job'ı, eşik uyarısı (yapıldı: SMS paketi CRUD; mevcut `POST /sms-wallet/top-up` artık `SuperAdminOnly()` ve her yükleme `AuditLog`'a yazılıyor; `SmsProviderBalanceService` zamanlayıcı kalp atışına saatlik kısıtlamayla eklendi, `SMS_PROVIDER_LOW_BALANCE_THRESHOLD` altında `AuditLog` + log uyarısı üretir, MOCK sağlayıcı sabit bakiye döner; kalan: ayrı bir push/e-posta uyarı kanalı yok, şimdilik log/audit yeterli sayıldı)
+- 4.3 Benchmark dashboard, sistem sağlığı, global şablonlar (yapıldı: `GET /admin/benchmark` işletme türüne göre anonimleştirilmiş doluluk/iptal/üye-başına-gelir/yenileme ortalamaları, 5'ten az stüdyolu grup tamamen bastırılıyor (k-anonimlik); `GET /admin/health` DB/Redis/kuyruk derinliği/son heartbeat/başarısız webhook sayısı/SMS sağlayıcı durumu; global mesaj şablonu ve belge sürümü (KVKK/sözleşme) yönetimi, kiracı geçersiz kılmalarıyla birlikte; web panelinde `/admin` route grubu (tenants/plans/business-types/feature-flags/sms-packages/content/benchmark/health), sadece `isSuperAdmin` oturumlarına görünür, kiracı temasını kullanmaz; birim testleri (guard, flag çözümleme önceliği, k-anonimlik bastırma, plan limiti) ve `apps/api/test/e2e/admin.e2e-spec.ts` (her admin uç nokta ailesinde 403, tenant oluşturma/askıya alma, askıya alınan kiracının personelinin o kiracıya erişememesi, flag önceliği, benchmark bastırma, SMS yüklemenin audit'lenmesi, plan limiti); şema değişikliği yok (tüm modeller zaten mevcuttu), yalnızca `message_templates` için eksik kalan `NULLS NOT DISTINCT` düzeltmesi (`20260925000000_super_admin` migration'ı, `feature_flags`/`document_versions` ile aynı desenin tamamlanması); kalan: rol/yetki ekranı (2.3) ve finans (2.4) ayrı backlog öğeleri, süper admin taklit etme kapsam dışı)
 
 ### 5. Ödeme ve yasal
 - 5.1 iyzico/PayTR online tahsilat, otomatik yenilenen üyelik

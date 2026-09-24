@@ -1,8 +1,6 @@
-import { Body, Controller, ForbiddenException, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
 import { DunningService } from './dunning.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import type { AuthUser } from '../auth/tenant-context';
+import { SuperAdminOnly } from '../auth/decorators/super-admin-only.decorator';
 
 /**
  * Platform-wide dunning trigger, not tied to a single studio. BullMQ is not
@@ -11,15 +9,12 @@ import type { AuthUser } from '../auth/tenant-context';
  * endpoint with a service token) drives `DunningService.runDueRenewals`.
  */
 @Controller('admin/dunning')
+@SuperAdminOnly()
 export class DunningController {
   constructor(private dunning: DunningService) {}
 
   @Post('run')
-  @UseGuards(JwtAuthGuard)
-  async run(@CurrentUser() user: AuthUser, @Body() body: { now?: string }) {
-    if (!user.isSuperAdmin) {
-      throw new ForbiddenException('Bu işlem için yetkiniz yok');
-    }
+  async run(@Body() body: { now?: string }) {
     const now = body?.now ? new Date(body.now) : new Date();
     return this.dunning.runDueRenewals(now);
   }

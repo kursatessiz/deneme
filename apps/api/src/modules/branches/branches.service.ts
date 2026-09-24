@@ -14,6 +14,7 @@ import type {
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { assertBranchAccess, assertUnrestricted } from './branch-access';
+import { PlanLimitsService } from '../admin/plan-limits.service';
 
 const UNASSIGNED_LABEL = 'Şubesiz';
 
@@ -33,7 +34,10 @@ interface ScheduleAggregateRow {
 
 @Injectable()
 export class BranchesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly planLimits: PlanLimitsService,
+  ) {}
 
   // ---------------------------------------------------------------------------
   // CRUD
@@ -51,6 +55,7 @@ export class BranchesService {
 
   async create(tenant: TenantContext, actorUserId: string, dto: CreateBranchInput): Promise<BranchDTO> {
     assertUnrestricted(tenant);
+    await this.planLimits.assertWithinLimit(tenant.studioId, 'maxBranches');
     try {
       const branch = await this.prisma.branch.create({
         data: {
