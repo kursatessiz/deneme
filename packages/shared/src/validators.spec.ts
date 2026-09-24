@@ -5,6 +5,9 @@ import {
   CreateScheduleSchema,
   BookSessionSchema,
   CancelBookingSchema,
+  ChangeSpotSchema,
+  CreateResourceSchema,
+  UpdateResourceSchema,
   EntitlementKind,
   PaymentMethod,
 } from './index';
@@ -123,6 +126,48 @@ describe('Shared Zod Validators', () => {
         reason: 'Hastalık mazereti',
       };
       const result = CancelBookingSchema.safeParse(input);
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('ChangeSpotSchema', () => {
+    it('accepts one to five resource ids', () => {
+      expect(ChangeSpotSchema.safeParse({ resourceIds: ['123e4567-e89b-12d3-a456-426614174000'] }).success).toBe(true);
+    });
+
+    it('rejects an empty list', () => {
+      expect(ChangeSpotSchema.safeParse({ resourceIds: [] }).success).toBe(false);
+    });
+  });
+
+  describe('CreateResourceSchema / UpdateResourceSchema (spot map layout)', () => {
+    const base = {
+      studioId: '123e4567-e89b-12d3-a456-426614174000',
+      resourceTypeId: '123e4567-e89b-12d3-a456-426614174001',
+      name: 'EMS Cihazi 1',
+    };
+
+    it('accepts optional layout coordinates and a label', () => {
+      const result = CreateResourceSchema.safeParse({ ...base, layoutX: 0, layoutY: 1, label: '1' });
+      expect(result.success).toBe(true);
+    });
+
+    it('omits layout fields by default', () => {
+      const result = CreateResourceSchema.safeParse(base);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.layoutX).toBeUndefined();
+        expect(result.data.label).toBeUndefined();
+      }
+    });
+
+    it('allows clearing layout fields on update with null', () => {
+      const result = UpdateResourceSchema.safeParse({
+        studioId: base.studioId,
+        layoutX: null,
+        layoutY: null,
+        label: null,
+      });
       expect(result.success).toBe(true);
     });
   });

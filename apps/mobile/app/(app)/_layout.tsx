@@ -78,6 +78,7 @@ export default function AppLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Ana sayfa' }} />
+      <Tabs.Screen name="seans" options={{ title: 'Seanslar', headerShown: false }} />
       <Tabs.Screen name="hesabim" options={{ title: 'Hesabım', headerShown: false }} />
     </Tabs>
   );

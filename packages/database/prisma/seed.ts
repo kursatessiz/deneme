@@ -467,7 +467,17 @@ async function createZen(
   const emsDevices = [];
   for (let i = 1; i <= 2; i += 1) {
     const ems = await prisma.resource.create({
-      data: { studioId: studio.id, branchId: branch.id, resourceTypeId: rtEms.id, name: `EMS Cihazi ${i}`, capacity: 1 },
+      data: {
+        studioId: studio.id,
+        branchId: branch.id,
+        resourceTypeId: rtEms.id,
+        name: `EMS Cihazi ${i}`,
+        capacity: 1,
+        // Simple two-row spot map layout: one device per row.
+        layoutX: 0,
+        layoutY: i - 1,
+        label: String(i),
+      },
     });
     count('resources');
     emsDevices.push(ems);

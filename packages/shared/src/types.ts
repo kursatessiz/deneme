@@ -101,6 +101,39 @@ export interface ResourceDTO {
   name: string;
   capacity: number;
   isMaintenance: boolean;
+  /** Grid coordinates for a spot map, e.g. equipment inside a room. */
+  layoutX?: number | null;
+  layoutY?: number | null;
+  /** Short visible label on a spot map, e.g. "3" or "Kort 2". */
+  label?: string | null;
+}
+
+/** A single bookable unit's state on a session's spot map. */
+export type SpotStatus = 'AVAILABLE' | 'TAKEN' | 'MAINTENANCE' | 'MINE';
+
+export interface SpotDTO {
+  id: string;
+  name: string;
+  label?: string | null;
+  layoutX?: number | null;
+  layoutY?: number | null;
+  capacity: number;
+  status: SpotStatus;
+  /** Set only for staff with bookings.view, and only on a TAKEN spot; never shown to members. */
+  takenByMemberName?: string | null;
+}
+
+export interface SpotGroupDTO {
+  resourceTypeId: string;
+  resourceTypeName: string;
+  spots: SpotDTO[];
+}
+
+export interface ScheduleSpotsDTO {
+  scheduleId: string;
+  /** The session's room, if any; spots are its equipment, else the branch's standalone resources. */
+  roomResourceId?: string | null;
+  groups: SpotGroupDTO[];
 }
 
 export interface ServiceTypeDTO {
@@ -156,6 +189,28 @@ export interface SessionScheduleDTO {
   trainerId?: string | null;
   trainerName?: string | null;
   originalTrainerId?: string | null;
+  title: string;
+  startTime: string;
+  endTime: string;
+  capacity: number;
+  bookedCount: number;
+  isCancelled: boolean;
+}
+
+/**
+ * A lightweight session for members browsing what to book: no per-booking
+ * detail, just enough to pick a session and open its spot map.
+ */
+export interface SessionScheduleSummaryDTO {
+  id: string;
+  studioId: string;
+  branchId?: string | null;
+  serviceTypeId: string;
+  serviceTypeName: string;
+  resourceId?: string | null;
+  resourceName?: string | null;
+  trainerId?: string | null;
+  trainerName?: string | null;
   title: string;
   startTime: string;
   endTime: string;

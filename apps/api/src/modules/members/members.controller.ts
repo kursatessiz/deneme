@@ -37,6 +37,12 @@ export class MembersController {
     return this.membersService.setHomeBranch(tenant, tenant.memberProfileId, body);
   }
 
+  @Get('self/packages')
+  @SelfService()
+  async getSelfPackages(@Tenant() tenant: TenantContext, @Query('serviceTypeId') serviceTypeId?: string) {
+    return this.membersService.getSelfPackages(tenant, serviceTypeId);
+  }
+
   @Put(':memberId/home-branch')
   @RequirePermission('members.manage')
   async setHomeBranch(
