@@ -47,6 +47,34 @@ enum BookingStatus {
   WAITLIST
 }
 
+/// W19: how a session is delivered. IN_PERSON is the default for every
+/// existing session; ONLINE and HYBRID opt into a meeting link.
+enum SessionDeliveryMode {
+  IN_PERSON
+  ONLINE
+  HYBRID
+}
+
+/// W19: which adapter produced a session's meeting link.
+enum VideoMeetingProviderKind {
+  MANUAL
+  JITSI
+}
+
+/// W19: on-demand library content source. UPLOADED is intentionally not
+/// implemented yet - see docs/VIDEO.md - only EXTERNAL_URL is wired up.
+enum VideoContentProvider {
+  EXTERNAL_URL
+  UPLOADED
+}
+
+/// W19: who can see/watch a piece of on-demand content.
+enum VideoContentVisibility {
+  MEMBERS_WITH_ACTIVE_PACKAGE
+  ALL_MEMBERS
+  SPECIFIC_PACKAGES
+}
+
 enum ColorSchemePreference {
   SYSTEM
   LIGHT
@@ -533,6 +561,8 @@ model Studio {
   memberHealthSettings  MemberHealthSettings[]
   healthSyncRecords     HealthSyncRecord[]
   healthDailySummaries  HealthDailySummary[]
+  videoContents         VideoContent[]
+  videoViews            VideoView[]
 
   @@map("studios")
 }
@@ -817,6 +847,7 @@ model MemberProfile {
   healthSettings     MemberHealthSettings?
   healthSyncRecords  HealthSyncRecord[]
   healthDailySummaries HealthDailySummary[]
+  videoViews         VideoView[]
 
   @@index([studioId])
   @@map("member_profiles")
@@ -837,6 +868,7 @@ model TrainerProfile {
   substitutedFor SessionSchedule[]      @relation("ScheduleOriginalTrainer")
   payrollLines   PayrollLine[]
   ratingsReceived SessionRating[]
+  videoContents   VideoContent[]
 
   @@index([studioId])
   @@map("trainer_profiles")
@@ -1038,6 +1070,7 @@ model ServiceType {
   schedules             SessionSchedule[]
   leads                 Lead[]
   ratings               SessionRating[]
+  videoContents         VideoContent[]
 
   @@unique([studioId, name])
   @@map("service_types")
@@ -1083,6 +1116,7 @@ model PackageDefinition {
   memberPackages   MemberPackage[]
   subscriptions    MemberSubscription[]
   trialRedemptions TrialRedemption[]
+  videoContents    VideoContentPackage[]
 
   @@index([studioId, isActive])
   @@index([studioId, isTrial])
@@ -1200,6 +1234,16 @@ model SessionSchedule {
   bookedCount        Int      @default(0) @map("booked_count")
   isCancelled        Boolean  @default(false) @map("is_cancelled")
   cancellationReason String?  @map("cancellation_reason") @db.Text
+  /// W19: IN_PERSON by default. ONLINE/HYBRID sessions carry a meeting link,
+  /// never returned by listing endpoints - only through the join endpoint,
+  /// within the join window, to a member with a confirmed/attended booking.
+  deliveryMode    SessionDeliveryMode @default(IN_PERSON) @map("delivery_mode")
+  /// Optional cap on remote attendees for HYBRID sessions; null means unlimited.
+  onlineCapacity  Int?                 @map("online_capacity")
+  meetingProvider VideoMeetingProviderKind? @map("meeting_provider")
+  /// https-only. For MANUAL this is the staff-pasted URL; for JITSI it is
+  /// the generated room URL (base URL + unguessable room name).
+  meetingUrl      String?              @map("meeting_url") @db.Text
   createdAt          DateTime @default(now()) @map("created_at")
 
   studio          Studio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
@@ -1247,6 +1291,9 @@ model Booking {
   /// such cancellations follow the partner's own policy flag, not the
   /// studio's CancellationPolicy (see PartnerConnectionConfig).
   partnerCancelled       Boolean  @default(false) @map("partner_cancelled")
+  /// W19: set once the "join is open" push has been sent for an ONLINE/HYBRID
+  /// session's booking, so the heartbeat never sends it twice.
+  joinReminderSentAt DateTime?     @map("join_reminder_sent_at")
   createdAt          DateTime      @default(now()) @map("created_at")
 
   studio            Studio            @relation(fields: [studioId], references: [id], onDelete: Cascade)
@@ -2615,4 +2662,79 @@ model HealthDailySummary {
   @@unique([memberId, date])
   @@index([studioId, memberId, date])
   @@map("health_daily_summaries")
+}
+
+// ---------------------------------------------------------------------------
+// W19: on-demand video library
+// ---------------------------------------------------------------------------
+
+/// A piece of on-demand video content. EXTERNAL_URL is the only implemented
+/// provider (any https URL - YouTube unlisted, Vimeo, etc); UPLOADED is
+/// reserved for when local upload infrastructure exists (see docs/VIDEO.md).
+model VideoContent {
+  id               String                 @id @default(uuid()) @db.Uuid
+  studioId         String                 @map("studio_id") @db.Uuid
+  title            String                 @db.VarChar(150)
+  description      String?                @db.Text
+  durationSeconds  Int                    @map("duration_seconds")
+  provider         VideoContentProvider   @default(EXTERNAL_URL)
+  /// https-only. Required for EXTERNAL_URL; unused (null) for UPLOADED.
+  sourceUrl        String?                @map("source_url") @db.Text
+  thumbnailUrl     String?                @map("thumbnail_url") @db.Text
+  serviceTypeId    String?                @map("service_type_id") @db.Uuid
+  trainerProfileId String?                @map("trainer_profile_id") @db.Uuid
+  visibility       VideoContentVisibility @default(ALL_MEMBERS)
+  /// Optional per-content credit cost, charged once per member from a
+  /// CREDIT_BASED package. Null/0 means watching never consumes units.
+  creditCost       Int?                   @map("credit_cost")
+  isPublished      Boolean                @default(false) @map("is_published")
+  publishedAt      DateTime?              @map("published_at")
+  createdAt        DateTime               @default(now()) @map("created_at")
+  updatedAt        DateTime               @updatedAt @map("updated_at")
+
+  studio         Studio                @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  serviceType    ServiceType?          @relation(fields: [serviceTypeId], references: [id], onDelete: SetNull)
+  trainerProfile TrainerProfile?       @relation(fields: [trainerProfileId], references: [id], onDelete: SetNull)
+  packages       VideoContentPackage[]
+  views          VideoView[]
+
+  @@index([studioId, isPublished])
+  @@map("video_contents")
+}
+
+/// Which package definitions unlock a VideoContent when visibility is
+/// SPECIFIC_PACKAGES.
+model VideoContentPackage {
+  videoContentId      String @map("video_content_id") @db.Uuid
+  packageDefinitionId String @map("package_definition_id") @db.Uuid
+
+  videoContent      VideoContent      @relation(fields: [videoContentId], references: [id], onDelete: Cascade)
+  packageDefinition PackageDefinition @relation(fields: [packageDefinitionId], references: [id], onDelete: Cascade)
+
+  @@id([videoContentId, packageDefinitionId])
+  @@map("video_content_packages")
+}
+
+/// One row per member per content: resume position and, once a credit was
+/// charged, a durable idempotency marker (unique on member+content) so a
+/// member is charged at most once even under concurrent requests.
+model VideoView {
+  id                  String    @id @default(uuid()) @db.Uuid
+  studioId            String    @map("studio_id") @db.Uuid
+  videoContentId      String    @map("video_content_id") @db.Uuid
+  memberId            String    @map("member_id") @db.Uuid
+  startedAt           DateTime  @default(now()) @map("started_at")
+  lastPositionSeconds Int       @default(0) @map("last_position_seconds")
+  completedAt         DateTime? @map("completed_at")
+  /// Set once a creditCost has actually been charged for this member+content.
+  creditChargedAt     DateTime? @map("credit_charged_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  studio       Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  videoContent VideoContent  @relation(fields: [videoContentId], references: [id], onDelete: Cascade)
+  member       MemberProfile @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([videoContentId, memberId])
+  @@index([studioId, videoContentId])
+  @@map("video_views")
 }

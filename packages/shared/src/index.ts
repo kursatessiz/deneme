@@ -16,3 +16,4 @@ export * from './checkin';
 export * from './open-platform';
 export * from './partners';
 export * from './health';
+export * from './video';

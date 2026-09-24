@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { GamificationService } from '../gamification/gamification.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import { VideoMeetingService } from '../video/providers/video-meeting.service';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import type { TenantContext } from '../auth/tenant-context';
 
@@ -93,6 +94,10 @@ describe('SchedulesService', () => {
         {
           provide: WebhooksService,
           useValue: { emit: jest.fn() },
+        },
+        {
+          provide: VideoMeetingService,
+          useValue: { createLink: jest.fn() },
         },
       ],
     }).compile();

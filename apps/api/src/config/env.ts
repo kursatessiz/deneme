@@ -74,6 +74,9 @@ export const EnvSchema = z
       .string()
       .refine((v) => Buffer.from(v, 'base64').length === 32, 'must be base64 for exactly 32 bytes')
       .optional(),
+
+    /** Base URL for JITSI-generated meeting rooms (W19). Must be https. */
+    JITSI_BASE_URL: z.string().url().default('https://meet.jit.si'),
   })
   .superRefine((env, ctx) => {
     if (env.OTP_TEST_CODE && env.NODE_ENV !== 'test') {
@@ -92,6 +95,9 @@ export const EnvSchema = z
         path: ['PAYTR_MERCHANT_ID'],
         message: 'PAYTR_MERCHANT_ID, PAYTR_MERCHANT_KEY and PAYTR_MERCHANT_SALT are required when PAYMENT_PROVIDER=PAYTR',
       });
+    }
+    if (!env.JITSI_BASE_URL.startsWith('https://')) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['JITSI_BASE_URL'], message: 'must be an https URL' });
     }
     if (env.NODE_ENV !== 'production') return;
     if (!env.REDIS_URL) {

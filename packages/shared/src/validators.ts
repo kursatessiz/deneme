@@ -13,6 +13,8 @@ import {
   PaymentMethod,
   PaymentStatus,
   PromoCodeKind,
+  SessionDeliveryMode,
+  VideoMeetingProviderKind,
 } from './enums';
 import { normalizePhone } from './phone';
 import { TaxNumberSchema, TcknSchema, VknSchema } from './tax-id';
@@ -106,6 +108,35 @@ export const FreezePackageSchema = z.object({
 });
 export type FreezePackageInput = z.infer<typeof FreezePackageSchema>;
 
+/** https-only, used for anything a staff member pastes as a link (meeting URL, video source). */
+export const HttpsUrlSchema = z
+  .string()
+  .trim()
+  .url('Geçerli bir bağlantı giriniz')
+  .refine((v) => v.startsWith('https://'), 'Bağlantı https:// ile başlamalıdır');
+
+/** W19: delivery-mode and meeting-link fields shared by session creation and the meeting-edit endpoint. */
+export const SessionMeetingFieldsSchema = z
+  .object({
+    deliveryMode: z.nativeEnum(SessionDeliveryMode).default(SessionDeliveryMode.IN_PERSON),
+    onlineCapacity: z.number().int().positive().optional(),
+    meetingProvider: z.nativeEnum(VideoMeetingProviderKind).optional(),
+    /** Required and validated only when meetingProvider is MANUAL. */
+    manualMeetingUrl: HttpsUrlSchema.optional(),
+  })
+  .refine((v) => v.deliveryMode === SessionDeliveryMode.IN_PERSON || v.meetingProvider !== undefined, {
+    path: ['meetingProvider'],
+    message: 'Çevrimiçi/hibrit seanslar için bir yayın sağlayıcısı seçmelisiniz',
+  })
+  .refine((v) => v.meetingProvider !== VideoMeetingProviderKind.MANUAL || !!v.manualMeetingUrl, {
+    path: ['manualMeetingUrl'],
+    message: 'Elle bağlantı için https bağlantısı giriniz',
+  });
+export type SessionMeetingFieldsInput = z.infer<typeof SessionMeetingFieldsSchema>;
+
+export const UpdateSessionMeetingSchema = SessionMeetingFieldsSchema;
+export type UpdateSessionMeetingInput = z.infer<typeof UpdateSessionMeetingSchema>;
+
 export const CreateScheduleSchema = z
   .object({
     studioId: z.string().uuid(),
@@ -119,10 +150,22 @@ export const CreateScheduleSchema = z
     capacity: z.number().int().positive().optional(),
     isRecurring: z.boolean().default(false),
     recurringWeeks: z.number().int().min(1).max(12).optional(),
+    deliveryMode: z.nativeEnum(SessionDeliveryMode).default(SessionDeliveryMode.IN_PERSON),
+    onlineCapacity: z.number().int().positive().optional(),
+    meetingProvider: z.nativeEnum(VideoMeetingProviderKind).optional(),
+    manualMeetingUrl: HttpsUrlSchema.optional(),
   })
   .refine((v) => new Date(v.endTime) > new Date(v.startTime), {
     path: ['endTime'],
     message: 'Bitiş saati başlangıçtan sonra olmalıdır',
+  })
+  .refine((v) => v.deliveryMode === SessionDeliveryMode.IN_PERSON || v.meetingProvider !== undefined, {
+    path: ['meetingProvider'],
+    message: 'Çevrimiçi/hibrit seanslar için bir yayın sağlayıcısı seçmelisiniz',
+  })
+  .refine((v) => v.meetingProvider !== VideoMeetingProviderKind.MANUAL || !!v.manualMeetingUrl, {
+    path: ['manualMeetingUrl'],
+    message: 'Elle bağlantı için https bağlantısı giriniz',
   });
 export type CreateScheduleInput = z.infer<typeof CreateScheduleSchema>;
 
