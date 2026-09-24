@@ -1,7 +1,5 @@
-import { BadRequestException, Body, Controller, ForbiddenException, Post, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import type { AuthUser } from '../auth/tenant-context';
+import { BadRequestException, Body, Controller, Post } from '@nestjs/common';
+import { SuperAdminOnly } from '../auth/decorators/super-admin-only.decorator';
 import { RatingPromptService } from './rating-prompt.service';
 
 /**
@@ -10,15 +8,12 @@ import { RatingPromptService } from './rating-prompt.service';
  * this endpoint forces a run. `now` is honoured only under NODE_ENV=test.
  */
 @Controller('admin/feedback')
+@SuperAdminOnly()
 export class FeedbackAdminController {
   constructor(private readonly ratingPrompt: RatingPromptService) {}
 
   @Post('rating-prompts/run')
-  @UseGuards(JwtAuthGuard)
-  async runRatingPrompts(@CurrentUser() user: AuthUser, @Body() body: { now?: string }) {
-    if (!user.isSuperAdmin) {
-      throw new ForbiddenException('Bu işlem için yetkiniz yok');
-    }
+  async runRatingPrompts(@Body() body: { now?: string }) {
     let now = new Date();
     if (body?.now && process.env.NODE_ENV === 'test') {
       now = new Date(body.now);

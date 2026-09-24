@@ -6,6 +6,7 @@ import { CreateMemberInput, AssignPackageToMemberInput, FreezePackageInput, Unfr
 import type { MemberDetailDTO, SetHomeBranchInput } from '@platform/shared';
 import { assertBranchAccess } from '../branches/branch-access';
 import { ReferralsService } from '../feedback/referrals.service';
+import { PlanLimitsService } from '../admin/plan-limits.service';
 
 @Injectable()
 export class MembersService {
@@ -13,6 +14,7 @@ export class MembersService {
     private prisma: PrismaService,
     private referrals: ReferralsService,
     private webhooks: WebhooksService,
+    private planLimits: PlanLimitsService,
   ) {}
 
   async findAll(tenant: TenantContext, search?: string, homeBranchId?: string) {
@@ -136,6 +138,7 @@ export class MembersService {
 
   private async createMemberTx(tenant: TenantContext, dto: CreateMemberInput) {
     const studioId = tenant.studioId;
+    await this.planLimits.assertWithinLimit(studioId, 'maxActiveMembers');
 
     const roleTemplate = await this.prisma.roleTemplate.findFirst({
       where: { studioId, key: 'member' },

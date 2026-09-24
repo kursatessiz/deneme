@@ -37,6 +37,7 @@ const PROTECTED_PATHS = [
   '/raporlar',
   '/adaylar',
   '/riskli-uyeler',
+  '/admin',
 ];
 
 async function embedCsp(request: NextRequest): Promise<NextResponse> {
@@ -119,5 +120,6 @@ export const config = {
     '/raporlar/:path*',
     '/adaylar/:path*',
     '/riskli-uyeler/:path*',
+    '/admin/:path*',
   ],
 };

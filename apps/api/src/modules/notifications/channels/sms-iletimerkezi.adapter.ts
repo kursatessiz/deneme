@@ -62,4 +62,39 @@ export class SmsIletiMerkeziAdapter implements MessageChannel {
       return { success: false, errorMessage: err.message };
     }
   }
+
+  /**
+   * Remaining SMS credits on the İleti Merkezi account. MOCK (unconfigured)
+   * always reports a fixed, healthy balance so local dev and tests never
+   * alert.
+   */
+  async getBalance(): Promise<{ credits: number | null; errorMessage?: string }> {
+    if (!this.isConfigured) {
+      return { credits: 10_000 };
+    }
+    const username = this.config.get<string>('ILETI_MERKEZI_USER');
+    const password = this.config.get<string>('ILETI_MERKEZI_PASSWORD');
+    try {
+      // Documented İleti Merkezi REST balance query API.
+      const response = await fetch('https://api.iletimerkezi.com/v1/get-balance/json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ request: { authentication: { username, password } } }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        response?: { status?: { code?: string; message?: string }; balance?: { sms?: string } };
+      };
+      const code = payload.response?.status?.code;
+      const credits = Number(payload.response?.balance?.sms);
+      if (!response.ok || code !== '200' || Number.isNaN(credits)) {
+        const message = payload.response?.status?.message ?? `HTTP ${response.status}`;
+        this.logger.error(`İleti Merkezi balance query failed: ${message}`);
+        return { credits: null, errorMessage: message };
+      }
+      return { credits };
+    } catch (err: any) {
+      this.logger.error(`İleti Merkezi balance query threw: ${err.message}`);
+      return { credits: null, errorMessage: err.message };
+    }
+  }
 }

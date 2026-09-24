@@ -1,6 +1,6 @@
-import { Controller, Get, Param, Put, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Param, Put } from '@nestjs/common';
 import { StudiosService } from './studios.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { SuperAdminOnly } from '../auth/decorators/super-admin-only.decorator';
 import { StudioScoped, RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import { ZodBody } from '../../common/zod-body.pipe';
@@ -15,11 +15,8 @@ export class StudiosController {
 
   /** Platform-wide listing: super-admin only. */
   @Get()
-  @UseGuards(JwtAuthGuard)
-  async findAll(@CurrentUser() user: AuthUser) {
-    if (!user.isSuperAdmin) {
-      throw new ForbiddenException('Bu işlem için yetkiniz yok');
-    }
+  @SuperAdminOnly()
+  async findAll() {
     return this.studiosService.findAll();
   }
 

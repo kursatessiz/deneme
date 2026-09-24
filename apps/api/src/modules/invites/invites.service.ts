@@ -17,6 +17,7 @@ import { OtpService } from '../otp/otp.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuthService } from '../auth/auth.service';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
+import { PlanLimitsService } from '../admin/plan-limits.service';
 
 export const INVITE_TTL_MS = 72 * 60 * 60 * 1000;
 /** Documents a person must accept to join a studio (latest published version). */
@@ -39,6 +40,7 @@ export class InvitesService {
     private readonly notifications: NotificationsService,
     private readonly auth: AuthService,
     private readonly config: ConfigService,
+    private readonly planLimits: PlanLimitsService,
   ) {}
 
   async create(tenant: TenantContext, creator: AuthUser, dto: CreateInviteInput) {
@@ -49,6 +51,7 @@ export class InvitesService {
     if (!tenant.permissions.has(required)) {
       throw new ForbiddenException('Bu rol için davet oluşturma yetkiniz yok');
     }
+    await this.planLimits.assertWithinLimit(tenant.studioId, dto.roleKey === 'member' ? 'maxActiveMembers' : 'maxStaff');
 
     const role = await this.prisma.roleTemplate.findUnique({
       where: { studioId_key: { studioId: tenant.studioId, key: dto.roleKey } },
@@ -61,24 +64,45 @@ export class InvitesService {
     });
     if (existing) throw new ConflictException('Bu telefon numarası işletmede zaten aktif');
 
+    return this.buildInvite(tenant.studioId, creator.id, role.id, dto.phone, dto.fullName, dto.channel);
+  }
+
+  /**
+   * Super-admin path (backlog 4.1): a new tenant's owner cannot self-invite
+   * (there is no staff member yet to invite them), so the admin tenant
+   * creation flow issues the owner invite directly, skipping the
+   * staff-facing role/permission checks in create() above.
+   */
+  async createOwnerInvite(studioId: string, creatorUserId: string, ownerRoleTemplateId: string, phone: string, fullName: string, channel: InviteChannel) {
+    return this.buildInvite(studioId, creatorUserId, ownerRoleTemplateId, phone, fullName, channel);
+  }
+
+  private async buildInvite(
+    studioId: string,
+    creatorUserId: string,
+    roleTemplateId: string,
+    phone: string,
+    fullName: string,
+    channel: InviteChannel,
+  ) {
     const token = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
 
     const invite = await this.prisma.$transaction(async (tx) => {
       // Only the newest invite for a person stays usable.
       await tx.inviteToken.updateMany({
-        where: { studioId: tenant.studioId, phone: dto.phone, usedAt: null, revokedAt: null },
+        where: { studioId, phone, usedAt: null, revokedAt: null },
         data: { revokedAt: new Date() },
       });
       return tx.inviteToken.create({
         data: {
-          studioId: tenant.studioId,
-          createdByUserId: creator.id,
-          roleTemplateId: role.id,
-          phone: dto.phone,
-          fullName: dto.fullName,
+          studioId,
+          createdByUserId: creatorUserId,
+          roleTemplateId,
+          phone,
+          fullName,
           tokenHash: hashInviteToken(token),
-          channel: dto.channel,
+          channel,
           expiresAt,
         },
         include: { studio: { select: { name: true } } },
@@ -87,11 +111,11 @@ export class InvitesService {
 
     const inviteUrl = `${this.config.getOrThrow<string>('PUBLIC_APP_URL').replace(/\/$/, '')}/j/${token}`;
 
-    if (dto.channel !== InviteChannel.SHOWN) {
+    if (channel !== InviteChannel.SHOWN) {
       // WhatsApp Cloud API is not wired yet (backlog 1.6); SMS carries both.
       await this.notifications.sendSms({
-        studioId: tenant.studioId,
-        phone: dto.phone,
+        studioId,
+        phone,
         message: `${invite.studio.name} sizi davet ediyor: ${inviteUrl}`,
         type: 'INVITE_LINK',
         sensitive: true,

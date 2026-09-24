@@ -11,6 +11,8 @@ export const EnvSchema = z
     JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
     CORS_ORIGIN: z.string().optional(),
     SMS_PROVIDER: z.enum(['MOCK', 'NETGSM', 'ILETI_MERKEZI']).default('MOCK'),
+    /** Provider SMS credit balance below which the hourly heartbeat check alerts super admins. */
+    SMS_PROVIDER_LOW_BALANCE_THRESHOLD: z.coerce.number().int().positive().default(500),
     // Netgsm credentials. Adapter falls back to MOCK when unset, regardless
     // of SMS_PROVIDER, so a missing credential never blocks the app.
     NETGSM_USER: z.string().min(1).optional(),

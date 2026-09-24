@@ -48,7 +48,7 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
 export class JobsModule implements OnModuleInit {
   private readonly logger = new Logger(JobsModule.name);
 
-  constructor(@Optional() @InjectQueue(SCHEDULER_QUEUE) private readonly queue?: Queue) {}
+  constructor(@Optional() @InjectQueue(SCHEDULER_QUEUE) private readonly queue: Queue | undefined) {}
 
   async onModuleInit(): Promise<void> {
     if (!this.queue) {

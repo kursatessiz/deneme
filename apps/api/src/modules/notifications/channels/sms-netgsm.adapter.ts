@@ -59,4 +59,33 @@ export class SmsNetgsmAdapter implements MessageChannel {
       return { success: false, errorMessage: err.message };
     }
   }
+
+  /**
+   * Remaining SMS credits on the Netgsm account. MOCK (unconfigured) always
+   * reports a fixed, healthy balance so local dev and tests never alert.
+   */
+  async getBalance(): Promise<{ credits: number | null; errorMessage?: string }> {
+    if (!this.isConfigured) {
+      return { credits: 10_000 };
+    }
+    const usercode = this.config.get<string>('NETGSM_USER');
+    const password = this.config.get<string>('NETGSM_PASSWORD');
+    try {
+      // Documented Netgsm balance query API.
+      const response = await fetch(
+        `https://api.netgsm.com.tr/balance/list/get?usercode=${encodeURIComponent(usercode!)}&password=${encodeURIComponent(password!)}`,
+      );
+      const text = (await response.text()).trim();
+      const [creditsRaw] = text.split(' ');
+      const credits = Number(creditsRaw);
+      if (!response.ok || Number.isNaN(credits)) {
+        this.logger.error(`Netgsm balance query failed: ${text}`);
+        return { credits: null, errorMessage: text || `HTTP ${response.status}` };
+      }
+      return { credits };
+    } catch (err: any) {
+      this.logger.error(`Netgsm balance query threw: ${err.message}`);
+      return { credits: null, errorMessage: err.message };
+    }
+  }
 }

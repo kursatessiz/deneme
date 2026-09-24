@@ -3,6 +3,7 @@ import { MembersService } from './members.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReferralsService } from '../feedback/referrals.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import { PlanLimitsService } from '../admin/plan-limits.service';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import type { TenantContext } from '../auth/tenant-context';
 
@@ -73,6 +74,10 @@ describe('MembersService', () => {
         {
           provide: WebhooksService,
           useValue: { emit: jest.fn() },
+        },
+        {
+          provide: PlanLimitsService,
+          useValue: { assertWithinLimit: jest.fn() },
         },
       ],
     }).compile();
