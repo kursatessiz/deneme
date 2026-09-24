@@ -314,6 +314,7 @@ model User {
   memberships        Membership[]
   pushDevices        PushDevice[]
   notificationPrefs  NotificationPreference[]
+  calendarFeedToken  CalendarFeedToken?
   invitesCreated     InviteToken[]            @relation("InviteCreatedBy")
   packageTransfers   PackageTransfer[]
   measurementEntries MeasurementEntry[]
@@ -950,6 +951,22 @@ model Expense {
 // ---------------------------------------------------------------------------
 // Notifications and SMS credits
 // ---------------------------------------------------------------------------
+
+/// Secret feed token for the user's personal ICS calendar subscription
+/// (GET /calendar/:token.ics, no auth). Only a sha256 hash of the token is
+/// stored; the raw token is returned once, on create or rotate. One row
+/// per user: rotating replaces it, revoking deletes it.
+model CalendarFeedToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @unique @map("user_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash") @db.VarChar(64)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  lastUsedAt DateTime? @map("last_used_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("calendar_feed_tokens")
+}
 
 /// Expo push token of one installed app. A token belongs to one user at a
 /// time; signing in on the same phone as someone else moves it.

@@ -28,6 +28,38 @@
           "icon": "./assets/icon.png",
           "color": "#3f6b52"
         }
+      ],
+      [
+        "expo-widgets",
+        {
+          "groupIdentifier": "group.com.platform.member",
+          "widgets": [
+            {
+              "name": "NextSessionWidget",
+              "displayName": "Sonraki Ders",
+              "description": "Sonraki dersiniz ve aktif paketinizde kalan hak.",
+              "supportedFamilies": ["systemSmall", "systemMedium"],
+              "ios": {
+                "supportedFamilies": ["systemSmall", "systemMedium"]
+              }
+            }
+          ]
+        }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "NextSessionWidget",
+              "label": "Sonraki Ders",
+              "description": "Sonraki dersiniz ve aktif paketinizde kalan hak.",
+              "minWidth": "180dp",
+              "minHeight": "110dp",
+              "resizeMode": "horizontal"
+            }
+          ]
+        }
       ]
     ],
     "extra": {

@@ -158,6 +158,14 @@ Bizim şimdiden önde olduğumuz yerler: ekipman seviyesinde çift rezervasyonun
 - Apple Health / Health Connect ile ölçüm paylaşımı
 - Çok şube ve franchise görünümü
 
+## 6c. W-serisi (worker) görev durumu
+
+Arka planda ajanlara devredilen, tek PR'lık iş paketlerinin durumu.
+
+| Görev | Konu | Durum | Not |
+|---|---|---|---|
+| W4 | Kişisel takvim (üye "Hesabım" widget'ları, ICS abonelik akışı, mobil takvim entegrasyonu ve ana ekran widget'ları) | Tamamlandı | `GET /me/bookings/upcoming`, `GET /me/summary`, `POST`/`DELETE /me/calendar-feed`, herkese açık `GET /calendar/:token.ics`; mobilde "Takvime ekle" (expo-calendar) ve "Takvim aboneliği" ekranı; iOS (expo-widgets) ve Android (react-native-android-widget) ana ekran widget'ları eklendi. Detaylar: `docs/MOBILE_WIDGETS.md`. Widget native derlemesi (Apple Team ID, App Group, EAS build) bu oturumda doğrulanamadı; bkz. o dosyadaki açık sorular. |
+
 ## 7. Sahibin sağlayacağı girdiler (henüz gelmedi)
 - Tasarım referans ekran görüntüleri (3–4 ekran: ana, takvim, üye kartı, rezervasyon)
 - İki stüdyonun gerçek hizmet türü / paket / eğitmen ücret / iptal kuralı listesi

@@ -64,6 +64,7 @@ export default function HesabimScreen() {
 
       <View style={styles.menu}>
         <MenuLink label="Bildirim ayarları" onPress={() => router.push('/(app)/hesabim/bildirimler')} />
+        <MenuLink label="Takvim aboneliği" onPress={() => router.push('/(app)/hesabim/takvim')} />
         <MenuLink label="PIN değiştir" onPress={() => router.push('/(app)/hesabim/pin')} />
       </View>
 
