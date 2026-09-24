@@ -1,16 +1,44 @@
-import { Injectable, BadRequestException, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+  HttpException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import type { TenantContext } from '../auth/tenant-context';
-import { CreateScheduleInput, BookSessionInput, CancelBookingInput } from '@platform/shared';
+import type {
+  CreateScheduleInput,
+  BookSessionInput,
+  CancelBookingInput,
+  MarkNoShowInput,
+  JoinWaitlistInput,
+  LeaveWaitlistInput,
+  SubstituteTrainerInput,
+  NotificationCategory,
+} from '@platform/shared';
 import { Prisma } from '@platform/database';
-import type { MemberPackage } from '@platform/database';
+import type { CancellationPolicy, MemberPackage } from '@platform/database';
+import { evaluateCancellation, evaluateNoShow, FALLBACK_POLICY, PolicyTerms } from './cancellation-policy';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const HOUR_MS = 60 * 60 * 1000;
+const CAPACITY_FULL = 'Bu seansın kontenjanı doludur';
+/** Upper bound on entries tried per freed seat, so a long list of unusable entries cannot stall a request. */
+const MAX_PROMOTION_ATTEMPTS = 20;
+
+type Tx = Prisma.TransactionClient;
 
 @Injectable()
 export class SchedulesService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(SchedulesService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async getSchedules(
     tenant: TenantContext,
@@ -130,20 +158,16 @@ export class SchedulesService {
   }
 
   async bookSession(tenant: TenantContext, dto: BookSessionInput) {
-    return this.book(tenant, dto);
+    return this.book(tenant.studioId, dto);
   }
 
   /** Members booking for themselves; enforces dto.memberId matches the caller's own profile. */
   async bookSessionSelf(tenant: TenantContext, dto: BookSessionInput) {
-    if (!tenant.memberProfileId || dto.memberId !== tenant.memberProfileId) {
-      throw new ForbiddenException('Yalnızca kendi adınıza rezervasyon yapabilirsiniz');
-    }
-    return this.book(tenant, dto);
+    this.assertSelf(tenant, dto.memberId, 'Yalnızca kendi adınıza rezervasyon yapabilirsiniz');
+    return this.book(tenant.studioId, dto);
   }
 
-  private async book(tenant: TenantContext, dto: BookSessionInput) {
-    const studioId = tenant.studioId;
-
+  private async book(studioId: string, dto: BookSessionInput) {
     const schedule = await this.prisma.sessionSchedule.findFirst({
       where: { id: dto.scheduleId, studioId },
       include: { serviceType: true },
@@ -160,40 +184,12 @@ export class SchedulesService {
       throw new NotFoundException('Üye bulunamadı');
     }
 
-    let memberPackage: MemberPackage | null = null;
-    let unitCost = 0;
-
-    if (dto.memberPackageId) {
-      memberPackage = await this.prisma.memberPackage.findFirst({
-        where: { id: dto.memberPackageId, studioId },
-      });
-      if (!memberPackage || memberPackage.memberId !== dto.memberId) {
-        throw new BadRequestException('Seçilen paket bu üyeye ait değil');
-      }
-      if (memberPackage.status !== 'ACTIVE') {
-        throw new BadRequestException(`Paket durumu aktif değil (${memberPackage.status})`);
-      }
-      if (new Date() > memberPackage.endDate) {
-        throw new BadRequestException('Paketin son kullanım tarihi dolmuştur');
-      }
-
-      const coverage = await this.prisma.packageDefinitionService.findUnique({
-        where: {
-          packageDefinitionId_serviceTypeId: {
-            packageDefinitionId: memberPackage.packageDefinitionId,
-            serviceTypeId: schedule.serviceTypeId,
-          },
-        },
-      });
-      if (!coverage) {
-        throw new BadRequestException('Seçilen paket bu hizmeti kapsamıyor');
-      }
-      unitCost = coverage.unitCost;
-
-      if (memberPackage.entitlementKind !== 'TIME_UNLIMITED' && (memberPackage.remainingUnits ?? 0) < unitCost) {
-        throw new BadRequestException('Pakette yeterli seans/kredi kalmamıştır');
-      }
-    }
+    const { memberPackage, unitCost } = await this.resolvePackage(
+      studioId,
+      dto.memberId,
+      dto.memberPackageId,
+      schedule.serviceTypeId,
+    );
 
     return this.prisma.$transaction(async (tx) => {
       if (memberPackage && memberPackage.entitlementKind !== 'TIME_UNLIMITED' && unitCost > 0) {
@@ -213,25 +209,16 @@ export class SchedulesService {
       }
 
       const updateResult = await tx.sessionSchedule.updateMany({
-        where: { id: dto.scheduleId, studioId, bookedCount: { lt: schedule.capacity } },
+        where: { id: dto.scheduleId, studioId, isCancelled: false, bookedCount: { lt: schedule.capacity } },
         data: { bookedCount: { increment: 1 } },
       });
       if (updateResult.count === 0) {
-        throw new BadRequestException('Bu seansın kontenjanı doludur');
+        throw new BadRequestException(CAPACITY_FULL);
       }
 
       let booking;
       try {
-        booking = await tx.booking.create({
-          data: {
-            studioId,
-            scheduleId: dto.scheduleId,
-            memberId: dto.memberId,
-            memberPackageId: dto.memberPackageId,
-            status: 'CONFIRMED',
-            unitsCharged: unitCost,
-          },
-        });
+        booking = await this.upsertBooking(tx, studioId, dto.scheduleId, dto.memberId, dto.memberPackageId, unitCost);
       } catch (err) {
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
           throw new ConflictException('Üye bu seansa zaten kayıtlı');
@@ -263,12 +250,93 @@ export class SchedulesService {
         }
       }
 
+      // A member who got a seat no longer waits for one.
+      await tx.waitlist.updateMany({
+        where: { studioId, scheduleId: dto.scheduleId, memberId: dto.memberId, status: { in: ['WAITING', 'OFFERED'] } },
+        data: { status: 'PROMOTED', resolvedAt: new Date() },
+      });
+
       return booking;
     });
   }
 
+  /**
+   * A cancelled booking row blocks a new one through the (scheduleId, memberId)
+   * unique key, so rebooking after a cancellation reuses that row. A live
+   * booking still raises P2002.
+   */
+  private async upsertBooking(
+    tx: Tx,
+    studioId: string,
+    scheduleId: string,
+    memberId: string,
+    memberPackageId: string | undefined,
+    unitsCharged: number,
+  ) {
+    const fresh = {
+      memberPackageId: memberPackageId ?? null,
+      status: 'CONFIRMED' as const,
+      unitsCharged,
+      penaltyUnits: 0,
+      checkInAt: null,
+      cancelledAt: null,
+      cancellationReason: null,
+      isLateCancellation: false,
+    };
+    const reopened = await tx.booking.updateMany({
+      where: { studioId, scheduleId, memberId, status: { in: ['CANCELLED_EARLY', 'CANCELLED_LATE'] } },
+      data: fresh,
+    });
+    if (reopened.count === 1) {
+      await tx.bookingResource.deleteMany({ where: { studioId, booking: { scheduleId, memberId } } });
+      return tx.booking.findFirstOrThrow({ where: { studioId, scheduleId, memberId } });
+    }
+    return tx.booking.create({ data: { studioId, scheduleId, memberId, ...fresh } });
+  }
+
+  private async resolvePackage(
+    studioId: string,
+    memberId: string,
+    memberPackageId: string | undefined,
+    serviceTypeId: string,
+  ): Promise<{ memberPackage: MemberPackage | null; unitCost: number }> {
+    if (!memberPackageId) {
+      return { memberPackage: null, unitCost: 0 };
+    }
+    const memberPackage = await this.prisma.memberPackage.findFirst({
+      where: { id: memberPackageId, studioId },
+    });
+    if (!memberPackage || memberPackage.memberId !== memberId) {
+      throw new BadRequestException('Seçilen paket bu üyeye ait değil');
+    }
+    if (memberPackage.status !== 'ACTIVE') {
+      throw new BadRequestException(`Paket durumu aktif değil (${memberPackage.status})`);
+    }
+    if (new Date() > memberPackage.endDate) {
+      throw new BadRequestException('Paketin son kullanım tarihi dolmuştur');
+    }
+
+    const coverage = await this.prisma.packageDefinitionService.findUnique({
+      where: {
+        packageDefinitionId_serviceTypeId: {
+          packageDefinitionId: memberPackage.packageDefinitionId,
+          serviceTypeId,
+        },
+      },
+    });
+    if (!coverage) {
+      throw new BadRequestException('Seçilen paket bu hizmeti kapsamıyor');
+    }
+    const unitCost = coverage.unitCost;
+
+    if (memberPackage.entitlementKind !== 'TIME_UNLIMITED' && (memberPackage.remainingUnits ?? 0) < unitCost) {
+      throw new BadRequestException('Pakette yeterli seans/kredi kalmamıştır');
+    }
+    return { memberPackage, unitCost };
+  }
+
   async cancelBooking(tenant: TenantContext, dto: CancelBookingInput) {
-    return this.cancel(tenant, dto);
+    return this.cancel(tenant, dto, dto.waivePenalty);
   }
 
   async cancelBookingSelf(tenant: TenantContext, dto: CancelBookingInput) {
@@ -278,13 +346,12 @@ export class SchedulesService {
     if (!booking) {
       throw new NotFoundException('Rezervasyon bulunamadı');
     }
-    if (!tenant.memberProfileId || booking.memberId !== tenant.memberProfileId) {
-      throw new ForbiddenException('Yalnızca kendi rezervasyonunuzu iptal edebilirsiniz');
-    }
-    return this.cancel(tenant, dto);
+    this.assertSelf(tenant, booking.memberId, 'Yalnızca kendi rezervasyonunuzu iptal edebilirsiniz');
+    // Members cannot waive their own penalty.
+    return this.cancel(tenant, { ...dto, cancelledBy: 'MEMBER' }, false);
   }
 
-  private async cancel(tenant: TenantContext, dto: CancelBookingInput) {
+  private async cancel(tenant: TenantContext, dto: CancelBookingInput, waivePenalty: boolean) {
     const studioId = tenant.studioId;
 
     const booking = await this.prisma.booking.findFirst({
@@ -301,64 +368,132 @@ export class SchedulesService {
       throw new BadRequestException('Yalnızca onaylı rezervasyonlar iptal edilebilir');
     }
 
-    let freeCancelHours = booking.schedule.serviceType.cancellationPolicy?.freeCancelHours;
-    if (freeCancelHours === undefined || freeCancelHours === null) {
-      const defaultPolicy = await this.prisma.cancellationPolicy.findFirst({
-        where: { studioId, isDefault: true },
-      });
-      freeCancelHours = defaultPolicy?.freeCancelHours ?? 0;
-    }
-
+    const policy = await this.resolvePolicy(studioId, booking.schedule.serviceType.cancellationPolicy);
     const now = new Date();
-    const deadline = new Date(booking.schedule.startTime.getTime() - freeCancelHours * HOUR_MS);
-    const isLateCancellation = now > deadline;
+    const outcome = evaluateCancellation({
+      policy,
+      sessionStart: booking.schedule.startTime,
+      now,
+      unitsCharged: booking.unitsCharged,
+      entitlementKind: booking.memberPackage?.entitlementKind ?? null,
+      waivePenalty,
+    });
 
-    return this.prisma.$transaction(async (tx) => {
-      if (
-        !isLateCancellation &&
-        booking.memberPackageId &&
-        booking.memberPackage &&
-        booking.memberPackage.entitlementKind !== 'TIME_UNLIMITED'
-      ) {
-        await tx.memberPackage.update({
-          where: { id: booking.memberPackageId },
-          data: {
-            usedUnits: { decrement: booking.unitsCharged },
-            remainingUnits: { increment: booking.unitsCharged },
-            status: 'ACTIVE',
-          },
-        });
-      }
-
-      const updatedBooking = await tx.booking.update({
-        where: { id: dto.bookingId },
+    const updatedBooking = await this.prisma.$transaction(async (tx) => {
+      // Conditional transition: two concurrent cancels cannot both refund.
+      const transitioned = await tx.booking.updateMany({
+        where: { id: booking.id, studioId, status: 'CONFIRMED' },
         data: {
-          status: isLateCancellation ? 'CANCELLED_LATE' : 'CANCELLED_EARLY',
+          status: outcome.isLate ? 'CANCELLED_LATE' : 'CANCELLED_EARLY',
           cancelledAt: now,
           cancellationReason: dto.reason,
-          isLateCancellation,
+          isLateCancellation: outcome.isLate,
+          penaltyUnits: outcome.penaltyUnits,
         },
       });
+      if (transitioned.count === 0) {
+        throw new ConflictException('Rezervasyon zaten güncellenmiş');
+      }
 
-      await tx.sessionSchedule.update({
-        where: { id: booking.scheduleId },
+      await this.refund(tx, studioId, booking.memberPackageId, outcome.refundUnits);
+
+      await tx.sessionSchedule.updateMany({
+        where: { id: booking.scheduleId, studioId, bookedCount: { gt: 0 } },
         data: { bookedCount: { decrement: 1 } },
       });
 
       await tx.bookingResource.updateMany({
-        where: { bookingId: dto.bookingId, studioId },
+        where: { bookingId: booking.id, studioId },
         data: { isActive: false },
       });
 
-      return {
-        booking: updatedBooking,
-        isLateCancellation,
-        creditRefunded: !isLateCancellation,
-        message: !isLateCancellation
-          ? 'Rezervasyon başarıyla iptal edildi, seans kredisi paketinize iade edildi.'
-          : `Ders saatine ${freeCancelHours} saatten az kaldığı için seans kredisi düşülerek iptal edildi.`,
-      };
+      return tx.booking.findUniqueOrThrow({ where: { id: booking.id } });
     });
+
+    const promoted = booking.schedule.startTime > now ? await this.promoteFromWaitlistSafe(studioId, booking.scheduleId) : 0;
+
+    return {
+      booking: updatedBooking,
+      isLateCancellation: outcome.isLate,
+      refundedUnits: outcome.refundUnits,
+      penaltyUnits: outcome.penaltyUnits,
+      creditRefunded: outcome.refundUnits > 0,
+      promotedFromWaitlist: promoted,
+      message: this.cancellationMessage(outcome.isLate, outcome.refundUnits, outcome.penaltyUnits, policy),
+    };
+  }
+
+  private cancellationMessage(isLate: boolean, refund: number, penalty: number, policy: PolicyTerms): string {
+    if (!isLate) {
+      return refund > 0
+        ? 'Rezervasyon iptal edildi, seans hakkı paketinize iade edildi.'
+        : 'Rezervasyon iptal edildi.';
+    }
+    if (penalty === 0) {
+      return refund > 0 ? 'Geç iptal cezası uygulanmadı, seans hakkı paketinize iade edildi.' : 'Rezervasyon iptal edildi.';
+    }
+    const window = policy.freeCancelHours > 0 ? `Seansa ${policy.freeCancelHours} saatten az kaldığı için ` : 'Seans başladığı için ';
+    return `${window}${penalty} birim geç iptal olarak düşüldü${refund > 0 ? `, ${refund} birim iade edildi` : ''}.`;
+  }
+
+  async markNoShow(tenant: TenantContext, bookingId: string, dto: MarkNoShowInput) {
+    const studioId = tenant.studioId;
+    const booking = await this.prisma.booking.findFirst({
+      where: { id: bookingId, studioId },
+      include: {
+        schedule: { include: { serviceType: { include: { cancellationPolicy: true } } } },
+        memberPackage: true,
+      },
+    });
+    if (!booking) {
+      throw new NotFoundException('Rezervasyon bulunamadı');
+    }
+    if (booking.status !== 'CONFIRMED') {
+      throw new BadRequestException('Yalnızca onaylı rezervasyonlar gelmedi olarak işaretlenebilir');
+    }
+    if (booking.schedule.startTime > new Date()) {
+      throw new BadRequestException('Seans başlamadan gelmedi işaretlenemez');
+    }
+
+    const policy = await this.resolvePolicy(studioId, booking.schedule.serviceType.cancellationPolicy);
+    const outcome = evaluateNoShow({
+      policy,
+      unitsCharged: booking.unitsCharged,
+      entitlementKind: booking.memberPackage?.entitlementKind ?? null,
+      waivePenalty: dto.waivePenalty,
+    });
+
+    return this.prisma.$transaction(async (tx) => {
+      const transitioned = await tx.booking.updateMany({
+        where: { id: booking.id, studioId, status: 'CONFIRMED' },
+        data: { status: 'NO_SHOW', penaltyUnits: outcome.penaltyUnits },
+      });
+      if (transitioned.count === 0) {
+        throw new ConflictException('Rezervasyon zaten güncellenmiş');
+      }
+      await this.refund(tx, studioId, booking.memberPackageId, outcome.refundUnits);
+      const updated = await tx.booking.findUniqueOrThrow({ where: { id: booking.id } });
+      return { booking: updated, refundedUnits: outcome.refundUnits, penaltyUnits: outcome.penaltyUnits };
+    });
+  }
+
+  private async refund(tx: Tx, studioId: string, memberPackageId: string | null, units: number) {
+    if (!memberPackageId || units <= 0) return;
+    await tx.memberPackage.updateMany({
+      where: { id: memberPackageId, studioId },
+      data: { usedUnits: { decrement: units }, remainingUnits: { increment: units } },
+    });
+    // Only a package emptied by bookings comes back; frozen or expired ones keep their status.
+    await tx.memberPackage.updateMany({
+      where: { id: memberPackageId, studioId, status: 'DEPLETED', remainingUnits: { gt: 0 } },
+      data: { status: 'ACTIVE' },
+    });
+  }
+
+  private async resolvePolicy(studioId: string, attached: CancellationPolicy | null): Promise<PolicyTerms> {
+    if (attached) return attached;
+    const fallback = await this.prisma.cancellationPolicy.findFirst({ where: { studioId, isDefault: true } });
+    return fallback ?? FALLBACK_POLICY;
   }
 
   async checkIn(tenant: TenantContext, bookingId: string) {
@@ -369,10 +504,337 @@ export class SchedulesService {
       throw new NotFoundException('Rezervasyon bulunamadı');
     }
 
-    return this.prisma.booking.update({
-      where: { id: bookingId },
+    const updated = await this.prisma.booking.updateMany({
+      where: { id: bookingId, studioId: tenant.studioId, status: 'CONFIRMED' },
       data: { status: 'ATTENDED', checkInAt: new Date() },
     });
+    if (updated.count === 0) {
+      throw new BadRequestException('Yalnızca onaylı rezervasyonlar için giriş yapılabilir');
+    }
+    return this.prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Waitlist
+  // ---------------------------------------------------------------------------
+
+  async getWaitlist(tenant: TenantContext, scheduleId: string) {
+    const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: scheduleId, studioId: tenant.studioId } });
+    if (!schedule) {
+      throw new NotFoundException('Ders seansı bulunamadı');
+    }
+    const canViewContact = tenant.permissions.has('members.contact.view');
+    const entries = await this.prisma.waitlist.findMany({
+      where: { studioId: tenant.studioId, scheduleId },
+      include: { member: { include: { membership: { include: { user: true } } } } },
+      orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+    });
+    return entries.map((entry) => this.maskBookingContact(entry, canViewContact));
+  }
+
+  async joinWaitlist(tenant: TenantContext, dto: JoinWaitlistInput) {
+    return this.join(tenant.studioId, dto);
+  }
+
+  async joinWaitlistSelf(tenant: TenantContext, dto: JoinWaitlistInput) {
+    this.assertSelf(tenant, dto.memberId, 'Yalnızca kendi adınıza bekleme listesine girebilirsiniz');
+    return this.join(tenant.studioId, dto);
+  }
+
+  private async join(studioId: string, dto: JoinWaitlistInput) {
+    const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: dto.scheduleId, studioId } });
+    if (!schedule) {
+      throw new NotFoundException('Ders seansı bulunamadı');
+    }
+    if (schedule.isCancelled) {
+      throw new BadRequestException('Bu seans iptal edilmiştir');
+    }
+    if (schedule.startTime <= new Date()) {
+      throw new BadRequestException('Başlamış bir seansın bekleme listesine girilemez');
+    }
+    if (schedule.bookedCount < schedule.capacity) {
+      throw new BadRequestException('Seansta boş yer var, doğrudan rezervasyon yapabilirsiniz');
+    }
+
+    const member = await this.prisma.memberProfile.findFirst({ where: { id: dto.memberId, studioId } });
+    if (!member) {
+      throw new NotFoundException('Üye bulunamadı');
+    }
+    const live = await this.prisma.booking.findFirst({
+      where: { studioId, scheduleId: dto.scheduleId, memberId: dto.memberId, status: { in: ['CONFIRMED', 'ATTENDED'] } },
+    });
+    if (live) {
+      throw new ConflictException('Üye bu seansa zaten kayıtlı');
+    }
+    // Validates ownership, status and coverage now so the member learns about
+    // a problem at join time, not when a seat opens.
+    await this.resolvePackage(studioId, dto.memberId, dto.memberPackageId, schedule.serviceTypeId);
+
+    return this.prisma.$transaction(async (tx) => {
+      const last = await tx.waitlist.aggregate({
+        where: { studioId, scheduleId: dto.scheduleId },
+        _max: { position: true },
+      });
+      const position = (last._max.position ?? 0) + 1;
+
+      const existing = await tx.waitlist.findUnique({
+        where: { scheduleId_memberId: { scheduleId: dto.scheduleId, memberId: dto.memberId } },
+      });
+      if (existing && (existing.status === 'WAITING' || existing.status === 'OFFERED')) {
+        throw new ConflictException('Üye zaten bekleme listesinde');
+      }
+      const data = {
+        memberPackageId: dto.memberPackageId ?? null,
+        position,
+        status: 'WAITING' as const,
+        offeredAt: null,
+        resolvedAt: null,
+        failureReason: null,
+      };
+      try {
+        const entry = existing
+          ? await tx.waitlist.update({ where: { id: existing.id }, data })
+          : await tx.waitlist.create({
+              data: { studioId, scheduleId: dto.scheduleId, memberId: dto.memberId, ...data },
+            });
+        const ahead = await tx.waitlist.count({
+          where: { studioId, scheduleId: dto.scheduleId, status: 'WAITING', position: { lt: entry.position } },
+        });
+        return { ...entry, placeInLine: ahead + 1 };
+      } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+          throw new ConflictException('Üye zaten bekleme listesinde');
+        }
+        throw err;
+      }
+    });
+  }
+
+  async leaveWaitlist(tenant: TenantContext, dto: LeaveWaitlistInput) {
+    return this.leave(tenant, dto, false);
+  }
+
+  async leaveWaitlistSelf(tenant: TenantContext, dto: LeaveWaitlistInput) {
+    return this.leave(tenant, dto, true);
+  }
+
+  private async leave(tenant: TenantContext, dto: LeaveWaitlistInput, selfOnly: boolean) {
+    const entry = await this.prisma.waitlist.findFirst({ where: { id: dto.waitlistId, studioId: tenant.studioId } });
+    if (!entry) {
+      throw new NotFoundException('Bekleme listesi kaydı bulunamadı');
+    }
+    if (selfOnly) {
+      this.assertSelf(tenant, entry.memberId, 'Yalnızca kendi bekleme listesi kaydınızı silebilirsiniz');
+    }
+    const updated = await this.prisma.waitlist.updateMany({
+      where: { id: entry.id, studioId: tenant.studioId, status: 'WAITING' },
+      data: { status: 'CANCELLED', resolvedAt: new Date() },
+    });
+    if (updated.count === 0) {
+      throw new BadRequestException('Bu kayıt artık beklemede değil');
+    }
+    return { id: entry.id, status: 'CANCELLED' as const };
+  }
+
+  /** Never lets a promotion problem fail the cancellation that freed the seat. */
+  private async promoteFromWaitlistSafe(studioId: string, scheduleId: string): Promise<number> {
+    try {
+      return await this.promoteFromWaitlist(studioId, scheduleId);
+    } catch (err) {
+      this.logger.error(`Waitlist promotion failed for schedule ${scheduleId}: ${(err as Error).message}`);
+      return 0;
+    }
+  }
+
+  /**
+   * Fills free seats from the head of the waitlist. Each entry is claimed
+   * with a conditional WAITING -> OFFERED update so two concurrent
+   * cancellations never promote the same member twice. An entry whose
+   * package can no longer pay is marked EXPIRED with the reason and the next
+   * one is tried.
+   */
+  async promoteFromWaitlist(studioId: string, scheduleId: string): Promise<number> {
+    let promoted = 0;
+    for (let attempt = 0; attempt < MAX_PROMOTION_ATTEMPTS; attempt++) {
+      const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: scheduleId, studioId } });
+      if (!schedule || schedule.isCancelled || schedule.startTime <= new Date()) break;
+      if (schedule.bookedCount >= schedule.capacity) break;
+
+      const next = await this.prisma.waitlist.findFirst({
+        where: { studioId, scheduleId, status: 'WAITING' },
+        orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+      });
+      if (!next) break;
+
+      const claimed = await this.prisma.waitlist.updateMany({
+        where: { id: next.id, status: 'WAITING' },
+        data: { status: 'OFFERED', offeredAt: new Date() },
+      });
+      if (claimed.count === 0) continue;
+
+      try {
+        await this.book(studioId, {
+          studioId,
+          scheduleId,
+          memberId: next.memberId,
+          memberPackageId: next.memberPackageId ?? undefined,
+          resourceIds: [],
+        });
+        // book() already marked the entry PROMOTED inside its transaction.
+        promoted++;
+        await this.notifyMember(studioId, next.memberId, 'WAITLIST', {
+          title: 'Bekleme listesinden yer açıldı',
+          body: `${schedule.title} seansına rezervasyonunuz onaylandı.`,
+          data: { scheduleId, type: 'WAITLIST_PROMOTED' },
+        });
+      } catch (err) {
+        if (err instanceof HttpException && err.message === CAPACITY_FULL) {
+          // Someone took the seat first: put the entry back in line.
+          await this.prisma.waitlist.updateMany({
+            where: { id: next.id, status: 'OFFERED' },
+            data: { status: 'WAITING', offeredAt: null },
+          });
+          break;
+        }
+        const reason = err instanceof HttpException ? err.message : 'Beklenmeyen hata';
+        await this.prisma.waitlist.updateMany({
+          where: { id: next.id, status: 'OFFERED' },
+          data: { status: 'EXPIRED', resolvedAt: new Date(), failureReason: reason.slice(0, 200) },
+        });
+        if (!(err instanceof HttpException)) {
+          this.logger.error(`Waitlist entry ${next.id} could not be promoted: ${(err as Error).message}`);
+        }
+        await this.notifyMember(studioId, next.memberId, 'WAITLIST', {
+          title: 'Bekleme listesi',
+          body: `${schedule.title} seansında yer açıldı ancak rezervasyon yapılamadı: ${reason}`,
+          data: { scheduleId, type: 'WAITLIST_FAILED' },
+        });
+      }
+    }
+    return promoted;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Trainer substitution
+  // ---------------------------------------------------------------------------
+
+  async substituteTrainer(tenant: TenantContext, actorUserId: string, scheduleId: string, dto: SubstituteTrainerInput) {
+    const studioId = tenant.studioId;
+    const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: scheduleId, studioId } });
+    if (!schedule) {
+      throw new NotFoundException('Ders seansı bulunamadı');
+    }
+    if (schedule.isCancelled) {
+      throw new BadRequestException('Bu seans iptal edilmiştir');
+    }
+    if (schedule.endTime <= new Date()) {
+      throw new BadRequestException('Tamamlanmış bir seansın eğitmeni değiştirilemez');
+    }
+    if (schedule.trainerId === dto.trainerId) {
+      throw new BadRequestException('Seçilen eğitmen zaten bu seansın eğitmeni');
+    }
+
+    const trainer = await this.prisma.trainerProfile.findFirst({
+      where: { id: dto.trainerId, studioId, membership: { status: 'ACTIVE' } },
+      include: { qualifications: true },
+    });
+    if (!trainer) {
+      throw new NotFoundException('Eğitmen bulunamadı');
+    }
+    const serviceType = await this.prisma.serviceType.findFirst({ where: { id: schedule.serviceTypeId, studioId } });
+    if (serviceType?.requiresQualification && !trainer.qualifications.some((q) => q.serviceTypeId === serviceType.id)) {
+      throw new BadRequestException('Eğitmen bu hizmet için yetkin değil');
+    }
+    await this.assertNoConflict(studioId, schedule.startTime, schedule.endTime, dto.trainerId, undefined, schedule.id);
+
+    // The first substitution remembers who was planned; switching back clears it.
+    const plannedTrainerId = schedule.originalTrainerId ?? schedule.trainerId;
+    const updated = await this.prisma.sessionSchedule.update({
+      where: { id: schedule.id },
+      data: {
+        trainerId: dto.trainerId,
+        originalTrainerId: plannedTrainerId === dto.trainerId ? null : plannedTrainerId,
+      },
+      include: { trainer: { include: { membership: { include: { user: true } } } } },
+    });
+
+    const trainerUser = updated.trainer?.membership.user;
+    const trainerName = trainerUser ? `${trainerUser.firstName} ${trainerUser.lastName}`.trim() : 'yeni eğitmen';
+    let membersNotified = 0;
+    if (dto.notifyMembers) {
+      const bookings = await this.prisma.booking.findMany({
+        where: { studioId, scheduleId: schedule.id, status: 'CONFIRMED' },
+        select: { memberId: true },
+      });
+      for (const b of bookings) {
+        const sent = await this.notifyMember(studioId, b.memberId, 'BOOKING_CHANGE', {
+          title: 'Eğitmen değişikliği',
+          body: `${schedule.title} seansını ${trainerName} yürütecek.`,
+          data: { scheduleId: schedule.id, type: 'TRAINER_SUBSTITUTED' },
+        });
+        if (sent) membersNotified++;
+      }
+    }
+    if (trainerUser) {
+      await this.notifyUserSafe(trainerUser.id, studioId, 'TRAINER_SCHEDULE', {
+        title: 'Yeni seans atandı',
+        body: `${schedule.title} seansı size atandı.`,
+        data: { scheduleId: schedule.id, type: 'TRAINER_ASSIGNED' },
+      });
+    }
+
+    await this.prisma.auditLog.create({
+      data: {
+        studioId,
+        userId: actorUserId,
+        action: 'schedule.trainer.substitute',
+        entityType: 'SessionSchedule',
+        entityId: schedule.id,
+        metadata: { fromTrainerId: schedule.trainerId, toTrainerId: dto.trainerId, reason: dto.reason ?? null },
+      },
+    });
+
+    return { schedule: updated, membersNotified };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  private assertSelf(tenant: TenantContext, memberId: string, message: string) {
+    if (!tenant.memberProfileId || memberId !== tenant.memberProfileId) {
+      throw new ForbiddenException(message);
+    }
+  }
+
+  private async notifyMember(
+    studioId: string,
+    memberProfileId: string,
+    category: NotificationCategory,
+    message: { title: string; body: string; data?: Record<string, string> },
+  ): Promise<boolean> {
+    const profile = await this.prisma.memberProfile.findFirst({
+      where: { id: memberProfileId, studioId },
+      select: { membership: { select: { userId: true } } },
+    });
+    if (!profile) return false;
+    return this.notifyUserSafe(profile.membership.userId, studioId, category, message);
+  }
+
+  /** Notifications are best effort: a provider outage must not undo a booking change. */
+  private async notifyUserSafe(
+    userId: string,
+    studioId: string,
+    category: NotificationCategory,
+    message: { title: string; body: string; data?: Record<string, string> },
+  ): Promise<boolean> {
+    try {
+      await this.notifications.notifyUser({ userId, studioId, category, message });
+      return true;
+    } catch (err) {
+      this.logger.warn(`Notification ${category} to user ${userId} failed: ${(err as Error).message}`);
+      return false;
+    }
   }
 
   private async assertNoConflict(
@@ -381,8 +843,13 @@ export class SchedulesService {
     end: Date,
     trainerId?: string,
     resourceId?: string,
+    excludeScheduleId?: string,
   ) {
-    const overlap = { startTime: { lt: end }, endTime: { gt: start } };
+    const overlap = {
+      startTime: { lt: end },
+      endTime: { gt: start },
+      ...(excludeScheduleId ? { id: { not: excludeScheduleId } } : {}),
+    };
 
     if (trainerId) {
       const trainerConflict = await this.prisma.sessionSchedule.findFirst({

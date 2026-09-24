@@ -115,9 +115,9 @@ erDiagram
 | Tablo | Amaç | Kısıtlar |
 |-------|---------|-------------|
 | `session_schedules` | Dersler ve randevular: zaman, antrenör, kaynaklar, kapasite | (studio_id, start_time, end_time) index; (trainer_id, start_time, end_time) index; (resource_id, start_time, end_time) index; capacity > 0; 0 <= booked_count <= capacity |
-| `bookings` | Üye rezervasyonları: durum (onaylı, katıldı, iptal edildi), tahsil edilen birimler | (studio_id, status) index; (member_id) index; (schedule_id, member_id) benzersiz |
+| `bookings` | Üye rezervasyonları: durum (onaylı, katıldı, erken veya geç iptal, gelmedi), tahsil edilen birimler, politika gereği işletmede kalan birimler (`penalty_units`) | (studio_id, status) index; (member_id) index; (schedule_id, member_id) benzersiz; `penalty_units` 0 ile `units_charged` arasında (check) |
 | `booking_resources` | Rezervasyona kaynak birimi ataması ("reformer 3"); schedule zamanlarının kopyası | (resource_id, start_time, end_time) index; (booking_id, resource_id) benzersiz; tek kapasiteli kaynaklar için çakışma yok (veritabanı exclusion constraint) |
-| `waitlist` | Üye bekleme listesi kuyruğu: konum, durum (bekliyor, teklif edildi, terfi etti) | (schedule_id, member_id) benzersiz; (schedule_id, status, position) index |
+| `waitlist` | Üye bekleme listesi kuyruğu: konum, durum (bekliyor, teklif edildi, terfi etti, süresi doldu, iptal), yer açılınca düşülecek paket (`member_package_id`), sonuçlanma zamanı ve başarısızlık gerekçesi | (schedule_id, member_id) benzersiz; (schedule_id, status, position) index |
 
 ## Ölçümler
 
