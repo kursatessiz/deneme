@@ -2,6 +2,8 @@ import { Redirect, Tabs } from 'expo-router';
 import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { contrastRatio } from '@platform/shared';
+
 import { useSession } from '../../src/lib/session';
 import { palette, radii, spacing, typography, useThemeColors } from '../../src/theme';
 
@@ -70,7 +72,8 @@ export default function AppLayout() {
         headerStyle: { backgroundColor: colors.surface },
         headerTitleStyle: { color: colors.textPrimary },
         tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
-        tabBarActiveTintColor: palette.ink[900],
+        // A pale brand color would vanish on the tab bar; fall back to text color.
+        tabBarActiveTintColor: contrastRatio(colors.primary, colors.surface) >= 3 ? colors.primary : colors.textPrimary,
         tabBarInactiveTintColor: colors.textMuted,
       }}
     >

@@ -1,10 +1,19 @@
 import { z } from 'zod';
+import {
+  COLOR_SCHEME_PREFERENCES,
+  DEFAULT_THEME_FAMILY,
+  THEME_FAMILIES,
+  THEME_FAMILY_KEYS,
+  getThemeFamily,
+} from './themes';
+import type { ColorMode, GradientPreset, ThemeColors, ThemeFamily, ThemeFamilyKey } from './themes';
 
 /**
  * Design tokens shared by web and mobile. Apps must read colors, spacing,
  * radii and type from here instead of hardcoding values.
  *
- * Skeleton: final values follow the reference screens in docs/design-refs/.
+ * Theme families (fonts, radii, neutrals, gradient sets) live in themes.ts;
+ * resolveTheme() combines the tenant's brand with the user's appearance.
  */
 
 // Warm neutral base. Deliberately not the default Tailwind/shadcn slate and
@@ -70,50 +79,124 @@ export const typography = {
 export const GRADIENT_SLOTS = ['appHeaderBand', 'memberCard', 'packageCard', 'primaryButton'] as const;
 export type GradientSlot = (typeof GRADIENT_SLOTS)[number];
 
-export interface GradientPreset {
-  key: string;
-  label: string;
-  angle: number;
-  stops: readonly [string, string, ...string[]];
-}
+/** Every preset of every family; tenants pick one, custom gradients are not allowed. */
+export const GRADIENT_PRESETS: readonly GradientPreset[] = THEME_FAMILY_KEYS.flatMap((k) => THEME_FAMILIES[k].gradients);
 
-/** Tenants pick one of these; custom gradients are not allowed. */
-export const GRADIENT_PRESETS = [
-  { key: 'clay', label: 'Kil', angle: 135, stops: ['#c2410c', '#e8a87c'] },
-  { key: 'sage', label: 'Adaçayı', angle: 135, stops: ['#3f6b52', '#9cbfa7'] },
-  { key: 'ocean', label: 'Okyanus', angle: 135, stops: ['#1d4e89', '#6fa8dc'] },
-  { key: 'sand', label: 'Kum', angle: 135, stops: ['#8a6a3f', '#e3c9a0'] },
-  { key: 'graphite', label: 'Grafit', angle: 135, stops: ['#1f1c18', '#5a534b'] },
-] as const satisfies readonly GradientPreset[];
-
-export type GradientPresetKey = (typeof GRADIENT_PRESETS)[number]['key'];
+type FamilyGradientKey<K extends ThemeFamilyKey> = (typeof THEME_FAMILIES)[K]['gradients'][number]['key'];
+export type GradientPresetKey = { [K in ThemeFamilyKey]: FamilyGradientKey<K> }[ThemeFamilyKey];
 
 const presetKeys = GRADIENT_PRESETS.map((p) => p.key) as [GradientPresetKey, ...GradientPresetKey[]];
+const HEX = /^#[0-9a-fA-F]{6}$/;
 
-/** Everything a tenant may customise: logo, primary color, gradient preset. */
-export const TenantThemeSchema = z.object({
-  logoUrl: z.string().url().nullable(),
-  themePrimary: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Renk #RRGGBB formatında olmalı'),
-  gradientPresetKey: z.enum(presetKeys),
-});
+/** Everything a tenant may customise: logo, theme family, primary color, gradient preset. */
+export const TenantThemeSchema = z
+  .object({
+    logoUrl: z.string().url().nullable(),
+    themeFamily: z.enum(THEME_FAMILY_KEYS),
+    themePrimary: z.string().regex(HEX, 'Renk #RRGGBB formatında olmalı'),
+    gradientPresetKey: z.enum(presetKeys),
+  })
+  .refine((t) => familyOfGradient(t.gradientPresetKey) === t.themeFamily, {
+    path: ['gradientPresetKey'],
+    message: 'Gradyan seçilen tema ailesine ait olmalı',
+  });
 export type TenantTheme = z.infer<typeof TenantThemeSchema>;
+
+export const UpdateTenantThemeSchema = TenantThemeSchema;
+export type UpdateTenantThemeInput = TenantTheme;
 
 export const DEFAULT_TENANT_THEME: TenantTheme = {
   logoUrl: null,
-  themePrimary: '#3f6b52',
-  gradientPresetKey: 'sage',
+  themeFamily: DEFAULT_THEME_FAMILY,
+  themePrimary: '#2F6F5E',
+  gradientPresetKey: 'atolye-orman',
 };
 
-export function getGradientPreset(key: GradientPresetKey): GradientPreset {
+/** A user's own appearance choice; null family follows the tenant. */
+export const AppearancePreferenceSchema = z.object({
+  themeFamily: z.enum(THEME_FAMILY_KEYS).nullable(),
+  colorScheme: z.enum(COLOR_SCHEME_PREFERENCES),
+});
+export type AppearancePreference = z.infer<typeof AppearancePreferenceSchema>;
+
+export const DEFAULT_APPEARANCE: AppearancePreference = { themeFamily: null, colorScheme: 'SYSTEM' };
+
+export function familyOfGradient(key: string): ThemeFamilyKey | null {
+  for (const k of THEME_FAMILY_KEYS) {
+    if (THEME_FAMILIES[k].gradients.some((g) => g.key === key)) return k;
+  }
+  return null;
+}
+
+export function getGradientPreset(key: string): GradientPreset {
   const preset = GRADIENT_PRESETS.find((p) => p.key === key);
   if (!preset) throw new Error(`Unknown gradient preset: ${key}`);
   return preset;
 }
 
 /** CSS value for web. Mobile passes preset.stops to its gradient component. */
-export function gradientCss(key: GradientPresetKey): string {
+export function gradientCss(key: string): string {
   const { angle, stops } = getGradientPreset(key);
   return `linear-gradient(${angle}deg, ${stops.join(', ')})`;
+}
+
+export interface ResolvedTheme {
+  family: ThemeFamily;
+  mode: ColorMode;
+  colors: ThemeColors & { primary: string; onPrimary: string };
+  gradient: GradientPreset;
+  logoUrl: string | null;
+}
+
+/**
+ * The theme a screen renders: the user's family (or the tenant's), the
+ * user's mode (or the OS mode), and always the tenant's brand colors.
+ * Unknown or stale values fall back to defaults instead of throwing, so a
+ * removed preset can never break an app.
+ */
+export function resolveTheme(params: {
+  tenant: Partial<TenantTheme> | null | undefined;
+  appearance: Partial<AppearancePreference> | null | undefined;
+  systemMode: ColorMode | null | undefined;
+}): ResolvedTheme {
+  const tenant = { ...DEFAULT_TENANT_THEME, ...(params.tenant ?? {}) };
+  const appearance = { ...DEFAULT_APPEARANCE, ...(params.appearance ?? {}) };
+  const family = getThemeFamily(appearance.themeFamily ?? tenant.themeFamily);
+  const mode: ColorMode =
+    appearance.colorScheme === 'LIGHT' ? 'light' : appearance.colorScheme === 'DARK' ? 'dark' : (params.systemMode ?? 'light');
+  const gradient =
+    GRADIENT_PRESETS.find((p) => p.key === tenant.gradientPresetKey) ?? getThemeFamily(tenant.themeFamily).gradients[0];
+  const primary = HEX.test(tenant.themePrimary) ? tenant.themePrimary : DEFAULT_TENANT_THEME.themePrimary;
+  return {
+    family,
+    mode,
+    colors: { ...family.colors[mode], primary, onPrimary: onColor(primary) },
+    gradient,
+    logoUrl: tenant.logoUrl ?? null,
+  };
+}
+
+/** CSS custom properties for web roots (`style` of <html> or a wrapper). */
+export function themeCssVariables(theme: ResolvedTheme): Record<string, string> {
+  const c = theme.colors;
+  return {
+    '--color-background': c.background,
+    '--color-surface': c.surface,
+    '--color-surface-muted': c.surfaceMuted,
+    '--color-border': c.border,
+    '--color-text-primary': c.textPrimary,
+    '--color-text-secondary': c.textSecondary,
+    '--color-text-muted': c.textMuted,
+    '--color-primary': c.primary,
+    '--color-on-primary': c.onPrimary,
+    '--gradient-brand': gradientCss(theme.gradient.key),
+    '--font-display': theme.family.fonts.display.web,
+    '--font-body': theme.family.fonts.body.web,
+    '--radius-card': `${theme.family.radii.card}px`,
+    '--radius-button': `${theme.family.radii.button}px`,
+    '--radius-chip': `${theme.family.radii.chip}px`,
+    '--radius-input': `${theme.family.radii.input}px`,
+  };
 }
 
 /** WCAG relative luminance contrast ratio between two #RRGGBB colors. */

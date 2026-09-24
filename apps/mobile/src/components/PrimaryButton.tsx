@@ -1,7 +1,10 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 
-import { palette, radii, spacing, typography } from '../theme';
+import { onColor } from '@platform/shared';
+
+import { GradientSurface } from './GradientSurface';
+import { palette, spacing, typography, useTheme, useThemeFonts } from '../theme';
 
 interface PrimaryButtonProps {
   label: string;
@@ -11,9 +14,25 @@ interface PrimaryButtonProps {
   variant?: 'primary' | 'secondary' | 'danger';
 }
 
-/** Flat-color action button, minimum 44pt touch target. */
+/** Action button, minimum 44pt touch target. The primary variant carries the tenant gradient. */
 export function PrimaryButton({ label, onPress, disabled, loading, variant = 'primary' }: PrimaryButtonProps) {
+  const { theme } = useTheme();
+  const fonts = useThemeFonts();
   const isDisabled = disabled || loading;
+  const radius = theme.family.radii.button;
+
+  const textColor =
+    variant === 'secondary'
+      ? theme.colors.textPrimary
+      : variant === 'danger'
+        ? onColor(palette.danger)
+        : onColor(theme.gradient.stops[0]);
+
+  const content = loading ? (
+    <ActivityIndicator color={textColor} />
+  ) : (
+    <Text style={[styles.label, fonts.bodyStrong, { color: textColor }]}>{label}</Text>
+  );
 
   return (
     <Pressable
@@ -24,24 +43,19 @@ export function PrimaryButton({ label, onPress, disabled, loading, variant = 'pr
       disabled={isDisabled}
       style={({ pressed }) => [
         styles.base,
-        variant === 'primary' && styles.primary,
-        variant === 'secondary' && styles.secondary,
-        variant === 'danger' && styles.danger,
+        { borderRadius: radius },
+        variant === 'danger' && { backgroundColor: palette.danger },
+        variant === 'secondary' && { borderWidth: 1, borderColor: theme.colors.border },
         isDisabled && styles.disabled,
         pressed && !isDisabled && styles.pressed,
       ]}
     >
-      {loading ? (
-        <ActivityIndicator color={variant === 'secondary' ? palette.ink[900] : palette.white} />
+      {variant === 'primary' ? (
+        <GradientSurface slot="primaryButton" style={[styles.fill, { borderRadius: radius }]}>
+          {content}
+        </GradientSurface>
       ) : (
-        <Text
-          style={[
-            styles.label,
-            variant === 'secondary' ? styles.labelSecondary : styles.labelOnSolid,
-          ]}
-        >
-          {label}
-        </Text>
+        content
       )}
     </Pressable>
   );
@@ -50,22 +64,17 @@ export function PrimaryButton({ label, onPress, disabled, loading, variant = 'pr
 const styles = StyleSheet.create({
   base: {
     minHeight: 44,
-    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  fill: {
+    alignSelf: 'stretch',
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing[3],
     paddingHorizontal: spacing[4],
-  },
-  primary: {
-    backgroundColor: palette.ink[900],
-  },
-  danger: {
-    backgroundColor: palette.danger,
-  },
-  secondary: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: palette.ink[300],
   },
   disabled: {
     opacity: 0.5,
@@ -76,11 +85,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: typography.size.md,
     fontWeight: typography.weight.semibold,
-  },
-  labelOnSolid: {
-    color: palette.white,
-  },
-  labelSecondary: {
-    color: palette.ink[900],
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[4],
   },
 });

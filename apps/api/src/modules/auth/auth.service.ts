@@ -5,6 +5,7 @@ import { LoginInput, MembershipDTO, SessionUserDTO, normalizePhone, resolvePermi
 import { OtpPurpose } from '@platform/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { OtpService } from '../otp/otp.service';
+import { toAppearance, toTenantTheme } from '../appearance/theme-mapping';
 
 export const PIN_MAX_FAILURES = 5;
 export const PIN_LOCK_MS = 15 * 60 * 1000;
@@ -159,7 +160,17 @@ export class AuthService {
         memberships: {
           where: { status: { in: ['ACTIVE', 'INVITED'] }, studio: { isActive: true } },
           include: {
-            studio: { select: { id: true, name: true, slug: true } },
+            studio: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                logoUrl: true,
+                themeFamily: true,
+                themePrimary: true,
+                gradientPresetKey: true,
+              },
+            },
             roleTemplate: { include: { permissions: true } },
             memberProfile: { select: { id: true } },
             trainerProfile: { select: { id: true } },
@@ -184,6 +195,7 @@ export class AuthService {
       }),
       memberProfileId: m.memberProfile?.id ?? null,
       trainerProfileId: m.trainerProfile?.id ?? null,
+      theme: toTenantTheme(m.studio),
     }));
 
     return {
@@ -195,6 +207,7 @@ export class AuthService {
       avatarUrl: user.avatarUrl,
       isSuperAdmin: user.isSuperAdmin,
       memberships,
+      appearance: toAppearance(user),
     };
   }
 

@@ -12,7 +12,7 @@ import {
   MembershipStatus,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { DEFAULT_ROLE_TEMPLATES, ALL_PERMISSIONS, normalizePhone, GRADIENT_PRESETS } from '@platform/shared';
+import { DEFAULT_ROLE_TEMPLATES, ALL_PERMISSIONS, normalizePhone, THEME_FAMILIES } from '@platform/shared';
 
 // Seed is a development-only tool: it truncates every table before writing,
 // so it must never run against a production database (see CLAUDE.md).
@@ -382,8 +382,9 @@ async function createZen(
       phone: '+905321110001',
       email: 'info@zenreformer.com',
       address: 'Nisantasi Mah. Abdi Ipekci Cad. No:14/A Sisli / Istanbul',
-      themePrimary: '#3f6b52',
-      gradientPresetKey: GRADIENT_PRESETS[1].key,
+      themeFamily: THEME_FAMILIES.noir.key,
+      themePrimary: '#C8443C',
+      gradientPresetKey: THEME_FAMILIES.noir.gradients[0].key,
       maxAdvanceBookingDays: 14,
       reminderHoursBefore: 2,
     },
@@ -891,8 +892,9 @@ async function createFlow(businessTypeTemplateId: string, planId: string, kvkkDo
       phone: '+905321110002',
       email: 'merhaba@flowpilates.com',
       address: 'Bagdat Caddesi No:240/3 Kadikoy / Istanbul',
-      themePrimary: '#c2410c',
-      gradientPresetKey: GRADIENT_PRESETS[0].key,
+      themeFamily: THEME_FAMILIES.nefes.key,
+      themePrimary: '#6E8B6B',
+      gradientPresetKey: THEME_FAMILIES.nefes.gradients[0].key,
       maxAdvanceBookingDays: 21,
       reminderHoursBefore: 3,
     },
@@ -1208,8 +1210,9 @@ async function createGuc(businessTypeTemplateId: string, planId: string, kvkkDoc
       phone: '+905321110003',
       email: 'info@gucpt.com',
       address: 'Ataturk Mah. Ertugrul Gazi Sok. No:5 Atasehir / Istanbul',
-      themePrimary: '#1d4e89',
-      gradientPresetKey: GRADIENT_PRESETS[2].key,
+      themeFamily: THEME_FAMILIES.saha.key,
+      themePrimary: '#E8622C',
+      gradientPresetKey: THEME_FAMILIES.saha.gradients[0].key,
       maxAdvanceBookingDays: 10,
       reminderHoursBefore: 3,
     },
@@ -1454,8 +1457,9 @@ async function createDenge(businessTypeTemplateId: string, planId: string, kvkkD
       phone: '+905321110004',
       email: 'randevu@dengefizyoterapi.com',
       address: 'Cinnah Cad. No:22/4 Cankaya / Ankara',
-      themePrimary: '#2b6cb0',
-      gradientPresetKey: GRADIENT_PRESETS[4].key,
+      themeFamily: THEME_FAMILIES.atolye.key,
+      themePrimary: '#2F6F5E',
+      gradientPresetKey: THEME_FAMILIES.atolye.gradients[0].key,
       maxAdvanceBookingDays: 30,
       reminderHoursBefore: 4,
     },
