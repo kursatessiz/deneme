@@ -79,14 +79,14 @@ describe('NotificationsService', () => {
     await service.sendSms({
       studioId: 'studio-1',
       phone: '+905321112233',
-      message: 'Yarınki dersiniz için hatırlatma',
+      message: 'Yarınki seansınız için hatırlatma',
       type: 'REMINDER',
       sensitive: false,
     });
 
     expect(mockPrisma.notificationLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ content: 'Yarınki dersiniz için hatırlatma' }),
+        data: expect.objectContaining({ content: 'Yarınki seansınız için hatırlatma' }),
       }),
     );
   });

@@ -253,17 +253,17 @@ interface GlobalTemplateSeed {
 const GLOBAL_TEMPLATES: GlobalTemplateSeed[] = [
   {
     key: 'BOOKING_REMINDER',
-    body: 'Merhaba {{firstName}}, {{serviceName}} dersiniz {{startTime}} saatinde başlayacak.',
+    body: 'Merhaba {{firstName}}, {{serviceName}} seansınız {{startTime}} saatinde başlayacak.',
     whatsappTemplateName: 'booking_reminder_tr',
   },
   {
     key: 'BOOKING_CANCELLED_BY_STUDIO',
-    body: 'Merhaba {{firstName}}, {{startTime}} saatindeki {{serviceName}} dersiniz işletme tarafından iptal edildi.',
+    body: 'Merhaba {{firstName}}, {{startTime}} saatindeki {{serviceName}} seansınız işletme tarafından iptal edildi.',
     whatsappTemplateName: 'booking_cancelled_tr',
   },
   {
     key: 'WAITLIST_PROMOTED',
-    body: 'Merhaba {{firstName}}, bekleme listesinde olduğunuz {{serviceName}} dersinde yer açıldı, rezervasyonunuz onaylandı.',
+    body: 'Merhaba {{firstName}}, bekleme listesinde olduğunuz {{serviceName}} seansında yer açıldı, rezervasyonunuz onaylandı.',
     whatsappTemplateName: 'waitlist_promoted_tr',
   },
   {
@@ -294,12 +294,12 @@ const GLOBAL_TEMPLATES: GlobalTemplateSeed[] = [
   },
   {
     key: 'FIRST_CLASS_FOLLOW_UP',
-    body: 'Merhaba {{firstName}}, {{studioName}}\'deki ilk dersiniz nasıl geçti? Görüşleriniz bizim için değerli.',
+    body: 'Merhaba {{firstName}}, {{studioName}}\'deki ilk seansınız nasıl geçti? Görüşleriniz bizim için değerli.',
     whatsappTemplateName: 'first_class_follow_up_tr',
   },
   {
     key: 'NO_SHOW_FOLLOW_UP',
-    body: 'Merhaba {{firstName}}, {{startTime}} saatindeki {{serviceName}} dersinize katılamadınız. Yeni bir rezervasyon oluşturmak ister misiniz?',
+    body: 'Merhaba {{firstName}}, {{startTime}} saatindeki {{serviceName}} seansınıza katılamadınız. Yeni bir rezervasyon oluşturmak ister misiniz?',
     whatsappTemplateName: 'no_show_follow_up_tr',
   },
 ];
@@ -351,7 +351,7 @@ const DEFAULT_AUTOMATION_RULES: {
   },
   {
     type: 'FIRST_CLASS_FOLLOW_UP',
-    name: 'İlk ders sonrası geri bildirim',
+    name: 'İlk seans sonrası geri bildirim',
     params: { type: 'FIRST_CLASS_FOLLOW_UP', hoursAfter: 24 },
     templateKey: 'FIRST_CLASS_FOLLOW_UP',
     isActive: false,

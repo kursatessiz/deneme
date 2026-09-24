@@ -36,8 +36,8 @@
           "widgets": [
             {
               "name": "NextSessionWidget",
-              "displayName": "Sonraki Ders",
-              "description": "Sonraki dersiniz ve aktif paketinizde kalan hak.",
+              "displayName": "Sonraki Seans",
+              "description": "Sonraki seansınız ve aktif paketinizde kalan hak.",
               "supportedFamilies": ["systemSmall", "systemMedium"],
               "ios": {
                 "supportedFamilies": ["systemSmall", "systemMedium"]
@@ -52,8 +52,8 @@
           "widgets": [
             {
               "name": "NextSessionWidget",
-              "label": "Sonraki Ders",
-              "description": "Sonraki dersiniz ve aktif paketinizde kalan hak.",
+              "label": "Sonraki Seans",
+              "description": "Sonraki seansınız ve aktif paketinizde kalan hak.",
               "minWidth": "180dp",
               "minHeight": "110dp",
               "resizeMode": "horizontal"

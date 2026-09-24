@@ -324,7 +324,7 @@ export class LeadsService {
   async bookTrial(tenant: TenantContext, leadId: string, dto: BookLeadTrialInput) {
     const lead = await this.getOwnLead(tenant, leadId);
     if (lead.stage === 'WON' || lead.stage === 'LOST') {
-      throw new BadRequestException('Bu aşamadaki bir potansiyel üye için deneme dersi ayarlanamaz');
+      throw new BadRequestException('Bu aşamadaki bir potansiyel üye için deneme seansı ayarlanamaz');
     }
 
     const { firstName, lastName } = splitFullName(lead.fullName);
@@ -355,7 +355,7 @@ export class LeadsService {
           leadId: lead.id,
           studioId: tenant.studioId,
           type: 'TRIAL_BOOKED',
-          body: 'Deneme dersi planlandı',
+          body: 'Deneme seansı planlandı',
           actorMembershipId: tenant.membershipId,
         },
       });

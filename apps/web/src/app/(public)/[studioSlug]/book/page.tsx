@@ -53,7 +53,7 @@ export default function PublicBookingPage() {
               <strong>{selectedType}</strong> seansınız {selectedDate} günü saat <strong>{selectedSlot}</strong> için oluşturuldu. Kalan seansınızdan 1 kredi düşüldü.
             </p>
             <p className="text-[11px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border border-amber-200 dark:border-amber-900/60">
-              Not: İptal işlemleri ders saatine en geç 4 saat kala ücretsiz olarak yapılabilir.
+              Not: İptal işlemleri seans saatine en geç 4 saat kala ücretsiz olarak yapılabilir.
             </p>
             <button
               onClick={() => setIsConfirmed(false)}

@@ -172,8 +172,8 @@ export default function EmbedBookingPage() {
     setLeadError(null);
     try {
       const interest = selectedSchedule
-        ? `Web widget üzerinden deneme dersi talebi: ${serviceTypeName(selectedSchedule.serviceTypeId)} - ${formatTime(selectedSchedule.startTime)}${selectedSchedule.branchId ? ` (${branchName(selectedSchedule.branchId)})` : ''}`
-        : 'Web widget üzerinden deneme dersi talebi';
+        ? `Web widget üzerinden deneme seansı talebi: ${serviceTypeName(selectedSchedule.serviceTypeId)} - ${formatTime(selectedSchedule.startTime)}${selectedSchedule.branchId ? ` (${branchName(selectedSchedule.branchId)})` : ''}`
+        : 'Web widget üzerinden deneme seansı talebi';
       await fetch(`${API_BASE_URL}/public/studios/${encodeURIComponent(slug)}/leads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

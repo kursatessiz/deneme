@@ -105,7 +105,7 @@ export class PromotionsService {
       limit: pkgDef.trialLimitPerUser,
     });
     if (!ok) {
-      throw new ConflictException('Bu deneme dersi hakkınız bu işletmede daha önce kullanılmış');
+      throw new ConflictException('Bu deneme seansı hakkınız bu işletmede daha önce kullanılmış');
     }
   }
 
