@@ -112,6 +112,39 @@ enum PaymentAttemptStatus {
   PENDING
 }
 
+/// How a studio issues e-invoices: not at all, e-Arsiv (consumer-facing,
+/// via an integrator's GIB portal) or e-Fatura (B2B, requires both parties
+/// to be e-Fatura registered). NONE means invoices are never auto-issued.
+enum EInvoiceMode {
+  NONE
+  EARSIV
+  EFATURA
+}
+
+/// e-invoice integrator adapter selected by the tenant. MOCK is
+/// deterministic and disabled in production, same as PaymentProvider.MOCK.
+enum EInvoiceProvider {
+  MOCK
+  PARASUT
+  ELOGO
+  FORIBA
+  UYUMSOFT
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  CANCELLED
+  FAILED
+}
+
+/// Whether a member's billing profile is a private individual (TCKN) or a
+/// company (VKN); drives which buyer fields e-Arsiv/e-Fatura require.
+enum BillingProfileKind {
+  INDIVIDUAL
+  COMPANY
+}
+
 enum SubscriptionStatus {
   TRIALING
   ACTIVE
@@ -316,6 +349,10 @@ model Studio {
   auditLogs             AuditLog[]
   messageTemplates      MessageTemplate[]
   communicationConsents CommunicationConsent[]
+  invoiceSettings       InvoiceSettings?
+  invoiceCounters       InvoiceCounter[]
+  invoices              Invoice[]
+  billingProfiles       BillingProfile[]
 
   @@map("studios")
 }
@@ -341,6 +378,7 @@ model Branch {
   payments    Payment[]
   staffAccess MembershipBranch[]
   homeMembers MemberProfile[]    @relation("MemberHomeBranch")
+  invoices    Invoice[]
 
   @@unique([studioId, name])
   /// Target of composite foreign keys that pin a row to the branch's studio.
@@ -566,6 +604,7 @@ model MemberProfile {
   measurementEntries MeasurementEntry[]
   transfersOut       PackageTransfer[]    @relation("TransferFrom")
   transfersIn        PackageTransfer[]    @relation("TransferTo")
+  billingProfile     BillingProfile?
 
   @@index([studioId])
   @@map("member_profiles")
@@ -1047,6 +1086,7 @@ model Payment {
   storedCard         StoredCard?         @relation(fields: [storedCardId], references: [id], onDelete: SetNull)
   branch             Branch?             @relation(fields: [branchId], references: [id], onDelete: SetNull)
   attempts           PaymentAttempt[]
+  invoice            Invoice?
 
   @@index([studioId, paidAt])
   @@index([branchId, paidAt])
@@ -1336,4 +1376,119 @@ model AuditLog {
 
   @@index([studioId, createdAt])
   @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// e-Arsiv / e-Fatura (W8)
+// ---------------------------------------------------------------------------
+
+/// Per-tenant e-invoice configuration. Buyer legal identity and tax number
+/// validation live in packages/shared; provider credentials are never
+/// stored here, only the choice of adapter (see EInvoiceProvider), whose
+/// credentials come from env vars the same way payment providers do.
+model InvoiceSettings {
+  id                 String           @id @default(uuid()) @db.Uuid
+  studioId           String           @unique @map("studio_id") @db.Uuid
+  legalName          String           @map("legal_name") @db.VarChar(200)
+  taxOffice          String?          @map("tax_office") @db.VarChar(100)
+  /// VKN (10 digits) or TCKN (11 digits) of the studio itself, the seller.
+  taxNumber          String?          @map("tax_number") @db.VarChar(11)
+  address            String?          @db.Text
+  eInvoiceMode       EInvoiceMode     @default(NONE) @map("e_invoice_mode")
+  provider           EInvoiceProvider @default(MOCK)
+  /// Percentage, e.g. 10.00 or 20.00.
+  defaultVatRate     Decimal          @default(20) @map("default_vat_rate") @db.Decimal(5, 2)
+  seriesPrefix       String           @default("A") @map("series_prefix") @db.VarChar(10)
+  autoIssueOnPayment Boolean          @default(false) @map("auto_issue_on_payment")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_settings")
+}
+
+/// Atomic per-studio, per-series, per-year sequence. A row is created (or
+/// incremented) inside the same transaction that creates the Invoice, so
+/// two concurrent issues can never receive the same number.
+model InvoiceCounter {
+  studioId     String @map("studio_id") @db.Uuid
+  seriesPrefix String @map("series_prefix") @db.VarChar(10)
+  year         Int
+  lastSequence Int    @default(0) @map("last_sequence")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@id([studioId, seriesPrefix, year])
+  @@map("invoice_counters")
+}
+
+/// Buyer identity for invoicing. Individual members can also be invoiced
+/// without one, in which case e-Arsiv falls back to the generic consumer
+/// TCKN "11111111111" (documented in docs/INVOICING.md).
+model BillingProfile {
+  id           String              @id @default(uuid()) @db.Uuid
+  studioId     String              @map("studio_id") @db.Uuid
+  memberId     String              @unique @map("member_id") @db.Uuid
+  kind         BillingProfileKind  @default(INDIVIDUAL)
+  fullName     String?             @map("full_name") @db.VarChar(150)
+  /// 11-digit Turkish national ID, checksum-validated in shared. Optional:
+  /// left empty falls back to the standard e-Arsiv consumer TCKN.
+  tckn         String?             @db.VarChar(11)
+  companyTitle String?             @map("company_title") @db.VarChar(200)
+  taxOffice    String?             @map("tax_office") @db.VarChar(100)
+  /// 10-digit Turkish tax number, checksum-validated in shared. Required for kind=COMPANY.
+  vkn          String?             @db.VarChar(10)
+  address      String?             @db.Text
+  email        String?             @db.VarChar(120)
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  studio Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  member MemberProfile @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([studioId])
+  @@map("billing_profiles")
+}
+
+/// One e-Arsiv/e-Fatura document tied 1:1 to a completed Payment. Buyer and
+/// line data are snapshotted as Json at issue time so a later change to the
+/// member's billing profile or the package's price never rewrites history.
+model Invoice {
+  id            String           @id @default(uuid()) @db.Uuid
+  studioId      String           @map("studio_id") @db.Uuid
+  branchId      String?          @map("branch_id") @db.Uuid
+  paymentId     String           @unique @map("payment_id") @db.Uuid
+  /// seriesPrefix + year + zero-padded sequence, e.g. "A2026000001".
+  number        String           @db.VarChar(40)
+  issueDate     DateTime         @map("issue_date")
+  /// Snapshot of BillingProfile (or the standard consumer TCKN fallback) at issue time.
+  buyerSnapshot Json             @map("buyer_snapshot")
+  /// Snapshot of invoice lines: [{ description, quantity, unitPrice, total }].
+  lines         Json
+  subtotal      Decimal          @db.Decimal(10, 2)
+  vatAmount     Decimal          @map("vat_amount") @db.Decimal(10, 2)
+  /// VAT-inclusive total; equals the Payment amount it was issued for.
+  total         Decimal          @db.Decimal(10, 2)
+  currency      String           @default("TRY") @db.VarChar(3)
+  status        InvoiceStatus    @default(DRAFT)
+  provider      EInvoiceProvider
+  providerUuid  String?          @map("provider_uuid") @db.VarChar(120)
+  providerStatus String?         @map("provider_status") @db.VarChar(60)
+  pdfUrl        String?          @map("pdf_url") @db.Text
+  failureReason String?          @map("failure_reason") @db.Text
+  cancelledAt   DateTime?        @map("cancelled_at")
+  cancelReason  String?          @map("cancel_reason") @db.Text
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  studio  Studio  @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  branch  Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@unique([studioId, number])
+  @@index([studioId, issueDate])
+  @@index([branchId])
+  @@index([status])
+  @@map("invoices")
 }

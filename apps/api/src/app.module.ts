@@ -17,6 +17,7 @@ import { CatalogModule } from './modules/catalog/catalog.module';
 import { BranchesModule } from './modules/branches/branches.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { InvoicingModule } from './modules/invoicing/invoicing.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -42,6 +43,7 @@ import { validateEnv } from './config/env';
     BranchesModule,
     CalendarModule,
     PaymentsModule,
+    InvoicingModule,
     HealthModule,
   ],
 })

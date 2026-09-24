@@ -342,6 +342,27 @@ export interface MemberSubscriptionDTO {
   installmentCount: number;
 }
 
+export interface InvoiceDTO {
+  id: string;
+  studioId: string;
+  branchId?: string | null;
+  paymentId: string;
+  number: string;
+  issueDate: string;
+  subtotal: string;
+  vatAmount: string;
+  total: string;
+  currency: string;
+  status: string;
+  provider: string;
+  providerUuid?: string | null;
+  /** Set for real integrators that return a public/pre-signed document link; MOCK leaves this empty (see docs/INVOICING.md). */
+  pdfUrl?: string | null;
+  failureReason?: string | null;
+  cancelledAt?: string | null;
+  cancelReason?: string | null;
+}
+
 export interface PaymentAttemptDTO {
   id: string;
   memberSubscriptionId: string;
@@ -368,4 +389,19 @@ export interface ProviderCheckoutResult {
   /** Mock adapter resolves immediately; real adapters return a redirect URL instead. */
   status: 'PENDING' | 'COMPLETED';
   checkoutUrl?: string;
+}
+
+/** Result of an EInvoiceProvider.issue() call. */
+export interface EInvoiceIssueResult {
+  success: boolean;
+  providerUuid?: string;
+  providerStatus?: string;
+  pdfUrl?: string;
+  failureMessage?: string;
+}
+
+/** Result of an EInvoiceProvider.cancel() call. */
+export interface EInvoiceCancelResult {
+  success: boolean;
+  failureMessage?: string;
 }

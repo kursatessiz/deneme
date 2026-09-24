@@ -52,6 +52,18 @@ export const EnvSchema = z
     PAYTR_MERCHANT_ID: z.string().min(1).optional(),
     PAYTR_MERCHANT_KEY: z.string().min(1).optional(),
     PAYTR_MERCHANT_SALT: z.string().min(1).optional(),
+
+    // e-invoice integrator credentials. Each studio picks its provider in
+    // InvoiceSettings; the matching adapter falls back to a clear
+    // "not configured" error until these are set (see docs/INVOICING.md).
+    PARASUT_CLIENT_ID: z.string().min(1).optional(),
+    PARASUT_CLIENT_SECRET: z.string().min(1).optional(),
+    ELOGO_USERNAME: z.string().min(1).optional(),
+    ELOGO_PASSWORD: z.string().min(1).optional(),
+    FORIBA_USERNAME: z.string().min(1).optional(),
+    FORIBA_PASSWORD: z.string().min(1).optional(),
+    UYUMSOFT_USERNAME: z.string().min(1).optional(),
+    UYUMSOFT_PASSWORD: z.string().min(1).optional(),
   })
   .superRefine((env, ctx) => {
     if (env.OTP_TEST_CODE && env.NODE_ENV !== 'test') {

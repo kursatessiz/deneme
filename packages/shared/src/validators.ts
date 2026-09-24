@@ -1,6 +1,17 @@
 import { z } from 'zod';
-import { CommissionType, EntitlementKind, InviteChannel, PaymentMethod, PaymentStatus } from './enums';
+import {
+  BillingProfileKind,
+  CommissionType,
+  EInvoiceMode,
+  EInvoiceProvider,
+  EntitlementKind,
+  InvoiceStatus,
+  InviteChannel,
+  PaymentMethod,
+  PaymentStatus,
+} from './enums';
 import { normalizePhone } from './phone';
+import { TaxNumberSchema, TcknSchema, VknSchema } from './tax-id';
 
 const CURRENCY_CODE = z.string().length(3).default('TRY');
 
@@ -467,3 +478,68 @@ export const ListPaymentsQuerySchema = z.object({
   paymentStatus: z.nativeEnum(PaymentStatus).optional(),
 });
 export type ListPaymentsQuery = z.infer<typeof ListPaymentsQuerySchema>;
+
+// ---------------------------------------------------------------------------
+// e-Arsiv / e-Fatura (W8)
+// ---------------------------------------------------------------------------
+
+export const InvoiceSettingsSchema = z.object({
+  legalName: z.string().trim().min(2, 'Unvan giriniz').max(200),
+  taxOffice: z.string().trim().max(100).optional(),
+  /** VKN (10 haneli) veya TCKN (11 haneli); işletmenin kendi vergi kimliği. */
+  taxNumber: TaxNumberSchema.optional(),
+  address: z.string().trim().max(1000).optional(),
+  eInvoiceMode: z.nativeEnum(EInvoiceMode).default(EInvoiceMode.NONE),
+  provider: z.nativeEnum(EInvoiceProvider).default(EInvoiceProvider.MOCK),
+  /** Percentage, e.g. 10 or 20. */
+  defaultVatRate: z.number().min(0).max(100).default(20),
+  seriesPrefix: z
+    .string()
+    .trim()
+    .regex(/^[A-Z0-9]{1,10}$/, 'Seri kodu 1-10 büyük harf/rakam olmalıdır')
+    .default('A'),
+  autoIssueOnPayment: z.boolean().default(false),
+});
+export type InvoiceSettingsInput = z.infer<typeof InvoiceSettingsSchema>;
+
+const billingProfileBase = z.object({
+  kind: z.nativeEnum(BillingProfileKind).default(BillingProfileKind.INDIVIDUAL),
+  fullName: z.string().trim().min(2).max(150).optional(),
+  tckn: TcknSchema.optional(),
+  companyTitle: z.string().trim().min(2).max(200).optional(),
+  taxOffice: z.string().trim().max(100).optional(),
+  vkn: VknSchema.optional(),
+  address: z.string().trim().max(1000).optional(),
+  email: z.string().trim().email('Geçerli bir e-posta giriniz').optional(),
+});
+
+/** A company buyer needs its title, tax office and VKN to issue a valid e-invoice. */
+export const BillingProfileSchema = billingProfileBase.superRefine((value, ctx) => {
+  if (value.kind === BillingProfileKind.COMPANY) {
+    if (!value.companyTitle) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['companyTitle'], message: 'Şirket unvanı zorunludur' });
+    }
+    if (!value.vkn) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['vkn'], message: 'VKN zorunludur' });
+    }
+    if (!value.taxOffice) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['taxOffice'], message: 'Vergi dairesi zorunludur' });
+    }
+  } else if (!value.fullName) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['fullName'], message: 'Ad soyad zorunludur' });
+  }
+});
+export type BillingProfileInput = z.infer<typeof BillingProfileSchema>;
+
+export const ListInvoicesQuerySchema = z.object({
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+  branchId: z.string().uuid().optional(),
+  status: z.nativeEnum(InvoiceStatus).optional(),
+});
+export type ListInvoicesQuery = z.infer<typeof ListInvoicesQuerySchema>;
+
+export const CancelInvoiceSchema = z.object({
+  reason: z.string().trim().min(3, 'İptal nedeni giriniz').max(500),
+});
+export type CancelInvoiceInput = z.infer<typeof CancelInvoiceSchema>;

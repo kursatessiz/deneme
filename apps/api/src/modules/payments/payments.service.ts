@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { InvoicingService } from '../invoicing/invoicing.service';
 import { PaymentProviderRegistry } from './providers/payment-provider.registry';
 import type { TenantContext } from '../auth/tenant-context';
 import type {
@@ -34,7 +35,25 @@ export class PaymentsService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private providers: PaymentProviderRegistry,
+    private invoicing: InvoicingService,
   ) {}
+
+  /**
+   * Auto-issues an e-invoice for a just-completed payment, when the studio
+   * has e-invoicing configured and auto-issue on. Always best-effort: a
+   * provider failure is already recorded as a FAILED Invoice inside
+   * InvoicingService, and any unexpected error here is only logged, so a
+   * document generation problem never undoes or blocks the payment itself.
+   */
+  private async maybeAutoIssueInvoice(studioId: string, paymentId: string): Promise<void> {
+    try {
+      const settings = await this.invoicing.getSettings(studioId);
+      if (!settings || !settings.autoIssueOnPayment || settings.eInvoiceMode === 'NONE') return;
+      await this.invoicing.issueForPayment(studioId, paymentId);
+    } catch (err) {
+      this.logger.warn(`Auto-issue invoice failed for payment ${paymentId}: ${err instanceof Error ? err.message : err}`);
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // Selling a package with an immediate or pending payment
@@ -89,6 +108,7 @@ export class PaymentsService {
       });
       if (checkout.status === 'COMPLETED') {
         const { payment, memberPackage } = await this.completeSale(studioId, dto, pkgDef, branchId, provider, checkout.providerReference);
+        await this.maybeAutoIssueInvoice(studioId, payment.id);
         return { payment, memberPackage, pending: false };
       }
       const payment = await this.prisma.payment.create({
@@ -133,6 +153,7 @@ export class PaymentsService {
     }
 
     const { payment, memberPackage } = await this.completeSale(studioId, dto, pkgDef, branchId, provider, providerRef);
+    await this.maybeAutoIssueInvoice(studioId, payment.id);
     return { payment, memberPackage, pending: false };
   }
 
@@ -178,6 +199,7 @@ export class PaymentsService {
         this.providers.default.name,
         checkout.providerReference,
       );
+      await this.maybeAutoIssueInvoice(studioId, payment.id);
       return { payment, memberPackage, pending: false, checkoutUrl: checkout.checkoutUrl };
     }
 
@@ -246,6 +268,7 @@ export class PaymentsService {
       return memberPackage;
     });
 
+    await this.maybeAutoIssueInvoice(studioId, payment.id);
     return { paymentId: payment.id, memberPackage: result };
   }
 
@@ -397,9 +420,20 @@ export class PaymentsService {
         action: 'payments.refund',
         entityType: 'Payment',
         entityId: payment.id,
-        metadata: { amount: requested.toFixed(2), reason: dto.reason ?? null },
+        metadata: { amount: requested.toFixed(2), reason: dto.reason ?? null, fullyRefunded },
       },
     });
+
+    // Full refund cancels the e-invoice (if any was issued); a partial
+    // refund is only recorded here and never touches the invoice - see
+    // docs/INVOICING.md for the reconciliation note on partial refunds.
+    if (fullyRefunded) {
+      try {
+        await this.invoicing.cancelForRefund(tenant, actorUserId, payment.id, `İade: ${dto.reason}`);
+      } catch (err) {
+        this.logger.warn(`Invoice cancel-on-refund failed for payment ${payment.id}: ${err instanceof Error ? err.message : err}`);
+      }
+    }
 
     return this.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
   }
@@ -555,6 +589,7 @@ export class PaymentsService {
           where: { id: payment.id, paymentStatus: PaymentStatus.PENDING },
           data: { paymentStatus: PaymentStatus.COMPLETED },
         });
+        await this.maybeAutoIssueInvoice(payment.studioId, payment.id);
         return { handled: true };
       }
       const pkgDef = await this.prisma.packageDefinition.findFirst({
@@ -577,6 +612,7 @@ export class PaymentsService {
         );
         await tx.payment.update({ where: { id: payment.id }, data: { memberPackageId: memberPackage.id } });
       });
+      await this.maybeAutoIssueInvoice(payment.studioId, payment.id);
       return { handled: true };
     }
 
