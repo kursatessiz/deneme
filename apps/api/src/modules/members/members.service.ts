@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ConflictException, 
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import type { TenantContext } from '../auth/tenant-context';
-import { CreateMemberInput, AssignPackageToMemberInput, FreezePackageInput } from '@platform/shared';
+import { CreateMemberInput, AssignPackageToMemberInput, FreezePackageInput, UnfreezePackageInput } from '@platform/shared';
 import type { MemberDetailDTO, SetHomeBranchInput } from '@platform/shared';
 import { assertBranchAccess } from '../branches/branch-access';
 import { ReferralsService } from '../feedback/referrals.service';
@@ -314,6 +314,41 @@ export class MembersService {
           frozenUntil: freezeUntil,
           endDate: newEndDate,
         },
+      });
+    });
+  }
+
+  /**
+   * Ends a freeze early: closes the open freeze history row at now and puts
+   * the package back to ACTIVE, shortening endDate by the unused freeze
+   * days (the days already elapsed while frozen stay credited).
+   */
+  async unfreezePackage(packageId: string, tenant: TenantContext, _dto: UnfreezePackageInput) {
+    const studioId = tenant.studioId;
+    const memberPackage = await this.prisma.memberPackage.findFirst({ where: { id: packageId, studioId } });
+    if (!memberPackage) {
+      throw new NotFoundException('Paket bulunamadı');
+    }
+    if (memberPackage.status !== 'FROZEN') {
+      throw new BadRequestException('Bu paket dondurulmuş durumda değil');
+    }
+
+    const now = new Date();
+    const unusedFreezeMs = memberPackage.frozenUntil ? Math.max(0, memberPackage.frozenUntil.getTime() - now.getTime()) : 0;
+    const newEndDate = new Date(memberPackage.endDate.getTime() - unusedFreezeMs);
+
+    return this.prisma.$transaction(async (tx) => {
+      const openFreeze = await tx.packageFreezeHistory.findFirst({
+        where: { memberPackageId: packageId, freezeEndDate: { gt: now } },
+        orderBy: { freezeStartDate: 'desc' },
+      });
+      if (openFreeze) {
+        await tx.packageFreezeHistory.update({ where: { id: openFreeze.id }, data: { freezeEndDate: now } });
+      }
+
+      return tx.memberPackage.update({
+        where: { id: packageId },
+        data: { status: 'ACTIVE', frozenUntil: null, endDate: newEndDate },
       });
     });
   }

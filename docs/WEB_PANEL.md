@@ -1,8 +1,10 @@
 # Web paneli (apps/web) mimarisi
 
-Bu doküman W2.1 kapsamında kurulan temeli anlatır: kimlik doğrulama, oturum,
-izne göre menü ve tema. Takvim sürükle-bırak, üye kartı, paket satışı, rol
-ekranı ve finans gibi ekranlar sonraki backlog öğelerinde (2.2-2.4) gelir.
+Bu doküman W2.1 kapsamında kurulan temeli (kimlik doğrulama, oturum, izne
+göre menü, tema) ve W2.2 kapsamında eklenen takvim, üye kartı, paket satışı
+ve yoklama ekranlarını anlatır (aşağıda "Takvim, üye kartı, paket satışı,
+yoklama (W2.2)"). Rol/yetki ekranı ve finans gibi ekranlar sonraki backlog
+öğelerinde (2.3-2.4) gelir.
 
 ## Neden BFF (Backend-for-Frontend)
 
@@ -102,8 +104,55 @@ derlemeye gömülür; derleme sırasında ağ erişimi, çalışma zamanında Go
 Fonts isteği yoktur. Türkçe karakterler (latin-ext) aynı yazı tipiyle
 görüntülenir, tarayıcı yalnızca sayfada kullanılan karakter aralıklarını
 indirir. Aktif ailenin yazı tipi adları `apps/web/src/lib/fonts.ts`'den
-seçilir. Gradyan yalnızca uygulama başlık bandında (`Sidebar`) ve paket
-kartında (`packages` sayfası) kullanılır; başka hiçbir yerde gradyan yoktur.
+seçilir. Gradyan yalnızca uygulama başlık bandında (`Sidebar`), paket
+kartında (`packages` sayfası ve üye kartındaki aktif paket kartları) ve
+birincil butonda (`PermissionButton` `variant="primary"`) kullanılır; başka
+hiçbir yerde gradyan yoktur.
+
+## Takvim, üye kartı, paket satışı, yoklama (W2.2)
+
+- `/calendar` -- gün/hafta/ay görünümü (`lib/calendar/range.ts`: her görünüm
+  için sorgu aralığı, ay görünümü tam haftalara genişler). Şube, kaynak,
+  eğitmen ve hizmet türü filtreleri `GET /schedules/studio/:studioId`
+  sorgusuna (`branchId`/`resourceId`/`trainerId`) veya istemci tarafı
+  filtrelemeye (`serviceTypeId`) gider. Gün/hafta ızgarası
+  (`components/calendar/CalendarBoard.tsx`) saati piksele eşler; bir seans
+  bloğu `draggable`, native HTML5 sürükle-bırak olayları (`onDragStart`/
+  `onDragOver`/`onDrop`) yeni saati `lib/calendar/range.ts`'deki
+  `snapToSlot()` ile 5 dakikaya yuvarlar. Bırakma anında önce yerel state
+  iyimser olarak güncellenir, ardından `PATCH /schedules/:scheduleId`
+  çağrılır; istek başarısız olursa önceki state'e geri dönülür. Seçili
+  seans, tablet/masaüstünde takvimin yanında iki panelli düzende
+  (`SessionDetailPanel`) açılır: roster, kontenjan, bekleme listesi
+  (`GET /schedules/waitlist/:scheduleId`), giriş yap/gelmedi/rezervasyon
+  iptali/seansı iptal et/eğitmen ikamesi, hepsi ilgili izinle gizlenen
+  (`PermissionButton`) aksiyon düğmeleri. Yeni seans formu
+  (`SessionForm.tsx`) `CreateScheduleSchema`, düzenleme formu
+  (`EditSessionForm.tsx`) yeni eklenen `UpdateScheduleSchema` ile doğrulanır
+  (`packages/shared`).
+- `/members/[memberId]` -- üye kartı: profil, iletişim (`members.contact.view`
+  ile maskelenir), ana şube, aktif paketler (kalan birim, bitiş tarihi,
+  dondur/dondurmayı kaldır -- yeni `POST /members/packages/:packageId/unfreeze`
+  uç noktası), rezervasyon geçmişi, katılım istatistiği, ödemeler, notlar,
+  W12 churn risk rozeti (`GET /churn/studio/:id/members/:memberId`, henüz
+  puan hesaplanmamışsa bölüm sessizce gizlenir), `isPartnerGuest` etiketi,
+  W17 oyunlaştırma özeti (`GET /gamification/studio/:id/achievements`
+  listesinden üyeye göre filtrelenir). `/members` listesine arama
+  (`?search=`) ve ana şube filtresi eklendi, satırlar üye kartına bağlanır.
+- Paket satışı: üye kartından `PackageSaleDialog.tsx`,
+  `POST /payments/sell` ile fiyat, promosyon kodu, hediye kartı,
+  nakit/kart/havale ödeme yöntemini gönderir; satış tamamlanınca W8'in
+  otomatik kestiği faturayı bulmak için `GET /invoices?from=<bugün>`
+  sorgusu `paymentId` ile eşleştirilir (yalnızca `finance.view` varsa).
+- `/attendance` -- resepsiyon için bugünün seanslarında tek dokunuşla giriş
+  listesi (`PATCH /schedules/check-in/:bookingId`); takvim panelinden de
+  bir düğmeyle açılır.
+- Yeni API uç noktaları (ikisi de e2e testli,
+  `apps/api/test/e2e/web-panel-2-2.e2e-spec.ts`): `PATCH /schedules/:scheduleId`
+  (`schedule.manage`, `UpdateScheduleSchema`, aynı çakışma/şube kontrolleri
+  seans oluşturmadaki gibi) ve `POST /members/packages/:packageId/unfreeze`
+  (`packages.sell`, açık dondurma kaydını kapatır, `endDate`'i kullanılmayan
+  dondurma süresi kadar kısaltır).
 
 ## Yerelde çalıştırma
 
@@ -118,5 +167,9 @@ kartında (`packages` sayfası) kullanılır; başka hiçbir yerde gradyan yoktu
 
 `apps/web/src/lib/bff/*.spec.ts` ve `apps/web/src/lib/nav.spec.ts`, saf
 fonksiyonları kapsar: path sanitizer, çerez seçenekleri, CSRF/origin
-kontrolü ve izin->menü filtrelemesi. `pnpm --filter @platform/web test`
+kontrolü ve izin->menü filtrelemesi. `apps/web/src/lib/calendar/*.spec.ts`
+takvim görünüm aralığı matematiğini (gün/hafta/ay, ay tam haftaya genişleme),
+sürükle-bırak zaman yuvarlamayı (`snapToSlot`/`moveByMinutes`) ve seans
+formlarının paylaşılan Zod şemalarıyla (`CreateScheduleSchema`,
+`UpdateScheduleSchema`) doğrulanmasını kapsar. `pnpm --filter @platform/web test`
 (veya kökten `pnpm turbo run test`).

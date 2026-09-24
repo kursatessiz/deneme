@@ -1,5 +1,5 @@
 import type { PermissionKey } from '@platform/shared';
-import { Calendar, LayoutDashboard, Package, UserCog, Users } from 'lucide-react';
+import { Calendar, CheckSquare, LayoutDashboard, Package, UserCog, Users } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 export interface NavItem {
@@ -19,6 +19,7 @@ export interface NavItem {
 export const NAV_ITEMS: readonly NavItem[] = [
   { key: 'dashboard', label: 'Genel Bakış', href: '/dashboard', icon: LayoutDashboard, permissions: [] },
   { key: 'calendar', label: 'Ders Takvimi', href: '/calendar', icon: Calendar, permissions: ['schedule.view'] },
+  { key: 'attendance', label: 'Yoklama', href: '/attendance', icon: CheckSquare, permissions: ['attendance.manage'] },
   { key: 'members', label: 'Üyeler', href: '/members', icon: Users, permissions: ['members.view'] },
   { key: 'packages', label: 'Paket Tanımları', href: '/packages', icon: Package, permissions: ['catalog.view'] },
   { key: 'trainers', label: 'Eğitmenler', href: '/trainers', icon: UserCog, permissions: ['schedule.view'] },

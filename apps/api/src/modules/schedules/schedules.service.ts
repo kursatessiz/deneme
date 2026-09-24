@@ -15,6 +15,7 @@ import { VideoMeetingService } from '../video/providers/video-meeting.service';
 import type { TenantContext } from '../auth/tenant-context';
 import type {
   CreateScheduleInput,
+  UpdateScheduleInput,
   BookSessionInput,
   CancelBookingInput,
   MarkNoShowInput,
@@ -247,6 +248,70 @@ export class SchedulesService {
     );
 
     return created.length === 1 ? created[0] : created;
+  }
+
+  /**
+   * Moves or edits a not-yet-cancelled session: calendar drag-drop sends
+   * only the new startTime/endTime, the edit form may also change resource,
+   * trainer, branch, title or capacity. Runs the same conflict and
+   * branch-access checks as creation.
+   */
+  async updateSchedule(tenant: TenantContext, scheduleId: string, dto: UpdateScheduleInput) {
+    const studioId = tenant.studioId;
+    const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: scheduleId, studioId } });
+    if (!schedule) {
+      throw new NotFoundException('Seans bulunamadı');
+    }
+    if (schedule.isCancelled) {
+      throw new BadRequestException('İptal edilmiş bir seans güncellenemez');
+    }
+    assertBranchAccess(tenant, schedule.branchId);
+
+    const start = dto.startTime ? new Date(dto.startTime) : schedule.startTime;
+    const end = dto.endTime ? new Date(dto.endTime) : schedule.endTime;
+    if (start >= end) {
+      throw new BadRequestException('Bitiş saati başlangıç saatinden sonra olmalıdır');
+    }
+
+    let branchId = dto.branchId !== undefined ? dto.branchId : schedule.branchId;
+    const resourceId = dto.resourceId !== undefined ? dto.resourceId : schedule.resourceId;
+    const trainerId = dto.trainerId !== undefined ? dto.trainerId : schedule.trainerId;
+
+    if (branchId) {
+      const branch = await this.prisma.branch.findFirst({ where: { id: branchId, studioId, isActive: true } });
+      if (!branch) throw new BadRequestException('Seçilen şube bu işletmede bulunamadı veya pasif');
+    }
+
+    if (resourceId) {
+      const resource = await this.prisma.resource.findFirst({ where: { id: resourceId, studioId, isMaintenance: false } });
+      if (!resource) throw new BadRequestException('Seçilen kaynak bu işletmede bulunamadı veya bakımdadır');
+      if (resource.branchId && branchId && resource.branchId !== branchId) {
+        throw new BadRequestException('Seçilen kaynak başka bir şubeye ait');
+      }
+      branchId = branchId ?? resource.branchId;
+    }
+    assertBranchAccess(tenant, branchId);
+
+    if (trainerId) {
+      const trainer = await this.prisma.trainerProfile.findFirst({ where: { id: trainerId, studioId } });
+      if (!trainer) throw new NotFoundException('Eğitmen bulunamadı');
+    }
+
+    await this.assertNoConflict(studioId, start, end, trainerId ?? undefined, resourceId ?? undefined, scheduleId);
+
+    return this.prisma.sessionSchedule.update({
+      where: { id: scheduleId },
+      data: {
+        branchId,
+        resourceId,
+        trainerId,
+        title: dto.title ?? schedule.title,
+        startTime: start,
+        endTime: end,
+        capacity: dto.capacity ?? schedule.capacity,
+      },
+      include: { resource: true, trainer: { include: { membership: { include: { user: true } } } } },
+    });
   }
 
   async bookSession(tenant: TenantContext, dto: BookSessionInput) {
