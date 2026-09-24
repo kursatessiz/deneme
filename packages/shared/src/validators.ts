@@ -479,3 +479,36 @@ export const RevenueGranularitySchema = z.object({
   granularity: z.enum(['day', 'week', 'month']).default('day'),
 });
 export type RevenueGranularityQuery = z.infer<typeof RevenueGranularitySchema>;
+
+// ---------------------------------------------------------------------------
+// Payroll (trainer commission runs, W14)
+// ---------------------------------------------------------------------------
+
+/** A calendar-month-independent [start, end) period, e.g. one billing month. */
+export const PayrollPeriodSchema = z
+  .object({
+    periodStart: z.coerce.date(),
+    periodEnd: z.coerce.date(),
+    branchId: z.string().uuid().nullable().optional(),
+  })
+  .refine((r) => r.periodStart < r.periodEnd, {
+    message: 'Dönem başlangıcı bitişten önce olmalıdır',
+    path: ['periodEnd'],
+  });
+export type PayrollPeriodInput = z.infer<typeof PayrollPeriodSchema>;
+
+export const GeneratePayrollRunSchema = PayrollPeriodSchema;
+export type GeneratePayrollRunInput = z.infer<typeof GeneratePayrollRunSchema>;
+
+export const ListPayrollRunsSchema = z.object({
+  branchId: z.string().uuid().optional(),
+  status: z.enum(['DRAFT', 'APPROVED', 'PAID']).optional(),
+});
+export type ListPayrollRunsInput = z.infer<typeof ListPayrollRunsSchema>;
+
+export const AdjustPayrollLineSchema = z.object({
+  /** Positive adds to the trainer's net, negative subtracts. */
+  amount: z.coerce.number().finite(),
+  note: z.string().trim().min(3, 'Düzeltme için bir açıklama giriniz').max(500),
+});
+export type AdjustPayrollLineInput = z.infer<typeof AdjustPayrollLineSchema>;
