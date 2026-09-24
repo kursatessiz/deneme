@@ -158,7 +158,10 @@ hiçbir yerde gradyan yoktur.
 - `/finans` -- sekmeli tek sayfa (`components/finance/*Tab.tsx`): Ödemeler
   (tarih aralığı/yöntem/durum/şube filtresi, `finance.manage` ile kısmi/tam
   iade onaylı diyalogla, bekleyen havale ödemeleri için `POST
-  /payments/bank-transfer/confirm`), Giderler (liste/oluştur/sil; API'de yeni
+  /payments/bank-transfer/confirm`; üye sütunu artık kısaltılmış UUID yerine
+  görünen adı gösterir -- `PaymentDTO.memberDisplayName`, `members.contact.view`
+  yoksa ad + soyadın ilk harfi (`maskLeaderboardName`), varsa tam ad --
+  e2e testli), Giderler (liste/oluştur/sil; API'de yeni
   `apps/api/src/modules/expenses` modülü -- `Expense` modeli şemada zaten
   vardı, migration gerekmedi -- `GET /expenses/studio/:studioId`
   `finance.view`, `POST /expenses` ve `DELETE /expenses/:id/studio/:studioId`
@@ -189,8 +192,11 @@ hiçbir yerde gradyan yoktur.
   TRIAL_DONE/WON/LOST` sütunları), aday kartına tıklayınca detay çekmecesi
   (`components/leads/LeadDetailDrawer.tsx`): geçmiş, not ekleme, izin verilen
   aşama geçişleri (`LEAD_STAGE_TRANSITIONS`, `packages/shared`), üyeliğe
-  dönüştürme, deneme dersi planlama (`POST /leads/:id/trial`, seans kimliği
-  takvim ekranından kopyalanır -- ayrı bir seans seçici bu sürümde yok).
+  dönüştürme, deneme dersi planlama (`POST /leads/:id/trial`): elle seans
+  kimliği girmek yerine önümüzdeki 14 gün içindeki uygun seansları listeleyen
+  bir seçici (`GET /schedules/studio/:studioId`'den, aday şubesine göre
+  filtreli, iptal edilmiş ve dolu seanslar elenir; saf filtre fonksiyonu
+  `apps/web/src/lib/leads/trial-sessions.ts`, birim testli).
 - `/riskli-uyeler` -- W12 churn uç noktalarına bağlanır: seviye başına özet
   (güncel ve geçen haftaki sayı), filtreli liste (seviye/şube/arama/ertelenmiş
   dahil), her üyenin ilk üç risk gerekçesi, "Görüşüldü" (not zorunlu) ve
@@ -225,10 +231,10 @@ hiçbir yerde gradyan yoktur.
 
 ## Ayarlar (2.3)
 
-`apps/web/src/app/(dashboard)/ayarlar/` altında altı sayfa; hepsi
+`apps/web/src/app/(dashboard)/ayarlar/` altında yedi sayfa; hepsi
 `PageGuard` ile korunur ve içindeki her aksiyon (buton, form bölümü)
 `useDashboardSession()`'dan okuduğu izinlere göre gizlenir. Nav'da tek bir
-"Ayarlar" girişi vardır (`lib/nav.ts`), görünürlüğü altı sayfanın izinlerinin
+"Ayarlar" girişi vardır (`lib/nav.ts`), görünürlüğü yedi sayfanın izinlerinin
 birleşimidir; sayfa içindeki bölümler kendi izinlerine göre ayrıca gizlenir
 (ör. `/ayarlar/isletme` yalnızca `notifications.manage` olan bir kullanıcıya
 sadece bildirim kanalları bölümünü gösterir).
@@ -254,8 +260,16 @@ sadece bildirim kanalları bölümünü gösterir).
   (`studio.settings.manage`), bildirim kanal sırası + SMS bakiyesi
   (`notifications.manage`), oyunlaştırma aç/kapa (`studio.settings.manage`),
   Google yorum linki + tavsiye ödül birimi (`studio.settings.manage`), gömülü
-  widget izinli kökenler (`integrations.manage`; okuma uç noktası yok, form
-  kaydettiğinde listenin tamamını değiştirir).
+  widget izinli kökenler (`integrations.manage`; eksik olan `GET
+  /studios/:studioId/embed-settings` eklendi, form artık mevcut listeyi
+  yükleyip düzenler, üzerine yazmaz).
+- `ayarlar/rozetler/` -- W16 rozet tanımları: küresel (`studioId: null`) ve
+  işletmeye özel rozetleri listeler (`reports.view`), işletmeye özel rozet
+  oluşturma/düzenleme/etkin-pasif geçişi/silme (`studio.settings.manage`);
+  küresel rozetler salt okunur olarak işaretlenir. Rozet türüne göre değişen
+  eşik alanları (`threshold`) için saf yardımcılar
+  `apps/web/src/lib/settings/badge-threshold.ts`'te (varsayılan eşik, tek
+  satır özet), birim testli.
 - `ayarlar/entegrasyonlar/` -- API anahtarları (`integrations.manage`: oluştur
   -- gizli anahtar tek seferlik gösterim + kopyala --, listele, iptal et),
   webhook'lar (oluştur, listele, gizli anahtar döndür, teslimat geçmişi,

@@ -42,6 +42,14 @@ export class StudiosService {
     return studio;
   }
 
+  async getEmbedSettings(studioId: string) {
+    const studio = await this.prisma.studio.findUniqueOrThrow({
+      where: { id: studioId },
+      select: { id: true, embedAllowedOrigins: true },
+    });
+    return studio;
+  }
+
   async updateEmbedSettings(studioId: string, userId: string, embedAllowedOrigins: string[]) {
     const studio = await this.prisma.studio.update({
       where: { id: studioId },

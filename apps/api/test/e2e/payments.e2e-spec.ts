@@ -376,6 +376,35 @@ describe('Payments (e2e)', () => {
       const res = await as(memberToken).get('/payments');
       expect(res.status).toBe(403);
     });
+
+    it('the payments list shows the member display name instead of just the raw member id', async () => {
+      const sale = await as(ownerToken).post('/payments/sell', {
+        studioId: ZEN,
+        memberId: otherMemberId,
+        packageDefinitionId: sessionPackageId,
+        paymentMethod: 'CASH',
+        paidAmount: 12000,
+        currency: 'TRY',
+        notes: 'e2e display name',
+      });
+      expect(sale.status).toBe(201);
+      trackSale(sale.body);
+
+      const otherUser = (
+        await prisma.memberProfile.findUniqueOrThrow({
+          where: { id: otherMemberId },
+          include: { membership: { include: { user: true } } },
+        })
+      ).membership.user;
+
+      const res = await as(ownerToken).get('/payments');
+      expect(res.status).toBe(200);
+      const row = res.body.find((p: { id: string }) => p.id === sale.body.payment.id);
+      expect(row).toBeDefined();
+      // Owner has members.contact.view, so the full name is shown, not the raw UUID.
+      expect(row.memberDisplayName).toBe(`${otherUser.firstName} ${otherUser.lastName}`);
+      expect(row.memberDisplayName).not.toBe(otherMemberId);
+    });
   });
 
   describe('subscriptions', () => {

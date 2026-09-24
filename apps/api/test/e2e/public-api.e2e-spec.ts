@@ -116,6 +116,40 @@ describe('Public API and webhooks (e2e)', () => {
   // API key issuance
   // ---------------------------------------------------------------------------
 
+  describe('embed settings (GET/PUT /studios/:studioId/embed-settings)', () => {
+    let originalOrigins: string[];
+
+    beforeAll(async () => {
+      originalOrigins = (await prisma.studio.findUniqueOrThrow({ where: { id: ZEN }, select: { embedAllowedOrigins: true } }))
+        .embedAllowedOrigins;
+    });
+
+    afterAll(async () => {
+      await prisma.studio.update({ where: { id: ZEN }, data: { embedAllowedOrigins: originalOrigins } });
+    });
+
+    it('owner reads back the origins that a previous PUT stored, instead of an empty default', async () => {
+      const put = await staff(ownerToken, ZEN).put('/studios/' + ZEN + '/embed-settings').send({ embedAllowedOrigins: ['https://e2e-embed-read.example.com'] });
+      expect(put.status).toBe(200);
+
+      const get = await staff(ownerToken, ZEN).get(`/studios/${ZEN}/embed-settings`);
+      expect(get.status).toBe(200);
+      expect(get.body.embedAllowedOrigins).toEqual(['https://e2e-embed-read.example.com']);
+    });
+
+    it('trainer and member cannot read embed settings (integrations.manage denied)', async () => {
+      const asTrainer = await staff(trainerToken, ZEN).get(`/studios/${ZEN}/embed-settings`);
+      expect(asTrainer.status).toBe(403);
+      const asMember = await staff(memberToken, ZEN).get(`/studios/${ZEN}/embed-settings`);
+      expect(asMember.status).toBe(403);
+    });
+
+    it('a studio owner cannot read another studio\'s embed settings (tenant isolation)', async () => {
+      const res = await staff(ownerToken, ZEN).get(`/studios/${FLOW}/embed-settings`);
+      expect(res.status).toBe(403);
+    });
+  });
+
   describe('API key management', () => {
     it('owner creates a key: the plaintext secret is shown exactly once', async () => {
       const res = await staff(ownerToken, ZEN)

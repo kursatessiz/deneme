@@ -22,6 +22,7 @@
     "@expo/ui": "~57.0.20",
     "@kingstinct/react-native-healthkit": "^16.0.0",
     "@platform/shared": "workspace:*",
+    "@react-native-community/datetimepicker": "9.1.0",
     "expo": "~57.0.25",
     "expo-calendar": "~57.0.5",
     "expo-camera": "~57.0.5",

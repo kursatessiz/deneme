@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { CreateScheduleSchema, SessionDeliveryMode, VideoMeetingProviderKind } from '@platform/shared';
 
+import { DateTimeField } from '../../../../src/components/DateTimeField';
 import { PermissionGate } from '../../../../src/components/PermissionGate';
 import { PrimaryButton } from '../../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../../src/components/ScreenContainer';
@@ -140,20 +141,8 @@ function YeniSeansContent() {
         <PickerRow label="Eğitmen" options={trainers} value={trainerId} onSelect={setTrainerId} />
         <PickerRow label="Kaynak" options={resources} value={resourceId} onSelect={setResourceId} />
         <PickerRow label="Şube" options={branches} value={branchId} onSelect={setBranchId} />
-        <TextField
-          label="Başlangıç (YYYY-AA-GGTSS:DD:00.000Z)"
-          value={startTime}
-          onChangeText={setStartTime}
-          placeholder="2026-09-25T09:00:00.000Z"
-          errorMessage={fieldErrors.startTime}
-        />
-        <TextField
-          label="Bitiş (YYYY-AA-GGTSS:DD:00.000Z)"
-          value={endTime}
-          onChangeText={setEndTime}
-          placeholder="2026-09-25T10:00:00.000Z"
-          errorMessage={fieldErrors.endTime}
-        />
+        <DateTimeField label="Başlangıç" value={startTime} onChange={setStartTime} errorMessage={fieldErrors.startTime} />
+        <DateTimeField label="Bitiş" value={endTime} onChange={setEndTime} errorMessage={fieldErrors.endTime} />
         <TextField label="Kontenjan" value={capacity} onChangeText={setCapacity} keyboardType="number-pad" />
         <PickerRow
           label="Teslim şekli"

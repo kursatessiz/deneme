@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { PermissionKey } from '@platform/shared';
-import { ChevronRight, KeyRound, Layers, Palette, ShieldCheck, Store } from 'lucide-react';
+import { Award, ChevronRight, KeyRound, Layers, Palette, ShieldCheck, Store } from 'lucide-react';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { hasAnyPermission } from '@/lib/nav';
 import { SettingsHeader } from '@/components/settings/ui';
@@ -48,6 +48,14 @@ const CARDS: SettingsCard[] = [
     description: 'İptal politikası, check-in penceresi, bildirim ve oyunlaştırma ayarları',
     icon: Layers,
     permissions: ['studio.settings.view', 'studio.settings.manage', 'notifications.manage', 'catalog.manage'],
+  },
+  {
+    key: 'rozetler',
+    href: '/ayarlar/rozetler',
+    title: 'Rozetler',
+    description: 'Küresel ve işletmenize özel oyunlaştırma rozetlerini yönetin',
+    icon: Award,
+    permissions: ['reports.view', 'studio.settings.manage'],
   },
   {
     key: 'entegrasyonlar',

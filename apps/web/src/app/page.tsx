@@ -1,119 +1,171 @@
-'use client';
-
 import Link from 'next/link';
-import { Sparkles, ArrowRight, ShieldCheck, Activity, Calendar, Users } from 'lucide-react';
+import { DEFAULT_TENANT_THEME } from '@platform/shared';
+import { ThemeRoot } from '@/components/theme/ThemeRoot';
+import { LandingFeature } from './landing-feature';
 
+/**
+ * Product landing page (no tenant context). Uses the default tenant theme
+ * (see packages/shared/src/design) so the page reads as part of the
+ * product without impersonating any single studio's brand.
+ */
 export default function RootLandingPage() {
-  const studios = [
+  const features = [
     {
-      id: 's1',
-      name: 'Zen Reformer Pilates',
-      slug: 'zen-pilates',
-      branch: 'Nişantaşı / İstanbul',
-      activeMembers: 64,
-      trainers: 3,
-      themeColor: 'from-sky-500 to-indigo-600',
-      tag: 'Kız Kardeşimin Stüdyosu',
+      title: 'Online rezervasyon',
+      description: 'Üyeler seans ve randevularını kendi telefonlarından planlar, bekleme listesine katılır.',
     },
     {
-      id: 's2',
-      name: 'Flow Boutique Pilates & Wellness',
-      slug: 'flow-pilates',
-      branch: 'Bağdat Caddesi / Kadıköy',
-      activeMembers: 52,
-      trainers: 3,
-      themeColor: 'from-pink-500 to-rose-600',
-      tag: 'Kardeşimin Eşinin Stüdyosu',
+      title: 'Paket ve kredi takibi',
+      description: 'Seans sayısı, sınırsız süre veya kredi tabanlı paketler; dondurma ve transfer dahil.',
+    },
+    {
+      title: 'Ödeme ve e-fatura',
+      description: 'Tahsilat, iade, taksit ve otomatik fatura kesimi tek ekrandan yönetilir.',
+    },
+    {
+      title: 'Raporlar',
+      description: 'Doluluk, gelir, yenileme ve personel hakediş raporları şube bazında.',
+    },
+    {
+      title: 'Mobil uygulama',
+      description: 'Üye, eğitmen, resepsiyon ve işletme sahibi için tek uygulama, rol bazlı ekranlar.',
     },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-6 md:p-12">
-      {/* Top Brand */}
-      <div className="max-w-5xl mx-auto w-full flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-400 to-indigo-500 flex items-center justify-center font-bold text-white shadow-lg">
-            P
-          </div>
-          <div>
-            <span className="font-bold text-lg tracking-tight">Platform</span>
-            <span className="text-xs text-sky-400 block font-medium">Çoklu İşletme Randevu ve Üyelik Portalı</span>
-          </div>
-        </div>
+    <ThemeRoot tenantTheme={DEFAULT_TENANT_THEME} appearance={{ themeFamily: null, colorScheme: 'SYSTEM' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <header
+          style={{
+            padding: '20px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid var(--color-border)',
+          }}
+        >
+          <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: '-0.01em' }}>Platform</span>
+          <nav style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+            <Link href="/giris" style={{ color: 'var(--color-text-secondary)', fontSize: 14, textDecoration: 'none' }}>
+              Giriş yap
+            </Link>
+          </nav>
+        </header>
 
-        <div className="flex items-center space-x-2 text-xs text-slate-400">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <span>Ubuntu 24.04 Production Ready</span>
-        </div>
-      </div>
-
-      {/* Main Hero & Studio Selector */}
-      <div className="max-w-4xl mx-auto w-full my-12 text-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs text-sky-400 mb-6">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Stüdyo Seçimi ve Hızlı Giriş</span>
-        </div>
-
-        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white max-w-2xl mx-auto leading-tight">
-          Üyelik ve Randevu Tabanlı İşletmeler İçin Yönetim Platformu
-        </h1>
-        <p className="text-slate-400 text-base max-w-xl mx-auto mt-4">
-          Stüdyolar, kişisel antrenörler, fizyoterapi klinikleri, yoga merkezleri, spor sahaları ve kurslar için randevu takvimi, kalan seans kredisi takibi, personel hakedişleri ve üye geçmişini tek platformdan yönetin.
-        </p>
-
-        {/* 2 Studio Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12 text-left">
-          {studios.map((s) => (
-            <div
-              key={s.id}
-              className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 hover:border-slate-700 transition shadow-xl flex flex-col justify-between"
+        <main style={{ flex: 1 }}>
+          <section
+            style={{
+              maxWidth: 880,
+              margin: '0 auto',
+              padding: '72px 24px 48px',
+              textAlign: 'center',
+            }}
+          >
+            <h1
+              style={{
+                fontSize: 'clamp(28px, 5vw, 44px)',
+                fontWeight: 800,
+                lineHeight: 1.15,
+                letterSpacing: '-0.01em',
+                margin: 0,
+              }}
             >
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                    {s.tag}
-                  </span>
-                  <div className={`w-3 h-3 rounded-full bg-gradient-to-r ${s.themeColor}`}></div>
-                </div>
+              Üyelik ve randevu tabanlı işletmeniz için tek platform
+            </h1>
+            <p
+              style={{
+                marginTop: 18,
+                fontSize: 17,
+                color: 'var(--color-text-secondary)',
+                lineHeight: 1.6,
+              }}
+            >
+              Stüdyolar, kişisel antrenörlük, fizyoterapi, kortlar, kurslar ve benzeri işletmeler için
+              takvim, paket/kredi yönetimi, ödeme ve raporlama; kod değişikliği gerektirmeden
+              işletmenize göre yapılandırılır.
+            </p>
 
-                <h3 className="text-xl font-bold text-white">{s.name}</h3>
-                <p className="text-xs text-slate-400 mt-1">{s.branch}</p>
-
-                <div className="grid grid-cols-2 gap-3 mt-6 pt-4 border-t border-slate-800 text-xs">
-                  <div className="flex items-center space-x-2 text-slate-300">
-                    <Users className="w-4 h-4 text-sky-400" />
-                    <span>{s.activeMembers} Aktif Üye</span>
-                  </div>
-                  <div className="flex items-center space-x-2 text-slate-300">
-                    <Calendar className="w-4 h-4 text-emerald-400" />
-                    <span>{s.trainers} Eğitmen</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-8 flex items-center gap-3">
-                <Link
-                  href="/dashboard"
-                  className="flex-1 text-center py-2.5 px-4 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-semibold text-xs transition flex items-center justify-center"
-                >
-                  Yönetici Paneline Gir <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-                </Link>
-                <Link
-                  href={`/${s.slug}/book`}
-                  className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs transition"
-                >
-                  Üye Rezervasyonu
-                </Link>
-              </div>
+            <div style={{ marginTop: 32, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Link
+                href="/giris"
+                style={{
+                  padding: '13px 26px',
+                  borderRadius: 'var(--radius-button)',
+                  fontWeight: 700,
+                  fontSize: 15,
+                  color: '#fff',
+                  textDecoration: 'none',
+                  backgroundImage: 'var(--gradient-brand)',
+                }}
+              >
+                Giriş yap
+              </Link>
+              <a
+                href="#iletisim"
+                style={{
+                  padding: '13px 26px',
+                  borderRadius: 'var(--radius-button)',
+                  fontWeight: 600,
+                  fontSize: 15,
+                  color: 'var(--color-text-primary)',
+                  textDecoration: 'none',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                İşletmenizi kaydedin
+              </a>
             </div>
-          ))}
-        </div>
-      </div>
+          </section>
 
-      {/* Footer System Status */}
-      <div className="max-w-5xl mx-auto w-full text-center text-xs text-slate-500 border-t border-slate-900 pt-6">
-        <span>Platform • NestJS API • Next.js 15 Standalone • Caddy Reverse Proxy • 6GB RAM Tuned</span>
+          <section
+            style={{
+              maxWidth: 1040,
+              margin: '0 auto',
+              padding: '24px 24px 64px',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: 16,
+            }}
+          >
+            {features.map((f) => (
+              <LandingFeature key={f.title} title={f.title} description={f.description} />
+            ))}
+          </section>
+
+          <section id="iletisim" style={{ borderTop: '1px solid var(--color-border)' }}>
+            <div style={{ maxWidth: 640, margin: '0 auto', padding: '48px 24px', textAlign: 'center' }}>
+              <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>İşletmenizi kaydedin</h2>
+              <p style={{ marginTop: 12, color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
+                İşletmenizi platforma taşımak için bizimle iletişime geçin, ihtiyaçlarınıza uygun planı birlikte
+                belirleyelim.
+              </p>
+              <a
+                href="mailto:iletisim@example.com"
+                style={{ display: 'inline-block', marginTop: 16, color: 'var(--color-text-primary)', fontWeight: 600 }}
+              >
+                iletisim@example.com
+              </a>
+            </div>
+          </section>
+        </main>
+
+        <footer
+          style={{
+            borderTop: '1px solid var(--color-border)',
+            padding: '20px 24px',
+            display: 'flex',
+            gap: 16,
+            justifyContent: 'center',
+            fontSize: 13,
+            color: 'var(--color-text-muted)',
+          }}
+        >
+          <span>Platform</span>
+          <a href="/gizlilik" style={{ color: 'inherit' }}>
+            KVKK ve gizlilik
+          </a>
+        </footer>
       </div>
-    </div>
+    </ThemeRoot>
   );
 }
