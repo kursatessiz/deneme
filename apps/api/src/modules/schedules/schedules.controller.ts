@@ -21,6 +21,8 @@ import {
   SubstituteTrainerInput,
   CancelSessionSchema,
   CancelSessionInput,
+  ChangeSpotSchema,
+  ChangeSpotInput,
 } from '@platform/shared';
 
 @Controller('schedules')
@@ -42,6 +44,18 @@ export class SchedulesController {
     const end = endDate ? new Date(endDate) : new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     return this.schedulesService.getSchedules(tenant, start, end, trainerId, resourceId, branchId);
+  }
+
+  @Get('self/week')
+  @SelfService()
+  async getSchedulesSelf(
+    @Tenant() tenant: TenantContext,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+  ) {
+    const start = startDate ? new Date(startDate) : new Date();
+    const end = endDate ? new Date(endDate) : new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return this.schedulesService.getSchedulesSelf(tenant, start, end);
   }
 
   @Post()
@@ -72,6 +86,32 @@ export class SchedulesController {
   @SelfService()
   async cancelBookingSelf(@Tenant() tenant: TenantContext, @ZodBody(CancelBookingSchema) body: CancelBookingInput) {
     return this.schedulesService.cancelBookingSelf(tenant, body);
+  }
+
+  @Get(':scheduleId/spots')
+  @SelfService()
+  async getSpots(@Param('scheduleId', ParseUUIDPipe) scheduleId: string, @Tenant() tenant: TenantContext) {
+    return this.schedulesService.getSpots(tenant, scheduleId);
+  }
+
+  @Post('bookings/:bookingId/spot')
+  @RequirePermission('bookings.manage')
+  async changeSpot(
+    @Param('bookingId', ParseUUIDPipe) bookingId: string,
+    @Tenant() tenant: TenantContext,
+    @ZodBody(ChangeSpotSchema) body: ChangeSpotInput,
+  ) {
+    return this.schedulesService.changeSpot(tenant, bookingId, body.resourceIds);
+  }
+
+  @Post('bookings/:bookingId/spot/self')
+  @SelfService()
+  async changeSpotSelf(
+    @Param('bookingId', ParseUUIDPipe) bookingId: string,
+    @Tenant() tenant: TenantContext,
+    @ZodBody(ChangeSpotSchema) body: ChangeSpotInput,
+  ) {
+    return this.schedulesService.changeSpotSelf(tenant, bookingId, body.resourceIds);
   }
 
   @Patch('check-in/:bookingId')

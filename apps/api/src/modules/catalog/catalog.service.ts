@@ -91,6 +91,9 @@ export class CatalogService {
         name: dto.name,
         capacity: dto.capacity,
         serialNumber: dto.serialNumber,
+        layoutX: dto.layoutX,
+        layoutY: dto.layoutY,
+        label: dto.label,
       },
     });
   }
@@ -117,6 +120,9 @@ export class CatalogService {
         capacity: dto.capacity,
         serialNumber: dto.serialNumber === null ? null : dto.serialNumber,
         isMaintenance: dto.isMaintenance,
+        layoutX: dto.layoutX === null ? null : dto.layoutX,
+        layoutY: dto.layoutY === null ? null : dto.layoutY,
+        label: dto.label === null ? null : dto.label,
       },
     });
   }

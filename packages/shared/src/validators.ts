@@ -111,6 +111,12 @@ export const BookSessionSchema = z.object({
 });
 export type BookSessionInput = z.infer<typeof BookSessionSchema>;
 
+export const ChangeSpotSchema = z.object({
+  /** The new set of resources held by this booking; replaces the previous set. */
+  resourceIds: z.array(z.string().uuid()).min(1, 'En az bir yer seçilmelidir').max(5),
+});
+export type ChangeSpotInput = z.infer<typeof ChangeSpotSchema>;
+
 export const CancelBookingSchema = z.object({
   bookingId: z.string().uuid(),
   cancelledBy: z.enum(['MEMBER', 'STUDIO']),
@@ -211,6 +217,11 @@ export const CreateResourceSchema = z.object({
   name: z.string().trim().min(1, 'Kaynak adı zorunludur'),
   capacity: z.number().int().positive().default(1),
   serialNumber: z.string().max(100).optional(),
+  /** Grid coordinates for a spot map; both required together, optional overall. */
+  layoutX: z.number().int().optional(),
+  layoutY: z.number().int().optional(),
+  /** Short visible label on a spot map, e.g. "3" or "Kort 2". */
+  label: z.string().trim().max(40).optional(),
 });
 export type CreateResourceInput = z.infer<typeof CreateResourceSchema>;
 
@@ -223,6 +234,9 @@ export const UpdateResourceSchema = z.object({
   capacity: z.number().int().positive().optional(),
   serialNumber: z.string().max(100).nullable().optional(),
   isMaintenance: z.boolean().optional(),
+  layoutX: z.number().int().nullable().optional(),
+  layoutY: z.number().int().nullable().optional(),
+  label: z.string().trim().max(40).nullable().optional(),
 });
 export type UpdateResourceInput = z.infer<typeof UpdateResourceSchema>;
 
