@@ -90,3 +90,24 @@ export enum SmsTransactionType {
   ADJUSTMENT = 'ADJUSTMENT',
   REFUND = 'REFUND',
 }
+
+/** Payment provider adapter: MOCK is deterministic and used by default/tests. */
+export enum PaymentProvider {
+  MOCK = 'MOCK',
+  IYZICO = 'IYZICO',
+  PAYTR = 'PAYTR',
+}
+
+/** Auto-renewing member billing subscription (distinct from the platform Studio -> Plan subscription). */
+export enum MemberSubscriptionStatus {
+  ACTIVE = 'ACTIVE',
+  PAST_DUE = 'PAST_DUE',
+  CANCELLED = 'CANCELLED',
+  PAUSED = 'PAUSED',
+}
+
+export enum PaymentAttemptStatus {
+  SUCCEEDED = 'SUCCEEDED',
+  FAILED = 'FAILED',
+  PENDING = 'PENDING',
+}

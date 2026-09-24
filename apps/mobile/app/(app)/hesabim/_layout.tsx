@@ -9,6 +9,7 @@ export default function HesabimLayout() {
       <Stack.Screen name="takvim" options={{ title: 'Takvim aboneliği' }} />
       <Stack.Screen name="pin" options={{ title: 'PIN değiştir' }} />
       <Stack.Screen name="gorunum" options={{ title: 'Görünüm' }} />
+      <Stack.Screen name="odemelerim" options={{ title: 'Ödemelerim' }} />
       <Stack.Screen name="isletme-temasi" options={{ title: 'İşletme teması' }} />
       <Stack.Screen name="ana-sube" options={{ title: 'Ana şubem' }} />
       <Stack.Screen name="subeler" options={{ title: 'Şube özeti' }} />

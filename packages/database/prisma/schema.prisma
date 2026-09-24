@@ -89,6 +89,29 @@ enum CommissionType {
   MONTHLY_SALARY
 }
 
+/// Payment provider adapter that produced a stored card, subscription charge
+/// or online checkout. MOCK is deterministic and used by default/tests.
+enum PaymentProvider {
+  MOCK
+  IYZICO
+  PAYTR
+}
+
+/// Auto-renewing member billing subscription, distinct from the platform
+/// Subscription (Studio -> Plan) above.
+enum MemberSubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  PAUSED
+}
+
+enum PaymentAttemptStatus {
+  SUCCEEDED
+  FAILED
+  PENDING
+}
+
 enum SubscriptionStatus {
   TRIALING
   ACTIVE
@@ -268,6 +291,9 @@ model Studio {
   measurementForms     MeasurementFormTemplate[]
   measurementEntries   MeasurementEntry[]
   payments             Payment[]
+  storedCards          StoredCard[]
+  memberSubscriptions  MemberSubscription[]
+  paymentAttempts      PaymentAttempt[]
   expenses             Expense[]
   smsWallet            SmsWallet?
   smsTransactions      SmsTransaction[]
@@ -510,16 +536,18 @@ model MemberProfile {
   createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt             DateTime  @updatedAt @map("updated_at")
 
-  membership         Membership         @relation(fields: [membershipId], references: [id], onDelete: Cascade)
-  familyGroup        FamilyGroup?       @relation(fields: [familyGroupId], references: [id], onDelete: SetNull)
-  homeBranch         Branch?            @relation("MemberHomeBranch", fields: [homeBranchId], references: [id], onDelete: SetNull)
+  membership         Membership           @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  familyGroup        FamilyGroup?         @relation(fields: [familyGroupId], references: [id], onDelete: SetNull)
+  homeBranch         Branch?              @relation("MemberHomeBranch", fields: [homeBranchId], references: [id], onDelete: SetNull)
   packages           MemberPackage[]
   bookings           Booking[]
   waitlistEntries    Waitlist[]
   payments           Payment[]
+  storedCards        StoredCard[]
+  subscriptions      MemberSubscription[]
   measurementEntries MeasurementEntry[]
-  transfersOut       PackageTransfer[]  @relation("TransferFrom")
-  transfersIn        PackageTransfer[]  @relation("TransferTo")
+  transfersOut       PackageTransfer[]    @relation("TransferFrom")
+  transfersIn        PackageTransfer[]    @relation("TransferTo")
 
   @@index([studioId])
   @@map("member_profiles")
@@ -711,6 +739,7 @@ model PackageDefinition {
   studio         Studio                     @relation(fields: [studioId], references: [id], onDelete: Cascade)
   services       PackageDefinitionService[]
   memberPackages MemberPackage[]
+  subscriptions  MemberSubscription[]
 
   @@index([studioId, isActive])
   @@map("package_definitions")
@@ -968,28 +997,117 @@ model MeasurementEntry {
 // ---------------------------------------------------------------------------
 
 model Payment {
-  id                String        @id @default(uuid()) @db.Uuid
-  studioId          String        @map("studio_id") @db.Uuid
-  memberId          String        @map("member_id") @db.Uuid
-  memberPackageId   String?       @map("member_package_id") @db.Uuid
+  id                   String           @id @default(uuid()) @db.Uuid
+  studioId             String           @map("studio_id") @db.Uuid
+  memberId             String           @map("member_id") @db.Uuid
+  memberPackageId      String?          @map("member_package_id") @db.Uuid
+  memberSubscriptionId String?          @map("member_subscription_id") @db.Uuid
+  storedCardId         String?          @map("stored_card_id") @db.Uuid
   /// Branch where the sale happened, for per-branch revenue.
-  branchId          String?       @map("branch_id") @db.Uuid
-  amount            Decimal       @db.Decimal(10, 2)
-  paymentMethod     PaymentMethod @map("payment_method")
-  paymentStatus     PaymentStatus @default(COMPLETED) @map("payment_status")
-  receiptNumber     String?       @map("receipt_number") @db.VarChar(60)
-  providerReference String?       @map("provider_reference") @db.VarChar(120)
-  notes             String?       @db.Text
-  paidAt            DateTime      @default(now()) @map("paid_at")
+  branchId             String?          @map("branch_id") @db.Uuid
+  amount               Decimal          @db.Decimal(10, 2)
+  currency             String           @default("TRY") @db.VarChar(3)
+  /// Amount refunded so far; must never exceed amount.
+  refundedAmount       Decimal          @default(0) @map("refunded_amount") @db.Decimal(10, 2)
+  paymentMethod        PaymentMethod    @map("payment_method")
+  paymentStatus        PaymentStatus    @default(COMPLETED) @map("payment_status")
+  provider             PaymentProvider?
+  /// Card installment count, 1-12. Only meaningful for card payments.
+  installmentCount     Int              @default(1) @map("installment_count")
+  receiptNumber        String?          @map("receipt_number") @db.VarChar(60)
+  providerReference    String?          @map("provider_reference") @db.VarChar(120)
+  notes                String?          @db.Text
+  /// Bookkeeping for a PENDING payment (e.g. bank transfer) that has not yet
+  /// created its MemberPackage: { packageDefinitionId, startDate }.
+  metadata             Json?
+  paidAt               DateTime         @default(now()) @map("paid_at")
 
-  studio        Studio         @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  member        MemberProfile  @relation(fields: [memberId], references: [id])
-  memberPackage MemberPackage? @relation(fields: [memberPackageId], references: [id], onDelete: SetNull)
-  branch        Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  studio             Studio              @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  member             MemberProfile       @relation(fields: [memberId], references: [id])
+  memberPackage      MemberPackage?      @relation(fields: [memberPackageId], references: [id], onDelete: SetNull)
+  memberSubscription MemberSubscription? @relation(fields: [memberSubscriptionId], references: [id], onDelete: SetNull)
+  storedCard         StoredCard?         @relation(fields: [storedCardId], references: [id], onDelete: SetNull)
+  branch             Branch?             @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  attempts           PaymentAttempt[]
 
   @@index([studioId, paidAt])
   @@index([branchId, paidAt])
+  @@index([provider, providerReference])
   @@map("payments")
+}
+
+/// A tokenized card on file for a member. The PAN/CVV never touch this
+/// database: only the provider's opaque card token plus display metadata.
+model StoredCard {
+  id                String          @id @default(uuid()) @db.Uuid
+  studioId          String          @map("studio_id") @db.Uuid
+  memberId          String          @map("member_id") @db.Uuid
+  provider          PaymentProvider @default(MOCK)
+  providerCardToken String          @map("provider_card_token") @db.VarChar(200)
+  last4             String          @db.VarChar(4)
+  brand             String          @db.VarChar(20)
+  expMonth          Int             @map("exp_month")
+  expYear           Int             @map("exp_year")
+  isDefault         Boolean         @default(false) @map("is_default")
+  createdAt         DateTime        @default(now()) @map("created_at")
+
+  studio        Studio               @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  member        MemberProfile        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  subscriptions MemberSubscription[]
+  payments      Payment[]
+
+  @@index([studioId, memberId])
+  @@map("stored_cards")
+}
+
+/// Auto-renewing membership tied to a package definition, charged on
+/// nextChargeAt by the dunning service.
+model MemberSubscription {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  studioId            String                   @map("studio_id") @db.Uuid
+  memberId            String                   @map("member_id") @db.Uuid
+  packageDefinitionId String                   @map("package_definition_id") @db.Uuid
+  storedCardId        String?                  @map("stored_card_id") @db.Uuid
+  status              MemberSubscriptionStatus @default(ACTIVE)
+  currentPeriodStart  DateTime                 @map("current_period_start")
+  currentPeriodEnd    DateTime                 @map("current_period_end")
+  nextChargeAt        DateTime                 @map("next_charge_at")
+  cancelAtPeriodEnd   Boolean                  @default(false) @map("cancel_at_period_end")
+  /// Card installment count applied to each renewal charge, 1-12.
+  installmentCount    Int                      @default(1) @map("installment_count")
+  createdAt           DateTime                 @default(now()) @map("created_at")
+  updatedAt           DateTime                 @updatedAt @map("updated_at")
+
+  studio            Studio            @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  member            MemberProfile     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  packageDefinition PackageDefinition @relation(fields: [packageDefinitionId], references: [id])
+  storedCard        StoredCard?       @relation(fields: [storedCardId], references: [id], onDelete: SetNull)
+  attempts          PaymentAttempt[]
+  payments          Payment[]
+
+  @@index([studioId, memberId])
+  @@index([status, nextChargeAt])
+  @@map("member_subscriptions")
+}
+
+/// One dunning attempt to charge a due subscription.
+model PaymentAttempt {
+  id                   String               @id @default(uuid()) @db.Uuid
+  studioId             String               @map("studio_id") @db.Uuid
+  memberSubscriptionId String               @map("member_subscription_id") @db.Uuid
+  paymentId            String?              @map("payment_id") @db.Uuid
+  attemptNumber        Int                  @map("attempt_number")
+  status               PaymentAttemptStatus
+  failureCode          String?              @map("failure_code") @db.VarChar(60)
+  nextRetryAt          DateTime?            @map("next_retry_at")
+  createdAt            DateTime             @default(now()) @map("created_at")
+
+  studio       Studio             @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  subscription MemberSubscription @relation(fields: [memberSubscriptionId], references: [id], onDelete: Cascade)
+  payment      Payment?           @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([memberSubscriptionId])
+  @@map("payment_attempts")
 }
 
 model Expense {
