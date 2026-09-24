@@ -17,6 +17,8 @@ export const EnvSchema = z
     APP_VERSION: z.string().default('0.0.0'),
     /** Base URL of the web/mobile deep-link host; invite links are built on it. */
     PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
+    /** Public origin of this API, used in links it serves itself (calendar feeds). */
+    PUBLIC_API_URL: z.string().url().default('http://localhost:4000'),
     /** Fixed OTP for automated tests. Rejected outside NODE_ENV=test. */
     OTP_TEST_CODE: z
       .string()

@@ -7,6 +7,7 @@ import type { MembershipDTO, SessionUserDTO } from '@platform/shared';
 import { apiRequest } from './api';
 import { clearTokens, getAccessToken, setTokens } from './tokenStore';
 import { registerPushDevice, unregisterPushDevice } from './push';
+import { clearWidgetsForSignedOutState, refreshWidgets } from '../widgets';
 
 interface OtpVerifyResponse {
   accessToken: string;
@@ -94,6 +95,7 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactEle
       applyUser(result.user);
       if (result.hasPin) {
         await registerPushDevice();
+        refreshWidgets();
       }
       return { hasPin: result.hasPin };
     },
@@ -110,6 +112,7 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactEle
       await setTokens(result.accessToken, result.refreshToken);
       applyUser(result.user);
       await registerPushDevice();
+      refreshWidgets();
     },
     [applyUser],
   );
@@ -117,6 +120,7 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactEle
   const setPin = useCallback(async (pin: string) => {
     await apiRequest<void>('/auth/pin', { method: 'PUT', body: { pin } });
     await registerPushDevice();
+    refreshWidgets();
   }, []);
 
   const signOut = useCallback(async () => {
@@ -127,6 +131,7 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactEle
       // Local session is cleared regardless of network errors during sign-out.
     } finally {
       await clearTokens();
+      await clearWidgetsForSignedOutState();
       setUser(null);
       setActiveStudioIdState(null);
     }
