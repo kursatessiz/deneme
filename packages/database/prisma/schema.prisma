@@ -152,6 +152,21 @@ enum SmsTransactionType {
   REFUND
 }
 
+/// Channels an İYS (İleti Yönetim Sistemi) consent record can cover. A
+/// superset of NotificationChannel: consent tracking also covers phone
+/// calls, which the platform never sends itself but must still record.
+enum ConsentChannel {
+  SMS
+  WHATSAPP
+  EMAIL
+  CALL
+}
+
+enum ConsentStatus {
+  GRANTED
+  REVOKED
+}
+
 // ---------------------------------------------------------------------------
 // Platform level (super-admin)
 // ---------------------------------------------------------------------------
@@ -268,37 +283,39 @@ model Studio {
 
   businessTypeTemplate BusinessTypeTemplate? @relation(fields: [businessTypeTemplateId], references: [id])
 
-  subscriptions        Subscription[]
-  featureFlags         FeatureFlag[]
-  branches             Branch[]
-  memberships          Membership[]
-  roleTemplates        RoleTemplate[]
-  inviteTokens         InviteToken[]
-  documentVersions     DocumentVersion[]
-  resourceTypes        ResourceType[]
-  resources            Resource[]
-  serviceTypes         ServiceType[]
-  cancellationPolicies CancellationPolicy[]
-  commissionRules      CommissionRule[]
-  packageDefinitions   PackageDefinition[]
-  memberPackages       MemberPackage[]
-  packageTransfers     PackageTransfer[]
-  familyGroups         FamilyGroup[]
-  schedules            SessionSchedule[]
-  bookings             Booking[]
-  bookingResources     BookingResource[]
-  waitlistEntries      Waitlist[]
-  measurementForms     MeasurementFormTemplate[]
-  measurementEntries   MeasurementEntry[]
-  payments             Payment[]
-  storedCards          StoredCard[]
-  memberSubscriptions  MemberSubscription[]
-  paymentAttempts      PaymentAttempt[]
-  expenses             Expense[]
-  smsWallet            SmsWallet?
-  smsTransactions      SmsTransaction[]
-  notificationLogs     NotificationLog[]
-  auditLogs            AuditLog[]
+  subscriptions         Subscription[]
+  featureFlags          FeatureFlag[]
+  branches              Branch[]
+  memberships           Membership[]
+  roleTemplates         RoleTemplate[]
+  inviteTokens          InviteToken[]
+  documentVersions      DocumentVersion[]
+  resourceTypes         ResourceType[]
+  resources             Resource[]
+  serviceTypes          ServiceType[]
+  cancellationPolicies  CancellationPolicy[]
+  commissionRules       CommissionRule[]
+  packageDefinitions    PackageDefinition[]
+  memberPackages        MemberPackage[]
+  packageTransfers      PackageTransfer[]
+  familyGroups          FamilyGroup[]
+  schedules             SessionSchedule[]
+  bookings              Booking[]
+  bookingResources      BookingResource[]
+  waitlistEntries       Waitlist[]
+  measurementForms      MeasurementFormTemplate[]
+  measurementEntries    MeasurementEntry[]
+  payments              Payment[]
+  storedCards           StoredCard[]
+  memberSubscriptions   MemberSubscription[]
+  paymentAttempts       PaymentAttempt[]
+  expenses              Expense[]
+  smsWallet             SmsWallet?
+  smsTransactions       SmsTransaction[]
+  notificationLogs      NotificationLog[]
+  auditLogs             AuditLog[]
+  messageTemplates      MessageTemplate[]
+  communicationConsents CommunicationConsent[]
 
   @@map("studios")
 }
@@ -376,16 +393,17 @@ model User {
   createdAt         DateTime              @default(now()) @map("created_at")
   updatedAt         DateTime              @updatedAt @map("updated_at")
 
-  memberships        Membership[]
-  pushDevices        PushDevice[]
-  notificationPrefs  NotificationPreference[]
-  calendarFeedToken  CalendarFeedToken?
-  invitesCreated     InviteToken[]            @relation("InviteCreatedBy")
-  packageTransfers   PackageTransfer[]
-  measurementEntries MeasurementEntry[]
-  expenses           Expense[]
-  smsTransactions    SmsTransaction[]
-  auditLogs          AuditLog[]
+  memberships           Membership[]
+  pushDevices           PushDevice[]
+  notificationPrefs     NotificationPreference[]
+  calendarFeedToken     CalendarFeedToken?
+  invitesCreated        InviteToken[]            @relation("InviteCreatedBy")
+  packageTransfers      PackageTransfer[]
+  measurementEntries    MeasurementEntry[]
+  expenses              Expense[]
+  smsTransactions       SmsTransaction[]
+  auditLogs             AuditLog[]
+  communicationConsents CommunicationConsent[]
 
   @@map("users")
 }
@@ -1244,6 +1262,58 @@ model NotificationLog {
 
   @@index([studioId, createdAt])
   @@map("notification_logs")
+}
+
+/// Message copy is tenant data, not code. Null studioId rows are the global
+/// defaults a super admin curates; a tenant row with the same key/channel/
+/// locale overrides it. {{named}} placeholders are substituted at send time.
+model MessageTemplate {
+  id                   String              @id @default(uuid()) @db.Uuid
+  /// Null for the global default, set by super admin.
+  studioId             String?             @map("studio_id") @db.Uuid
+  key                  String              @db.VarChar(60)
+  channel              NotificationChannel
+  locale               String              @default("tr") @db.VarChar(5)
+  body                 String              @db.Text
+  /// Meta-approved WhatsApp template name, required when channel is WHATSAPP.
+  whatsappTemplateName String?             @map("whatsapp_template_name") @db.VarChar(120)
+  /// Utility/transactional templates bypass commercial consent gating.
+  isTransactional      Boolean             @default(true) @map("is_transactional")
+  isActive             Boolean             @default(true) @map("is_active")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+
+  studio Studio? @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@unique([studioId, key, channel, locale])
+  @@index([key])
+  @@map("message_templates")
+}
+
+/// İYS-style commercial communication consent, tracked per tenant, user and
+/// channel. Transactional messages never require this; commercial ones do.
+model CommunicationConsent {
+  id          String         @id @default(uuid()) @db.Uuid
+  studioId    String         @map("studio_id") @db.Uuid
+  userId      String         @map("user_id") @db.Uuid
+  channel     ConsentChannel
+  status      ConsentStatus  @default(GRANTED)
+  /// Where the consent was captured, e.g. "member-app", "staff-entry".
+  source      String         @db.VarChar(60)
+  grantedAt   DateTime?      @map("granted_at")
+  revokedAt   DateTime?      @map("revoked_at")
+  /// Set once the status change has been pushed to the real İYS API.
+  iysSyncedAt DateTime?      @map("iys_synced_at")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([studioId, userId, channel])
+  @@index([studioId, status])
+  @@index([iysSyncedAt])
+  @@map("communication_consents")
 }
 
 // ---------------------------------------------------------------------------
