@@ -39,6 +39,7 @@ services:
       CORS_ORIGIN: https://${WEB_DOMAIN}
       # Invite links (QR / SMS) point here: https://<web>/j/<token>
       PUBLIC_APP_URL: https://${WEB_DOMAIN}
+      PUBLIC_API_URL: https://${API_DOMAIN}
       SMS_PROVIDER: ${SMS_PROVIDER:-MOCK}
       NETGSM_USER: ${NETGSM_USER:-}
       NETGSM_PASSWORD: ${NETGSM_PASSWORD:-}
