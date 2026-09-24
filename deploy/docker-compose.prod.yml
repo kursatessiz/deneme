@@ -65,7 +65,12 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-    networks: [web_net]
+      # BFF (apps/web/src/app/api/bff/[...path]/route.ts) proxies to the API
+      # over the internal docker network -- never the public API_DOMAIN, and
+      # never baked into client bundles (no NEXT_PUBLIC_ prefix). See
+      # docs/WEB_PANEL.md.
+      API_INTERNAL_URL: http://api:4000
+    networks: [web_net, internal_net]
     read_only: true
     tmpfs: ["/tmp", "/app/apps/web/.next/cache:uid=1000,gid=1000"]
     security_opt: [no-new-privileges:true]

@@ -190,4 +190,15 @@ export class CatalogController {
   ) {
     return this.catalog.removeQualification(tenant, id, trainerProfileId);
   }
+
+  // Package definitions ---------------------------------------------------
+  // Read-only for now (W2.1 web panel foundation): the sell/freeze/transfer
+  // flows already manage MemberPackage directly (members.service.ts). CRUD
+  // of the definitions themselves is a later backlog item.
+
+  @Get('package-definitions/studio/:studioId')
+  @RequirePermission('catalog.view')
+  listPackageDefinitions(@Tenant() tenant: TenantContext) {
+    return this.catalog.listPackageDefinitions(tenant);
+  }
 }

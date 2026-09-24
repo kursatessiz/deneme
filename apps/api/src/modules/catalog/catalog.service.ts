@@ -328,6 +328,18 @@ export class CatalogService {
   }
 
   // ---------------------------------------------------------------------
+  // Package definitions (read-only)
+  // ---------------------------------------------------------------------
+
+  async listPackageDefinitions(tenant: TenantContext) {
+    return this.prisma.packageDefinition.findMany({
+      where: { studioId: tenant.studioId, isActive: true },
+      include: { services: { include: { serviceType: { select: { id: true, name: true } } } } },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  // ---------------------------------------------------------------------
   // Cross-tenant guards
   // ---------------------------------------------------------------------
 

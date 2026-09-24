@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { EMBED_ORIGIN_PATTERN, STUDIO_SLUG_PATTERN } from '@platform/shared';
+import { ACCESS_TOKEN_COOKIE } from '@/lib/bff/cookies';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-/**
- * Only `/embed/<studioSlug>` needs `frame-ancestors` opened up so the host
- * site's page can put it in an iframe (see docs/PUBLIC_API.md "Embed
- * widget"). Every other route keeps whatever headers it already has -- this
- * middleware never touches them.
- */
-export async function middleware(request: NextRequest) {
+/** Route group `(dashboard)` pages, matched without the group segment. */
+const PROTECTED_PATHS = ['/dashboard', '/calendar', '/members', '/packages', '/trainers'];
+
+async function embedCsp(request: NextRequest): Promise<NextResponse> {
   const response = NextResponse.next();
   const slug = request.nextUrl.pathname.split('/')[2];
   // Only a well-formed slug is ever put into the API URL (no path traversal
@@ -36,6 +34,31 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
+/**
+ * Two independent concerns share this file because Next.js allows only one
+ * middleware: `/embed/<studioSlug>` gets its `frame-ancestors` CSP (see
+ * docs/PUBLIC_API.md "Embed widget"), and every dashboard page requires a
+ * session cookie or redirects to /giris. The actual token is validated
+ * server-side in `(dashboard)/layout.tsx` via `GET /auth/me`; this check is
+ * cheap and only about routing, not authorization.
+ */
+export async function middleware(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith('/embed/')) {
+    return embedCsp(request);
+  }
+
+  const isProtected = PROTECTED_PATHS.some(
+    (p) => request.nextUrl.pathname === p || request.nextUrl.pathname.startsWith(`${p}/`),
+  );
+  if (isProtected && !request.cookies.get(ACCESS_TOKEN_COOKIE)?.value) {
+    const loginUrl = new URL('/giris', request.url);
+    loginUrl.searchParams.set('sonra', request.nextUrl.pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  return NextResponse.next();
+}
+
 export const config = {
-  matcher: '/embed/:path*',
+  matcher: ['/embed/:path*', '/dashboard/:path*', '/calendar/:path*', '/members/:path*', '/packages/:path*', '/trainers/:path*'],
 };
