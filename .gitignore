@@ -60,3 +60,6 @@ caddy_config/
 backups/
 *.sql
 *.sql.gz
+
+# Next.js generated
+next-env.d.ts

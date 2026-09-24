@@ -2,9 +2,10 @@
   "name": "@pilates/database",
   "version": "1.0.0",
   "private": true,
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
+    "build": "prisma generate && tsc -p tsconfig.build.json",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:prod": "prisma migrate deploy",
@@ -15,12 +16,16 @@
   },
   "dependencies": {
     "@pilates/shared": "workspace:*",
-    "@prisma/client": "^6.19.3"
+    "@prisma/client": "^6.19.3",
+    "prisma": "^6.19.3"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",
-    "prisma": "^6.19.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
-  }
+  },
+  "files": [
+    "dist",
+    "prisma"
+  ]
 }

@@ -13,11 +13,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET', 'super-secret-default-key-change-in-prod'),
+      secretOrKey: configService.getOrThrow<string>('JWT_SECRET'),
     });
   }
 
-  async validate(payload: { sub: string; email: string; role: string; studioId?: string }) {
+  async validate(payload: { sub: string; email: string; role: string; studioId?: string; typ?: string }) {
+    if (payload.typ !== 'access') {
+      throw new UnauthorizedException('Geçersiz oturum anahtarı');
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       include: {

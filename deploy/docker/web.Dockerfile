@@ -1,60 +1,31 @@
-# ==========================================
-# Multi-Stage Dockerfile for Next.js 15 Standalone
-# ==========================================
+# syntax=docker/dockerfile:1
+# Multi-stage image for the Next.js app (standalone output).
 
-# 1. Base image
 FROM node:22-alpine AS base
-RUN apk add --no-cache libc6-compat
-WORKDIR /app
+ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
 RUN npm install -g pnpm@9.15.4
-
-# 2. Dependencies
-FROM base AS deps
 WORKDIR /app
 
-COPY pnpm-lock.yaml* package.json pnpm-workspace.yaml turbo.json ./
-COPY packages/shared/package.json ./packages/shared/
-COPY apps/web/package.json ./apps/web/
-
-RUN pnpm install --frozen-lockfile
-
-# 3. Builder
 FROM base AS builder
-WORKDIR /app
+COPY pnpm-lock.yaml package.json pnpm-workspace.yaml turbo.json ./
+COPY packages/shared/package.json packages/shared/
+COPY apps/web/package.json apps/web/
+RUN pnpm install --frozen-lockfile --filter @pilates/web...
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY pnpm-lock.yaml* package.json pnpm-workspace.yaml turbo.json ./
-COPY packages/ ./packages/
-COPY apps/web/ ./apps/web/
+COPY packages/shared packages/shared
+COPY apps/web apps/web
+ENV NEXT_TELEMETRY_DISABLED=1 NODE_ENV=production
+RUN pnpm --filter @pilates/web... run build
 
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_ENV=production
-
-RUN pnpm turbo run build --filter=@pilates/web...
-
-# 4. Production Runner
 FROM node:22-alpine AS runner
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 \
+    NODE_OPTIONS=--max-old-space-size=512
 WORKDIR /app
-
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
-
-RUN apk add --no-cache dumb-init wget
-
-# Create non-root system user
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
-
-# Copy standalone build
-COPY --from=builder /app/apps/web/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./.next/static
-
-USER nextjs
-
+COPY --from=builder --chown=node:node /app/apps/web/.next/standalone ./
+COPY --from=builder --chown=node:node /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder --chown=node:node /app/apps/web/public ./apps/web/public
+USER node
 EXPOSE 3000
-
-ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -q --spider http://127.0.0.1:3000/ || exit 1
 CMD ["node", "apps/web/server.js"]

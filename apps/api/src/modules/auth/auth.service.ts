@@ -50,11 +50,12 @@ export class AuthService {
       studioId: user.studioId,
     };
 
-    const accessToken = this.jwtService.sign(payload, {
+    // The typ claim keeps a refresh token from being accepted as an access token.
+    const accessToken = this.jwtService.sign({ ...payload, typ: 'access' }, {
       expiresIn: '1d',
     });
 
-    const refreshToken = this.jwtService.sign(payload, {
+    const refreshToken = this.jwtService.sign({ ...payload, typ: 'refresh' }, {
       expiresIn: '30d',
     });
 
@@ -83,12 +84,26 @@ export class AuthService {
     };
   }
 
-  async refreshToken(userId: string, incomingRefreshToken: string) {
+  async refreshToken(incomingRefreshToken: string) {
+    if (!incomingRefreshToken) {
+      throw new UnauthorizedException('Oturum geçersiz');
+    }
+
+    let claims: { sub: string; typ?: string };
+    try {
+      claims = this.jwtService.verify(incomingRefreshToken);
+    } catch {
+      throw new UnauthorizedException('Oturum geçersiz');
+    }
+    if (claims.typ !== 'refresh') {
+      throw new UnauthorizedException('Oturum geçersiz');
+    }
+
     const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: claims.sub },
     });
 
-    if (!user || !user.refreshTokenHash) {
+    if (!user || !user.isActive || !user.refreshTokenHash) {
       throw new UnauthorizedException('Oturum geçersiz');
     }
 
@@ -105,7 +120,7 @@ export class AuthService {
       studioId: user.studioId,
     };
 
-    const newAccessToken = this.jwtService.sign(payload, { expiresIn: '1d' });
+    const newAccessToken = this.jwtService.sign({ ...payload, typ: 'access' }, { expiresIn: '1d' });
     return { accessToken: newAccessToken };
   }
 }

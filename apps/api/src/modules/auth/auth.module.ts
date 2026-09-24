@@ -15,7 +15,7 @@ import { StudioTenantGuard } from './guards/studio-tenant.guard';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET', 'super-secret-default-key-change-in-prod'),
+        secret: config.getOrThrow<string>('JWT_SECRET'),
         signOptions: { expiresIn: '1d' },
       }),
     }),

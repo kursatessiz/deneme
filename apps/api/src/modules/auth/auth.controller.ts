@@ -14,10 +14,11 @@ export class AuthController {
     return this.authService.login(validated);
   }
 
+  // Not behind JwtAuthGuard: the access token is usually expired by the time
+  // a client refreshes. The refresh token is verified on its own.
   @Post('refresh')
-  @UseGuards(JwtAuthGuard)
-  async refresh(@CurrentUser() user: any, @Body('refreshToken') refreshToken: string) {
-    return this.authService.refreshToken(user.id, refreshToken);
+  async refresh(@Body('refreshToken') refreshToken: string) {
+    return this.authService.refreshToken(refreshToken);
   }
 
   @Get('me')
