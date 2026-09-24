@@ -1,5 +1,16 @@
 import type { PermissionKey } from '@platform/shared';
-import { Calendar, CheckSquare, LayoutDashboard, Package, UserCog, Users } from 'lucide-react';
+import {
+  AlertTriangle,
+  BarChart3,
+  Calendar,
+  CheckSquare,
+  LayoutDashboard,
+  Package,
+  UserCog,
+  UserPlus,
+  Users,
+  Wallet,
+} from 'lucide-react';
 import type { ComponentType } from 'react';
 
 export interface NavItem {
@@ -23,6 +34,17 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { key: 'members', label: 'Üyeler', href: '/members', icon: Users, permissions: ['members.view'] },
   { key: 'packages', label: 'Paket Tanımları', href: '/packages', icon: Package, permissions: ['catalog.view'] },
   { key: 'trainers', label: 'Eğitmenler', href: '/trainers', icon: UserCog, permissions: ['schedule.view'] },
+  { key: 'finance', label: 'Finans', href: '/finans', icon: Wallet, permissions: ['finance.view', 'finance.manage', 'promotions.manage'] },
+  {
+    key: 'payroll',
+    label: 'Hakediş',
+    href: '/finans/bordro',
+    icon: Wallet,
+    permissions: ['commissions.view.own', 'commissions.view.all', 'payroll.manage'],
+  },
+  { key: 'reports', label: 'Raporlar', href: '/raporlar', icon: BarChart3, permissions: ['reports.view'] },
+  { key: 'leads', label: 'Adaylar', href: '/adaylar', icon: UserPlus, permissions: ['leads.view'] },
+  { key: 'churn', label: 'Riskli Üyeler', href: '/riskli-uyeler', icon: AlertTriangle, permissions: ['reports.view'] },
 ];
 
 /** Owners see everything; everyone else needs at least one of an item's permissions (or the item declares none). */

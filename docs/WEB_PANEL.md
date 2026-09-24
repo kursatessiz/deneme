@@ -1,10 +1,11 @@
 # Web paneli (apps/web) mimarisi
 
 Bu doküman W2.1 kapsamında kurulan temeli (kimlik doğrulama, oturum, izne
-göre menü, tema) ve W2.2 kapsamında eklenen takvim, üye kartı, paket satışı
-ve yoklama ekranlarını anlatır (aşağıda "Takvim, üye kartı, paket satışı,
-yoklama (W2.2)"). Rol/yetki ekranı ve finans gibi ekranlar sonraki backlog
-öğelerinde (2.3-2.4) gelir.
+göre menü, tema), W2.2 kapsamında eklenen takvim, üye kartı, paket satışı
+ve yoklama ekranlarını (aşağıda "Takvim, üye kartı, paket satışı, yoklama
+(W2.2)") ve W2.4 kapsamında eklenen finans ve rapor ekranlarını (aşağıda
+"Finans, hakediş, raporlar, adaylar, riskli üyeler (W2.4)") anlatır. Rol/yetki
+ve tema seçim ekranı (2.3) ayrı bir işten gelir.
 
 ## Neden BFF (Backend-for-Frontend)
 
@@ -154,6 +155,67 @@ hiçbir yerde gradyan yoktur.
   (`packages.sell`, açık dondurma kaydını kapatır, `endDate`'i kullanılmayan
   dondurma süresi kadar kısaltır).
 
+## Finans, hakediş, raporlar, adaylar, riskli üyeler (W2.4)
+
+- `/finans` -- sekmeli tek sayfa (`components/finance/*Tab.tsx`): Ödemeler
+  (tarih aralığı/yöntem/durum/şube filtresi, `finance.manage` ile kısmi/tam
+  iade onaylı diyalogla, bekleyen havale ödemeleri için `POST
+  /payments/bank-transfer/confirm`), Giderler (liste/oluştur/sil; API'de yeni
+  `apps/api/src/modules/expenses` modülü -- `Expense` modeli şemada zaten
+  vardı, migration gerekmedi -- `GET /expenses/studio/:studioId`
+  `finance.view`, `POST /expenses` ve `DELETE /expenses/:id/studio/:studioId`
+  `finance.manage`, her yazma `audit_logs`'a düşer), Faturalar (durum
+  filtresi, `FAILED` için `POST /invoices/:id/retry`, `GET /invoices/export`
+  BFF üzerinden CSV indirme bağlantısı), Promosyon ve Hediye Kartı (promosyon
+  kodu oluşturma/aç-kapa, hediye kartı listesi ve bakiyesi; yeni kart kesme
+  akışı üye kartındaki paket satışı diyaloguna gömülüdür, burada yalnızca
+  yönetim listesi vardır).
+- `/finans/bordro` -- W14 bordro uç noktalarına bağlanır: `payroll.manage`
+  veya `commissions.view.all` iznine sahip personel dönem taslağı
+  oluşturur/yeniden hesaplar, satır bazlı manuel düzeltme yapar, onaylar,
+  ödendi işaretler, CSV indirir (`components/finance/PayrollRuns.tsx`);
+  yalnızca `commissions.view.own` iznine sahip bir eğitmen aynı rotada kendi
+  onaylı/ödenmiş satırlarını görür (`components/finance/PayrollMyLines.tsx`,
+  `GET /payroll/studio/:studioId/me/lines`).
+- `/raporlar` -- sekmeli: Doluluk (hizmet türüne göre çubuk, gün x saat ısı
+  haritası, güne göre tablo), Gelir (granülerlik seçilebilir dönem çubuğu,
+  yönteme ve pakete göre kırılım, brüt/iade/net), Üyeler (KPI kutuları),
+  Yenileme (oran çubuğu), Kohortlar (ay x ay elde tutma matrisi, tarih
+  filtresi almaz), Eğitmenler (performans tablosu). Şube ve tarih aralığı
+  filtreleri (kohort hariç) ve `?format=csv` ile BFF üzerinden CSV indirme
+  her sekmede ortak. Grafik kütüphanesi kullanılmaz: `components/reports/Bar.tsx`
+  yalnızca CSS ile çizilen basit çubuk ve KPI kutusu, ısı haritası ve kohort
+  matrisi inline `div` ızgarasıdır (CLAUDE.md tasarım kuralı: iç içe kart
+  yok, jenerik "AI dashboard" görünümünden kaçınma).
+- `/adaylar` -- W11 aşamalarına göre pano (`NEW/CONTACTED/TRIAL_BOOKED/
+  TRIAL_DONE/WON/LOST` sütunları), aday kartına tıklayınca detay çekmecesi
+  (`components/leads/LeadDetailDrawer.tsx`): geçmiş, not ekleme, izin verilen
+  aşama geçişleri (`LEAD_STAGE_TRANSITIONS`, `packages/shared`), üyeliğe
+  dönüştürme, deneme dersi planlama (`POST /leads/:id/trial`, seans kimliği
+  takvim ekranından kopyalanır -- ayrı bir seans seçici bu sürümde yok).
+- `/riskli-uyeler` -- W12 churn uç noktalarına bağlanır: seviye başına özet
+  (güncel ve geçen haftaki sayı), filtreli liste (seviye/şube/arama/ertelenmiş
+  dahil), her üyenin ilk üç risk gerekçesi, "Görüşüldü" (not zorunlu) ve
+  "N gün ertele" aksiyonları, elle yeniden hesaplama, BFF üzerinden CSV.
+- Tüm CSV/PDF indirmeleri (`invoices/export`, raporlar `?format=csv`,
+  `churn/.../members?format=csv`, `payroll/.../export.csv`) tarayıcıdan
+  doğrudan `/api/bff/...` bağlantısına gider: BFF, JSON olmayan yanıtları
+  (Content-Type, Content-Disposition dahil) baytı baytına ve hop-by-hop
+  olmayan tüm başlıklarıyla olduğu gibi iletir (`apps/web/src/lib/bff/
+  proxy-response.ts`, `apps/web/src/app/api/bff/[...path]/route.ts`), token
+  yalnızca httpOnly çerezde kalır. `proxy-response.spec.ts` bu davranışı
+  birim testler.
+- Para tutarları her zaman API'nin ondalık dizgisinden
+  `apps/web/src/lib/money.ts` (`formatMoney`) ile, yalnızca görüntüleme için
+  `Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' })`
+  kullanılarak biçimlendirilir; istemci tarafında toplama gereken tek yer
+  (gider listesi toplamı) `sumMoney()` ile tam sayı (BigInt) kuruş toplamı
+  yapar, kayan noktalı toplama hiçbir yerde kullanılmaz. Tarih aralığı ön
+  ayarları (`bugün/bu hafta/son 7 gün/bu ay/son 30 gün/bu yıl`)
+  `apps/web/src/lib/date-range.ts`'dedir, rapor/finans/churn filtrelerinin
+  hepsi aynı `components/common/DateRangeFilter.tsx` ve
+  `components/common/BranchSelect.tsx`'i paylaşır.
+
 ## Yerelde çalıştırma
 
 1. `pnpm install`
@@ -171,5 +233,12 @@ kontrolü ve izin->menü filtrelemesi. `apps/web/src/lib/calendar/*.spec.ts`
 takvim görünüm aralığı matematiğini (gün/hafta/ay, ay tam haftaya genişleme),
 sürükle-bırak zaman yuvarlamayı (`snapToSlot`/`moveByMinutes`) ve seans
 formlarının paylaşılan Zod şemalarıyla (`CreateScheduleSchema`,
-`UpdateScheduleSchema`) doğrulanmasını kapsar. `pnpm --filter @platform/web test`
+`UpdateScheduleSchema`) doğrulanmasını kapsar. W2.4 ile eklenenler:
+`apps/web/src/lib/money.spec.ts` (para biçimlendirme ve `sumMoney` -- kayan
+noktalı toplamanın vereceği hatalı sonuçları -- `0.1 + 0.2 !== 0.3` -- önlediğini
+doğrular), `apps/web/src/lib/date-range.spec.ts` (tarih aralığı ön ayarları),
+`apps/web/src/lib/reports/query.spec.ts` (rapor sorgu dizgisi kurma),
+`apps/web/src/lib/bff/proxy-response.spec.ts` (BFF'nin CSV/PDF gibi JSON
+olmayan yanıtları Content-Type/Content-Disposition'ı koruyarak ve hop-by-hop
+başlıkları süzerek ilettiğini doğrular). `pnpm --filter @platform/web test`
 (veya kökten `pnpm turbo run test`).

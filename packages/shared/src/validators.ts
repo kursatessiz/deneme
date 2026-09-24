@@ -889,3 +889,24 @@ export const CheckGiftCardBalanceSchema = z.object({
   code: z.string().trim().min(8).max(40),
 });
 export type CheckGiftCardBalanceInput = z.infer<typeof CheckGiftCardBalanceSchema>;
+
+// ---------------------------------------------------------------------------
+// Expenses (W2.4)
+// ---------------------------------------------------------------------------
+
+export const CreateExpenseSchema = z.object({
+  branchId: z.string().uuid().optional(),
+  category: z.string().trim().min(2, 'Kategori giriniz').max(60),
+  amount: z.number().positive('Tutar sıfırdan büyük olmalıdır'),
+  spentAt: z.string().datetime(),
+  note: z.string().trim().max(1000).optional(),
+});
+export type CreateExpenseInput = z.infer<typeof CreateExpenseSchema>;
+
+export const ListExpensesQuerySchema = z.object({
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+  branchId: z.string().uuid().optional(),
+  category: z.string().trim().max(60).optional(),
+});
+export type ListExpensesQuery = z.infer<typeof ListExpensesQuerySchema>;

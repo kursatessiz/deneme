@@ -25,7 +25,17 @@ async function refreshSession(refreshToken: string): Promise<{ accessToken: stri
 }
 
 /** Route group `(dashboard)` pages, matched without the group segment. */
-const PROTECTED_PATHS = ['/dashboard', '/calendar', '/members', '/packages', '/trainers'];
+const PROTECTED_PATHS = [
+  '/dashboard',
+  '/calendar',
+  '/members',
+  '/packages',
+  '/trainers',
+  '/finans',
+  '/raporlar',
+  '/adaylar',
+  '/riskli-uyeler',
+];
 
 async function embedCsp(request: NextRequest): Promise<NextResponse> {
   const response = NextResponse.next();
@@ -93,5 +103,16 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/embed/:path*', '/dashboard/:path*', '/calendar/:path*', '/members/:path*', '/packages/:path*', '/trainers/:path*'],
+  matcher: [
+    '/embed/:path*',
+    '/dashboard/:path*',
+    '/calendar/:path*',
+    '/members/:path*',
+    '/packages/:path*',
+    '/trainers/:path*',
+    '/finans/:path*',
+    '/raporlar/:path*',
+    '/adaylar/:path*',
+    '/riskli-uyeler/:path*',
+  ],
 };
