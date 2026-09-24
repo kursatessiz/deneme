@@ -48,6 +48,6 @@
     "@types/passport-jwt": "^4.0.1",
     "jest": "^29.7.0",
     "ts-jest": "^29.4.13",
-    "typescript": "^5.9.3"
+    "typescript": "^7.0.2"
   }
 }
