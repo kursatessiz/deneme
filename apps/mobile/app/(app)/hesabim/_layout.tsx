@@ -17,6 +17,7 @@ export default function HesabimLayout() {
       <Stack.Screen name="hakedisim" options={{ title: 'Hakedişim' }} />
       <Stack.Screen name="bordro" options={{ title: 'Bordro' }} />
       <Stack.Screen name="potansiyel-uyeler" options={{ title: 'Potansiyel üyeler', headerShown: false }} />
+      <Stack.Screen name="arkadasini-getir" options={{ title: 'Arkadaşını getir' }} />
     </Stack>
   );
 }

@@ -195,6 +195,16 @@ Formül ve durum makinesi için bkz. `docs/PAYROLL.md`.
 
 Açık (WON/LOST olmayan) bir aday aynı telefonla tekrar başvurursa (web formundan veya personel tarafından), yeni bir `leads` satırı açılmaz; bu, o adayın geçmişine bir `lead_activities` notu olarak eklenir (bkz. `LeadsService.create` ve `LeadsService.submitPublicForm`, `apps/api/src/modules/leads/leads.service.ts`). Aday WON veya LOST olduktan sonra aynı telefonla yeni bir aday açılabilir.
 
+## Puan ve Tavsiye (W15)
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `session_ratings` | Bir üyenin bir rezervasyona verdiği puan (1-5) ve isteğe bağlı yorum; `trainer_profile_id` puanlama anındaki değil, seansı veren eğitmeni (`SessionSchedule.trainerId`) yansıtır; `is_anonymous_to_trainer` (varsayılan true) eğitmenin kendi görünümünde üye kimliğini gizler | (booking_id) benzersiz: üye başına rezervasyon başına tek puan; (studio_id, trainer_profile_id), (studio_id, service_type_id), (studio_id, created_at) index |
+| `referral_codes` | Üye başına tek kısa tavsiye kodu | (member_id) benzersiz (bir üyenin tek kodu olur); (code) global benzersiz |
+| `referrals` | Bir tavsiye kaydı: tavsiye eden üye, tavsiye edilen (global) kullanıcı, durum (beklemede, hak kazandı, ödüllendirildi, iptal edildi), hak kazanma ve ödül zaman damgaları, ödül türü ve miktarı | (studio_id, referred_user_id) benzersiz: kullanıcılar telefonla global benzersiz olduğundan aynı telefon bir stüdyoda iki kez tavsiye olarak kaydedilemez; (studio_id, status), (studio_id, referrer_member_id) index |
+
+`bookings.rating_prompt_sent_at` (nullable): "seansını değerlendir" push bildiriminin gönderildiği an; `RatingPromptService.promptRecentAttendees()` için idempotency anahtarıdır. `studios.google_review_url` (nullable, yalnızca g.page/search.google.com/local/writereview/google.com/maps ile başlayan https bağlantı) ve `studios.referral_reward_units` (varsayılan 1) çalışma zamanı kuralları için `docs/FEEDBACK_REFERRAL.md` içindedir.
+
 ## Denetim (Audit)
 
 | Tablo | Amaç | Kısıtlar |

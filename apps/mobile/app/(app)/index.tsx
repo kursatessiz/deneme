@@ -1,4 +1,4 @@
-import type { MeUpcomingBookingsDTO, UpcomingBookingDTO } from '@platform/shared';
+import type { MeUpcomingBookingsDTO, PendingRatingPromptDTO, UpcomingBookingDTO } from '@platform/shared';
 import { onColor } from '@platform/shared';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -79,6 +79,37 @@ function UpcomingBookingCard({ booking }: { booking: UpcomingBookingDTO }) {
   );
 }
 
+function PendingRatingCard({ prompt }: { prompt: PendingRatingPromptDTO }) {
+  const { theme } = useTheme();
+  const fonts = useThemeFonts();
+  const c = theme.colors;
+  const router = useRouter();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${prompt.serviceTypeName} seansını değerlendir`}
+      onPress={() => router.push(`/(app)/seans/degerlendir/${prompt.bookingId}`)}
+      style={[
+        styles.card,
+        {
+          backgroundColor: c.surface,
+          borderColor: c.border,
+          borderRadius: theme.family.radii.card,
+          borderWidth: theme.family.cardBorder ? 1 : 0,
+        },
+      ]}
+    >
+      <Text style={[styles.cardTitle, fonts.bodyStrong, { color: c.textPrimary }]}>Seansını nasıl buldun?</Text>
+      <Text style={[styles.cardSubtitle, fonts.body, { color: c.textSecondary }]}>
+        {prompt.serviceTypeName}
+        {prompt.trainerName ? ` - ${prompt.trainerName}` : ''}
+      </Text>
+      <Text style={[styles.calendarButtonText, fonts.bodyStrong, { color: c.textPrimary }]}>Değerlendir</Text>
+    </Pressable>
+  );
+}
+
 export default function HomeScreen() {
   const { theme } = useTheme();
   const fonts = useThemeFonts();
@@ -87,6 +118,7 @@ export default function HomeScreen() {
   const { user, activeMembership } = useSession();
   const isMember = Boolean(activeMembership?.memberProfileId);
   const [bookings, setBookings] = useState<UpcomingBookingDTO[] | null>(null);
+  const [pendingRatings, setPendingRatings] = useState<PendingRatingPromptDTO[]>([]);
   const [loadError, setLoadError] = useState<string | undefined>();
   const onBand = onColor(theme.gradient.stops[0]);
 
@@ -102,9 +134,20 @@ export default function HomeScreen() {
     }
   }, []);
 
+  const loadPendingRatings = useCallback(async () => {
+    if (!isMember || !activeMembership?.studioId) return;
+    try {
+      const data = await apiRequest<PendingRatingPromptDTO[]>(`/ratings/studio/${activeMembership.studioId}/me/pending`);
+      setPendingRatings(data);
+    } catch {
+      // Non-critical: the home screen still works without the prompt card.
+    }
+  }, [isMember, activeMembership?.studioId]);
+
   useEffect(() => {
     loadBookings();
-  }, [loadBookings]);
+    loadPendingRatings();
+  }, [loadBookings, loadPendingRatings]);
 
   return (
     <ScreenContainer>
@@ -114,6 +157,10 @@ export default function HomeScreen() {
         ) : null}
         <Text style={[styles.name, fonts.display, { color: onBand }]}>Merhaba, {user?.firstName ?? ''}</Text>
       </GradientSurface>
+
+      {pendingRatings.map((prompt) => (
+        <PendingRatingCard key={prompt.bookingId} prompt={prompt} />
+      ))}
 
       {isMember ? (
         <Pressable

@@ -199,6 +199,18 @@ enum LeadActivityType {
   TRIAL_BOOKED
 }
 
+enum ReferralStatus {
+  PENDING
+  QUALIFIED
+  REWARDED
+  VOIDED
+}
+
+/// Only EXTRA_UNITS exists while no gift-card module is on main (see W15).
+enum ReferralRewardType {
+  EXTRA_UNITS
+}
+
 // ---------------------------------------------------------------------------
 // Platform level (super-admin)
 // ---------------------------------------------------------------------------
@@ -307,6 +319,14 @@ model Studio {
   gradientPresetKey      String   @default("atolye-orman") @map("gradient_preset_key") @db.VarChar(40)
   reminderHoursBefore    Int      @default(2) @map("reminder_hours_before")
   maxAdvanceBookingDays  Int      @default(14) @map("max_advance_booking_days")
+  /// Deep link to the studio's Google Business review page. Must start with
+  /// https://g.page/, https://search.google.com/local/writereview or
+  /// https://www.google.com/maps. Null hides the review prompt entirely.
+  googleReviewUrl        String?  @map("google_review_url") @db.Text
+  /// Units credited to the referrer's active package when a referral is
+  /// rewarded (EXTRA_UNITS is the only reward type while no gift-card
+  /// module exists on main).
+  referralRewardUnits    Int      @default(1) @map("referral_reward_units")
   /// Channel order and fallback, e.g. { "order": ["WHATSAPP", "SMS"] }
   notificationSettings   Json     @default("{\"order\":[\"WHATSAPP\",\"SMS\"]}") @map("notification_settings")
   isActive               Boolean  @default(true) @map("is_active")
@@ -352,6 +372,9 @@ model Studio {
   payrollLines          PayrollLine[]
   leads                 Lead[]
   leadActivities        LeadActivity[]
+  sessionRatings        SessionRating[]
+  referralCodes         ReferralCode[]
+  referrals             Referral[]
 
   @@map("studios")
 }
@@ -444,6 +467,7 @@ model User {
   communicationConsents CommunicationConsent[]
   payrollRunsCreated    PayrollRun[]             @relation("PayrollRunCreatedBy")
   payrollRunsApproved   PayrollRun[]             @relation("PayrollRunApprovedBy")
+  referredAs            Referral[]
 
   @@map("users")
 }
@@ -609,6 +633,9 @@ model MemberProfile {
   measurementEntries MeasurementEntry[]
   transfersOut       PackageTransfer[]    @relation("TransferFrom")
   transfersIn        PackageTransfer[]    @relation("TransferTo")
+  ratingsGiven       SessionRating[]
+  referralCode       ReferralCode?
+  referralsMade      Referral[]           @relation("ReferralReferrer")
 
   @@index([studioId])
   @@map("member_profiles")
@@ -628,6 +655,7 @@ model TrainerProfile {
   schedules      SessionSchedule[]      @relation("ScheduleTrainer")
   substitutedFor SessionSchedule[]      @relation("ScheduleOriginalTrainer")
   payrollLines   PayrollLine[]
+  ratingsReceived SessionRating[]
 
   @@index([studioId])
   @@map("trainer_profiles")
@@ -825,6 +853,7 @@ model ServiceType {
   packageServices       PackageDefinitionService[]
   schedules             SessionSchedule[]
   leads                 Lead[]
+  ratings               SessionRating[]
 
   @@unique([studioId, name])
   @@map("service_types")
@@ -1012,6 +1041,9 @@ model Booking {
   isLateCancellation Boolean       @default(false) @map("is_late_cancellation")
   /// Units kept by the business under the cancellation / no-show policy.
   penaltyUnits       Int           @default(0) @map("penalty_units")
+  /// Set once a "rate your session" push has been sent for this booking,
+  /// so promptRecentAttendees() never sends it twice.
+  ratingPromptSentAt DateTime?     @map("rating_prompt_sent_at")
   createdAt          DateTime      @default(now()) @map("created_at")
 
   studio        Studio            @relation(fields: [studioId], references: [id], onDelete: Cascade)
@@ -1019,6 +1051,7 @@ model Booking {
   member        MemberProfile     @relation(fields: [memberId], references: [id], onDelete: Cascade)
   memberPackage MemberPackage?    @relation(fields: [memberPackageId], references: [id])
   resources     BookingResource[]
+  rating        SessionRating?
 
   @@unique([scheduleId, memberId])
   @@index([studioId, status])
@@ -1456,6 +1489,9 @@ model Lead {
   utmSource             String?    @map("utm_source") @db.VarChar(100)
   utmMedium             String?    @map("utm_medium") @db.VarChar(100)
   utmCampaign           String?    @map("utm_campaign") @db.VarChar(100)
+  /// Referrer's short code from the "Arkadaşını getir" link, if the lead
+  /// came through one. Carried over to the Referral record on conversion.
+  referralCode          String?    @map("referral_code") @db.VarChar(24)
   notes                 String?    @db.Text
   createdAt             DateTime   @default(now()) @map("created_at")
   updatedAt             DateTime   @updatedAt @map("updated_at")
@@ -1489,6 +1525,88 @@ model LeadActivity {
 
   @@index([leadId, createdAt])
   @@map("lead_activities")
+}
+
+// ---------------------------------------------------------------------------
+// W15: post-class ratings and refer-a-friend
+// ---------------------------------------------------------------------------
+
+/// One rating per booking. The teaching trainer (trainerProfileId) is copied
+/// from the schedule at rating time so a later substitution never changes
+/// who was rated. isAnonymousToTrainer hides the member's identity from the
+/// trainer's own view; owner/manager always see everything.
+model SessionRating {
+  id                   String   @id @default(uuid()) @db.Uuid
+  studioId             String   @map("studio_id") @db.Uuid
+  bookingId            String   @unique @map("booking_id") @db.Uuid
+  memberId             String   @map("member_id") @db.Uuid
+  trainerProfileId     String   @map("trainer_profile_id") @db.Uuid
+  serviceTypeId        String   @map("service_type_id") @db.Uuid
+  score                Int
+  comment              String?  @db.VarChar(1000)
+  isAnonymousToTrainer Boolean  @default(true) @map("is_anonymous_to_trainer")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  studio         Studio         @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  booking        Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  member         MemberProfile  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  trainerProfile TrainerProfile @relation(fields: [trainerProfileId], references: [id], onDelete: Cascade)
+  serviceType    ServiceType    @relation(fields: [serviceTypeId], references: [id])
+
+  @@index([studioId, trainerProfileId])
+  @@index([studioId, serviceTypeId])
+  @@index([studioId, createdAt])
+  @@map("session_ratings")
+}
+
+/// One short code per member per studio, used for the "Arkadaşını getir" share link.
+model ReferralCode {
+  id        String   @id @default(uuid()) @db.Uuid
+  studioId  String   @map("studio_id") @db.Uuid
+  memberId  String   @unique @map("member_id") @db.Uuid
+  code      String   @unique @db.VarChar(24)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  studio    Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  member    MemberProfile @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  referrals Referral[]
+
+  @@map("referral_codes")
+}
+
+/// Tracks a referred lead/member from signup through reward. Rewards are
+/// granted exactly once via a conditional status update (PENDING/QUALIFIED
+/// -> REWARDED); never for self-referral, enforced by referredUserId
+/// pointing at a different user than the referrer's, checked in the service.
+model Referral {
+  id               String    @id @default(uuid()) @db.Uuid
+  studioId         String    @map("studio_id") @db.Uuid
+  referrerMemberId String    @map("referrer_member_id") @db.Uuid
+  referredUserId   String    @map("referred_user_id") @db.Uuid
+  referredPhone    String    @map("referred_phone") @db.VarChar(20)
+  referralCodeId   String?   @map("referral_code_id") @db.Uuid
+  status           ReferralStatus @default(PENDING)
+  qualifiedAt      DateTime? @map("qualified_at")
+  rewardedAt       DateTime? @map("rewarded_at")
+  rewardType       ReferralRewardType? @map("reward_type")
+  rewardUnits      Int?      @map("reward_units")
+  voidedAt         DateTime? @map("voided_at")
+  voidReason       String?   @map("void_reason") @db.Text
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  studio         Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  referrerMember MemberProfile @relation("ReferralReferrer", fields: [referrerMemberId], references: [id], onDelete: Cascade)
+  referredUser   User          @relation(fields: [referredUserId], references: [id], onDelete: Cascade)
+  referralCode   ReferralCode? @relation(fields: [referralCodeId], references: [id], onDelete: SetNull)
+
+  /// One referral row per referred user per studio: prevents the same phone
+  /// (users are globally phone-unique) from being recorded twice.
+  @@unique([studioId, referredUserId])
+  @@index([studioId, status])
+  @@index([studioId, referrerMemberId])
+  @@map("referrals")
 }
 
 // ---------------------------------------------------------------------------

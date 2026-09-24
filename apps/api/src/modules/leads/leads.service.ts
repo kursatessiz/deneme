@@ -173,8 +173,9 @@ export class LeadsService {
           phone: dto.phone,
           openPhone: dto.phone,
           email: dto.email || null,
-          source: LeadSource.WEB_FORM,
+          source: dto.referralCode ? LeadSource.REFERRAL : LeadSource.WEB_FORM,
           sourceDetail: dto.interest || null,
+          referralCode: dto.referralCode || null,
           notes: null,
         },
       });
@@ -296,6 +297,7 @@ export class LeadsService {
       emergencyContactName: dto.emergencyContactName,
       emergencyContactPhone: dto.emergencyContactPhone,
       notes: dto.notes ?? lead.notes ?? undefined,
+      referralCode: lead.referralCode ?? undefined,
     });
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -333,6 +335,7 @@ export class LeadsService {
       phone: lead.phone,
       email: lead.email ?? '',
       notes: lead.notes ?? undefined,
+      referralCode: lead.referralCode ?? undefined,
     });
 
     const booking = await this.schedules.bookSession(tenant, {

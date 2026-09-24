@@ -157,3 +157,15 @@ export function canTransitionLeadStage(from: LeadStage, to: LeadStage): boolean 
   if (from === to) return false;
   return LEAD_STAGE_TRANSITIONS[from].includes(to);
 }
+
+export enum ReferralStatus {
+  PENDING = 'PENDING',
+  QUALIFIED = 'QUALIFIED',
+  REWARDED = 'REWARDED',
+  VOIDED = 'VOIDED',
+}
+
+/** Only EXTRA_UNITS exists while no gift-card module is on main (see W15). */
+export enum ReferralRewardType {
+  EXTRA_UNITS = 'EXTRA_UNITS',
+}

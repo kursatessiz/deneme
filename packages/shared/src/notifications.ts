@@ -61,6 +61,13 @@ export const NOTIFICATION_CATEGORIES = {
     marketing: true,
     staffOnly: false,
   },
+  FEEDBACK: {
+    label: 'Üye geri bildirimleri',
+    description: 'Düşük puanlı seans değerlendirmeleri (işletme sahibi ve yöneticiler için)',
+    defaults: { push: true, sms: false },
+    marketing: false,
+    staffOnly: true,
+  },
 } as const satisfies Record<string, NotificationCategoryDefinition>;
 
 export type NotificationCategory = keyof typeof NOTIFICATION_CATEGORIES;
