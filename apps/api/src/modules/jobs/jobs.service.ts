@@ -2,17 +2,20 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AutomationRunnerService, RunOutcome } from '../automations/automation-runner.service';
 import { DunningService, DunningOutcome } from '../payments/dunning.service';
 import { ConsentService } from '../notifications/consent/consent.service';
+import { ChurnService } from '../churn/churn.service';
 
 export interface SchedulerRunResult {
   runAt: string;
   automations: RunOutcome[];
   dunning: DunningOutcome[];
   consentSync: { synced: number; failed: number };
+  churn: { studiosProcessed: number; membersScored: number };
 }
 
 /**
  * The single unit of work run every 15 minutes: automation rule evaluation
- * (W10), dunning retries (W6) and İYS consent sync (W7). All three are safe
+ * (W10), dunning retries (W6), İYS consent sync (W7) and the daily churn-risk
+ * refresh (W12, only studios scored more than 20 hours ago). All are safe
  * to call repeatedly (each guards its own idempotency), so one heartbeat
  * covers them instead of three separate queues - see docs/AUTOMATIONS.md and
  * HANDOVER.md 6c.
@@ -29,18 +32,21 @@ export class JobsService {
     private readonly automations: AutomationRunnerService,
     private readonly dunning: DunningService,
     private readonly consent: ConsentService,
+    private readonly churn: ChurnService,
   ) {}
 
   async runAll(now = new Date()): Promise<SchedulerRunResult> {
     const automations = await this.automations.runDueRules(now);
     const dunning = await this.dunning.runDueRenewals(now);
     const consentSync = await this.consent.syncPendingConsents();
+    const churn = await this.churn.recomputeStale(now);
 
     this.logger.log(
       `Scheduler heartbeat at ${now.toISOString()}: ${automations.length} automation rule(s), ` +
-        `${dunning.length} dunning subscription(s), consent sync ${consentSync.synced} synced/${consentSync.failed} failed`,
+        `${dunning.length} dunning subscription(s), consent sync ${consentSync.synced} synced/${consentSync.failed} failed, ` +
+        `churn ${churn.studiosProcessed} studio(s)`,
     );
 
-    return { runAt: now.toISOString(), automations, dunning, consentSync };
+    return { runAt: now.toISOString(), automations, dunning, consentSync, churn };
   }
 }

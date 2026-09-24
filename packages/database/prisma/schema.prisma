@@ -251,6 +251,14 @@ enum LeadStage {
   LOST
 }
 
+/// Churn risk bucket (W12), thresholds configured per studio in
+/// Studio.churnWeights (see packages/shared/src/churn.ts).
+enum ChurnRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 enum LeadActivityType {
   NOTE
   CALL
@@ -369,6 +377,9 @@ model Studio {
   maxAdvanceBookingDays  Int      @default(14) @map("max_advance_booking_days")
   /// Channel order and fallback, e.g. { "order": ["WHATSAPP", "SMS"] }
   notificationSettings   Json     @default("{\"order\":[\"WHATSAPP\",\"SMS\"]}") @map("notification_settings")
+  /// Churn risk scoring weights (W12). Null means the shared defaults apply;
+  /// see packages/shared/src/churn.ts (ChurnWeightsSchema).
+  churnWeights           Json?    @map("churn_weights")
   isActive               Boolean  @default(true) @map("is_active")
   createdAt              DateTime @default(now()) @map("created_at")
   updatedAt              DateTime @updatedAt @map("updated_at")
@@ -424,6 +435,8 @@ model Studio {
   giftCards             GiftCard[]
   giftCardTransactions  GiftCardTransaction[]
   redemptionCounters    RedemptionCounter[]
+  memberRiskSnapshots   MemberRiskSnapshot[]
+  memberRiskHistory     MemberRiskHistory[]
 
   @@map("studios")
 }
@@ -523,6 +536,7 @@ model User {
   promoRedemptions      PromoRedemption[]
   giftCardsPurchased    GiftCard[]               @relation("GiftCardPurchaser")
   giftCardTransactions  GiftCardTransaction[]    @relation("GiftCardTransactionActor")
+  riskSnapshotsContacted MemberRiskSnapshot[]    @relation("RiskSnapshotContactedBy")
 
   @@map("users")
 }
@@ -689,6 +703,8 @@ model MemberProfile {
   transfersOut       PackageTransfer[]    @relation("TransferFrom")
   transfersIn        PackageTransfer[]    @relation("TransferTo")
   billingProfile     BillingProfile?
+  riskSnapshot       MemberRiskSnapshot?
+  riskHistory        MemberRiskHistory[]
 
   @@index([studioId])
   @@map("member_profiles")
@@ -1812,6 +1828,57 @@ model AutomationRun {
   @@unique([ruleId, userId, targetRef])
   @@index([studioId, ruleId, createdAt])
   @@map("automation_runs")
+}
+
+// ---------------------------------------------------------------------------
+// Churn risk (W12)
+// ---------------------------------------------------------------------------
+
+/// Latest churn-risk computation per active member (one row per member,
+/// upserted by ChurnService.recomputeStudio). `reasons` is a machine-key +
+/// weight breakdown (see packages/shared/src/churn.ts). `snoozedUntil` hides
+/// the member from the risky-members list without discarding the score.
+model MemberRiskSnapshot {
+  id                 String         @id @default(uuid()) @db.Uuid
+  studioId           String         @map("studio_id") @db.Uuid
+  memberId           String         @unique @map("member_id") @db.Uuid
+  score              Int
+  previousScore      Int?           @map("previous_score")
+  level              ChurnRiskLevel
+  onboarding         Boolean        @default(false)
+  reasons            Json
+  lastAttendedAt        DateTime?   @map("last_attended_at")
+  activePackageEndDate  DateTime?   @map("active_package_end_date")
+  contactedAt        DateTime?      @map("contacted_at")
+  contactedByUserId  String?        @map("contacted_by_user_id") @db.Uuid
+  contactNote        String?        @map("contact_note") @db.Text
+  snoozedUntil       DateTime?      @map("snoozed_until")
+  computedAt         DateTime       @default(now()) @map("computed_at")
+
+  studio        Studio  @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  member        MemberProfile @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  contactedBy   User?   @relation("RiskSnapshotContactedBy", fields: [contactedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([studioId, level, score])
+  @@map("member_risk_snapshots")
+}
+
+/// One row per recompute per member, kept to show week-over-week movement
+/// and level-count trends on the summary endpoint.
+model MemberRiskHistory {
+  id         String         @id @default(uuid()) @db.Uuid
+  studioId   String         @map("studio_id") @db.Uuid
+  memberId   String         @map("member_id") @db.Uuid
+  score      Int
+  level      ChurnRiskLevel
+  computedAt DateTime       @default(now()) @map("computed_at")
+
+  studio Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  member MemberProfile @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([studioId, memberId, computedAt])
+  @@index([studioId, computedAt])
+  @@map("member_risk_history")
 }
 
 // ---------------------------------------------------------------------------
