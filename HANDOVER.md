@@ -82,6 +82,12 @@ Ekle:
 - 0.2 CLAUDE.md'yi bu dosyadaki kararlarla güncelle (yapıldı)
 - 0.3 `docs/design-refs/` klasörü ve `packages/shared/src/design/tokens.ts` iskeleti (yapıldı)
 
+### 0.9 Planlı major sürüm yükseltmeleri
+Dependabot npm major sürümlerini önermez; bunlar kod değişikliği gerektiren planlı işlerdir. Her biri ayrı branch ve PR ile, CI ve e2e testleri yeşilken yapılır:
+- TypeScript 7, NestJS 12 (tüm `@nestjs/*` birlikte), Prisma 7 (`prisma` ve `@prisma/client` birlikte, `datasource url` yapılandırması değişiyor), Zod 4 (`error.errors` yerine `error.issues`), Jest 30
+- Next 16 ve Tailwind 4 (web API'ye bağlanırken, 2.1 ile birlikte)
+- Expo SDK yükseltmeleri (`react`, `react-native` yalnızca Expo ile birlikte)
+
 ### 1. Şema ve çekirdek API
 - 1.1 Bölüm 5'teki şema revizyonu, migration, yeni seed (iki stüdyo + bir PT + bir fizyoterapi örneği) (yapıldı: ilk migration, veritabanı seviyesinde ekipman çakışma kısıtı, tek sahip / tek aktif abonelik kısıtları, 4 işletmeli seed)
 - 1.2 Permission kataloğu, `RoleTemplate`, `PermissionGuard`, `@RequirePermission` (yapıldı: varsayılan reddeden guard, her istekte üyelik ve izinlerin DB'den yüklenmesi, eğitmen telefon göremez; kalan: rol yönetimi uç noktaları)

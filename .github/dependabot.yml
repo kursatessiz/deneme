@@ -1,8 +1,7 @@
 version: 2
 updates:
-  # Minor and patch updates are grouped into one PR per week. Majors arrive
-  # as separate PRs so a breaking upgrade cannot hide in a batch (#6 bundled
-  # 33 majors and broke main).
+  # Minor and patch updates are grouped into one PR per week. Majors are
+  # done by hand (#6 bundled 33 majors and broke main).
   - package-ecosystem: npm
     directory: /
     schedule:
@@ -12,11 +11,15 @@ updates:
     # caught and yanked within days.
     cooldown:
       default-days: 7
-      semver-major-days: 14
     open-pull-requests-limit: 10
-    # Expo pins exact react / react-native versions per SDK. They move only
-    # with an Expo SDK upgrade (npx expo install --fix), never on their own.
     ignore:
+      # Framework majors (TypeScript, NestJS, Prisma, Next, Tailwind, Zod...)
+      # are planned upgrades tracked in HANDOVER.md, not bot PRs. Security
+      # fixes still arrive through Dependabot security updates.
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
+      # Expo pins exact react / react-native versions per SDK. They move only
+      # with an Expo SDK upgrade (npx expo install --fix), never on their own.
       - dependency-name: react-native
       - dependency-name: react
         update-types: [version-update:semver-minor, version-update:semver-major]
@@ -25,21 +28,6 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
-      # Packages that must move to a new major together. A lone
-      # @nestjs/testing 12 next to @nestjs/core 11, or @prisma/client 7
-      # next to the prisma 6 CLI, can only fail.
-      nestjs-major:
-        patterns: ['@nestjs/*', 'reflect-metadata', 'rxjs']
-        update-types: [major]
-      prisma-major:
-        patterns: ['prisma', '@prisma/*']
-        update-types: [major]
-      react-native-major:
-        patterns: ['expo', 'expo-*', 'react-native', 'react', 'react-dom', '@types/react', '@types/react-dom']
-        update-types: [major]
-      next-major:
-        patterns: ['next', 'eslint-config-next']
-        update-types: [major]
     commit-message:
       prefix: build(deps)
 
