@@ -1,11 +1,11 @@
-# Design references
+# Tasarım referansları
 
-Reference screenshots supplied by the owner. They are authoritative for the
-visual direction and for the values in `packages/shared/src/design/tokens.ts`.
+Sahibin sağladığı referans ekran görüntüleri. Bunlar görsel yön ve
+`packages/shared/src/design/tokens.ts` içindeki değerler için yetkilidir (authoritative).
 
-Expected (see HANDOVER.md section 7): home, calendar, member card and booking
-screens, from sources such as Mobbin, Refero and the Mariana Tek / Momence
-member apps.
+Beklenen (bkz. HANDOVER.md bölüm 7): Mobbin, Refero ve Mariana Tek / Momence
+üye uygulamaları gibi kaynaklardan ana sayfa, takvim, üye kartı ve rezervasyon
+ekranları.
 
-Naming: `<area>-<screen>-<source>.png`, for example `mobile-booking-momence.png`.
-Do not add screenshots that contain real customer data.
+Adlandırma: `<alan>-<ekran>-<kaynak>.png`, örneğin `mobile-booking-momence.png`.
+Gerçek müşteri verisi içeren ekran görüntüleri eklemeyin.

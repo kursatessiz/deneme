@@ -1,18 +1,18 @@
-[![CI](https://github.com/pro-emtia/deneme/actions/workflows/ci.yml/badge.svg)](https://github.com/pro-emtia/deneme/actions/workflows/ci.yml)
-[![Repository](https://img.shields.io/badge/GitHub-pro--emtia%2Fdeneme-blue?logo=github)](https://github.com/pro-emtia/deneme)
+[![CI](https://github.com/kursatessiz/deneme/actions/workflows/ci.yml/badge.svg)](https://github.com/kursatessiz/deneme/actions/workflows/ci.yml)
+[![Repository](https://img.shields.io/badge/GitHub-kursatessiz%2Fdeneme-blue?logo=github)](https://github.com/kursatessiz/deneme)
 
-# The platform
+# Platform
 
-A multi-tenant SaaS platform for membership- and appointment-based businesses. The first
-customers are two independent pilates/reformer studios, but the platform is not pilates
-specific: it is meant to fit any business built around sessions, capacity-limited resources
-and session- or credit-based pricing (personal training, physiotherapy, yoga, spa, martial
-arts, swimming schools, tennis/padel courts, music and language courses, kids' activity
-centers, coworking rooms). A permanent product name has not been chosen yet; this repository
-and its docs refer to it as "the platform". See `HANDOVER.md` for the full product definition
-and backlog.
+Üyelik ve randevu tabanlı işletmeler için çok kiracılı (multi-tenant) bir SaaS platformu. İlk
+müşteriler iki bağımsız pilates/reformer stüdyosu olsa da platform pilatese özgü değildir: seans,
+kapasite sınırlı kaynaklar ve seans veya kredi bazlı fiyatlandırma etrafında kurulmuş her türlü
+işe uyacak şekilde tasarlanmıştır (kişisel antrenörlük, fizyoterapi, yoga, spa, dövüş sanatları,
+yüzme okulları, tenis/padel kortları, müzik ve dil kursları, çocuk aktivite merkezleri, ortak
+çalışma alanları). Kalıcı bir ürün adı henüz seçilmedi; bu depo ve dokümanlarında ürün "Platform"
+olarak anılır. Ürünün tam tanımı ve iş listesi (backlog) için `HANDOVER.md` dosyasına
+bakın.
 
-## Monorepo layout
+## Monorepo yapısı
 
 ```
 .
@@ -38,9 +38,9 @@ and backlog.
 └── turbo.json                  # Turborepo configuration
 ```
 
-## Local development
+## Yerel geliştirme
 
-Requirements: Node.js 20+ (22 recommended), pnpm, and Docker for local Postgres/Redis.
+Gereksinimler: Node.js 20+ (22 önerilir), pnpm ve yerel Postgres/Redis için Docker.
 
 ```bash
 # 1. Install dependencies
@@ -59,11 +59,11 @@ pnpm --filter @platform/database exec prisma db push
 pnpm dev
 ```
 
-- Web admin panel: http://localhost:3000
-- API Swagger docs: http://localhost:4000/api/docs
+- Web admin paneli: http://localhost:3000
+- API Swagger dokümantasyonu: http://localhost:4000/api/docs
 - API health check: http://localhost:4000/health
 
-## Common scripts
+## Ortak scriptler
 
 | Command | Description |
 | --- | --- |
@@ -76,19 +76,19 @@ pnpm dev
 | `pnpm db:migrate` | Run Prisma migrations |
 | `pnpm db:seed` | Seed the database |
 
-## Status
+## Durum
 
-- `apps/web` renders from mock data and is not yet wired to the API.
-- `apps/mobile` is a skeleton (single `App.tsx`), not a working client yet.
-- Test coverage is low outside `apps/api` core modules.
+- `apps/web` mock veriden render ediliyor ve henüz API'ye bağlanmadı.
+- `apps/mobile` bir iskelet (tek bir `App.tsx`), henüz çalışan bir istemci değil.
+- `apps/api` çekirdek modülleri dışında test kapsamı düşük.
 
-See `HANDOVER.md` (backlog, section 6) for the planned work, including the schema revision
-that will drop pilates-specific fields such as `SessionType` in favor of tenant-configurable
-service types.
+Planlanan çalışmalar için `HANDOVER.md` (backlog, bölüm 6) dosyasına bakın; bu, `SessionType`
+gibi pilatese özgü alanları kiracı tarafından yapılandırılabilir hizmet türleri lehine
+kaldıracak şema revizyonunu da içerir.
 
-## Documentation
+## Dokümantasyon
 
-- Server bootstrap and first deploy: [`docs/UBUNTU_24_04_SETUP.md`](docs/UBUNTU_24_04_SETUP.md)
-- CI/CD pipeline, secrets and agentic workflows: [`docs/CICD_GUIDE.md`](docs/CICD_GUIDE.md)
-- Database schema overview: [`docs/DATABASE_ERD.md`](docs/DATABASE_ERD.md)
-- Security policy and vulnerability reporting: [`SECURITY.md`](SECURITY.md)
+- Sunucu kurulumu ve ilk deploy: [`docs/UBUNTU_24_04_SETUP.md`](docs/UBUNTU_24_04_SETUP.md)
+- CI/CD pipeline, secret'lar ve agentic workflow'lar: [`docs/CICD_GUIDE.md`](docs/CICD_GUIDE.md)
+- Veritabanı şeması genel bakışı: [`docs/DATABASE_ERD.md`](docs/DATABASE_ERD.md)
+- Güvenlik politikası ve zafiyet bildirimi: [`SECURITY.md`](SECURITY.md)

@@ -1,18 +1,18 @@
 name: Feature request
-description: Suggest a new feature or module for the platform
+description: Platform için yeni bir özellik veya modül önerin
 labels: ["enhancement"]
 body:
   - type: textarea
     id: feature-description
     attributes:
-      label: Feature description
-      description: What would this feature do?
+      label: Özellik açıklaması
+      description: Bu özellik ne yapardı?
     validations:
       required: true
   - type: textarea
     id: use-case
     attributes:
-      label: Use case
-      description: How would a studio owner, trainer or member use this feature?
+      label: Kullanım senaryosu
+      description: Bir stüdyo sahibi, antrenör veya üye bu özelliği nasıl kullanırdı?
     validations:
       required: true

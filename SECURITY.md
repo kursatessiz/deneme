@@ -1,24 +1,26 @@
-# Security Policy
+# Güvenlik Politikası
 
-## Reporting a vulnerability
+## Bir güvenlik açığı bildirme
 
-Do not open a public issue for security problems. Use GitHub's private
-vulnerability reporting instead: the "Report a vulnerability" button under
-the repository's Security tab. You will get a reply within 5 working days.
+Güvenlik sorunları için herkese açık bir issue açmayın. Bunun yerine
+GitHub'ın özel güvenlik açığı bildirimini (private vulnerability reporting)
+kullanın: repository'nin Security sekmesi altındaki "Report a vulnerability"
+butonu. 5 iş günü içinde bir yanıt alacaksınız.
 
-Please include the affected component (api, web, mobile, deploy), steps to
-reproduce, and the impact you expect (for example cross-tenant data access).
+Lütfen etkilenen bileşeni (api, web, mobile, deploy), yeniden üretme
+adımlarını ve beklediğiniz etkiyi (örneğin kiracılar arası veri erişimi)
+belirtin.
 
-## Supported versions
+## Desteklenen sürümler
 
-Only the latest release on `main` receives fixes.
+Yalnızca `main` üzerindeki en son sürüm düzeltme alır.
 
-## What is in place
+## Mevcut önlemler
 
-- Dependency updates by Dependabot with a 7-day cooldown; majors as separate PRs
-- `pnpm audit` (high and above), dependency review and license checks on every PR
-- CodeQL (security-extended) for TypeScript and GitHub Actions
-- Secret scanning (TruffleHog) and workflow auditing (zizmor, actionlint)
+- Dependabot ile 7 günlük bekleme süresiyle bağımlılık güncellemeleri; major sürümler ayrı PR'lar olarak
+- Her PR'da `pnpm audit` (high ve üzeri), bağımlılık incelemesi ve lisans kontrolleri
+- TypeScript ve GitHub Actions için CodeQL (security-extended)
+- Gizli bilgi taraması (TruffleHog) ve workflow denetimi (zizmor, actionlint)
 - OpenSSF Scorecard
-- Container images with build provenance attestations and SBOMs, running as a
-  non-root user on a read-only filesystem
+- Build kaynak doğrulaması (provenance attestation) ve SBOM'lara sahip, salt okunur
+  bir dosya sisteminde root olmayan bir kullanıcı olarak çalışan container imajları
