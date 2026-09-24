@@ -76,6 +76,7 @@ jobs:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_e2e?schema=public
       # Throwaway value used only for this job's ephemeral Postgres container.
       JWT_SECRET: ci-e2e-throwaway-secret-0123456789abcdef
+      OTP_TEST_CODE: '482915'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
