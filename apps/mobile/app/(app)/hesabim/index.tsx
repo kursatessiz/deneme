@@ -72,6 +72,7 @@ export default function HesabimScreen() {
         <MenuLink label="Görünüm" onPress={() => router.push('/(app)/hesabim/gorunum')} />
         {isMember ? <MenuLink label="Ana şubem" onPress={() => router.push('/(app)/hesabim/ana-sube')} /> : null}
         {canViewReports ? <MenuLink label="Şube özeti" onPress={() => router.push('/(app)/hesabim/subeler')} /> : null}
+        {canViewReports ? <MenuLink label="Raporlar" onPress={() => router.push('/(app)/hesabim/raporlar')} /> : null}
         {canManageTheme ? (
           <MenuLink label="İşletme teması" onPress={() => router.push('/(app)/hesabim/isletme-temasi')} />
         ) : null}

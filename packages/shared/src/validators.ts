@@ -377,3 +377,16 @@ export const ReportRangeSchema = z
     path: ['to'],
   });
 export type ReportRange = z.infer<typeof ReportRangeSchema>;
+
+/** Optional branch filter and export format, alongside ReportRangeSchema. */
+export const ReportFiltersSchema = z.object({
+  branchId: z.string().uuid().optional(),
+  format: z.enum(['json', 'csv']).default('json'),
+});
+export type ReportFilters = z.infer<typeof ReportFiltersSchema>;
+
+/** Revenue report bucketing, alongside ReportRangeSchema and ReportFiltersSchema. */
+export const RevenueGranularitySchema = z.object({
+  granularity: z.enum(['day', 'week', 'month']).default('day'),
+});
+export type RevenueGranularityQuery = z.infer<typeof RevenueGranularitySchema>;
