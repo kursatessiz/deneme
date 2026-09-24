@@ -25,6 +25,9 @@ erDiagram
     Membership ||--o| MemberProfile : member
     Membership ||--o| TrainerProfile : trainer
     Membership ||--o{ Consent : accepts
+    Membership ||--o{ MembershipBranch : limited_to
+    Branch ||--o{ MembershipBranch : grants
+    Branch ||--o{ MemberProfile : home_of
 
     RoleTemplate ||--o{ RoleTemplatePermission : grants
     RoleTemplate ||--o{ InviteToken : assigns
@@ -76,7 +79,8 @@ erDiagram
 | Tablo | Amaç | Kısıtlar |
 |-------|---------|-------------|
 | `studios` | Kiracı: marka (logo, varsayılan tema ailesi `theme_family`, ana renk, gradyan), saat dilimi, bildirim ayarları | slug benzersiz |
-| `branches` | Stüdyo lokasyonları | studio_id index |
+| `branches` | Stüdyo lokasyonları: adres, iletişim, saat dilimi (boşsa işletmeninki), sıra, aktiflik | (studio_id, name) benzersiz; (id, studio_id) benzersiz (bileşik yabancı anahtar hedefi); studio_id index |
+| `membership_branches` | Personelin işlem yapabileceği şubeler; kayıt yoksa tüm şubeler, işletme sahibi hiçbir zaman kısıtlanmaz | (membership_id, branch_id) birincil anahtar; (branch_id, studio_id) bileşik yabancı anahtar ile şubenin aynı işletmeye ait olması zorunlu |
 | `users` | E.164 telefon ile tanımlanan global kullanıcılar; görünüm tercihi (`theme_family` boşsa işletmenin teması, `color_scheme` SYSTEM/LIGHT/DARK) | phone benzersiz, email benzersiz |
 | `memberships` | Rol tabanlı erişimle kullanıcı-stüdyo bağlantıları | (user_id, studio_id) benzersiz; (studio_id, status) index |
 | `role_templates` | Stüdyo başına izin kümeleri; owner rolü zorunlu | (studio_id, key) benzersiz; stüdyo başına bir owner |
@@ -84,7 +88,7 @@ erDiagram
 | `invite_tokens` | Token hash ile QR/bağlantı onboarding'i | token_hash benzersiz; (studio_id, phone) index |
 | `document_versions` | Sözleşmeler, KVKK, onay formları (platform veya stüdyo kapsamı) | (studio_id, type, version) NULLS NOT DISTINCT ile benzersiz |
 | `consents` | Üyenin bir doküman sürümüne onayı | (membership_id, document_version_id) benzersiz |
-| `member_profiles` | Üye verisi: doğum tarihi, sağlık durumu, aile | (membership_id) benzersiz; studio_id index |
+| `member_profiles` | Üye verisi: doğum tarihi, sağlık durumu, aile, ana şube (`home_branch_id`) | (membership_id) benzersiz; studio_id index |
 | `trainer_profiles` | Antrenör verisi: nitelikler, komisyon kuralı | (membership_id) benzersiz; studio_id index |
 | `trainer_qualifications` | Bir hizmet türü için antrenör sertifikaları | (trainer_profile_id, service_type_id) bileşik anahtar |
 
@@ -130,7 +134,7 @@ erDiagram
 
 | Tablo | Amaç | Kısıtlar |
 |-------|---------|-------------|
-| `payments` | Üye işlemleri: tutar, yöntem (nakit, kart, banka, online), durum | (studio_id, paid_at) index |
+| `payments` | Üye işlemleri: tutar, yöntem (nakit, kart, banka, online), durum, satışın yapıldığı şube | (studio_id, paid_at) index; (branch_id, paid_at) index |
 | `expenses` | İşletme giderleri: kategori, tutar, spent_at, kaydeden kullanıcı | (studio_id, spent_at) index; (branch_id) opsiyonel |
 
 ## Bildirimler ve SMS

@@ -18,6 +18,7 @@ describe('CatalogService', () => {
     permissions: new Set(['catalog.view', 'catalog.manage']),
     memberProfileId: null,
     trainerProfileId: null,
+    branchIds: null,
   };
 
   const mockPrisma = {

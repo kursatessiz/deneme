@@ -32,6 +32,8 @@ export default function HesabimScreen() {
   const colors = useThemeColors();
   const { user, memberships, activeMembership, signOut } = useSession();
   const canManageTheme = activeMembership?.permissions.includes('studio.settings.manage') ?? false;
+  const canViewReports = activeMembership?.permissions.includes('reports.view') ?? false;
+  const isMember = Boolean(activeMembership?.memberProfileId);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const handleSignOut = async () => {
@@ -67,6 +69,8 @@ export default function HesabimScreen() {
         <MenuLink label="Bildirim ayarları" onPress={() => router.push('/(app)/hesabim/bildirimler')} />
         <MenuLink label="PIN değiştir" onPress={() => router.push('/(app)/hesabim/pin')} />
         <MenuLink label="Görünüm" onPress={() => router.push('/(app)/hesabim/gorunum')} />
+        {isMember ? <MenuLink label="Ana şubem" onPress={() => router.push('/(app)/hesabim/ana-sube')} /> : null}
+        {canViewReports ? <MenuLink label="Şube özeti" onPress={() => router.push('/(app)/hesabim/subeler')} /> : null}
         {canManageTheme ? (
           <MenuLink label="İşletme teması" onPress={() => router.push('/(app)/hesabim/isletme-temasi')} />
         ) : null}

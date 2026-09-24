@@ -19,6 +19,11 @@ export interface TenantContext {
   permissions: ReadonlySet<PermissionKey>;
   memberProfileId: string | null;
   trainerProfileId: string | null;
+  /**
+   * Branches a staff member may act on. Null means every branch (owners,
+   * super-admins and staff without explicit grants).
+   */
+  branchIds: ReadonlySet<string> | null;
 }
 
 export interface AuthenticatedRequest {

@@ -26,6 +26,12 @@
         "^build"
       ]
     },
+    "@platform/web#typecheck": {
+      "dependsOn": [
+        "^build",
+        "build"
+      ]
+    },
     "test": {
       "dependsOn": [
         "^build"

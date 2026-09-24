@@ -49,6 +49,8 @@ export interface MembershipDTO {
   permissions: PermissionKey[];
   memberProfileId?: string | null;
   trainerProfileId?: string | null;
+  /** The member's home branch in this studio, if any. */
+  homeBranchId?: string | null;
   /** The studio's brand and default theme family, for theming the app. */
   theme: TenantTheme;
 }
@@ -183,4 +185,50 @@ export interface DashboardMetricsDTO {
   monthlyRevenue: number;
   /** Booked seats / capacity over today's sessions, percent. */
   occupancyRate: number;
+}
+
+export interface BranchDTO {
+  id: string;
+  studioId: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  timezone: string | null;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+/** Activity of one branch (or of sessions without a branch, branchId null) in a window. */
+export interface BranchSummaryDTO {
+  branchId: string | null;
+  branchName: string;
+  sessions: number;
+  capacity: number;
+  booked: number;
+  attended: number;
+  noShows: number;
+  lateCancellations: number;
+  /** booked / capacity, 0..1 */
+  occupancy: number;
+  /** Completed payments, in the studio currency, as a decimal string. */
+  revenue: string;
+  homeMembers: number;
+}
+
+export interface StudioPortfolioItemDTO {
+  studioId: string;
+  studioName: string;
+  branchCount: number;
+  activeMembers: number;
+  sessions: number;
+  occupancy: number;
+  revenue: string;
+}
+
+export interface PortfolioSummaryDTO {
+  from: string;
+  to: string;
+  studios: StudioPortfolioItemDTO[];
+  totals: Omit<StudioPortfolioItemDTO, 'studioId' | 'studioName'>;
 }

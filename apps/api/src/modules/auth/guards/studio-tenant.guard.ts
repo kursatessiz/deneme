@@ -44,6 +44,7 @@ export class StudioTenantGuard implements CanActivate {
         permissions: new Set(ALL_PERMISSIONS),
         memberProfileId: null,
         trainerProfileId: null,
+        branchIds: null,
       };
       return true;
     }
@@ -55,6 +56,7 @@ export class StudioTenantGuard implements CanActivate {
         memberProfile: { select: { id: true } },
         trainerProfile: { select: { id: true } },
         studio: { select: { isActive: true } },
+        branchAccess: { select: { branchId: true } },
       },
     });
 
@@ -76,6 +78,11 @@ export class StudioTenantGuard implements CanActivate {
       ),
       memberProfileId: membership.memberProfile?.id ?? null,
       trainerProfileId: membership.trainerProfile?.id ?? null,
+      // The owner is never branch-restricted, whatever rows exist.
+      branchIds:
+        membership.roleTemplate.isOwner || membership.branchAccess.length === 0
+          ? null
+          : new Set(membership.branchAccess.map((b) => b.branchId)),
     };
     request.tenant = tenant;
     return true;

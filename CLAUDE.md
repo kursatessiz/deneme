@@ -32,7 +32,7 @@ Stack yalnızca TypeScript'tir. Başka bir dil veya çalışma zamanı (runtime)
 10. **Tasarım**: yalnızca `packages/shared/src/design` içindeki tasarım tokenlarını kullanın. Gradyanlar yalnızca belirlenmiş alanlarda görünür (uygulama başlık bandı, üye kartı, paket kartı, birincil buton). Dört tema ailesi vardır (Stüdyo Noir, Nefes, Saha, Atölye; `themes.ts`). Kiracı varsayılan tema ailesini, logosunu, birincil rengini ve o aileye ait önceden tanımlı gradyanlardan birini seçer; kullanıcı kendi cihazında tema ailesini ve açık/koyu modu değiştirebilir, ancak kiracının logosu, rengi ve gradyanı değişmez. Başka hiçbir şey temalandırılamaz; ekranlar temayı `resolveTheme()` üzerinden alır. Genel geçer "AI dashboard" görünümünden kaçının: mor gradyan arka planlar yok, iç içe kart üstüne kart yok, varsayılan shadcn paleti yok. Sahibin sağladığı referans ekran görüntüleri `docs/design-refs/` içinde yaşar ve yetkilidir (authoritative).
 
 ## Alan modeli (hedef)
-- `Studio` (kiracı), `Branch`, `Resource` (oda, ekipman, kort, cihaz; `resourceTypeId`, kapasite, bakım bayrağına sahiptir)
+- `Studio` (kiracı), `Branch` (şube; personel `MembershipBranch` ile şubelere kısıtlanabilir, kayıt yoksa tüm şubeler, sahip asla kısıtlanmaz), `Resource` (oda, ekipman, kort, cihaz; `resourceTypeId`, kapasite, bakım bayrağına sahiptir)
 - `User` (global, telefon-benzersiz), `Membership` (userId, studioId, roleTemplateId, durum INVITED/ACTIVE/PASSIVE, joinedAt), `MemberProfile`, `TrainerProfile`
 - `RoleTemplate` (kiracı başına, izin anahtarları kümesi), `Permission` kataloğu (shared içinde sabit)
 - `InviteToken` (studioId, createdByUserId, phone, fullName, token, expiresAt, usedAt, kanal SHOWN/WHATSAPP/SMS)

@@ -36,6 +36,8 @@ interface RequestOptions {
   auth?: boolean;
   /** Internal: marks this call as a post-refresh retry, to avoid loops. */
   isRetry?: boolean;
+  /** Tenant for studio-scoped routes that carry no :studioId in the path. */
+  studioId?: string;
 }
 
 interface TokenPair {
@@ -74,9 +76,10 @@ function refreshOnce(): Promise<boolean> {
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, auth = true, isRetry = false } = options;
+  const { method = 'GET', body, auth = true, isRetry = false, studioId } = options;
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (studioId) headers['x-studio-id'] = studioId;
   if (auth) {
     const token = await getAccessToken();
     if (token) headers.Authorization = `Bearer ${token}`;

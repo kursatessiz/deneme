@@ -18,6 +18,7 @@ describe('SchedulesService', () => {
     permissions: new Set(['schedule.manage', 'schedule.view', 'bookings.manage', 'attendance.manage']),
     memberProfileId: null,
     trainerProfileId: null,
+    branchIds: null,
   };
 
   const mockPrisma = {
