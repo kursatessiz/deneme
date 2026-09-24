@@ -135,6 +135,26 @@ export default function HomeScreen() {
         </Pressable>
       ) : null}
 
+      {isMember ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Başarılarımı gör"
+          onPress={() => router.push('/(app)/hesabim/basarilarim')}
+          style={[
+            styles.link,
+            {
+              borderColor: c.border,
+              backgroundColor: c.surface,
+              borderRadius: theme.family.radii.card,
+              borderWidth: theme.family.cardBorder ? 1 : 0,
+            },
+          ]}
+        >
+          <Text style={[styles.linkTitle, fonts.bodyStrong, { color: c.textPrimary }]}>Başarılarım</Text>
+          <Text style={[styles.linkSubtitle, fonts.body, { color: c.textSecondary }]}>Seri, rozetler ve aylık hedefiniz</Text>
+        </Pressable>
+      ) : null}
+
       <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: c.textSecondary }]}>Yaklaşan rezervasyonlarım</Text>
 
       {bookings === null && !loadError ? <ActivityIndicator color={c.textPrimary} /> : null}

@@ -61,6 +61,13 @@ export const NOTIFICATION_CATEGORIES = {
     marketing: true,
     staffOnly: false,
   },
+  ACHIEVEMENT: {
+    label: 'Başarılar ve rozetler',
+    description: 'Yeni rozet, seri ve aylık hedef bildirimleri',
+    defaults: { push: true, sms: false },
+    marketing: false,
+    staffOnly: false,
+  },
 } as const satisfies Record<string, NotificationCategoryDefinition>;
 
 export type NotificationCategory = keyof typeof NOTIFICATION_CATEGORIES;

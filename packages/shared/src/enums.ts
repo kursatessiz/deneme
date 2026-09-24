@@ -207,3 +207,13 @@ export enum GiftCardTransactionType {
   REFUND = 'REFUND',
   ADJUST = 'ADJUST',
 }
+
+/** Gamification (W16): kind of condition a badge definition awards on. */
+export enum BadgeKind {
+  MILESTONE_SESSIONS = 'MILESTONE_SESSIONS',
+  STREAK_WEEKS = 'STREAK_WEEKS',
+  MONTHLY_GOAL_MET = 'MONTHLY_GOAL_MET',
+  FIRST_SESSION = 'FIRST_SESSION',
+  EARLY_BIRD = 'EARLY_BIRD',
+  VARIETY = 'VARIETY',
+}

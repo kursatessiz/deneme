@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { GamificationService } from '../gamification/gamification.service';
 import type { TenantContext } from '../auth/tenant-context';
 import type {
   CreateScheduleInput,
@@ -42,6 +43,7 @@ export class SchedulesService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private gamification: GamificationService,
   ) {}
 
   async getSchedules(
@@ -741,6 +743,14 @@ export class SchedulesService {
     if (updated.count === 0) {
       throw new BadRequestException('Yalnızca onaylı rezervasyonlar için giriş yapılabilir');
     }
+
+    // Best-effort: streaks/milestones/badges must never fail a check-in.
+    try {
+      await this.gamification.onAttendance(bookingId);
+    } catch (err) {
+      this.logger.warn(`Gamification evaluation failed for booking ${bookingId}: ${(err as Error).message}`);
+    }
+
     return this.prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
   }
 
