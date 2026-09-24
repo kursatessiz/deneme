@@ -1,4 +1,6 @@
 import { BadRequestException, Controller, Get, Post, Param, Query, Patch, ParseUUIDPipe } from '@nestjs/common';
+import type { UpdateScheduleInput } from '@platform/shared';
+import { UpdateScheduleSchema } from '@platform/shared';
 import { SchedulesService } from './schedules.service';
 import { StudioScoped, RequirePermission, SelfService } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
@@ -71,6 +73,21 @@ export class SchedulesController {
   @RequirePermission('schedule.manage')
   async createSchedule(@Tenant() tenant: TenantContext, @ZodBody(CreateScheduleSchema) body: CreateScheduleInput) {
     return this.schedulesService.createSchedule(tenant, body);
+  }
+
+  /**
+   * Edits a session, or moves it (calendar drag-drop sends only
+   * startTime/endTime here, against the existing update endpoint the
+   * backlog item calls for).
+   */
+  @Patch(':scheduleId')
+  @RequirePermission('schedule.manage')
+  async updateSchedule(
+    @Param('scheduleId', ParseUUIDPipe) scheduleId: string,
+    @Tenant() tenant: TenantContext,
+    @ZodBody(UpdateScheduleSchema) body: UpdateScheduleInput,
+  ) {
+    return this.schedulesService.updateSchedule(tenant, scheduleId, body);
   }
 
   @Post('book')
