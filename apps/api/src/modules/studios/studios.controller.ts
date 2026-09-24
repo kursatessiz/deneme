@@ -32,6 +32,14 @@ export class StudiosController {
     return this.studiosService.getDashboardMetrics(tenant.studioId);
   }
 
+  /** The booking widget's current allowed embed origins (W18); empty allows any origin. */
+  @Get(':studioId/embed-settings')
+  @StudioScoped()
+  @RequirePermission('integrations.manage')
+  async getEmbedSettings(@Tenant() tenant: TenantContext) {
+    return this.studiosService.getEmbedSettings(tenant.studioId);
+  }
+
   /** The booking widget's allowed embed origins (W18); empty allows any origin. */
   @Put(':studioId/embed-settings')
   @StudioScoped()

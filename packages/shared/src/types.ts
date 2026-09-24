@@ -320,6 +320,13 @@ export interface PaymentDTO {
   id: string;
   studioId: string;
   memberId: string;
+  /**
+   * First name plus the initial of the last name (see
+   * `maskLeaderboardName` in gamification.ts), or the full name when the
+   * caller has `members.contact.view`. Only set by list endpoints that join
+   * the member; absent elsewhere.
+   */
+  memberDisplayName?: string;
   memberPackageId?: string | null;
   memberSubscriptionId?: string | null;
   branchId?: string | null;

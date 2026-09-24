@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LeadStage, LEAD_STAGE_TRANSITIONS } from '@platform/shared';
 import type { LeadDetailDTO } from '@platform/shared';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { PermissionButton } from '@/components/common/PermissionButton';
 import { Badge } from '@/components/common/Badge';
 import { Modal } from '@/components/common/Modal';
+import { upcomingTrialSessions, type TrialSessionRow } from '@/lib/leads/trial-sessions';
 
 const STAGE_LABEL: Record<string, string> = {
   NEW: 'Yeni',
@@ -40,8 +41,34 @@ export function LeadDetailDrawer({
   const [scheduleId, setScheduleId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sessionOptions, setSessionOptions] = useState<TrialSessionRow[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
 
   const transitions = LEAD_STAGE_TRANSITIONS[lead.stage as LeadStage] ?? [];
+  const canBookTrial = transitions.includes(LeadStage.TRIAL_BOOKED);
+
+  useEffect(() => {
+    if (!canBookTrial) return;
+    let cancelled = false;
+    setSessionsLoading(true);
+    const now = new Date();
+    const horizon = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const params = new URLSearchParams({ startDate: now.toISOString(), endDate: horizon.toISOString() });
+    bffFetch<TrialSessionRow[]>(`schedules/studio/${studioId}?${params.toString()}`, { studioId })
+      .then((rows) => {
+        if (!cancelled) setSessionOptions(upcomingTrialSessions(rows, { branchId: lead.branchId, now }));
+      })
+      .catch(() => {
+        if (!cancelled) setSessionOptions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setSessionsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canBookTrial, studioId, lead.branchId]);
 
   async function addNote() {
     if (!note.trim()) return;
@@ -76,7 +103,7 @@ export function LeadDetailDrawer({
 
   async function bookTrial() {
     if (!scheduleId.trim()) {
-      setError('Seans id giriniz (takvimden seans satırının kimliği)');
+      setError('Bir seans seçiniz');
       return;
     }
     setBusy(true);
@@ -140,16 +167,37 @@ export function LeadDetailDrawer({
                 </PermissionButton>
               )}
             </div>
-            {transitions.includes(LeadStage.TRIAL_BOOKED) && (
+            {canBookTrial && (
               <div className="flex items-center gap-2">
-                <input
-                  placeholder="Seans kimliği (calendar sayfasından kopyalayın)"
+                <select
                   value={scheduleId}
                   onChange={(e) => setScheduleId(e.target.value)}
                   className="flex-1 text-xs px-2 py-1.5"
                   style={inputStyle}
-                />
-                <PermissionButton required={['leads.manage']} onClick={bookTrial} disabled={busy}>
+                  disabled={sessionsLoading}
+                >
+                  <option value="">
+                    {sessionsLoading
+                      ? 'Seanslar yükleniyor...'
+                      : sessionOptions.length === 0
+                        ? 'Önümüzdeki 14 günde uygun seans yok'
+                        : 'Seans seçin'}
+                  </option>
+                  {sessionOptions.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {new Date(s.startTime).toLocaleString('tr-TR', {
+                        weekday: 'short',
+                        day: '2-digit',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                      {' - '}
+                      {s.serviceType?.name ?? s.title} ({s.bookedCount}/{s.capacity})
+                    </option>
+                  ))}
+                </select>
+                <PermissionButton required={['leads.manage']} onClick={bookTrial} disabled={busy || !scheduleId}>
                   Deneme dersi planla
                 </PermissionButton>
               </div>

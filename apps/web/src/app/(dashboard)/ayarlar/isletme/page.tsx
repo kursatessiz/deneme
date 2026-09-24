@@ -325,14 +325,20 @@ function FeedbackSection() {
 
 function EmbedOriginsSection() {
   const { activeStudioId } = useDashboardSession();
-  // There is no GET for this setting yet (see W18 remaining note in HANDOVER.md),
-  // so the form starts empty; typing origins and saving replaces the stored list.
+  const { data, loading, error: loadError } = useBff<{ id: string; embedAllowedOrigins: string[] }>(
+    `studios/${activeStudioId}/embed-settings`,
+    activeStudioId,
+  );
   const [origins, setOrigins] = useState<string[]>([]);
   const [draft, setDraft] = useState('');
   const [draftError, setDraftError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (data) setOrigins(data.embedAllowedOrigins);
+  }, [data]);
 
   const add = () => {
     const v = draft.trim();
@@ -363,6 +369,8 @@ function EmbedOriginsSection() {
 
   return (
     <Section title="Gömülü widget izinli kökenler" description="Boş bırakılırsa rezervasyon widget'ı her kökenden çerçevelenebilir">
+      {loading && <LoadingState />}
+      {loadError && <InlineMessage text="Mevcut liste yüklenemedi" tone="error" />}
       <div className="flex gap-2 max-w-lg">
         <input
           value={draft}
