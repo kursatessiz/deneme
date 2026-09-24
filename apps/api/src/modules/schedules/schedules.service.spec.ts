@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SchedulesService } from './schedules.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import type { TenantContext } from '../auth/tenant-context';
 
@@ -83,6 +84,10 @@ describe('SchedulesService', () => {
         {
           provide: NotificationsService,
           useValue: { notifyUser: jest.fn() },
+        },
+        {
+          provide: WebhooksService,
+          useValue: { emit: jest.fn() },
         },
       ],
     }).compile();

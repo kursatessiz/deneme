@@ -2,12 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AutomationRunnerService, RunOutcome } from '../automations/automation-runner.service';
 import { DunningService, DunningOutcome } from '../payments/dunning.service';
 import { ConsentService } from '../notifications/consent/consent.service';
+import { WebhookDispatcherService, DispatchOutcome } from '../webhooks/webhook-dispatcher.service';
 
 export interface SchedulerRunResult {
   runAt: string;
   automations: RunOutcome[];
   dunning: DunningOutcome[];
   consentSync: { synced: number; failed: number };
+  webhooks: DispatchOutcome;
 }
 
 /**
@@ -29,18 +31,21 @@ export class JobsService {
     private readonly automations: AutomationRunnerService,
     private readonly dunning: DunningService,
     private readonly consent: ConsentService,
+    private readonly webhookDispatcher: WebhookDispatcherService,
   ) {}
 
   async runAll(now = new Date()): Promise<SchedulerRunResult> {
     const automations = await this.automations.runDueRules(now);
     const dunning = await this.dunning.runDueRenewals(now);
     const consentSync = await this.consent.syncPendingConsents();
+    const webhooks = await this.webhookDispatcher.dispatchDue(now);
 
     this.logger.log(
       `Scheduler heartbeat at ${now.toISOString()}: ${automations.length} automation rule(s), ` +
-        `${dunning.length} dunning subscription(s), consent sync ${consentSync.synced} synced/${consentSync.failed} failed`,
+        `${dunning.length} dunning subscription(s), consent sync ${consentSync.synced} synced/${consentSync.failed} failed, ` +
+        `webhooks ${webhooks.succeeded} succeeded/${webhooks.failed} retrying/${webhooks.abandoned} abandoned`,
     );
 
-    return { runAt: now.toISOString(), automations, dunning, consentSync };
+    return { runAt: now.toISOString(), automations, dunning, consentSync, webhooks };
   }
 }

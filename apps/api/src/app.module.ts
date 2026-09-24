@@ -24,6 +24,9 @@ import { InvoicingModule } from './modules/invoicing/invoicing.module';
 import { AutomationsModule } from './modules/automations/automations.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
+import { ApiKeysModule } from './modules/api-keys/api-keys.module';
+import { WebhooksModule } from './modules/webhooks/webhooks.module';
+import { PublicApiModule } from './modules/public-api/public-api.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -56,6 +59,9 @@ import { validateEnv } from './config/env';
     AutomationsModule,
     JobsModule,
     PromotionsModule,
+    ApiKeysModule,
+    WebhooksModule,
+    PublicApiModule,
     HealthModule,
   ],
 })

@@ -256,6 +256,17 @@ Açık (WON/LOST olmayan) bir aday aynı telefonla tekrar başvurursa (web formu
 | `gift_card_transactions` | Kart hareketleri: satış, kullanım, iade, manuel düzeltme | `(gift_card_id, created_at)` index |
 | `payments.promo_code_id`, `.discount_amount`, `.gift_card_id`, `.gift_card_amount`, `.gift_card_refunded` | Bir ödemeye uygulanan promosyon indirimi ve hediye kartından karşılanan tutar; iade edilen hediye kartı payı | `(promo_code_id)` ve `(gift_card_id)` index |
 
+## Açık Platform (W18)
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `api_keys` | Herkese açık API için kimlik bilgisi: ad, önek (görüntülenir), sha256 gizli özet (`secret_hash`, düz metin hiçbir zaman saklanmaz), yetki alanları (`scopes[]`), oluşturan, son kullanım, süre, iptal | `prefix` benzersiz; `(studio_id, revoked_at)` index |
+| `webhook_endpoints` | Giden webhook uç noktası: URL (yalnızca https), HMAC imza gizli anahtarı, dinlenen olaylar, aktiflik, ardışık hata sayacı | `(studio_id)` index |
+| `webhook_deliveries` | Bir teslimat denemesi kaydı: olay, JSON gövde, durum (PENDING/SUCCEEDED/FAILED/ABANDONED), deneme sayısı, HTTP yanıt kodu, bir sonraki deneme zamanı, kesilmiş hata mesajı (en fazla 500 karakter) | `(endpoint_id, created_at)` ve `(status, next_attempt_at)` index |
+| `studios.embed_allowed_origins` | Gömülebilir rezervasyon widget'ının çerçevelenmesine izin verilen kökenler; boş liste herhangi bir kökene izin verir (`frame-ancestors *`) | - |
+
+Ayrıntılar için `docs/PUBLIC_API.md`.
+
 ## Denetim (Audit)
 
 | Tablo | Amaç | Kısıtlar |

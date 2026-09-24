@@ -45,6 +45,8 @@ export const PERMISSIONS = {
 
   'leads.view': 'Potansiyel üyeleri görüntüleme',
   'leads.manage': 'Potansiyel üye ekleme, aşama değiştirme, üyeliğe dönüştürme',
+
+  'integrations.manage': 'API anahtarı ve webhook yönetimi',
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;

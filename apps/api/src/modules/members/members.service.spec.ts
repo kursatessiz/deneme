@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MembersService } from './members.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import type { TenantContext } from '../auth/tenant-context';
 
@@ -61,6 +62,10 @@ describe('MembersService', () => {
         {
           provide: PrismaService,
           useValue: mockPrisma,
+        },
+        {
+          provide: WebhooksService,
+          useValue: { emit: jest.fn() },
         },
       ],
     }).compile();

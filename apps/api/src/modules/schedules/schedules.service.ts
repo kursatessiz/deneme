@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import type { TenantContext } from '../auth/tenant-context';
 import type {
   CreateScheduleInput,
@@ -42,6 +43,7 @@ export class SchedulesService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private webhooks: WebhooksService,
   ) {}
 
   async getSchedules(
@@ -219,13 +221,25 @@ export class SchedulesService {
 
   async bookSession(tenant: TenantContext, dto: BookSessionInput) {
     await this.assertScheduleBranch(tenant, dto.scheduleId);
-    return this.book(tenant.studioId, dto);
+    const booking = await this.book(tenant.studioId, dto);
+    await this.emitBookingCreated(tenant.studioId, booking);
+    return booking;
   }
 
   /** Members booking for themselves; enforces dto.memberId matches the caller's own profile. */
   async bookSessionSelf(tenant: TenantContext, dto: BookSessionInput) {
     this.assertSelf(tenant, dto.memberId, 'Yalnızca kendi adınıza rezervasyon yapabilirsiniz');
-    return this.book(tenant.studioId, dto);
+    const booking = await this.book(tenant.studioId, dto);
+    await this.emitBookingCreated(tenant.studioId, booking);
+    return booking;
+  }
+
+  private async emitBookingCreated(studioId: string, booking: { id: string; scheduleId: string; memberId: string }): Promise<void> {
+    await this.webhooks.emit(studioId, 'booking.created', {
+      bookingId: booking.id,
+      scheduleId: booking.scheduleId,
+      memberId: booking.memberId,
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -640,6 +654,13 @@ export class SchedulesService {
 
     const promoted = booking.schedule.startTime > now ? await this.promoteFromWaitlistSafe(studioId, booking.scheduleId) : 0;
 
+    await this.webhooks.emit(studioId, 'booking.cancelled', {
+      bookingId: updatedBooking.id,
+      scheduleId: updatedBooking.scheduleId,
+      memberId: updatedBooking.memberId,
+      isLateCancellation: outcome.isLate,
+    });
+
     return {
       booking: updatedBooking,
       isLateCancellation: outcome.isLate,
@@ -741,7 +762,13 @@ export class SchedulesService {
     if (updated.count === 0) {
       throw new BadRequestException('Yalnızca onaylı rezervasyonlar için giriş yapılabilir');
     }
-    return this.prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
+    const attended = await this.prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
+    await this.webhooks.emit(tenant.studioId, 'booking.attended', {
+      bookingId: attended.id,
+      scheduleId: attended.scheduleId,
+      memberId: attended.memberId,
+    });
+    return attended;
   }
 
   // ---------------------------------------------------------------------------

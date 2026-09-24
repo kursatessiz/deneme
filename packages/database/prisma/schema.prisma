@@ -369,6 +369,8 @@ model Studio {
   maxAdvanceBookingDays  Int      @default(14) @map("max_advance_booking_days")
   /// Channel order and fallback, e.g. { "order": ["WHATSAPP", "SMS"] }
   notificationSettings   Json     @default("{\"order\":[\"WHATSAPP\",\"SMS\"]}") @map("notification_settings")
+  /// Optional allow-list of origins that may frame /embed/<slug>; empty means any origin (frame-ancestors *).
+  embedAllowedOrigins    String[] @default([]) @map("embed_allowed_origins")
   isActive               Boolean  @default(true) @map("is_active")
   createdAt              DateTime @default(now()) @map("created_at")
   updatedAt              DateTime @updatedAt @map("updated_at")
@@ -424,6 +426,8 @@ model Studio {
   giftCards             GiftCard[]
   giftCardTransactions  GiftCardTransaction[]
   redemptionCounters    RedemptionCounter[]
+  apiKeys               ApiKey[]
+  webhookEndpoints      WebhookEndpoint[]
 
   @@map("studios")
 }
@@ -523,6 +527,7 @@ model User {
   promoRedemptions      PromoRedemption[]
   giftCardsPurchased    GiftCard[]               @relation("GiftCardPurchaser")
   giftCardTransactions  GiftCardTransaction[]    @relation("GiftCardTransactionActor")
+  apiKeysCreated        ApiKey[]                 @relation("ApiKeyCreatedBy")
 
   @@map("users")
 }
@@ -1949,4 +1954,84 @@ model Invoice {
   @@index([branchId])
   @@index([status])
   @@map("invoices")
+}
+
+// ---------------------------------------------------------------------------
+// Open platform (W18): API keys, public API, outbound webhooks
+// ---------------------------------------------------------------------------
+
+/// A public-API credential for a studio. Plaintext secret is never stored:
+/// only its sha256 hash. The prefix (shown in listings) is the non-secret
+/// part of `pk_live_<prefix>_<secret>`.
+model ApiKey {
+  id              String    @id @default(uuid()) @db.Uuid
+  studioId        String    @map("studio_id") @db.Uuid
+  name            String    @db.VarChar(80)
+  prefix          String    @db.VarChar(12)
+  secretHash      String    @map("secret_hash") @db.VarChar(64)
+  scopes          String[]
+  createdByUserId String    @map("created_by_user_id") @db.Uuid
+  lastUsedAt      DateTime? @map("last_used_at")
+  expiresAt       DateTime? @map("expires_at")
+  revokedAt       DateTime? @map("revoked_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  studio    Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  createdBy User   @relation("ApiKeyCreatedBy", fields: [createdByUserId], references: [id])
+
+  @@unique([prefix])
+  @@index([studioId, revokedAt])
+  @@map("api_keys")
+}
+
+/// A tenant-configured outbound webhook. The secret signs deliveries
+/// (HMAC-SHA256); it is generated server-side and only ever shown once (on
+/// create) or after a rotate call.
+model WebhookEndpoint {
+  id           String   @id @default(uuid()) @db.Uuid
+  studioId     String   @map("studio_id") @db.Uuid
+  url          String   @db.Text
+  secret       String   @db.VarChar(64)
+  events       String[]
+  isActive     Boolean  @default(true) @map("is_active")
+  /// Consecutive failed deliveries; reset to 0 on a success, auto-disables the endpoint past a threshold.
+  failureCount Int      @default(0) @map("failure_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  studio     Studio            @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@index([studioId])
+  @@map("webhook_endpoints")
+}
+
+/// One outbound delivery attempt log entry. A retried delivery reuses the
+/// same row (attempt is incremented) until it succeeds or attempts run out.
+model WebhookDelivery {
+  id            String                @id @default(uuid()) @db.Uuid
+  endpointId    String                @map("endpoint_id") @db.Uuid
+  event         String                @db.VarChar(40)
+  payload       Json
+  status        WebhookDeliveryStatus @default(PENDING)
+  attempt       Int                   @default(0)
+  responseCode  Int?                  @map("response_code")
+  nextAttemptAt DateTime?             @map("next_attempt_at")
+  /// Truncated to 500 characters; response bodies are never stored beyond that.
+  lastError     String?               @map("last_error") @db.VarChar(500)
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([endpointId, createdAt])
+  @@index([status, nextAttemptAt])
+  @@map("webhook_deliveries")
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  ABANDONED
 }

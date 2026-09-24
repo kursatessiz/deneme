@@ -3,6 +3,7 @@ import { BullModule, InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import { AutomationsModule } from '../automations/automations.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { WebhooksModule } from '../webhooks/webhooks.module';
 import { JobsService } from './jobs.service';
 import { SchedulerController } from './scheduler.controller';
 import { SchedulerProcessor } from './scheduler.processor';
@@ -24,6 +25,7 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
   imports: [
     AutomationsModule,
     PaymentsModule,
+    WebhooksModule,
     ...(redisConfigured
       ? [
           BullModule.forRoot({ connection: { url: process.env.REDIS_URL } }),
