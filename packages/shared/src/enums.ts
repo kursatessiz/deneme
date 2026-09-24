@@ -186,3 +186,24 @@ export enum BillingProfileKind {
   INDIVIDUAL = 'INDIVIDUAL',
   COMPANY = 'COMPANY',
 }
+
+/** W9 sales tools: promo codes, gift cards, trial offers. */
+export enum PromoCodeKind {
+  PERCENT = 'PERCENT',
+  FIXED_AMOUNT = 'FIXED_AMOUNT',
+  FREE_UNITS = 'FREE_UNITS',
+}
+
+export enum GiftCardStatus {
+  ACTIVE = 'ACTIVE',
+  REDEEMED = 'REDEEMED',
+  EXPIRED = 'EXPIRED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum GiftCardTransactionType {
+  ISSUE = 'ISSUE',
+  REDEEM = 'REDEEM',
+  REFUND = 'REFUND',
+  ADJUST = 'ADJUST',
+}

@@ -11,6 +11,7 @@ import {
   LeadStage,
   PaymentMethod,
   PaymentStatus,
+  PromoCodeKind,
 } from './enums';
 import { normalizePhone } from './phone';
 import { TaxNumberSchema, TcknSchema, VknSchema } from './tax-id';
@@ -426,6 +427,12 @@ export const SellPackageSchema = z.object({
   /** Card token for a card-present sale, charged through the provider adapter. */
   card: CardTokenSchema.optional(),
   notes: z.string().max(500).optional(),
+  /** W9: promo code to redeem against this sale (case-insensitive). */
+  promoCode: z.string().trim().min(3).max(40).optional(),
+  /** W9: gift card code to pay part or all of this sale with. */
+  giftCardCode: z.string().trim().min(8).max(40).optional(),
+  /** Amount to draw from the gift card; omitted means as much as covers the sale, up to its balance. */
+  giftCardAmount: z.number().positive().optional(),
 });
 export type SellPackageInput = z.infer<typeof SellPackageSchema>;
 
@@ -435,6 +442,12 @@ export const MemberCheckoutSchema = z.object({
   memberId: z.string().uuid(),
   packageDefinitionId: z.string().uuid(),
   installmentCount: z.number().int().min(1).max(12).default(1),
+  /** W9: promo code to redeem against this purchase (case-insensitive). */
+  promoCode: z.string().trim().min(3).max(40).optional(),
+  /** W9: gift card code to pay part or all of this purchase with. */
+  giftCardCode: z.string().trim().min(8).max(40).optional(),
+  /** Amount to draw from the gift card; omitted means as much as covers the price, up to its balance. */
+  giftCardAmount: z.number().positive().optional(),
 });
 export type MemberCheckoutInput = z.infer<typeof MemberCheckoutSchema>;
 
@@ -682,3 +695,77 @@ export const CancelInvoiceSchema = z.object({
   reason: z.string().trim().min(3, 'İptal nedeni giriniz').max(500),
 });
 export type CancelInvoiceInput = z.infer<typeof CancelInvoiceSchema>;
+
+// ---------------------------------------------------------------------------
+// Sales tools: trial offers, promo codes, gift cards (W9)
+// ---------------------------------------------------------------------------
+
+export const CreatePromoCodeSchema = z
+  .object({
+    code: z.string().trim().min(3, 'Kod en az 3 karakter olmalıdır').max(40),
+    kind: z.nativeEnum(PromoCodeKind),
+    value: z.number().positive('Değer sıfırdan büyük olmalıdır'),
+    validFrom: z.string().datetime().optional(),
+    validTo: z.string().datetime().optional(),
+    maxRedemptions: z.number().int().positive().optional(),
+    perUserLimit: z.number().int().positive().default(1),
+    minAmount: z.number().nonnegative().optional(),
+    applicablePackageDefinitionIds: z.array(z.string().uuid()).default([]),
+    newMembersOnly: z.boolean().default(false),
+    isActive: z.boolean().default(true),
+  })
+  .refine((v) => v.kind !== 'PERCENT' || v.value <= 100, {
+    message: 'Yüzde indirimi 100\'den büyük olamaz',
+    path: ['value'],
+  })
+  .refine((v) => !v.validFrom || !v.validTo || v.validFrom <= v.validTo, {
+    message: 'Geçerlilik başlangıcı bitişten sonra olamaz',
+    path: ['validTo'],
+  });
+export type CreatePromoCodeInput = z.infer<typeof CreatePromoCodeSchema>;
+
+export const UpdatePromoCodeSchema = z.object({
+  validFrom: z.string().datetime().optional(),
+  validTo: z.string().datetime().optional(),
+  maxRedemptions: z.number().int().positive().optional(),
+  perUserLimit: z.number().int().positive().optional(),
+  minAmount: z.number().nonnegative().optional(),
+  applicablePackageDefinitionIds: z.array(z.string().uuid()).optional(),
+  newMembersOnly: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+});
+export type UpdatePromoCodeInput = z.infer<typeof UpdatePromoCodeSchema>;
+
+/** Member self-service: preview the discount a code would give, without redeeming it. */
+export const ValidatePromoCodeSchema = z.object({
+  code: z.string().trim().min(3).max(40),
+  packageDefinitionId: z.string().uuid(),
+});
+export type ValidatePromoCodeInput = z.infer<typeof ValidatePromoCodeSchema>;
+
+export const IssueGiftCardSchema = z.object({
+  studioId: z.string().uuid(),
+  /** The member the sale is recorded against (the purchaser, or whoever is checking out). */
+  memberId: z.string().uuid(),
+  branchId: z.string().uuid().optional(),
+  initialAmount: z.number().positive('Tutar sıfırdan büyük olmalıdır'),
+  currency: CURRENCY_CODE,
+  recipientName: z.string().trim().max(120).optional(),
+  recipientPhone: PhoneSchema.optional(),
+  message: z.string().trim().max(500).optional(),
+  expiresAt: z.string().datetime().optional(),
+  /** How the studio was paid for the card (cash, POS, bank transfer); recorded as a Payment. */
+  paymentMethod: z.nativeEnum(PaymentMethod),
+});
+export type IssueGiftCardInput = z.infer<typeof IssueGiftCardSchema>;
+
+export const AdjustGiftCardSchema = z.object({
+  amount: z.number().refine((v) => v !== 0, 'Tutar sıfır olamaz'),
+  note: z.string().trim().min(3, 'Not giriniz').max(500),
+});
+export type AdjustGiftCardInput = z.infer<typeof AdjustGiftCardSchema>;
+
+export const CheckGiftCardBalanceSchema = z.object({
+  code: z.string().trim().min(8).max(40),
+});
+export type CheckGiftCardBalanceInput = z.infer<typeof CheckGiftCardBalanceSchema>;
