@@ -37,6 +37,7 @@ export const PERMISSIONS = {
   'finance.manage': 'Ödeme ve gider kaydetme',
   'commissions.view.own': 'Kendi hakedişini görüntüleme',
   'commissions.view.all': 'Tüm hakedişleri görüntüleme',
+  'payroll.manage': 'Hakediş bordrosu oluşturma, düzeltme, onaylama ve ödenmiş işaretleme',
 
   'notifications.manage': 'Bildirim şablonları ve SMS kredisi',
   'reports.view': 'Raporları görüntüleme',
