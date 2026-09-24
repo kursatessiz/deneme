@@ -103,6 +103,24 @@ erDiagram
     Studio ||--o{ AutomationRun : has
     AutomationRule ||--o{ AutomationRun : produces
     User ||--o{ AutomationRun : targeted_by
+
+    Studio ||--o{ TrialRedemption : has
+    Studio ||--o{ RedemptionCounter : has
+    Studio ||--o{ PromoCode : has
+    Studio ||--o{ PromoRedemption : has
+    Studio ||--o{ GiftCard : has
+    Studio ||--o{ GiftCardTransaction : has
+    PackageDefinition ||--o{ TrialRedemption : redeemed_as
+    User ||--o{ TrialRedemption : redeems
+    MemberPackage ||--o| TrialRedemption : granted_by
+    User ||--o{ PromoCode : creates
+    PromoCode ||--o{ PromoRedemption : redeemed_as
+    User ||--o{ PromoRedemption : redeems
+    Payment ||--o| PromoRedemption : discounted_by
+    User ||--o{ GiftCard : purchases
+    GiftCard ||--o{ GiftCardTransaction : logs
+    Payment ||--o{ GiftCardTransaction : records
+    Payment ||--o{ GiftCard : paid_with
 ```
 
 ## Platform Seviyesi
@@ -225,6 +243,19 @@ Açık (WON/LOST olmayan) bir aday aynı telefonla tekrar başvurursa (web formu
 
 `automation_rules.params`, `packages/shared/src/automations.ts` içindeki `AutomationRuleParamsSchema` (Zod ayrık birleşimi) ile doğrulanır; kural 7 gereği enum değildir. `automation_runs` satırı, değerlendirici göndermeden **önce** oluşturulur (insert-first) ve unique kısıt bir sonraki değerlendirme döngüsünün aynı hedefi tekrar göndermesini engeller (idempotency guard). Bkz. `docs/AUTOMATIONS.md`.
 
+## Satış Araçları (W9): Deneme Dersi, Promosyon Kodu, Hediye Kartı
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `package_definitions.is_trial`, `.trial_limit_per_user` | Bir paket tanımını deneme teklifi olarak işaretler; kullanıcı başına izin verilen satın alma sayısı | `(studio_id, is_trial)` index |
+| `trial_redemptions` | Bir kullanıcının bir deneme paketini kullandığı kaydı (denetim/iz) | `(studio_id, user_id, package_definition_id)` index |
+| `redemption_counters` | Deneme teklifi ve promosyon kodu için kullanıcı başına kullanım sayacı; `(studio_id, subject, subject_id, user_id)` benzersiz index üzerinden tek bir `INSERT ... ON CONFLICT DO UPDATE ... WHERE count < limit` deyimiyle yarış durumuna karşı güvenli okunup artırılır | `(studio_id, subject, subject_id, user_id)` benzersiz |
+| `promo_codes` | Promosyon kodu: tür (yüzde/sabit tutar/ücretsiz hak), değer, geçerlilik aralığı, toplam ve kullanıcı başına kullanım limiti, minimum tutar, uygulanabilir paketler, yalnızca yeni üyeler kısıtı | `(studio_id, code)` benzersiz (kod her zaman büyük harfle saklanır) |
+| `promo_redemptions` | Bir kodun bir ödemeye uygulanması: indirim tutarı | `payment_id` benzersiz (ödeme başına bir kod); `(promo_code_id, user_id)` ve `(studio_id, user_id)` index |
+| `gift_cards` | Hediye kartı: yalnızca sha256 kod özeti + son 4 hane saklanır (gerçek kod yalnızca oluşturulduğunda bir kez döndürülür), başlangıç tutarı, güncel bakiye, alıcı bilgisi, son kullanma tarihi, durum | `(studio_id, code_hash)` benzersiz; `(studio_id, status)` ve `(purchaser_user_id)` index |
+| `gift_card_transactions` | Kart hareketleri: satış, kullanım, iade, manuel düzeltme | `(gift_card_id, created_at)` index |
+| `payments.promo_code_id`, `.discount_amount`, `.gift_card_id`, `.gift_card_amount`, `.gift_card_refunded` | Bir ödemeye uygulanan promosyon indirimi ve hediye kartından karşılanan tutar; iade edilen hediye kartı payı | `(promo_code_id)` ve `(gift_card_id)` index |
+
 ## Denetim (Audit)
 
 | Tablo | Amaç | Kısıtlar |
@@ -265,6 +296,8 @@ Açık (WON/LOST olmayan) bir aday aynı telefonla tekrar başvurursa (web formu
 10. **İade Sınırı** (uygulama seviyesinde, `PaymentsService.refundPayment` içinde koşullu `updateMany` ile): `refunded_amount`, okunan anlık değer üzerinden koşullu güncellenir; eşzamanlı iki iade isteği `amount`'u asla aşamaz ve ikinci istek `409 Conflict` alır.
 
 10. **Açık Aday Başına Tek Telefon**: (studio_id, open_phone) benzersiz kısıtı, aynı işletmede aynı telefonla birden fazla açık aday oluşmasını engeller. `open_phone` yalnızca aday açıkken dolu olduğu için kapanmış (WON/LOST) adaylar kısıtın dışında kalır.
+
+11. **Satış Araçları Yarış Güvenliği** (W9, uygulama seviyesinde): deneme teklifi ve promosyon kodu kullanıcı limitleri `redemption_counters` üzerinde tek bir `INSERT ... ON CONFLICT DO UPDATE ... WHERE count < limit` deyimiyle; promosyon kodunun toplam kullanım limiti `promo_codes.redeemed_count` üzerinde koşullu `updateMany` (`redeemed_count < max_redemptions`) ile; hediye kartı bakiyesi `gift_cards.balance` üzerinde koşullu `updateMany` (`balance >= amount`) ile korunur. Her üçü de eşzamanlı isteklerde tam olarak izin verilen sayıda işlemin başarılı olmasını garanti eder.
 
 ## Konvansiyonlar
 

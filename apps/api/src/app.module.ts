@@ -23,6 +23,7 @@ import { LeadsModule } from './modules/leads/leads.module';
 import { InvoicingModule } from './modules/invoicing/invoicing.module';
 import { AutomationsModule } from './modules/automations/automations.module';
 import { JobsModule } from './modules/jobs/jobs.module';
+import { PromotionsModule } from './modules/promotions/promotions.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -54,6 +55,7 @@ import { validateEnv } from './config/env';
     InvoicingModule,
     AutomationsModule,
     JobsModule,
+    PromotionsModule,
     HealthModule,
   ],
 })
