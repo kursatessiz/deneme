@@ -1913,7 +1913,8 @@ function printSummary() {
   }
   console.log('');
   console.log(
-    `Sifre: SEED_DEMO_PASSWORD ortam degiskeninden okunur, verilmemisse varsayilan "${DEMO_PASSWORD}" kullanilir (yalnizca gelistirme icin).`,
+    // The password itself is never printed (CodeQL: clear-text logging).
+    'Sifre: SEED_DEMO_PASSWORD ortam degiskeni; verilmemisse seed.ts icindeki varsayilan gelistirme sifresi.',
   );
 }
 

@@ -24,7 +24,8 @@ concurrency:
 jobs:
   ci:
     if: inputs.tag == ''
-    uses: ./.github/workflows/ci.yml
+    # ./ is the documented syntax for a reusable workflow in the same repository.
+    uses: ./.github/workflows/ci.yml # zizmor: ignore[self-repository]
 
   publish:
     name: Build and publish images
