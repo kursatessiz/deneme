@@ -20,6 +20,7 @@ erDiagram
     Studio ||--o{ Payment : has
     Studio ||--o{ SmsWallet : has
     Studio ||--o{ NotificationLog : has
+    Studio ||--o{ PayrollRun : has
 
     User ||--o{ Membership : creates
     Membership ||--o| MemberProfile : member
@@ -64,6 +65,10 @@ erDiagram
     Booking ||--o{ BookingResource : assigns
 
     NotificationLog ||--o{ SmsTransaction : triggers
+
+    Branch ||--o{ PayrollRun : scopes
+    PayrollRun ||--o{ PayrollLine : has
+    TrainerProfile ||--o{ PayrollLine : earns
 ```
 
 ## Platform Seviyesi
@@ -144,6 +149,15 @@ erDiagram
 | `sms_wallets` | Stüdyo SMS kredi bakiyesi | studio_id benzersiz; balance >= 0 |
 | `sms_transactions` | SMS defteri: satın alma, kullanım, düzeltme, iade | (studio_id, created_at) index; notification_log_id benzersiz |
 | `notification_logs` | Giden mesajlar: WhatsApp, SMS, push, email; fallback zinciri | (studio_id, created_at) index; tekrar deneme zincirleri için (fallback_of_id) kendine referans |
+
+## Hakediş Bordrosu (Payroll, W14)
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `payroll_runs` | Bir dönem (opsiyonel şube kapsamlı) için hakediş çalıştırması: durum (taslak, onaylandı, ödendi), toplamlar | (studio_id, branch_id, period_start, period_end) index; (studio_id, status) index |
+| `payroll_lines` | Çalıştırma başına antrenör satırı: seans/katılımcı sayıları, brüt, düzeltme, net, hesaplama detayı (JSON) | (run_id, trainer_profile_id) benzersiz; (studio_id, trainer_profile_id) index |
+
+Formül ve durum makinesi için bkz. `docs/PAYROLL.md`.
 
 ## Denetim (Audit)
 

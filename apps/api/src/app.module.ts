@@ -16,6 +16,7 @@ import { AppearanceModule } from './modules/appearance/appearance.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { BranchesModule } from './modules/branches/branches.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
+import { PayrollModule } from './modules/payroll/payroll.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -40,6 +41,7 @@ import { validateEnv } from './config/env';
     CatalogModule,
     BranchesModule,
     CalendarModule,
+    PayrollModule,
     HealthModule,
   ],
 })

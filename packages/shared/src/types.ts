@@ -287,3 +287,56 @@ export interface PortfolioSummaryDTO {
   studios: StudioPortfolioItemDTO[];
   totals: Omit<StudioPortfolioItemDTO, 'studioId' | 'studioName'>;
 }
+
+// ---------------------------------------------------------------------------
+// Payroll (trainer commission runs, W14)
+// ---------------------------------------------------------------------------
+
+export type PayrollRunStatus = 'DRAFT' | 'APPROVED' | 'PAID';
+
+/** One booking's contribution to a trainer's payroll line, for the audit trail. */
+export interface PayrollLineDetailDTO {
+  scheduleId: string;
+  bookingId: string | null;
+  serviceTypeName: string;
+  startTime: string;
+  ruleType: CommissionType;
+  ruleSource: 'SERVICE_TYPE' | 'TRAINER';
+  /** Units consumed by the booking (unitsCharged, penaltyUnits for late cancels). */
+  units: number;
+  /** Only set for PERCENTAGE rules: package price / totalUnits (or / validity days for TIME_UNLIMITED). */
+  unitPrice: string | null;
+  amount: string;
+}
+
+export interface PayrollLineDTO {
+  id: string;
+  runId: string;
+  trainerProfileId: string;
+  trainerFullName: string;
+  sessions: number;
+  attendees: number;
+  grossAmount: string;
+  adjustments: string;
+  netAmount: string;
+  note: string | null;
+  lines: PayrollLineDetailDTO[];
+}
+
+export interface PayrollRunDTO {
+  id: string;
+  studioId: string;
+  branchId: string | null;
+  periodStart: string;
+  periodEnd: string;
+  status: PayrollRunStatus;
+  totalGross: string;
+  totalAdjustments: string;
+  totalNet: string;
+  createdByUserId: string;
+  approvedByUserId: string | null;
+  approvedAt: string | null;
+  paidAt: string | null;
+  createdAt: string;
+  lines?: PayrollLineDTO[];
+}

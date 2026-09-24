@@ -34,6 +34,9 @@ export default function HesabimScreen() {
   const canManageTheme = activeMembership?.permissions.includes('studio.settings.manage') ?? false;
   const canViewReports = activeMembership?.permissions.includes('reports.view') ?? false;
   const isMember = Boolean(activeMembership?.memberProfileId);
+  const isTrainer = Boolean(activeMembership?.trainerProfileId);
+  const canViewOwnCommission = isTrainer && (activeMembership?.permissions.includes('commissions.view.own') ?? false);
+  const canViewPayroll = activeMembership?.permissions.includes('commissions.view.all') ?? false;
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const handleSignOut = async () => {
@@ -71,6 +74,8 @@ export default function HesabimScreen() {
         <MenuLink label="PIN değiştir" onPress={() => router.push('/(app)/hesabim/pin')} />
         <MenuLink label="Görünüm" onPress={() => router.push('/(app)/hesabim/gorunum')} />
         {isMember ? <MenuLink label="Ana şubem" onPress={() => router.push('/(app)/hesabim/ana-sube')} /> : null}
+        {canViewOwnCommission ? <MenuLink label="Hakedişim" onPress={() => router.push('/(app)/hesabim/hakedisim')} /> : null}
+        {canViewPayroll ? <MenuLink label="Bordro" onPress={() => router.push('/(app)/hesabim/bordro')} /> : null}
         {canViewReports ? <MenuLink label="Şube özeti" onPress={() => router.push('/(app)/hesabim/subeler')} /> : null}
         {canManageTheme ? (
           <MenuLink label="İşletme teması" onPress={() => router.push('/(app)/hesabim/isletme-temasi')} />

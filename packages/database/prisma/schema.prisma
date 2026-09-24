@@ -129,6 +129,12 @@ enum SmsTransactionType {
   REFUND
 }
 
+enum PayrollRunStatus {
+  DRAFT
+  APPROVED
+  PAID
+}
+
 // ---------------------------------------------------------------------------
 // Platform level (super-admin)
 // ---------------------------------------------------------------------------
@@ -273,6 +279,8 @@ model Studio {
   smsTransactions      SmsTransaction[]
   notificationLogs     NotificationLog[]
   auditLogs            AuditLog[]
+  payrollRuns          PayrollRun[]
+  payrollLines         PayrollLine[]
 
   @@map("studios")
 }
@@ -298,6 +306,7 @@ model Branch {
   payments    Payment[]
   staffAccess MembershipBranch[]
   homeMembers MemberProfile[]    @relation("MemberHomeBranch")
+  payrollRuns PayrollRun[]
 
   @@unique([studioId, name])
   /// Target of composite foreign keys that pin a row to the branch's studio.
@@ -360,6 +369,8 @@ model User {
   expenses           Expense[]
   smsTransactions    SmsTransaction[]
   auditLogs          AuditLog[]
+  payrollRunsCreated  PayrollRun[] @relation("PayrollRunCreatedBy")
+  payrollRunsApproved PayrollRun[] @relation("PayrollRunApprovedBy")
 
   @@map("users")
 }
@@ -538,6 +549,7 @@ model TrainerProfile {
   qualifications TrainerQualification[]
   schedules      SessionSchedule[]      @relation("ScheduleTrainer")
   substitutedFor SessionSchedule[]      @relation("ScheduleOriginalTrainer")
+  payrollLines   PayrollLine[]
 
   @@index([studioId])
   @@map("trainer_profiles")
@@ -642,6 +654,69 @@ model CommissionRule {
 
   @@index([studioId])
   @@map("commission_rules")
+}
+
+// ---------------------------------------------------------------------------
+// Payroll (trainer commission runs, W14)
+// ---------------------------------------------------------------------------
+
+/// One payroll cycle for a period, optionally scoped to a branch. DRAFT runs
+/// can be regenerated (their lines are replaced); APPROVED and PAID runs are
+/// immutable. See docs/PAYROLL.md for the commission formula.
+model PayrollRun {
+  id                String            @id @default(uuid()) @db.Uuid
+  studioId          String            @map("studio_id") @db.Uuid
+  /// Null covers every branch of the studio.
+  branchId          String?           @map("branch_id") @db.Uuid
+  periodStart       DateTime          @map("period_start")
+  periodEnd         DateTime          @map("period_end")
+  status            PayrollRunStatus  @default(DRAFT)
+  totalGross        Decimal           @default(0) @map("total_gross") @db.Decimal(12, 2)
+  totalAdjustments  Decimal           @default(0) @map("total_adjustments") @db.Decimal(12, 2)
+  totalNet          Decimal           @default(0) @map("total_net") @db.Decimal(12, 2)
+  createdByUserId   String            @map("created_by_user_id") @db.Uuid
+  approvedByUserId  String?           @map("approved_by_user_id") @db.Uuid
+  approvedAt        DateTime?         @map("approved_at")
+  paidAt            DateTime?         @map("paid_at")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  studio     Studio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  branch     Branch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  createdBy  User            @relation("PayrollRunCreatedBy", fields: [createdByUserId], references: [id])
+  approvedBy User?           @relation("PayrollRunApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  lines      PayrollLine[]
+
+  @@index([studioId, branchId, periodStart, periodEnd])
+  @@index([studioId, status])
+  @@map("payroll_runs")
+}
+
+/// One trainer's line within a run. `lines` holds the per-session detail the
+/// calculator produced (schedule id, rule applied, unit price, amount).
+model PayrollLine {
+  id               String   @id @default(uuid()) @db.Uuid
+  runId            String   @map("run_id") @db.Uuid
+  studioId         String   @map("studio_id") @db.Uuid
+  trainerProfileId String   @map("trainer_profile_id") @db.Uuid
+  sessions         Int      @default(0)
+  attendees        Int      @default(0)
+  grossAmount      Decimal  @default(0) @map("gross_amount") @db.Decimal(12, 2)
+  /// Manual correction, positive or negative; requires `note` (audited).
+  adjustments      Decimal  @default(0) @map("adjustments") @db.Decimal(12, 2)
+  netAmount        Decimal  @default(0) @map("net_amount") @db.Decimal(12, 2)
+  note             String?  @db.Text
+  lines            Json
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  run            PayrollRun     @relation(fields: [runId], references: [id], onDelete: Cascade)
+  studio         Studio         @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  trainerProfile TrainerProfile @relation(fields: [trainerProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, trainerProfileId])
+  @@index([studioId, trainerProfileId])
+  @@map("payroll_lines")
 }
 
 /// What can be booked: "Private reformer", "EMS 20 min", "Padel court 1h".
