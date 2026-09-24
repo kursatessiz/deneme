@@ -11,6 +11,23 @@ export const EnvSchema = z
     JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
     CORS_ORIGIN: z.string().optional(),
     SMS_PROVIDER: z.enum(['MOCK', 'NETGSM', 'ILETI_MERKEZI']).default('MOCK'),
+    // Netgsm credentials. Adapter falls back to MOCK when unset, regardless
+    // of SMS_PROVIDER, so a missing credential never blocks the app.
+    NETGSM_USER: z.string().min(1).optional(),
+    NETGSM_PASSWORD: z.string().min(1).optional(),
+    NETGSM_HEADER: z.string().min(1).max(11).optional(),
+    // Ileti Merkezi credentials. Same MOCK fallback as Netgsm.
+    ILETI_MERKEZI_USER: z.string().min(1).optional(),
+    ILETI_MERKEZI_PASSWORD: z.string().min(1).optional(),
+    ILETI_MERKEZI_SENDER: z.string().min(1).max(11).optional(),
+    // WhatsApp Cloud API. Adapter posts real template messages only when
+    // both are set; otherwise it behaves like MOCK SMS (logs and succeeds).
+    WHATSAPP_ACCESS_TOKEN: z.string().min(1).optional(),
+    WHATSAPP_PHONE_NUMBER_ID: z.string().min(1).optional(),
+    // Iys (Ileti Yonetim Sistemi) brand credentials for the real client. The
+    // MOCK IysClient is used until these are set.
+    IYS_BRAND_CODE: z.string().min(1).optional(),
+    IYS_API_KEY: z.string().min(1).optional(),
     PUSH_PROVIDER: z.enum(['MOCK', 'EXPO']).default('MOCK'),
     /** Optional Expo access token when "enhanced push security" is on. */
     EXPO_ACCESS_TOKEN: z.string().min(10).optional(),
