@@ -110,7 +110,7 @@ services:
       REDISCLI_AUTH: ${REDIS_PASSWORD:?REDIS_PASSWORD required}
     command: >
       sh -c 'exec redis-server --requirepass "$$REDISCLI_AUTH"
-      --maxmemory 256mb --maxmemory-policy allkeys-lru --save 60 1'
+      --maxmemory 256mb --maxmemory-policy noeviction --save 60 1'
     volumes:
       - redis_data:/data
     networks: [internal_net]
