@@ -10,6 +10,8 @@ function toThemeFamilyKey(value: string): ThemeFamilyKey {
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+/** Expo scheme, see apps/mobile/app.json "scheme". */
+const MOBILE_APP_SCHEME = 'platform';
 
 interface EmbedConfig {
   name: string;
@@ -59,10 +61,15 @@ function formatTime(iso: string) {
 
 /**
  * Script-free-for-host booking widget, rendered inside an iframe the host
- * page embeds via public/embed.js. Talks only to the unauthenticated,
- * rate-limited `/public/studios/:slug/embed/*` endpoints (see
- * apps/api/src/modules/public-api/embed-public.controller.ts) -- never an
- * API key, which cannot be kept secret in browser-visible code.
+ * page embeds via public/embed.js. It never books or cancels anything
+ * itself: a third-party page has no way to authenticate as a member, so a
+ * write endpoint here would let anyone who knows a phone number book or
+ * cancel sessions on that member's behalf (see docs/PUBLIC_API.md "Embed
+ * widget neden doğrudan rezervasyon yapmaz"). Reads go through
+ * `/public/studios/:slug/embed/*` (unauthenticated, IP rate-limited, never
+ * returns member/booking data); the "existing member" path opens the member
+ * app via deep link, and the "first-time visitor" path submits the
+ * existing public lead form (see apps/api/src/modules/leads).
  */
 export default function EmbedBookingPage() {
   const params = useParams();
@@ -73,9 +80,16 @@ export default function EmbedBookingPage() {
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
   const [selectedScheduleId, setSelectedScheduleId] = useState<string>('');
-  const [phone, setPhone] = useState('');
-  const [status, setStatus] = useState<'idle' | 'loading' | 'submitting' | 'confirmed' | 'error'>('loading');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
+
+  const [mode, setMode] = useState<'choose' | 'lead'>('choose');
+  const [leadName, setLeadName] = useState('');
+  const [leadPhone, setLeadPhone] = useState('');
+  const [leadConsent, setLeadConsent] = useState(false);
+  const [leadWebsite, setLeadWebsite] = useState(''); // honeypot, real visitors never fill this
+  const [leadStatus, setLeadStatus] = useState<'idle' | 'submitting' | 'submitted'>('idle');
+  const [leadError, setLeadError] = useState<string | null>(null);
 
   const theme = useMemo(
     () =>
@@ -127,25 +141,53 @@ export default function EmbedBookingPage() {
     const observer = new ResizeObserver(send);
     observer.observe(document.documentElement);
     return () => observer.disconnect();
-  }, [status, schedules.length]);
+  }, [status, schedules.length, mode, leadStatus]);
 
   const serviceTypeName = (id: string) => serviceTypes.find((s) => s.id === id)?.name ?? '';
   const branchName = (id: string | null) => branches.find((b) => b.id === id)?.name ?? '';
+  const selectedSchedule = schedules.find((s) => s.id === selectedScheduleId) ?? null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  /**
+   * Opens the member app's own session screen (apps/mobile
+   * app/(app)/seans/[scheduleId].tsx) via its Expo deep link scheme. Booking
+   * itself only ever happens there, where the member is already
+   * authenticated. There is no delayed-deep-link / app-store fallback page
+   * yet (the `/j/<token>` universal link described in CLAUDE.md is for
+   * invites, not this flow) -- on a device without the app installed this
+   * link simply does nothing, which is documented in docs/PUBLIC_API.md.
+   */
+  const openMemberApp = () => {
+    if (!selectedScheduleId) return;
+    window.location.href = `${MOBILE_APP_SCHEME}://seans/${selectedScheduleId}`;
+  };
+
+  const submitLead = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedScheduleId || phone.trim().length < 8) return;
-    setStatus('submitting');
-    setError(null);
+    if (!leadConsent || leadName.trim().length < 2 || leadPhone.trim().length < 8) return;
+    setLeadStatus('submitting');
+    setLeadError(null);
     try {
-      await embedFetch(slug, 'bookings', {
+      const interest = selectedSchedule
+        ? `Web widget üzerinden deneme dersi talebi: ${serviceTypeName(selectedSchedule.serviceTypeId)} - ${formatTime(selectedSchedule.startTime)}${selectedSchedule.branchId ? ` (${branchName(selectedSchedule.branchId)})` : ''}`
+        : 'Web widget üzerinden deneme dersi talebi';
+      await fetch(`${API_BASE_URL}/public/studios/${slug}/leads`, {
         method: 'POST',
-        body: JSON.stringify({ scheduleId: selectedScheduleId, memberPhone: phone.trim(), resourceIds: [] }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: leadName.trim(),
+          phone: leadPhone.trim(),
+          interest,
+          consent: true,
+          website: leadWebsite,
+        }),
       });
-      setStatus('confirmed');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Rezervasyon oluşturulamadı');
-      setStatus('idle');
+      // The lead endpoint always answers 202, whatever happened, so the
+      // widget cannot be used to probe which phone numbers are known.
+      setLeadStatus('submitted');
+    } catch {
+      // Network-level failure only (the endpoint itself never errors).
+      setLeadError('Gönderilemedi, lütfen tekrar deneyin.');
+      setLeadStatus('idle');
     }
   };
 
@@ -176,25 +218,13 @@ export default function EmbedBookingPage() {
           </p>
         )}
 
-        {status === 'confirmed' && (
-          <div className="mt-4 space-y-2">
-            <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-              Rezervasyonunuz alındı.
-            </p>
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              Seans saatinizi telefonunuza gönderdiğimiz bilgilendirmeden takip edebilirsiniz.
-            </p>
-          </div>
-        )}
-
-        {(status === 'idle' || status === 'submitting') && (
-          <form onSubmit={handleSubmit} className="mt-4 space-y-3">
+        {status === 'idle' && (
+          <div className="mt-4 space-y-4">
             <div>
               <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
                 Seans seçin
               </label>
               <select
-                required
                 value={selectedScheduleId}
                 onChange={(e) => setSelectedScheduleId(e.target.value)}
                 className="w-full border px-3 py-2 text-sm"
@@ -208,41 +238,113 @@ export default function EmbedBookingPage() {
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                Telefon numaranız (mevcut üyelik)
-              </label>
-              <input
-                required
-                type="tel"
-                placeholder="+90 5xx xxx xx xx"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full border px-3 py-2 text-sm"
-                style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)', background: 'var(--color-surface)', color: 'var(--color-text-primary)' }}
-              />
               <p className="mt-1 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-                Bu widget yalnızca kayıtlı üyeler için rezervasyon oluşturur.
+                Bu, yalnızca bir zaman/hizmet seçimidir; rezervasyon bu sayfada oluşturulmaz.
               </p>
             </div>
 
-            {error && (
-              <p className="text-xs" style={{ color: '#b42318' }}>
-                {error}
-              </p>
+            {mode === 'choose' && (
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  disabled={!selectedScheduleId}
+                  onClick={openMemberApp}
+                  className="w-full py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                  style={{ background: 'var(--gradient-brand)', borderRadius: 'var(--radius-button)', color: 'var(--color-on-primary)' }}
+                >
+                  Üyeyim, uygulamada rezervasyon yapacağım
+                </button>
+                <button
+                  type="button"
+                  disabled={!selectedScheduleId}
+                  onClick={() => setMode('lead')}
+                  className="w-full border py-2.5 text-sm font-semibold disabled:opacity-60"
+                  style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-button)', color: 'var(--color-text-primary)' }}
+                >
+                  İlk kez geliyorum, benimle iletişime geçin
+                </button>
+              </div>
             )}
 
-            <button
-              type="submit"
-              disabled={status === 'submitting'}
-              className="w-full py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-              style={{ background: 'var(--gradient-brand)', borderRadius: 'var(--radius-button)', color: 'var(--color-on-primary)' }}
-            >
-              {status === 'submitting' ? 'Gönderiliyor...' : 'Rezervasyon Yap'}
-            </button>
-          </form>
+            {mode === 'lead' && leadStatus !== 'submitted' && (
+              <form onSubmit={submitLead} className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                    Ad soyad
+                  </label>
+                  <input
+                    required
+                    value={leadName}
+                    onChange={(e) => setLeadName(e.target.value)}
+                    className="w-full border px-3 py-2 text-sm"
+                    style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)', background: 'var(--color-surface)', color: 'var(--color-text-primary)' }}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                    Telefon numaranız
+                  </label>
+                  <input
+                    required
+                    type="tel"
+                    placeholder="+90 5xx xxx xx xx"
+                    value={leadPhone}
+                    onChange={(e) => setLeadPhone(e.target.value)}
+                    className="w-full border px-3 py-2 text-sm"
+                    style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)', background: 'var(--color-surface)', color: 'var(--color-text-primary)' }}
+                  />
+                </div>
+                {/* Honeypot: hidden from real visitors via CSS, bots often fill every field. */}
+                <input
+                  type="text"
+                  value={leadWebsite}
+                  onChange={(e) => setLeadWebsite(e.target.value)}
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden="true"
+                  style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
+                />
+                <label className="flex items-start gap-2 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                  <input type="checkbox" checked={leadConsent} onChange={(e) => setLeadConsent(e.target.checked)} required className="mt-0.5" />
+                  Bu bilgilerin işletme tarafından benimle iletişime geçmek için kullanılmasına izin veriyorum.
+                </label>
+                {leadError && (
+                  <p className="text-xs" style={{ color: '#b42318' }}>
+                    {leadError}
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMode('choose')}
+                    className="flex-1 border py-2.5 text-sm font-semibold"
+                    style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-button)', color: 'var(--color-text-primary)' }}
+                  >
+                    Geri
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={leadStatus === 'submitting' || !leadConsent}
+                    className="flex-1 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                    style={{ background: 'var(--gradient-brand)', borderRadius: 'var(--radius-button)', color: 'var(--color-on-primary)' }}
+                  >
+                    {leadStatus === 'submitting' ? 'Gönderiliyor...' : 'Gönder'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {mode === 'lead' && leadStatus === 'submitted' && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                  Talebiniz alındı.
+                </p>
+                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                  Ekibimiz en kısa sürede sizinle iletişime geçecek.
+                </p>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

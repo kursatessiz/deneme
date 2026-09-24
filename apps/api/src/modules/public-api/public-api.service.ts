@@ -58,6 +58,13 @@ export class PublicApiService {
     });
   }
 
+  /**
+   * Used by both the API-key-gated /v1/public/schedules and the
+   * unauthenticated embed widget. The select list is deliberately narrow:
+   * no attendee/member data, no booking rows, no trainer contact info, no
+   * meeting links -- only what a public schedule page may show. Widen this
+   * only with a specific field in mind, never with `include`.
+   */
   async listSchedules(studioId: string, branchId: string | undefined, from: Date, to: Date) {
     return this.prisma.sessionSchedule.findMany({
       where: {

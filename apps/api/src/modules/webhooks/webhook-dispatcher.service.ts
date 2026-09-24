@@ -1,6 +1,7 @@
+import { request as httpsRequest } from 'https';
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { assertPublicHttpsHostname } from './ssrf-check';
+import { resolvePublicHttpsAddresses } from './ssrf-check';
 import { buildSignatureHeader } from './webhook-signature';
 import { WEBHOOK_AUTO_DISABLE_AFTER_FAILURES, WEBHOOK_MAX_ATTEMPTS, webhookBackoffSeconds } from '@platform/shared';
 
@@ -100,35 +101,65 @@ export class WebhookDispatcherService {
     secret: string,
     payload: unknown,
   ): Promise<{ ok: boolean; statusCode?: number; error: string }> {
+    let pinnedAddress: string;
+    let pinnedFamily: 4 | 6;
     try {
-      // Re-checked at delivery time (not only at endpoint creation) so a
-      // hostname re-pointed at a private address after creation cannot be
-      // used to reach internal services (SSRF / DNS rebinding).
-      await assertPublicHttpsHostname(url);
+      // Re-resolved and re-checked at delivery time (not only at endpoint
+      // creation) so a hostname re-pointed at a private address after
+      // creation cannot be used to reach internal services (SSRF). The
+      // resolved address is then pinned for the actual connection below
+      // instead of letting the HTTP client re-resolve the hostname itself:
+      // re-resolving would reopen the same hole one request later (DNS
+      // rebinding) -- an attacker's DNS server can answer this lookup with
+      // a public IP and the next one, milliseconds later, with a private
+      // one, and a hostname-only check can never see the difference.
+      const addresses = await resolvePublicHttpsAddresses(url);
+      pinnedAddress = addresses[0].address;
+      pinnedFamily = addresses[0].family;
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : 'SSRF check failed' };
     }
 
     const body = JSON.stringify(payload);
     const signature = buildSignatureHeader(secret, body);
+    const target = new URL(url);
 
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Signature': signature },
-        body,
-        redirect: 'manual', // redirects are never followed
-        signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS),
-      });
-      // 3xx from redirect: 'manual' surfaces as an "opaqueredirect" type response, not 2xx -- treated as a failure below.
-      if (response.status >= 200 && response.status < 300) {
-        return { ok: true, statusCode: response.status, error: '' };
-      }
-      const text = await response.text().catch(() => '');
-      return { ok: false, statusCode: response.status, error: `HTTP ${response.status}: ${text}` };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Bilinmeyen hata';
-      return { ok: false, error: message };
-    }
+    return new Promise((resolve) => {
+      const req = httpsRequest(
+        {
+          protocol: target.protocol,
+          hostname: target.hostname,
+          port: target.port || 443,
+          path: `${target.pathname}${target.search}`,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Signature': signature, 'Content-Length': Buffer.byteLength(body) },
+          timeout: DELIVERY_TIMEOUT_MS,
+          // TLS validation still checks the certificate against `hostname`
+          // (Node defaults `servername` to it); only the socket's actual
+          // destination is pinned to the address validated above.
+          lookup: (_hostname, _options, callback) => callback(null, pinnedAddress, pinnedFamily),
+        },
+        (res) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk) => chunks.push(chunk));
+          res.on('end', () => {
+            const status = res.statusCode ?? 0;
+            const text = Buffer.concat(chunks).toString('utf8');
+            // Node's http client never follows redirects on its own, so a
+            // 3xx simply falls through to the failure branch below, same as
+            // any other non-2xx status -- no redirect is ever followed.
+            if (status >= 200 && status < 300) {
+              resolve({ ok: true, statusCode: status, error: '' });
+            } else {
+              resolve({ ok: false, statusCode: status, error: `HTTP ${status}: ${text}` });
+            }
+          });
+        },
+      );
+      req.on('timeout', () => req.destroy(new Error('Zaman aşımı')));
+      req.on('error', (err) => resolve({ ok: false, error: err.message }));
+      req.write(body);
+      req.end();
+    });
   }
 }

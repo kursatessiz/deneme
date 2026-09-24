@@ -10,8 +10,12 @@ import { AppModule } from '../../src/app.module';
  * `/v1/public/*` API (scopes, cross-tenant isolation, phone masking, the
  * schedules date-range limit, booking create/cancel), outbound webhooks
  * (SSRF rejection on create, an emitted delivery row, signature
- * verification, a manual test event) and permission denials for staff
- * without integrations.manage. Cleans up everything it creates.
+ * verification, a manual test event), permission denials for staff without
+ * integrations.manage, and the unauthenticated embed widget surface (which
+ * is read-only and never returns member data; a security review found the
+ * original embed write endpoints let anyone who knew a member's phone
+ * number book or cancel on their behalf, so they were removed -- see
+ * docs/PUBLIC_API.md "Embed widget"). Cleans up everything it creates.
  */
 
 const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? 'Demo1234!';
@@ -38,6 +42,7 @@ describe('Public API and webhooks (e2e)', () => {
   const webhookEndpointIds: string[] = [];
   const scheduleIds: string[] = [];
   const bookingIds: string[] = [];
+  const EMBED_LEAD_PHONE_PREFIX = '+90539998'; // + '1234' below -> 12-digit valid Turkish mobile (905 + 9 digits)
 
   const login = async (phone: string) => {
     const res = await request(server).post('/auth/login').send({ emailOrPhone: phone, password: DEMO_PASSWORD });
@@ -96,6 +101,13 @@ describe('Public API and webhooks (e2e)', () => {
     await prisma.webhookDelivery.deleteMany({ where: { endpointId: { in: webhookEndpointIds } } });
     await prisma.webhookEndpoint.deleteMany({ where: { id: { in: webhookEndpointIds } } });
     await prisma.apiKey.deleteMany({ where: { id: { in: apiKeyIds } } });
+    const embedLeads = await prisma.lead.findMany({
+      where: { studioId: ZEN, phone: { startsWith: EMBED_LEAD_PHONE_PREFIX } },
+      select: { id: true },
+    });
+    const embedLeadIds = embedLeads.map((l) => l.id);
+    await prisma.leadActivity.deleteMany({ where: { leadId: { in: embedLeadIds } } });
+    await prisma.lead.deleteMany({ where: { id: { in: embedLeadIds } } });
     await prisma.$disconnect();
     await app.close();
   });
@@ -355,6 +367,82 @@ describe('Public API and webhooks (e2e)', () => {
       expect(verifySignatureHeader(rotated.body.secret, body, headerWithOldSecret)).toBe(false);
       const headerWithNewSecret = buildSignatureHeader(rotated.body.secret, body);
       expect(verifySignatureHeader(rotated.body.secret, body, headerWithNewSecret)).toBe(true);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Embed widget: unauthenticated, read-only, IP rate-limited. No booking
+  // write endpoint exists here (removed after a security review -- see
+  // docs/PUBLIC_API.md "Embed widget"); a first-time visitor is routed to
+  // the existing public lead form instead.
+  // ---------------------------------------------------------------------------
+
+  describe('embed widget (/public/studios/:slug/embed/*)', () => {
+    it('exposes config, branches, service-types and schedules with no auth required', async () => {
+      const config = await request(server).get(`/public/studios/zen-reformer-pilates/embed/config`);
+      expect(config.status).toBe(200);
+      expect(config.body.name).toBeTruthy();
+
+      const branches = await request(server).get(`/public/studios/zen-reformer-pilates/embed/branches`);
+      expect(branches.status).toBe(200);
+
+      const serviceTypes = await request(server).get(`/public/studios/zen-reformer-pilates/embed/service-types`);
+      expect(serviceTypes.status).toBe(200);
+      expect(serviceTypes.body.some((s: { id: string }) => s.id === matServiceTypeId)).toBe(true);
+    });
+
+    it('the schedules listing never includes member, attendee or booking data', async () => {
+      await makeSchedule(ZEN, matServiceTypeId, 9);
+      const from = new Date(Date.now() - HOUR);
+      const to = new Date(Date.now() + 10 * DAY);
+      const res = await request(server).get(
+        `/public/studios/zen-reformer-pilates/embed/schedules?from=${from.toISOString()}&to=${to.toISOString()}`,
+      );
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBeGreaterThan(0);
+
+      const allowedKeys = new Set(['id', 'branchId', 'serviceTypeId', 'title', 'startTime', 'endTime', 'capacity', 'bookedCount']);
+      for (const schedule of res.body) {
+        for (const key of Object.keys(schedule)) {
+          expect(allowedKeys.has(key)).toBe(true);
+        }
+        // Explicitly assert none of the fields a member-data leak would use are present.
+        expect(schedule).not.toHaveProperty('bookings');
+        expect(schedule).not.toHaveProperty('member');
+        expect(schedule).not.toHaveProperty('members');
+        expect(schedule).not.toHaveProperty('trainer');
+        expect(schedule).not.toHaveProperty('meetingLink');
+        expect(JSON.stringify(schedule)).not.toContain(MEMBER_PHONE);
+      }
+    });
+
+    it('the booking create and cancel routes no longer exist (removed as a security fix)', async () => {
+      const scheduleId = await makeSchedule(ZEN, matServiceTypeId, 11);
+
+      const create = await request(server)
+        .post(`/public/studios/zen-reformer-pilates/embed/bookings`)
+        .send({ scheduleId, memberPhone: MEMBER_PHONE });
+      expect(create.status).toBe(404);
+
+      const cancel = await request(server).post(`/public/studios/zen-reformer-pilates/embed/bookings/${scheduleId}/cancel`).send({});
+      expect(cancel.status).toBe(404);
+    });
+
+    it('a first-time visitor reaches the widget through the existing public lead form, not a booking', async () => {
+      const phone = `${EMBED_LEAD_PHONE_PREFIX}1234`;
+      const res = await request(server).post('/public/studios/zen-reformer-pilates/leads').send({
+        fullName: 'W18 Embed E2E Ziyaretçi',
+        phone,
+        interest: 'Web widget üzerinden deneme dersi talebi: Mat Pilates',
+        consent: true,
+        website: '',
+      });
+      expect(res.status).toBe(202);
+
+      const lead = await prisma.lead.findFirst({ where: { studioId: ZEN, phone } });
+      expect(lead).not.toBeNull();
+      expect(lead?.sourceDetail).toContain('deneme dersi');
     });
   });
 });

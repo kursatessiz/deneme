@@ -157,14 +157,65 @@ geliştirme, testler) aynı `POST /admin/scheduler/run` uç noktasıyla veya
 denemesi, sonraki zamanlayıcı nabzına kadar (üretimde en fazla 15 dakika)
 gecikebilir; anlık bir teslimat garantisi verilmez.
 
+### DNS rebinding korumasi: çözümlenen IP adresi bağlanılan adrestir
+
+Bir hostname'in oluşturma anında (ve her teslimattan hemen önce) genel bir
+IP'ye çözümlendiğini doğrulamak tek başına yeterli değildir: saldırganın
+kontrolündeki bir DNS sunucusu, doğrulama sorgusuna genel bir IP, hemen
+ardından gerçek bağlantı sırasında yapılacak ayrı bir çözümlemeye özel bir
+IP döndürebilir (DNS rebinding). Bu nedenle `WebhookDispatcherService`,
+`resolvePublicHttpsAddresses()` ile doğrulanan adresi bağlantı için
+**sabitler** (pin): Node'un `https.request()` çağrısına özel bir `lookup`
+fonksiyonu verilir ve bu fonksiyon, hostname ne olursa olsun her zaman aynı,
+önceden doğrulanmış IP adresini döndürür -- istek gövdesi hostname'i ikinci
+kez çözümlemez. TLS sertifika doğrulaması yine de gerçek hostname'e karşı
+yapılır (Node varsayılan olarak `servername`'i `hostname`'den alır);
+yalnızca soketin bağlandığı adres sabitlenir. Birim testi:
+`apps/api/src/modules/webhooks/webhook-dispatcher.service.spec.ts`.
+
 ## 4. Gömülebilir rezervasyon widget'ı
 
-Widget, tarayıcıda çalışan JavaScript'te bir API anahtarının gizli
-tutulamaması nedeniyle `/v1/public/*` yerine **ayrı, kimliksiz ama hız
-sınırlı** bir uç nokta kümesi kullanır:
-`/public/studios/:slug/embed/*` (bkz. `apps/api/src/modules/public-api/embed-public.controller.ts`).
-Bu uç noktalar IP başına dakikada 30 istekle sınırlıdır ve yalnızca mevcut
-üyeler için rezervasyon oluşturur/iptal eder; `/v1/public/*`'ın
+### Widget neden doğrudan rezervasyon yapmaz
+
+İlk sürümde widget, üye telefon numarasıyla eşleştirerek rezervasyon
+oluşturan/iptal eden kimliksiz bir uç nokta çağırıyordu; bir güvenlik
+incelemesi bunun ciddi bir açık olduğunu ortaya çıkardı: **herhangi biri**,
+bir üyenin telefon numarasını bilerek (veya deneyerek) o üye adına
+rezervasyon oluşturabilir, mevcut rezervasyonları iptal edebilir ve bir
+numaranın üye olup olmadığını (hangi hatanın döndüğüne bakarak) sınayabilirdi.
+IP başına hız sınırı bunu *yavaşlatır*, ama kimlik doğrulamanın yerini
+tutmaz -- üçüncü taraf bir web sitesine gömülen bir sayfanın, ziyaretçinin
+gerçekten o üye olduğunu doğrulayacak hiçbir yolu yoktur (JWT oturumu,
+`x-studio-id` veya bir API anahtarı burada kullanılamaz; hepsi ya gizli
+tutulamaz ya da "ben buyum" iddiasını doğrulamaz).
+
+Bu nedenle widget'ın rezervasyon adımı, doğrudan bir yazma uç noktası yerine
+iki yola ayrılır:
+
+1. **"Üyeyim"**: seçilen seans için mobil uygulamanın kendi seans ekranını
+   (`apps/mobile/app/(app)/seans/[scheduleId].tsx`) Expo şema derin
+   bağlantısıyla (`app.json` -> `"scheme": "platform"`) açar:
+   `platform://seans/<scheduleId>`. Rezervasyon yalnızca orada, üye zaten
+   oturum açmışken gerçekleşir. Uygulama yüklü değilse bağlantı hiçbir şey
+   yapmaz; CLAUDE.md'de anlatılan `/j/<token>` gecikmeli evrensel bağlantısı
+   davet akışına özgüdür ve bu widget için henüz bir mağaza yönlendirme
+   sayfası (app-store fallback) yoktur -- bilinen bir eksiklik olarak burada
+   not edilmiştir.
+2. **"İlk kez geliyorum"**: mevcut, kimliksiz genel potansiyel müşteri
+   (lead) formunu kullanır: `POST /public/studios/:slug/leads`
+   (`PublicLeadFormSchema`, bkz. `apps/api/src/modules/leads`). Seçilen
+   seans, bu şemanın desteklediği bir alan olmadığı için serbest metin
+   `interest` alanına yazılır (`Lead.sourceDetail`); form onay (consent)
+   kutusu ve bot yakalama (honeypot) alanı zaten bu uç noktanın parçasıdır.
+   Bu uç nokta de her durumda sabit `202` döner, böylece widget de bir
+   telefon numarasının kayıtlı olup olmadığını sınamak için kullanılamaz.
+
+Widget'ın kendi okuma uç noktaları -- `/public/studios/:slug/embed/config`,
+`.../branches`, `.../service-types`, `.../schedules` -- kimliksiz ve IP
+başına dakikada 30 istekle sınırlıdır, ama **hiçbir yazma işlemi
+içermez** ve hiçbir zaman üye, katılımcı veya rezervasyon verisi döndürmez
+(bkz. `PublicApiService.listSchedules` içindeki alan listesi ve
+`apps/api/test/e2e/public-api.e2e-spec.ts` "embed widget" bloğu). `/v1/public/*`'ın
 API-anahtarlı üçüncü taraf entegrasyon API'sinden kasıtlı olarak ayrıdır.
 
 Sayfa: `apps/web/src/app/embed/[studioSlug]/page.tsx`, işletmenin
@@ -197,17 +248,25 @@ gelen mesajlar kabul edilir).
   (anahtar üretimi/ayrıştırma/hash), `apps/api/src/modules/webhooks/webhook-signature.spec.ts`
   (imza), `apps/api/src/modules/webhooks/ssrf-guard.spec.ts` (IPv4/IPv6 özel
   aralık tespiti), `apps/api/src/modules/webhooks/webhook-backoff.spec.ts`
-  (geri çekilme takvimi).
+  (geri çekilme takvimi), `apps/api/src/modules/webhooks/webhook-dispatcher.service.spec.ts`
+  (sabitlenmiş IP adresine bağlanıldığının, hostname ne olursa olsun
+  doğrulanması -- DNS rebinding koruması).
 - Uçtan uca: `apps/api/test/e2e/public-api.e2e-spec.ts` -- anahtar
   oluşturma/iptal/süre dolumu, yetki alanı zorlaması, kiracı izolasyonu,
-  tarih aralığı sınırı, rezervasyon oluşturma/iptal, telefon maskeleme,
-  webhook SSRF reddi, olay teslimat satırı, imza doğrulama, test olayı,
-  personel izin reddi.
+  tarih aralığı sınırı, `/v1/public/*` rezervasyon oluşturma/iptal (API
+  anahtarıyla), telefon maskeleme, webhook SSRF reddi, olay teslimat satırı,
+  imza doğrulama, test olayı, personel izin reddi; ayrıca embed widget'ının
+  okuma uç noktalarının üye verisi döndürmediği ve kaldırılan rezervasyon
+  yazma uç noktalarının artık `404` döndüğü, potansiyel müşteri formu
+  üzerinden gönderimin çalıştığı.
 
 ## Açık sorular / kapsam dışı
 
 - Widget'ın gerçek zamanlı yer/kaynak seçimi (W5'teki yerleşim planı) yok;
-  yalnızca seans ve telefon numarası ile basit rezervasyon akışı sunar.
+  zaten rezervasyon oluşturmadığı için bu artık uygulanamaz.
+- Widget'tan "Üyeyim" bağlantısı için bir gecikmeli derin bağlantı / mağaza
+  yönlendirme sayfası (`/j/<token>` davet akışındakine benzer) henüz yok;
+  uygulama yüklü değilse bağlantı sessizce hiçbir şey yapmaz.
 - Çoklu API anahtarı arasında paylaşılan hız sınırı sayacı yalnızca Redis
   yapılandırıldığında replikalar arasında paylaşılır; tek örnek yerel
   geliştirmede bellek içi sayaç kullanılır.
