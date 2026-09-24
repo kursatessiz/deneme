@@ -5,6 +5,7 @@ import { ConsentService } from '../notifications/consent/consent.service';
 import { ChurnService } from '../churn/churn.service';
 import { RatingPromptService } from '../feedback/rating-prompt.service';
 import { ReferralsService } from '../feedback/referrals.service';
+import { WebhookDispatcherService, DispatchOutcome } from '../webhooks/webhook-dispatcher.service';
 
 export interface SchedulerRunResult {
   runAt: string;
@@ -14,6 +15,7 @@ export interface SchedulerRunResult {
   churn: { studiosProcessed: number; membersScored: number };
   ratingPrompts: { prompted: number };
   referrals: { evaluated: number };
+  webhooks: DispatchOutcome;
 }
 
 /**
@@ -40,6 +42,7 @@ export class JobsService {
     private readonly churn: ChurnService,
     private readonly ratingPrompts: RatingPromptService,
     private readonly referrals: ReferralsService,
+    private readonly webhookDispatcher: WebhookDispatcherService,
   ) {}
 
   async runAll(now = new Date()): Promise<SchedulerRunResult> {
@@ -49,13 +52,15 @@ export class JobsService {
     const churn = await this.churn.recomputeStale(now);
     const ratingPrompts = await this.ratingPrompts.promptRecentAttendees(now);
     const referrals = await this.referrals.recomputeOpen();
+    const webhooks = await this.webhookDispatcher.dispatchDue(now);
 
     this.logger.log(
       `Scheduler heartbeat at ${now.toISOString()}: ${automations.length} automation rule(s), ` +
         `${dunning.length} dunning subscription(s), consent sync ${consentSync.synced} synced/${consentSync.failed} failed, ` +
-        `churn ${churn.studiosProcessed} studio(s), ${ratingPrompts.prompted} rating prompt(s), ${referrals.evaluated} referral(s)`,
+        `churn ${churn.studiosProcessed} studio(s), ${ratingPrompts.prompted} rating prompt(s), ${referrals.evaluated} referral(s), ` +
+        `webhooks ${webhooks.succeeded} succeeded/${webhooks.failed} retrying/${webhooks.abandoned} abandoned`,
     );
 
-    return { runAt: now.toISOString(), automations, dunning, consentSync, churn, ratingPrompts, referrals };
+    return { runAt: now.toISOString(), automations, dunning, consentSync, churn, ratingPrompts, referrals, webhooks };
   }
 }

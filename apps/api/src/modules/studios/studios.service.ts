@@ -31,6 +31,7 @@ export class StudiosService {
         address: true,
         phone: true,
         timezone: true,
+        embedAllowedOrigins: true,
       },
     });
 
@@ -38,6 +39,25 @@ export class StudiosService {
       throw new NotFoundException(`'${slug}' stüdyosu bulunamadı`);
     }
 
+    return studio;
+  }
+
+  async updateEmbedSettings(studioId: string, userId: string, embedAllowedOrigins: string[]) {
+    const studio = await this.prisma.studio.update({
+      where: { id: studioId },
+      data: { embedAllowedOrigins },
+      select: { id: true, embedAllowedOrigins: true },
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        studioId,
+        userId,
+        action: 'studio.embed_settings.update',
+        entityType: 'Studio',
+        entityId: studioId,
+        metadata: { embedAllowedOrigins },
+      },
+    });
     return studio;
   }
 

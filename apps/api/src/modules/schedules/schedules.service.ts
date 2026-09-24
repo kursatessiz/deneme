@@ -10,6 +10,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { GamificationService } from '../gamification/gamification.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import type { TenantContext } from '../auth/tenant-context';
 import type {
   CreateScheduleInput,
@@ -45,6 +46,7 @@ export class SchedulesService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private gamification: GamificationService,
+    private webhooks: WebhooksService,
   ) {}
 
   async getSchedules(
@@ -222,13 +224,25 @@ export class SchedulesService {
 
   async bookSession(tenant: TenantContext, dto: BookSessionInput) {
     await this.assertScheduleBranch(tenant, dto.scheduleId);
-    return this.book(tenant.studioId, dto);
+    const booking = await this.book(tenant.studioId, dto);
+    await this.emitBookingCreated(tenant.studioId, booking);
+    return booking;
   }
 
   /** Members booking for themselves; enforces dto.memberId matches the caller's own profile. */
   async bookSessionSelf(tenant: TenantContext, dto: BookSessionInput) {
     this.assertSelf(tenant, dto.memberId, 'Yalnızca kendi adınıza rezervasyon yapabilirsiniz');
-    return this.book(tenant.studioId, dto);
+    const booking = await this.book(tenant.studioId, dto);
+    await this.emitBookingCreated(tenant.studioId, booking);
+    return booking;
+  }
+
+  private async emitBookingCreated(studioId: string, booking: { id: string; scheduleId: string; memberId: string }): Promise<void> {
+    await this.webhooks.emit(studioId, 'booking.created', {
+      bookingId: booking.id,
+      scheduleId: booking.scheduleId,
+      memberId: booking.memberId,
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -643,6 +657,13 @@ export class SchedulesService {
 
     const promoted = booking.schedule.startTime > now ? await this.promoteFromWaitlistSafe(studioId, booking.scheduleId) : 0;
 
+    await this.webhooks.emit(studioId, 'booking.cancelled', {
+      bookingId: updatedBooking.id,
+      scheduleId: updatedBooking.scheduleId,
+      memberId: updatedBooking.memberId,
+      isLateCancellation: outcome.isLate,
+    });
+
     return {
       booking: updatedBooking,
       isLateCancellation: outcome.isLate,
@@ -752,7 +773,17 @@ export class SchedulesService {
       this.logger.warn(`Gamification evaluation failed for booking ${bookingId}: ${(err as Error).message}`);
     }
 
-    return this.prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
+    return this.emitAttended(tenant.studioId, bookingId);
+  }
+
+  private async emitAttended(studioId: string, bookingId: string) {
+    const attended = await this.prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
+    await this.webhooks.emit(studioId, 'booking.attended', {
+      bookingId: attended.id,
+      scheduleId: attended.scheduleId,
+      memberId: attended.memberId,
+    });
+    return attended;
   }
 
   /**
@@ -792,7 +823,7 @@ export class SchedulesService {
       this.logger.warn(`Gamification evaluation failed for booking ${bookingId}: ${(err as Error).message}`);
     }
 
-    return this.prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
+    return this.emitAttended(studioId, bookingId);
   }
 
   /**

@@ -28,6 +28,9 @@ import { ChurnModule } from './modules/churn/churn.module';
 import { GamificationModule } from './modules/gamification/gamification.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { CheckInModule } from './modules/checkin/checkin.module';
+import { ApiKeysModule } from './modules/api-keys/api-keys.module';
+import { WebhooksModule } from './modules/webhooks/webhooks.module';
+import { PublicApiModule } from './modules/public-api/public-api.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -64,6 +67,9 @@ import { validateEnv } from './config/env';
     GamificationModule,
     FeedbackModule,
     CheckInModule,
+    ApiKeysModule,
+    WebhooksModule,
+    PublicApiModule,
     HealthModule,
   ],
 })

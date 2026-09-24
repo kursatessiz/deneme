@@ -296,6 +296,17 @@ Puanlama fonksiyonu (`apps/api/src/modules/churn/churn-scoring.ts`) saf ve iş k
 
 `bookings.rating_prompt_sent_at` (nullable): "seansını değerlendir" push bildiriminin gönderildiği an; `RatingPromptService.promptRecentAttendees()` için idempotency anahtarıdır. `studios.google_review_url` (nullable, yalnızca g.page/search.google.com/local/writereview/google.com/maps ile başlayan https bağlantı) ve `studios.referral_reward_units` (varsayılan 1) çalışma zamanı kuralları için `docs/FEEDBACK_REFERRAL.md` içindedir.
 
+## Açık Platform (W18)
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `api_keys` | Herkese açık API için kimlik bilgisi: ad, önek (görüntülenir), sha256 gizli özet (`secret_hash`, düz metin hiçbir zaman saklanmaz), yetki alanları (`scopes[]`), oluşturan, son kullanım, süre, iptal | `prefix` benzersiz; `(studio_id, revoked_at)` index |
+| `webhook_endpoints` | Giden webhook uç noktası: URL (yalnızca https), HMAC imza gizli anahtarı, dinlenen olaylar, aktiflik, ardışık hata sayacı | `(studio_id)` index |
+| `webhook_deliveries` | Bir teslimat denemesi kaydı: olay, JSON gövde, durum (PENDING/SUCCEEDED/FAILED/ABANDONED), deneme sayısı, HTTP yanıt kodu, bir sonraki deneme zamanı, kesilmiş hata mesajı (en fazla 500 karakter) | `(endpoint_id, created_at)` ve `(status, next_attempt_at)` index |
+| `studios.embed_allowed_origins` | Gömülebilir rezervasyon widget'ının çerçevelenmesine izin verilen kökenler; boş liste herhangi bir kökene izin verir (`frame-ancestors *`) | - |
+
+Ayrıntılar için `docs/PUBLIC_API.md`.
+
 ## Denetim (Audit)
 
 | Tablo | Amaç | Kısıtlar |

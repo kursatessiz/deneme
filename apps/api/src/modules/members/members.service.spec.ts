@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { MembersService } from './members.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReferralsService } from '../feedback/referrals.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import type { TenantContext } from '../auth/tenant-context';
 
@@ -66,6 +67,10 @@ describe('MembersService', () => {
         {
           provide: ReferralsService,
           useValue: { recordReferral: jest.fn() },
+        },
+        {
+          provide: WebhooksService,
+          useValue: { emit: jest.fn() },
         },
       ],
     }).compile();

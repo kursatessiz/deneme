@@ -5,6 +5,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { PaymentProviderRegistry } from './providers/payment-provider.registry';
 import { InvoicingService } from '../invoicing/invoicing.service';
 import { PromotionsService } from '../promotions/promotions.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { PaymentProvider, PaymentStatus } from '@platform/database';
 import type { TenantContext } from '../auth/tenant-context';
 
@@ -57,6 +58,7 @@ describe('PaymentsService - refunds', () => {
       providers as unknown as PaymentProviderRegistry,
       { cancelForRefund: jest.fn(), getSettings: jest.fn(), issueForPayment: jest.fn() } as unknown as InvoicingService,
       {} as unknown as PromotionsService,
+      { emit: jest.fn() } as unknown as WebhooksService,
     );
   });
 
