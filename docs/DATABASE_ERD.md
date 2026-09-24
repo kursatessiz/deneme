@@ -180,6 +180,17 @@ erDiagram
 | `booking_resources` | Rezervasyona kaynak birimi ataması ("reformer 3"); schedule zamanlarının kopyası | (resource_id, start_time, end_time) index; (booking_id, resource_id) benzersiz; tek kapasiteli kaynaklar için çakışma yok (veritabanı exclusion constraint) |
 | `waitlist` | Üye bekleme listesi kuyruğu: konum, durum (bekliyor, teklif edildi, terfi etti, süresi doldu, iptal), yer açılınca düşülecek paket (`member_package_id`), sonuçlanma zamanı ve başarısızlık gerekçesi | (schedule_id, member_id) benzersiz; (schedule_id, status, position) index |
 
+## Check-in Kiosku ve QR (W17)
+
+Kapsam dışı: turnike ve kapı entegrasyonu; bu tablolar yalnızca `bookings.status`
+alanını `ATTENDED` yapmak için kullanılır. Detaylar: `docs/CHECKIN.md`.
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `studios.check_in_window_before_minutes` / `check_in_window_after_minutes` | Bir taramanın seans başlangıcına göre kabul edildiği pencere (varsayılan 30 / 15 dk) | `Int`, varsayılan sırasıyla 30 ve 15 |
+| `check_in_points` | Şubeye bağlı statik giriş QR'ı (poster): ad, aktif/pasif; ham kod saklanmaz, yalnızca `token_hash` | `token_hash` benzersiz (SHA-256); (studio_id) ve (branch_id) index |
+| `kiosk_devices` | Şubeye eşleştirilmiş tablet: eşleştirme kodu (tek seferlik, SHA-256 hash, 10 dk geçerli), eşleştirme/son görülme/iptal zamanları | (studio_id) ve (branch_id) index; `pairing_code_hash` yalnızca eşleştirme bekleyen cihazlarda dolu |
+
 ## Ölçümler
 
 | Tablo | Amaç | Kısıtlar |

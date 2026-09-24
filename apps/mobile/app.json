@@ -60,6 +60,12 @@
             }
           ]
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Stüdyo QR kodunu ve check-in kodlarını taramak için kameraya erişim gerekir."
+        }
       ]
     ],
     "extra": {
