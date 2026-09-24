@@ -1,120 +1,112 @@
-# Ubuntu 24.04 LTS Üretim Ortamı (Production) Kurulum Rehberi
+# Ubuntu 24.04 Production Setup
 
-Bu rehber, **6 GB RAM / 4 vCPU / 60 GB SSD** özelliklerindeki Ubuntu 24.04 sunucunuzu yüksek güvenlikli ve sıfır kesintili bir şekilde Pilates Studio OS sistemini çalıştıracak hale getirmek için hazırlanmıştır.
+This guide covers bootstrapping a production server (6 GB RAM / 4 vCPU / 60 GB SSD) to run the
+platform, and performing the first deploy. Application images are always built in CI; the
+server only ever pulls pre-built images.
 
----
+## 1. Resource budget
 
-## 1. Sunucu Kaynak Mimarisi & Bellek Optimizasyonu
+| Service | Memory limit | vCPU limit | Notes |
+| --- | --- | --- | --- |
+| PostgreSQL 16 | 768 MB | 1.5 | `shared_buffers=512MB`, `max_connections=100` |
+| Redis 7 | 320 MB | 0.5 | `maxmemory 256mb`, `allkeys-lru` eviction |
+| NestJS API | 768 MB | 1.0 | Node heap capped at 512 MB; the rest covers native memory |
+| Next.js web | 768 MB | 1.0 | `output: 'standalone'`, Node heap capped at 512 MB |
+| Caddy | 128 MB | 0.5 | Automatic Let's Encrypt SSL, HTTP/3 |
 
-6 GB RAM sınırlı bir kaynak olduğu için konteynerler şu limitlerle sabitlenmiştir:
+These limits are enforced in `deploy/docker-compose.prod.yml`. A 4 GB swapfile, configured by
+`server-init.sh`, absorbs short-lived spikes.
 
-| Servis | Bellek Limiti | vCPU Limiti | Açıklama |
-| :--- | :--- | :--- | :--- |
-| **PostgreSQL 16** | 768 MB | 1.5 | 512MB shared_buffers, optimize WAL |
-| **Redis 7** | 256 MB | 0.5 | allkeys-lru tahliye politikası |
-| **NestJS Core API** | 512 MB | 1.0 | BullMQ kuyrukları + REST API |
-| **Next.js 15 Web** | 512 MB | 1.0 | Standalone mode derleme |
-| **Caddy Reverse Proxy**| 128 MB | 0.5 | Otomatik Let's Encrypt SSL + HTTP/3 |
-| **İşletim Sistemi + OS** | ~600 MB | - | Çekirdek servisleri, SSH, Fail2ban |
-| **Toplam Tüketim** | **~2.7 GB** | - | **> 3 GB boş tampon bellek kalır!** |
+Builds are never run on the server: a `next build` or TypeScript compile can spike RAM well
+past what a 6 GB host can spare alongside a live database. All images are built on GitHub
+Actions runners and only pulled here (see `docs/CICD_GUIDE.md`).
 
-> [!IMPORTANT]
-> **Neden Build Sunucuda Yapılmaz?**
-> Next.js (`next build`) ve TypeScript derlemeleri anlık 2-3 GB RAM tepe noktası oluşturabilir. Bu işlem sunucuda yapılırsa PostgreSQL veya API konteynerleri `OOM Killer` (Out of Memory) tarafından kapatılabilir. Bu nedenle tüm derlemeler **GitHub Actions (CI)** üzerinde yapılarak sunucuya yalnızca hazır Docker imajları indirilir.
+## 2. Server bootstrap
 
----
-
-## 2. Tek Komutla Otomatik Sunucu Hazırlama
-
-Sunucunuza root veya `sudo` yetkili kullanıcı ile SSH bağlantısı yaptıktan sonra, depomuzdaki hazırlık scriptini çalıştırabilirsiniz:
+`deploy/scripts/server-init.sh` is the bootstrap reference for a fresh server. Run it once,
+as root or with `sudo`, after copying it to the server:
 
 ```bash
-# 1. Hazırlık scriptini sunucuya indirin veya oluşturun:
-curl -fsSL https://raw.githubusercontent.com/your-username/pilates-studio-os/main/deploy/scripts/server-init.sh -o server-init.sh
-
-# 2. Çalıştırma izni verip başlatın:
 chmod +x server-init.sh
 sudo bash server-init.sh
 ```
 
-### Script Neler Yapar?
-1. **APT Güncellemeleri:** En son güvenlik yamalarını yükler.
-2. **4 GB Swap Alanı:** `/swapfile` oluşturur ve `swappiness=10` ayarıyla SSD üzerinde güvenli bellek tamponu sağlar.
-3. **UFW Güvenlik Duvarı:** 
-   - SSH (Port 22), Caddy HTTP (Port 80), Caddy HTTPS (Port 443 TCP/UDP QUIC) dışındaki tüm gelen istekleri engeller.
-   - PostgreSQL (5432) ve Redis (6379) portları dış dünyaya **asla açılmaz**, yalnızca Docker iç ağında (`internal_net`) çalışır.
-4. **Fail2ban:** SSH kaba kuvvet (brute-force) saldırılarını engeller.
-5. **Docker Engine & Compose:** Resmi Docker APT deposunu bağlayarak Docker ve Compose plugin'ini kurar.
-6. **Dizinler:** `/opt/pilates-studio` uygulama dizinini oluşturur.
+It performs:
+1. APT updates and installs the base tooling (`curl`, `git`, `ufw`, `fail2ban`, etc.).
+2. A 4 GB swapfile at `/swapfile` with `vm.swappiness=10`.
+3. UFW firewall rules: allows SSH (22), HTTP (80) and HTTPS/HTTP3 (443 tcp+udp) only.
+   PostgreSQL and Redis are never exposed to the host network - they run only on the
+   Docker-internal network (`internal_net` in `docker-compose.prod.yml`).
+4. Fail2ban for SSH brute-force protection.
+5. Docker Engine and the Compose plugin from the official Docker APT repository.
+6. Creates the deployment directories.
 
----
+Do not edit `server-init.sh` from this guide; treat it as the source of truth and update the
+script itself if its behavior needs to change.
 
-## 3. Alan Adı (DNS) ve SSL Ayarları
+## 3. DNS and TLS
 
-Domain kayıt firmanızın DNS yönetim panelinde iki adet `A` kaydı oluşturun:
+Create two `A` records pointing at the server's IP, matching the domains you will put in
+`.env` (`WEB_DOMAIN`, `API_DOMAIN`), for example:
 
-| Kayıt Türü | İsim (Host) | Yönlendirilecek IP | Açıklama |
-| :--- | :--- | :--- | :--- |
-| `A` | `panel.studyonuz.com` | Sunucu IP adresiniz | Yönetim Paneli ve Rezervasyon |
-| `A` | `api.studyonuz.com` | Sunucu IP adresiniz | REST API ve Webhook'lar |
+| Type | Host | Purpose |
+| --- | --- | --- |
+| A | panel.example.com | Admin panel / booking pages |
+| A | api.example.com | REST API |
 
-> [!TIP]
-> Caddy Reverse Proxy, bu alan adlarını gördüğü anda Let's Encrypt üzerinden **otomatik olarak ücretsiz SSL sertifikasını alır ve süresi dolmadan otomatik yeniler**. Certbot veya cron scriptiyle uğraşmanıza gerek yoktur.
+Caddy (`deploy/caddy/Caddyfile`) requests and renews Let's Encrypt certificates automatically
+once these domains resolve to the server - no manual certbot setup is needed.
 
----
+## 4. Application directory and environment
 
-## 4. Ortam Değişkenleri (`.env`) Dosyasının Hazırlanması
-
-Sunucuda `/opt/pilates-studio/.env` dosyasını oluşturun:
+The server-side application directory is `/opt/app` (created by `server-init.sh` and used by
+`deploy/scripts/lib.sh` and the deploy workflow). Set it up once:
 
 ```bash
-cd /opt/pilates-studio
+sudo mkdir -p /opt/app
+sudo chown -R "$USER":"$USER" /opt/app
+cd /opt/app
+cp .env.example .env
 nano .env
 ```
 
-Aşağıdaki şablonu kendi güvenli şifrelerinizle doldurun:
+Fill in `.env` from the template at the repository root (`.env.example`): `IMAGE_REPO`,
+`GIT_REMOTE` (only needed for `nightly-deploy.sh`), `WEB_DOMAIN`, `API_DOMAIN`, `ACME_EMAIL`,
+`POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET` (32+ characters, generate with
+`openssl rand -hex 32`), and the SMS provider settings. Never commit this file.
 
-```env
-NODE_ENV=production
-APP_VERSION=1.0.0
+## 5. First deploy
 
-# Alan Adlarınız
-WEB_DOMAIN=panel.studyonuz.com
-API_DOMAIN=api.studyonuz.com
+Once `/opt/app/.env` is filled in, the recommended path is to enable the deploy job in CI (see
+`docs/CICD_GUIDE.md` for the `DEPLOY_ENABLED` variable and the SSH secrets it needs) and push
+to `main`, or trigger `release.yml` manually with `workflow_dispatch`.
 
-# PostgreSQL Şifresi (Güçlü bir parola üretin)
-POSTGRES_USER=pilates_admin
-POSTGRES_PASSWORD=cok_guclu_bir_veritabani_sifresi_32_karakter!
-POSTGRES_DB=pilates_prod
-
-# Redis Şifresi
-REDIS_PASSWORD=guclu_bir_redis_sifresi_32_karakter!
-
-# JWT Secret Anahtarı (Oturum güvenliği için en az 64 karakter)
-JWT_SECRET=super_secret_jwt_hmac_sha256_key_at_least_64_characters_long!
-CORS_ORIGIN=https://panel.studyonuz.com
-
-# SMS Sağlayıcısı (NETGSM veya MOCK)
-SMS_PROVIDER=NETGSM
-NETGSM_USER=850xxxxxxx
-NETGSM_PASSWORD=netgsm_api_sifreniz
-NETGSM_HEADER=STUDYO_SMS_BASLIGI
-```
-
----
-
-## 5. Otomatik Günlük Veritabanı Yedeği Kurulumu
-
-Gecelik otomatik yedekleme için sunucuda cron görevi ekleyin:
+To deploy by hand instead - useful for the very first run, or when diagnosing an issue directly
+on the server - copy `deploy/docker-compose.prod.yml`, `deploy/caddy/Caddyfile` and
+`deploy/scripts/*.sh` into `/opt/app` and `/opt/app/caddy`, `/opt/app/scripts`, then run:
 
 ```bash
-# Crontab düzenleyicisini açın
-sudo crontab -e
-
-# Her gece 03:30'da çalışacak yedekleme satırını ekleyin:
-30 3 * * * /bin/bash /opt/pilates-studio/scripts/backup.sh >> /opt/pilates-studio/backups/cron.log 2>&1
+cd /opt/app
+chmod +x scripts/*.sh
+bash scripts/deploy.sh sha-<commit>
 ```
 
-Bu script:
-- Veritabanını gzip sıkıştırmalı olarak `/opt/pilates-studio/backups/` altına kaydeder.
-- 14 günden eski yedekleri otomatik silerek disk alanınızı korur.
+`sha-<commit>` must be a tag that CI has already built and pushed to `ghcr.io`. `deploy.sh`
+pulls the images, runs database migrations, starts the stack, and runs a smoke test with
+automatic rollback on failure. See `docs/CICD_GUIDE.md` section 4 for the full sequence.
+
+## 6. Automated daily backups
+
+Add a cron job for `deploy/scripts/backup.sh`, which `pg_dump`s the database, gzips it into
+`/opt/app/backups/`, and rotates dumps older than 14 days:
+
+```bash
+sudo crontab -e
+```
+
+```cron
+30 3 * * * /bin/bash /opt/app/scripts/backup.sh >> /opt/app/backups/cron.log 2>&1
+```
+
+An off-site copy to object storage is not yet implemented; see the backlog in `HANDOVER.md`
+(section 6.1).

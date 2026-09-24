@@ -56,7 +56,11 @@ redis-data/
 caddy_data/
 caddy_config/
 
-# Backups
+# Backups (database dumps only; Prisma migrations must stay tracked)
 backups/
-*.sql
 *.sql.gz
+/*.sql
+!packages/database/prisma/migrations/**/*.sql
+
+# Next.js generated
+next-env.d.ts

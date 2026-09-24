@@ -36,8 +36,8 @@ export default function RootLandingPage() {
             P
           </div>
           <div>
-            <span className="font-bold text-lg tracking-tight">Pilates Studio OS</span>
-            <span className="text-xs text-sky-400 block font-medium">Çoklu Stüdyo Yönetim Portalı</span>
+            <span className="font-bold text-lg tracking-tight">Platform</span>
+            <span className="text-xs text-sky-400 block font-medium">Çoklu İşletme Randevu ve Üyelik Portalı</span>
           </div>
         </div>
 
@@ -55,10 +55,10 @@ export default function RootLandingPage() {
         </div>
 
         <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white max-w-2xl mx-auto leading-tight">
-          Boutique Pilates Stüdyo Yönetimi
+          Üyelik ve Randevu Tabanlı İşletmeler İçin Yönetim Platformu
         </h1>
         <p className="text-slate-400 text-base max-w-xl mx-auto mt-4">
-          Randevu takvimi, kalan seans kredisi takibi, eğitmen hakedişleri ve üye sağlık geçmişini tek platformdan yönetin.
+          Stüdyolar, kişisel antrenörler, fizyoterapi klinikleri, yoga merkezleri, spor sahaları ve kurslar için randevu takvimi, kalan seans kredisi takibi, personel hakedişleri ve üye geçmişini tek platformdan yönetin.
         </p>
 
         {/* 2 Studio Cards */}
@@ -112,7 +112,7 @@ export default function RootLandingPage() {
 
       {/* Footer System Status */}
       <div className="max-w-5xl mx-auto w-full text-center text-xs text-slate-500 border-t border-slate-900 pt-6">
-        <span>Pilates Studio OS • NestJS API • Next.js 15 Standalone • Caddy Reverse Proxy • 6GB RAM Tuned</span>
+        <span>Platform • NestJS API • Next.js 15 Standalone • Caddy Reverse Proxy • 6GB RAM Tuned</span>
       </div>
     </div>
   );

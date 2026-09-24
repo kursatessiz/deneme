@@ -1,35 +1,52 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import type { TenantContext } from '../auth/tenant-context';
 
 @Injectable()
 export class TrainersService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(studioId: string) {
-    return this.prisma.trainerProfile.findMany({
-      where: { studioId },
+  async findAll(tenant: TenantContext) {
+    const trainers = await this.prisma.trainerProfile.findMany({
+      where: { studioId: tenant.studioId },
       include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phone: true,
-            avatarUrl: true,
-            isActive: true,
-          },
-        },
+        membership: { include: { user: true } },
+        commissionRule: true,
+        qualifications: true,
       },
     });
+
+    return trainers.map((trainer) => ({
+      id: trainer.id,
+      membershipId: trainer.membershipId,
+      studioId: trainer.studioId,
+      firstName: trainer.membership.user.firstName,
+      lastName: trainer.membership.user.lastName,
+      bio: trainer.bio,
+      qualifiedServiceTypeIds: trainer.qualifications.map((q) => q.serviceTypeId),
+      commissionRule: trainer.commissionRule
+        ? {
+            id: trainer.commissionRule.id,
+            name: trainer.commissionRule.name,
+            type: trainer.commissionRule.type,
+            value: Number(trainer.commissionRule.value),
+          }
+        : null,
+    }));
   }
 
-  async calculateCommissionReport(studioId: string, trainerId: string, month: number, year: number) {
-    const trainer = await this.prisma.trainerProfile.findFirst({
-      where: { id: trainerId, studioId },
-      include: { user: true },
-    });
+  async calculateCommissionReport(tenant: TenantContext, trainerId: string, month: number, year: number) {
+    if (!tenant.permissions.has('commissions.view.all')) {
+      const canViewOwn = tenant.permissions.has('commissions.view.own') && trainerId === tenant.trainerProfileId;
+      if (!canViewOwn) {
+        throw new ForbiddenException('Bu hakedişi görüntüleme yetkiniz yok');
+      }
+    }
 
+    const trainer = await this.prisma.trainerProfile.findFirst({
+      where: { id: trainerId, studioId: tenant.studioId },
+      include: { membership: { include: { user: true } }, commissionRule: true },
+    });
     if (!trainer) {
       throw new NotFoundException('Eğitmen bulunamadı');
     }
@@ -37,53 +54,56 @@ export class TrainersService {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59, 999);
 
-    // Get completed schedules with attended members
     const schedules = await this.prisma.sessionSchedule.findMany({
       where: {
-        studioId,
+        studioId: tenant.studioId,
         trainerId,
         startTime: { gte: startDate, lte: endDate },
         isCancelled: false,
-        bookings: {
-          some: { status: 'ATTENDED' },
-        },
+        bookings: { some: { status: 'ATTENDED' } },
       },
       include: {
-        bookings: {
-          where: { status: 'ATTENDED' },
-        },
+        serviceType: { include: { commissionRule: true } },
+        bookings: { where: { status: 'ATTENDED' } },
       },
     });
 
     const totalSessionsTaught = schedules.length;
     let totalEarned = 0;
 
-    if (trainer.commissionType === 'PER_SESSION_FIXED') {
-      totalEarned = totalSessionsTaught * Number(trainer.commissionValue);
-    } else if (trainer.commissionType === 'PERCENTAGE') {
-      // Approximate 1200 TL per standard private session if not individually priced
-      totalEarned = totalSessionsTaught * 1200 * (Number(trainer.commissionValue) / 100);
-    } else {
-      totalEarned = Number(trainer.commissionValue);
+    const sessions = schedules.map((s) => {
+      const rule = trainer.commissionRule ?? s.serviceType.commissionRule;
+      let earned = 0;
+      if (rule?.type === 'PER_SESSION_FIXED') {
+        earned = Number(rule.value);
+        totalEarned += earned;
+      }
+      return {
+        id: s.id,
+        title: s.title,
+        serviceTypeId: s.serviceTypeId,
+        startTime: s.startTime,
+        attendedMembersCount: s.bookings.length,
+        earned,
+      };
+    });
+
+    // A monthly salary is a flat amount, not summed per session.
+    if (trainer.commissionRule?.type === 'MONTHLY_SALARY') {
+      totalEarned = Number(trainer.commissionRule.value);
     }
 
     return {
       trainer: {
         id: trainer.id,
-        fullName: `${trainer.user.firstName} ${trainer.user.lastName}`,
-        commissionType: trainer.commissionType,
-        commissionValue: Number(trainer.commissionValue),
+        fullName: `${trainer.membership.user.firstName} ${trainer.membership.user.lastName}`,
+        commissionType: trainer.commissionRule?.type ?? null,
+        commissionValue: trainer.commissionRule ? Number(trainer.commissionRule.value) : null,
       },
       period: `${month}/${year}`,
       totalSessionsTaught,
       totalEarned,
-      sessions: schedules.map((s) => ({
-        id: s.id,
-        title: s.title,
-        sessionType: s.sessionType,
-        startTime: s.startTime,
-        attendedMembersCount: s.bookings.length,
-      })),
+      sessions,
     };
   }
 }

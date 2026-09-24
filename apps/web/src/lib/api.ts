@@ -4,7 +4,7 @@ export async function fetchApi<T = any>(
   endpoint: string,
   options: RequestInit & { studioId?: string } = {},
 ): Promise<T> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('pilates_token') : null;
+  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',

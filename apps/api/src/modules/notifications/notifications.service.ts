@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationChannel, NotificationStatus } from '@platform/database';
 
 export interface SendSmsParams {
   studioId: string;
@@ -26,7 +27,7 @@ export class NotificationsService {
 
     if (this.isMock) {
       this.logger.log(`[MOCK SMS] Simulated SMS sent to ${params.phone}`);
-      await this.logNotification(params, 'SENT');
+      await this.logNotification(params, NotificationStatus.SENT);
       return { success: true, messageId: `mock-${Date.now()}` };
     }
 
@@ -51,22 +52,22 @@ export class NotificationsService {
       });
       */
 
-      await this.logNotification(params, 'SENT');
+      await this.logNotification(params, NotificationStatus.SENT);
       return { success: true, messageId: `netgsm-${Date.now()}` };
     } catch (err: any) {
       this.logger.error(`SMS sending failed: ${err.message}`);
-      await this.logNotification(params, 'FAILED', err.message);
+      await this.logNotification(params, NotificationStatus.FAILED, err.message);
       return { success: false };
     }
   }
 
-  private async logNotification(params: SendSmsParams, status: string, error?: string) {
+  private async logNotification(params: SendSmsParams, status: NotificationStatus, error?: string) {
     try {
       await this.prisma.notificationLog.create({
         data: {
           studioId: params.studioId,
           recipientPhone: params.phone,
-          channel: 'SMS',
+          channel: NotificationChannel.SMS,
           type: params.type,
           content: params.message,
           status,

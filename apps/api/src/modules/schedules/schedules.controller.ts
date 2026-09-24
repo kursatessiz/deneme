@@ -1,18 +1,9 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Query,
-  UseGuards,
-  Patch,
-} from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Patch } from '@nestjs/common';
 import { SchedulesService } from './schedules.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { StudioTenantGuard } from '../auth/guards/studio-tenant.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { StudioScoped, RequirePermission, SelfService } from '../auth/decorators/require-permission.decorator';
+import { Tenant } from '../auth/decorators/current-user.decorator';
+import { ZodBody } from '../../common/zod-body.pipe';
+import type { TenantContext } from '../auth/tenant-context';
 import {
   CreateScheduleSchema,
   CreateScheduleInput,
@@ -20,53 +11,61 @@ import {
   BookSessionInput,
   CancelBookingSchema,
   CancelBookingInput,
-} from '@pilates/shared';
+} from '@platform/shared';
 
 @Controller('schedules')
-@UseGuards(JwtAuthGuard, StudioTenantGuard)
+@StudioScoped()
 export class SchedulesController {
   constructor(private schedulesService: SchedulesService) {}
 
   @Get('studio/:studioId')
+  @RequirePermission('schedule.view')
   async getSchedules(
-    @Param('studioId') studioId: string,
+    @Tenant() tenant: TenantContext,
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
     @Query('trainerId') trainerId?: string,
-    @Query('roomId') roomId?: string,
+    @Query('resourceId') resourceId?: string,
   ) {
     const start = startDate ? new Date(startDate) : new Date();
-    const end = endDate
-      ? new Date(endDate)
-      : new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const end = endDate ? new Date(endDate) : new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    return this.schedulesService.getSchedules(studioId, start, end, trainerId, roomId);
+    return this.schedulesService.getSchedules(tenant, start, end, trainerId, resourceId);
   }
 
   @Post()
-  @UseGuards(RolesGuard)
-  @Roles('STUDIO_ADMIN', 'RECEPTIONIST')
-  async createSchedule(@Body() body: CreateScheduleInput) {
-    const validated = CreateScheduleSchema.parse(body);
-    return this.schedulesService.createSchedule(validated);
+  @RequirePermission('schedule.manage')
+  async createSchedule(@Tenant() tenant: TenantContext, @ZodBody(CreateScheduleSchema) body: CreateScheduleInput) {
+    return this.schedulesService.createSchedule(tenant, body);
   }
 
   @Post('book')
-  async bookSession(@Body() body: BookSessionInput) {
-    const validated = BookSessionSchema.parse(body);
-    return this.schedulesService.bookSession(validated);
+  @RequirePermission('bookings.manage')
+  async bookSession(@Tenant() tenant: TenantContext, @ZodBody(BookSessionSchema) body: BookSessionInput) {
+    return this.schedulesService.bookSession(tenant, body);
+  }
+
+  @Post('book/self')
+  @SelfService()
+  async bookSessionSelf(@Tenant() tenant: TenantContext, @ZodBody(BookSessionSchema) body: BookSessionInput) {
+    return this.schedulesService.bookSessionSelf(tenant, body);
   }
 
   @Post('cancel')
-  async cancelBooking(@Body() body: CancelBookingInput) {
-    const validated = CancelBookingSchema.parse(body);
-    return this.schedulesService.cancelBooking(validated);
+  @RequirePermission('bookings.manage')
+  async cancelBooking(@Tenant() tenant: TenantContext, @ZodBody(CancelBookingSchema) body: CancelBookingInput) {
+    return this.schedulesService.cancelBooking(tenant, body);
+  }
+
+  @Post('cancel/self')
+  @SelfService()
+  async cancelBookingSelf(@Tenant() tenant: TenantContext, @ZodBody(CancelBookingSchema) body: CancelBookingInput) {
+    return this.schedulesService.cancelBookingSelf(tenant, body);
   }
 
   @Patch('check-in/:bookingId')
-  @UseGuards(RolesGuard)
-  @Roles('STUDIO_ADMIN', 'RECEPTIONIST', 'TRAINER')
-  async checkIn(@Param('bookingId') bookingId: string) {
-    return this.schedulesService.checkIn(bookingId);
+  @RequirePermission('attendance.manage')
+  async checkIn(@Param('bookingId') bookingId: string, @Tenant() tenant: TenantContext) {
+    return this.schedulesService.checkIn(tenant, bookingId);
   }
 }

@@ -1,9 +1,9 @@
 {
-  email admin@yourdomain.com
+  email {$ACME_EMAIL}
 }
 
 # Web Dashboard & Public Booking Pages
-{$WEB_DOMAIN:panel.yourdomain.com} {
+{$WEB_DOMAIN} {
   encode zstd gzip
 
   # Security headers
@@ -11,7 +11,8 @@
     Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
     X-Content-Type-Options "nosniff"
     X-Frame-Options "DENY"
-    X-XSS-Protection "1; mode=block"
+    Permissions-Policy "camera=(self), geolocation=(), microphone=()"
+    -Server
     Referrer-Policy "strict-origin-when-cross-origin"
   }
 
@@ -24,11 +25,14 @@
 }
 
 # Backend Core REST & WebSocket API
-{$API_DOMAIN:api.yourdomain.com} {
+{$API_DOMAIN} {
   encode zstd gzip
 
+  # CORS is handled by the API itself (explicit origin list).
   header {
-    Access-Control-Allow-Credentials "true"
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options "nosniff"
+    -Server
   }
 
   reverse_proxy api:4000 {

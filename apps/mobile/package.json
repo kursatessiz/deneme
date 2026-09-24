@@ -1,5 +1,5 @@
 {
-  "name": "@pilates/mobile",
+  "name": "@platform/mobile",
   "version": "1.0.0",
   "private": true,
   "main": "index.js",
@@ -11,15 +11,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "expo": "~57.0.24",
+    "@platform/shared": "workspace:*",
+    "expo": "~57.0.25",
     "expo-status-bar": "~57.0.1",
-    "react": "19.3.0",
-    "react-native": "0.87.1",
-    "@pilates/shared": "workspace:*"
+    "react": "19.2.3",
+    "react-native": "0.86.3"
   },
   "devDependencies": {
-    "@babel/core": "^8.0.5",
-    "@types/react": "~19.3.0",
-    "typescript": "^7.0.2"
+    "@babel/core": "^7.29.7",
+    "@types/react": "~19.2.18",
+    "typescript": "^5.9.3"
   }
 }

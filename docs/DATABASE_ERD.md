@@ -1,81 +1,89 @@
-# Veritabanı Mimarisi ve Varlık-İlişki Diyagramı (ERD)
+# Database Architecture and Entity-Relationship Diagram
 
-Pilates Studio OS, PostgreSQL 16 veritabanı ve Prisma ORM üzerinde kurgulanmış **Row-Level Multi-Tenant** (Satır Düzeyinde Çoklu Kiracı) bir mimariye sahiptir.
+> Note: this schema is being revised. See `HANDOVER.md` section 5 for the target schema
+> (removing pilates-specific fields such as `SessionType`, adding tenant-configurable service
+> types, a global phone-based `User` with `Membership`, permission-based `RoleTemplate`, and
+> more) and section 6 for the backlog order. The diagram below describes the schema as it
+> exists in the repository today, not the target state.
 
----
+The platform runs on PostgreSQL 16 with Prisma ORM, using a row-level multi-tenant
+architecture: every tenant-scoped table carries a `studio_id` column.
 
-## 1. Varlık-İlişki Diyagramı (ERD)
+## 1. Entity-relationship diagram
 
 ```mermaid
 erDiagram
-    Studio ||--o{ Branch : "sahiptir"
-    Studio ||--o{ Room : "sahiptir"
-    Studio ||--o{ User : "sahiptir"
-    Studio ||--o{ PackageDefinition : "tanımlar"
-    Studio ||--o{ MemberPackage : "yönetir"
-    Studio ||--o{ SessionSchedule : "planlar"
-    Studio ||--o{ Booking : "takip eder"
-    Studio ||--o{ Payment : "tahsil eder"
+    Studio ||--o{ Branch : "owns"
+    Studio ||--o{ Room : "owns"
+    Studio ||--o{ User : "owns"
+    Studio ||--o{ PackageDefinition : "defines"
+    Studio ||--o{ MemberPackage : "manages"
+    Studio ||--o{ SessionSchedule : "schedules"
+    Studio ||--o{ Booking : "tracks"
+    Studio ||--o{ Payment : "collects"
 
-    Branch ||--o{ Room : "içerir"
-    Room ||--o{ Equipment : "barındırır"
-    Room ||--o{ SessionSchedule : "ev sahipliği yapar"
+    Branch ||--o{ Room : "contains"
+    Room ||--o{ Equipment : "holds"
+    Room ||--o{ SessionSchedule : "hosts"
 
-    User ||--o| MemberProfile : "üyelik profili"
-    User ||--o| TrainerProfile : "eğitmen profili"
+    User ||--o| MemberProfile : "member profile"
+    User ||--o| TrainerProfile : "trainer profile"
 
-    MemberProfile ||--o{ MemberPackage : "satın alır"
-    MemberProfile ||--o{ Booking : "rezervasyon yapar"
-    MemberProfile ||--o{ Payment : "öder"
+    MemberProfile ||--o{ MemberPackage : "purchases"
+    MemberProfile ||--o{ Booking : "books"
+    MemberProfile ||--o{ Payment : "pays"
 
-    PackageDefinition ||--o{ MemberPackage : "örneğidir"
-    MemberPackage ||--o{ PackageFreezeHistory : "dondurma geçmişi"
-    MemberPackage ||--o{ Booking : "kredi düşülür"
+    PackageDefinition ||--o{ MemberPackage : "instance of"
+    MemberPackage ||--o{ PackageFreezeHistory : "freeze history"
+    MemberPackage ||--o{ Booking : "credit deducted"
 
-    TrainerProfile ||--o{ SessionSchedule : "ders verir"
-    SessionSchedule ||--o{ Booking : "katılımcılar"
+    TrainerProfile ||--o{ SessionSchedule : "teaches"
+    SessionSchedule ||--o{ Booking : "attendees"
 ```
 
----
+## 2. Core tables and their roles
 
-## 2. Temel Tablolar ve Roller
+### `studios`
+- `id` (UUID, primary key)
+- `name` (studio name, e.g. "Zen Reformer Pilates")
+- `slug` (unique URL segment, e.g. `zen-pilates`)
+- `cancellation_deadline_hours` (e.g. cancel up to 4 hours before class)
+- `reminder_hours_before` (SMS reminder lead time, e.g. 2 hours before)
+- `max_advance_booking_days` (how far ahead a member may book, e.g. 14 days)
 
-### `studios` (Stüdyolar)
-- `id` (UUID, Primary Key)
-- `name` (Stüdyo Adı: örn. *Zen Reformer Pilates*)
-- `slug` (Benzersiz URL eki: `zen-pilates`)
-- `cancellation_deadline_hours` (İptal süresi: örn. derse 4 saat kala)
-- `reminder_hours_before` (SMS hatırlatması: örn. derse 2 saat kala)
-- `max_advance_booking_days` (En fazla kaç gün sonraya rezervasyon alınabilir: örn. 14 gün)
+### `users` and `member_profiles`
+- Each studio's members are defined independently today.
+- `phone` and `studio_id` form a unique compound index: the same phone number can belong to a
+  member in more than one studio without the records colliding. Note that the target schema
+  (`HANDOVER.md` section 5) makes `User` global and phone-unique, linked to studios through a
+  `Membership` table instead.
+- `medical_conditions` holds free-text notes (e.g. herniated disc, scoliosis, pregnancy) shown
+  to trainers as a warning badge on the calendar.
 
-### `users` & `member_profiles`
-- Her iki stüdyoda da bağımsız üyeler tanımlanabilir.
-- `phone` ve `studio_id` çifti benzersizdir (Unique Compound Index). Bir üye her iki stüdyoya da aynı telefonla kaydolabilir ancak verileri birbirine karışmaz.
-- `medical_conditions`: Bel fıtığı (L4-L5), skolyoz, boyun düzleşmesi, protez veya gebelik bilgisi tutulur. Takvimde eğitmenlere otomatik uyarı rozeti olarak gösterilir.
-
-### `package_definitions` & `member_packages`
-- `PackageDefinition`: Şablon pakettir (örn. "10 Seans Birebir Reformer", 60 gün geçerlilik, 12.000 TL).
-- `MemberPackage`: Üyenin satın aldığı canlı pakettir:
-  - `total_sessions`: Toplam satın alınan (örn. 10)
-  - `used_sessions`: Katılınan veya geç iptal edilen (örn. 2)
-  - `remaining_sessions`: Kalan bakiye (örn. 8)
+### `package_definitions` and `member_packages`
+- `PackageDefinition` is the sellable template (e.g. "10-session 1:1 reformer package", 60-day
+  validity).
+- `MemberPackage` is the member's live instance of that package:
+  - `total_sessions`: sessions purchased
+  - `used_sessions`: attended or late-cancelled
+  - `remaining_sessions`: remaining balance
   - `status`: `ACTIVE`, `FROZEN`, `EXPIRED`, `DEPLETED`
 
-### `session_schedules` & `bookings`
-- Randevu ve takvim tablosudur.
-- Her dersin başlangıç-bitiş saati, eğitmeni, odası ve kapasitesi (`capacity`) bulunur.
-- Rezervasyon anında üyenin paketi kontrol edilir, `remaining_sessions` 1 azaltılır ve `bookings` kaydı açılır.
-- İptal durumunda:
-  - Eğer seansa `cancellation_deadline_hours` süresinden fazla varsa kredi iade edilir (`CANCELLED_EARLY`).
-  - Eğer süre dolmuşsa seans kredisi düşülür (`CANCELLED_LATE`).
+### `session_schedules` and `bookings`
+- The calendar/appointment tables.
+- Each session has a start/end time, a trainer, a room and a `capacity`.
+- Booking a session checks the member's package, decrements `remaining_sessions`, and creates a
+  `bookings` row.
+- On cancellation: with more than `cancellation_deadline_hours` left, the credit is refunded
+  (`CANCELLED_EARLY`); once past that deadline, the credit is consumed (`CANCELLED_LATE`).
 
----
+## 3. Indexing strategy
 
-## 3. İndeksleme ve Performans Stratejisi
+To keep query latency low on a resource-constrained (6 GB RAM) database server, the following
+composite indexes are in place:
 
-6 GB RAM sunucuda PostgreSQL'in sorguları anında yanıtlaması için aşağıdaki bileşik indeksler eklenmiştir:
-
-1. `@@index([studio_id, start_time, end_time])`: Takvim sorguları için milisaniye seviyesinde filtreleme.
-2. `@@index([trainer_id, start_time, end_time])`: Eğitmen çakışma kontrolü için anlık tarama.
-3. `@@index([studio_id, member_id, status])`: Üyenin aktif paketlerini ararken tüm tabloyu taramadan doğrudan getirme.
-4. `@@index([studio_id, paid_at])`: Aylık gelir ve ciro raporlarının anında hesaplanması.
+1. `@@index([studio_id, start_time, end_time])` - fast calendar range queries.
+2. `@@index([trainer_id, start_time, end_time])` - trainer conflict checks.
+3. `@@index([studio_id, member_id, status])` - fetching a member's active packages without a
+   full table scan.
+4. `@@index([studio_id, paid_at])` - monthly revenue reporting.

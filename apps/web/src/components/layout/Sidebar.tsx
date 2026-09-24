@@ -33,7 +33,7 @@ export function Sidebar() {
             P
           </div>
           <div>
-            <h1 className="font-semibold text-white tracking-tight">Pilates Studio</h1>
+            <h1 className="font-semibold text-white tracking-tight">Platform</h1>
             <p className="text-xs text-sky-400 font-medium">Yönetim Paneli</p>
           </div>
         </div>

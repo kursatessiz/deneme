@@ -3,7 +3,7 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   output: 'standalone',
   reactStrictMode: true,
-  transpilePackages: ['@pilates/shared'],
+  transpilePackages: ['@platform/shared'],
   eslint: {
     ignoreDuringBuilds: true,
   },
