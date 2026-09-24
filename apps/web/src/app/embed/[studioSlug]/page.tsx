@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { resolveTheme, themeCssVariables, THEME_FAMILY_KEYS, DEFAULT_THEME_FAMILY } from '@platform/shared';
+import { resolveTheme, themeCssVariables, THEME_FAMILY_KEYS, DEFAULT_THEME_FAMILY, STUDIO_SLUG_PATTERN } from '@platform/shared';
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 import type { ThemeFamilyKey } from '@platform/shared';
 
 function toThemeFamilyKey(value: string): ThemeFamilyKey {
@@ -44,7 +46,7 @@ interface ScheduleItem {
 }
 
 async function embedFetch<T>(slug: string, path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}/public/studios/${slug}/embed/${path}`, {
+  const res = await fetch(`${API_BASE_URL}/public/studios/${encodeURIComponent(slug)}/embed/${path}`, {
     ...init,
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   });
@@ -73,7 +75,8 @@ function formatTime(iso: string) {
  */
 export default function EmbedBookingPage() {
   const params = useParams();
-  const slug = params.studioSlug as string;
+  const rawSlug = params.studioSlug as string;
+  const slug = STUDIO_SLUG_PATTERN.test(rawSlug) ? rawSlug : '';
 
   const [config, setConfig] = useState<EmbedConfig | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -157,8 +160,9 @@ export default function EmbedBookingPage() {
    * link simply does nothing, which is documented in docs/PUBLIC_API.md.
    */
   const openMemberApp = () => {
-    if (!selectedScheduleId) return;
-    window.location.href = `${MOBILE_APP_SCHEME}://seans/${selectedScheduleId}`;
+    // Only a well-formed session id ever goes into the deep link.
+    if (!selectedScheduleId || !UUID_PATTERN.test(selectedScheduleId)) return;
+    window.location.href = `${MOBILE_APP_SCHEME}://seans/${encodeURIComponent(selectedScheduleId)}`;
   };
 
   const submitLead = async (e: React.FormEvent) => {
@@ -170,7 +174,7 @@ export default function EmbedBookingPage() {
       const interest = selectedSchedule
         ? `Web widget üzerinden deneme dersi talebi: ${serviceTypeName(selectedSchedule.serviceTypeId)} - ${formatTime(selectedSchedule.startTime)}${selectedSchedule.branchId ? ` (${branchName(selectedSchedule.branchId)})` : ''}`
         : 'Web widget üzerinden deneme dersi talebi';
-      await fetch(`${API_BASE_URL}/public/studios/${slug}/leads`, {
+      await fetch(`${API_BASE_URL}/public/studios/${encodeURIComponent(slug)}/leads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
