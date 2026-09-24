@@ -17,6 +17,7 @@ export const PERMISSIONS = {
   'members.health.view': 'Üye sağlık notlarını görme',
   'members.manage': 'Üye ekleme, düzenleme, davet gönderme',
 
+  'catalog.view': 'Hizmet, kaynak ve iptal politikası kataloğunu görüntüleme',
   'catalog.manage': 'Hizmet, kaynak, paket ve iptal politikalarını yönetme',
 
   'schedule.view': 'Takvimi görüntüleme',
@@ -72,6 +73,7 @@ export const DEFAULT_ROLE_TEMPLATES: readonly DefaultRoleTemplate[] = [
       'members.view',
       'members.contact.view',
       'members.manage',
+      'catalog.view',
       'schedule.view',
       'schedule.manage',
       'bookings.view',

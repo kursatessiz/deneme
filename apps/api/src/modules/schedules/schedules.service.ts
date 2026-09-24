@@ -1,7 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ConflictException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import type { TenantContext } from '../auth/tenant-context';
-import { CreateScheduleInput, BookSessionInput, CancelBookingInput } from '@platform/shared';
+import { CreateScheduleInput, BookSessionInput, CancelBookingInput, CancelSessionInput } from '@platform/shared';
 import { Prisma } from '@platform/database';
 import type { MemberPackage } from '@platform/database';
 
@@ -10,7 +11,12 @@ const HOUR_MS = 60 * 60 * 1000;
 
 @Injectable()
 export class SchedulesService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(SchedulesService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async getSchedules(
     tenant: TenantContext,
@@ -320,14 +326,7 @@ export class SchedulesService {
         booking.memberPackage &&
         booking.memberPackage.entitlementKind !== 'TIME_UNLIMITED'
       ) {
-        await tx.memberPackage.update({
-          where: { id: booking.memberPackageId },
-          data: {
-            usedUnits: { decrement: booking.unitsCharged },
-            remainingUnits: { increment: booking.unitsCharged },
-            status: 'ACTIVE',
-          },
-        });
+        await this.refundPackageUnits(tx, booking.memberPackageId, booking.unitsCharged);
       }
 
       const updatedBooking = await tx.booking.update({
@@ -372,6 +371,130 @@ export class SchedulesService {
     return this.prisma.booking.update({
       where: { id: bookingId },
       data: { status: 'ATTENDED', checkInAt: new Date() },
+    });
+  }
+
+  /**
+   * Whole-session cancellation: mark the schedule cancelled and cancel every
+   * confirmed booking as a studio cancellation (full refund, no penalty),
+   * then release resources and clear the waitlist. Runs in one transaction;
+   * member notifications are sent afterwards, best-effort.
+   */
+  async cancelSession(tenant: TenantContext, scheduleId: string, dto: CancelSessionInput, actorUserId: string) {
+    const studioId = tenant.studioId;
+
+    const schedule = await this.prisma.sessionSchedule.findFirst({
+      where: { id: scheduleId, studioId },
+      include: {
+        bookings: {
+          where: { status: 'CONFIRMED' },
+          include: { memberPackage: true, member: { include: { membership: { include: { user: true } } } } },
+        },
+        waitlist: { where: { status: { in: ['WAITING', 'OFFERED'] } } },
+      },
+    });
+    if (!schedule) {
+      throw new NotFoundException('Ders seansı bulunamadı');
+    }
+    if (schedule.isCancelled) {
+      throw new BadRequestException('Bu seans zaten iptal edilmiştir');
+    }
+
+    const now = new Date();
+    const bookings = schedule.bookings;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.sessionSchedule.update({
+        where: { id: scheduleId },
+        data: { isCancelled: true, cancellationReason: dto.reason, bookedCount: 0 },
+      });
+
+      for (const booking of bookings) {
+        if (booking.memberPackageId && booking.memberPackage && booking.memberPackage.entitlementKind !== 'TIME_UNLIMITED') {
+          await this.refundPackageUnits(tx, booking.memberPackageId, booking.unitsCharged);
+        }
+
+        await tx.booking.update({
+          where: { id: booking.id },
+          data: {
+            status: 'CANCELLED_EARLY',
+            cancelledAt: now,
+            cancellationReason: dto.reason ?? 'Seans işletme tarafından iptal edildi',
+            isLateCancellation: false,
+          },
+        });
+
+        await tx.bookingResource.updateMany({
+          where: { bookingId: booking.id, studioId },
+          data: { isActive: false },
+        });
+      }
+
+      if (schedule.waitlist.length > 0) {
+        await tx.waitlist.updateMany({
+          where: { id: { in: schedule.waitlist.map((w) => w.id) } },
+          data: { status: 'CANCELLED' },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          studioId,
+          userId: actorUserId,
+          action: 'SESSION_CANCELLED',
+          entityType: 'SessionSchedule',
+          entityId: scheduleId,
+          metadata: {
+            reason: dto.reason ?? null,
+            cancelledBookingCount: bookings.length,
+            cancelledWaitlistCount: schedule.waitlist.length,
+          } as Prisma.InputJsonValue,
+        },
+      });
+    });
+
+    if (dto.notifyMembers) {
+      await Promise.all(
+        bookings.map(async (booking) => {
+          const userId = booking.member.membership.userId;
+          try {
+            await this.notifications.notifyUser({
+              userId,
+              studioId,
+              category: 'BOOKING_CHANGE',
+              message: {
+                title: 'Seans iptal edildi',
+                body: `${schedule.title} seansı işletme tarafından iptal edildi.${dto.reason ? ` Neden: ${dto.reason}` : ''}`,
+              },
+              smsText: `${schedule.title} seansınız iptal edildi.${dto.reason ? ` Neden: ${dto.reason}` : ''}`,
+            });
+          } catch (err) {
+            this.logger.warn(`Seans iptali bildirimi gönderilemedi (userId=${userId}): ${err}`);
+          }
+        }),
+      );
+    }
+
+    return {
+      scheduleId,
+      cancelledBookingCount: bookings.length,
+      cancelledWaitlistCount: schedule.waitlist.length,
+    };
+  }
+
+  /** Atomically returns units to a package and reactivates it if it was DEPLETED. */
+  private async refundPackageUnits(tx: Prisma.TransactionClient, memberPackageId: string, units: number) {
+    await tx.memberPackage.update({
+      where: { id: memberPackageId },
+      data: {
+        usedUnits: { decrement: units },
+        remainingUnits: { increment: units },
+      },
+    });
+    // Only a DEPLETED package flips back to ACTIVE; a frozen or expired one stays as-is.
+    await tx.memberPackage.updateMany({
+      where: { id: memberPackageId, status: 'DEPLETED' },
+      data: { status: 'ACTIVE' },
     });
   }
 

@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SchedulesService } from './schedules.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import type { TenantContext } from '../auth/tenant-context';
 
@@ -42,6 +43,7 @@ describe('SchedulesService', () => {
     memberPackage: {
       findFirst: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     packageDefinitionService: {
       findUnique: jest.fn(),
@@ -58,7 +60,17 @@ describe('SchedulesService', () => {
     cancellationPolicy: {
       findFirst: jest.fn(),
     },
+    waitlist: {
+      updateMany: jest.fn(),
+    },
+    auditLog: {
+      create: jest.fn(),
+    },
     $transaction: jest.fn((callback) => callback(mockPrisma)),
+  };
+
+  const mockNotifications = {
+    notifyUser: jest.fn().mockResolvedValue({ push: 0, sms: false }),
   };
 
   beforeEach(async () => {
@@ -69,12 +81,17 @@ describe('SchedulesService', () => {
           provide: PrismaService,
           useValue: mockPrisma,
         },
+        {
+          provide: NotificationsService,
+          useValue: mockNotifications,
+        },
       ],
     }).compile();
 
     service = module.get<SchedulesService>(SchedulesService);
     jest.clearAllMocks();
     mockPrisma.$transaction.mockImplementation((callback) => callback(mockPrisma));
+    mockNotifications.notifyUser.mockResolvedValue({ push: 0, sms: false });
   });
 
   describe('createSchedule', () => {
@@ -304,6 +321,123 @@ describe('SchedulesService', () => {
     it('should throw NotFoundException when the booking does not belong to the studio', async () => {
       mockPrisma.booking.findFirst.mockResolvedValueOnce(null);
       await expect(service.checkIn(tenant, 'booking-x')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('cancelSession', () => {
+    const schedule = {
+      id: 'schedule-1',
+      studioId: STUDIO_ID,
+      title: 'Grup Reformer',
+      isCancelled: false,
+      bookings: [
+        {
+          id: 'booking-1',
+          unitsCharged: 1,
+          memberPackageId: 'pkg-1',
+          memberPackage: { entitlementKind: 'SESSION_COUNT' },
+          member: { membership: { userId: 'user-1' } },
+        },
+        {
+          id: 'booking-2',
+          unitsCharged: 0,
+          memberPackageId: null,
+          memberPackage: null,
+          member: { membership: { userId: 'user-2' } },
+        },
+      ],
+      waitlist: [{ id: 'wait-1' }],
+    };
+
+    it('should refund units, cancel bookings and waitlist, and write an audit log', async () => {
+      mockPrisma.sessionSchedule.findFirst.mockResolvedValueOnce(schedule);
+      mockPrisma.sessionSchedule.update.mockResolvedValueOnce({ ...schedule, isCancelled: true });
+      mockPrisma.booking.update.mockResolvedValue({ id: 'booking', status: 'CANCELLED_EARLY' });
+
+      const result = await service.cancelSession(
+        tenant,
+        'schedule-1',
+        { reason: 'Eğitmen hastalandı', notifyMembers: true },
+        'actor-user-1',
+      );
+
+      expect(result.cancelledBookingCount).toBe(2);
+      expect(result.cancelledWaitlistCount).toBe(1);
+
+      expect(mockPrisma.sessionSchedule.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'schedule-1' },
+          data: expect.objectContaining({ isCancelled: true, bookedCount: 0 }),
+        }),
+      );
+
+      // Only the booking backed by a package gets refunded.
+      expect(mockPrisma.memberPackage.update).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.memberPackage.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'pkg-1' },
+          data: expect.objectContaining({ usedUnits: { decrement: 1 }, remainingUnits: { increment: 1 } }),
+        }),
+      );
+      expect(mockPrisma.memberPackage.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'pkg-1', status: 'DEPLETED' }, data: { status: 'ACTIVE' } }),
+      );
+
+      expect(mockPrisma.booking.update).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.bookingResource.updateMany).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.waitlist.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: { in: ['wait-1'] } }, data: { status: 'CANCELLED' } }),
+      );
+      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ action: 'SESSION_CANCELLED', entityType: 'SessionSchedule', entityId: 'schedule-1' }),
+        }),
+      );
+
+      expect(mockNotifications.notifyUser).toHaveBeenCalledTimes(2);
+    });
+
+    it('should not notify members when notifyMembers is false', async () => {
+      mockPrisma.sessionSchedule.findFirst.mockResolvedValueOnce(schedule);
+      mockPrisma.sessionSchedule.update.mockResolvedValueOnce({ ...schedule, isCancelled: true });
+      mockPrisma.booking.update.mockResolvedValue({ id: 'booking', status: 'CANCELLED_EARLY' });
+
+      await service.cancelSession(tenant, 'schedule-1', { notifyMembers: false }, 'actor-user-1');
+
+      expect(mockNotifications.notifyUser).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when the session is already cancelled', async () => {
+      mockPrisma.sessionSchedule.findFirst.mockResolvedValueOnce({ ...schedule, isCancelled: true });
+
+      await expect(
+        service.cancelSession(tenant, 'schedule-1', { notifyMembers: true }, 'actor-user-1'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw NotFoundException when the session does not belong to the studio', async () => {
+      mockPrisma.sessionSchedule.findFirst.mockResolvedValueOnce(null);
+
+      await expect(
+        service.cancelSession(tenant, 'schedule-x', { notifyMembers: true }, 'actor-user-1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('a notification failure for one member does not stop the others or fail the call', async () => {
+      mockPrisma.sessionSchedule.findFirst.mockResolvedValueOnce(schedule);
+      mockPrisma.sessionSchedule.update.mockResolvedValueOnce({ ...schedule, isCancelled: true });
+      mockPrisma.booking.update.mockResolvedValue({ id: 'booking', status: 'CANCELLED_EARLY' });
+      mockNotifications.notifyUser.mockRejectedValueOnce(new Error('SMS sağlayıcı hatası'));
+
+      const result = await service.cancelSession(
+        tenant,
+        'schedule-1',
+        { notifyMembers: true },
+        'actor-user-1',
+      );
+
+      expect(result.cancelledBookingCount).toBe(2);
+      expect(mockNotifications.notifyUser).toHaveBeenCalledTimes(2);
     });
   });
 });

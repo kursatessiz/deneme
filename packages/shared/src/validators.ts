@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { EntitlementKind, InviteChannel, PaymentMethod } from './enums';
+import { CommissionType, EntitlementKind, InviteChannel, PaymentMethod } from './enums';
 import { normalizePhone } from './phone';
 
 /** Accepts common formats and outputs E.164. */
@@ -154,3 +154,124 @@ export const AcceptInviteSchema = z.object({
   device: z.string().max(200).optional(),
 });
 export type AcceptInviteInput = z.infer<typeof AcceptInviteSchema>;
+
+// ---------------------------------------------------------------------------
+// Catalog: resource types, resources, service types, cancellation policies
+// ---------------------------------------------------------------------------
+
+export const CreateResourceTypeSchema = z.object({
+  studioId: z.string().uuid(),
+  name: z.string().trim().min(2, 'Kaynak türü adı en az 2 karakter olmalıdır'),
+  selectableByMember: z.boolean().default(false),
+});
+export type CreateResourceTypeInput = z.infer<typeof CreateResourceTypeSchema>;
+
+export const UpdateResourceTypeSchema = z.object({
+  studioId: z.string().uuid(),
+  name: z.string().trim().min(2).optional(),
+  selectableByMember: z.boolean().optional(),
+});
+export type UpdateResourceTypeInput = z.infer<typeof UpdateResourceTypeSchema>;
+
+export const CreateResourceSchema = z.object({
+  studioId: z.string().uuid(),
+  branchId: z.string().uuid().optional(),
+  resourceTypeId: z.string().uuid(),
+  parentResourceId: z.string().uuid().optional(),
+  name: z.string().trim().min(1, 'Kaynak adı zorunludur'),
+  capacity: z.number().int().positive().default(1),
+  serialNumber: z.string().max(100).optional(),
+});
+export type CreateResourceInput = z.infer<typeof CreateResourceSchema>;
+
+export const UpdateResourceSchema = z.object({
+  studioId: z.string().uuid(),
+  branchId: z.string().uuid().nullable().optional(),
+  resourceTypeId: z.string().uuid().optional(),
+  parentResourceId: z.string().uuid().nullable().optional(),
+  name: z.string().trim().min(1).optional(),
+  capacity: z.number().int().positive().optional(),
+  serialNumber: z.string().max(100).nullable().optional(),
+  isMaintenance: z.boolean().optional(),
+});
+export type UpdateResourceInput = z.infer<typeof UpdateResourceSchema>;
+
+export const CreateCancellationPolicySchema = z.object({
+  studioId: z.string().uuid(),
+  name: z.string().trim().min(2, 'Politika adı en az 2 karakter olmalıdır'),
+  freeCancelHours: z.number().int().nonnegative(),
+  lateCancelChargeUnits: z.number().int().nonnegative().default(1),
+  noShowChargeUnits: z.number().int().nonnegative().default(1),
+  isDefault: z.boolean().default(false),
+});
+export type CreateCancellationPolicyInput = z.infer<typeof CreateCancellationPolicySchema>;
+
+export const UpdateCancellationPolicySchema = z.object({
+  studioId: z.string().uuid(),
+  name: z.string().trim().min(2).optional(),
+  freeCancelHours: z.number().int().nonnegative().optional(),
+  lateCancelChargeUnits: z.number().int().nonnegative().optional(),
+  noShowChargeUnits: z.number().int().nonnegative().optional(),
+  isDefault: z.boolean().optional(),
+});
+export type UpdateCancellationPolicyInput = z.infer<typeof UpdateCancellationPolicySchema>;
+
+export const CreateServiceTypeSchema = z.object({
+  studioId: z.string().uuid(),
+  name: z.string().trim().min(2, 'Hizmet adı en az 2 karakter olmalıdır'),
+  description: z.string().max(2000).optional(),
+  durationMin: z.number().int().positive('Süre 0 dan büyük olmalıdır'),
+  capacity: z.number().int().positive().default(1),
+  minRepeatIntervalDays: z.number().int().positive().optional(),
+  prerequisiteFormId: z.string().uuid().optional(),
+  allowedEntitlementKinds: z.array(z.nativeEnum(EntitlementKind)).min(1, 'En az bir hak türü seçilmelidir'),
+  cancellationPolicyId: z.string().uuid().optional(),
+  commissionRuleId: z.string().uuid().optional(),
+  requiresQualification: z.boolean().default(false),
+  requiredResourceTypes: z
+    .array(z.object({ resourceTypeId: z.string().uuid(), quantity: z.number().int().positive().default(1) }))
+    .default([]),
+});
+export type CreateServiceTypeInput = z.infer<typeof CreateServiceTypeSchema>;
+
+export const UpdateServiceTypeSchema = z.object({
+  studioId: z.string().uuid(),
+  name: z.string().trim().min(2).optional(),
+  description: z.string().max(2000).nullable().optional(),
+  durationMin: z.number().int().positive().optional(),
+  capacity: z.number().int().positive().optional(),
+  minRepeatIntervalDays: z.number().int().positive().nullable().optional(),
+  prerequisiteFormId: z.string().uuid().nullable().optional(),
+  allowedEntitlementKinds: z.array(z.nativeEnum(EntitlementKind)).min(1).optional(),
+  cancellationPolicyId: z.string().uuid().nullable().optional(),
+  commissionRuleId: z.string().uuid().nullable().optional(),
+  requiresQualification: z.boolean().optional(),
+  requiredResourceTypes: z
+    .array(z.object({ resourceTypeId: z.string().uuid(), quantity: z.number().int().positive().default(1) }))
+    .optional(),
+});
+export type UpdateServiceTypeInput = z.infer<typeof UpdateServiceTypeSchema>;
+
+export const ServiceTypeQualificationSchema = z.object({
+  studioId: z.string().uuid(),
+  trainerProfileId: z.string().uuid(),
+});
+export type ServiceTypeQualificationInput = z.infer<typeof ServiceTypeQualificationSchema>;
+
+export const DeactivateCatalogItemSchema = z.object({
+  studioId: z.string().uuid(),
+});
+export type DeactivateCatalogItemInput = z.infer<typeof DeactivateCatalogItemSchema>;
+
+/** Referenced here only so catalog validators stay consistent with CommissionRule.type. */
+export const CommissionTypeSchema = z.nativeEnum(CommissionType);
+
+// ---------------------------------------------------------------------------
+// Whole-session cancellation
+// ---------------------------------------------------------------------------
+
+export const CancelSessionSchema = z.object({
+  reason: z.string().max(500).optional(),
+  notifyMembers: z.boolean().default(true),
+});
+export type CancelSessionInput = z.infer<typeof CancelSessionSchema>;

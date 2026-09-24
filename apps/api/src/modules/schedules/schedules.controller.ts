@@ -1,9 +1,9 @@
 import { Controller, Get, Post, Param, Query, Patch } from '@nestjs/common';
 import { SchedulesService } from './schedules.service';
 import { StudioScoped, RequirePermission, SelfService } from '../auth/decorators/require-permission.decorator';
-import { Tenant } from '../auth/decorators/current-user.decorator';
+import { Tenant, CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ZodBody } from '../../common/zod-body.pipe';
-import type { TenantContext } from '../auth/tenant-context';
+import type { TenantContext, AuthUser } from '../auth/tenant-context';
 import {
   CreateScheduleSchema,
   CreateScheduleInput,
@@ -11,6 +11,8 @@ import {
   BookSessionInput,
   CancelBookingSchema,
   CancelBookingInput,
+  CancelSessionSchema,
+  CancelSessionInput,
 } from '@platform/shared';
 
 @Controller('schedules')
@@ -61,6 +63,17 @@ export class SchedulesController {
   @SelfService()
   async cancelBookingSelf(@Tenant() tenant: TenantContext, @ZodBody(CancelBookingSchema) body: CancelBookingInput) {
     return this.schedulesService.cancelBookingSelf(tenant, body);
+  }
+
+  @Post(':scheduleId/cancel-session')
+  @RequirePermission('schedule.manage')
+  async cancelSession(
+    @Param('scheduleId') scheduleId: string,
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodBody(CancelSessionSchema) body: CancelSessionInput,
+  ) {
+    return this.schedulesService.cancelSession(tenant, scheduleId, body, user.id);
   }
 
   @Patch('check-in/:bookingId')
