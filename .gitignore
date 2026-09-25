@@ -67,3 +67,8 @@ next-env.d.ts
 
 # Local agent worktrees
 .claude/worktrees/
+
+# Playwright
+apps/web/playwright-report/
+apps/web/test-results/
+apps/web/blob-report/

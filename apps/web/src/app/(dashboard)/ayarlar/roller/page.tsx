@@ -98,7 +98,16 @@ function RoleEditor({
   );
 }
 
-function RolesAndStaff() {
+/**
+ * A `key` on this component's own returned element would not do anything --
+ * React keys only matter to a *parent* reconciling a list of children, so
+ * they cannot make a component remount (and its hooks, including the two
+ * `useBff` fetches below, re-run) itself. `RolesAndStaff` below holds
+ * `refreshKey` and keys *this* component from the outside instead, which is
+ * what actually forces the roles/staff lists to refetch after a create,
+ * edit, delete or role assignment.
+ */
+function RolesAndStaffView({ onChanged }: { onChanged: () => void }) {
   const { activeStudioId } = useDashboardSession();
   const { data: roles, loading, error, forbidden } = useBff<RoleTemplateDTO[]>(`role-templates/studio/${activeStudioId}`, activeStudioId);
   const {
@@ -108,7 +117,6 @@ function RolesAndStaff() {
   } = useBff<StaffMembershipDTO[]>(`role-templates/studio/${activeStudioId}/staff`, activeStudioId);
 
   const [editing, setEditing] = useState<RoleTemplateDTO | null | 'new'>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [assignError, setAssignError] = useState<string | null>(null);
   const [assigningId, setAssigningId] = useState<string | null>(null);
@@ -120,7 +128,7 @@ function RolesAndStaff() {
     setAssigningId(membershipId);
     try {
       await bffFetch(`role-templates/staff/${membershipId}`, { method: 'PUT', body: { roleTemplateId }, studioId: activeStudioId });
-      setRefreshKey((k) => k + 1);
+      onChanged();
     } catch (err) {
       setAssignError(err instanceof BffError ? err.message : 'Rol ataması yapılamadı');
     } finally {
@@ -132,7 +140,7 @@ function RolesAndStaff() {
     setDeleteError(null);
     try {
       await bffFetch(`role-templates/${id}`, { method: 'DELETE', studioId: activeStudioId });
-      setRefreshKey((k) => k + 1);
+      onChanged();
     } catch (err) {
       setDeleteError(err instanceof BffError ? err.message : 'Rol silinemedi');
     }
@@ -141,7 +149,7 @@ function RolesAndStaff() {
   if (forbidden) return <ErrorState message="Bu sayfayı görüntüleme yetkiniz yok" />;
 
   return (
-    <div className="space-y-6" key={refreshKey}>
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <SettingsHeader title="Roller ve yetkiler" description="Rol tanımları, izin kümeleri ve personel rol ataması" />
         {editing === null && <PrimaryButton onClick={() => setEditing('new')}>Yeni rol</PrimaryButton>}
@@ -150,9 +158,9 @@ function RolesAndStaff() {
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
 
-      {editing === 'new' && <RoleEditor role={null} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); setRefreshKey((k) => k + 1); }} />}
+      {editing === 'new' && <RoleEditor role={null} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); onChanged(); }} />}
       {editing && editing !== 'new' && (
-        <RoleEditor role={editing} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); setRefreshKey((k) => k + 1); }} />
+        <RoleEditor role={editing} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); onChanged(); }} />
       )}
 
       {!loading && !error && editing === null && (
@@ -231,6 +239,11 @@ function RolesAndStaff() {
       )}
     </div>
   );
+}
+
+function RolesAndStaff() {
+  const [refreshKey, setRefreshKey] = useState(0);
+  return <RolesAndStaffView key={refreshKey} onChanged={() => setRefreshKey((k) => k + 1)} />;
 }
 
 export default function RolesPage() {

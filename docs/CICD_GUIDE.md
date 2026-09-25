@@ -38,6 +38,27 @@ Adımlar:
 - `api` ve `web` image'ları için Docker build kontrolü (sadece build, push yok; `main` push
   yolunda atlanır çünkü gerçek build'i orada `release.yml` yapar)
 
+Bu adımları çalıştıran `verify` job'unun yanında `ci.yml` üç job daha içerir: `e2e` (API'nin
+NestJS e2e testleri, gerçek bir Postgres servis konteynerine karşı, migrate + seed sonrası),
+`web-e2e` (aşağıda), ve `scripts` (`shellcheck`/`actionlint`).
+
+### `web-e2e` - Web paneli tarayıcı e2e testleri
+
+`e2e` job'uyla aynı Postgres servis konteynerini (ayrı bir veritabanı adıyla, `ci_web_e2e`)
+kullanır, aynı şekilde migrate + seed eder, ardından:
+- `pnpm --filter @platform/web exec playwright install --with-deps chromium` -- yalnızca
+  Chromium'u (resmi Playwright kurulum adımıyla) indirir, diğer tarayıcıları değil.
+- `pnpm --filter @platform/web test:e2e` -- `apps/web/playwright.config.ts`, build edilmiş
+  API'yi (`node dist/main.js`) ve web uygulamasını (`next build && next start`) kendi
+  `webServer` girdileri olarak başlatıp gerçek bir Chromium'da uçtan uca senaryoları çalıştırır
+  (giriş/çıkış çerezleri, izne göre nav, takvim, üye paket satışı, ayarlar rolleri, raporlar CSV
+  indirme, CSRF). Detaylar ve yerelde çalıştırma: `docs/WEB_PANEL.md` "Tarayıcı e2e testleri".
+- Test'ler başarısız olursa (yalnızca o durumda) `apps/web/playwright-report/` HTML raporu
+  `web-e2e-playwright-report` adıyla iş akışı artifact'ı olarak yüklenir.
+
+Bu job'un job-seviyesi izinleri de yalnızca `contents: read` (kökteki varsayılandan miras) --
+artifact yükleme bunun ötesinde bir izin gerektirmez.
+
 ## 3. `release.yml` - Build, publish, deploy
 
 `main`'e yapılan bir push ile veya manuel olarak (`workflow_dispatch`), zaten yayınlanmış bir
