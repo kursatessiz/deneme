@@ -59,7 +59,13 @@ function MemberCard() {
   const canSell = hasAnyPermission(['packages.sell'], permissions, isOwner);
 
   function load() {
-    setLoading(true);
+    // Only show the full-page spinner for the initial fetch. A background
+    // refresh (after selling a package, freezing one, ...) must not flip
+    // `loading` back to true: the early `if (loading) return <LoadingState
+    // />` below would replace the whole tree, including the open sale
+    // dialog, discarding its just-set "sale complete" result before the
+    // member ever sees it.
+    if (!member) setLoading(true);
     setError(null);
     bffFetch<MemberDetail>(`members/${memberId}/studio/${activeStudioId}`, { studioId: activeStudioId })
       .then(setMember)

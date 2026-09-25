@@ -73,3 +73,8 @@ apps/mobile/google-service-account.json
 apps/mobile/*.p8
 apps/mobile/*.jks
 apps/mobile/*.keystore
+
+# Playwright
+apps/web/playwright-report/
+apps/web/test-results/
+apps/web/blob-report/

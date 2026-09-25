@@ -86,7 +86,19 @@ function ReportsPage() {
         </a>
       </div>
 
-      <Tabs tabs={REPORT_TABS} active={tab} onChange={(k) => setTab(k as ReportKey)} />
+      <Tabs
+        tabs={REPORT_TABS}
+        active={tab}
+        onChange={(k) => {
+          // Clear the previous tab's report immediately: otherwise the next
+          // render paints this tab's component with the old tab's report
+          // shape for one frame (the refetch only starts in an effect after
+          // this render), and e.g. RevenueReport.byPeriod.map() throws on
+          // an OccupancyReportDTO.
+          setReport(null);
+          setTab(k as ReportKey);
+        }}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         {tab !== 'cohorts' && (
