@@ -49,6 +49,12 @@ async function forward(
     headers,
     body: hasBody ? body : undefined,
     redirect: 'manual',
+    // Next.js's patched fetch() otherwise applies its data cache to GET
+    // requests by URL, independent of this route handler's own dynamic
+    // rendering -- silently serving a stale response (e.g. a role list
+    // missing a role created moments ago) to every request that follows
+    // the first, for as long as the server process lives.
+    cache: 'no-store',
   });
 }
 

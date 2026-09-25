@@ -308,3 +308,69 @@ kontrolü ve izin->menü filtrelemesi. `apps/web/src/lib/settings/*.spec.ts`
 yorum linki doğrulamasını kapsar. `pnpm --filter @platform/web test` (veya
 kökten `pnpm turbo run test`). API tarafında yeni `role-templates` uç
 noktaları `apps/api/test/e2e/role-templates.e2e-spec.ts` ile test edilir.
+
+### Tarayıcı e2e testleri (Playwright)
+
+`apps/web/e2e/` altında, gerçek bir Chromium tarayıcısında çalışan, tam
+yığını (build edilmiş API + build edilip başlatılmış Next.js) seed'lenmiş
+bir Postgres'e karşı süren uçtan uca testler var (`@playwright/test`,
+`apps/web/playwright.config.ts`). Birim testlerin aksine sahte fetch değil,
+gerçek tarayıcı, gerçek çerezler ve gerçek BFF/API isteği kullanılır. Kapsam:
+
+- `auth.e2e.ts` -- `/giris` üzerinden giriş jetonların httpOnly çerezlere
+  yazıldığını ve tarayıcı JS'inin (`document.cookie`) bunları hiç
+  göremediğini, `/api/bff/auth/me`'nin çerezle başarılı döndüğünü, çıkışın
+  çerezleri temizlediğini, kimliksiz `/dashboard` erişiminin `/giris`'e
+  yönlendirdiğini doğrular.
+- `nav.e2e.ts` -- işletme sahibinin tüm nav'ı gördüğünü, eğitmen rolünün
+  daraltılmış bir nav gördüğünü ve `/ayarlar/roller` ile `/finans`'ta 403
+  görünümüyle karşılaştığını doğrular.
+- `calendar.e2e.ts` -- yeni bir seans oluşturur, hafta görünümünde
+  göründüğünü ve yan panelin açıldığını doğrular.
+- `member-package-sale.e2e.ts` -- `/members`'tan bir üye açar, nakit
+  ödemeyle paket satar, satışın aktif paketlerde göründüğünü doğrular.
+- `settings-roles.e2e.ts` -- iki izinli bir rol oluşturur, ardından siler.
+- `reports.e2e.ts` -- rapor sekmeleri arasında geçiş yapar, CSV indirmenin
+  BFF üzerinden `text/csv` içerikle döndüğünü doğrular.
+- `csrf.e2e.ts` -- özel `x-requested-with` başlığı olmadan `/api/bff`'e
+  yapılan bir POST'un 403 ile reddedildiğini doğrular.
+
+Testler arasında paylaşılan durum yok: her test kendi rastgele son ekiyle
+(`apps/web/e2e/support/ids.ts`) benzersiz isimler üretir; oluşturduğu veriyi
+mümkün olduğunda kendi akışı içinde (ör. rol testinde oluşturup silerek)
+temizler. Seed'lenmiş demo girişleri kullanılır (sahip
+`+905321000002`, resepsiyon `+905321000003`, eğitmen `+905321000004`, üye
+`+905321000016`; şifre `Demo1234!`).
+
+**Yerelde çalıştırma** (bu ortamda Chromium `/opt/pw-browsers` altında
+önceden kurulu; `playwright install` çalıştırmayın):
+
+```bash
+# 1. Taze, seed'lenmiş bir veritabanı oluşturun
+docker exec t-pg psql -U u -d postgres -qc "create database pw_x"
+cd packages/database
+DATABASE_URL=postgresql://u:pw@localhost:5432/pw_x pnpm exec prisma generate
+DATABASE_URL=postgresql://u:pw@localhost:5432/pw_x pnpm exec prisma migrate deploy
+DATABASE_URL=postgresql://u:pw@localhost:5432/pw_x pnpm db:seed
+cd ../..
+
+# 2. API ve bağımlılıklarını (shared, database) build edin -- web'in kendi
+#    build'ini apps/web/playwright.config.ts'deki webServer zaten yapar
+pnpm turbo run build --filter=@platform/api...
+
+# 3. Testleri çalıştırın
+DATABASE_URL=postgresql://u:pw@localhost:5432/pw_x pnpm --filter @platform/web test:e2e
+
+# 4. Veritabanını temizleyin
+docker exec t-pg psql -U u -d postgres -qc "drop database pw_x"
+```
+
+`DATABASE_URL` zorunludur (varsayılan yoktur, çünkü hangi yerel Postgres'in
+kullanılacağı ortamdan ortama değişir); `JWT_SECRET` ve `OTP_TEST_CODE`
+verilmezse zararsız yerel varsayılanlarla çalışır (bkz.
+`apps/web/playwright.config.ts`). `packages/database`'in tip denetimi
+Prisma export'larından şikayet ederse önce orada `pnpm exec prisma
+generate` çalıştırın. `pnpm --filter @platform/web test:e2e`, kök
+`pnpm turbo run test`'e dahil DEĞİLDİR -- CI'da ayrı bir `web-e2e` job'u
+olarak çalışır (bkz. `docs/CICD_GUIDE.md`), çünkü tam bir tarayıcı +
+API + web sunucusu gerektirir ve birim testlerden çok daha yavaştır.
