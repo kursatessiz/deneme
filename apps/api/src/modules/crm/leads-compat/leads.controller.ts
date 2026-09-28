@@ -1,9 +1,9 @@
 import { Controller, Get, Param, ParseUUIDPipe, Post, Put } from '@nestjs/common';
-import { LeadsService } from './leads.service';
-import { StudioScoped, RequirePermission } from '../auth/decorators/require-permission.decorator';
-import { Tenant } from '../auth/decorators/current-user.decorator';
-import { ZodBody, ZodQuery } from '../../common/zod-body.pipe';
-import type { TenantContext } from '../auth/tenant-context';
+import { LeadsCompatService } from './leads-compat.service';
+import { StudioScoped, RequirePermission } from '../../auth/decorators/require-permission.decorator';
+import { Tenant } from '../../auth/decorators/current-user.decorator';
+import { ZodBody, ZodQuery } from '../../../common/zod-body.pipe';
+import type { TenantContext } from '../../auth/tenant-context';
 import {
   AddLeadActivitySchema,
   AddLeadActivityInput,
@@ -23,10 +23,17 @@ import {
   UpdateLeadInput,
 } from '@platform/shared';
 
+/**
+ * @deprecated W11 lead endpoints, kept as thin wrappers over contacts
+ * (LeadsCompatService) with unchanged shapes and permissions so the
+ * current web and mobile lead screens keep working. New clients use
+ * /crm/studios/:studioId/* (docs/CRM_VE_ATIF.md). Removed in the contract
+ * release together with the leads tables.
+ */
 @Controller('leads')
 @StudioScoped()
 export class LeadsController {
-  constructor(private leadsService: LeadsService) {}
+  constructor(private leadsService: LeadsCompatService) {}
 
   @Get('studio/:studioId')
   @RequirePermission('leads.view')

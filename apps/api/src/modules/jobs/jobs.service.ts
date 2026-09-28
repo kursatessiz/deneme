@@ -12,6 +12,7 @@ import { WebhookDispatcherService, DispatchOutcome } from '../webhooks/webhook-d
 import { PartnerSyncService, PartnerSyncOutcome } from '../partners/partner-sync.service';
 import { JoinReminderService } from '../video/join-reminder.service';
 import { SmsProviderBalanceService, SmsProviderBalanceResult } from '../notifications/sms-provider-balance.service';
+import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 
 export interface SchedulerRunResult {
   runAt: string;
@@ -25,6 +26,7 @@ export interface SchedulerRunResult {
   partnerSync: PartnerSyncOutcome;
   joinReminders: { reminded: number };
   smsProviderBalance: SmsProviderBalanceResult;
+  crmLifecycle: { lapsed: number };
 }
 
 /**
@@ -61,6 +63,7 @@ export class JobsService {
     private readonly partnerSync: PartnerSyncService,
     private readonly joinReminders: JoinReminderService,
     private readonly smsProviderBalance: SmsProviderBalanceService,
+    private readonly crm: CrmHooksService,
     @Optional() @InjectQueue(SCHEDULER_QUEUE) private readonly queue?: Queue,
   ) {}
 
@@ -82,6 +85,7 @@ export class JobsService {
     const partnerSyncResult = await this.partnerSync.runSync(now);
     const joinReminders = await this.joinReminders.sendDueReminders(now);
     const smsProviderBalance = await this.smsProviderBalance.checkIfDue(now);
+    const crmLifecycle = await this.crm.sweepLapsed(now);
 
     this.logger.log(
       `Scheduler heartbeat at ${now.toISOString()}: ${automations.length} automation rule(s), ` +
@@ -89,7 +93,8 @@ export class JobsService {
         `churn ${churn.studiosProcessed} studio(s), ${ratingPrompts.prompted} rating prompt(s), ${referrals.evaluated} referral(s), ` +
         `webhooks ${webhooks.succeeded} succeeded/${webhooks.failed} retrying/${webhooks.abandoned} abandoned, ` +
         `partner sync ${partnerSyncResult.availabilityPushed} push(es), ` +
-        `${joinReminders.reminded} join reminder(s), sms provider balance ${smsProviderBalance.status}`,
+        `${joinReminders.reminded} join reminder(s), sms provider balance ${smsProviderBalance.status}, ` +
+        `${crmLifecycle.lapsed} contact(s) lapsed`,
     );
 
     this.lastRunAt = now;
@@ -105,6 +110,7 @@ export class JobsService {
       partnerSync: partnerSyncResult,
       joinReminders,
       smsProviderBalance,
+      crmLifecycle,
     };
   }
 }

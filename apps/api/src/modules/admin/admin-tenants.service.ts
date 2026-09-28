@@ -1,9 +1,10 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { SubscriptionStatus } from '@platform/database';
 import { ALL_PERMISSIONS, DEFAULT_ROLE_TEMPLATES } from '@platform/shared';
 import type { CreateTenantInput, TenantDetailDTO, TenantListItemDTO } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { InvitesService } from '../invites/invites.service';
+import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 
 const TRIAL_PERIOD_DAYS = 30;
 
@@ -12,6 +13,7 @@ export class AdminTenantsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly invites: InvitesService,
+    @Optional() private readonly crm?: CrmHooksService,
   ) {}
 
   async list(): Promise<TenantListItemDTO[]> {
@@ -166,6 +168,10 @@ export class AdminTenantsService {
       ownerFullName,
       dto.ownerChannel,
     );
+
+    // Default pipeline stages, and studio_signup on the platform tenant when
+    // its CRM already knows the owner (e.g. from a landing page form).
+    await this.crm?.onStudioCreated(studioId, dto.ownerPhone);
 
     return { studioId, ownerInvite: invite };
   }

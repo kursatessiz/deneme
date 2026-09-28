@@ -13,6 +13,11 @@ import { AppModule } from '../../src/app.module';
  * The public-form describe block boots its own Nest application so the
  * in-memory rate-limit bucket (no Redis in this test environment) starts
  * fresh and its budget is not shared with, or exhausted by, any other test.
+ *
+ * G1b: /leads is now a deprecated compatibility layer over Contact. Every
+ * HTTP request and response assertion below is unchanged; only the direct
+ * database checks read the contacts table (the leads table is no longer
+ * written).
  */
 
 const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? 'Demo1234!';
@@ -106,9 +111,8 @@ describe('Leads (e2e)', () => {
   afterAll(async () => {
     await prisma.booking.deleteMany({ where: { id: { in: bookingIds } } });
     await prisma.sessionSchedule.deleteMany({ where: { id: { in: scheduleIds } } });
-    await prisma.leadActivity.deleteMany({ where: { leadId: { in: leadIds } } });
-    await prisma.lead.deleteMany({ where: { id: { in: leadIds } } });
-    await prisma.lead.deleteMany({ where: { studioId: { in: [ZEN, FLOW] }, phone: { startsWith: '+90539999' } } });
+    await prisma.contact.deleteMany({ where: { id: { in: leadIds } } });
+    await prisma.contact.deleteMany({ where: { studioId: { in: [ZEN, FLOW] }, phone: { startsWith: '+90539999' } } });
     await prisma.memberProfile.deleteMany({ where: { membershipId: { in: membershipIds } } });
     await prisma.membership.deleteMany({ where: { id: { in: membershipIds } } });
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
@@ -137,7 +141,7 @@ describe('Leads (e2e)', () => {
         .send({ fullName: 'Ghost Lead', phone: '+905399990199', consent: true });
       expect(res.status).toBe(202);
 
-      const lead = await prisma.lead.findFirst({ where: { phone: '+905399990199' } });
+      const lead = await prisma.contact.findFirst({ where: { phone: '+905399990199' } });
       expect(lead).toBeNull();
     });
 
@@ -147,7 +151,7 @@ describe('Leads (e2e)', () => {
         .send({ fullName: 'Spam Bot', phone: '+905399990100', consent: true, website: 'http://spam.example' });
       expect(res.status).toBe(202);
 
-      const lead = await prisma.lead.findFirst({ where: { phone: '+905399990100' } });
+      const lead = await prisma.contact.findFirst({ where: { phone: '+905399990100' } });
       expect(lead).toBeNull();
     });
 
@@ -157,23 +161,26 @@ describe('Leads (e2e)', () => {
         .send({ fullName: 'Web Formu Aday', phone: '+905399990101', email: 'aday@example.com', interest: 'Reformer', consent: true });
       expect(res.status).toBe(202);
 
-      const lead = await prisma.lead.findFirstOrThrow({ where: { studioId: ZEN, phone: '+905399990101' } });
+      const lead = await prisma.contact.findFirstOrThrow({
+        where: { studioId: ZEN, phone: '+905399990101' },
+        include: { pipelineStage: true },
+      });
       leadIds.push(lead.id);
-      expect(lead.stage).toBe('NEW');
-      expect(lead.source).toBe('WEB_FORM');
-      expect(lead.fullName).toBe('Web Formu Aday');
+      expect(lead.pipelineStage?.key).toBe('NEW');
+      expect(lead.sourceChannel).toBe('WEB_FORM');
+      expect(`${lead.firstName} ${lead.lastName}`).toBe('Web Formu Aday');
     });
 
     it('a duplicate phone with an open lead appends an activity instead of a new lead', async () => {
-      const before = await prisma.lead.count({ where: { studioId: ZEN, phone: '+905399990101' } });
+      const before = await prisma.contact.count({ where: { studioId: ZEN, phone: '+905399990101' } });
       const res = await request(publicServer)
         .post(`/public/studios/zen-reformer-pilates/leads`)
         .send({ fullName: 'Web Formu Aday', phone: '+905399990101', consent: true });
       expect(res.status).toBe(202);
 
-      const after = await prisma.lead.count({ where: { studioId: ZEN, phone: '+905399990101' } });
+      const after = await prisma.contact.count({ where: { studioId: ZEN, phone: '+905399990101' } });
       expect(after).toBe(before);
-      const activities = await prisma.leadActivity.count({ where: { leadId: leadIds[0] } });
+      const activities = await prisma.contactActivity.count({ where: { contactId: leadIds[0] } });
       expect(activities).toBeGreaterThanOrEqual(2);
     });
 
@@ -184,14 +191,14 @@ describe('Leads (e2e)', () => {
         .post(`/public/studios/zen-reformer-pilates/leads`)
         .send({ fullName: 'Rate Test 5', phone: '+905399990102', consent: true });
       expect(fifth.status).toBe(202);
-      leadIds.push((await prisma.lead.findFirstOrThrow({ where: { studioId: ZEN, phone: '+905399990102' } })).id);
+      leadIds.push((await prisma.contact.findFirstOrThrow({ where: { studioId: ZEN, phone: '+905399990102' } })).id);
 
       const sixth = await request(publicServer)
         .post(`/public/studios/zen-reformer-pilates/leads`)
         .send({ fullName: 'Rate Test 6', phone: '+905399990103', consent: true });
       expect(sixth.status).toBe(429);
 
-      const blocked = await prisma.lead.findFirst({ where: { studioId: ZEN, phone: '+905399990103' } });
+      const blocked = await prisma.contact.findFirst({ where: { studioId: ZEN, phone: '+905399990103' } });
       expect(blocked).toBeNull();
     });
   });
@@ -267,7 +274,7 @@ describe('Leads (e2e)', () => {
 
     it('overdue follow-ups filter finds a lead with a past next_follow_up_at', async () => {
       const leadId = leadIds[leadIds.length - 1];
-      await prisma.lead.update({ where: { id: leadId }, data: { nextFollowUpAt: new Date(Date.now() - HOUR) } });
+      await prisma.contact.update({ where: { id: leadId }, data: { nextFollowUpAt: new Date(Date.now() - HOUR) } });
 
       const res = await as(ownerToken).get(`/leads/studio/${ZEN}?overdue=true`);
       expect(res.status).toBe(200);
@@ -357,8 +364,9 @@ describe('Leads (e2e)', () => {
       const usersWithPhone = await prisma.user.count({ where: { phone: '+905399990401' } });
       expect(usersWithPhone).toBe(1);
 
-      const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId } });
-      expect(lead.convertedMembershipId).toBe(res.body.member.membershipId);
+      const lead = await prisma.contact.findUniqueOrThrow({ where: { id: leadId } });
+      expect(lead.membershipId).toBe(res.body.member.membershipId);
+      expect(res.body.lead.convertedMembershipId).toBe(res.body.member.membershipId);
     });
 
     it('a WON lead cannot be converted again', async () => {
@@ -391,8 +399,9 @@ describe('Leads (e2e)', () => {
 
   describe('cross-tenant isolation', () => {
     it('a lead from another studio is not reachable through this one', async () => {
-      const flowLead = await prisma.lead.create({
-        data: { studioId: FLOW, fullName: 'Flow Aday', phone: '+905399990601', source: 'OTHER' },
+      const flowStage = await prisma.pipelineStage.findUniqueOrThrow({ where: { studioId_key: { studioId: FLOW, key: 'NEW' } } });
+      const flowLead = await prisma.contact.create({
+        data: { studioId: FLOW, firstName: 'Flow', lastName: 'Aday', phone: '+905399990601', sourceChannel: 'OTHER', pipelineStageId: flowStage.id },
       });
 
       const res = await as(ownerToken).get(`/leads/${flowLead.id}/studio/${ZEN}`);
@@ -401,7 +410,7 @@ describe('Leads (e2e)', () => {
       const list = await as(ownerToken).get(`/leads/studio/${ZEN}`);
       expect(list.body.items.some((l: any) => l.id === flowLead.id)).toBe(false);
 
-      await prisma.lead.delete({ where: { id: flowLead.id } });
+      await prisma.contact.delete({ where: { id: flowLead.id } });
     });
   });
 });

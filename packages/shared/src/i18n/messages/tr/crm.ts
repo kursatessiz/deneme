@@ -1,0 +1,22 @@
+/** CRM vocabulary: built-in pipeline stages, lifecycle stages, custom field kinds, task states. */
+export const trCrm = {
+  'crm.stage.NEW': 'Yeni',
+  'crm.stage.CONTACTED': 'İletişime geçildi',
+  'crm.stage.TRIAL_BOOKED': 'Deneme planlandı',
+  'crm.stage.TRIAL_DONE': 'Deneme yapıldı',
+  'crm.stage.WON': 'Kazanıldı',
+  'crm.stage.LOST': 'Kaybedildi',
+  'crm.lifecycle.LEAD': 'Aday',
+  'crm.lifecycle.TRIAL': 'Deneme',
+  'crm.lifecycle.MEMBER': 'Aktif',
+  'crm.lifecycle.LAPSED': 'Süresi dolmuş',
+  'crm.lifecycle.LOST': 'Kaybedilmiş',
+  'crm.fieldKind.string': 'Metin',
+  'crm.fieldKind.number': 'Sayı',
+  'crm.fieldKind.date': 'Tarih',
+  'crm.fieldKind.boolean': 'Evet / hayır',
+  'crm.fieldKind.enum': 'Seçim listesi',
+  'crm.task.OPEN': 'Açık',
+  'crm.task.DONE': 'Tamamlandı',
+  'crm.task.CANCELLED': 'İptal edildi',
+} as const satisfies Record<string, string>;

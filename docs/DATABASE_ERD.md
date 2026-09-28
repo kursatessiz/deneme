@@ -105,6 +105,23 @@ erDiagram
     ServiceType ||--o{ Lead : interests
     Branch ||--o{ Lead : at
 
+    Studio ||--o{ Contact : has
+    Studio ||--o{ PipelineStage : defines
+    Studio ||--o{ ContactFieldDefinition : defines
+    Studio ||--o{ Visitor : tracks
+    Studio ||--o{ ConversionEvent : records
+    PipelineStage ||--o{ Contact : holds
+    Membership ||--o| Contact : becomes
+    Membership ||--o{ Contact : owns
+    Contact ||--o{ ContactActivity : logs
+    Contact ||--o{ ContactTask : has
+    Contact ||--o{ Touchpoint : attributed
+    Contact ||--o{ ConversionEvent : converts
+    Contact ||--o{ Contact : merged_into
+    Visitor ||--o{ Touchpoint : visits
+    Touchpoint ||--o{ ConversionEvent : credited
+    ConversionEvent ||--o{ ConversionDelivery : outbox
+
     Studio ||--o{ AutomationRule : configures
     Studio ||--o{ AutomationRun : has
     AutomationRule ||--o{ AutomationRun : produces
@@ -261,6 +278,24 @@ Formül ve durum makinesi için bkz. `docs/PAYROLL.md`.
 
 Açık (WON/LOST olmayan) bir aday aynı telefonla tekrar başvurursa (web formundan veya personel tarafından), yeni bir `leads` satırı açılmaz; bu, o adayın geçmişine bir `lead_activities` notu olarak eklenir (bkz. `LeadsService.create` ve `LeadsService.submitPublicForm`, `apps/api/src/modules/leads/leads.service.ts`). Aday WON veya LOST olduktan sonra aynı telefonla yeni bir aday açılabilir.
 
+**G1b ile birlikte `leads` ve `lead_activities` artık yazılmaz** (yalnızca okunur, uygulama kodu onları kullanmaz). Veriler `20260929000000_crm_attribution` migration'ı ile `contacts` ve `contact_activities` tablolarına taşındı; tablolar bir sürüm boyunca yerinde kalır ve daraltma (contract) sürümünde `crm_backfill_contacts()` fonksiyonu ile birlikte kaldırılır. Ayrıntılar: `docs/CRM_VE_ATIF.md`.
+
+## CRM ve Atıf (G1b)
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `contacts` | Kiracı başına tanınan her kişi (aday, deneme, üye, eski üye): ad, telefon (E.164), e-posta, dil, ülke, saat dilimi, yaşam döngüsü (`LEAD`, `TRIAL`, `MEMBER`, `LAPSED`, `LOST`), satış hattı aşaması, sorumlu personel, şube, etiketler, özel alanlar (JSON), bağlı üyelik, ilk/son temas noktası ve hızlı raporlama için ilk/son kaynak özet kolonları (kaynak, medium, kampanya adı, kampanya/reklam seti/reklam kimliği), elle girilen kanal (`source_channel`), test işareti, birleştirme (`merged_into_id`) | `(studio_id, phone)` ve `(studio_id, lower(email))` üzerinde `merged_into_id IS NULL` koşullu kısmi benzersiz index'ler (migration SQL'inde, Prisma şemasında ifade edilemez); `membership_id` benzersiz; `tags` üzerinde GIN index; (studio_id, lifecycle_stage), (studio_id, pipeline_stage_id), (studio_id, owner_membership_id), (studio_id, phone), (studio_id, next_follow_up_at), (studio_id, first_source), (studio_id, last_source) index |
+| `contact_activities` | Kişi zaman çizelgesi (`lead_activities`'in yerine): not, arama, mesaj, aşama ve yaşam döngüsü değişikliği, form, birleştirme | (contact_id, created_at) ve (studio_id, created_at) index |
+| `contact_field_definitions` | Kiracının özel kişi alanları: anahtar, dile göre etiket (JSON), tür (`string`, `number`, `date`, `boolean`, `enum`), seçenekler | (studio_id, key) benzersiz |
+| `pipeline_stages` | Kiracının satış hattı aşamaları (eski `LeadStage` enum'unun yerine kiracı verisi); sistem aşamaları NEW, CONTACTED, TRIAL_BOOKED, TRIAL_DONE, WON, LOST; `kind` OPEN/WON/LOST | (studio_id, key) benzersiz; (studio_id, sort_order) index |
+| `contact_tasks` | Kişi üzerindeki takip görevi: başlık, bitiş zamanı, atanan personel, durum (OPEN, DONE, CANCELLED) | (studio_id, status, due_at), (contact_id), (assignee_membership_id, status) index |
+| `visitors` | Anonim ziyaretçi (`pw_vid` çerezi) ve tanındıysa bağlı kişi | birincil anahtar (studio_id, id) |
+| `touchpoints` | Oturumun ilk isteği veya takip parametresi taşıyan her istek: açılış host'u ve yolu (sorgu dizesi olmadan), yönlendiren host, UTM kolonları, reklam platformu, `pw_cid`/`pw_asid`/`pw_adid`/`pw_plc`, tıklama kimlikleri ve `fbp`/`fbc` (yalnızca reklam izniyle), dil, kaba ülke kodu (IP saklanmaz), cihaz türü, sayfa varyantı, etiketsiz ücretli trafik işareti | ziyaretçiye (studio_id, visitor_id) bileşik yabancı anahtar; (studio_id, visitor_id, occurred_at), (studio_id, contact_id, occurred_at), (studio_id, occurred_at), (studio_id, session_id) index |
+| `conversion_events` | Dönüşüm olayı (`lead`, `trial_booked`, `trial_attended`, `purchase`, `subscription_started`, `subscription_renewed`; platform kiracısında `studio_signup`, `studio_paid`): tutar + para birimi, olay kimliği, kişi, atfedilen son temas noktası, test işareti | (studio_id, event_id) benzersiz; idempotency için (studio_id, source_kind, source_id) benzersiz; (studio_id, type, occurred_at) index |
+| `conversion_deliveries` | Reklam platformlarına sunucu tarafı gönderim kuyruğu (outbox): hedef, durum, deneme sayısı, sonraki deneme, son hata. Yalnızca kiracının bağlı reklam hesabı varsa PENDING satır yazılır (G2b) | (conversion_event_id, target) benzersiz; (status, next_attempt_at) index |
+
+`studios.is_platform`: platformun kendi kiracısı (slug `platform`); `WHERE is_platform` kısmi benzersiz index'i en fazla bir satırın işaretli olmasını zorunlu kılar.
+
 ## Otomasyon (Otomatik Pazarlama ve Yaşam Döngüsü Akışları)
 
 | Tablo | Amaç | Kısıtlar |
@@ -390,6 +425,8 @@ Sahip kararı: partner misafiri kendisi stüdyoya katılana kadar mesajlaşma/et
 10. **İade Sınırı** (uygulama seviyesinde, `PaymentsService.refundPayment` içinde koşullu `updateMany` ile): `refunded_amount`, okunan anlık değer üzerinden koşullu güncellenir; eşzamanlı iki iade isteği `amount`'u asla aşamaz ve ikinci istek `409 Conflict` alır.
 
 10. **Açık Aday Başına Tek Telefon**: (studio_id, open_phone) benzersiz kısıtı, aynı işletmede aynı telefonla birden fazla açık aday oluşmasını engeller. `open_phone` yalnızca aday açıkken dolu olduğu için kapanmış (WON/LOST) adaylar kısıtın dışında kalır.
+
+10b. **CRM Kişi Tekilliği** (G1b, migration `20260929000000_crm_attribution`): `contacts_studio_phone_active_key` (studio_id, phone) ve `contacts_studio_email_active_key` (studio_id, lower(email)) kısmi benzersiz index'leri, birleştirilmemiş (`merged_into_id IS NULL`) kişiler arasında aynı işletmede aynı telefon veya (büyük/küçük harf duyarsız) aynı e-postayla iki kişi olmasını engeller. Birleştirilen kişi gizlenir ve kısıtın dışında kalır. `studios_single_platform_key` en fazla bir platform kiracısına izin verir. Bu index'ler Prisma şemasında ifade edilemediği için yalnızca migration SQL'indedir; drift kontrolü kısmi ve ifade index'lerini yok sayar.
 
 11. **Satış Araçları Yarış Güvenliği** (W9, uygulama seviyesinde): deneme teklifi ve promosyon kodu kullanıcı limitleri `redemption_counters` üzerinde tek bir `INSERT ... ON CONFLICT DO UPDATE ... WHERE count < limit` deyimiyle; promosyon kodunun toplam kullanım limiti `promo_codes.redeemed_count` üzerinde koşullu `updateMany` (`redeemed_count < max_redemptions`) ile; hediye kartı bakiyesi `gift_cards.balance` üzerinde koşullu `updateMany` (`balance >= amount`) ile korunur. Her üçü de eşzamanlı isteklerde tam olarak izin verilen sayıda işlemin başarılı olmasını garanti eder.
 

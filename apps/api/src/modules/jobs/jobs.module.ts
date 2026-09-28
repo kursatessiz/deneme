@@ -8,6 +8,7 @@ import { FeedbackModule } from '../feedback/feedback.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
 import { PartnersModule } from '../partners/partners.module';
 import { VideoModule } from '../video/video.module';
+import { CrmCoreModule } from '../crm/crm-core.module';
 import { JobsService } from './jobs.service';
 import { SchedulerController } from './scheduler.controller';
 import { SchedulerProcessor } from './scheduler.processor';
@@ -34,6 +35,7 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
     WebhooksModule,
     PartnersModule,
     VideoModule,
+    CrmCoreModule,
     ...(redisConfigured
       ? [
           BullModule.forRoot({ connection: { url: process.env.REDIS_URL } }),

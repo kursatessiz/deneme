@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { InvitesModule } from '../invites/invites.module';
 import { JobsModule } from '../jobs/jobs.module';
+import { CrmCoreModule } from '../crm/crm-core.module';
 import { AdminTenantsController } from './admin-tenants.controller';
 import { AdminTenantsService } from './admin-tenants.service';
 import { AdminPlansController } from './admin-plans.controller';
@@ -27,7 +28,7 @@ import { AdminHealthService } from './admin-health.service';
  * here, so tenant-facing modules do not need to import this whole module.
  */
 @Module({
-  imports: [InvitesModule, JobsModule],
+  imports: [InvitesModule, JobsModule, CrmCoreModule],
   controllers: [
     AdminTenantsController,
     AdminPlansController,

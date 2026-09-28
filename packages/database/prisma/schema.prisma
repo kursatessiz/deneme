@@ -523,6 +523,9 @@ model Studio {
   embedAllowedOrigins    String[] @default([]) @map("embed_allowed_origins")
   /// Language new users of this studio see until they pick their own (Language.code).
   defaultLocale          String   @default("tr") @map("default_locale") @db.VarChar(10)
+  /// The platform's own tenant (its marketing CRM and site). At most one row
+  /// is true (partial unique index in the migration SQL).
+  isPlatform             Boolean  @default(false) @map("is_platform")
   isActive               Boolean  @default(true) @map("is_active")
   createdAt              DateTime @default(now()) @map("created_at")
   updatedAt              DateTime @updatedAt @map("updated_at")
@@ -566,6 +569,15 @@ model Studio {
   payrollLines          PayrollLine[]
   leads                 Lead[]
   leadActivities        LeadActivity[]
+  pipelineStages        PipelineStage[]
+  contacts              Contact[]
+  contactActivities     ContactActivity[]
+  contactFieldDefinitions ContactFieldDefinition[]
+  contactTasks          ContactTask[]
+  visitors              Visitor[]
+  touchpoints           Touchpoint[]
+  conversionEvents      ConversionEvent[]
+  conversionDeliveries  ConversionDelivery[]
   invoiceSettings       InvoiceSettings?
   invoiceCounters       InvoiceCounter[]
   invoices              Invoice[]
@@ -626,6 +638,7 @@ model Branch {
   homeMembers MemberProfile[]    @relation("MemberHomeBranch")
   payrollRuns   PayrollRun[]
   leads         Lead[]
+  contacts      Contact[]
   invoices      Invoice[]
   checkInPoints CheckInPoint[]
   kioskDevices  KioskDevice[]
@@ -741,6 +754,11 @@ model Membership {
   leadsOwned     Lead[]             @relation("LeadOwner")
   leadsConverted Lead[]             @relation("LeadConverted")
   leadActivities LeadActivity[]     @relation("LeadActivityActor")
+  contact              Contact?          @relation("ContactMembership")
+  contactsOwned        Contact[]         @relation("ContactOwner")
+  contactActivities    ContactActivity[] @relation("ContactActivityActor")
+  contactTasksAssigned ContactTask[]     @relation("ContactTaskAssignee")
+  contactTasksCreated  ContactTask[]     @relation("ContactTaskCreator")
 
   @@unique([userId, studioId])
   @@index([studioId, status])
@@ -1116,6 +1134,7 @@ model ServiceType {
   packageServices       PackageDefinitionService[]
   schedules             SessionSchedule[]
   leads                 Lead[]
+  interestedContacts    Contact[]
   ratings               SessionRating[]
   videoContents         VideoContent[]
 
@@ -2038,6 +2057,340 @@ model LeadActivity {
 
   @@index([leadId, createdAt])
   @@map("lead_activities")
+}
+
+// ---------------------------------------------------------------------------
+// G1b: CRM contacts, visitor/touchpoint attribution, conversion events
+// (docs/CRM_VE_ATIF.md, docs/BUYUME_VE_GLOBAL_MIMARI.md 3.1-3.3). Contact
+// replaces Lead/LeadActivity, which stay in place unwritten until the
+// contract release drops them.
+// ---------------------------------------------------------------------------
+
+/// Mirrors LIFECYCLE_STAGES in @platform/shared (growth/conversions.ts).
+enum ContactLifecycleStage {
+  LEAD
+  TRIAL
+  MEMBER
+  LAPSED
+  LOST
+}
+
+/// Terminal behaviour of a tenant pipeline stage.
+enum PipelineStageKind {
+  OPEN
+  WON
+  LOST
+}
+
+enum ContactTaskStatus {
+  OPEN
+  DONE
+  CANCELLED
+}
+
+/// Tenant-defined sales pipeline stage. Every tenant gets the system
+/// defaults (NEW, CONTACTED, TRIAL_BOOKED, TRIAL_DONE, WON, LOST); a null
+/// name renders the i18n label crm.stage.<key>.
+model PipelineStage {
+  id        String            @id @default(uuid()) @db.Uuid
+  studioId  String            @map("studio_id") @db.Uuid
+  key       String            @db.VarChar(40)
+  name      String?           @db.VarChar(80)
+  kind      PipelineStageKind @default(OPEN)
+  sortOrder Int               @default(0) @map("sort_order")
+  isSystem  Boolean           @default(false) @map("is_system")
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+
+  studio   Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  contacts Contact[]
+
+  @@unique([studioId, key])
+  @@index([studioId, sortOrder])
+  @@map("pipeline_stages")
+}
+
+/// One known person per tenant: lead, trial, member or former member.
+/// Phone and lower(email) are unique per studio among unmerged rows
+/// (partial unique indexes in the migration SQL).
+model Contact {
+  id                    String                @id @default(uuid()) @db.Uuid
+  studioId              String                @map("studio_id") @db.Uuid
+  firstName             String                @map("first_name") @db.VarChar(60)
+  lastName              String                @default("") @map("last_name") @db.VarChar(60)
+  /// E.164, e.g. +905321112233
+  phone                 String?               @db.VarChar(20)
+  email                 String?               @db.VarChar(120)
+  locale                String?               @db.VarChar(10)
+  countryCode           String?               @map("country_code") @db.VarChar(2)
+  timezone              String?               @db.VarChar(60)
+  lifecycleStage        ContactLifecycleStage @default(LEAD) @map("lifecycle_stage")
+  /// Null when the contact is not in the sales pipeline (e.g. a member who
+  /// never came in as a lead).
+  pipelineStageId       String?               @map("pipeline_stage_id") @db.Uuid
+  ownerMembershipId     String?               @map("owner_membership_id") @db.Uuid
+  branchId              String?               @map("branch_id") @db.Uuid
+  tags                  String[]              @default([])
+  /// Values keyed by ContactFieldDefinition.key.
+  customFields          Json                  @default("{}") @map("custom_fields")
+  /// The tenant membership this contact became (one contact per membership).
+  membershipId          String?               @unique @map("membership_id") @db.Uuid
+  firstTouchpointId     String?               @map("first_touchpoint_id") @db.Uuid
+  lastTouchpointId      String?               @map("last_touchpoint_id") @db.Uuid
+  // Attribution summary copied from the first/last touchpoint for fast reporting.
+  firstSource           String?               @map("first_source") @db.VarChar(250)
+  firstMedium           String?               @map("first_medium") @db.VarChar(250)
+  firstCampaignName     String?               @map("first_campaign_name") @db.VarChar(250)
+  firstCampaignId       String?               @map("first_campaign_id") @db.VarChar(250)
+  firstAdsetId          String?               @map("first_adset_id") @db.VarChar(250)
+  firstAdId             String?               @map("first_ad_id") @db.VarChar(250)
+  lastSource            String?               @map("last_source") @db.VarChar(250)
+  lastMedium            String?               @map("last_medium") @db.VarChar(250)
+  lastCampaignName      String?               @map("last_campaign_name") @db.VarChar(250)
+  lastCampaignId        String?               @map("last_campaign_id") @db.VarChar(250)
+  lastAdsetId           String?               @map("last_adset_id") @db.VarChar(250)
+  lastAdId              String?               @map("last_ad_id") @db.VarChar(250)
+  /// Manual acquisition channel (WEB_FORM, INSTAGRAM, WALK_IN, REFERRAL, PHONE, OTHER, ...).
+  sourceChannel         String?               @map("source_channel") @db.VarChar(30)
+  sourceDetail          String?               @map("source_detail") @db.VarChar(200)
+  interestServiceTypeId String?               @map("interest_service_type_id") @db.Uuid
+  lostReason            String?               @map("lost_reason") @db.Text
+  nextFollowUpAt        DateTime?             @map("next_follow_up_at")
+  referralCode          String?               @map("referral_code") @db.VarChar(24)
+  notes                 String?               @db.Text
+  /// Test traffic: kept, never reported and never sent to ad platforms.
+  isTest                Boolean               @default(false) @map("is_test")
+  /// Set on the losing side of a merge; merged rows are hidden everywhere.
+  mergedIntoId          String?               @map("merged_into_id") @db.Uuid
+  createdAt             DateTime              @default(now()) @map("created_at")
+  updatedAt             DateTime              @updatedAt @map("updated_at")
+
+  studio              Studio            @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  pipelineStage       PipelineStage?    @relation(fields: [pipelineStageId], references: [id], onDelete: SetNull)
+  ownerMembership     Membership?       @relation("ContactOwner", fields: [ownerMembershipId], references: [id], onDelete: SetNull)
+  membership          Membership?       @relation("ContactMembership", fields: [membershipId], references: [id], onDelete: SetNull)
+  branch              Branch?           @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  interestServiceType ServiceType?      @relation(fields: [interestServiceTypeId], references: [id], onDelete: SetNull)
+  firstTouchpoint     Touchpoint?       @relation("ContactFirstTouch", fields: [firstTouchpointId], references: [id], onDelete: SetNull)
+  lastTouchpoint      Touchpoint?       @relation("ContactLastTouch", fields: [lastTouchpointId], references: [id], onDelete: SetNull)
+  mergedInto          Contact?          @relation("ContactMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedFrom          Contact[]         @relation("ContactMerge")
+  activities          ContactActivity[]
+  tasks               ContactTask[]
+  visitors            Visitor[]
+  touchpoints         Touchpoint[]      @relation("TouchpointContact")
+  conversions         ConversionEvent[]
+
+  @@index([studioId, lifecycleStage])
+  @@index([studioId, pipelineStageId])
+  @@index([studioId, ownerMembershipId])
+  @@index([studioId, phone])
+  @@index([studioId, nextFollowUpAt])
+  @@index([studioId, firstSource])
+  @@index([studioId, lastSource])
+  @@index([tags], type: Gin)
+  @@map("contacts")
+}
+
+/// Timeline entry on a contact (replaces LeadActivity). type is one of
+/// CONTACT_ACTIVITY_TYPES in @platform/shared.
+model ContactActivity {
+  id                String   @id @default(uuid()) @db.Uuid
+  studioId          String   @map("studio_id") @db.Uuid
+  contactId         String   @map("contact_id") @db.Uuid
+  type              String   @db.VarChar(30)
+  body              String   @db.Text
+  actorMembershipId String?  @map("actor_membership_id") @db.Uuid
+  metadata          Json?
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  studio          Studio      @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  contact         Contact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  actorMembership Membership? @relation("ContactActivityActor", fields: [actorMembershipId], references: [id], onDelete: SetNull)
+
+  @@index([contactId, createdAt])
+  @@index([studioId, createdAt])
+  @@map("contact_activities")
+}
+
+/// Tenant custom contact field. label is a locale -> text map so tenants
+/// can name the field in each language they use.
+model ContactFieldDefinition {
+  id         String   @id @default(uuid()) @db.Uuid
+  studioId   String   @map("studio_id") @db.Uuid
+  key        String   @db.VarChar(60)
+  label      Json
+  /// One of CONTACT_FIELD_KINDS in @platform/shared.
+  kind       String   @db.VarChar(20)
+  /// Allowed values when kind is enum.
+  options    String[] @default([])
+  sortOrder  Int      @default(0) @map("sort_order")
+  isArchived Boolean  @default(false) @map("is_archived")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@unique([studioId, key])
+  @@map("contact_field_definitions")
+}
+
+/// Follow-up work on a contact (call, message, visit) assigned to staff.
+model ContactTask {
+  id                    String            @id @default(uuid()) @db.Uuid
+  studioId              String            @map("studio_id") @db.Uuid
+  contactId             String            @map("contact_id") @db.Uuid
+  title                 String            @db.VarChar(200)
+  notes                 String?           @db.Text
+  dueAt                 DateTime?         @map("due_at")
+  assigneeMembershipId  String?           @map("assignee_membership_id") @db.Uuid
+  status                ContactTaskStatus @default(OPEN)
+  completedAt           DateTime?         @map("completed_at")
+  createdByMembershipId String?           @map("created_by_membership_id") @db.Uuid
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @updatedAt @map("updated_at")
+
+  studio              Studio      @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  contact             Contact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  assigneeMembership  Membership? @relation("ContactTaskAssignee", fields: [assigneeMembershipId], references: [id], onDelete: SetNull)
+  createdByMembership Membership? @relation("ContactTaskCreator", fields: [createdByMembershipId], references: [id], onDelete: SetNull)
+
+  @@index([studioId, status, dueAt])
+  @@index([contactId])
+  @@index([assigneeMembershipId, status])
+  @@map("contact_tasks")
+}
+
+/// Anonymous browser identity (the pw_vid first-party cookie) per tenant.
+model Visitor {
+  /// The pw_vid cookie value.
+  id          String   @db.Uuid
+  studioId    String   @map("studio_id") @db.Uuid
+  firstSeenAt DateTime @default(now()) @map("first_seen_at")
+  lastSeenAt  DateTime @default(now()) @map("last_seen_at")
+  contactId   String?  @map("contact_id") @db.Uuid
+
+  studio      Studio       @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  contact     Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  touchpoints Touchpoint[]
+
+  @@id([studioId, id])
+  @@index([studioId, contactId])
+  @@map("visitors")
+}
+
+/// First request of a visit session (or any request carrying tracking
+/// parameters). Never stores an IP address or a query string.
+model Touchpoint {
+  id             String   @id @default(uuid()) @db.Uuid
+  studioId       String   @map("studio_id") @db.Uuid
+  visitorId      String   @map("visitor_id") @db.Uuid
+  sessionId      String   @map("session_id") @db.Uuid
+  occurredAt     DateTime @default(now()) @map("occurred_at")
+  landingHost    String?  @map("landing_host") @db.VarChar(255)
+  /// Path only; the query string and fragment are stripped before storage.
+  landingPath    String   @map("landing_path") @db.VarChar(2000)
+  referrerHost   String?  @map("referrer_host") @db.VarChar(255)
+  utmSource      String?  @map("utm_source") @db.VarChar(250)
+  utmMedium      String?  @map("utm_medium") @db.VarChar(250)
+  utmCampaign    String?  @map("utm_campaign") @db.VarChar(250)
+  utmId          String?  @map("utm_id") @db.VarChar(250)
+  utmTerm        String?  @map("utm_term") @db.VarChar(250)
+  utmContent     String?  @map("utm_content") @db.VarChar(250)
+  /// One of AD_PLATFORMS in @platform/shared.
+  adPlatform     String?  @map("ad_platform") @db.VarChar(20)
+  pwCid          String?  @map("pw_cid") @db.VarChar(250)
+  pwAsid         String?  @map("pw_asid") @db.VarChar(250)
+  pwAdid         String?  @map("pw_adid") @db.VarChar(250)
+  pwPlc          String?  @map("pw_plc") @db.VarChar(250)
+  // Click ids and Meta browser cookies: stored only with advertising consent.
+  fbclid         String?  @db.VarChar(250)
+  gclid          String?  @db.VarChar(250)
+  gbraid         String?  @db.VarChar(250)
+  wbraid         String?  @db.VarChar(250)
+  ttclid         String?  @db.VarChar(250)
+  liFatId        String?  @map("li_fat_id") @db.VarChar(250)
+  msclkid        String?  @db.VarChar(250)
+  fbp            String?  @db.VarChar(250)
+  fbc            String?  @db.VarChar(250)
+  locale         String?  @db.VarChar(10)
+  /// Coarse country from the edge proxy header; the IP is never stored.
+  countryCode    String?  @map("country_code") @db.VarChar(2)
+  deviceType     String?  @map("device_type") @db.VarChar(10)
+  pageVariant    String?  @map("page_variant") @db.VarChar(40)
+  isPaidUntagged Boolean  @default(false) @map("is_paid_untagged")
+  contactId      String?  @map("contact_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  studio           Studio            @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  visitor          Visitor           @relation(fields: [studioId, visitorId], references: [studioId, id], onDelete: Cascade)
+  contact          Contact?          @relation("TouchpointContact", fields: [contactId], references: [id], onDelete: SetNull)
+  firstTouchOf     Contact[]         @relation("ContactFirstTouch")
+  lastTouchOf      Contact[]         @relation("ContactLastTouch")
+  attributedEvents ConversionEvent[]
+
+  @@index([studioId, visitorId, occurredAt])
+  @@index([studioId, contactId, occurredAt])
+  @@index([studioId, occurredAt])
+  @@index([studioId, sessionId])
+  @@map("touchpoints")
+}
+
+/// Funnel event (CONVERSION_EVENT_TYPES in @platform/shared). Idempotent
+/// on (studioId, sourceKind, sourceId).
+model ConversionEvent {
+  id                     String   @id @default(uuid()) @db.Uuid
+  studioId               String   @map("studio_id") @db.Uuid
+  /// Shared with the browser pixel so ad platforms de-duplicate.
+  eventId                String   @map("event_id") @db.VarChar(100)
+  type                   String   @db.VarChar(30)
+  occurredAt             DateTime @map("occurred_at")
+  contactId              String   @map("contact_id") @db.Uuid
+  valueAmount            Decimal? @map("value_amount") @db.Decimal(14, 4)
+  currency               String?  @db.VarChar(3)
+  sourceKind             String   @map("source_kind") @db.VarChar(40)
+  sourceId               String   @map("source_id") @db.VarChar(100)
+  isTest                 Boolean  @default(false) @map("is_test")
+  /// Last touchpoint before the event within the attribution window.
+  attributedTouchpointId String?  @map("attributed_touchpoint_id") @db.Uuid
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  studio               Studio               @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  contact              Contact              @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  attributedTouchpoint Touchpoint?          @relation(fields: [attributedTouchpointId], references: [id], onDelete: SetNull)
+  deliveries           ConversionDelivery[]
+
+  @@unique([studioId, eventId])
+  @@unique([studioId, sourceKind, sourceId])
+  @@index([studioId, type, occurredAt])
+  @@index([contactId])
+  @@map("conversion_events")
+}
+
+/// Outbox row per (event, ad platform target). Written as PENDING only
+/// when the tenant has that ad platform connected; delivered by G2b.
+model ConversionDelivery {
+  id                String    @id @default(uuid()) @db.Uuid
+  studioId          String    @map("studio_id") @db.Uuid
+  conversionEventId String    @map("conversion_event_id") @db.Uuid
+  /// One of CONVERSION_DELIVERY_TARGETS in @platform/shared.
+  target            String    @db.VarChar(20)
+  /// One of CONVERSION_DELIVERY_STATUSES in @platform/shared.
+  status            String    @default("PENDING") @db.VarChar(24)
+  attempts          Int       @default(0)
+  nextAttemptAt     DateTime? @map("next_attempt_at")
+  lastError         String?   @map("last_error") @db.Text
+  sentAt            DateTime? @map("sent_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  studio          Studio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  conversionEvent ConversionEvent @relation(fields: [conversionEventId], references: [id], onDelete: Cascade)
+
+  @@unique([conversionEventId, target])
+  @@index([status, nextAttemptAt])
+  @@index([studioId])
+  @@map("conversion_deliveries")
 }
 
 // ---------------------------------------------------------------------------

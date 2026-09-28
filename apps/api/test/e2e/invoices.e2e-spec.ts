@@ -108,6 +108,8 @@ describe('Invoices (e2e)', () => {
     await prisma.invoice.deleteMany({ where: { id: { in: invoiceIds } } });
     await prisma.invoiceCounter.deleteMany({ where: { studioId: ZEN, seriesPrefix: SERIES_PREFIX } });
     await prisma.payment.deleteMany({ where: { id: { in: paymentIds } } });
+    // G1b: purchase/subscription conversion events of the payments deleted above.
+    await prisma.$executeRaw`DELETE FROM "conversion_events" ce WHERE ce."source_kind" IN ('payment', 'subscription_payment') AND NOT EXISTS (SELECT 1 FROM "payments" p WHERE p."id"::text = ce."source_id")`;
     await prisma.memberPackage.deleteMany({ where: { id: { in: memberPackageIds } } });
     await prisma.billingProfile.deleteMany({ where: { studioId: ZEN, memberId: { in: [memberId, otherMemberId] } } });
     await prisma.invoiceSettings.deleteMany({ where: { studioId: ZEN } });
