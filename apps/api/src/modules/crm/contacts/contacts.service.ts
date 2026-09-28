@@ -255,7 +255,7 @@ export class ContactsService {
         take: query.limit,
       }),
     ]);
-    return { items: items.map(toContactDto), total, page: query.page, limit: query.limit };
+    return { items: items.map((c) => toContactDto(c, canSeeMemberContact(tenant))), total, page: query.page, limit: query.limit };
   }
 
   async detail(tenant: TenantContext, contactId: string) {
@@ -272,7 +272,7 @@ export class ContactsService {
     if (!contact) throw new NotFoundException('Kişi bulunamadı');
     assertBranchAccess(tenant, contact.branchId);
     return {
-      ...toContactDto(contact),
+      ...toContactDto(contact, canSeeMemberContact(tenant)),
       activities: contact.activities.map((a) => ({
         id: a.id,
         type: a.type,
@@ -347,7 +347,7 @@ export class ContactsService {
       customFields,
     });
     if (dto.timezone) await this.prisma.contact.update({ where: { id: contact.id }, data: { timezone: dto.timezone } });
-    return this.getDto(studioId, contact.id);
+    return this.getDto(studioId, contact.id, canSeeMemberContact(tenant));
   }
 
   async update(tenant: TenantContext, contactId: string, dto: UpdateContactInput): Promise<ContactDTO> {
@@ -401,7 +401,7 @@ export class ContactsService {
       const fresh = await this.prisma.contact.findUniqueOrThrow({ where: { id: contact.id } });
       await this.applyLifecycle(fresh, 'lead', { force: dto.lifecycleStage, actorMembershipId: tenant.membershipId });
     }
-    return this.getDto(studioId, contact.id);
+    return this.getDto(studioId, contact.id, canSeeMemberContact(tenant));
   }
 
   async addActivity(tenant: TenantContext, contactId: string, dto: AddContactActivityInput) {
@@ -416,7 +416,7 @@ export class ContactsService {
     const remove = new Set(dto.remove);
     const tags = dedupeTags([...contact.tags.filter((t) => !remove.has(t)), ...dto.add]);
     await this.prisma.contact.update({ where: { id: contact.id }, data: { tags } });
-    return this.getDto(tenant.studioId, contact.id);
+    return this.getDto(tenant.studioId, contact.id, canSeeMemberContact(tenant));
   }
 
   /** Distinct tags in use with how many (unmerged) contacts carry each. */
@@ -531,7 +531,7 @@ export class ContactsService {
     });
 
     await this.attribution.refreshContactTouches(studioId, survivor.id);
-    return this.getDto(studioId, survivor.id);
+    return this.getDto(studioId, survivor.id, canSeeMemberContact(tenant));
   }
 
   async exportCsv(tenant: TenantContext, query: ContactExportQuery): Promise<string> {
@@ -561,14 +561,16 @@ export class ContactsService {
       'sourceChannel',
       'createdAt',
     ];
+    const showMemberContact = canSeeMemberContact(tenant);
     const rows = contacts.map((c) => {
       const owner = c.ownerMembership?.user;
+      const hideContact = !showMemberContact && c.membershipId !== null;
       return [
         c.id,
         c.firstName,
         c.lastName,
-        c.phone,
-        c.email,
+        hideContact ? null : c.phone,
+        hideContact ? null : c.email,
         c.locale,
         c.countryCode,
         c.lifecycleStage,
@@ -590,9 +592,9 @@ export class ContactsService {
   // Helpers
   // -------------------------------------------------------------------------
 
-  async getDto(studioId: string, contactId: string): Promise<ContactDTO> {
+  async getDto(studioId: string, contactId: string, showMemberContact = true): Promise<ContactDTO> {
     const contact = await this.prisma.contact.findFirstOrThrow({ where: { id: contactId, studioId }, include: CONTACT_DTO_INCLUDE });
-    return toContactDto(contact);
+    return toContactDto(contact, showMemberContact);
   }
 
   async getOwn(tenant: TenantContext, contactId: string): Promise<Contact> {
@@ -646,7 +648,7 @@ export class ContactsService {
         ],
       });
     }
-    if (query.search) and.push(searchFilter(query.search));
+    if (query.search) and.push(searchFilter(query.search, canSeeMemberContact(tenant)));
     const tag = query.tag ? normalizeTag(query.tag) : null;
     return {
       studioId: tenant.studioId,
@@ -662,13 +664,16 @@ export class ContactsService {
 }
 
 /** Name, phone or email contains the text; "first last" also matches across both name columns. */
-export function searchFilter(search: string): Prisma.ContactWhereInput {
+export function searchFilter(search: string, matchMemberContact = true): Prisma.ContactWhereInput {
   const text = search.trim();
+  // Without members.contact.view, phone/email only match non-member contacts,
+  // so the search cannot be used to confirm a member's number.
+  const contactScope: Prisma.ContactWhereInput = matchMemberContact ? {} : { membershipId: null };
   const or: Prisma.ContactWhereInput[] = [
     { firstName: { contains: text, mode: 'insensitive' } },
     { lastName: { contains: text, mode: 'insensitive' } },
-    { phone: { contains: text } },
-    { email: { contains: text, mode: 'insensitive' } },
+    { phone: { contains: text }, ...contactScope },
+    { email: { contains: text, mode: 'insensitive' }, ...contactScope },
   ];
   const parts = text.split(/\s+/);
   if (parts.length > 1) {
@@ -691,16 +696,28 @@ export function dedupeTags(tags: readonly string[]): string[] {
   return out;
 }
 
-export function toContactDto(c: ContactWithRelations): ContactDTO {
+/**
+ * Whether the caller may see phone and email of contacts linked to a
+ * membership. Members' contact details have always required
+ * members.contact.view (see the churn phone-search fix); crm.view alone
+ * must not widen that, so without it member contacts come back without
+ * phone/email and are not matched by phone/email search.
+ */
+export function canSeeMemberContact(tenant: Pick<TenantContext, 'permissions'>): boolean {
+  return tenant.permissions.has('members.contact.view');
+}
+
+export function toContactDto(c: ContactWithRelations, showMemberContact = true): ContactDTO {
   const owner = c.ownerMembership?.user;
+  const hideContact = !showMemberContact && c.membershipId !== null;
   return {
     id: c.id,
     studioId: c.studioId,
     firstName: c.firstName,
     lastName: c.lastName,
     fullName: contactDisplayName(c),
-    phone: c.phone,
-    email: c.email,
+    phone: hideContact ? null : c.phone,
+    email: hideContact ? null : c.email,
     locale: c.locale,
     countryCode: c.countryCode,
     timezone: c.timezone,

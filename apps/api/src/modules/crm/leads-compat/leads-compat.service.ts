@@ -21,7 +21,7 @@ import { MembersService } from '../../members/members.service';
 import { SchedulesService } from '../../schedules/schedules.service';
 import type { TenantContext } from '../../auth/tenant-context';
 import { assertBranchAccess, branchScope } from '../../branches/branch-access';
-import { ContactsService, searchFilter } from '../contacts/contacts.service';
+import { ContactsService, searchFilter, canSeeMemberContact } from '../contacts/contacts.service';
 import { PipelineService } from '../pipeline/pipeline.service';
 import { ConversionService } from '../conversions/conversion.service';
 import { AttributionService } from '../attribution/attribution.service';
@@ -62,7 +62,7 @@ export class LeadsCompatService {
 
   async findAll(tenant: TenantContext, query: LeadListQuery): Promise<LeadListResponseDTO> {
     const and: Prisma.ContactWhereInput[] = [branchScope(tenant, query.branchId)];
-    if (query.search) and.push(searchFilter(query.search));
+    if (query.search) and.push(searchFilter(query.search, canSeeMemberContact(tenant)));
     if (query.overdue) and.push({ nextFollowUpAt: { lt: new Date() }, pipelineStage: { kind: 'OPEN' } });
     const where: Prisma.ContactWhereInput = {
       studioId: tenant.studioId,

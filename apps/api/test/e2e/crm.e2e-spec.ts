@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
 import { PrismaClient } from '@platform/database';
+import * as bcrypt from 'bcrypt';
 import { AppModule } from '../../src/app.module';
 import { ConversionService } from '../../src/modules/crm/conversions/conversion.service';
 import { CrmHooksService } from '../../src/modules/crm/hooks/crm-hooks.service';
@@ -98,6 +99,7 @@ describe('CRM (e2e)', () => {
     await prisma.pipelineStage.deleteMany({ where: { studioId: ZEN, key: { startsWith: 'E2E_' } } });
     await prisma.contactFieldDefinition.deleteMany({ where: { studioId: ZEN, key: { startsWith: 'e2e_' } } });
     await prisma.auditLog.deleteMany({ where: { studioId: ZEN, action: 'contact.merge', entityId: { in: mergeSurvivorIds } } });
+    await prisma.roleTemplate.deleteMany({ where: { studioId: ZEN, key: 'e2e_crm_only' } });
   };
 
   beforeAll(async () => {
@@ -378,6 +380,42 @@ describe('CRM (e2e)', () => {
       expect((await as(receptionToken, ZEN).get(`/crm/studios/${ZEN}/contacts`)).status).toBe(200);
       const created = await as(receptionToken, ZEN).post(`/crm/studios/${ZEN}/contacts`).send({ firstName: 'Resepsiyon', phone: phone(22) });
       expect(created.status).toBe(201);
+    });
+
+    it('crm.view without members.contact.view hides member phone and email and does not match them in search', async () => {
+      const role = await prisma.roleTemplate.create({
+        data: {
+          studioId: ZEN,
+          key: 'e2e_crm_only',
+          name: 'E2E yalnizca CRM',
+          permissions: { create: [{ permissionKey: 'crm.view' }] },
+        },
+      });
+      const user = await prisma.user.create({
+        data: { phone: phone(71), firstName: 'Crm', lastName: 'Gorevli', passwordHash: await bcrypt.hash(DEMO_PASSWORD, 10) },
+      });
+      await prisma.membership.create({
+        data: { userId: user.id, studioId: ZEN, roleTemplateId: role.id, status: 'ACTIVE', joinedAt: new Date() },
+      });
+      const token = await login(phone(71));
+      const member = await prisma.contact.findFirstOrThrow({
+        where: { studioId: ZEN, membershipId: { not: null }, phone: { not: null }, mergedIntoId: null, isTest: false },
+      });
+
+      const detail = await as(token, ZEN).get(`/crm/studios/${ZEN}/contacts/${member.id}`);
+      expect(detail.status).toBe(200);
+      expect(detail.body.phone).toBeNull();
+      expect(detail.body.email).toBeNull();
+
+      const digits = (member.phone ?? '').slice(-7);
+      const search = await as(token, ZEN).get(`/crm/studios/${ZEN}/contacts?search=${digits}`);
+      expect(search.status).toBe(200);
+      expect(search.body.items.map((c: { id: string }) => c.id)).not.toContain(member.id);
+
+      // The owner (who has members.contact.view) still sees and finds it.
+      const ownerSearch = await as(ownerToken, ZEN).get(`/crm/studios/${ZEN}/contacts?search=${digits}`);
+      const found = ownerSearch.body.items.find((c: { id: string }) => c.id === member.id);
+      expect(found?.phone).toBe(member.phone);
     });
 
     it('unauthenticated requests are refused', async () => {
