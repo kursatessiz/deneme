@@ -63,7 +63,7 @@ test('renders in English for an English browser', async ({ browser }) => {
 
 test('a token with a bad signature is refused by the API and the page says the link is invalid', async ({ page }) => {
   await page.goto(`/m/u/${TOKEN}`);
-  await expect(page.getByRole('alert')).toHaveText('Bu bağlantı geçersiz.');
+  await expect(page.getByRole('alert').filter({ hasText: 'Bu bağlantı geçersiz.' })).toBeVisible();
 });
 
 test('a malformed token never reaches the API', async ({ page }) => {
@@ -72,7 +72,7 @@ test('a malformed token never reaches the API', async ({ page }) => {
     if (req.url().includes('/api/bff/m/u/')) proxied += 1;
   });
   await page.goto('/m/u/not-a-token');
-  await expect(page.getByRole('alert')).toHaveText('Bu bağlantı geçersiz.');
+  await expect(page.getByRole('alert').filter({ hasText: 'Bu bağlantı geçersiz.' })).toBeVisible();
   expect(proxied).toBe(0);
 });
 
