@@ -64,4 +64,21 @@ describe('Body parsers (e2e, production setup)', () => {
     expect(res.status).not.toBe(413);
     expect(res.status).toBe(400);
   });
+
+  it('parses the Stripe webhook route as raw bytes, not JSON, and rejects an unverifiable signature', async () => {
+    // With no STRIPE_WEBHOOK_SECRET configured in this test env, the
+    // adapter's verifyWebhook rejects every signature. What this proves is
+    // that the route went through the raw-body middleware (not the JSON
+    // parser -- a JSON-parsing failure would also be a 400, but from Express
+    // itself, before the controller ever runs) and reached the controller's
+    // ordinary "invalid webhook signature" handling, the same 400 every
+    // other provider's webhook gives for a bad signature.
+    const res = await request(server)
+      .post('/payments/webhook/stripe')
+      .set('Content-Type', 'application/json')
+      .set('stripe-signature', 't=1,v1=deadbeef')
+      .send('{"id":"evt_test","type":"payment_intent.succeeded"}');
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('imza');
+  });
 });

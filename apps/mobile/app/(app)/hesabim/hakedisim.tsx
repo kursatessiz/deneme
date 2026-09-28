@@ -5,14 +5,16 @@ import type { PayrollLineDTO } from '@platform/shared';
 
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
+import { formatCurrency, useLocale } from '../../../src/i18n';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
 
-const money = (v: string) =>
-  new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 2 }).format(Number(v));
 
 /** Trainer's own approved/paid commission lines, by payroll period (W14). */
 export default function HakedisimScreen() {
   const { activeMembership } = useSession();
+  const { locale } = useLocale();
+  const currency = activeMembership?.currency ?? 'USD';
+  const money = (v: string) => formatCurrency(Number(v), locale, currency, { maximumFractionDigits: 2 });
   const { theme } = useTheme();
   const fonts = useThemeFonts();
   const c = theme.colors;

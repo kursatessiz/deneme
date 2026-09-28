@@ -1,7 +1,7 @@
 'use client';
 
 import type { RevenueReportDTO } from '@platform/shared';
-import { formatMoney } from '@/lib/money';
+import { useFormatMoney } from '@/components/session/DashboardSessionProvider';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { Bar, StatTile } from './Bar';
 
@@ -16,6 +16,7 @@ const METHOD_LABEL: Record<string, string> = {
 };
 
 export function RevenueReport({ report, loading, error }: { report: RevenueReport | null; loading: boolean; error: string | null }) {
+  const formatMoney = useFormatMoney();
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} />;
   if (!report) return <EmptyState title="Veri yok" />;

@@ -102,6 +102,7 @@ enum PaymentMethod {
   BANK_TRANSFER
   ONLINE_IYZICO
   ONLINE_PAYTR
+  ONLINE_STRIPE
 }
 
 enum PaymentStatus {
@@ -123,6 +124,7 @@ enum PaymentProvider {
   MOCK
   IYZICO
   PAYTR
+  STRIPE
 }
 
 /// W20 aggregator/marketplace partner. MOCK is the only one implemented for
@@ -494,6 +496,18 @@ model Studio {
   email                  String?  @db.VarChar(120)
   address                String?  @db.Text
   timezone               String   @default("Europe/Istanbul") @db.VarChar(60)
+  /// ISO 3166-1 alpha-2. Drives compliance region, default tax regime and
+  /// provider registry priority. See packages/shared/src/growth/regions.ts.
+  countryCode            String   @default("TR") @map("country_code") @db.VarChar(2)
+  /// ISO 4217. Every Payment, Expense, invoice and report amount is in this
+  /// currency; never hard-code 'TRY'. Changing it once payments exist is
+  /// refused by the API (409) since existing amounts are not reconverted.
+  currency               String   @default("TRY") @db.VarChar(3)
+  /// TR_KDV | EU_VAT | UK_VAT | US_SALES_TAX | NONE. Drives invoicing (see
+  /// docs/BUYUME_VE_GLOBAL_MIMARI.md section 2.4).
+  taxRegime              String   @default("TR_KDV") @map("tax_regime") @db.VarChar(20)
+  /// Whether PackageDefinition.price is entered tax-inclusive.
+  pricesIncludeTax       Boolean  @default(true) @map("prices_include_tax")
   // Theme: logo, default theme family, one primary color and one gradient preset of that family.
   logoUrl                String?  @map("logo_url") @db.Text
   themeFamily            String   @default("atolye") @map("theme_family") @db.VarChar(20)

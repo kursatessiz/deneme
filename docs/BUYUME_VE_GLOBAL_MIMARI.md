@@ -16,6 +16,15 @@ Bu belge pazarlama, reklam atıfı, iletişim ve globalleşme işlerinin ortak t
 5. **Her metin çok dilli.** CLAUDE.md kural 11. Mesaj şablonları, sayfa blokları ve form alanları da dile göre varyant taşır.
 6. **Ölçülemeyen harcama yok.** Reklamdan gelen her ziyaret, form, deneme, satın alma ve abonelik aynı atıf zincirine bağlanır ve reklam platformlarına sunucu tarafından geri bildirilir.
 
+## 1a. G1a uygulama notları
+
+G1a fazında (bölge ayarları, para/vergi, sağlayıcı kayıt defteri, Stripe/Twilio, uyum) belgedeki bazı açık noktalar şöyle netleşti:
+
+- `notifications/consent` (İYS) fiziksel olarak taşınmadı: dosyalar `apps/api/src/modules/notifications/consent/` altında kalıyor, mevcut endpoint yolları ve davranışı değişmedi. `apps/api/src/modules/compliance/tr-consent-registry.adapter.ts` bu servisi TR bölgesinin izin sicili adaptörü olarak sarmalıyor. Bölüm 1 madde 2'deki "taşınır" ifadesi, sonraki bir fazda dosyaların gerçekten `compliance/` altına taşınmasıyla tamamlanacak; G1a bunu yalnızca işlevsel olarak (canSend üzerinden) yapıyor.
+- `compliance.canSend`'in sessiz saat kontrolü (08:00-21:00 alıcı yerel saati, bölüm 2.3) uygulandı ve test edildi, ancak `NotificationsService` bunu şimdilik `skipQuietHours: true` ile çağırıyor: bugünkü Türkiye gönderimlerinde davranış değişmesin diye canlıda henüz açılmadı. Sahibin onayıyla açılmalı (her bölge için pencere teyit edildikten sonra).
+- Sağlayıcı kayıt defteri (`apps/api/src/common/provider-registry.ts`) `PaymentProviderRegistry.resolveFor(countryCode, tenantOverrideKey)` ile kullanıma sunuldu; `.default`/`.get`/`.byName` (mevcut davranış) değişmedi. Mesajlaşma kanalları (WhatsApp/Netgsm/İleti Merkezi/Twilio) henüz aynı jenerik sınıfa taşınmadı, `SMS_PROVIDER` ortam değişkeniyle seçiliyor; bir sonraki fazda per-tenant override ile birleştirilebilir.
+- Vergi rejimi dışındaki (`TR_KDV` olmayan) kiracılar için sıra numaralı dahili fatura kaydı ve PDF üretimi bu fazın kapsamı dışında bırakıldı (madde 6'da belirtildiği gibi); yalnızca `taxRegime`/`pricesIncludeTax` alanları ve `StudioRegion` sözleşmesi eklendi.
+
 ## 2. Globalleşme çekirdeği
 
 ### 2.1 Kiracı bölge ayarları
@@ -171,7 +180,7 @@ Her madde ayrı PR'dır; her PR kendi e2e testleriyle gelir.
 | Faz | İş | Bağımlılık |
 |---|---|---|
 | G0 | Bu belge; CLAUDE.md güncellemesi; paylaşılan sözleşmeler (atıf, dönüşüm, segment kural dili, akış şeması, para) | - |
-| G1a | Globalleşme: bölge ayarları, para ve vergi, sağlayıcı kayıt defteri, Stripe ve Twilio adaptörleri, uyum paketleri (İYS dahil yeniden yazım) | G0 |
+| G1a | Tamamlandı. Globalleşme: bölge ayarları, para ve vergi, sağlayıcı kayıt defteri, Stripe ve Twilio adaptörleri, uyum paketleri (İYS dahil yeniden yazım) | G0 |
 | G1b | CRM ve atıf: Contact (Lead taşıması), ziyaretçi ve temas noktası yakalama, dönüşüm olayları, platform kiracısı | G0 |
 | G1c | Mesajlaşma motoru: e-posta kanalı (SES), şablonlar, gönderim kontrolleri, izleme, gelen mesajlar ve gelen kutusu | G1a |
 | G2a | Segmentler, kampanyalar, akışlar (otomasyon taşıması) | G1b, G1c |

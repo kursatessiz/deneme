@@ -1,13 +1,16 @@
 'use client';
 
 import type { RenewalReportDTO } from '@platform/shared';
-import { formatPercent } from '@/lib/money';
+import { formatPercent as formatPercentShared } from '@/lib/money';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { LoadingState, ErrorState } from '@/components/common/DataState';
 import { StatTile } from './Bar';
 
 type RenewalReport = RenewalReportDTO;
 
 export function RenewalReport({ report, loading, error }: { report: RenewalReport | null; loading: boolean; error: string | null }) {
+  const locale = useLocale();
+  const formatPercent = (ratio: number | null | undefined, fractionDigits?: number) => formatPercentShared(ratio, locale, fractionDigits);
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} />;
   if (!report) return null;

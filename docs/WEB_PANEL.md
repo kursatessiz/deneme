@@ -256,13 +256,37 @@ sadece bildirim kanalları bölümünü gösterir).
 - `ayarlar/subeler/` -- şube CRUD, personelin şube erişimi, son 30 gün şube
   özeti (`branches.manage` / `reports.view`).
 - `ayarlar/isletme/` -- yalnızca uç noktası var olan ayarlar bölüm bölüm:
-  iptal politikası (`catalog.manage`), check-in penceresi
+  **bölge ve para birimi** (aşağıya bakın), iptal politikası
+  (`catalog.manage`), check-in penceresi
   (`studio.settings.manage`), bildirim kanal sırası + SMS bakiyesi
   (`notifications.manage`), oyunlaştırma aç/kapa (`studio.settings.manage`),
   Google yorum linki + tavsiye ödül birimi (`studio.settings.manage`), gömülü
   widget izinli kökenler (`integrations.manage`; eksik olan `GET
   /studios/:studioId/embed-settings` eklendi, form artık mevcut listeyi
   yükleyip düzenler, üzerine yazmaz).
+
+### Global ayarlar: bölge ve para birimi (G1a)
+
+`/ayarlar/isletme` içindeki "Bölge ve para birimi" bölümü (`studio.settings.view`/`manage`)
+`GET/PUT /studios/:studioId/region` üzerinden ülke kodu (ISO 3166-1), para
+birimi (ISO 4217), saat dilimi ve vergi rejimini (`TR_KDV`/`EU_VAT`/`UK_VAT`/
+`US_SALES_TAX`/`NONE`) ve paket fiyatlarının vergi dahil girilip girilmediğini
+düzenler; şema `packages/shared/src/growth/regions.ts` (`StudioRegionSchema`).
+Stüdyoda kayıtlı bir ödeme varsa para birimi değişikliği API'de 409 ile
+reddedilir (tutarlar otomatik dönüştürülmez). Süper admin panelinde
+(`/admin/tenants`) yeni işletme oluşturma formu bir ülke seçicisi içerir;
+seçilen ülkeye göre para birimi, saat dilimi, vergi rejimi ve varsayılan dil
+`countryDefaultsOf()` ile türetilir (bilinmeyen ülkeler USD/UTC/NONE/en'e
+düşer, admin daha sonra tamamlar).
+
+Para ve yüzde biçimlendirmesi artık hiçbir yerde sabit `'TRY'` veya `'tr-TR'`
+kullanmaz: `apps/web/src/components/session/DashboardSessionProvider.tsx`
+içindeki `useFormatMoney()` hook'u, oturumdaki aktif stüdyonun para birimini
+(`activeMembership.currency`, `/auth/me`'den gelir) ve görüntüleyenin
+`useLocale()`'dan çözülen dilini birleştirerek `packages/shared`'daki
+`formatMoney()`'i çağırır; `apps/web/src/lib/money.ts`'teki `formatPercent()`
+de aynı şekilde dil parametresi alır. Finans, rapor ve satış ekranları bu
+hook'u kullanır.
 - `ayarlar/rozetler/` -- W16 rozet tanımları: küresel (`studioId: null`) ve
   işletmeye özel rozetleri listeler (`reports.view`), işletmeye özel rozet
   oluşturma/düzenleme/etkin-pasif geçişi/silme (`studio.settings.manage`);

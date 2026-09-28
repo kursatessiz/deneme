@@ -1,7 +1,7 @@
 'use client';
 
 import type { PayrollLineDTO } from '@platform/shared';
-import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useDashboardSession, useFormatMoney } from '@/components/session/DashboardSessionProvider';
 import { useBff } from '@/lib/session/use-bff';
 import { formatMoney, sumMoney } from '@/lib/money';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
@@ -10,6 +10,7 @@ type MyPayrollLine = PayrollLineDTO;
 
 /** A trainer who only has commissions.view.own sees their own approved/paid lines instead of the full run list. */
 export function PayrollMyLines() {
+  const formatMoney = useFormatMoney();
   const { activeStudioId } = useDashboardSession();
   const { data: lines, loading, error } = useBff<MyPayrollLine[]>(`payroll/studio/${activeStudioId}/me/lines`, activeStudioId);
 

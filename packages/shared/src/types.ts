@@ -66,6 +66,8 @@ export interface MembershipDTO {
   theme: TenantTheme;
   /** The studio's default language; see resolveLocale in i18n/locales.ts. */
   defaultLocale: string;
+  /** The studio's currency (ISO 4217). Never hard-code 'TRY'; use this. */
+  currency: string;
 }
 
 export interface SessionUserDTO extends UserDTO {

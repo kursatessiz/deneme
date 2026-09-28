@@ -1,13 +1,14 @@
 'use client';
 
 import type { MembersReportDTO } from '@platform/shared';
-import { formatMoney } from '@/lib/money';
+import { useFormatMoney } from '@/components/session/DashboardSessionProvider';
 import { LoadingState, ErrorState } from '@/components/common/DataState';
 import { StatTile } from './Bar';
 
 type MembersReport = MembersReportDTO;
 
 export function MembersReport({ report, loading, error }: { report: MembersReport | null; loading: boolean; error: string | null }) {
+  const formatMoney = useFormatMoney();
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} />;
   if (!report) return null;

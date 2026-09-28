@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { PaymentMethod } from '@platform/shared';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { hasAnyPermission } from '@/lib/nav';
-import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useDashboardSession, useFormatMoney } from '@/components/session/DashboardSessionProvider';
 
 interface PackageDefinitionRow {
   id: string;
@@ -38,7 +38,8 @@ export function PackageSaleDialog({
   onClose: () => void;
   onSold: () => void;
 }) {
-  const { permissions } = useDashboardSession();
+  const { permissions, currency } = useDashboardSession();
+  const formatMoney = useFormatMoney();
   const canViewInvoices = hasAnyPermission(['finance.view'], permissions, false);
   const [packageDefinitionId, setPackageDefinitionId] = useState(packageDefinitions[0]?.id ?? '');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.CASH);
@@ -70,7 +71,7 @@ export function PackageSaleDialog({
           packageDefinitionId,
           paymentMethod,
           paidAmount: Number(paidAmount),
-          currency: 'TRY',
+          currency,
           bankReference: paymentMethod === PaymentMethod.BANK_TRANSFER ? bankReference : undefined,
           promoCode: promoCode || undefined,
           giftCardCode: giftCardCode || undefined,
@@ -143,7 +144,7 @@ export function PackageSaleDialog({
         >
           {packageDefinitions.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.name} - {Number(p.price).toLocaleString('tr-TR')} ₺
+              {p.name} - {formatMoney(p.price)}
             </option>
           ))}
         </select>
@@ -186,7 +187,7 @@ export function PackageSaleDialog({
 
       {selectedDefinition && (
         <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          Liste fiyatı: {Number(selectedDefinition.price).toLocaleString('tr-TR')} ₺
+          Liste fiyatı: {formatMoney(selectedDefinition.price)}
         </p>
       )}
 

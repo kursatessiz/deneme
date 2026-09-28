@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { SubscriptionStatus } from '@platform/database';
-import { ALL_PERMISSIONS, DEFAULT_ROLE_TEMPLATES } from '@platform/shared';
+import { ALL_PERMISSIONS, countryDefaultsOf, DEFAULT_ROLE_TEMPLATES } from '@platform/shared';
 import type { CreateTenantInput, TenantDetailDTO, TenantListItemDTO } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { InvitesService } from '../invites/invites.service';
@@ -110,9 +110,20 @@ export class AdminTenantsService {
     const now = new Date();
     const periodEnd = new Date(now.getTime() + TRIAL_PERIOD_DAYS * 24 * 60 * 60 * 1000);
 
+    const regionDefaults = countryDefaultsOf(dto.countryCode);
+
     const { studioId, ownerRoleTemplateId } = await this.prisma.$transaction(async (tx) => {
       const studio = await tx.studio.create({
-        data: { name: dto.name, slug: dto.slug, businessTypeTemplateId: businessType.id },
+        data: {
+          name: dto.name,
+          slug: dto.slug,
+          businessTypeTemplateId: businessType.id,
+          countryCode: dto.countryCode,
+          currency: regionDefaults.currency,
+          timezone: regionDefaults.timezone,
+          taxRegime: regionDefaults.taxRegime,
+          defaultLocale: regionDefaults.defaultLocale,
+        },
       });
 
       const roleTemplates = await Promise.all(

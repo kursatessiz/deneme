@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { InvoiceStatus } from '@platform/shared';
 import type { InvoiceDTO } from '@platform/shared';
-import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useDashboardSession, useFormatMoney } from '@/components/session/DashboardSessionProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { buildReportQuery } from '@/lib/reports/query';
 import { formatMoney } from '@/lib/money';
@@ -36,6 +36,7 @@ const selectStyle: React.CSSProperties = {
 };
 
 export function InvoicesTab() {
+  const formatMoney = useFormatMoney();
   const { activeStudioId } = useDashboardSession();
   const [branchId, setBranchId] = useState('');
   const [status, setStatus] = useState('');

@@ -28,6 +28,7 @@ const CHARGE_PROVIDER_METHOD: Record<PaymentProvider, PaymentMethod> = {
   [PaymentProvider.MOCK]: PaymentMethod.CREDIT_CARD_POS,
   [PaymentProvider.IYZICO]: PaymentMethod.ONLINE_IYZICO,
   [PaymentProvider.PAYTR]: PaymentMethod.ONLINE_PAYTR,
+  [PaymentProvider.STRIPE]: PaymentMethod.ONLINE_STRIPE,
 };
 
 @Injectable()
@@ -85,20 +86,21 @@ export class DunningService {
     const cycleAttempts = await this.currentCycleAttempts(sub.id);
     const attemptNumber = cycleAttempts.length + 1;
 
+    const studio = await this.prisma.studio.findUniqueOrThrow({ where: { id: sub.studioId }, select: { currency: true } });
     const amount = Number(sub.packageDefinition.price);
     const charge = await this.providers.get(sub.storedCard.provider).chargeStoredCard({
       studioId: sub.studioId,
       memberId: sub.memberId,
       cardToken: sub.storedCard.providerCardToken,
       amount,
-      currency: 'TRY',
+      currency: studio.currency,
       installmentCount: sub.installmentCount,
       description: `${sub.packageDefinition.name} yenileme`,
       reference: `dunning_${sub.id}_${attemptNumber}_${now.getTime()}`,
     });
 
     if (charge.success) {
-      return this.applySuccessfulRenewal(sub, amount, charge.providerReference, attemptNumber);
+      return this.applySuccessfulRenewal(sub, amount, studio.currency, charge.providerReference, attemptNumber);
     }
     return this.applyFailedRenewal(sub, charge.failureCode, attemptNumber, cycleAttempts, now);
   }
@@ -116,6 +118,7 @@ export class DunningService {
   private async applySuccessfulRenewal(
     sub: SubscriptionWithRelations,
     amount: number,
+    currency: string,
     providerReference: string,
     attemptNumber: number,
   ): Promise<DunningOutcome> {
@@ -157,7 +160,7 @@ export class DunningService {
           memberSubscriptionId: sub.id,
           storedCardId: sub.storedCardId,
           amount,
-          currency: 'TRY',
+          currency,
           paymentMethod: CHARGE_PROVIDER_METHOD[sub.storedCard!.provider],
           paymentStatus: PaymentStatus.COMPLETED,
           provider: sub.storedCard!.provider,

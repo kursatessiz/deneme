@@ -1,0 +1,49 @@
+import type { ComplianceRegion } from '@platform/shared';
+
+export type CompliancePurpose = 'TRANSACTIONAL' | 'COMMERCIAL';
+export type ComplianceChannel = 'WHATSAPP' | 'SMS' | 'EMAIL' | 'PUSH';
+
+export interface ComplianceRecipient {
+  /** ISO 3166-1 alpha-2; drives which region's rule set applies (see regions.ts complianceRegionOf). */
+  countryCode: string | null | undefined;
+  /** IANA timezone for quiet-hours; falls back to the studio's timezone when the recipient has none of their own. */
+  timezone: string | null | undefined;
+  /**
+   * Whether a GRANTED, explicit opt-in consent is on record for this
+   * channel (KVKK/İYS for TR, GDPR opt-in for EU/UK, TCPA for US, ...).
+   * Callers resolve this themselves (ConsentService.isGranted for TR today)
+   * -- canSend does not reach into a consent store itself, so it stays a
+   * pure, table-testable function.
+   */
+  consentGranted: boolean;
+  /** US TCPA / general unsubscribe: an explicit STOP or unsubscribe click recorded for this recipient+channel. */
+  optedOut?: boolean;
+}
+
+export interface CanSendInput {
+  recipient: ComplianceRecipient;
+  channel: ComplianceChannel;
+  purpose: CompliancePurpose;
+  /** Defaults to `new Date()`; pass explicitly in tests for determinism. */
+  now?: Date;
+  /** Used for the recipient's quiet hours when the recipient has no timezone of their own. */
+  studioTimezone?: string | null;
+  /**
+   * Skips the quiet-hours check (consent and opt-out are still enforced).
+   * Existing callers set this while the platform's actual quiet-hours
+   * policy per region is being rolled out, so canSend's introduction does
+   * not silently start blocking sends that went through today -- see
+   * NotificationsService.sendTemplated. Remove once quiet hours are
+   * confirmed for every live region.
+   */
+  skipQuietHours?: boolean;
+}
+
+export interface CanSendResult {
+  allow: boolean;
+  /** Machine-readable reason for a deny, e.g. 'CONSENT_REQUIRED', 'QUIET_HOURS', 'OPTED_OUT'. Undefined when allowed. */
+  reasonCode?: 'CONSENT_REQUIRED' | 'OPTED_OUT' | 'QUIET_HOURS';
+  /** Human-readable (Turkish) reason, for logs and the sender's own diagnostics -- never shown to the recipient. */
+  reason?: string;
+  region: ComplianceRegion;
+}

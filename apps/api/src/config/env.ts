@@ -10,7 +10,7 @@ export const EnvSchema = z
     REDIS_URL: z.string().url().optional(),
     JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
     CORS_ORIGIN: z.string().optional(),
-    SMS_PROVIDER: z.enum(['MOCK', 'NETGSM', 'ILETI_MERKEZI']).default('MOCK'),
+    SMS_PROVIDER: z.enum(['MOCK', 'NETGSM', 'ILETI_MERKEZI', 'TWILIO']).default('MOCK'),
     /** Provider SMS credit balance below which the hourly heartbeat check alerts super admins. */
     SMS_PROVIDER_LOW_BALANCE_THRESHOLD: z.coerce.number().int().positive().default(500),
     // Netgsm credentials. Adapter falls back to MOCK when unset, regardless
@@ -45,7 +45,7 @@ export const EnvSchema = z
       .optional(),
 
     /** Default payment provider for online checkouts and card charges. MOCK is deterministic. */
-    PAYMENT_PROVIDER: z.enum(['MOCK', 'IYZICO', 'PAYTR']).default('MOCK'),
+    PAYMENT_PROVIDER: z.enum(['MOCK', 'IYZICO', 'PAYTR', 'STRIPE']).default('MOCK'),
     /** iyzico credentials, required only when PAYMENT_PROVIDER=IYZICO. */
     IYZICO_API_KEY: z.string().min(1).optional(),
     IYZICO_SECRET_KEY: z.string().min(1).optional(),
@@ -54,6 +54,17 @@ export const EnvSchema = z
     PAYTR_MERCHANT_ID: z.string().min(1).optional(),
     PAYTR_MERCHANT_KEY: z.string().min(1).optional(),
     PAYTR_MERCHANT_SALT: z.string().min(1).optional(),
+    // Stripe: the platform's global default payment provider. The adapter
+    // falls back to MOCK when unset, like every other adapter.
+    STRIPE_SECRET_KEY: z.string().min(1).optional(),
+    STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
+    STRIPE_CHECKOUT_SUCCESS_URL: z.string().url().optional(),
+    STRIPE_CHECKOUT_CANCEL_URL: z.string().url().optional(),
+    // Twilio: the platform's global default SMS provider. Same MOCK
+    // fallback as Netgsm/Ileti Merkezi.
+    TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
+    TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
+    TWILIO_FROM_NUMBER: z.string().min(1).optional(),
 
     // e-invoice integrator credentials. Each studio picks its provider in
     // InvoiceSettings; the matching adapter falls back to a clear
@@ -97,6 +108,9 @@ export const EnvSchema = z
         path: ['PAYTR_MERCHANT_ID'],
         message: 'PAYTR_MERCHANT_ID, PAYTR_MERCHANT_KEY and PAYTR_MERCHANT_SALT are required when PAYMENT_PROVIDER=PAYTR',
       });
+    }
+    if (env.PAYMENT_PROVIDER === 'STRIPE' && !env.STRIPE_SECRET_KEY) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['STRIPE_SECRET_KEY'], message: 'required when PAYMENT_PROVIDER=STRIPE' });
     }
     if (!env.JITSI_BASE_URL.startsWith('https://')) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['JITSI_BASE_URL'], message: 'must be an https URL' });

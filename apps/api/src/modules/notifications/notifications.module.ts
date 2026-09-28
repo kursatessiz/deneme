@@ -9,6 +9,8 @@ import { IysClientAdapter } from './consent/iys-client.adapter';
 import { WhatsAppCloudAdapter } from './channels/whatsapp-cloud.adapter';
 import { SmsNetgsmAdapter } from './channels/sms-netgsm.adapter';
 import { SmsIletiMerkeziAdapter } from './channels/sms-iletimerkezi.adapter';
+import { SmsTwilioAdapter } from './channels/sms-twilio.adapter';
+import { TwilioWebhookController } from './channels/twilio-webhook.controller';
 import { NotificationSettingsService } from './settings/notification-settings.service';
 import { SmsProviderBalanceService } from './sms-provider-balance.service';
 import {
@@ -19,7 +21,7 @@ import {
 
 @Global()
 @Module({
-  controllers: [ConsentController, NotificationSettingsController, SmsWalletController, SmsWalletAdminController],
+  controllers: [ConsentController, NotificationSettingsController, SmsWalletController, SmsWalletAdminController, TwilioWebhookController],
   providers: [
     NotificationsService,
     PushService,
@@ -30,6 +32,7 @@ import {
     WhatsAppCloudAdapter,
     SmsNetgsmAdapter,
     SmsIletiMerkeziAdapter,
+    SmsTwilioAdapter,
     NotificationSettingsService,
     SmsProviderBalanceService,
   ],

@@ -68,6 +68,39 @@ export const MoneySchema = z
   .strict();
 export type Money = z.infer<typeof MoneySchema>;
 
+/** Defaults a new tenant's region settings derive from its countryCode (super-admin tenant creation). */
+export interface CountryDefaults {
+  currency: CurrencyCode;
+  timezone: string;
+  taxRegime: TaxRegime;
+  defaultLocale: string;
+}
+
+/**
+ * Small, explicit table of sane defaults per country. Not exhaustive: an
+ * unknown country falls back to USD/UTC/NONE/en and the admin completes it.
+ * See docs/BUYUME_VE_GLOBAL_MIMARI.md section 2.1.
+ */
+const COUNTRY_DEFAULTS: Record<string, CountryDefaults> = {
+  TR: { currency: 'TRY', timezone: 'Europe/Istanbul', taxRegime: 'TR_KDV', defaultLocale: 'tr' },
+  US: { currency: 'USD', timezone: 'America/New_York', taxRegime: 'US_SALES_TAX', defaultLocale: 'en' },
+  CA: { currency: 'CAD', timezone: 'America/Toronto', taxRegime: 'NONE', defaultLocale: 'en' },
+  GB: { currency: 'GBP', timezone: 'Europe/London', taxRegime: 'UK_VAT', defaultLocale: 'en' },
+  DE: { currency: 'EUR', timezone: 'Europe/Berlin', taxRegime: 'EU_VAT', defaultLocale: 'de' },
+  FR: { currency: 'EUR', timezone: 'Europe/Paris', taxRegime: 'EU_VAT', defaultLocale: 'fr' },
+  ES: { currency: 'EUR', timezone: 'Europe/Madrid', taxRegime: 'EU_VAT', defaultLocale: 'es' },
+  IT: { currency: 'EUR', timezone: 'Europe/Rome', taxRegime: 'EU_VAT', defaultLocale: 'it' },
+  NL: { currency: 'EUR', timezone: 'Europe/Amsterdam', taxRegime: 'EU_VAT', defaultLocale: 'nl' },
+  AE: { currency: 'AED', timezone: 'Asia/Dubai', taxRegime: 'NONE', defaultLocale: 'en' },
+};
+
+const FALLBACK_DEFAULTS: CountryDefaults = { currency: 'USD', timezone: 'UTC', taxRegime: 'NONE', defaultLocale: 'en' };
+
+/** Looks up { currency, timezone, taxRegime, defaultLocale } for a country; unknown countries get the documented fallback. */
+export function countryDefaultsOf(countryCode: string): CountryDefaults {
+  return COUNTRY_DEFAULTS[countryCode.toUpperCase()] ?? FALLBACK_DEFAULTS;
+}
+
 export function formatMoney(money: Money, locale: string): string {
   const value = Number(money.amount);
   try {
