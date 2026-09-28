@@ -111,13 +111,21 @@ export const UpsertTranslationSchema = z
   .strict();
 export type UpsertTranslationInput = z.infer<typeof UpsertTranslationSchema>;
 
-/** PATCH /me/preferences: null follows the studio default. */
+/** PUT /me/locale: null follows the active studio's default. Returns { locale }. */
 export const UpdateMyLocaleSchema = z
   .object({
     locale: LocaleCodeSchema.nullable(),
   })
   .strict();
 export type UpdateMyLocaleInput = z.infer<typeof UpdateMyLocaleSchema>;
+
+/** PUT /studios/:studioId/locale: must be an enabled language. Returns { defaultLocale }. */
+export const UpdateStudioLocaleSchema = z
+  .object({
+    defaultLocale: LocaleCodeSchema,
+  })
+  .strict();
+export type UpdateStudioLocaleInput = z.infer<typeof UpdateStudioLocaleSchema>;
 
 /**
  * Picks the language to render: the user's own choice, then the studio's
