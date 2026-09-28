@@ -169,6 +169,7 @@ export class AuthService {
                 themeFamily: true,
                 themePrimary: true,
                 gradientPresetKey: true,
+                defaultLocale: true,
               },
             },
             roleTemplate: { include: { permissions: true } },
@@ -197,6 +198,7 @@ export class AuthService {
       trainerProfileId: m.trainerProfile?.id ?? null,
       homeBranchId: m.memberProfile?.homeBranchId ?? null,
       theme: toTenantTheme(m.studio),
+      defaultLocale: m.studio.defaultLocale,
     }));
 
     return {
@@ -209,6 +211,7 @@ export class AuthService {
       isSuperAdmin: user.isSuperAdmin,
       memberships,
       appearance: toAppearance(user),
+      locale: user.locale,
     };
   }
 

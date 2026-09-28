@@ -136,15 +136,17 @@ erDiagram
 | `business_type_templates` | Sektör başlangıç kiti: kelime dağarcığı, varsayılanlar, form modülleri | key benzersiz |
 | `plans` | Özellik limitleriyle SaaS abonelik seviyeleri | key benzersiz |
 | `sms_packages` | Satılık SMS kredi paketleri | key benzersiz |
+| `languages` | Platform dilleri; `tr` ve `en` kodla birlikte gelir (bundled) ve her zaman etkindir, diğerleri süper admin tarafından eklenir ve varsayılan olarak devre dışı başlar | code birincil anahtar |
+| `translation_overrides` | Bir dil için CMS'te düzenlenen veya dil paketiyle yüklenen çeviri değeri; yalnızca kodda var olan mesaj anahtarları için yazılır | (locale, key) benzersiz; locale -> languages.code (cascade silme) |
 
 ## Kiracı ve Kimlik
 
 | Tablo | Amaç | Kısıtlar |
 |-------|---------|-------------|
-| `studios` | Kiracı: marka (logo, varsayılan tema ailesi `theme_family`, ana renk, gradyan), saat dilimi, bildirim ayarları | slug benzersiz |
+| `studios` | Kiracı: marka (logo, varsayılan tema ailesi `theme_family`, ana renk, gradyan), varsayılan dil (`default_locale`, `languages.code`'a işaret eder, varsayılan `tr`), saat dilimi, bildirim ayarları | slug benzersiz |
 | `branches` | Stüdyo lokasyonları: adres, iletişim, saat dilimi (boşsa işletmeninki), sıra, aktiflik | (studio_id, name) benzersiz; (id, studio_id) benzersiz (bileşik yabancı anahtar hedefi); studio_id index |
 | `membership_branches` | Personelin işlem yapabileceği şubeler; kayıt yoksa tüm şubeler, işletme sahibi hiçbir zaman kısıtlanmaz | (membership_id, branch_id) birincil anahtar; (branch_id, studio_id) bileşik yabancı anahtar ile şubenin aynı işletmeye ait olması zorunlu |
-| `users` | E.164 telefon ile tanımlanan global kullanıcılar; görünüm tercihi (`theme_family` boşsa işletmenin teması, `color_scheme` SYSTEM/LIGHT/DARK) | phone benzersiz, email benzersiz |
+| `users` | E.164 telefon ile tanımlanan global kullanıcılar; görünüm tercihi (`theme_family` boşsa işletmenin teması, `color_scheme` SYSTEM/LIGHT/DARK); `locale` boşsa aktif stüdyonun `default_locale`'i kullanılır | phone benzersiz, email benzersiz |
 | `memberships` | Rol tabanlı erişimle kullanıcı-stüdyo bağlantıları; `is_partner_guest` yalnızca bir partner (toplayıcı) webhook'unun oluşturduğu, kendisi henüz stüdyoya gerçekten katılmamış misafirlerde true olur - mesajlaşma/etkileşim akışları (otomasyon, churn, oyunlaştırma push, puanlama, tavsiye kodu) bu satırları hariç tutar; kişi normal onboarding'i tamamladığında veya personel onu üyeye dönüştürdüğünde temizlenir (bkz. `docs/PARTNERS.md`, "Partner misafirleri ve mesajlaşma") | (user_id, studio_id) benzersiz; (studio_id, status) index; (studio_id, is_partner_guest) index |
 | `role_templates` | Stüdyo başına izin kümeleri; owner rolü zorunlu | (studio_id, key) benzersiz; stüdyo başına bir owner |
 | `role_template_permissions` | Bir rol tarafından verilen izinler | role_template_id index |

@@ -3,11 +3,20 @@ import { ConfigService } from '@nestjs/config';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import { json } from 'express';
+import { LANGUAGE_PACK_MAX_BYTES } from '@platform/shared';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Nest's default body parser limit (100kb) is too small for
+  // POST admin/i18n/languages/:code/import, whose JSON body wraps a whole
+  // language pack (see LANGUAGE_PACK_MAX_BYTES). Mounting a higher-limit
+  // json() parser on that path only, before the app's own default one,
+  // covers it without raising the limit for every other route: body-parser
+  // marks the request as already parsed, so the default parser then skips it.
+  app.use('/admin/i18n/languages', json({ limit: LANGUAGE_PACK_MAX_BYTES + 64 * 1024 }));
   // Caddy is the only proxy in front of the API; trust exactly one hop so
   // request.ip is the client address used for rate limiting.
   app.set('trust proxy', 1);

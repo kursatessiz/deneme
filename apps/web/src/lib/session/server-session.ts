@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import type { MembershipDTO, SessionUserDTO } from '@platform/shared';
 import { apiInternalBaseUrl } from '@/lib/server-env';
@@ -22,7 +23,7 @@ function pickDefaultStudioId(memberships: MembershipDTO[]): string | null {
  * callers redirect to /giris in that case. Never throws on a network or API
  * error; that would take down the whole dashboard shell.
  */
-export async function getServerSession(): Promise<ServerSession | null> {
+export const getServerSession = cache(async (): Promise<ServerSession | null> => {
   const jar = await cookies();
   const accessToken = jar.get(ACCESS_TOKEN_COOKIE)?.value;
   if (!accessToken) return null;
@@ -52,4 +53,4 @@ export async function getServerSession(): Promise<ServerSession | null> {
   const activeBranchId = jar.get(ACTIVE_BRANCH_COOKIE)?.value ?? null;
 
   return { user, activeStudioId, activeMembership, activeBranchId };
-}
+});

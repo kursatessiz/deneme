@@ -383,6 +383,40 @@ model BusinessTypeTemplate {
   @@map("business_type_templates")
 }
 
+/// Platform language (no studioId): the base language (tr) plus any language
+/// the super admin adds. Bundled languages (tr, en) ship messages in code;
+/// TranslationOverride rows layer CMS edits or uploaded pack values on top.
+model Language {
+  code       String   @id @db.VarChar(10)
+  name       String   @db.VarChar(60)
+  nativeName String   @map("native_name") @db.VarChar(60)
+  isEnabled  Boolean  @default(false) @map("is_enabled")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  overrides TranslationOverride[]
+
+  @@map("languages")
+}
+
+/// One translated key's value for one language, set via the super admin CMS
+/// or an uploaded language pack. Only keys present in the code's base
+/// (Turkish) message catalogue are ever written here.
+model TranslationOverride {
+  id              String   @id @default(uuid()) @db.Uuid
+  locale          String   @db.VarChar(10)
+  key             String   @db.VarChar(200)
+  value           String   @db.Text
+  updatedByUserId String?  @map("updated_by_user_id") @db.Uuid
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  language      Language @relation(fields: [locale], references: [code], onDelete: Cascade)
+  updatedByUser User?    @relation(fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([locale, key])
+  @@map("translation_overrides")
+}
+
 model Plan {
   id           String   @id @default(uuid()) @db.Uuid
   key          String   @unique @db.VarChar(60)
@@ -487,6 +521,8 @@ model Studio {
   gamificationEnabled    Boolean  @default(true) @map("gamification_enabled")
   /// Optional allow-list of origins that may frame /embed/<slug>; empty means any origin (frame-ancestors *).
   embedAllowedOrigins    String[] @default([]) @map("embed_allowed_origins")
+  /// Language new users of this studio see until they pick their own (Language.code).
+  defaultLocale          String   @default("tr") @map("default_locale") @db.VarChar(10)
   isActive               Boolean  @default(true) @map("is_active")
   createdAt              DateTime @default(now()) @map("created_at")
   updatedAt              DateTime @updatedAt @map("updated_at")
@@ -641,6 +677,8 @@ model User {
   /// Appearance override; null follows the tenant's theme family.
   themeFamily       String?               @map("theme_family") @db.VarChar(20)
   colorScheme       ColorSchemePreference @default(SYSTEM) @map("color_scheme")
+  /// Own language choice (Language.code); null follows the active studio's default.
+  locale            String?               @db.VarChar(10)
   isActive          Boolean               @default(true) @map("is_active")
   createdAt         DateTime              @default(now()) @map("created_at")
   updatedAt         DateTime              @updatedAt @map("updated_at")
@@ -669,6 +707,7 @@ model User {
   kioskDevicesCreated   KioskDevice[]            @relation("KioskDeviceCreatedBy")
   apiKeysCreated        ApiKey[]                 @relation("ApiKeyCreatedBy")
   partnerGuestOf        PartnerGuest[]
+  translationOverridesUpdated TranslationOverride[]
 
   @@map("users")
 }

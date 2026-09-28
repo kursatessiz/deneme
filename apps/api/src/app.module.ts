@@ -37,6 +37,7 @@ import { MemberHealthModule } from './modules/member-health/member-health.module
 import { VideoModule } from './modules/video/video.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { I18nModule } from './modules/i18n/i18n.module';
 import { PlanLimitsModule } from './modules/admin/plan-limits.module';
 import { validateEnv } from './config/env';
 
@@ -85,6 +86,7 @@ import { validateEnv } from './config/env';
     HealthModule,
     MemberHealthModule,
     AdminModule,
+    I18nModule,
   ],
 })
 export class AppModule {}
