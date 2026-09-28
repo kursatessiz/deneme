@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { ChannelSendRequest, ChannelSendResult, MessageChannel } from './message-channel.interface';
+import type { ChannelSendRequest, ChannelSendResult, SmsChannelAdapter } from './message-channel.interface';
 
 /**
  * İleti Merkezi SOAP/REST SMS adapter. Sends for real only when
@@ -8,13 +8,14 @@ import type { ChannelSendRequest, ChannelSendResult, MessageChannel } from './me
  * configured; otherwise behaves like MOCK SMS.
  */
 @Injectable()
-export class SmsIletiMerkeziAdapter implements MessageChannel {
+export class SmsIletiMerkeziAdapter implements SmsChannelAdapter {
   readonly name = 'SMS' as const;
+  readonly key = 'ILETI_MERKEZI' as const;
   private readonly logger = new Logger(SmsIletiMerkeziAdapter.name);
 
   constructor(private readonly config: ConfigService) {}
 
-  private get isConfigured(): boolean {
+  isConfigured(): boolean {
     return (
       !!this.config.get<string>('ILETI_MERKEZI_USER') &&
       !!this.config.get<string>('ILETI_MERKEZI_PASSWORD') &&
@@ -23,7 +24,7 @@ export class SmsIletiMerkeziAdapter implements MessageChannel {
   }
 
   async send(request: ChannelSendRequest): Promise<ChannelSendResult> {
-    if (!this.isConfigured) {
+    if (!this.isConfigured()) {
       this.logger.log(`[MOCK SMS/IletiMerkezi] Simulated SMS sent to ${request.phone}`);
       return { success: true, providerMessageId: `mock-iletimerkezi-${Date.now()}` };
     }
@@ -57,9 +58,10 @@ export class SmsIletiMerkeziAdapter implements MessageChannel {
         return { success: false, errorMessage: message };
       }
       return { success: true, providerMessageId: payload.response?.order?.id };
-    } catch (err: any) {
-      this.logger.error(`İleti Merkezi send threw: ${err.message}`);
-      return { success: false, errorMessage: err.message };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`İleti Merkezi send threw: ${message}`);
+      return { success: false, errorMessage: message };
     }
   }
 
@@ -69,7 +71,7 @@ export class SmsIletiMerkeziAdapter implements MessageChannel {
    * alert.
    */
   async getBalance(): Promise<{ credits: number | null; errorMessage?: string }> {
-    if (!this.isConfigured) {
+    if (!this.isConfigured()) {
       return { credits: 10_000 };
     }
     const username = this.config.get<string>('ILETI_MERKEZI_USER');
@@ -92,9 +94,10 @@ export class SmsIletiMerkeziAdapter implements MessageChannel {
         return { credits: null, errorMessage: message };
       }
       return { credits };
-    } catch (err: any) {
-      this.logger.error(`İleti Merkezi balance query threw: ${err.message}`);
-      return { credits: null, errorMessage: err.message };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`İleti Merkezi balance query threw: ${message}`);
+      return { credits: null, errorMessage: message };
     }
   }
 }

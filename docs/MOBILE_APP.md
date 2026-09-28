@@ -26,6 +26,12 @@ Menüde izne göre görünen personel girişleri:
 | Yeni üye davet et | `members.manage` | `hesabim/uyeler/yeni` |
 | Yeni seans | `schedule.manage` | `hesabim/programim/yeni` |
 | Üye QR tarama | `attendance.manage` | `hesabim/resepsiyon-tarama` (W17, değişmedi) |
+| Gelen kutusu (G1c) | `inbox.view` (cevap `inbox.reply`, ata/kapat `inbox.manage`) | `hesabim/gelen-kutusu` |
+
+Üye profili olan herkes Hesabım altında **İşletmeye yaz** (`hesabim/mesajlar`, G1c) girişini görür:
+üyenin işletmeyle uygulama içi sohbeti (mesajlar personelin gelen kutusuna `IN_APP` kanalıyla düşer,
+cevaplar burada görünür) ve işletmenin gönderdiği uygulama içi duyurular (gösterilince okundu işaretlenir).
+Metinler `mMessaging.*` i18n anahtarlarıdır. Ayrıntılar: `docs/MESAJLASMA.md`.
 
 Menüde görünmeyen bir rotaya doğrudan gidilirse (ör. eski bir derin bağlantı), her personel ekranı
 `PermissionGate` (`apps/mobile/src/components/PermissionGate.tsx`) ile ekran seviyesinde de korunur:
@@ -86,6 +92,8 @@ birim testli). 768px ve üzeri genişlikte:
 
 - Üyeler: liste solda, seçili üyenin kartı sağ panelde (`hesabim/uyeler/index.tsx`).
 - Programım / Bugünün seansları: seans listesi solda, seçili seansın detay/roster paneli sağda.
+- Gelen kutusu: açık konuşmalar solda, seçili konuşma ve cevap kutusu sağda (telefonda aynı ekranda
+  liste ile konuşma arasında geçiş; WhatsApp 24 saat penceresi kapalıysa şablonlu cevap web panelinden).
 
 Telefon genişliğinde aynı ekranlar tek panel kalır ve seçim `expo-router` stack push'una döner
 (`hesabim/uyeler/[memberId]`, `hesabim/programim/[scheduleId]`). Yeni bir düzen kütüphanesi eklenmedi.

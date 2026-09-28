@@ -1,7 +1,7 @@
 import type { ComplianceRegion } from '@platform/shared';
 
 export type CompliancePurpose = 'TRANSACTIONAL' | 'COMMERCIAL';
-export type ComplianceChannel = 'WHATSAPP' | 'SMS' | 'EMAIL' | 'PUSH';
+export type ComplianceChannel = 'WHATSAPP' | 'SMS' | 'EMAIL' | 'PUSH' | 'IN_APP';
 
 export interface ComplianceRecipient {
   /** ISO 3166-1 alpha-2; drives which region's rule set applies (see regions.ts complianceRegionOf). */
@@ -30,11 +30,9 @@ export interface CanSendInput {
   studioTimezone?: string | null;
   /**
    * Skips the quiet-hours check (consent and opt-out are still enforced).
-   * Existing callers set this while the platform's actual quiet-hours
-   * policy per region is being rolled out, so canSend's introduction does
-   * not silently start blocking sends that went through today -- see
-   * NotificationsService.sendTemplated. Remove once quiet hours are
-   * confirmed for every live region.
+   * MessagingService (G1c) no longer sets it: quiet hours are enforced for
+   * every COMMERCIAL message, and transactional ones return before any
+   * check. Kept for callers that must deliberately bypass the window.
    */
   skipQuietHours?: boolean;
 }

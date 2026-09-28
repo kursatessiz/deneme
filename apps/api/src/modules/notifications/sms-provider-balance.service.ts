@@ -1,11 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { SmsNetgsmAdapter } from './channels/sms-netgsm.adapter';
-import { SmsIletiMerkeziAdapter } from './channels/sms-iletimerkezi.adapter';
+import { MessagingChannelRegistry } from '../messaging/channels/channel-registry.service';
 
 export interface SmsProviderBalanceResult {
-  provider: 'MOCK' | 'NETGSM' | 'ILETI_MERKEZI';
+  provider: 'MOCK' | 'NETGSM' | 'ILETI_MERKEZI' | 'TWILIO';
   status: 'ok' | 'low_balance' | 'error' | 'skipped';
   credits: number | null;
   threshold: number;
@@ -33,8 +32,7 @@ export class SmsProviderBalanceService {
   constructor(
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
-    private readonly netgsm: SmsNetgsmAdapter,
-    private readonly iletiMerkezi: SmsIletiMerkeziAdapter,
+    private readonly registry: MessagingChannelRegistry,
   ) {}
 
   /** Last computed result, for the system health endpoint. Never blocks. */
@@ -54,14 +52,15 @@ export class SmsProviderBalanceService {
   }
 
   async check(now = new Date()): Promise<SmsProviderBalanceResult> {
-    const provider = this.config.get<'MOCK' | 'NETGSM' | 'ILETI_MERKEZI'>('SMS_PROVIDER', 'MOCK');
+    const provider = this.config.get<'MOCK' | 'NETGSM' | 'ILETI_MERKEZI' | 'TWILIO'>('SMS_PROVIDER', 'MOCK');
     const threshold = this.config.get<number>('SMS_PROVIDER_LOW_BALANCE_THRESHOLD', 500);
 
     let result: SmsProviderBalanceResult;
-    if (provider === 'MOCK') {
+    // The platform-wide default provider (SMS_PROVIDER) is the account the balance alert watches.
+    const adapter = provider === 'MOCK' ? null : this.registry.smsByKey(provider);
+    if (!adapter) {
       result = { provider, status: 'skipped', credits: null, threshold, checkedAt: now.toISOString() };
     } else {
-      const adapter = provider === 'NETGSM' ? this.netgsm : this.iletiMerkezi;
       const balance = await adapter.getBalance();
       if (balance.credits === null) {
         result = {

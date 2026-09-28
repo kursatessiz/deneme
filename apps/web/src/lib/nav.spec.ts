@@ -37,6 +37,13 @@ describe('filterNavByPermissions', () => {
   });
 });
 
+describe('inbox navigation', () => {
+  it('reception with inbox.view sees the inbox; a trainer without it does not', () => {
+    expect(filterNavByPermissions(NAV_ITEMS, ['members.view', 'inbox.view'], false).map((i) => i.key)).toContain('inbox');
+    expect(filterNavByPermissions(NAV_ITEMS, ['schedule.view'], false).map((i) => i.key)).not.toContain('inbox');
+  });
+});
+
 describe('hasAnyPermission', () => {
   it('an item with no required permissions is always visible', () => {
     expect(hasAnyPermission([], [], false)).toBe(true);

@@ -1,19 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../prisma/prisma.service';
-import { NotificationChannel, NotificationStatus } from '@platform/database';
-import type { NotificationCategory, ConsentChannelName } from '@platform/shared';
-import { parseNotificationSettings, effectiveChannelOrder } from '@platform/shared';
-import { PushService, PushMessage } from './push.service';
-import { NotificationPreferencesService } from './notification-preferences.service';
-import { TemplateService } from './templates/template.service';
-import { ConsentService } from './consent/consent.service';
-import { ComplianceService } from '../compliance/compliance.service';
-import { WhatsAppCloudAdapter } from './channels/whatsapp-cloud.adapter';
-import { SmsNetgsmAdapter } from './channels/sms-netgsm.adapter';
-import { SmsIletiMerkeziAdapter } from './channels/sms-iletimerkezi.adapter';
-import { SmsTwilioAdapter } from './channels/sms-twilio.adapter';
-import type { MessageChannel } from './channels/message-channel.interface';
+import type { MessageSendReasonCode, NotificationCategory } from '@platform/shared';
+import type { PushMessage } from './push.service';
+import { MessagingService } from '../messaging/engine/messaging.service';
 
 export interface SendSmsParams {
   /** Null for platform messages (login codes). */
@@ -36,244 +24,56 @@ export interface SendParams {
   params: Record<string, string>;
   /** Codes: content is never written to logs or the database. */
   sensitive?: boolean;
+  /** Journeys/automations: repeat calls with the same key send once. */
+  idempotencyKey?: string;
 }
 
 export interface SendResult {
   success: boolean;
-  channel?: 'WHATSAPP' | 'SMS';
+  channel?: 'WHATSAPP' | 'SMS' | 'EMAIL' | 'PUSH' | 'IN_APP';
   providerMessageId?: string;
   /** Why no channel could deliver the message (or why it was skipped). */
   reason?: string;
+  /** Machine-readable form of `reason` (policy skips vs. provider errors). */
+  reasonCode?: MessageSendReasonCode;
 }
 
-const REDACTED = '[gizli icerik]';
-
+/**
+ * Compatibility facade over MessagingService (G1c). Every existing caller
+ * (automations, reminders, dunning, gamification, ratings, invites, OTP)
+ * keeps its call shape; each method now goes through the single messaging
+ * engine, so consent, quiet hours, frequency caps, provider selection,
+ * delivery records and SMS credit rules apply uniformly.
+ */
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
-  private readonly isMock: boolean;
 
-  constructor(
-    private prisma: PrismaService,
-    private config: ConfigService,
-    private push: PushService,
-    private preferences: NotificationPreferencesService,
-    private templates: TemplateService,
-    private consents: ConsentService,
-    private compliance: ComplianceService,
-    private whatsapp: WhatsAppCloudAdapter,
-    private netgsm: SmsNetgsmAdapter,
-    private iletiMerkezi: SmsIletiMerkeziAdapter,
-    private twilio: SmsTwilioAdapter,
-  ) {
-    this.isMock = this.config.get<string>('SMS_PROVIDER', 'MOCK') === 'MOCK';
-  }
-
-  // ---------------------------------------------------------------------
-  // W7: unified, template-driven send with channel order/fallback/consent
-  // ---------------------------------------------------------------------
+  constructor(private readonly messaging: MessagingService) {}
 
   /**
-   * Resolves the tenant's channel order and fallback, respects the user's
-   * category preference, gates non-transactional templates on İYS consent,
-   * tries WhatsApp then falls back to SMS, and deducts SmsWallet credits
-   * only for an SMS that actually went out.
+   * Template send on the tenant's channel order (WhatsApp -> SMS by
+   * default), honouring the member's category toggle. Non-transactional
+   * templates are commercial: consent, quiet hours and frequency caps apply.
    */
   async send(input: SendParams): Promise<SendResult> {
-    const user = await this.prisma.user.findUnique({ where: { id: input.userId }, select: { phone: true } });
-    if (!user) return { success: false, reason: 'Kullanıcı bulunamadı' };
-
-    const channels = await this.preferences.channelsFor(input.userId, input.category);
-    if (!channels.sms) {
-      // The user turned this category's messaging off; nothing to log,
-      // same as the existing notifyUser behaviour.
-      return { success: false, reason: 'Kullanıcı bu kategori için kapatmış' };
-    }
-
-    const studio = input.studioId
-      ? await this.prisma.studio.findUnique({
-          where: { id: input.studioId },
-          select: { notificationSettings: true, countryCode: true, timezone: true },
-        })
-      : null;
-    const settings = parseNotificationSettings(studio?.notificationSettings);
-    const order = effectiveChannelOrder(settings);
-
-    let fallbackOfId: string | undefined;
-    let lastReason = 'Yapılandırılmış kanal yok';
-
-    for (const channelName of order) {
-      const channel: NotificationChannel = channelName === 'WHATSAPP' ? NotificationChannel.WHATSAPP : NotificationChannel.SMS;
-      let resolved;
-      try {
-        resolved = await this.templates.resolve(input.studioId, input.template, channel);
-      } catch {
-        lastReason = `"${input.template}" için ${channelName} şablonu yok`;
-        continue;
-      }
-
-      {
-        // Consent/compliance gate for every message, transactional
-        // included (compliance.canSend always allows TRANSACTIONAL).
-        // Quiet hours are computed by canSend but not enforced here yet
-        // (skipQuietHours) -- see compliance.types.ts: this call replaces
-        // the old inline isGranted() check one-for-one, so Turkish tenants
-        // see exactly the same sends today as before this module existed.
-        const consentGranted = resolved.isTransactional
-          ? true
-          : await this.consents.isGranted(input.studioId ?? '', input.userId, channelName as ConsentChannelName);
-        const decision = this.compliance.canSend({
-          recipient: { countryCode: studio?.countryCode ?? null, timezone: studio?.timezone ?? null, consentGranted },
-          channel: channelName,
-          purpose: resolved.isTransactional ? 'TRANSACTIONAL' : 'COMMERCIAL',
-          skipQuietHours: true,
-        });
-        if (!decision.allow) {
-          lastReason = decision.reason ?? `${channelName} için gönderim engellendi`;
-          continue;
-        }
-      }
-
-      const body = this.templates.render(resolved.body, input.params);
-
-      if (channelName === 'WHATSAPP') {
-        const result = await this.whatsapp.send({
-          phone: user.phone,
-          body,
-          params: input.params,
-          whatsappTemplateName: resolved.whatsappTemplateName ?? undefined,
-        });
-        const log = await this.logAttempt({
-          studioId: input.studioId,
-          phone: user.phone,
-          channel,
-          type: input.template,
-          content: input.sensitive ? REDACTED : body,
-          status: result.success ? NotificationStatus.SENT : NotificationStatus.FAILED,
-          providerMessageId: result.providerMessageId,
-          errorMessage: result.errorMessage,
-          fallbackOfId,
-        });
-        if (result.success) return { success: true, channel: 'WHATSAPP', providerMessageId: result.providerMessageId };
-        fallbackOfId = log.id;
-        lastReason = result.errorMessage ?? 'WhatsApp gönderimi başarısız';
-        continue;
-      }
-
-      // SMS branch: reserve the tenant's credit before attempting the send.
-      let reservation: { walletId: string; balanceAfter: number } | null = null;
-      if (input.studioId) {
-        reservation = await this.reserveSmsCredit(input.studioId);
-        if (!reservation) {
-          await this.logAttempt({
-            studioId: input.studioId,
-            phone: user.phone,
-            channel,
-            type: input.template,
-            content: input.sensitive ? REDACTED : body,
-            status: NotificationStatus.FAILED,
-            errorMessage: 'Stüdyo SMS kredisi yetersiz',
-            fallbackOfId,
-          });
-          lastReason = 'Stüdyo SMS kredisi yetersiz';
-          continue;
-        }
-      }
-
-      const smsResult = await this.getSmsAdapter().send({ phone: user.phone, body, params: input.params, senderName: settings.smsSenderName });
-      const log = await this.logAttempt({
-        studioId: input.studioId,
-        phone: user.phone,
-        channel,
-        type: input.template,
-        content: input.sensitive ? REDACTED : body,
-        status: smsResult.success ? NotificationStatus.SENT : NotificationStatus.FAILED,
-        providerMessageId: smsResult.providerMessageId,
-        errorMessage: smsResult.errorMessage,
-        fallbackOfId,
-      });
-
-      if (smsResult.success) {
-        if (input.studioId && reservation) {
-          await this.prisma.smsTransaction.create({
-            data: {
-              studioId: input.studioId,
-              walletId: reservation.walletId,
-              type: 'USAGE',
-              amount: -1,
-              balanceAfter: reservation.balanceAfter,
-              notificationLogId: log.id,
-            },
-          });
-        }
-        return { success: true, channel: 'SMS', providerMessageId: smsResult.providerMessageId };
-      }
-
-      // Send failed after the credit was reserved: give it back. No ledger
-      // entry, since nothing was actually delivered (rule 8).
-      if (input.studioId && reservation) await this.refundSmsCredit(input.studioId);
-      fallbackOfId = log.id;
-      lastReason = smsResult.errorMessage ?? 'SMS gönderimi başarısız';
-    }
-
-    return { success: false, reason: lastReason };
-  }
-
-  private getSmsAdapter(): MessageChannel {
-    const provider = this.config.get<string>('SMS_PROVIDER', 'MOCK');
-    if (provider === 'ILETI_MERKEZI') return this.iletiMerkezi;
-    if (provider === 'TWILIO') return this.twilio;
-    return this.netgsm;
-  }
-
-  private async reserveSmsCredit(studioId: string): Promise<{ walletId: string; balanceAfter: number } | null> {
-    const wallet = await this.prisma.smsWallet.findUnique({ where: { studioId } });
-    if (!wallet) return null;
-    const reserved = await this.prisma.smsWallet.updateMany({
-      where: { studioId, balance: { gte: 1 } },
-      data: { balance: { decrement: 1 } },
+    const result = await this.messaging.send({
+      studioId: input.studioId,
+      recipient: { userId: input.userId },
+      templateKey: input.template,
+      variables: input.params,
+      category: input.category,
+      sensitive: input.sensitive,
+      idempotencyKey: input.idempotencyKey,
     });
-    if (reserved.count === 0) return null;
-    const updated = await this.prisma.smsWallet.findUniqueOrThrow({ where: { studioId } });
-    return { walletId: wallet.id, balanceAfter: updated.balance };
+    return {
+      success: result.success,
+      channel: result.channel,
+      providerMessageId: result.providerMessageId,
+      reason: result.success ? undefined : result.reason,
+      ...(result.success || !result.reasonCode ? {} : { reasonCode: result.reasonCode }),
+    };
   }
-
-  private async refundSmsCredit(studioId: string): Promise<void> {
-    await this.prisma.smsWallet.updateMany({ where: { studioId }, data: { balance: { increment: 1 } } });
-  }
-
-  private async logAttempt(params: {
-    studioId: string | null;
-    phone: string;
-    channel: NotificationChannel;
-    type: string;
-    content: string;
-    status: NotificationStatus;
-    providerMessageId?: string;
-    errorMessage?: string;
-    fallbackOfId?: string;
-  }) {
-    return this.prisma.notificationLog.create({
-      data: {
-        studioId: params.studioId,
-        recipientPhone: params.phone,
-        channel: params.channel,
-        type: params.type,
-        content: params.content,
-        status: params.status,
-        providerMessageId: params.providerMessageId,
-        errorMessage: params.errorMessage,
-        fallbackOfId: params.fallbackOfId,
-      },
-    });
-  }
-
-  // ---------------------------------------------------------------------
-  // Legacy entry points, kept working as-is for existing call sites
-  // (OTP, invites, schedule notifications): free-form text, SMS only, no
-  // wallet gating (never blocked by SMS credit so identity flows can't
-  // fail on billing) and no consent gating (always transactional).
-  // ---------------------------------------------------------------------
 
   /**
    * Category notifications honour the user's preferences: push first, SMS
@@ -287,70 +87,82 @@ export class NotificationsService {
     message: PushMessage;
     smsText?: string;
   }): Promise<{ push: number; sms: boolean }> {
-    const channels = await this.preferences.channelsFor(params.userId, params.category);
-    const pushed = channels.push ? await this.push.sendToUser(params.userId, params.message) : 0;
+    const pushed = await this.messaging.send({
+      studioId: params.studioId,
+      recipient: { userId: params.userId },
+      channel: 'PUSH',
+      purpose: 'TRANSACTIONAL',
+      category: params.category,
+      type: params.category,
+      content: { subject: params.message.title, text: params.message.body, data: params.message.data },
+    });
 
     let smsSent = false;
-    if (channels.sms && params.smsText) {
-      const user = await this.prisma.user.findUnique({ where: { id: params.userId }, select: { phone: true } });
-      if (user) {
-        const result = await this.sendSms({
-          studioId: params.studioId,
-          phone: user.phone,
-          message: params.smsText,
-          type: 'REMINDER',
-        });
-        smsSent = result.success;
-      }
-    }
-    return { push: pushed, sms: smsSent };
-  }
-
-  async sendSms(params: SendSmsParams): Promise<{ success: boolean; messageId?: string }> {
-    const loggable = params.sensitive ? REDACTED : params.message;
-    this.logger.log(`[SMS Queue] To: ${params.phone} | Type: ${params.type} | Msg: "${loggable}"`);
-
-    if (this.isMock) {
-      // Local development only: show the real text so codes can be used.
-      if (params.sensitive && this.config.get<string>('NODE_ENV') === 'development') {
-        this.logger.warn(`[MOCK SMS] ${params.phone}: ${params.message}`);
-      }
-      this.logger.log(`[MOCK SMS] Simulated SMS sent to ${params.phone}`);
-      await this.logNotification(params, NotificationStatus.SENT);
-      return { success: true, messageId: `mock-${Date.now()}` };
-    }
-
-    try {
-      const result = await this.getSmsAdapter().send({ phone: params.phone, body: params.message, params: {} });
-      if (!result.success) {
-        this.logger.error(`SMS sending failed: ${result.errorMessage}`);
-        await this.logNotification(params, NotificationStatus.FAILED, result.errorMessage);
-        return { success: false };
-      }
-      await this.logNotification(params, NotificationStatus.SENT);
-      return { success: true, messageId: result.providerMessageId };
-    } catch (err: any) {
-      this.logger.error(`SMS sending failed: ${err.message}`);
-      await this.logNotification(params, NotificationStatus.FAILED, err.message);
-      return { success: false };
-    }
-  }
-
-  private async logNotification(params: SendSmsParams, status: NotificationStatus, error?: string) {
-    try {
-      await this.prisma.notificationLog.create({
-        data: {
-          studioId: params.studioId,
-          recipientPhone: params.phone,
-          channel: NotificationChannel.SMS,
-          type: params.type,
-          content: params.sensitive ? REDACTED : params.message,
-          status,
-          errorMessage: error,
-        },
+    if (params.smsText) {
+      const sms = await this.messaging.send({
+        studioId: params.studioId,
+        recipient: { userId: params.userId },
+        channel: 'SMS',
+        purpose: 'TRANSACTIONAL',
+        category: params.category,
+        type: 'REMINDER',
+        content: { text: params.smsText },
+        billing: 'EXEMPT',
       });
-    } catch (e) {
-      this.logger.error('Failed to write notification log to DB', e);
+      smsSent = sms.success;
     }
+    return { push: pushed.pushedDevices ?? 0, sms: smsSent };
+  }
+
+  /**
+   * Transactional template to a raw phone number (invitees have no account
+   * yet): wallet-exempt like every identity flow, tried on the given
+   * channels in order (WhatsApp, then SMS for a WhatsApp invite).
+   */
+  async sendTemplateToPhone(params: {
+    studioId: string;
+    phone: string;
+    templateKey: string;
+    variables: Record<string, string>;
+    channels: ('WHATSAPP' | 'SMS')[];
+    type: string;
+    locale?: string | null;
+    sensitive?: boolean;
+  }): Promise<{ success: boolean; channel?: SendResult['channel'] }> {
+    const result = await this.messaging.send({
+      studioId: params.studioId,
+      recipient: { phone: params.phone },
+      channels: params.channels,
+      purpose: 'TRANSACTIONAL',
+      templateKey: params.templateKey,
+      variables: params.variables,
+      locale: params.locale,
+      type: params.type,
+      sensitive: params.sensitive,
+      billing: 'EXEMPT',
+    });
+    if (!result.success) this.logger.error(`${params.type} could not be sent: ${result.reason ?? 'unknown'}`);
+    return { success: result.success, channel: result.channel };
+  }
+
+  /**
+   * Free-text SMS for identity flows (login and invite codes, invite
+   * links): transactional, never blocked by the tenant's SMS wallet, never
+   * gated by consent, content redacted when sensitive.
+   */
+  async sendSms(params: SendSmsParams): Promise<{ success: boolean; messageId?: string }> {
+    this.logger.log(`[SMS Queue] To: ${params.phone} | Type: ${params.type}`);
+    const result = await this.messaging.send({
+      studioId: params.studioId,
+      recipient: { phone: params.phone },
+      channel: 'SMS',
+      purpose: 'TRANSACTIONAL',
+      type: params.type,
+      content: { text: params.message },
+      sensitive: params.sensitive,
+      billing: 'EXEMPT',
+    });
+    if (!result.success) this.logger.error(`SMS sending failed: ${result.reason ?? 'unknown'}`);
+    return { success: result.success, messageId: result.providerMessageId };
   }
 }

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@platform/database';
 import type { AdminUpsertMessageTemplateInput, PublishDocumentVersionInput } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -9,7 +10,7 @@ export class AdminContentService {
   async listMessageTemplates(studioId?: string | null) {
     return this.prisma.messageTemplate.findMany({
       where: studioId === undefined ? {} : { studioId },
-      orderBy: [{ key: 'asc' }, { channel: 'asc' }],
+      orderBy: [{ key: 'asc' }, { channel: 'asc' }, { locale: 'asc' }],
     });
   }
 
@@ -26,6 +27,9 @@ export class AdminContentService {
       const fields = {
         body: input.body,
         whatsappTemplateName: input.whatsappTemplateName ?? null,
+        whatsappStatus: input.whatsappStatus,
+        subject: input.subject ?? null,
+        blocks: input.channel === 'EMAIL' && input.blocks ? (input.blocks as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
         isTransactional: input.isTransactional,
         isActive: input.isActive,
       };

@@ -88,6 +88,24 @@ export const EnvSchema = z
       .refine((v) => Buffer.from(v, 'base64').length === 32, 'must be base64 for exactly 32 bytes')
       .optional(),
 
+    // G1c messaging engine (docs/MESAJLASMA.md).
+    /** Amazon SES: region and verified sender address. Credentials come from the AWS SDK default chain. */
+    SES_REGION: z.string().regex(/^[a-z]{2}-[a-z]+-\d$/, 'must be an AWS region like eu-central-1').optional(),
+    SES_FROM_ADDRESS: z.string().email().optional(),
+    /** Display name for platform emails without a studio. */
+    SES_FROM_NAME: z.string().min(1).max(80).optional(),
+    /** SES configuration set that publishes bounce/complaint/delivery events to SNS. */
+    SES_CONFIGURATION_SET: z.string().min(1).optional(),
+    /** Comma-separated SNS topic ARNs accepted by the SES webhook; empty accepts any verified topic. */
+    SES_SNS_TOPIC_ARNS: z.string().optional(),
+    /** HMAC key for open/click/unsubscribe tokens. Required for commercial email in production. */
+    MESSAGING_TRACKING_SECRET: z.string().min(32, 'MESSAGING_TRACKING_SECRET must be at least 32 characters').optional(),
+    /** Meta app secret (X-Hub-Signature-256) and the webhook verify token of the WhatsApp Cloud API app. */
+    WHATSAPP_APP_SECRET: z.string().min(1).optional(),
+    WHATSAPP_WEBHOOK_VERIFY_TOKEN: z.string().min(16).optional(),
+    /** Shared secret in the Netgsm / İleti Merkezi delivery-report URL. */
+    SMS_DLR_WEBHOOK_TOKEN: z.string().min(24).optional(),
+
     /** Base URL for JITSI-generated meeting rooms (W19). Must be https. */
     JITSI_BASE_URL: z.string().url().default('https://meet.jit.si'),
   })

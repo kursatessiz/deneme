@@ -17,6 +17,7 @@ test.describe('Permission-driven navigation', () => {
       'Raporlar',
       'Adaylar',
       'Riskli Üyeler',
+      'Gelen Kutusu',
       'Ayarlar',
     ]) {
       await expect(nav.getByText(label, { exact: true })).toBeVisible();
@@ -32,6 +33,7 @@ test.describe('Permission-driven navigation', () => {
     await expect(nav.getByText('Ayarlar', { exact: true })).toHaveCount(0);
     await expect(nav.getByText('Raporlar', { exact: true })).toHaveCount(0);
     await expect(nav.getByText('Adaylar', { exact: true })).toHaveCount(0);
+    await expect(nav.getByText('Gelen Kutusu', { exact: true })).toHaveCount(0);
 
     // It does have schedule.view, members.view and attendance.manage.
     await expect(nav.getByText('Takvim', { exact: true })).toBeVisible();

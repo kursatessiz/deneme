@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import type { PermissionKey } from '@platform/shared';
-import { Award, ChevronRight, Globe, KeyRound, Layers, Megaphone, Palette, ShieldCheck, Store } from 'lucide-react';
+import { Award, ChevronRight, Globe, KeyRound, Layers, Megaphone, MessageSquareText, Palette, ShieldCheck, Store } from 'lucide-react';
+import { useT } from '@/components/i18n/I18nProvider';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { hasAnyPermission } from '@/lib/nav';
 import { SettingsHeader } from '@/components/settings/ui';
@@ -12,6 +13,9 @@ interface SettingsCard {
   href: string;
   title: string;
   description: string;
+  /** i18n keys; newer cards use these instead of the Turkish strings above. */
+  titleKey?: string;
+  descriptionKey?: string;
   icon: typeof ShieldCheck;
   permissions: readonly PermissionKey[];
 }
@@ -50,6 +54,16 @@ const CARDS: SettingsCard[] = [
     permissions: ['studio.settings.view', 'studio.settings.manage', 'notifications.manage', 'catalog.manage'],
   },
   {
+    key: 'mesaj-sablonlari',
+    href: '/ayarlar/mesaj-sablonlari',
+    title: 'Mesaj şablonları',
+    description: 'Kanal ve dil başına şablonlar, gönderim ayarları',
+    titleKey: 'messaging.templates.title',
+    descriptionKey: 'messaging.templates.settingsDescription',
+    icon: MessageSquareText,
+    permissions: ['notifications.manage'],
+  },
+  {
     key: 'rozetler',
     href: '/ayarlar/rozetler',
     title: 'Rozetler',
@@ -85,6 +99,7 @@ const CARDS: SettingsCard[] = [
 
 export default function SettingsHubPage() {
   const { permissions, isOwner } = useDashboardSession();
+  const t = useT();
   const visible = CARDS.filter((c) => hasAnyPermission(c.permissions, permissions, isOwner));
 
   return (
@@ -108,10 +123,10 @@ export default function SettingsHubPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  {card.title}
+                  {card.titleKey ? t(card.titleKey) : card.title}
                 </h3>
                 <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                  {card.description}
+                  {card.descriptionKey ? t(card.descriptionKey) : card.description}
                 </p>
               </div>
               <ChevronRight className="w-4 h-4 shrink-0 mt-1" style={{ color: 'var(--color-text-muted)' }} />

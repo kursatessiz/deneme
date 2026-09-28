@@ -39,6 +39,20 @@ export class ProviderRegistry<TAdapter> {
     return wildcard?.adapter ?? null;
   }
 
+  /**
+   * Every entry in priority order for a country: the entries listing the
+   * country (in catalogue order), then the wildcard entries. Used by
+   * capabilities that fall through to the next provider when the first one
+   * is not configured (messaging: Netgsm, then İleti Merkezi for TR).
+   */
+  candidatesFor(countryCode: string | null | undefined): ProviderCatalogEntry<TAdapter>[] {
+    const cc = (countryCode ?? '').toUpperCase();
+    return [
+      ...this.entries.filter((e) => cc !== '' && e.countries.includes(cc)),
+      ...this.entries.filter((e) => e.countries.includes('*')),
+    ];
+  }
+
   byKey(key: string): TAdapter | null {
     return this.entries.find((e) => e.key.toUpperCase() === key.toUpperCase())?.adapter ?? null;
   }

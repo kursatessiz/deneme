@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { DocumentType, FeatureFlagScope, InviteChannel, NotificationChannel } from './enums';
 import { PhoneSchema } from './validators';
 import { CountryCodeSchema } from './growth/regions';
+import { EmailBlocksSchema } from './email-blocks';
+import { WHATSAPP_TEMPLATE_STATUSES } from './message-templates';
 
 // ---------------------------------------------------------------------------
 // Super-admin (platform owner) panel: backlog 4.1-4.3.
@@ -142,12 +144,21 @@ export const AdminUpsertMessageTemplateSchema = z
     locale: z.string().trim().min(2).max(5).default('tr'),
     body: z.string().trim().min(1, 'Şablon metni boş olamaz').max(2000),
     whatsappTemplateName: z.string().trim().max(120).optional(),
+    /** Meta approval state of the WhatsApp template; admin-entered names are treated as approved unless stated. */
+    whatsappStatus: z.enum(WHATSAPP_TEMPLATE_STATUSES).default('APPROVED'),
+    /** EMAIL: subject line (required) and block-based body (optional; `body` becomes one paragraph when absent). */
+    subject: z.string().trim().min(1).max(200).nullable().optional(),
+    blocks: EmailBlocksSchema.nullable().optional(),
     isTransactional: z.boolean().default(true),
     isActive: z.boolean().default(true),
   })
   .refine((v) => v.channel !== NotificationChannel.WHATSAPP || !!v.whatsappTemplateName, {
     message: 'WhatsApp şablonları için onaylı şablon adı zorunludur',
     path: ['whatsappTemplateName'],
+  })
+  .refine((v) => v.channel !== NotificationChannel.EMAIL || !!v.subject, {
+    message: 'E-posta şablonları için konu zorunludur',
+    path: ['subject'],
   });
 export type AdminUpsertMessageTemplateInput = z.infer<typeof AdminUpsertMessageTemplateSchema>;
 
@@ -191,7 +202,7 @@ export interface SystemHealthDTO {
   lastHeartbeatRunAt: string | null;
   failedWebhookDeliveries: number;
   smsProvider: {
-    provider: 'MOCK' | 'NETGSM' | 'ILETI_MERKEZI';
+    provider: 'MOCK' | 'NETGSM' | 'ILETI_MERKEZI' | 'TWILIO';
     status: 'ok' | 'low_balance' | 'error' | 'skipped';
     credits: number | null;
     threshold: number;

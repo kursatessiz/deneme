@@ -29,7 +29,7 @@ describe('InvitesService', () => {
   };
 
   const mockOtp = { issue: jest.fn(), verify: jest.fn() };
-  const mockNotifications = { sendSms: jest.fn() };
+  const mockNotifications = { sendSms: jest.fn(), sendTemplateToPhone: jest.fn() };
   const mockAuth = { issueTokens: jest.fn(), sessionUser: jest.fn() };
   const mockConfig = { getOrThrow: jest.fn(() => 'https://app.example.com') };
 
