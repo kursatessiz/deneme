@@ -14,7 +14,11 @@ import {
   storeConsent,
   trackPageView,
 } from '@/lib/tracking/client';
+import { loadActivePixels, revokeAdvertisingPixels } from '@/lib/tracking/pixels';
 import { ConsentBanner } from './ConsentBanner';
+
+/** Window event that reopens the consent banner, e.g. from a footer link. */
+export const OPEN_CONSENT_EVENT = 'pw-open-consent';
 
 type NavigatorWithGpc = Navigator & { globalPrivacyControl?: boolean };
 
@@ -43,16 +47,33 @@ export function TrackingProvider({ studioSlug, region }: { studioSlug: string; r
     void trackPageView({ studioSlug, consent: state, locale });
   }, [state, studioSlug, locale, pathname]);
 
+  useEffect(() => {
+    // Advertising consent implies analytics consent (decide() enforces
+    // this), so checking advertising alone is enough here.
+    if (!state?.advertising) return;
+    void loadActivePixels(studioSlug);
+  }, [state?.advertising, studioSlug]);
+
   const onDecide = useCallback(
     (choice: ConsentChoice) => {
       const next = decide(choice, gpc);
       storeConsent(next);
       consentModeUpdate(next);
+      if (!next.advertising) revokeAdvertisingPixels();
       if (!next.analytics) clearTrackingCookies();
       setState(next);
     },
     [gpc],
   );
+
+  // Withdrawing consent must be as easy as giving it: any "cookie
+  // preferences" control on a public page dispatches this event to reopen
+  // the banner (see OPEN_CONSENT_EVENT).
+  useEffect(() => {
+    const reopen = () => setState((current) => (current ? { ...current, decided: false } : current));
+    window.addEventListener(OPEN_CONSENT_EVENT, reopen);
+    return () => window.removeEventListener(OPEN_CONSENT_EVENT, reopen);
+  }, []);
 
   if (!state || state.decided) return null;
   return <ConsentBanner mode={region.mode} gpc={gpc} onDecide={onDecide} />;

@@ -4,7 +4,7 @@ import { PipelineService } from './pipeline/pipeline.service';
 import { AttributionService } from './attribution/attribution.service';
 import { ConversionService } from './conversions/conversion.service';
 import { ConversionOutboxService } from './conversions/conversion-outbox.service';
-import { AdConnectionResolver, NoAdConnectionsResolver } from './conversions/ad-connection.resolver';
+import { AdConnectionResolver, PrismaAdConnectionResolver } from './conversions/ad-connection.resolver';
 import { CrmHooksService } from './hooks/crm-hooks.service';
 
 /**
@@ -20,7 +20,7 @@ import { CrmHooksService } from './hooks/crm-hooks.service';
     AttributionService,
     ConversionService,
     ConversionOutboxService,
-    { provide: AdConnectionResolver, useClass: NoAdConnectionsResolver },
+    { provide: AdConnectionResolver, useClass: PrismaAdConnectionResolver },
     CrmHooksService,
   ],
   exports: [ContactsService, PipelineService, AttributionService, ConversionService, ConversionOutboxService, CrmHooksService],

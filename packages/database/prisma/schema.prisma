@@ -526,6 +526,10 @@ model Studio {
   /// QR check-in window around a session's start time (W17).
   checkInWindowBeforeMinutes Int  @default(30) @map("check_in_window_before_minutes")
   checkInWindowAfterMinutes  Int  @default(15) @map("check_in_window_after_minutes")
+  /// Attribution window in days for the last-touch/linear models and the
+  /// Google Ads offline click conversion lookback (G2b). Replaces the
+  /// previously hard-coded DEFAULT_ATTRIBUTION_WINDOW_DAYS.
+  attributionWindowDays      Int  @default(30) @map("attribution_window_days")
   /// Channel order and fallback, e.g. { "order": ["WHATSAPP", "SMS"] }
   notificationSettings   Json     @default("{\"order\":[\"WHATSAPP\",\"SMS\"]}") @map("notification_settings")
   /// Churn risk scoring weights (W12). Null means the shared defaults apply;
@@ -592,6 +596,9 @@ model Studio {
   touchpoints           Touchpoint[]
   conversionEvents      ConversionEvent[]
   conversionDeliveries  ConversionDelivery[]
+  adConnections         AdConnection[]
+  adEntities            AdEntity[]
+  adSpendDaily          AdSpendDaily[]
   invoiceSettings       InvoiceSettings?
   invoiceCounters       InvoiceCounter[]
   invoices              Invoice[]
@@ -2333,6 +2340,10 @@ model Touchpoint {
   deviceType     String?  @map("device_type") @db.VarChar(10)
   pageVariant    String?  @map("page_variant") @db.VarChar(40)
   isPaidUntagged Boolean  @default(false) @map("is_paid_untagged")
+  /// consent.advertising at capture time (G2b). Gates whether a delivery to
+  /// Meta/Google/TikTok may use this touchpoint's identifiers at all; click
+  /// ids and fbp/fbc are only ever populated when this is true.
+  advertisingConsent Boolean @default(false) @map("advertising_consent")
   contactId      String?  @map("contact_id") @db.Uuid
   createdAt      DateTime @default(now()) @map("created_at")
 
@@ -2405,6 +2416,99 @@ model ConversionDelivery {
   @@index([status, nextAttemptAt])
   @@index([studioId])
   @@map("conversion_deliveries")
+}
+
+// ---------------------------------------------------------------------------
+// G2b: ad platform connections, conversion delivery targets, spend sync
+// ---------------------------------------------------------------------------
+
+/// One tenant's connection to one ad platform account (docs/REKLAM_ENTEGRASYONU.md).
+/// The platform tenant (Studio.isPlatform) connects the same way as any
+/// other tenant. Credentials are encrypted with CredentialCipher; the API
+/// never returns them, only credentialLast4.
+model AdConnection {
+  id                  String   @id @default(uuid()) @db.Uuid
+  studioId            String   @map("studio_id") @db.Uuid
+  /// One of AD_CONNECTION_PLATFORMS in @platform/shared.
+  platform            String   @db.VarChar(10)
+  label               String   @db.VarChar(80)
+  /// One of AD_CONNECTION_STATUSES.
+  status              String   @default("DISCONNECTED") @db.VarChar(20)
+  /// Ad account id (Meta act_..., Google customer id, TikTok advertiser id).
+  externalAccountId   String   @map("external_account_id") @db.VarChar(80)
+  /// Meta pixel id / TikTok pixel code / Google's public "AW-XXXXXXXXX" tag id (not a secret).
+  pixelOrDatasetId    String?  @map("pixel_or_dataset_id") @db.VarChar(80)
+  /// Base64 iv+authTag+ciphertext of the platform credential object (CredentialCipher).
+  encryptedCredentials String  @map("encrypted_credentials") @db.Text
+  /// Last 4 characters of the identifying token, kept in the clear for display only.
+  credentialLast4     String   @map("credential_last4") @db.VarChar(4)
+  /// ConversionEventType -> platform conversion action id, where the platform needs one (Google Ads, TikTok).
+  conversionActionIds Json     @default("{}") @map("conversion_action_ids")
+  /// Test traffic (isTest events) is never delivered; this flag instead
+  /// marks every *real* delivery from this connection as a platform test
+  /// event (Meta test_event_code, Google/TikTok test flags), for a safe
+  /// pre-launch check in Events Manager / Google Ads diagnostics.
+  isTestMode          Boolean  @default(false) @map("is_test_mode")
+  lastSyncAt          DateTime? @map("last_sync_at")
+  lastError           String?  @db.Text @map("last_error")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@unique([studioId, platform, label])
+  @@index([studioId, status])
+  @@map("ad_connections")
+}
+
+/// Campaign / ad set / ad structure synced daily from the platform APIs
+/// (docs/BUYUME_VE_GLOBAL_MIMARI.md 3.4). Attribution is always keyed on
+/// externalId (pw_cid/pw_asid/pw_adid), never on name, so a rename never
+/// breaks a report; this table only refreshes the human-readable name shown
+/// next to that id.
+model AdEntity {
+  id               String   @id @default(uuid()) @db.Uuid
+  studioId         String   @map("studio_id") @db.Uuid
+  /// One of AD_CONNECTION_PLATFORMS.
+  platform         String   @db.VarChar(10)
+  /// One of AD_ENTITY_LEVELS (CAMPAIGN | ADSET | AD).
+  level            String   @db.VarChar(10)
+  externalId       String   @map("external_id") @db.VarChar(80)
+  name             String   @db.VarChar(250)
+  status           String   @db.VarChar(20)
+  /// externalId of the parent entity (adset's campaign, ad's adset); null for a campaign.
+  parentExternalId String?  @map("parent_external_id") @db.VarChar(80)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@unique([studioId, platform, level, externalId])
+  @@index([studioId, platform, parentExternalId])
+  @@map("ad_entities")
+}
+
+/// One row per (entity, day): spend, currency, impressions, clicks. Upserted
+/// by the daily spend sync job and the manual refresh endpoint.
+model AdSpendDaily {
+  id         String   @id @default(uuid()) @db.Uuid
+  studioId   String   @map("studio_id") @db.Uuid
+  platform   String   @db.VarChar(10)
+  level      String   @db.VarChar(10)
+  externalId String   @map("external_id") @db.VarChar(80)
+  date       DateTime @db.Date
+  spendAmount Decimal @map("spend_amount") @db.Decimal(14, 4)
+  currency   String   @db.VarChar(3)
+  impressions Int     @default(0)
+  clicks     Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@unique([studioId, platform, level, externalId, date])
+  @@index([studioId, platform, date])
+  @@map("ad_spend_daily")
 }
 
 // ---------------------------------------------------------------------------

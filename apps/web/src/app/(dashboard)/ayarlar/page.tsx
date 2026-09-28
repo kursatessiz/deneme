@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { PermissionKey } from '@platform/shared';
-import { Award, ChevronRight, KeyRound, Layers, Palette, ShieldCheck, Store } from 'lucide-react';
+import { Award, ChevronRight, KeyRound, Layers, Megaphone, Palette, ShieldCheck, Store } from 'lucide-react';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { hasAnyPermission } from '@/lib/nav';
 import { SettingsHeader } from '@/components/settings/ui';
@@ -64,6 +64,14 @@ const CARDS: SettingsCard[] = [
     description: 'API anahtarları, webhook uç noktaları ve partner platform bağlantıları',
     icon: KeyRound,
     permissions: ['integrations.manage', 'integrations.partners.manage'],
+  },
+  {
+    key: 'reklam',
+    href: '/ayarlar/reklam',
+    title: 'Reklam bağlantıları',
+    description: 'Meta, Google Ads ve TikTok bağlantıları, UTM oluşturucu ve adlandırma denetimi',
+    icon: Megaphone,
+    permissions: ['ads.manage'],
   },
 ];
 

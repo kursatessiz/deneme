@@ -637,17 +637,17 @@ describe('CRM (e2e)', () => {
       const res = await report('groupBy=source');
       expect(res.status).toBe(200);
       expect(res.body.model).toBe('LAST_TOUCH');
-      expect(row(res.body, '(direct)')).toEqual({ key: '(direct)', conversions: { lead: 1, purchase: 1 }, revenue: { TRY: '1000.00' } });
-      expect(row(res.body, 'facebook')).toEqual({ key: 'facebook', conversions: { lead: 1, purchase: 1 }, revenue: { TRY: '500.00' } });
-      expect(row(res.body, 'instagram')).toEqual({ key: 'instagram', conversions: { lead: 1 }, revenue: {} });
-      expect(res.body.totals).toEqual({ conversions: { lead: 3, purchase: 2 }, revenue: { TRY: '1500.00' } });
+      expect(row(res.body, '(direct)')).toEqual({ key: '(direct)', conversions: { lead: 1, purchase: 1 }, revenue: { TRY: '1000.00' }, spend: {}, cpl: {}, cac: {}, roas: {} });
+      expect(row(res.body, 'facebook')).toEqual({ key: 'facebook', conversions: { lead: 1, purchase: 1 }, revenue: { TRY: '500.00' }, spend: {}, cpl: {}, cac: {}, roas: {} });
+      expect(row(res.body, 'instagram')).toEqual({ key: 'instagram', conversions: { lead: 1 }, revenue: {}, spend: {}, cpl: {}, cac: {}, roas: {} });
+      expect(res.body.totals).toEqual({ conversions: { lead: 3, purchase: 2 }, revenue: { TRY: '1500.00' }, spend: {}, cpl: {}, cac: {}, roas: {} });
       expect(res.body.untaggedPaidTouchpoints).toBe(1);
       expect(res.body.windowDays).toBe(30);
     });
 
     it('FIRST_TOUCH by source credits the earliest touch even outside the window', async () => {
       const res = await report('model=FIRST_TOUCH&groupBy=source');
-      expect(row(res.body, 'google')).toEqual({ key: 'google', conversions: { lead: 1, purchase: 1 }, revenue: { TRY: '1000.00' } });
+      expect(row(res.body, 'google')).toEqual({ key: 'google', conversions: { lead: 1, purchase: 1 }, revenue: { TRY: '1000.00' }, spend: {}, cpl: {}, cac: {}, roas: {} });
       expect(row(res.body, 'facebook').conversions).toEqual({ lead: 1, purchase: 1 });
       expect(row(res.body, 'instagram').conversions).toEqual({ lead: 1 });
       expect(row(res.body, '(direct)')).toBeUndefined();
@@ -655,8 +655,8 @@ describe('CRM (e2e)', () => {
 
     it('LINEAR by source splits credit across touches in the window', async () => {
       const res = await report('model=LINEAR&groupBy=source');
-      expect(row(res.body, 'facebook')).toEqual({ key: 'facebook', conversions: { lead: 1.5, purchase: 1.5 }, revenue: { TRY: '1000.00' } });
-      expect(row(res.body, '(direct)')).toEqual({ key: '(direct)', conversions: { lead: 0.5, purchase: 0.5 }, revenue: { TRY: '500.00' } });
+      expect(row(res.body, 'facebook')).toEqual({ key: 'facebook', conversions: { lead: 1.5, purchase: 1.5 }, revenue: { TRY: '1000.00' }, spend: {}, cpl: {}, cac: {}, roas: {} });
+      expect(row(res.body, '(direct)')).toEqual({ key: '(direct)', conversions: { lead: 0.5, purchase: 0.5 }, revenue: { TRY: '500.00' }, spend: {}, cpl: {}, cac: {}, roas: {} });
       expect(res.body.totals.revenue).toEqual({ TRY: '1500.00' });
     });
 

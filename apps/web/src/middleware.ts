@@ -24,6 +24,37 @@ async function refreshSession(refreshToken: string): Promise<{ accessToken: stri
   }
 }
 
+/**
+ * Ad pixel hosts allowed to load a script and receive a beacon from a
+ * public page, additive to whatever the page already needs (no
+ * default-src/script-src baseline exists yet, so this only narrows the two
+ * directives it sets; see docs/REKLAM_ENTEGRASYONU.md). Never applied to
+ * `(dashboard)` pages -- pixels only ever load on public pages.
+ */
+const AD_PIXEL_SCRIPT_SRC = [
+  "'self'",
+  "'unsafe-inline'",
+  'https://connect.facebook.net',
+  'https://www.googletagmanager.com',
+  'https://analytics.tiktok.com',
+];
+const AD_PIXEL_CONNECT_SRC = [
+  "'self'",
+  'https://www.facebook.com',
+  'https://www.googletagmanager.com',
+  'https://www.google.com',
+  'https://analytics.tiktok.com',
+  API_BASE_URL,
+];
+
+function publicAdsCsp(response: NextResponse): NextResponse {
+  response.headers.set(
+    'Content-Security-Policy',
+    `script-src ${AD_PIXEL_SCRIPT_SRC.join(' ')}; connect-src ${AD_PIXEL_CONNECT_SRC.join(' ')}`,
+  );
+  return response;
+}
+
 /** Route group `(dashboard)` pages, matched without the group segment. */
 const PROTECTED_PATHS = [
   '/dashboard',
@@ -36,9 +67,13 @@ const PROTECTED_PATHS = [
   '/finans',
   '/raporlar',
   '/adaylar',
+  '/reklam-performansi',
   '/riskli-uyeler',
   '/admin',
 ];
+
+/** Every top-level static route, dashboard or otherwise; anything else at one or two segments is a public studio slug page. */
+const RESERVED_TOP_LEVEL_SEGMENTS = new Set([...PROTECTED_PATHS.map((p) => p.slice(1)), 'giris', 'embed', 'api']);
 
 async function embedCsp(request: NextRequest): Promise<NextResponse> {
   const response = NextResponse.next();
@@ -80,6 +115,19 @@ export async function middleware(request: NextRequest) {
     return embedCsp(request);
   }
 
+  // A public studio page (product page, embedded widget host page or
+  // booking page): "/<slug>" or "/<slug>/book", where <slug> is not one of
+  // the reserved static routes above. This is the only place the ad pixel
+  // scripts (loaded client-side, gated on consent) are allowed to run.
+  const segments = request.nextUrl.pathname.split('/').filter(Boolean);
+  if (
+    (segments.length === 1 || (segments.length === 2 && segments[1] === 'book')) &&
+    !RESERVED_TOP_LEVEL_SEGMENTS.has(segments[0]) &&
+    STUDIO_SLUG_PATTERN.test(segments[0])
+  ) {
+    return publicAdsCsp(NextResponse.next());
+  }
+
   const isProtected = PROTECTED_PATHS.some(
     (p) => request.nextUrl.pathname === p || request.nextUrl.pathname.startsWith(`${p}/`),
   );
@@ -107,6 +155,8 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   // Keep in sync with PROTECTED_PATHS (Next requires a static literal here).
+  // '/:slug' and '/:slug/book' additionally cover public studio pages, so
+  // publicAdsCsp can run for them (see RESERVED_TOP_LEVEL_SEGMENTS).
   matcher: [
     '/embed/:path*',
     '/dashboard/:path*',
@@ -119,7 +169,10 @@ export const config = {
     '/finans/:path*',
     '/raporlar/:path*',
     '/adaylar/:path*',
+    '/reklam-performansi/:path*',
     '/riskli-uyeler/:path*',
     '/admin/:path*',
+    '/:slug',
+    '/:slug/book',
   ],
 };
