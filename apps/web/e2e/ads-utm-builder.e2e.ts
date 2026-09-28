@@ -11,14 +11,15 @@ test('owner builds a campaign name and copies the URL parameters', async ({ page
   await page.goto('/ayarlar/reklam');
 
   await expect(page.getByText('UTM oluşturucu')).toBeVisible();
+  const main = page.getByRole('main');
 
-  const marketInput = page.getByLabel('Pazar (ör. tr, us, de)');
+  const marketInput = main.getByLabel('Pazar (ör. tr, us, de)', { exact: true });
   await marketInput.fill('tr');
-  const langInput = page.getByLabel('Dil');
+  const langInput = main.getByRole('textbox', { name: 'Dil', exact: true });
   await langInput.fill('tr');
-  const sectorInput = page.getByLabel('Sektör');
+  const sectorInput = main.getByLabel('Sektör', { exact: true });
   await sectorInput.fill('pilates');
-  const monthInput = page.getByLabel('Ay');
+  const monthInput = main.getByLabel('Ay', { exact: true });
   await monthInput.fill('202610');
 
   await expect(page.locator('code').first()).toHaveText('tr_tr_pilates_lead_202610');
@@ -26,7 +27,7 @@ test('owner builds a campaign name and copies the URL parameters', async ({ page
   // Switch platform to Google and check the url params template changes.
   // Select order on the page: [0] connection platform, [1] UTM objective,
   // [2] UTM platform.
-  const selects = page.locator('select');
+  const selects = main.locator('select');
   await selects.nth(2).selectOption('GOOGLE');
   await expect(page.getByText(/utm_source=google&utm_medium=cpc/)).toBeVisible();
 });
