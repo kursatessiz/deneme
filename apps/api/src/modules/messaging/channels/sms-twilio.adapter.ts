@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { validateRequest } from 'twilio/lib/webhooks/webhooks';
-import type { ChannelSendRequest, ChannelSendResult, MessageChannel } from './message-channel.interface';
+import type { ChannelSendRequest, ChannelSendResult, SmsChannelAdapter } from './message-channel.interface';
 
 /**
  * Twilio REST SMS adapter: the platform's global default SMS provider (see
@@ -11,13 +11,14 @@ import type { ChannelSendRequest, ChannelSendResult, MessageChannel } from './me
  * exactly like the Netgsm and Ileti Merkezi adapters.
  */
 @Injectable()
-export class SmsTwilioAdapter implements MessageChannel {
+export class SmsTwilioAdapter implements SmsChannelAdapter {
   readonly name = 'SMS' as const;
+  readonly key = 'TWILIO' as const;
   private readonly logger = new Logger(SmsTwilioAdapter.name);
 
   constructor(private readonly config: ConfigService) {}
 
-  private get isConfigured(): boolean {
+  isConfigured(): boolean {
     return (
       !!this.config.get<string>('TWILIO_ACCOUNT_SID') &&
       !!this.config.get<string>('TWILIO_AUTH_TOKEN') &&
@@ -26,7 +27,7 @@ export class SmsTwilioAdapter implements MessageChannel {
   }
 
   async send(request: ChannelSendRequest): Promise<ChannelSendResult> {
-    if (!this.isConfigured) {
+    if (!this.isConfigured()) {
       this.logger.log(`[MOCK SMS/Twilio] Simulated SMS sent to ${request.phone}`);
       return { success: true, providerMessageId: `mock-twilio-${Date.now()}` };
     }
@@ -59,7 +60,7 @@ export class SmsTwilioAdapter implements MessageChannel {
 
   /** Twilio account balance (their Balance API). MOCK reports a fixed, healthy balance, like the other adapters. */
   async getBalance(): Promise<{ credits: number | null; errorMessage?: string }> {
-    if (!this.isConfigured) {
+    if (!this.isConfigured()) {
       return { credits: 10_000 };
     }
     const accountSid = this.config.get<string>('TWILIO_ACCOUNT_SID')!;

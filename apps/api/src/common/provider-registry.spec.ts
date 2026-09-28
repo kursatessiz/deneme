@@ -11,6 +11,12 @@ describe('ProviderRegistry', () => {
     expect(registry.resolveFor('TR')).toBe('iyzico-adapter');
   });
 
+  it('lists candidates: country entries first, then the wildcard', () => {
+    expect(registry.candidatesFor('tr').map((e) => e.key)).toEqual(['IYZICO', 'STRIPE']);
+    expect(registry.candidatesFor('US').map((e) => e.key)).toEqual(['STRIPE']);
+    expect(registry.candidatesFor(null).map((e) => e.key)).toEqual(['STRIPE']);
+  });
+
   it('falls back to the wildcard adapter for an unmatched country', () => {
     expect(registry.resolveFor('US')).toBe('stripe-adapter');
     expect(registry.resolveFor('DE')).toBe('stripe-adapter');

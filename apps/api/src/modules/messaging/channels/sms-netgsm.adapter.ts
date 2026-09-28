@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { ChannelSendRequest, ChannelSendResult, MessageChannel } from './message-channel.interface';
+import type { ChannelSendRequest, ChannelSendResult, SmsChannelAdapter } from './message-channel.interface';
 
 /**
  * Netgsm REST SMS adapter. Sends for real only when NETGSM_USER,
@@ -9,13 +9,14 @@ import type { ChannelSendRequest, ChannelSendResult, MessageChannel } from './me
  * default behaviour.
  */
 @Injectable()
-export class SmsNetgsmAdapter implements MessageChannel {
+export class SmsNetgsmAdapter implements SmsChannelAdapter {
   readonly name = 'SMS' as const;
+  readonly key = 'NETGSM' as const;
   private readonly logger = new Logger(SmsNetgsmAdapter.name);
 
   constructor(private readonly config: ConfigService) {}
 
-  private get isConfigured(): boolean {
+  isConfigured(): boolean {
     return (
       !!this.config.get<string>('NETGSM_USER') &&
       !!this.config.get<string>('NETGSM_PASSWORD') &&
@@ -24,7 +25,7 @@ export class SmsNetgsmAdapter implements MessageChannel {
   }
 
   async send(request: ChannelSendRequest): Promise<ChannelSendResult> {
-    if (!this.isConfigured) {
+    if (!this.isConfigured()) {
       this.logger.log(`[MOCK SMS/Netgsm] Simulated SMS sent to ${request.phone}`);
       return { success: true, providerMessageId: `mock-netgsm-${Date.now()}` };
     }
@@ -54,9 +55,10 @@ export class SmsNetgsmAdapter implements MessageChannel {
       }
       const [, jobId] = text.trim().split(' ');
       return { success: true, providerMessageId: jobId };
-    } catch (err: any) {
-      this.logger.error(`Netgsm send threw: ${err.message}`);
-      return { success: false, errorMessage: err.message };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Netgsm send threw: ${message}`);
+      return { success: false, errorMessage: message };
     }
   }
 
@@ -65,7 +67,7 @@ export class SmsNetgsmAdapter implements MessageChannel {
    * reports a fixed, healthy balance so local dev and tests never alert.
    */
   async getBalance(): Promise<{ credits: number | null; errorMessage?: string }> {
-    if (!this.isConfigured) {
+    if (!this.isConfigured()) {
       return { credits: 10_000 };
     }
     const usercode = this.config.get<string>('NETGSM_USER');
@@ -83,9 +85,10 @@ export class SmsNetgsmAdapter implements MessageChannel {
         return { credits: null, errorMessage: text || `HTTP ${response.status}` };
       }
       return { credits };
-    } catch (err: any) {
-      this.logger.error(`Netgsm balance query threw: ${err.message}`);
-      return { credits: null, errorMessage: err.message };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Netgsm balance query threw: ${message}`);
+      return { credits: null, errorMessage: message };
     }
   }
 }

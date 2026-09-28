@@ -65,6 +65,27 @@ export class ConsentService {
     return this.listForUser(studioId, userId);
   }
 
+  /**
+   * Opt-out recorded outside the member app (unsubscribe link, STOP
+   * keyword). Idempotent: an already revoked row keeps its revokedAt.
+   * Queued for İYS like every other change.
+   */
+  async revoke(studioId: string, userId: string, channel: ConsentChannelName, source: string): Promise<void> {
+    const now = new Date();
+    const existing = await this.prisma.communicationConsent.findUnique({
+      where: { studioId_userId_channel: { studioId, userId, channel } },
+    });
+    if (existing?.status === 'REVOKED') return;
+    await this.prisma.communicationConsent.upsert({
+      where: { studioId_userId_channel: { studioId, userId, channel } },
+      create: { studioId, userId, channel, status: 'REVOKED', source, grantedAt: null, revokedAt: now },
+      update: { status: 'REVOKED', revokedAt: now, iysSyncedAt: null },
+    });
+    this.syncOne(studioId, userId, channel).catch((err: Error) =>
+      this.logger.error(`Consent sync failed for ${studioId}/${userId}/${channel}: ${err.message}`),
+    );
+  }
+
   /** Staff view: every member's consent state for the studio (for export/audit). */
   async listForStudio(studioId: string) {
     const rows = await this.prisma.communicationConsent.findMany({

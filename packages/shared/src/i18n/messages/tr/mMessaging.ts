@@ -1,0 +1,20 @@
+/** Mobile app: member chat (Hesabım > İşletmeye yaz) and the staff inbox (Hesabım > Gelen kutusu). */
+export const trMMessaging = {
+  'mMessaging.chat.title': 'İşletmeye yaz',
+  'mMessaging.chat.empty': 'İşletmeye bir mesaj yazın, ekip size buradan cevap verir.',
+  'mMessaging.chat.placeholder': 'Mesajınız',
+  'mMessaging.chat.send': 'Gönder',
+  'mMessaging.chat.sendError': 'Mesaj gönderilemedi.',
+  'mMessaging.chat.you': 'Siz',
+  'mMessaging.chat.studio': 'İşletme',
+  'mMessaging.chat.announcements': 'Duyurular',
+  'mMessaging.inbox.title': 'Gelen kutusu',
+  'mMessaging.inbox.empty': 'Açık konuşma yok.',
+  'mMessaging.inbox.back': 'Konuşmalar',
+  'mMessaging.inbox.reply': 'Cevap yaz',
+  'mMessaging.inbox.send': 'Gönder',
+  'mMessaging.inbox.close': 'Konuşmayı kapat',
+  'mMessaging.inbox.assignToMe': 'Bana ata',
+  'mMessaging.inbox.windowClosed': 'WhatsApp 24 saatlik penceresi kapandı; cevap web panelinden onaylı bir şablonla gönderilebilir.',
+  'mMessaging.loadError': 'Yüklenemedi.',
+} as const satisfies Record<string, string>;

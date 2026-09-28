@@ -1,5 +1,5 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { json, raw, urlencoded } from 'express';
+import { json, raw, text, urlencoded } from 'express';
 import { LANGUAGE_PACK_MAX_BYTES } from '@platform/shared';
 
 /** Default request body limit for every route except the ones listed below. */
@@ -7,6 +7,12 @@ export const DEFAULT_BODY_LIMIT = '100kb';
 
 /** Stripe webhook signature verification needs the exact raw bytes Stripe signed. */
 export const STRIPE_WEBHOOK_PATH = '/payments/webhook/stripe';
+
+/** Meta's X-Hub-Signature-256 is computed over the exact raw body, like Stripe's. */
+export const WHATSAPP_WEBHOOK_PATH = '/messaging/webhook/whatsapp';
+
+/** Amazon SNS posts JSON with Content-Type text/plain; the SNS signature covers fields, not bytes. */
+export const SES_WEBHOOK_PATH = '/messaging/webhook/ses';
 
 /**
  * Registers the body parsers explicitly. The app must be created with
@@ -26,6 +32,8 @@ export const STRIPE_WEBHOOK_PATH = '/payments/webhook/stripe';
  */
 export function configureBodyParsers(app: NestExpressApplication): void {
   app.use(STRIPE_WEBHOOK_PATH, raw({ type: '*/*', limit: DEFAULT_BODY_LIMIT }));
+  app.use(WHATSAPP_WEBHOOK_PATH, raw({ type: '*/*', limit: '1mb' }));
+  app.use(SES_WEBHOOK_PATH, text({ type: '*/*', limit: '256kb' }));
   app.use('/admin/i18n/languages', json({ limit: LANGUAGE_PACK_MAX_BYTES + 64 * 1024 }));
   app.use(json({ limit: DEFAULT_BODY_LIMIT }));
   app.use(urlencoded({ extended: true, limit: DEFAULT_BODY_LIMIT }));

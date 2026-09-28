@@ -36,6 +36,12 @@ export class PushService {
     this.accessToken = config.get<string>('EXPO_ACCESS_TOKEN');
   }
 
+  /** Whether the user has at least one active device (the messaging engine skips push otherwise). */
+  async hasDevices(userId: string): Promise<boolean> {
+    const count = await this.prisma.pushDevice.count({ where: { userId, disabledAt: null } });
+    return count > 0;
+  }
+
   /** Returns the number of devices the message was handed to. */
   async sendToUser(userId: string, message: PushMessage): Promise<number> {
     const devices = await this.prisma.pushDevice.findMany({

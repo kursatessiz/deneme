@@ -12,5 +12,6 @@ export const enNav = {
   'nav.reports': 'Reports',
   'nav.leads': 'Leads',
   'nav.churn': 'At-Risk Members',
+  'nav.inbox': 'Inbox',
   'nav.settings': 'Settings',
 } as const satisfies Record<keyof typeof trNav, string>;

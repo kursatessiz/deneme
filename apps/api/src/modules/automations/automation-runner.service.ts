@@ -21,7 +21,7 @@ export interface RunOutcome {
 }
 
 /** Failure reasons that reflect a policy or preference decision, not a delivery error. */
-const SKIP_REASON_RE = /onay|kapat|bulunamadı|şablon|yapılandır|yetersiz/i;
+const SKIP_REASON_RE = /onay|kapat|bulunamadı|şablon|yapılandır|yetersiz|sessiz|sıklık|çıktı|adres|cihaz/i;
 
 /** Prisma's unique-constraint violation code (P2002). */
 function isUniqueConstraintViolation(err: unknown): boolean {
