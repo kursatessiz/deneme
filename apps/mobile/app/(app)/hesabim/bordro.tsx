@@ -6,10 +6,9 @@ import type { PayrollRunDTO } from '@platform/shared';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
+import { formatCurrency, useLocale } from '../../../src/i18n';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
 
-const money = (v: string) =>
-  new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 2 }).format(Number(v));
 
 const dateRange = (isoStart: string, isoEnd: string) => {
   const fmt = new Intl.DateTimeFormat('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -26,6 +25,9 @@ const STATUS_LABEL: Record<PayrollRunDTO['status'], string> = {
 /** Owner/reception: payroll runs for the studio, with approve and mark-paid actions (W14). */
 export default function BordroScreen() {
   const { activeMembership } = useSession();
+  const { locale } = useLocale();
+  const currency = activeMembership?.currency ?? 'USD';
+  const money = (v: string) => formatCurrency(Number(v), locale, currency, { maximumFractionDigits: 2 });
   const { theme } = useTheme();
   const fonts = useThemeFonts();
   const c = theme.colors;

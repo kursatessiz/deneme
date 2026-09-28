@@ -6,9 +6,11 @@ import { PushService } from './push.service';
 import { NotificationPreferencesService } from './notification-preferences.service';
 import { TemplateService } from './templates/template.service';
 import { ConsentService } from './consent/consent.service';
+import { ComplianceService } from '../compliance/compliance.service';
 import { WhatsAppCloudAdapter } from './channels/whatsapp-cloud.adapter';
 import { SmsNetgsmAdapter } from './channels/sms-netgsm.adapter';
 import { SmsIletiMerkeziAdapter } from './channels/sms-iletimerkezi.adapter';
+import { SmsTwilioAdapter } from './channels/sms-twilio.adapter';
 
 const mockPush = { sendToUser: jest.fn().mockResolvedValue(1) };
 const mockPreferences = { channelsFor: jest.fn() };
@@ -17,6 +19,7 @@ const mockConsents = { isGranted: jest.fn() };
 const mockWhatsapp = { name: 'WHATSAPP' as const, send: jest.fn() };
 const mockNetgsm = { name: 'SMS' as const, send: jest.fn() };
 const mockIletiMerkezi = { name: 'SMS' as const, send: jest.fn() };
+const mockTwilio = { name: 'SMS' as const, send: jest.fn() };
 
 describe('NotificationsService', () => {
   let service: NotificationsService;
@@ -43,9 +46,11 @@ describe('NotificationsService', () => {
         { provide: NotificationPreferencesService, useValue: mockPreferences },
         { provide: TemplateService, useValue: mockTemplates },
         { provide: ConsentService, useValue: mockConsents },
+        ComplianceService,
         { provide: WhatsAppCloudAdapter, useValue: mockWhatsapp },
         { provide: SmsNetgsmAdapter, useValue: mockNetgsm },
         { provide: SmsIletiMerkeziAdapter, useValue: mockIletiMerkezi },
+        { provide: SmsTwilioAdapter, useValue: mockTwilio },
       ],
     }).compile();
     return module.get<NotificationsService>(NotificationsService);

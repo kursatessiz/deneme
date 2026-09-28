@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { ExpenseDTO } from '@platform/shared';
-import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useDashboardSession, useFormatMoney } from '@/components/session/DashboardSessionProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { buildReportQuery } from '@/lib/reports/query';
 import { formatMoney, sumMoney } from '@/lib/money';
@@ -79,6 +79,7 @@ function NewExpenseDialog({ studioId, onClose, onDone }: { studioId: string; onC
 }
 
 export function ExpensesTab() {
+  const formatMoney = useFormatMoney();
   const { activeStudioId } = useDashboardSession();
   const [branchId, setBranchId] = useState('');
   const [from, setFrom] = useState<Date | null>(null);

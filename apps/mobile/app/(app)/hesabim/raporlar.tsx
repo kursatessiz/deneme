@@ -5,16 +5,18 @@ import type { MembersReportDTO, OccupancyReportDTO, RenewalReportDTO, TrainerRep
 
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
+import { formatCurrency, useLocale } from '../../../src/i18n';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
 
 const DAY = 24 * 60 * 60 * 1000;
 const percent = (v: number) => `%${Math.round(v * 100)}`;
-const money = (v: string) =>
-  new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(Number(v));
 
 /** Owner-only: last 30 days occupancy, revenue, renewal rate and top trainers. */
 export default function RaporlarScreen() {
   const { activeMembership } = useSession();
+  const { locale } = useLocale();
+  const currency = activeMembership?.currency ?? 'USD';
+  const money = (v: string) => formatCurrency(Number(v), locale, currency, { maximumFractionDigits: 0 });
   const { theme } = useTheme();
   const fonts = useThemeFonts();
   const c = theme.colors;

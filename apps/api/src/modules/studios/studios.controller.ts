@@ -5,8 +5,8 @@ import { StudioScoped, RequirePermission } from '../auth/decorators/require-perm
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import { ZodBody } from '../../common/zod-body.pipe';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
-import { UpdateEmbedSettingsSchema } from '@platform/shared';
-import type { UpdateEmbedSettingsInput } from '@platform/shared';
+import { StudioRegionSchema, UpdateEmbedSettingsSchema } from '@platform/shared';
+import type { StudioRegion, UpdateEmbedSettingsInput } from '@platform/shared';
 
 
 @Controller('studios')
@@ -30,6 +30,26 @@ export class StudiosController {
   @RequirePermission('reports.view')
   async getMetrics(@Tenant() tenant: TenantContext) {
     return this.studiosService.getDashboardMetrics(tenant.studioId);
+  }
+
+  /** The studio's region settings: country, currency, timezone, tax regime, tax-inclusive pricing. */
+  @Get(':studioId/region')
+  @StudioScoped()
+  @RequirePermission('studio.settings.view')
+  async getRegion(@Tenant() tenant: TenantContext) {
+    return this.studiosService.getRegion(tenant.studioId);
+  }
+
+  /** Updates region settings; changing currency after payments exist is refused (409). */
+  @Put(':studioId/region')
+  @StudioScoped()
+  @RequirePermission('studio.settings.manage')
+  async updateRegion(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodBody(StudioRegionSchema) body: StudioRegion,
+  ) {
+    return this.studiosService.updateRegion(tenant.studioId, user.id, body);
   }
 
   /** The booking widget's current allowed embed origins (W18); empty allows any origin. */

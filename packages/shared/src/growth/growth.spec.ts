@@ -7,7 +7,7 @@ import {
   parseTrackingParams,
   TouchpointInputSchema,
 } from './attribution';
-import { complianceRegionOf, defaultTaxRegimeOf, formatMoney, MoneySchema } from './regions';
+import { complianceRegionOf, defaultTaxRegimeOf, formatMoney, MoneySchema, toMinorUnits } from './regions';
 import { SegmentGroupSchema, validateSegmentRules } from './segments';
 import { JourneyDefinitionSchema, validateJourneyGraph } from './journeys';
 import { ConversionEventSchema, CONVERSION_EVENT_TYPES, META_EVENT_NAME } from './conversions';
@@ -27,6 +27,17 @@ describe('regions', () => {
     expect(MoneySchema.safeParse({ amount: '1250.50', currency: 'EUR' }).success).toBe(true);
     expect(MoneySchema.safeParse({ amount: '1,250', currency: 'EUR' }).success).toBe(false);
     expect(formatMoney({ amount: '1250.5', currency: 'USD' }, 'en-US')).toBe('$1,250.50');
+  });
+});
+
+describe('minor units', () => {
+  it('respects zero, two and three decimal currencies', () => {
+    expect(toMinorUnits(12.5, 'EUR')).toBe(1250);
+    expect(toMinorUnits('19.99', 'try')).toBe(1999);
+    expect(toMinorUnits(0.1 + 0.2, 'USD')).toBe(30);
+    expect(toMinorUnits(1500, 'JPY')).toBe(1500);
+    expect(toMinorUnits(1.234, 'KWD')).toBe(1234);
+    expect(() => toMinorUnits('abc', 'EUR')).toThrow();
   });
 });
 

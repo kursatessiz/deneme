@@ -25,6 +25,21 @@ const inputStyle: React.CSSProperties = {
   color: 'var(--color-text-primary)',
 };
 
+/** Countries with explicit region defaults (packages/shared countryDefaultsOf); any other ISO code is also
+ * accepted by the API and falls back to USD/UTC/NONE/en, completed later from the studio's region settings. */
+const COUNTRY_OPTIONS = [
+  { code: 'TR', label: 'Türkiye' },
+  { code: 'US', label: 'Amerika Birleşik Devletleri' },
+  { code: 'CA', label: 'Kanada' },
+  { code: 'GB', label: 'Birleşik Krallık' },
+  { code: 'DE', label: 'Almanya' },
+  { code: 'FR', label: 'Fransa' },
+  { code: 'ES', label: 'İspanya' },
+  { code: 'IT', label: 'İtalya' },
+  { code: 'NL', label: 'Hollanda' },
+  { code: 'AE', label: 'Birleşik Arap Emirlikleri' },
+];
+
 function CreateTenantForm({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -34,12 +49,13 @@ function CreateTenantForm({ onCreated }: { onCreated: () => void }) {
     slug: '',
     businessTypeTemplateKey: '',
     planKey: '',
+    countryCode: 'TR',
     ownerFirstName: '',
     ownerLastName: '',
     ownerPhone: '',
   });
 
-  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
 
   const submit = async (e: React.FormEvent) => {
@@ -49,7 +65,7 @@ function CreateTenantForm({ onCreated }: { onCreated: () => void }) {
     try {
       await bffFetch('admin/tenants', { method: 'POST', body: { ...form, ownerChannel: 'SHOWN' } });
       setOpen(false);
-      setForm({ name: '', slug: '', businessTypeTemplateKey: '', planKey: '', ownerFirstName: '', ownerLastName: '', ownerPhone: '' });
+      setForm({ name: '', slug: '', businessTypeTemplateKey: '', planKey: '', countryCode: 'TR', ownerFirstName: '', ownerLastName: '', ownerPhone: '' });
       onCreated();
     } catch (err) {
       setError(err instanceof BffError ? err.message : 'İşletme oluşturulamadı');
@@ -89,6 +105,13 @@ function CreateTenantForm({ onCreated }: { onCreated: () => void }) {
           style={inputStyle}
         />
         <input required placeholder="Plan anahtarı (ör: starter)" value={form.planKey} onChange={set('planKey')} className="border px-3 py-2 text-sm" style={inputStyle} />
+        <select required value={form.countryCode} onChange={set('countryCode')} className="border px-3 py-2 text-sm" style={inputStyle}>
+          {COUNTRY_OPTIONS.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.label}
+            </option>
+          ))}
+        </select>
         <input required placeholder="Sahibin adı" value={form.ownerFirstName} onChange={set('ownerFirstName')} className="border px-3 py-2 text-sm" style={inputStyle} />
         <input required placeholder="Sahibin soyadı" value={form.ownerLastName} onChange={set('ownerLastName')} className="border px-3 py-2 text-sm" style={inputStyle} />
         <input required placeholder="Sahibin telefonu (05XX...)" value={form.ownerPhone} onChange={set('ownerPhone')} className="border px-3 py-2 text-sm" style={inputStyle} />

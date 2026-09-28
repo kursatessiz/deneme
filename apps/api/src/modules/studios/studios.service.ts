@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { DashboardMetricsDTO } from '@platform/shared';
+import { DashboardMetricsDTO, StudioRegion } from '@platform/shared';
 
 @Injectable()
 export class StudiosService {
@@ -67,6 +67,54 @@ export class StudiosService {
       },
     });
     return studio;
+  }
+
+  async getRegion(studioId: string): Promise<StudioRegion> {
+    const studio = await this.prisma.studio.findUniqueOrThrow({
+      where: { id: studioId },
+      select: { countryCode: true, currency: true, timezone: true, taxRegime: true, pricesIncludeTax: true },
+    });
+    return {
+      countryCode: studio.countryCode,
+      currency: studio.currency,
+      timezone: studio.timezone,
+      taxRegime: studio.taxRegime as StudioRegion['taxRegime'],
+      pricesIncludeTax: studio.pricesIncludeTax,
+    };
+  }
+
+  async updateRegion(studioId: string, userId: string, region: StudioRegion): Promise<StudioRegion> {
+    const studio = await this.prisma.studio.findUniqueOrThrow({ where: { id: studioId }, select: { currency: true } });
+    if (region.currency !== studio.currency) {
+      const hasPayments = await this.prisma.payment.findFirst({ where: { studioId }, select: { id: true } });
+      if (hasPayments) {
+        throw new ConflictException(
+          'Bu stüdyoda kaydedilmiş ödemeler var; para birimi değiştirilemez. Mevcut tutarlar otomatik olarak yeni para birimine çevrilmez.',
+        );
+      }
+    }
+    const updated = await this.prisma.studio.update({
+      where: { id: studioId },
+      data: {
+        countryCode: region.countryCode,
+        currency: region.currency,
+        timezone: region.timezone,
+        taxRegime: region.taxRegime,
+        pricesIncludeTax: region.pricesIncludeTax,
+      },
+      select: { countryCode: true, currency: true, timezone: true, taxRegime: true, pricesIncludeTax: true },
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        studioId,
+        userId,
+        action: 'studio.region.update',
+        entityType: 'Studio',
+        entityId: studioId,
+        metadata: { ...region },
+      },
+    });
+    return { ...updated, taxRegime: updated.taxRegime as StudioRegion['taxRegime'] };
   }
 
   async getDashboardMetrics(studioId: string): Promise<DashboardMetricsDTO> {

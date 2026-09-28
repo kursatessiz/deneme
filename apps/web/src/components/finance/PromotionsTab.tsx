@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { PromoCodeKind } from '@platform/shared';
 import type { PromoCodeDTO, GiftCardDTO } from '@platform/shared';
-import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useDashboardSession, useFormatMoney } from '@/components/session/DashboardSessionProvider';
 import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { formatMoney } from '@/lib/money';
@@ -81,6 +81,7 @@ function NewPromoCodeDialog({ studioId, onClose, onDone }: { studioId: string; o
 }
 
 function PromoCodesSection() {
+  const formatMoney = useFormatMoney();
   const { activeStudioId } = useDashboardSession();
   const [showNew, setShowNew] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -166,6 +167,7 @@ function PromoCodesSection() {
 }
 
 function GiftCardsSection() {
+  const formatMoney = useFormatMoney();
   const { activeStudioId } = useDashboardSession();
   const [reloadKey, setReloadKey] = useState(0);
   const { data: cards, loading, error } = useBff<GiftCardRow[]>(activeStudioId ? `promotions/gift-cards?_=${reloadKey}` : null, activeStudioId);

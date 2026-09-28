@@ -8,9 +8,11 @@ import { PushService, PushMessage } from './push.service';
 import { NotificationPreferencesService } from './notification-preferences.service';
 import { TemplateService } from './templates/template.service';
 import { ConsentService } from './consent/consent.service';
+import { ComplianceService } from '../compliance/compliance.service';
 import { WhatsAppCloudAdapter } from './channels/whatsapp-cloud.adapter';
 import { SmsNetgsmAdapter } from './channels/sms-netgsm.adapter';
 import { SmsIletiMerkeziAdapter } from './channels/sms-iletimerkezi.adapter';
+import { SmsTwilioAdapter } from './channels/sms-twilio.adapter';
 import type { MessageChannel } from './channels/message-channel.interface';
 
 export interface SendSmsParams {
@@ -58,9 +60,11 @@ export class NotificationsService {
     private preferences: NotificationPreferencesService,
     private templates: TemplateService,
     private consents: ConsentService,
+    private compliance: ComplianceService,
     private whatsapp: WhatsAppCloudAdapter,
     private netgsm: SmsNetgsmAdapter,
     private iletiMerkezi: SmsIletiMerkeziAdapter,
+    private twilio: SmsTwilioAdapter,
   ) {
     this.isMock = this.config.get<string>('SMS_PROVIDER', 'MOCK') === 'MOCK';
   }
@@ -86,12 +90,13 @@ export class NotificationsService {
       return { success: false, reason: 'Kullanıcı bu kategori için kapatmış' };
     }
 
-    const settings = input.studioId
-      ? parseNotificationSettings(
-          (await this.prisma.studio.findUnique({ where: { id: input.studioId }, select: { notificationSettings: true } }))
-            ?.notificationSettings,
-        )
-      : parseNotificationSettings(undefined);
+    const studio = input.studioId
+      ? await this.prisma.studio.findUnique({
+          where: { id: input.studioId },
+          select: { notificationSettings: true, countryCode: true, timezone: true },
+        })
+      : null;
+    const settings = parseNotificationSettings(studio?.notificationSettings);
     const order = effectiveChannelOrder(settings);
 
     let fallbackOfId: string | undefined;
@@ -107,10 +112,24 @@ export class NotificationsService {
         continue;
       }
 
-      if (!resolved.isTransactional) {
-        const granted = await this.consents.isGranted(input.studioId ?? '', input.userId, channelName as ConsentChannelName);
-        if (!granted) {
-          lastReason = `${channelName} için ticari mesaj onayı yok`;
+      {
+        // Consent/compliance gate for every message, transactional
+        // included (compliance.canSend always allows TRANSACTIONAL).
+        // Quiet hours are computed by canSend but not enforced here yet
+        // (skipQuietHours) -- see compliance.types.ts: this call replaces
+        // the old inline isGranted() check one-for-one, so Turkish tenants
+        // see exactly the same sends today as before this module existed.
+        const consentGranted = resolved.isTransactional
+          ? true
+          : await this.consents.isGranted(input.studioId ?? '', input.userId, channelName as ConsentChannelName);
+        const decision = this.compliance.canSend({
+          recipient: { countryCode: studio?.countryCode ?? null, timezone: studio?.timezone ?? null, consentGranted },
+          channel: channelName,
+          purpose: resolved.isTransactional ? 'TRANSACTIONAL' : 'COMMERCIAL',
+          skipQuietHours: true,
+        });
+        if (!decision.allow) {
+          lastReason = decision.reason ?? `${channelName} için gönderim engellendi`;
           continue;
         }
       }
@@ -202,7 +221,9 @@ export class NotificationsService {
 
   private getSmsAdapter(): MessageChannel {
     const provider = this.config.get<string>('SMS_PROVIDER', 'MOCK');
-    return provider === 'ILETI_MERKEZI' ? this.iletiMerkezi : this.netgsm;
+    if (provider === 'ILETI_MERKEZI') return this.iletiMerkezi;
+    if (provider === 'TWILIO') return this.twilio;
+    return this.netgsm;
   }
 
   private async reserveSmsCredit(studioId: string): Promise<{ walletId: string; balanceAfter: number } | null> {

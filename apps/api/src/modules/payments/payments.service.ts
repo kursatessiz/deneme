@@ -213,6 +213,7 @@ export class PaymentsService {
     if (!pkgDef) throw new NotFoundException('Paket tanımı bulunamadı');
     const member = await this.prisma.memberProfile.findFirstOrThrow({ where: { id: dto.memberId, studioId } });
     const userId = await this.resolveUserId(studioId, dto.memberId);
+    const studio = await this.prisma.studio.findUniqueOrThrow({ where: { id: studioId }, select: { currency: true } });
 
     const hasPromoOrGiftCard = Boolean(dto.promoCode || dto.giftCardCode);
     const pricing = hasPromoOrGiftCard
@@ -228,7 +229,7 @@ export class PaymentsService {
       studioId,
       memberId: dto.memberId,
       amount: methodAmount,
-      currency: 'TRY',
+      currency: studio.currency,
       installmentCount: dto.installmentCount,
       description: `${pkgDef.name} paket satın alma`,
       reference: `checkout_${dto.memberId}_${pkgDef.id}_${Date.now()}`,
@@ -241,7 +242,7 @@ export class PaymentsService {
       branchId: member.homeBranchId ?? undefined,
       paymentMethod: (this.providers.default.name === PaymentProvider.PAYTR ? 'ONLINE_PAYTR' : 'ONLINE_IYZICO') as SellPackageInput['paymentMethod'],
       paidAmount: Number(pkgDef.price),
-      currency: 'TRY',
+      currency: studio.currency,
       installmentCount: dto.installmentCount,
       promoCode: dto.promoCode,
       giftCardCode: dto.giftCardCode,
@@ -271,7 +272,7 @@ export class PaymentsService {
         memberId: dto.memberId,
         branchId: member.homeBranchId ?? null,
         amount: pkgDef.price,
-        currency: 'TRY',
+        currency: studio.currency,
         paymentMethod: sellDto.paymentMethod,
         paymentStatus: PaymentStatus.PENDING,
         provider: this.providers.default.name,

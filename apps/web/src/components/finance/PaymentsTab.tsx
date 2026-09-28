@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { PaymentMethod, PaymentStatus } from '@platform/shared';
 import type { PaymentDTO } from '@platform/shared';
-import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useDashboardSession, useFormatMoney } from '@/components/session/DashboardSessionProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { buildReportQuery } from '@/lib/reports/query';
 import { formatMoney } from '@/lib/money';
@@ -45,6 +45,7 @@ const selectStyle: React.CSSProperties = {
 };
 
 function RefundDialog({ payment, studioId, onClose, onDone }: { payment: PaymentRow; studioId: string; onClose: () => void; onDone: () => void }) {
+  const formatMoney = useFormatMoney();
   const remaining = Number(payment.amount) - Number(payment.refundedAmount);
   const [amount, setAmount] = useState(String(remaining));
   const [reason, setReason] = useState('');
@@ -120,6 +121,7 @@ function RefundDialog({ payment, studioId, onClose, onDone }: { payment: Payment
 }
 
 export function PaymentsTab() {
+  const formatMoney = useFormatMoney();
   const { activeStudioId } = useDashboardSession();
   const [branchId, setBranchId] = useState('');
   const [method, setMethod] = useState('');

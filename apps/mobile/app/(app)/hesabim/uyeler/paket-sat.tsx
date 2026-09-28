@@ -61,7 +61,7 @@ function PaketSatContent() {
       packageDefinitionId,
       paymentMethod,
       paidAmount: paidAmount ? Number(paidAmount) : selected?.price ?? 0,
-      currency: 'TRY',
+      currency: activeMembership?.currency ?? 'USD',
       installmentCount: 1,
     });
     if (!parsed.success) {
@@ -133,7 +133,7 @@ function PaketSatContent() {
       </View>
 
       <TextField
-        label="Tahsil edilen tutar (TRY)"
+        label={`Tahsil edilen tutar (${activeMembership?.currency ?? ''})`}
         value={paidAmount}
         onChangeText={setPaidAmount}
         keyboardType="decimal-pad"

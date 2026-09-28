@@ -39,6 +39,7 @@ describe('DunningService', () => {
       memberPackage: { create: jest.fn() },
       payment: { create: jest.fn() },
       memberProfile: { findFirst: jest.fn().mockResolvedValue({ membership: { userId: 'user-1' } }) },
+      studio: { findUniqueOrThrow: jest.fn().mockResolvedValue({ currency: 'TRY' }) },
       $transaction: jest.fn(async (cb) => cb(prisma)),
     };
     notifications = { notifyUser: jest.fn().mockResolvedValue({ push: 1, sms: false }) };

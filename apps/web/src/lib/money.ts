@@ -5,15 +5,20 @@
  * `Number()` here is used only to hand the value to `Intl.NumberFormat` for
  * display -- never for arithmetic. If you need to add or compare amounts,
  * do it on the API side and read the result back as a string.
+ *
+ * The studio's currency and the viewer's locale are never hard-coded here:
+ * callers pass both (or use `useFormatMoney()` from
+ * `@/components/session/DashboardSessionProvider`, which binds the active
+ * studio's currency and the viewer's resolved locale for you).
  */
-const TRY_FORMATTER = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' });
+import { formatMoney as formatMoneyShared } from '@platform/shared';
 
-/** Formats an API decimal string (or number, for literal zero/placeholder values) as Turkish lira for display only. */
-export function formatMoney(amount: string | number | null | undefined): string {
-  if (amount === null || amount === undefined || amount === '') return TRY_FORMATTER.format(0);
-  const value = typeof amount === 'number' ? amount : Number(amount);
-  if (!Number.isFinite(value)) return TRY_FORMATTER.format(0);
-  return TRY_FORMATTER.format(value);
+/** Formats an API decimal string (or number, for literal zero/placeholder values) as money for display only. */
+export function formatMoney(amount: string | number | null | undefined, currency: string, locale: string): string {
+  const raw = amount === null || amount === undefined || amount === '' ? '0' : String(amount);
+  const value = typeof amount === 'number' ? amount : Number(raw);
+  if (!Number.isFinite(value)) return formatMoneyShared({ amount: '0', currency }, locale);
+  return formatMoneyShared({ amount: value.toFixed(2), currency }, locale);
 }
 
 /**
@@ -40,8 +45,8 @@ export function sumMoney(amounts: readonly (string | null | undefined)[]): strin
   return `${negative ? '-' : ''}${wholePart}.${centsPart}`;
 }
 
-/** Formats a 0..1 ratio (e.g. occupancy, renewal rate) as a Turkish percentage string, e.g. "%42". */
-export function formatPercent(ratio: number | null | undefined, fractionDigits = 0): string {
+/** Formats a 0..1 ratio (e.g. occupancy, renewal rate) as a percentage string in the viewer's locale, e.g. "%42". */
+export function formatPercent(ratio: number | null | undefined, locale: string, fractionDigits = 0): string {
   if (ratio === null || ratio === undefined || !Number.isFinite(ratio)) return '%0';
-  return `%${(ratio * 100).toLocaleString('tr-TR', { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })}`;
+  return new Intl.NumberFormat(locale, { style: 'percent', minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits }).format(ratio);
 }
