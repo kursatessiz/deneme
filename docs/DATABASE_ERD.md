@@ -93,6 +93,12 @@ erDiagram
     NotificationLog ||--o{ SmsTransaction : triggers
 
     Studio ||--o{ MessageTemplate : overrides
+    NotificationLog ||--o{ MessageLink : tracks
+    NotificationLog ||--o{ MessageTrackingEvent : records
+    Studio ||--o{ MessageSuppression : suppresses
+    Contact ||--o{ Conversation : has
+    Conversation ||--o{ ConversationMessage : contains
+    Studio ||--o{ SavedReply : has
     Studio ||--o{ CommunicationConsent : has
     User ||--o{ CommunicationConsent : grants
     Branch ||--o{ PayrollRun : scopes
@@ -256,8 +262,16 @@ alanını `ATTENDED` yapmak için kullanılır. Detaylar: `docs/CHECKIN.md`.
 |-------|---------|-------------|
 | `sms_wallets` | Stüdyo SMS kredi bakiyesi | studio_id benzersiz; balance >= 0 |
 | `sms_transactions` | SMS defteri: satın alma, kullanım, düzeltme, iade | (studio_id, created_at) index; notification_log_id benzersiz |
-| `notification_logs` | Giden mesajlar: WhatsApp, SMS, push, email; fallback zinciri | (studio_id, created_at) index; tekrar deneme zincirleri için (fallback_of_id) kendine referans |
-| `message_templates` | Kanal başına mesaj şablonu ({{ad}} yer tutucularıyla); studio_id null olan satırlar süper adminin küresel varsayılanı, doldurulmuş satırlar kiracı geçersiz kılması | (studio_id, key, channel, locale) NULLS NOT DISTINCT ile benzersiz; key index |
+| `notification_logs` | Teslim kaydı (G1c ile genişledi): WhatsApp, SMS, push, e-posta, uygulama içi; amaç (TRANSACTIONAL/COMMERCIAL), kullanıcı ve kişi, e-posta adresi (telefon artık isteğe bağlı), şablon, dil, konu, sağlayıcı, tekilleştirme anahtarı, kampanya/akış kimliği, iletildi/açıldı/makine açılışı/tıklandı/geri döndü/şikâyet/okundu zamanları; fallback zinciri | (studio_id, created_at), provider_message_id, (studio_id, contact_id, purpose, created_at) ve (studio_id, user_id, created_at) index; (studio_id, idempotency_key) benzersiz; tekrar deneme zincirleri için (fallback_of_id) kendine referans |
+| `message_templates` | Kanal ve dil başına mesaj şablonu (`{ad}` yer tutucuları; eski `{{ad}}` da okunur); e-posta için konu ve tipli blok gövde (`blocks`), WhatsApp için Meta onay durumu (`whatsapp_status`); studio_id null olan satırlar süper adminin küresel varsayılanı, doldurulmuş satırlar kiracı geçersiz kılması | (studio_id, key, channel, locale) NULLS NOT DISTINCT ile benzersiz; key index |
+| `message_links` | Takip edilen e-posta bağlantısının sunucuda saklı hedefi (G1c) | notification_log_id index; teslim kaydı silinince silinir |
+| `message_tracking_events` | Teslim, açılma, tıklama, geri dönme, şikâyet, abonelikten çıkma olayları; makine işareti (G1c) | notification_log_id ve (studio_id, type, occurred_at) index |
+| `message_suppressions` | Ticari gönderim bastırma listesi: abonelikten çıkma, STOP, kalıcı geri dönme, şikâyet (G1c) | (studio_id, channel, address) benzersiz |
+| `conversations` | Gelen kutusu konuşması: kişi, kanal, durum, atanan personel, son mesaj ve son gelen mesaj zamanı (WhatsApp 24 saat penceresi), okunmamış sayısı (G1c) | kişi ve kanal başına tek açık konuşma (kısmi benzersiz index, migration SQL'inde); (studio_id, status, last_message_at) index |
+| `conversation_messages` | Konuşmadaki gelen/giden mesaj, sağlayıcı kimliği, durum, ekler, yazan personel, teslim kaydı bağlantısı (G1c) | (conversation_id, created_at) index; gelen mesajda (studio_id, provider_message_id) kısmi benzersiz |
+| `saved_replies` | Kiracının hazır cevapları (G1c) | studio_id index |
+
+`studios.messaging_settings` (JSON): kiracının SMS sağlayıcısı sabitlemesi, ticari mesaj sıklık sınırı, e-posta gönderen adı ve yanıt adresi; gelen mesaj numaraları (yalnızca süper admin).
 | `communication_consents` | Ticari mesaj için İYS tarzı onay durumu (kanal başına) | (studio_id, user_id, channel) benzersiz; (studio_id, status) ve (iys_synced_at) index |
 
 Bölgesel gönderim kuralları (`apps/api/src/modules/compliance`) ayrı bir tablo tutmaz: `ComplianceService.canSend()` alıcının ülkesinden türetilen uyum bölgesine (TR/EU/UK/US/CA/DEFAULT) göre saf bir karar fonksiyonu çalıştırır; TR bölgesi için karar `communication_consents` üzerinden okunur (`TrConsentRegistryAdapter`).

@@ -56,6 +56,10 @@ export const PERMISSIONS = {
   'crm.manage': 'Kişi ekleme, düzenleme, birleştirme; etiket, özel alan, satış hattı aşaması ve görev yönetimi',
   'crm.export': 'Kişi listesini CSV olarak dışa aktarma',
 
+  'inbox.view': 'Gelen kutusundaki konuşmaları görüntüleme',
+  'inbox.reply': 'Gelen kutusundan cevap yazma',
+  'inbox.manage': 'Konuşma atama, kapatma ve hazır cevapları yönetme',
+
   'integrations.manage': 'API anahtarı ve webhook yönetimi',
 
   'integrations.partners.manage': 'Toplayıcı/pazaryeri partner bağlantılarını yönetme',
@@ -95,6 +99,7 @@ export const PERMISSION_AREAS = {
   Bildirim: ['notifications.manage', 'reports.view'],
   'Potansiyel üyeler': ['leads.view', 'leads.manage'],
   'Kişiler (CRM)': ['crm.view', 'crm.manage', 'crm.export'],
+  'Gelen kutusu': ['inbox.view', 'inbox.reply', 'inbox.manage'],
   Entegrasyon: ['integrations.manage', 'integrations.partners.manage'],
   Reklam: ['ads.view', 'ads.manage'],
   İçerik: ['content.view', 'content.manage'],
@@ -143,6 +148,9 @@ export const DEFAULT_ROLE_TEMPLATES: readonly DefaultRoleTemplate[] = [
       'leads.manage',
       'crm.view',
       'crm.manage',
+      'inbox.view',
+      'inbox.reply',
+      'inbox.manage',
     ],
   },
   {

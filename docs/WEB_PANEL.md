@@ -271,6 +271,36 @@ sadece bildirim kanalları bölümünü gösterir).
   /studios/:studioId/embed-settings` eklendi, form artık mevcut listeyi
   yükleyip düzenler, üzerine yazmaz).
 
+- `ayarlar/mesaj-sablonlari/` -- **Mesaj şablonları** (G1c, `notifications.manage`):
+  gönderim ayarları (kişi başına günlük/haftalık ticari mesaj sınırı, SMS
+  sağlayıcısı sabitleme, e-posta gönderen adı ve yanıt adresi), anahtar x
+  kanal x dil şablon listesi (kaynak: işletmeye özel / platform varsayılanı /
+  yerleşik; WhatsApp Meta onay rozeti), SMS/WhatsApp/e-posta düzenleyicisi,
+  e-posta blok düzenleyicisi (başlık, paragraf, buton, görsel, ayırıcı, alt
+  bilgi) ve API'nin gönderirken kullandığı `renderEmail()` ile üretilen canlı
+  önizleme (`sandbox=""` ile korumalı `iframe`), işletme şablonunu silip
+  varsayılana dönme. Ekranın tüm metinleri `messaging.*` i18n anahtarlarıdır.
+
+## Gelen kutusu (G1c)
+
+`apps/web/src/app/(dashboard)/gelen-kutusu/page.tsx`, menüde "Gelen Kutusu"
+(`inbox.view`). Durum, atama, kanal ve kişi araması filtreli konuşma listesi
+ile seçili konuşma yan yana (dar ekranda alt alta). Cevap kutusu ve hazır
+cevaplar `inbox.reply` ister; WhatsApp 24 saatlik penceresi kapalıysa serbest
+metin yerine onaylı şablon seçimi ve değişken alanları görünür. Bana ata /
+atamayı kaldır, kapat / yeniden aç ve hazır cevap yönetimi `inbox.manage`
+ister. Kiracı ve izin kontrolleri API'dedir; arayüz yalnızca kullanılamayan
+eylemleri gizler.
+
+Herkese açık iki mesajlaşma rotası vardır (oturum gerektirmez):
+
+- `m/u/[token]/page.tsx` -- abonelikten çıkma sayfası (tr + en, dil seçici);
+  bilgiyi ve tek tık çıkışı BFF üzerinden `GET/POST /m/u/:token`'a sorar.
+- `m/c/[token]/route.ts` -- e-posta tıklama bağlantısı: belirteci biçim
+  kontrolünden sonra API'ye (`POST /m/c/:token`) sorar, `pw_vid` çerezini ve
+  User-Agent'ı iletir, yalnızca API'nin döndürdüğü saklı http(s) hedefe 302
+  ile yönlendirir; aksi hâlde sitenin kökü. Ayrıntılar: `docs/MESAJLASMA.md`.
+
 ### Global ayarlar: bölge ve para birimi (G1a)
 
 `/ayarlar/isletme` içindeki "Bölge ve para birimi" bölümü (`studio.settings.view`/`manage`)

@@ -39,6 +39,7 @@ export function buildHesabimMenu(input: StaffMenuInput): MenuItem[] {
     items.push({ key: 'my-achievements', labelKey: 'mAccount.menu.myAchievements', route: '/(app)/hesabim/basarilarim' });
     items.push({ key: 'refer-friend', labelKey: 'mAccount.menu.referFriend', route: '/(app)/hesabim/arkadasini-getir' });
     items.push({ key: 'health', labelKey: 'mAccount.menu.health', route: '/(app)/hesabim/saglik' });
+    items.push({ key: 'chat', labelKey: 'mAccount.menu.chat', route: '/(app)/hesabim/mesajlar' });
   }
 
   if (isTrainer && has(permissions, 'commissions.view.own')) {
@@ -77,6 +78,9 @@ export function buildHesabimMenu(input: StaffMenuInput): MenuItem[] {
     items.push({ key: 'branch-summary', labelKey: 'mAccount.menu.branchSummary', route: '/(app)/hesabim/subeler' });
     items.push({ key: 'reports', labelKey: 'mAccount.menu.reports', route: '/(app)/hesabim/raporlar' });
     items.push({ key: 'risky-members', labelKey: 'mAccount.menu.riskyMembers', route: '/(app)/hesabim/riskli-uyeler' });
+  }
+  if (has(permissions, 'inbox.view')) {
+    items.push({ key: 'inbox', labelKey: 'mAccount.menu.inbox', route: '/(app)/hesabim/gelen-kutusu' });
   }
   if (has(permissions, 'leads.view')) {
     items.push({ key: 'leads', labelKey: 'mAccount.menu.leads', route: '/(app)/hesabim/potansiyel-uyeler' });

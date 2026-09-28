@@ -34,7 +34,7 @@ describe('AutomationRunnerService', () => {
   function buildService(prismaOverrides: Record<string, unknown> = {}) {
     const prisma = {
       studio: { findUniqueOrThrow: jest.fn().mockResolvedValue({ timezone: 'Europe/Istanbul' }) },
-      automationRun: { create: jest.fn(), update: jest.fn() },
+      automationRun: { create: jest.fn(), update: jest.fn(), delete: jest.fn() },
       automationRule: { findMany: jest.fn() },
       ...prismaOverrides,
     } as unknown as PrismaService;
@@ -99,11 +99,22 @@ describe('AutomationRunnerService', () => {
       { userId: 'user-2', targetRef: 'b', scheduledFor: now, templateParams: {} },
     ]);
     (mockNotifications.send as jest.Mock)
-      .mockResolvedValueOnce({ success: false, reason: 'SMS için ticari mesaj onayı yok' })
-      .mockResolvedValueOnce({ success: false, reason: 'Sağlayıcı zaman aşımı' });
+      .mockResolvedValueOnce({ success: false, reason: 'SMS için ticari mesaj onayı yok', reasonCode: 'CONSENT_REQUIRED' })
+      .mockResolvedValueOnce({ success: false, reason: 'Sağlayıcı zaman aşımı', reasonCode: 'PROVIDER_ERROR' });
     const { service } = buildService();
 
     const outcome = await service.runRule(buildRule({ type: 'WIN_BACK' }), now);
     expect(outcome).toMatchObject({ sent: 0, skipped: 1, failed: 1 });
+  });
+
+  it('releases the claim when the recipient is in quiet hours, so a later cycle retries', async () => {
+    mockEvaluator.findCandidates.mockResolvedValue([{ userId: 'user-1', targetRef: 'a', scheduledFor: now, templateParams: {} }]);
+    (mockNotifications.send as jest.Mock).mockResolvedValueOnce({ success: false, reason: 'Sessiz saatler', reasonCode: 'QUIET_HOURS' });
+    const { service, prisma } = buildService();
+
+    const outcome = await service.runRule(buildRule({ type: 'WIN_BACK' }), now);
+    expect(outcome).toMatchObject({ sent: 0, skipped: 0, failed: 0 });
+    expect(prisma.automationRun.delete).toHaveBeenCalledTimes(1);
+    expect(prisma.automationRun.update).not.toHaveBeenCalled();
   });
 });

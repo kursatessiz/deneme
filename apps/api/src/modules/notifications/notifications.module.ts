@@ -2,15 +2,9 @@ import { Global, Module } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { PushService } from './push.service';
 import { NotificationPreferencesService } from './notification-preferences.service';
-import { TemplateService } from './templates/template.service';
 import { ConsentService } from './consent/consent.service';
 import { ConsentController } from './consent/consent.controller';
 import { IysClientAdapter } from './consent/iys-client.adapter';
-import { WhatsAppCloudAdapter } from './channels/whatsapp-cloud.adapter';
-import { SmsNetgsmAdapter } from './channels/sms-netgsm.adapter';
-import { SmsIletiMerkeziAdapter } from './channels/sms-iletimerkezi.adapter';
-import { SmsTwilioAdapter } from './channels/sms-twilio.adapter';
-import { TwilioWebhookController } from './channels/twilio-webhook.controller';
 import { NotificationSettingsService } from './settings/notification-settings.service';
 import { SmsProviderBalanceService } from './sms-provider-balance.service';
 import {
@@ -19,20 +13,20 @@ import {
   SmsWalletController,
 } from './settings/notification-settings.controller';
 
+/**
+ * Notification preferences, push devices, İYS consent, channel order and
+ * the SMS wallet. Sending itself lives in MessagingModule (G1c);
+ * NotificationsService is kept as the compatibility facade over it.
+ */
 @Global()
 @Module({
-  controllers: [ConsentController, NotificationSettingsController, SmsWalletController, SmsWalletAdminController, TwilioWebhookController],
+  controllers: [ConsentController, NotificationSettingsController, SmsWalletController, SmsWalletAdminController],
   providers: [
     NotificationsService,
     PushService,
     NotificationPreferencesService,
-    TemplateService,
     ConsentService,
     IysClientAdapter,
-    WhatsAppCloudAdapter,
-    SmsNetgsmAdapter,
-    SmsIletiMerkeziAdapter,
-    SmsTwilioAdapter,
     NotificationSettingsService,
     SmsProviderBalanceService,
   ],
@@ -40,8 +34,8 @@ import {
     NotificationsService,
     PushService,
     NotificationPreferencesService,
-    TemplateService,
     ConsentService,
+    IysClientAdapter,
     NotificationSettingsService,
     SmsProviderBalanceService,
   ],

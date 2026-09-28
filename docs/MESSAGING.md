@@ -1,5 +1,10 @@
 # Mesajlaşma (W7)
 
+> G1c ile gönderim mimarisi `docs/MESAJLASMA.md` belgesine taşındı: tek giriş noktası artık
+> `MessagingService.send()`, sağlayıcılar ülkeye göre seçiliyor ve `SMS_PROVIDER` yalnızca global
+> varsayılan. Bu belgenin "Mimari" bölümü tarihsel bilgidir; WhatsApp Cloud API ve İYS kurulum
+> adımları geçerliliğini koruyor.
+
 Bu doküman, platformun WhatsApp/SMS bildirim altyapısını, mesaj şablonlarını
 ve İYS (İleti Yönetim Sistemi) ticari mesaj onayını anlatır. Uygulama
 tarafı CLAUDE.md kural 8'e göre tasarlanmıştır: tüm gönderim tek bir

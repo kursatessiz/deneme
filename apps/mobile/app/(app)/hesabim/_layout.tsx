@@ -1,7 +1,10 @@
 import { Stack } from 'expo-router';
 import React from 'react';
 
+import { useT } from '../../../src/i18n';
+
 export default function HesabimLayout() {
+  const t = useT();
   return (
     <Stack>
       <Stack.Screen name="index" options={{ title: 'Hesabım' }} />
@@ -26,6 +29,8 @@ export default function HesabimLayout() {
       <Stack.Screen name="saglik" options={{ title: 'Sağlık entegrasyonu' }} />
       <Stack.Screen name="saglik-ozet" options={{ title: 'Sağlık' }} />
       <Stack.Screen name="video-icerikleri" options={{ title: 'Video içerikleri' }} />
+      <Stack.Screen name="mesajlar" options={{ title: t('mMessaging.chat.title') }} />
+      <Stack.Screen name="gelen-kutusu" options={{ title: t('mMessaging.inbox.title') }} />
     </Stack>
   );
 }

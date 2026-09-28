@@ -118,6 +118,7 @@ const PROTECTED_PATHS = [
   '/adaylar',
   '/reklam-performansi',
   '/riskli-uyeler',
+  '/gelen-kutusu',
   '/admin',
 ];
 

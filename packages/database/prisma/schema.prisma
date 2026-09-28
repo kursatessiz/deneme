@@ -269,12 +269,48 @@ enum NotificationChannel {
   SMS
   PUSH
   EMAIL
+  IN_APP
 }
 
 enum NotificationStatus {
   PENDING
   SENT
   FAILED
+  DELIVERED
+  BOUNCED
+  COMPLAINED
+}
+
+/// G1c: commercial messages need consent, respect quiet hours and frequency caps.
+enum MessagePurpose {
+  TRANSACTIONAL
+  COMMERCIAL
+}
+
+enum ConversationStatus {
+  OPEN
+  CLOSED
+}
+
+enum MessageDirection {
+  IN
+  OUT
+}
+
+enum MessageTrackingEventType {
+  DELIVERY
+  OPEN
+  CLICK
+  BOUNCE
+  COMPLAINT
+  UNSUBSCRIBE
+}
+
+enum SuppressionReason {
+  UNSUBSCRIBED
+  STOP_KEYWORD
+  BOUNCED
+  COMPLAINED
 }
 
 enum SmsTransactionType {
@@ -532,6 +568,9 @@ model Studio {
   attributionWindowDays      Int  @default(30) @map("attribution_window_days")
   /// Channel order and fallback, e.g. { "order": ["WHATSAPP", "SMS"] }
   notificationSettings   Json     @default("{\"order\":[\"WHATSAPP\",\"SMS\"]}") @map("notification_settings")
+  /// G1c messaging engine settings (frequency caps, SMS provider override,
+  /// email sender, inbound routing); see packages/shared/src/messaging-engine.ts.
+  messagingSettings      Json     @default("{}") @map("messaging_settings")
   /// Churn risk scoring weights (W12). Null means the shared defaults apply;
   /// see packages/shared/src/churn.ts (ChurnWeightsSchema).
   churnWeights           Json?    @map("churn_weights")
@@ -633,6 +672,12 @@ model Studio {
   videoContents         VideoContent[]
   videoViews            VideoView[]
   site                  Site?
+  messageLinks          MessageLink[]
+  messageTrackingEvents MessageTrackingEvent[]
+  messageSuppressions   MessageSuppression[]
+  conversations         Conversation[]
+  conversationMessages  ConversationMessage[]
+  savedReplies          SavedReply[]
 
   @@map("studios")
 }
@@ -782,6 +827,8 @@ model Membership {
   contactActivities    ContactActivity[] @relation("ContactActivityActor")
   contactTasksAssigned ContactTask[]     @relation("ContactTaskAssignee")
   contactTasksCreated  ContactTask[]     @relation("ContactTaskCreator")
+  conversationsAssigned     Conversation[]        @relation("ConversationAssignee")
+  conversationMessagesSent  ConversationMessage[] @relation("ConversationMessageAuthor")
 
   @@unique([userId, studioId])
   @@index([studioId, status])
@@ -1935,34 +1982,210 @@ model SmsTransaction {
   @@map("sms_transactions")
 }
 
+/// The delivery record of every message the engine sends (one row per
+/// channel attempt; fallbacks chain through fallbackOfId). G1c extended it
+/// for email, push, in-app, tracking and idempotency instead of adding a
+/// parallel table.
 model NotificationLog {
   id                String              @id @default(uuid()) @db.Uuid
   /// Null for platform messages such as login codes.
   studioId          String?             @map("studio_id") @db.Uuid
-  recipientPhone    String              @map("recipient_phone") @db.VarChar(20)
+  /// E.164. Null for email/push/in-app attempts without a phone.
+  recipientPhone    String?             @map("recipient_phone") @db.VarChar(20)
+  recipientEmail    String?             @map("recipient_email") @db.VarChar(254)
+  /// The recipient's user (members); no FK, the record outlives the account.
+  userId            String?             @map("user_id") @db.Uuid
+  contactId         String?             @map("contact_id") @db.Uuid
   channel           NotificationChannel
+  purpose           MessagePurpose      @default(TRANSACTIONAL)
   /// Template key, e.g. BOOKING_REMINDER, PACKAGE_EXPIRY, INVITE
   type              String              @db.VarChar(50)
+  /// MessageTemplate row used, null for built-in defaults and free text.
+  templateId        String?             @map("template_id") @db.Uuid
+  locale            String?             @db.VarChar(10)
+  subject           String?             @db.VarChar(200)
+  /// Rendered text (the plain-text part for email); redacted for codes.
   content           String              @db.Text
   status            NotificationStatus  @default(PENDING)
+  /// Provider registry key that handled the attempt, e.g. NETGSM, SES, EXPO.
+  provider          String?             @db.VarChar(30)
   providerMessageId String?             @map("provider_message_id") @db.VarChar(120)
   /// Set on the SMS attempt that replaced a failed WhatsApp attempt.
   fallbackOfId      String?             @map("fallback_of_id") @db.Uuid
   errorMessage      String?             @map("error_message") @db.Text
+  /// Caller-supplied de-duplication key, unique per studio.
+  idempotencyKey    String?             @map("idempotency_key") @db.VarChar(200)
+  /// G2a campaign / journey references (no FK until those tables exist).
+  campaignId        String?             @map("campaign_id") @db.Uuid
+  journeyRunId      String?             @map("journey_run_id") @db.Uuid
+  deliveredAt       DateTime?           @map("delivered_at")
+  /// First human open; machine (privacy proxy) opens only set machineOpenedAt.
+  openedAt          DateTime?           @map("opened_at")
+  machineOpenedAt   DateTime?           @map("machine_opened_at")
+  clickedAt         DateTime?           @map("clicked_at")
+  bouncedAt         DateTime?           @map("bounced_at")
+  complainedAt      DateTime?           @map("complained_at")
+  /// In-app messages: when the member read it.
+  readAt            DateTime?           @map("read_at")
   createdAt         DateTime            @default(now()) @map("created_at")
 
-  studio         Studio?           @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  fallbackOf     NotificationLog?  @relation("NotificationFallback", fields: [fallbackOfId], references: [id])
-  fallbacks      NotificationLog[] @relation("NotificationFallback")
+  studio         Studio?                @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  contact        Contact?               @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  fallbackOf     NotificationLog?       @relation("NotificationFallback", fields: [fallbackOfId], references: [id])
+  fallbacks      NotificationLog[]      @relation("NotificationFallback")
   smsTransaction SmsTransaction?
+  links          MessageLink[]
+  trackingEvents MessageTrackingEvent[]
 
+  @@unique([studioId, idempotencyKey])
   @@index([studioId, createdAt])
+  @@index([providerMessageId])
+  @@index([studioId, contactId, purpose, createdAt])
+  @@index([studioId, userId, createdAt])
   @@map("notification_logs")
+}
+
+/// A click-tracking target: the tracking token only references this row, so
+/// the redirect can never be pointed at an arbitrary URL (no open redirect).
+model MessageLink {
+  id                String   @id @default(uuid()) @db.Uuid
+  studioId          String   @map("studio_id") @db.Uuid
+  notificationLogId String   @map("notification_log_id") @db.Uuid
+  url               String   @db.Text
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  studio          Studio                 @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  notificationLog NotificationLog        @relation(fields: [notificationLogId], references: [id], onDelete: Cascade)
+  events          MessageTrackingEvent[]
+
+  @@index([notificationLogId])
+  @@map("message_links")
+}
+
+/// Delivery, open, click, bounce, complaint and unsubscribe events of one
+/// sent message. No IP address or user agent is stored.
+model MessageTrackingEvent {
+  id                String                   @id @default(uuid()) @db.Uuid
+  studioId          String                   @map("studio_id") @db.Uuid
+  notificationLogId String                   @map("notification_log_id") @db.Uuid
+  type              MessageTrackingEventType
+  /// Opens by a privacy proxy (Apple Mail Privacy Protection) or scanner.
+  isMachine         Boolean                  @default(false) @map("is_machine")
+  linkId            String?                  @map("link_id") @db.Uuid
+  /// Short machine-readable detail, e.g. "apple_mpp", "Permanent/General".
+  detail            String?                  @db.VarChar(80)
+  occurredAt        DateTime                 @default(now()) @map("occurred_at")
+
+  studio          Studio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  notificationLog NotificationLog @relation(fields: [notificationLogId], references: [id], onDelete: Cascade)
+  link            MessageLink?    @relation(fields: [linkId], references: [id], onDelete: SetNull)
+
+  @@index([notificationLogId])
+  @@index([studioId, type, occurredAt])
+  @@map("message_tracking_events")
+}
+
+/// Addresses that must not receive COMMERCIAL messages on a channel:
+/// unsubscribes, STOP keywords, hard bounces and complaints.
+model MessageSuppression {
+  id                String              @id @default(uuid()) @db.Uuid
+  studioId          String              @map("studio_id") @db.Uuid
+  channel           NotificationChannel
+  /// Lower-cased email or E.164 phone.
+  address           String              @db.VarChar(254)
+  reason            SuppressionReason
+  contactId         String?             @map("contact_id") @db.Uuid
+  notificationLogId String?             @map("notification_log_id") @db.Uuid
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  studio  Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@unique([studioId, channel, address])
+  @@index([studioId, contactId])
+  @@map("message_suppressions")
+}
+
+/// Inbox thread with one contact on one channel. At most one OPEN
+/// conversation per (studio, contact, channel): partial unique index in the
+/// migration SQL.
+model Conversation {
+  id                   String              @id @default(uuid()) @db.Uuid
+  studioId             String              @map("studio_id") @db.Uuid
+  contactId            String              @map("contact_id") @db.Uuid
+  channel              NotificationChannel
+  status               ConversationStatus  @default(OPEN)
+  assignedMembershipId String?             @map("assigned_membership_id") @db.Uuid
+  /// Phone (SMS/WhatsApp) or email the contact writes from; null for in-app.
+  externalAddress      String?             @map("external_address") @db.VarChar(254)
+  lastMessageAt        DateTime            @default(now()) @map("last_message_at")
+  /// Last message from the contact (WhatsApp 24h customer-service window).
+  lastInboundAt        DateTime?           @map("last_inbound_at")
+  lastMessagePreview   String              @default("") @map("last_message_preview") @db.VarChar(200)
+  unreadCount          Int                 @default(0) @map("unread_count")
+  closedAt             DateTime?           @map("closed_at")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+
+  studio             Studio                @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  contact            Contact               @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  assignedMembership Membership?           @relation("ConversationAssignee", fields: [assignedMembershipId], references: [id], onDelete: SetNull)
+  messages           ConversationMessage[]
+
+  @@index([studioId, status, lastMessageAt])
+  @@index([studioId, assignedMembershipId])
+  @@index([studioId, contactId])
+  @@map("conversations")
+}
+
+/// One message in a conversation. Attachments are metadata only (the media
+/// stays with the provider).
+model ConversationMessage {
+  id                 String           @id @default(uuid()) @db.Uuid
+  studioId           String           @map("studio_id") @db.Uuid
+  conversationId     String           @map("conversation_id") @db.Uuid
+  direction          MessageDirection
+  body               String           @db.Text
+  provider           String?          @db.VarChar(30)
+  /// Inbound: unique per studio (partial index in SQL) so webhook retries are idempotent.
+  providerMessageId  String?          @map("provider_message_id") @db.VarChar(120)
+  /// RECEIVED for inbound; the NotificationLog status for outbound.
+  status             String           @default("RECEIVED") @db.VarChar(20)
+  attachments        Json             @default("[]")
+  authorMembershipId String?          @map("author_membership_id") @db.Uuid
+  notificationLogId  String?          @map("notification_log_id") @db.Uuid
+  createdAt          DateTime         @default(now()) @map("created_at")
+
+  studio           Studio       @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  authorMembership Membership?  @relation("ConversationMessageAuthor", fields: [authorMembershipId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
+  @@index([providerMessageId])
+  @@map("conversation_messages")
+}
+
+/// Tenant-authored canned replies for the inbox.
+model SavedReply {
+  id                    String   @id @default(uuid()) @db.Uuid
+  studioId              String   @map("studio_id") @db.Uuid
+  title                 String   @db.VarChar(80)
+  body                  String   @db.Text
+  createdByMembershipId String?  @map("created_by_membership_id") @db.Uuid
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@index([studioId])
+  @@map("saved_replies")
 }
 
 /// Message copy is tenant data, not code. Null studioId rows are the global
 /// defaults a super admin curates; a tenant row with the same key/channel/
-/// locale overrides it. {{named}} placeholders are substituted at send time.
+/// locale overrides it. {named} (and legacy {{named}}) placeholders are
+/// substituted at send time.
 model MessageTemplate {
   id                   String              @id @default(uuid()) @db.Uuid
   /// Null for the global default, set by super admin.
@@ -1973,6 +2196,12 @@ model MessageTemplate {
   body                 String              @db.Text
   /// Meta-approved WhatsApp template name, required when channel is WHATSAPP.
   whatsappTemplateName String?             @map("whatsapp_template_name") @db.VarChar(120)
+  /// Meta approval state (PENDING, APPROVED, REJECTED); only APPROVED is sent.
+  whatsappStatus       String              @default("APPROVED") @map("whatsapp_status") @db.VarChar(20)
+  /// EMAIL: subject line (also the push/in-app title).
+  subject              String?             @db.VarChar(200)
+  /// EMAIL: block list (packages/shared/src/email-blocks.ts); null renders `body` as one paragraph.
+  blocks               Json?
   /// Utility/transactional templates bypass commercial consent gating.
   isTransactional      Boolean             @default(true) @map("is_transactional")
   isActive             Boolean             @default(true) @map("is_active")
@@ -2203,6 +2432,9 @@ model Contact {
   visitors            Visitor[]
   touchpoints         Touchpoint[]      @relation("TouchpointContact")
   conversions         ConversionEvent[]
+  notificationLogs    NotificationLog[]
+  conversations       Conversation[]
+  suppressions        MessageSuppression[]
 
   @@index([studioId, lifecycleStage])
   @@index([studioId, pipelineStageId])

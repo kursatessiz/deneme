@@ -14,7 +14,16 @@ import {
   BadgeKind as PrismaBadgeKind,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { DEFAULT_ROLE_TEMPLATES, ALL_PERMISSIONS, normalizePhone, THEME_FAMILIES, BadgeKind } from '@platform/shared';
+import {
+  DEFAULT_ROLE_TEMPLATES,
+  ALL_PERMISSIONS,
+  normalizePhone,
+  THEME_FAMILIES,
+  BadgeKind,
+  BUILTIN_TEMPLATES,
+  BUILTIN_TEMPLATE_LOCALES,
+  builtinTemplateContent,
+} from '@platform/shared';
 import type { BadgeThresholdParams } from '@platform/shared';
 
 // Seed is a development-only tool: it truncates every table before writing,
@@ -38,6 +47,12 @@ const ALL_TABLES = [
   'communication_consents',
   'notification_logs',
   'message_templates',
+  'message_tracking_events',
+  'message_links',
+  'message_suppressions',
+  'conversation_messages',
+  'conversations',
+  'saved_replies',
   'sms_transactions',
   'sms_wallets',
   'expenses',
@@ -248,66 +263,6 @@ async function seedMessaging(studioIds: { zen: string; flow: string; guc: string
   }
 }
 
-interface GlobalTemplateSeed {
-  key: string;
-  body: string;
-  whatsappTemplateName: string;
-}
-
-const GLOBAL_TEMPLATES: GlobalTemplateSeed[] = [
-  {
-    key: 'BOOKING_REMINDER',
-    body: 'Merhaba {{firstName}}, {{serviceName}} seansınız {{startTime}} saatinde başlayacak.',
-    whatsappTemplateName: 'booking_reminder_tr',
-  },
-  {
-    key: 'BOOKING_CANCELLED_BY_STUDIO',
-    body: 'Merhaba {{firstName}}, {{startTime}} saatindeki {{serviceName}} seansınız işletme tarafından iptal edildi.',
-    whatsappTemplateName: 'booking_cancelled_tr',
-  },
-  {
-    key: 'WAITLIST_PROMOTED',
-    body: 'Merhaba {{firstName}}, bekleme listesinde olduğunuz {{serviceName}} seansında yer açıldı, rezervasyonunuz onaylandı.',
-    whatsappTemplateName: 'waitlist_promoted_tr',
-  },
-  {
-    key: 'PACKAGE_EXPIRING',
-    body: 'Merhaba {{firstName}}, {{packageName}} paketinizdeki {{remainingUnits}} hakkınızın son kullanım tarihi {{expiryDate}}.',
-    whatsappTemplateName: 'package_expiring_tr',
-  },
-  {
-    key: 'PAYMENT_FAILED',
-    body: 'Merhaba {{firstName}}, {{amount}} TL tutarındaki ödemeniz alınamadı. Lütfen ödeme bilgilerinizi güncelleyin.',
-    whatsappTemplateName: 'payment_failed_tr',
-  },
-  {
-    key: 'OTP',
-    body: 'Doğrulama kodunuz: {{code}}',
-    whatsappTemplateName: 'otp_tr',
-  },
-  // W10: automated marketing and lifecycle flows.
-  {
-    key: 'BIRTHDAY',
-    body: 'İyi ki doğdun {{firstName}}! {{studioName}} ailesi olarak doğum gününüzü kutlarız.',
-    whatsappTemplateName: 'birthday_tr',
-  },
-  {
-    key: 'WIN_BACK',
-    body: 'Merhaba {{firstName}}, sizi bir süredir aramızda göremedik. {{studioName}} olarak sizi tekrar aramızda görmek isteriz.',
-    whatsappTemplateName: 'win_back_tr',
-  },
-  {
-    key: 'FIRST_CLASS_FOLLOW_UP',
-    body: 'Merhaba {{firstName}}, {{studioName}}\'deki ilk seansınız nasıl geçti? Görüşleriniz bizim için değerli.',
-    whatsappTemplateName: 'first_class_follow_up_tr',
-  },
-  {
-    key: 'NO_SHOW_FOLLOW_UP',
-    body: 'Merhaba {{firstName}}, {{startTime}} saatindeki {{serviceName}} seansınıza katılamadınız. Yeni bir rezervasyon oluşturmak ister misiniz?',
-    whatsappTemplateName: 'no_show_follow_up_tr',
-  },
-];
-
 /**
  * Default automation rules for a tenant. Everything is inactive except the
  * booking reminder, which already had an equivalent tenant setting
@@ -388,37 +343,34 @@ async function createDefaultAutomationRules(studioId: string) {
   }
 }
 
-// W10: win-back and birthday are unsolicited marketing outreach, so their
-// global templates require İYS consent (isTransactional: false). Every other
-// template concerns the member's own booking/package and stays transactional.
-const MARKETING_TEMPLATE_KEYS = new Set(['WIN_BACK', 'BIRTHDAY']);
-
+// Global default templates: every built-in template (packages/shared
+// message-templates.ts) in every bundled language (tr, en) for SMS, WhatsApp
+// and email. Texts come from the i18n catalogue (namespace msgTpl), so the
+// seed and the engine's built-in fallback can never disagree. Win-back and
+// birthday are marketing (isTransactional: false, İYS consent required).
 async function createGlobalMessageTemplates() {
-  for (const t of GLOBAL_TEMPLATES) {
-    const isTransactional = !MARKETING_TEMPLATE_KEYS.has(t.key);
-    await prisma.messageTemplate.create({
-      data: {
-        studioId: null,
-        key: t.key,
-        channel: 'SMS',
-        locale: 'tr',
-        body: t.body,
-        isTransactional,
-      },
-    });
-    count('message_templates');
-    await prisma.messageTemplate.create({
-      data: {
-        studioId: null,
-        key: t.key,
-        channel: 'WHATSAPP',
-        locale: 'tr',
-        body: t.body,
-        whatsappTemplateName: t.whatsappTemplateName,
-        isTransactional,
-      },
-    });
-    count('message_templates');
+  for (const t of BUILTIN_TEMPLATES) {
+    for (const locale of BUILTIN_TEMPLATE_LOCALES) {
+      for (const channel of ['SMS', 'WHATSAPP', 'EMAIL'] as const) {
+        const content = builtinTemplateContent(t.key, channel, locale);
+        if (!content) continue;
+        await prisma.messageTemplate.create({
+          data: {
+            studioId: null,
+            key: t.key,
+            channel,
+            locale,
+            body: content.body,
+            subject: content.subject,
+            blocks: content.blocks ? (content.blocks as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+            whatsappTemplateName: content.whatsappTemplateName,
+            whatsappStatus: 'APPROVED',
+            isTransactional: content.isTransactional,
+          },
+        });
+        count('message_templates');
+      }
+    }
   }
 }
 
