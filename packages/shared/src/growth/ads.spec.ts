@@ -36,6 +36,7 @@ describe('ad connection credentials', () => {
       developerToken: 'd',
       loginCustomerId: '1234567890',
       customerId: '0987654321',
+      conversionId: 'AW-123456789',
     });
     expect(ok.success).toBe(true);
     const bad = validateCredentialsFor('GOOGLE', {
@@ -45,6 +46,7 @@ describe('ad connection credentials', () => {
       developerToken: 'd',
       loginCustomerId: '123',
       customerId: '0987654321',
+      conversionId: 'AW-123456789',
     });
     expect(bad.success).toBe(false);
   });
@@ -59,6 +61,7 @@ describe('ad connection credentials', () => {
         developerToken: 'd',
         loginCustomerId: '1234567890',
         customerId: '0987654321',
+        conversionId: 'AW-123456789',
       }),
     ).toBe('WXYZ');
   });

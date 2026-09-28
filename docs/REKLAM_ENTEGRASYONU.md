@@ -42,9 +42,10 @@ Migration: `20260930000000_ads_integration` (yalnızca ileri yönlü; `packages/
 3. OAuth Playground veya kendi betiğinizle bir **refresh token** üretin (`https://www.googleapis.com/auth/adwords` kapsamı).
 4. Google Ads hesabınızda dönüşüm eylemleri oluşturun (Araçlar -> Dönüşümler): her `ConversionEventType` için bir tane (örn. `lead`, `purchase`). Eylem kimliğini not edin.
 5. **Müşteri kimliği** (customer ID, tire olmadan 10 hane) ve, bir yöneticiSayfasının (MCC) altındaysanız **giriş müşteri kimliği** (login customer ID) bilgilerini toplayın.
-6. Panelde bağlantıyı ekleyin: client ID, client secret, refresh token, developer token, login customer ID, customer ID.
-7. Her `ConversionEventType` için dönüşüm eylemi kimliğini bağlantının "dönüşüm eylemi eşlemesi" alanına girin (API: `conversionActionIds`).
-8. Google Ads -> Dönüşümler ekranında eylemlerin "Kaydediliyor" durumuna geçtiğini doğrulayın (birkaç saat sürebilir).
+6. Google Ads -> Araçlar -> "Google Etiketi" (veya bir dönüşüm eyleminin kurulum ayrıntıları) ekranından hesabınızın herkese açık **`AW-XXXXXXXXX`** etiket kimliğini not edin; bu bir sır değildir, sayfada zaten görünür durumda yayınlanır.
+7. Panelde bağlantıyı ekleyin: client ID, client secret, refresh token, developer token, login customer ID, customer ID, `AW-XXXXXXXXX` dönüşüm kimliği.
+8. Her `ConversionEventType` için dönüşüm eylemi kimliğini bağlantının "dönüşüm eylemi eşlemesi" alanına girin (API: `conversionActionIds`).
+9. Google Ads -> Dönüşümler ekranında eylemlerin "Kaydediliyor" durumuna geçtiğini doğrulayın (birkaç saat sürebilir).
 
 ### TikTok
 
@@ -101,7 +102,7 @@ Panelde `/ayarlar/reklam` altında (kiracı) ve süper admin panelinde platform 
 
 ## 8. Tarayıcı pikselleri
 
-`apps/web/src/lib/tracking/pixels.ts`: `GET /public/studios/:slug/ads/pixels` (herkese açık, sır içermez, yalnızca pixel/dataset kimliği) ile hangi platformların bağlı olduğu öğrenilir; Meta Pixel ve TikTok Pixel yalnızca (a) o platform için bağlantı `CONNECTED` **ve** (b) ziyaretçi reklam izni verdiyse yüklenir. Google'ın tag'i, bağlantı formunun henüz ayrı bir `AW-XXXXXXXXX` dönüşüm kimliği toplamaması nedeniyle şimdilik yüklenmiyor (bilinen sınır, aşağıya bakın). Panelde (kimlik doğrulamalı sayfalarda) hiçbir pixel yüklenmez -- `TrackingProvider` yalnızca herkese açık sayfa ağacında kullanılır.
+`apps/web/src/lib/tracking/pixels.ts`: `GET /public/studios/:slug/ads/pixels` (herkese açık, sır içermez, yalnızca pixel/dataset/`AW-XXXXXXXXX` kimliği) ile hangi platformların bağlı olduğu öğrenilir; Meta Pixel, Google `gtag` ve TikTok Pixel yalnızca (a) o platform için bağlantı `CONNECTED` **ve** (b) ziyaretçi reklam izni verdiyse yüklenir. Google `gtag`, Consent Mode v2 varsayılanlarını (`ad_storage`, `ad_user_data`, `ad_personalization`, `analytics_storage`) yüklenmeden önce `granted` olarak gönderir -- çağıran zaten izin onaylanmadan bu fonksiyonu hiç çağırmaz. Panelde (kimlik doğrulamalı sayfalarda) hiçbir pixel yüklenmez -- `TrackingProvider` yalnızca herkese açık sayfa ağacında kullanılır.
 
 CSP: `apps/web/src/middleware.ts` içindeki `publicAdsCsp()`, yalnızca herkese açık stüdyo sayfalarında (`/<slug>` ve `/<slug>/book`, bilinen statik yollar hariç) `script-src`/`connect-src` yönergelerine Meta ve TikTok pixel host'larını ekler; panel sayfalarına hiç uygulanmaz.
 
@@ -144,7 +145,6 @@ Test paketleri oluşturdukları her şeyi siler; art arda iki kez geçer.
 
 ## 11. Bilinen sınırlar ve sahibe kararlar
 
-- **Google tag'i (gtag) tarayıcıda henüz yüklenmiyor**: bağlantı formu yalnızca API kimlik bilgilerini (OAuth) topluyor, ayrı bir `AW-XXXXXXXXX` ölçüm kimliği alanı yok. Sahip bunu ister mi, yoksa tüm Google atfı sunucu tarafı (offline click conversion / enhanced conversions) mi kalsın, karar gerekiyor.
 - **TikTok yapı senkronu** üst-alt ilişkisini henüz taşımıyor (harcama doğru, hiyerarşi eksik); ayrı bir yapı ucu eklenene kadar rapor "kaynak" ve "kampanya" seviyesinde tam, "reklam seti"/"reklam" seviyesinde TikTok için üst kırılım göstermez.
 - **Herkese açık form eventId eşleştirmesi**: bölüm 8'de açıklandığı gibi, anti-numaralandırma tasarımı nedeniyle mevcut aday formu `eventId` döndürmüyor; G2c'nin form sözleşmesiyle birlikte ele alınacak.
 - **LinkedIn Conversions API** adaptörü henüz yok (mimaride yer ayrılmış, `CONVERSION_DELIVERY_TARGETS` içinde `LINKEDIN_CAPI` var ama adaptör bağlanmadı); ihtiyaç olduğunda eklenir.

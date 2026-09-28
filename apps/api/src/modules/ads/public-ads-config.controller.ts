@@ -7,6 +7,8 @@ export interface PublicAdsPixelsDTO {
   tiktok: { pixelCode: string } | null;
 }
 
+
+
 /**
  * Public, unauthenticated: which ad platform pixels a tenant has active, so
  * the browser tracking client (apps/web/src/lib/tracking) knows whether to
@@ -35,10 +37,7 @@ export class PublicAdsConfigController {
 
     return {
       meta: meta?.pixelOrDatasetId ? { pixelId: meta.pixelOrDatasetId } : null,
-      // The Google tag needs the account's conversion id (AW-XXXXXXXXX),
-      // which is not part of the API's own OAuth credentials; until the
-      // connection form collects it separately, the gtag load is skipped.
-      google: null,
+      google: google?.pixelOrDatasetId ? { conversionId: google.pixelOrDatasetId } : null,
       tiktok: tiktok?.pixelOrDatasetId ? { pixelCode: tiktok.pixelOrDatasetId } : null,
     };
   }

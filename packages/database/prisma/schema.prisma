@@ -2436,7 +2436,7 @@ model AdConnection {
   status              String   @default("DISCONNECTED") @db.VarChar(20)
   /// Ad account id (Meta act_..., Google customer id, TikTok advertiser id).
   externalAccountId   String   @map("external_account_id") @db.VarChar(80)
-  /// Meta pixel id / TikTok pixel code; null for Google.
+  /// Meta pixel id / TikTok pixel code / Google's public "AW-XXXXXXXXX" tag id (not a secret).
   pixelOrDatasetId    String?  @map("pixel_or_dataset_id") @db.VarChar(80)
   /// Base64 iv+authTag+ciphertext of the platform credential object (CredentialCipher).
   encryptedCredentials String  @map("encrypted_credentials") @db.Text

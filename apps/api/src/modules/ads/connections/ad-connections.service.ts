@@ -9,6 +9,7 @@ import {
   type AdConnectionPlatform,
   type ConversionActionMap,
   type CreateAdConnectionInput,
+  type GoogleCredentials,
   type UpdateAdConnectionInput,
 } from '@platform/shared';
 import type { ConversionEventType } from '@platform/shared';
@@ -16,9 +17,15 @@ import { PrismaService } from '../../prisma/prisma.service';
 import type { TenantContext } from '../../auth/tenant-context';
 import { CredentialCipher } from '../../../common/crypto/credential-cipher';
 
-/** Extracts the pixel/dataset id the connection needs for delivery, per platform. */
+/**
+ * Extracts the pixel/dataset id the connection needs for delivery and (for
+ * Meta/Google) for the public browser pixel, per platform. For Google this
+ * is the public "AW-XXXXXXXXX" tag id (not a secret), used only to load
+ * gtag on public pages -- never the OAuth credentials.
+ */
 function pixelOrDatasetIdOf(platform: AdConnectionPlatform, credentials: AdConnectionCredentials): string | null {
   if (platform === 'META') return (credentials as { pixelId: string }).pixelId;
+  if (platform === 'GOOGLE') return (credentials as GoogleCredentials).conversionId;
   if (platform === 'TIKTOK') return (credentials as { pixelCode: string }).pixelCode;
   return null;
 }

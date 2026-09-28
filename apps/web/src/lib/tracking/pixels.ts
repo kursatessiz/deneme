@@ -33,9 +33,12 @@ export async function fetchAdsPixelConfig(studioSlug: string): Promise<AdsPixelC
 type Fbq = ((...args: unknown[]) => void) & { queue: unknown[]; loaded: boolean };
 type WindowWithFbq = Window & { fbq?: Fbq; _fbq?: Fbq };
 type WindowWithTtq = Window & { ttq?: { load: (id: string) => void; page: () => void; track: (event: string, props?: Record<string, unknown>) => void } };
+type Gtag = (...args: unknown[]) => void;
+type WindowWithGtag = Window & { dataLayer?: unknown[]; gtag?: Gtag };
 
 let metaLoaded = false;
 let tiktokLoaded = false;
+let googleLoaded = false;
 
 function injectScript(src: string): void {
   const script = document.createElement('script');
@@ -62,6 +65,33 @@ export function loadMetaPixel(pixelId: string, eventId?: string): void {
   }
   w.fbq('init', pixelId);
   w.fbq('track', 'PageView', {}, eventId ? { eventID: eventId } : undefined);
+}
+
+/**
+ * Loads Google's gtag with Consent Mode v2 and fires a config call, which
+ * on a Google Ads tag also reports a page conversion event where set up.
+ * Consent Mode defaults are only ever sent as 'granted' here because the
+ * caller (loadActivePixels) already gated the call on advertising consent
+ * having been recorded; a visitor who declined never reaches this function.
+ */
+export function loadGoogleTag(conversionId: string, eventId?: string): void {
+  if (googleLoaded || typeof window === 'undefined') return;
+  googleLoaded = true;
+  const w = window as WindowWithGtag;
+  w.dataLayer = w.dataLayer || [];
+  const gtag: Gtag = (...args) => {
+    w.dataLayer!.push(args);
+  };
+  w.gtag = gtag;
+  gtag('consent', 'default', {
+    ad_storage: 'granted',
+    ad_user_data: 'granted',
+    ad_personalization: 'granted',
+    analytics_storage: 'granted',
+  });
+  gtag('js', new Date());
+  gtag('config', conversionId, eventId ? { event_id: eventId } : undefined);
+  injectScript(`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(conversionId)}`);
 }
 
 /** Loads the TikTok Pixel and fires its page view event. */
@@ -97,8 +127,6 @@ export function loadTikTokPixel(pixelCode: string): void {
 export async function loadActivePixels(studioSlug: string, eventId?: string): Promise<void> {
   const config = await fetchAdsPixelConfig(studioSlug);
   if (config.meta) loadMetaPixel(config.meta.pixelId, eventId);
+  if (config.google) loadGoogleTag(config.google.conversionId, eventId);
   if (config.tiktok) loadTikTokPixel(config.tiktok.pixelCode);
-  // Google's tag needs a separate AW-XXXXXXXXX conversion id the connection
-  // form does not yet collect (see PublicAdsConfigController); config.google
-  // stays null until that is added, so no gtag script loads for now.
 }

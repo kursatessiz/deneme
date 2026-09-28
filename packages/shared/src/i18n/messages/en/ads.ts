@@ -27,6 +27,7 @@ export const enAds: Record<keyof typeof trAds, string> = {
   'ads.connections.platform.META': 'Meta (Facebook/Instagram)',
   'ads.connections.platform.GOOGLE': 'Google Ads',
   'ads.connections.platform.TIKTOK': 'TikTok',
+  'ads.connections.field.googleConversionId': 'Google tag id (AW-XXXXXXXXX)',
   'ads.report.title': 'Ad performance',
   'ads.report.description': 'Spend, conversions and revenue by source, campaign, ad set and ad',
   'ads.report.model': 'Attribution model',

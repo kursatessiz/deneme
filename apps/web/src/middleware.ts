@@ -31,8 +31,21 @@ async function refreshSession(refreshToken: string): Promise<{ accessToken: stri
  * directives it sets; see docs/REKLAM_ENTEGRASYONU.md). Never applied to
  * `(dashboard)` pages -- pixels only ever load on public pages.
  */
-const AD_PIXEL_SCRIPT_SRC = ["'self'", "'unsafe-inline'", 'https://connect.facebook.net', 'https://analytics.tiktok.com'];
-const AD_PIXEL_CONNECT_SRC = ["'self'", 'https://www.facebook.com', 'https://analytics.tiktok.com', API_BASE_URL];
+const AD_PIXEL_SCRIPT_SRC = [
+  "'self'",
+  "'unsafe-inline'",
+  'https://connect.facebook.net',
+  'https://www.googletagmanager.com',
+  'https://analytics.tiktok.com',
+];
+const AD_PIXEL_CONNECT_SRC = [
+  "'self'",
+  'https://www.facebook.com',
+  'https://www.googletagmanager.com',
+  'https://www.google.com',
+  'https://analytics.tiktok.com',
+  API_BASE_URL,
+];
 
 function publicAdsCsp(response: NextResponse): NextResponse {
   response.headers.set(

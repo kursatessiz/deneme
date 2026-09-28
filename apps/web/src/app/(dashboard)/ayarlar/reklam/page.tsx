@@ -25,13 +25,21 @@ interface AdConnectionRow {
 
 interface CredentialFields {
   META: { accessToken: string; pixelId: string };
-  GOOGLE: { clientId: string; clientSecret: string; refreshToken: string; developerToken: string; loginCustomerId: string; customerId: string };
+  GOOGLE: {
+    clientId: string;
+    clientSecret: string;
+    refreshToken: string;
+    developerToken: string;
+    loginCustomerId: string;
+    customerId: string;
+    conversionId: string;
+  };
   TIKTOK: { accessToken: string; pixelCode: string };
 }
 
 const EMPTY_CREDENTIALS: CredentialFields = {
   META: { accessToken: '', pixelId: '' },
-  GOOGLE: { clientId: '', clientSecret: '', refreshToken: '', developerToken: '', loginCustomerId: '', customerId: '' },
+  GOOGLE: { clientId: '', clientSecret: '', refreshToken: '', developerToken: '', loginCustomerId: '', customerId: '', conversionId: '' },
   TIKTOK: { accessToken: '', pixelCode: '' },
 };
 
@@ -160,6 +168,12 @@ function ConnectionsSection() {
             <TextField label="Developer token" value={credentials.GOOGLE.developerToken} onChange={(v) => setField('GOOGLE', 'developerToken', v)} type="password" />
             <TextField label="Login customer ID" value={credentials.GOOGLE.loginCustomerId} onChange={(v) => setField('GOOGLE', 'loginCustomerId', v)} />
             <TextField label="Customer ID" value={credentials.GOOGLE.customerId} onChange={(v) => setField('GOOGLE', 'customerId', v)} />
+            <TextField
+              label={t('ads.connections.field.googleConversionId')}
+              value={credentials.GOOGLE.conversionId}
+              onChange={(v) => setField('GOOGLE', 'conversionId', v)}
+              placeholder="AW-123456789"
+            />
           </>
         )}
         {platform === 'TIKTOK' && (

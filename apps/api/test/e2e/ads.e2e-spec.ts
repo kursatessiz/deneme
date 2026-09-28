@@ -171,6 +171,34 @@ describe('Ads (e2e)', () => {
       const row = await prisma.adConnection.findUnique({ where: { id: connectionId } });
       expect(row).toBeNull();
     });
+
+    it('creates a Google connection, its public pixel config exposes only the AW- conversion id, no OAuth secret', async () => {
+      const create = await as(ownerToken, ZEN)
+        .post(`/studios/${ZEN}/ads/connections`)
+        .send({
+          platform: 'GOOGLE',
+          label: 'Google Ads',
+          externalAccountId: '1112223333',
+          credentials: {
+            clientId: 'client-id-secret',
+            clientSecret: 'client-secret-value',
+            refreshToken: '1//refresh-token-secret',
+            developerToken: 'dev-token-secret',
+            loginCustomerId: '1234567890',
+            customerId: '0987654321',
+            conversionId: 'AW-123456789',
+          },
+        });
+      expect(create.status).toBe(201);
+      expect(JSON.stringify(create.body)).not.toMatch(/secret/);
+
+      const pixels = await request(server).get(`/public/studios/zen-reformer-pilates/ads/pixels`);
+      expect(pixels.status).toBe(200);
+      expect(pixels.body.google).toEqual({ conversionId: 'AW-123456789' });
+      expect(JSON.stringify(pixels.body)).not.toMatch(/secret/);
+
+      await as(ownerToken, ZEN).delete(`/studios/${ZEN}/ads/connections/${create.body.id}`);
+    });
   });
 
   // ---------------------------------------------------------------------------

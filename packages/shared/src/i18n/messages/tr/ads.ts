@@ -26,6 +26,7 @@ export const trAds = {
   'ads.connections.platform.META': 'Meta (Facebook/Instagram)',
   'ads.connections.platform.GOOGLE': 'Google Ads',
   'ads.connections.platform.TIKTOK': 'TikTok',
+  'ads.connections.field.googleConversionId': 'Google etiket kimliği (AW-XXXXXXXXX)',
   'ads.report.title': 'Reklam performansı',
   'ads.report.description': 'Kaynak, kampanya, reklam seti ve reklam bazında harcama, dönüşüm ve gelir',
   'ads.report.model': 'Atıf modeli',

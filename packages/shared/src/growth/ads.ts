@@ -52,6 +52,8 @@ export const GoogleCredentialsSchema = z
     developerToken: last4,
     loginCustomerId: z.string().trim().regex(/^\d{10}$/, '10 haneli müşteri kimliği bekleniyor'),
     customerId: z.string().trim().regex(/^\d{10}$/, '10 haneli müşteri kimliği bekleniyor'),
+    /** Not a secret: the account's public "AW-XXXXXXXXX" tag id, needed to load the browser gtag on public pages (Consent Mode v2). */
+    conversionId: z.string().trim().regex(/^AW-\d+$/, "AW-XXXXXXXXX biçiminde olmalı"),
   })
   .strict();
 export type GoogleCredentials = z.infer<typeof GoogleCredentialsSchema>;
