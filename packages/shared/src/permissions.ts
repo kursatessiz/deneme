@@ -60,6 +60,9 @@ export const PERMISSIONS = {
 
   'integrations.partners.manage': 'Toplayıcı/pazaryeri partner bağlantılarını yönetme',
 
+  'ads.view': 'Reklam performansı raporlarını görüntüleme',
+  'ads.manage': 'Reklam platformu bağlantılarını, harcama senkronunu ve UTM ayarlarını yönetme',
+
   'content.view': 'Video kütüphanesi içeriklerini ve izlenme raporlarını görüntüleme',
   'content.manage': 'Video içeriği ekleme, düzenleme, yayınlama ve seans yayın bağlantısı ayarlama',
 } as const;
@@ -90,6 +93,7 @@ export const PERMISSION_AREAS = {
   'Potansiyel üyeler': ['leads.view', 'leads.manage'],
   'Kişiler (CRM)': ['crm.view', 'crm.manage', 'crm.export'],
   Entegrasyon: ['integrations.manage', 'integrations.partners.manage'],
+  Reklam: ['ads.view', 'ads.manage'],
   İçerik: ['content.view', 'content.manage'],
 } as const satisfies Record<string, readonly PermissionKey[]>;
 

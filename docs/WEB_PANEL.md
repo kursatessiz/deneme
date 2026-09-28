@@ -220,6 +220,12 @@ hiçbir yerde gradyan yoktur.
   hepsi aynı `components/common/DateRangeFilter.tsx` ve
   `components/common/BranchSelect.tsx`'i paylaşır.
 
+## Reklam performansı ve reklam bağlantıları (G2b)
+
+- `/reklam-performansi` (izin `ads.view`) -- atıf raporunu (`GET /crm/studios/:studioId/attribution`) model, gruplama (kaynak/kampanya/reklam seti/reklam) ve tarih aralığı seçicileriyle tablo olarak gösterir: her satırda harcama, aday, satış, gelir, CPL, CAC, ROAS; alt satırda toplam ve etiketsiz ücretli trafik sayısı. `components/common/DateRangeFilter.tsx` yeniden kullanılır.
+- `/ayarlar/reklam` (izin `ads.manage`) -- üç bölüm: **reklam platformu bağlantıları** (Meta/Google/TikTok CRUD, platforma göre değişen kimlik bilgisi formu, "bağlantıyı test et", kimlik bilgileri asla görüntülenmez, yalnızca son 4 karakter), **UTM oluşturucu** (`buildCampaignName()` ve `AD_URL_TEMPLATES` doğrudan `@platform/shared`'dan; pazar/dil/sektör/amaç/ay girilir, kampanya adı ve platforma göre URL parametre dizgesi + örnek URL üretilir, kopyala düğmeleri), **adlandırma denetimi** (`GET .../ads/naming-check`, senkronize kampanyalardan standarda uymayanları listeler). `ayarlar/page.tsx`'teki kart listesine ve nav'a (`Reklam performansı`) eklendi.
+- Tarayıcı pikselleri (`apps/web/src/lib/tracking/pixels.ts`): `TrackingProvider` reklam izni verildiğinde `GET /public/studios/:slug/ads/pixels`'i sorgular ve yalnızca bağlı platformların pixel'ini yükler; panelde hiç çalışmaz (yalnızca herkese açık sayfa ağacında bağlı). `middleware.ts`'teki `publicAdsCsp()` yalnızca herkese açık stüdyo sayfalarında (`/<slug>`, `/<slug>/book`) `script-src`/`connect-src` yönergelerine pixel host'larını ekler. Ayrıntılar: `docs/REKLAM_ENTEGRASYONU.md`.
+
 ## Yerelde çalıştırma
 
 1. `pnpm install`
@@ -231,10 +237,10 @@ hiçbir yerde gradyan yoktur.
 
 ## Ayarlar (2.3)
 
-`apps/web/src/app/(dashboard)/ayarlar/` altında yedi sayfa; hepsi
+`apps/web/src/app/(dashboard)/ayarlar/` altında sekiz sayfa; hepsi
 `PageGuard` ile korunur ve içindeki her aksiyon (buton, form bölümü)
 `useDashboardSession()`'dan okuduğu izinlere göre gizlenir. Nav'da tek bir
-"Ayarlar" girişi vardır (`lib/nav.ts`), görünürlüğü yedi sayfanın izinlerinin
+"Ayarlar" girişi vardır (`lib/nav.ts`), görünürlüğü sekiz sayfanın izinlerinin
 birleşimidir; sayfa içindeki bölümler kendi izinlerine göre ayrıca gizlenir
 (ör. `/ayarlar/isletme` yalnızca `notifications.manage` olan bir kullanıcıya
 sadece bildirim kanalları bölümünü gösterir).
@@ -300,6 +306,9 @@ hook'u kullanır.
   yeniden gönder, test olayı), partner platform bağlantıları
   (`integrations.partners.manage`: listele, oluştur, aç/kapa; kimlik bilgisi
   her zaman yalnızca yazılır, hiçbir uç nokta geri döndürmez).
+- `ayarlar/reklam/` -- reklam platformu bağlantıları, UTM oluşturucu ve
+  adlandırma denetimi (`ads.manage`); ayrıntılar yukarıda "Reklam performansı
+  ve reklam bağlantıları (G2b)" bölümünde.
 
 Ortak sunum bileşenleri `apps/web/src/components/settings/ui.tsx`'te (düz
 yüzey + ince çizgi, iç içe kart yok; birincil buton gradyan slotlarından

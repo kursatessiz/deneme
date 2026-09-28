@@ -13,6 +13,8 @@ import { PartnerSyncService, PartnerSyncOutcome } from '../partners/partner-sync
 import { JoinReminderService } from '../video/join-reminder.service';
 import { SmsProviderBalanceService, SmsProviderBalanceResult } from '../notifications/sms-provider-balance.service';
 import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
+import { ConversionDeliveryDispatcherService, DispatchOutcome as ConversionDispatchOutcome } from '../ads/delivery/conversion-delivery-dispatcher.service';
+import { AdSpendSyncService, SpendSyncOutcome } from '../ads/spend-sync/ad-spend-sync.service';
 
 export interface SchedulerRunResult {
   runAt: string;
@@ -27,6 +29,8 @@ export interface SchedulerRunResult {
   joinReminders: { reminded: number };
   smsProviderBalance: SmsProviderBalanceResult;
   crmLifecycle: { lapsed: number };
+  conversionDelivery: ConversionDispatchOutcome;
+  adSpendSync: SpendSyncOutcome | null;
 }
 
 /**
@@ -64,6 +68,8 @@ export class JobsService {
     private readonly joinReminders: JoinReminderService,
     private readonly smsProviderBalance: SmsProviderBalanceService,
     private readonly crm: CrmHooksService,
+    private readonly conversionDelivery: ConversionDeliveryDispatcherService,
+    private readonly adSpendSync: AdSpendSyncService,
     @Optional() @InjectQueue(SCHEDULER_QUEUE) private readonly queue?: Queue,
   ) {}
 
@@ -86,6 +92,8 @@ export class JobsService {
     const joinReminders = await this.joinReminders.sendDueReminders(now);
     const smsProviderBalance = await this.smsProviderBalance.checkIfDue(now);
     const crmLifecycle = await this.crm.sweepLapsed(now);
+    const conversionDelivery = await this.conversionDelivery.dispatchDue(now);
+    const adSpendSync = await this.adSpendSync.syncAllDueIfStale(now);
 
     this.logger.log(
       `Scheduler heartbeat at ${now.toISOString()}: ${automations.length} automation rule(s), ` +
@@ -94,7 +102,8 @@ export class JobsService {
         `webhooks ${webhooks.succeeded} succeeded/${webhooks.failed} retrying/${webhooks.abandoned} abandoned, ` +
         `partner sync ${partnerSyncResult.availabilityPushed} push(es), ` +
         `${joinReminders.reminded} join reminder(s), sms provider balance ${smsProviderBalance.status}, ` +
-        `${crmLifecycle.lapsed} contact(s) lapsed`,
+        `${crmLifecycle.lapsed} contact(s) lapsed, conversion delivery ${conversionDelivery.sent} sent/${conversionDelivery.retrying} retrying/${conversionDelivery.failed} failed, ` +
+        `ad spend sync ${adSpendSync ? `${adSpendSync.connectionsSynced} connection(s)` : 'skipped (not due)'}`,
     );
 
     this.lastRunAt = now;
@@ -111,6 +120,8 @@ export class JobsService {
       joinReminders,
       smsProviderBalance,
       crmLifecycle,
+      conversionDelivery,
+      adSpendSync,
     };
   }
 }

@@ -1,8 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@platform/database';
 import type { Touchpoint } from '@platform/database';
-import { DEFAULT_ATTRIBUTION_WINDOW_DAYS } from '@platform/shared';
+import { CAC_ACQUISITION_EVENT_TYPES, computeCac, computeCpl, computeRoas, DEFAULT_ATTRIBUTION_WINDOW_DAYS } from '@platform/shared';
 import type {
+  AdEntityLevel,
+  AttributionGroupBy,
   AttributionReportDTO,
   AttributionReportQuery,
   AttributionReportRowDTO,
@@ -15,6 +17,19 @@ import type { TouchSummary } from './attribution-models';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
+ * Which AdSpendDaily level a report grouping matches spend against.
+ * "source" rolls up to campaign-level spend by platform (summing ad-set or
+ * ad-level rows too would triple count the same money, since one campaign's
+ * spend is already the sum of its ad sets' and ads').
+ */
+const SPEND_LEVEL_BY_GROUP_BY: Record<AttributionGroupBy, AdEntityLevel> = {
+  source: 'CAMPAIGN',
+  campaign: 'CAMPAIGN',
+  adset: 'ADSET',
+  ad: 'AD',
+};
+
+/**
  * Visitor identification and attribution (docs/CRM_VE_ATIF.md).
  * identify() runs server side when a form, booking or sign-up creates or
  * finds a Contact and the request carries the pw_vid visitor id: the
@@ -24,9 +39,18 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 @Injectable()
 export class AttributionService {
   private readonly logger = new Logger(AttributionService.name);
-  readonly windowDays = DEFAULT_ATTRIBUTION_WINDOW_DAYS;
 
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Attribution window in days, a tenant setting (Studio.attributionWindowDays,
+   * G2b; default DEFAULT_ATTRIBUTION_WINDOW_DAYS = 30). Replaces the
+   * previously hard-coded constant everywhere it was used.
+   */
+  async windowDaysFor(studioId: string): Promise<number> {
+    const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { attributionWindowDays: true } });
+    return studio?.attributionWindowDays ?? DEFAULT_ATTRIBUTION_WINDOW_DAYS;
+  }
 
   /** Attaches a visitor's touchpoints to a contact. Never throws. */
   async identify(studioId: string, visitorId: string | null | undefined, contactId: string, at = new Date()): Promise<void> {
@@ -63,8 +87,9 @@ export class AttributionService {
       orderBy: { occurredAt: 'asc' },
     });
     if (touches.length === 0) return;
+    const windowDays = await this.windowDaysFor(studioId);
     const first = pickFirstTouch(touches, at);
-    const last = pickLastTouch(touches, at, this.windowDays);
+    const last = pickLastTouch(touches, at, windowDays);
     const data: Prisma.ContactUncheckedUpdateManyInput = {
       ...(first ? { firstTouchpointId: first.id, ...summaryColumns('first', touchSummary(first)) } : {}),
       ...(last ? { lastTouchpointId: last.id, ...summaryColumns('last', touchSummary(last)) } : {}),
@@ -74,11 +99,12 @@ export class AttributionService {
 
   /** Last touchpoint of the contact before `at` within the attribution window. */
   async lastTouchFor(studioId: string, contactId: string, at: Date): Promise<Touchpoint | null> {
+    const windowDays = await this.windowDaysFor(studioId);
     return this.prisma.touchpoint.findFirst({
       where: {
         studioId,
         contactId,
-        occurredAt: { lte: at, gte: new Date(at.getTime() - this.windowDays * DAY_MS) },
+        occurredAt: { lte: at, gte: new Date(at.getTime() - windowDays * DAY_MS) },
       },
       orderBy: { occurredAt: 'desc' },
     });
@@ -93,6 +119,7 @@ export class AttributionService {
   async report(studioId: string, query: AttributionReportQuery): Promise<AttributionReportDTO> {
     const from = new Date(query.from);
     const to = new Date(query.to);
+    const windowDays = await this.windowDaysFor(studioId);
 
     const events = await this.prisma.conversionEvent.findMany({
       where: { studioId, isTest: false, occurredAt: { gte: from, lt: to }, contact: { isTest: false } },
@@ -124,7 +151,7 @@ export class AttributionService {
         {
           touches: touchesByContact.get(event.contactId) ?? [],
           at: event.occurredAt,
-          windowDays: this.windowDays,
+          windowDays,
           firstSummary: contactSummary(event.contact, 'first'),
           lastSummary: contactSummary(event.contact, 'last'),
         },
@@ -146,8 +173,25 @@ export class AttributionService {
       where: { studioId, isPaidUntagged: true, occurredAt: { gte: from, lt: to } },
     });
 
+    // G2b: match ad spend to each report key (see SPEND_LEVEL_BY_GROUP_BY).
+    const spendLevel = SPEND_LEVEL_BY_GROUP_BY[query.groupBy];
+    const spendDailyRows = await this.prisma.adSpendDaily.findMany({
+      where: { studioId, level: spendLevel, date: { gte: from, lt: to } },
+    });
+    const spendByKey = new Map<string, Map<string, Prisma.Decimal>>();
+    for (const spendRow of spendDailyRows) {
+      const key = query.groupBy === 'source' ? spendRow.platform.toLowerCase() : spendRow.externalId;
+      const byCurrency = spendByKey.get(key) ?? new Map<string, Prisma.Decimal>();
+      byCurrency.set(spendRow.currency, (byCurrency.get(spendRow.currency) ?? new Prisma.Decimal(0)).add(spendRow.spendAmount));
+      spendByKey.set(key, byCurrency);
+    }
+    const totalSpend = new Map<string, Prisma.Decimal>();
+    for (const byCurrency of spendByKey.values()) {
+      for (const [currency, amount] of byCurrency) addMoney(totalSpend, currency, amount);
+    }
+
     const rowDtos: AttributionReportRowDTO[] = [...rows.entries()]
-      .map(([key, row]) => ({ key, conversions: countsDto(row.conversions), revenue: moneyDto(row.revenue) }))
+      .map(([key, row]) => toRowDto(key, row, spendByKey.get(key) ?? new Map()))
       .sort((a, b) => sumCounts(b.conversions) - sumCounts(a.conversions) || a.key.localeCompare(b.key));
 
     return {
@@ -155,9 +199,9 @@ export class AttributionService {
       groupBy: query.groupBy,
       from: from.toISOString(),
       to: to.toISOString(),
-      windowDays: this.windowDays,
+      windowDays,
       rows: rowDtos,
-      totals: { conversions: countsDto(totals.conversions), revenue: moneyDto(totals.revenue) },
+      totals: toTotalsDto(totals, totalSpend),
       untaggedPaidTouchpoints,
     };
   }
@@ -243,4 +287,44 @@ function moneyDto(map: Map<string, Prisma.Decimal>): Record<string, string> {
 
 function sumCounts(c: Partial<Record<ConversionEventType, number>>): number {
   return Object.values(c).reduce<number>((a, b) => a + (b ?? 0), 0);
+}
+
+/** Per-currency cpl/cac/roas, using the currency the spend is in (revenue/lead/acquisition counts are read for that same currency). */
+function ratiosFor(
+  conversions: Map<ConversionEventType, number>,
+  revenue: Map<string, Prisma.Decimal>,
+  spend: Map<string, Prisma.Decimal>,
+): { cpl: Record<string, number | null>; cac: Record<string, number | null>; roas: Record<string, number | null> } {
+  const leads = conversions.get('lead') ?? 0;
+  let acquired = 0;
+  for (const type of CAC_ACQUISITION_EVENT_TYPES) acquired += conversions.get(type) ?? 0;
+
+  const cpl: Record<string, number | null> = {};
+  const cac: Record<string, number | null> = {};
+  const roas: Record<string, number | null> = {};
+  for (const [currency, amount] of spend) {
+    const spendNumber = Number(amount.toFixed(4));
+    cpl[currency] = computeCpl(spendNumber, leads);
+    cac[currency] = computeCac(spendNumber, acquired);
+    const revenueForCurrency = revenue.get(currency);
+    roas[currency] = revenueForCurrency ? computeRoas(Number(revenueForCurrency.toFixed(4)), spendNumber) : null;
+  }
+  return { cpl, cac, roas };
+}
+
+function toRowDto(
+  key: string,
+  row: { conversions: Map<ConversionEventType, number>; revenue: Map<string, Prisma.Decimal> },
+  spend: Map<string, Prisma.Decimal>,
+): AttributionReportRowDTO {
+  const ratios = ratiosFor(row.conversions, row.revenue, spend);
+  return { key, conversions: countsDto(row.conversions), revenue: moneyDto(row.revenue), spend: moneyDto(spend), ...ratios };
+}
+
+function toTotalsDto(
+  totals: { conversions: Map<ConversionEventType, number>; revenue: Map<string, Prisma.Decimal> },
+  spend: Map<string, Prisma.Decimal>,
+): AttributionReportDTO['totals'] {
+  const ratios = ratiosFor(totals.conversions, totals.revenue, spend);
+  return { conversions: countsDto(totals.conversions), revenue: moneyDto(totals.revenue), spend: moneyDto(spend), ...ratios };
 }

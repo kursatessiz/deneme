@@ -14,6 +14,7 @@ import {
   storeConsent,
   trackPageView,
 } from '@/lib/tracking/client';
+import { loadActivePixels } from '@/lib/tracking/pixels';
 import { ConsentBanner } from './ConsentBanner';
 
 type NavigatorWithGpc = Navigator & { globalPrivacyControl?: boolean };
@@ -42,6 +43,13 @@ export function TrackingProvider({ studioSlug, region }: { studioSlug: string; r
     if (!state?.analytics) return;
     void trackPageView({ studioSlug, consent: state, locale });
   }, [state, studioSlug, locale, pathname]);
+
+  useEffect(() => {
+    // Advertising consent implies analytics consent (decide() enforces
+    // this), so checking advertising alone is enough here.
+    if (!state?.advertising) return;
+    void loadActivePixels(studioSlug);
+  }, [state?.advertising, studioSlug]);
 
   const onDecide = useCallback(
     (choice: ConsentChoice) => {
