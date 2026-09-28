@@ -143,7 +143,7 @@ erDiagram
 
 | Tablo | Amaç | Kısıtlar |
 |-------|---------|-------------|
-| `studios` | Kiracı: marka (logo, varsayılan tema ailesi `theme_family`, ana renk, gradyan), varsayılan dil (`default_locale`, `languages.code`'a işaret eder, varsayılan `tr`), saat dilimi, bildirim ayarları | slug benzersiz |
+| `studios` | Kiracı: marka (logo, varsayılan tema ailesi `theme_family`, ana renk, gradyan), varsayılan dil (`default_locale`, `languages.code`'a işaret eder, varsayılan `tr`), saat dilimi, bildirim ayarları, bölge (`country_code` ISO 3166-1, `currency` ISO 4217, `tax_regime` TR_KDV/EU_VAT/UK_VAT/US_SALES_TAX/NONE, `prices_include_tax`; bkz. `packages/shared/src/growth/regions.ts` ve `GET/PUT /studios/:studioId/region`) | slug benzersiz |
 | `branches` | Stüdyo lokasyonları: adres, iletişim, saat dilimi (boşsa işletmeninki), sıra, aktiflik | (studio_id, name) benzersiz; (id, studio_id) benzersiz (bileşik yabancı anahtar hedefi); studio_id index |
 | `membership_branches` | Personelin işlem yapabileceği şubeler; kayıt yoksa tüm şubeler, işletme sahibi hiçbir zaman kısıtlanmaz | (membership_id, branch_id) birincil anahtar; (branch_id, studio_id) bileşik yabancı anahtar ile şubenin aynı işletmeye ait olması zorunlu |
 | `users` | E.164 telefon ile tanımlanan global kullanıcılar; görünüm tercihi (`theme_family` boşsa işletmenin teması, `color_scheme` SYSTEM/LIGHT/DARK); `locale` boşsa aktif stüdyonun `default_locale`'i kullanılır | phone benzersiz, email benzersiz |
@@ -218,7 +218,7 @@ alanını `ATTENDED` yapmak için kullanılır. Detaylar: `docs/CHECKIN.md`.
 
 | Tablo | Amaç | Kısıtlar |
 |-------|---------|-------------|
-| `payments` | Üye işlemleri: tutar, para birimi, iade edilen tutar, yöntem (nakit, kart, banka, online), durum, sağlayıcı (mock/iyzico/paytr) ve sağlayıcı referansı, taksit sayısı, satışın yapıldığı şube, beklemedeki (örn. havale) ödemeler için paket bilgisini taşıyan `metadata` | (studio_id, paid_at) index; (branch_id, paid_at) index; (provider, provider_reference) index |
+| `payments` | Üye işlemleri: tutar, para birimi (her zaman `studios.currency` ile aynı; sabit `'TRY'` yazılmaz), iade edilen tutar, yöntem (nakit, kart, banka, online), durum, sağlayıcı (mock/iyzico/paytr/stripe) ve sağlayıcı referansı, taksit sayısı, satışın yapıldığı şube, beklemedeki (örn. havale) ödemeler için paket bilgisini taşıyan `metadata` | (studio_id, paid_at) index; (branch_id, paid_at) index; (provider, provider_reference) index |
 | `stored_cards` | Üye başına saklanan kart: yalnızca sağlayıcı kart token'ı + son 4 hane + marka + son kullanma tarihi; PAN veya CVV asla saklanmaz | (studio_id, member_id) index |
 | `member_subscriptions` | Bir pakete bağlı, otomatik yenilenen üye aboneliği: durum (aktif, ödeme gecikmiş, iptal, duraklatıldı), dönem tarihleri, sonraki tahsilat zamanı, dönem sonunda iptal bayrağı, taksit sayısı | (studio_id, member_id) index; (status, next_charge_at) index (dunning taramasi için) |
 | `payment_attempts` | Bir aboneliğin tahsilat denemesi (dunning): deneme numarası, durum, hata kodu, sonraki deneme zamanı | member_subscription_id index |
@@ -242,6 +242,8 @@ alanını `ATTENDED` yapmak için kullanılır. Detaylar: `docs/CHECKIN.md`.
 | `notification_logs` | Giden mesajlar: WhatsApp, SMS, push, email; fallback zinciri | (studio_id, created_at) index; tekrar deneme zincirleri için (fallback_of_id) kendine referans |
 | `message_templates` | Kanal başına mesaj şablonu ({{ad}} yer tutucularıyla); studio_id null olan satırlar süper adminin küresel varsayılanı, doldurulmuş satırlar kiracı geçersiz kılması | (studio_id, key, channel, locale) NULLS NOT DISTINCT ile benzersiz; key index |
 | `communication_consents` | Ticari mesaj için İYS tarzı onay durumu (kanal başına) | (studio_id, user_id, channel) benzersiz; (studio_id, status) ve (iys_synced_at) index |
+
+Bölgesel gönderim kuralları (`apps/api/src/modules/compliance`) ayrı bir tablo tutmaz: `ComplianceService.canSend()` alıcının ülkesinden türetilen uyum bölgesine (TR/EU/UK/US/CA/DEFAULT) göre saf bir karar fonksiyonu çalıştırır; TR bölgesi için karar `communication_consents` üzerinden okunur (`TrConsentRegistryAdapter`).
 
 ## Hakediş Bordrosu (Payroll, W14)
 

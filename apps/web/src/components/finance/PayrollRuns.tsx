@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { PayrollLineDTO, PayrollRunDTO, PayrollRunStatus } from '@platform/shared';
-import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useDashboardSession, useFormatMoney } from '@/components/session/DashboardSessionProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { formatMoney } from '@/lib/money';
 import { toDateInputValue, fromDateInputValue } from '@/lib/date-range';
@@ -145,6 +145,7 @@ function AdjustLineDialog({
 }
 
 function RunDetail({ studioId, run, onReload }: { studioId: string; run: PayrollRun; onReload: () => void }) {
+  const formatMoney = useFormatMoney();
   const [adjustingLine, setAdjustingLine] = useState<PayrollLineDetail | null>(null);
   const [busy, setBusy] = useState(false);
 

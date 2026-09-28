@@ -68,6 +68,39 @@ export const MoneySchema = z
   .strict();
 export type Money = z.infer<typeof MoneySchema>;
 
+/** Defaults a new tenant's region settings derive from its countryCode (super-admin tenant creation). */
+export interface CountryDefaults {
+  currency: CurrencyCode;
+  timezone: string;
+  taxRegime: TaxRegime;
+  defaultLocale: string;
+}
+
+/**
+ * Small, explicit table of sane defaults per country. Not exhaustive: an
+ * unknown country falls back to USD/UTC/NONE/en and the admin completes it.
+ * See docs/BUYUME_VE_GLOBAL_MIMARI.md section 2.1.
+ */
+const COUNTRY_DEFAULTS: Record<string, CountryDefaults> = {
+  TR: { currency: 'TRY', timezone: 'Europe/Istanbul', taxRegime: 'TR_KDV', defaultLocale: 'tr' },
+  US: { currency: 'USD', timezone: 'America/New_York', taxRegime: 'US_SALES_TAX', defaultLocale: 'en' },
+  CA: { currency: 'CAD', timezone: 'America/Toronto', taxRegime: 'NONE', defaultLocale: 'en' },
+  GB: { currency: 'GBP', timezone: 'Europe/London', taxRegime: 'UK_VAT', defaultLocale: 'en' },
+  DE: { currency: 'EUR', timezone: 'Europe/Berlin', taxRegime: 'EU_VAT', defaultLocale: 'de' },
+  FR: { currency: 'EUR', timezone: 'Europe/Paris', taxRegime: 'EU_VAT', defaultLocale: 'fr' },
+  ES: { currency: 'EUR', timezone: 'Europe/Madrid', taxRegime: 'EU_VAT', defaultLocale: 'es' },
+  IT: { currency: 'EUR', timezone: 'Europe/Rome', taxRegime: 'EU_VAT', defaultLocale: 'it' },
+  NL: { currency: 'EUR', timezone: 'Europe/Amsterdam', taxRegime: 'EU_VAT', defaultLocale: 'nl' },
+  AE: { currency: 'AED', timezone: 'Asia/Dubai', taxRegime: 'NONE', defaultLocale: 'en' },
+};
+
+const FALLBACK_DEFAULTS: CountryDefaults = { currency: 'USD', timezone: 'UTC', taxRegime: 'NONE', defaultLocale: 'en' };
+
+/** Looks up { currency, timezone, taxRegime, defaultLocale } for a country; unknown countries get the documented fallback. */
+export function countryDefaultsOf(countryCode: string): CountryDefaults {
+  return COUNTRY_DEFAULTS[countryCode.toUpperCase()] ?? FALLBACK_DEFAULTS;
+}
+
 export function formatMoney(money: Money, locale: string): string {
   const value = Number(money.amount);
   try {
@@ -75,4 +108,30 @@ export function formatMoney(money: Money, locale: string): string {
   } catch {
     return `${money.amount} ${money.currency}`;
   }
+}
+
+/**
+ * ISO 4217 currencies whose minor unit is not 1/100. Payment providers take
+ * amounts in minor units, so `amount * 100` would charge 100x too much in
+ * JPY or 10x too little in KWD.
+ */
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  'BIF', 'CLP', 'DJF', 'GNF', 'ISK', 'JPY', 'KMF', 'KRW', 'MGA', 'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'XPF',
+]);
+const THREE_DECIMAL_CURRENCIES = new Set(['BHD', 'IQD', 'JOD', 'KWD', 'LYD', 'OMR', 'TND']);
+
+export function currencyMinorUnitDigits(currency: string): 0 | 2 | 3 {
+  const code = currency.toUpperCase();
+  if (ZERO_DECIMAL_CURRENCIES.has(code)) return 0;
+  if (THREE_DECIMAL_CURRENCIES.has(code)) return 3;
+  return 2;
+}
+
+/** Converts a major-unit amount (e.g. 12.5 EUR) to integer minor units (1250). */
+export function toMinorUnits(amount: number | string, currency: string): number {
+  const digits = currencyMinorUnitDigits(currency);
+  const value = typeof amount === 'string' ? Number(amount) : amount;
+  if (!Number.isFinite(value)) throw new Error(`Geçersiz tutar: ${String(amount)}`);
+  // Round on the decimal string, not on a float product, to avoid 0.1 + 0.2 artefacts.
+  return Math.round(Number(`${value.toFixed(digits)}e${digits}`));
 }

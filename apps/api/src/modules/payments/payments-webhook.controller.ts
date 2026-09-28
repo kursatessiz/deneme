@@ -19,7 +19,11 @@ export class PaymentsWebhookController {
     @Headers() headers: Record<string, string | string[] | undefined>,
     @Body() body: unknown,
   ) {
-    const rawBody = JSON.stringify(body ?? {});
+    // Stripe's route is parsed by the raw-body middleware (body-parsers.ts):
+    // its signature is computed over the exact bytes, which a re-serialised
+    // JSON body would not reproduce. Every other provider keeps the JSON
+    // parser's parsed body, re-stringified as before.
+    const rawBody = Buffer.isBuffer(body) ? body.toString('utf8') : JSON.stringify(body ?? {});
     return this.payments.handleWebhook(provider, headers, rawBody);
   }
 }

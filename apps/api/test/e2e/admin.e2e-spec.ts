@@ -164,6 +164,7 @@ describe('Admin (super-admin) panel e2e', () => {
           slug: `e2e-test-studyosu-${Date.now()}`,
           businessTypeTemplateKey: businessTypeKey,
           planKey,
+          countryCode: 'TR',
           ownerFirstName: 'Test',
           ownerLastName: 'Sahip',
           ownerPhone: '+905321099001',

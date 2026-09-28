@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { DocumentType, FeatureFlagScope, InviteChannel, NotificationChannel } from './enums';
 import { PhoneSchema } from './validators';
+import { CountryCodeSchema } from './growth/regions';
 
 // ---------------------------------------------------------------------------
 // Super-admin (platform owner) panel: backlog 4.1-4.3.
@@ -39,6 +40,8 @@ export const CreateTenantSchema = z.object({
     .regex(/^[a-z0-9-]{2,60}$/, 'Slug yalnızca küçük harf, rakam ve tire içerebilir'),
   businessTypeTemplateKey: z.string().min(1, 'İşletme türü şablonu seçilmelidir'),
   planKey: z.string().min(1, 'Plan seçilmelidir'),
+  /** Drives the new studio's default currency, timezone, tax regime and default locale (countryDefaultsOf). */
+  countryCode: CountryCodeSchema,
   ownerFirstName: z.string().trim().min(1, 'Sahibin adı zorunludur').max(60),
   ownerLastName: z.string().trim().min(1, 'Sahibin soyadı zorunludur').max(60),
   ownerPhone: PhoneSchema,

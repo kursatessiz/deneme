@@ -1,7 +1,8 @@
 'use client';
 
 import type { CohortReportDTO } from '@platform/shared';
-import { formatPercent } from '@/lib/money';
+import { formatPercent as formatPercentShared } from '@/lib/money';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 
 type CohortsReport = CohortReportDTO;
@@ -13,6 +14,8 @@ function cellColor(ratio: number): string {
 }
 
 export function CohortsReport({ report, loading, error }: { report: CohortsReport | null; loading: boolean; error: string | null }) {
+  const locale = useLocale();
+  const formatPercent = (ratio: number | null | undefined, fractionDigits?: number) => formatPercentShared(ratio, locale, fractionDigits);
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} />;
   if (!report || report.cohorts.length === 0) return <EmptyState title="Veri yok" description="Henüz kohort oluşturacak paket satışı yok." />;

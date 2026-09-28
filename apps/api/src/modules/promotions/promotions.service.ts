@@ -83,7 +83,7 @@ export class PromotionsService {
       packageDefinitionId: o.id,
       name: o.name,
       price: o.price.toFixed(2),
-      currency: 'TRY',
+      currency: studio.currency,
       totalUnits: o.totalUnits,
       validityDays: o.validityDays,
     }));

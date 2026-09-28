@@ -170,6 +170,7 @@ export class AuthService {
                 themePrimary: true,
                 gradientPresetKey: true,
                 defaultLocale: true,
+                currency: true,
               },
             },
             roleTemplate: { include: { permissions: true } },
@@ -199,6 +200,7 @@ export class AuthService {
       homeBranchId: m.memberProfile?.homeBranchId ?? null,
       theme: toTenantTheme(m.studio),
       defaultLocale: m.studio.defaultLocale,
+      currency: m.studio.currency,
     }));
 
     return {

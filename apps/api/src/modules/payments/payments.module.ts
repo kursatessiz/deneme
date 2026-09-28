@@ -11,6 +11,7 @@ import { DunningService } from './dunning.service';
 import { MockPaymentProvider } from './providers/mock-payment.provider';
 import { IyzicoPaymentProvider } from './providers/iyzico-payment.provider';
 import { PaytrPaymentProvider } from './providers/paytr-payment.provider';
+import { StripePaymentProvider } from './providers/stripe-payment.provider';
 import { PaymentProviderRegistry } from './providers/payment-provider.registry';
 
 @Module({
@@ -22,6 +23,7 @@ import { PaymentProviderRegistry } from './providers/payment-provider.registry';
     MockPaymentProvider,
     IyzicoPaymentProvider,
     PaytrPaymentProvider,
+    StripePaymentProvider,
     PaymentProviderRegistry,
   ],
   exports: [PaymentsService, DunningService, PaymentProviderRegistry],

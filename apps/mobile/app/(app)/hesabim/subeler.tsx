@@ -5,15 +5,17 @@ import type { BranchSummaryDTO, PortfolioSummaryDTO } from '@platform/shared';
 
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
+import { formatCurrency, useLocale } from '../../../src/i18n';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
 
 const percent = (v: number) => `%${Math.round(v * 100)}`;
-const money = (v: string) =>
-  new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(Number(v));
 
 /** Last 30 days per branch, and across businesses when the user runs more than one. */
 export default function SubelerScreen() {
   const { activeMembership, memberships } = useSession();
+  const { locale } = useLocale();
+  const currency = activeMembership?.currency ?? 'USD';
+  const money = (v: string) => formatCurrency(Number(v), locale, currency, { maximumFractionDigits: 0 });
   const { theme } = useTheme();
   const fonts = useThemeFonts();
   const c = theme.colors;

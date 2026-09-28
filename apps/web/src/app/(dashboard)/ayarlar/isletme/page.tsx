@@ -7,8 +7,11 @@ import type {
   MessageChannelName,
   NotificationSettings,
   PublicLanguagesDTO,
+  StudioRegion,
+  TaxRegime,
   UpdateCheckInWindowInput,
 } from '@platform/shared';
+import { TAX_REGIMES } from '@platform/shared';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
@@ -237,6 +240,59 @@ function LocaleSection() {
   );
 }
 
+const TAX_REGIME_LABELS: Record<TaxRegime, string> = {
+  TR_KDV: 'Türkiye KDV',
+  EU_VAT: 'AB KDV',
+  UK_VAT: 'Birleşik Krallık KDV',
+  US_SALES_TAX: 'ABD eyalet satış vergisi',
+  NONE: 'Yok',
+};
+
+function RegionSection() {
+  const { activeStudioId } = useDashboardSession();
+  const { data, loading, error } = useBff<StudioRegion>(`studios/${activeStudioId}/region`, activeStudioId);
+  const { form, setForm, saving, error: saveError, saved, save } = useSave<StudioRegion>(
+    activeStudioId,
+    `studios/${activeStudioId}/region`,
+    data,
+  );
+
+  if (loading) return <LoadingState />;
+  if (error) return <ErrorState message={error} />;
+  if (!form) return null;
+
+  return (
+    <Section title="Bölge ve para birimi" description="Ülke, para birimi, saat dilimi ve vergi rejimi; ödeme kaydedildikten sonra para birimi değiştirilemez">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
+        <TextField label="Ülke kodu (ISO 3166-1, ör: TR)" value={form.countryCode} onChange={(v) => setForm({ ...form, countryCode: v.toUpperCase() })} />
+        <TextField label="Para birimi (ISO 4217, ör: TRY)" value={form.currency} onChange={(v) => setForm({ ...form, currency: v.toUpperCase() })} />
+        <TextField label="Saat dilimi (ör: Europe/Istanbul)" value={form.timezone} onChange={(v) => setForm({ ...form, timezone: v })} />
+        <label className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+          Vergi rejimi
+          <select
+            value={form.taxRegime}
+            onChange={(e) => setForm({ ...form, taxRegime: e.target.value as TaxRegime })}
+            className="w-full mt-1 px-2 py-1.5 border text-sm"
+            style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)', backgroundColor: 'var(--color-background)', color: 'var(--color-text-primary)' }}
+          >
+            {TAX_REGIMES.map((regime) => (
+              <option key={regime} value={regime}>
+                {TAX_REGIME_LABELS[regime]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Toggle label="Paket fiyatları vergi dahil girilir" checked={form.pricesIncludeTax} onChange={(v) => setForm({ ...form, pricesIncludeTax: v })} />
+      </div>
+      {saveError && <InlineMessage text={saveError} tone="error" />}
+      {saved && <InlineMessage text="Kaydedildi" tone="success" />}
+      <PrimaryButton onClick={() => save(form)} disabled={saving}>
+        {saving ? 'Kaydediliyor...' : 'Kaydet'}
+      </PrimaryButton>
+    </Section>
+  );
+}
+
 function NotificationChannelSection() {
   const { activeStudioId } = useDashboardSession();
   const { data, loading, error } = useBff<NotificationSettings>(`studios/${activeStudioId}/notification-settings`, activeStudioId);
@@ -455,6 +511,7 @@ function BusinessSettings() {
     <div className="space-y-6">
       <SettingsHeader title="İşletme" description="İptal politikası, check-in, bildirim, oyunlaştırma ve geri bildirim ayarları" />
       {canCatalog && <CancellationPolicySection />}
+      {canStudio && <RegionSection />}
       {canStudio && <LocaleSection />}
       {canStudio && <CheckInWindowSection />}
       {canNotify && <NotificationChannelSection />}
