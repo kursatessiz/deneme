@@ -6,6 +6,7 @@ import { StudioScoped, SelfService } from '../auth/decorators/require-permission
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import { ZodBody } from '../../common/zod-body.pipe';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
+import { readVisitorId } from '../crm/tracking/tracking-utils';
 
 @Controller('invites')
 export class InvitesController {
@@ -45,6 +46,6 @@ export class InvitesController {
     @ZodBody(AcceptInviteSchema) body: ReturnType<typeof AcceptInviteSchema.parse>,
     @Req() req: Request,
   ) {
-    return this.invites.accept(token, body, req.ip ?? null);
+    return this.invites.accept(token, body, req.ip ?? null, readVisitorId(req.headers));
   }
 }

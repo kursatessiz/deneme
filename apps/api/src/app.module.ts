@@ -21,7 +21,7 @@ import { CalendarModule } from './modules/calendar/calendar.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
-import { LeadsModule } from './modules/leads/leads.module';
+import { CrmModule } from './modules/crm/crm.module';
 import { InvoicingModule } from './modules/invoicing/invoicing.module';
 import { AutomationsModule } from './modules/automations/automations.module';
 import { JobsModule } from './modules/jobs/jobs.module';
@@ -70,7 +70,7 @@ import { validateEnv } from './config/env';
     PaymentsModule,
     ReportsModule,
     PayrollModule,
-    LeadsModule,
+    CrmModule,
     InvoicingModule,
     AutomationsModule,
     JobsModule,

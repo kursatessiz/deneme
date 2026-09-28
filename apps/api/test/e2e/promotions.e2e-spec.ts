@@ -143,6 +143,8 @@ describe('Promotions (e2e)', () => {
     await prisma.trialRedemption.deleteMany({ where: { OR: [{ packageDefinitionId: { in: createdPackageDefinitionIds } }, { userId: { in: createdUserIds } }] } });
     await prisma.redemptionCounter.deleteMany({ where: { studioId: ZEN, userId: { in: createdUserIds } } });
     await prisma.payment.deleteMany({ where: { OR: [{ id: { in: createdPaymentIds } }, { memberId: { in: createdMemberIds } }] } });
+    // G1b: purchase/subscription conversion events of the payments deleted above.
+    await prisma.$executeRaw`DELETE FROM "conversion_events" ce WHERE ce."source_kind" IN ('payment', 'subscription_payment') AND NOT EXISTS (SELECT 1 FROM "payments" p WHERE p."id"::text = ce."source_id")`;
     await prisma.memberPackage.deleteMany({ where: { OR: [{ id: { in: createdMemberPackageIds } }, { memberId: { in: createdMemberIds } }] } });
     await prisma.packageDefinitionService.deleteMany({ where: { packageDefinitionId: { in: createdPackageDefinitionIds } } });
     await prisma.packageDefinition.deleteMany({ where: { id: { in: createdPackageDefinitionIds } } });

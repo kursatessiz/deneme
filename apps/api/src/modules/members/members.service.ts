@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import type { TenantContext } from '../auth/tenant-context';
@@ -7,6 +7,7 @@ import type { MemberDetailDTO, SetHomeBranchInput } from '@platform/shared';
 import { assertBranchAccess } from '../branches/branch-access';
 import { ReferralsService } from '../feedback/referrals.service';
 import { PlanLimitsService } from '../admin/plan-limits.service';
+import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 
 @Injectable()
 export class MembersService {
@@ -15,6 +16,7 @@ export class MembersService {
     private referrals: ReferralsService,
     private webhooks: WebhooksService,
     private planLimits: PlanLimitsService,
+    @Optional() private crm?: CrmHooksService,
   ) {}
 
   async findAll(tenant: TenantContext, search?: string, homeBranchId?: string) {
@@ -222,6 +224,7 @@ export class MembersService {
 
   async createMember(tenant: TenantContext, dto: CreateMemberInput) {
     const detail = await this.createMemberTx(tenant, dto);
+    await this.crm?.onMemberJoined(tenant.studioId, detail.membershipId as string);
     await this.webhooks.emit(tenant.studioId, 'member.created', {
       membershipId: detail.membershipId,
       firstName: dto.firstName,
@@ -247,7 +250,7 @@ export class MembersService {
     const startDate = dto.startDate ? new Date(dto.startDate) : new Date();
     const endDate = new Date(startDate.getTime() + pkgDef.validityDays * 24 * 60 * 60 * 1000);
 
-    return this.prisma.$transaction(async (tx) => {
+    const { memberPackage, paymentId } = await this.prisma.$transaction(async (tx) => {
       const memberPackage = await tx.memberPackage.create({
         data: {
           studioId,
@@ -263,7 +266,7 @@ export class MembersService {
         },
       });
 
-      await tx.payment.create({
+      const payment = await tx.payment.create({
         data: {
           studioId,
           memberId: dto.memberId,
@@ -275,8 +278,10 @@ export class MembersService {
         },
       });
 
-      return memberPackage;
+      return { memberPackage, paymentId: payment.id };
     });
+    await this.crm?.onPaymentCompleted(studioId, paymentId);
+    return memberPackage;
   }
 
   async freezePackage(packageId: string, tenant: TenantContext, dto: FreezePackageInput) {

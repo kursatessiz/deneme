@@ -6,7 +6,9 @@ import {
   ForbiddenException,
   HttpException,
   Logger,
+  Optional,
 } from '@nestjs/common';
+import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { GamificationService } from '../gamification/gamification.service';
@@ -53,6 +55,7 @@ export class SchedulesService {
     private gamification: GamificationService,
     private webhooks: WebhooksService,
     private videoMeeting: VideoMeetingService,
+    @Optional() private crm?: CrmHooksService,
   ) {}
 
   async getSchedules(
@@ -914,6 +917,8 @@ export class SchedulesService {
   }
 
   private async emitAttended(studioId: string, bookingId: string) {
+    // Best-effort like gamification: a trial attendance is a CRM conversion.
+    await this.crm?.onBookingAttended(studioId, bookingId);
     const attended = await this.prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
     await this.webhooks.emit(studioId, 'booking.attended', {
       bookingId: attended.id,

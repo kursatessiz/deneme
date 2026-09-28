@@ -126,6 +126,8 @@ describe('Feedback: ratings, review redirect, referrals (e2e)', () => {
     for (const phone of createdUserPhones) {
       await prisma.user.deleteMany({ where: { phone } });
     }
+    // G1b: creating a member also creates its CRM contact.
+    await prisma.contact.deleteMany({ where: { studioId: ZEN, phone: { in: createdUserPhones } } });
 
     await prisma.$disconnect();
     await app.close();

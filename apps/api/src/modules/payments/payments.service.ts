@@ -5,7 +5,9 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
+import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { InvoicingService } from '../invoicing/invoicing.service';
@@ -41,6 +43,7 @@ export class PaymentsService {
     private invoicing: InvoicingService,
     private promotions: PromotionsService,
     private webhooks: WebhooksService,
+    @Optional() private crm?: CrmHooksService,
   ) {}
 
   /**
@@ -64,6 +67,8 @@ export class PaymentsService {
       this.logger.warn(`Auto-issue invoice failed for payment ${paymentId}: ${err instanceof Error ? err.message : err}`);
     }
     await this.webhooks.emit(studioId, 'payment.completed', { paymentId });
+    // CRM purchase / subscription conversion; never throws (CrmHooksService).
+    await this.crm?.onPaymentCompleted(studioId, paymentId);
   }
 
   /**

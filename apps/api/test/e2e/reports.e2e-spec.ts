@@ -248,6 +248,8 @@ describe('Reports (e2e)', () => {
     await prisma.booking.deleteMany({ where: { id: { in: bookingIds } } });
     await prisma.sessionSchedule.deleteMany({ where: { id: { in: scheduleIds } } });
     await prisma.payment.deleteMany({ where: { id: { in: paymentIds } } });
+    // G1b: purchase/subscription conversion events of the payments deleted above.
+    await prisma.$executeRaw`DELETE FROM "conversion_events" ce WHERE ce."source_kind" IN ('payment', 'subscription_payment') AND NOT EXISTS (SELECT 1 FROM "payments" p WHERE p."id"::text = ce."source_id")`;
     await prisma.memberPackage.deleteMany({ where: { id: { in: packageIds } } });
     await prisma.memberProfile.deleteMany({ where: { id: { in: [memberA, memberB, memberC] } } });
     await prisma.membership.deleteMany({ where: { id: { in: [memberAMembershipId, memberBMembershipId, memberCMembershipId] } } });

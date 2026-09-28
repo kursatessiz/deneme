@@ -203,6 +203,8 @@ async function main() {
 
   await seedMessaging({ zen: zen.studioId, flow: flow.studioId, guc: guc.studioId, denge: denge.studioId });
 
+  await seedCrm(zen.studioId, flow.studioId);
+
   printSummary();
 }
 
@@ -2232,6 +2234,114 @@ async function bookWithResource(opts: {
 // ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// G1b: CRM. The platform tenant, a few legacy lead rows, then the exact data
+// migration SQL (crm_backfill_contacts, created by the
+// 20260929000000_crm_attribution migration) so a fresh database gets default
+// pipeline stages and contacts the same way a migrated production database
+// did. The legacy `leads` rows are written here only to exercise that
+// migration; the application no longer writes them.
+// ---------------------------------------------------------------------------
+
+/** Legacy lead phones the API e2e suite asserts on (crm-migration.e2e-spec.ts). */
+const SEED_LEAD_PHONES = {
+  open: '+905399960001',
+  flowTrial: '+905399960002',
+} as const;
+
+async function seedCrm(zenStudioId: string, flowStudioId: string) {
+  await prisma.studio.create({
+    data: { name: 'Platform', slug: 'platform', isPlatform: true },
+  });
+  count('studios');
+
+  const zenMembers = await prisma.membership.findMany({
+    where: { studioId: zenStudioId, memberProfile: { isNot: null } },
+    include: { user: true },
+    orderBy: { createdAt: 'asc' },
+    take: 2,
+  });
+  const [memberA, memberB] = zenMembers;
+
+  const now = Date.now();
+  const day = 24 * 60 * 60 * 1000;
+  const open = await prisma.lead.create({
+    data: {
+      studioId: zenStudioId,
+      fullName: 'Seda  Nur Aksoy',
+      phone: SEED_LEAD_PHONES.open,
+      openPhone: SEED_LEAD_PHONES.open,
+      email: 'seda.aksoy@example.com',
+      source: 'WEB_FORM',
+      stage: 'CONTACTED',
+      utmSource: 'instagram',
+      utmMedium: 'paid_social',
+      utmCampaign: 'tr_tr_pilates_lead_202609',
+      createdAt: new Date(now - 5 * day),
+    },
+  });
+  // An older, closed lead for the same phone: folds into the same contact.
+  const older = await prisma.lead.create({
+    data: {
+      studioId: zenStudioId,
+      fullName: 'Seda Aksoy',
+      phone: SEED_LEAD_PHONES.open,
+      openPhone: null,
+      source: 'WALK_IN',
+      stage: 'LOST',
+      lostReason: 'Zamani uygun degildi',
+      createdAt: new Date(now - 120 * day),
+      updatedAt: new Date(now - 110 * day),
+    },
+  });
+  await prisma.leadActivity.createMany({
+    data: [
+      { leadId: open.id, studioId: zenStudioId, type: 'CALL', body: 'Arandi, fiyat bilgisi verildi' },
+      { leadId: older.id, studioId: zenStudioId, type: 'NOTE', body: 'Eski basvuru' },
+    ],
+  });
+  if (memberA && memberB) {
+    // A lead for someone who is already a member: linked to the membership.
+    await prisma.lead.create({
+      data: {
+        studioId: zenStudioId,
+        fullName: `${memberA.user.firstName} ${memberA.user.lastName}`,
+        phone: memberA.user.phone,
+        openPhone: memberA.user.phone,
+        source: 'PHONE',
+        stage: 'NEW',
+      },
+    });
+    // A converted (WON) lead.
+    await prisma.lead.create({
+      data: {
+        studioId: zenStudioId,
+        fullName: `${memberB.user.firstName} ${memberB.user.lastName}`,
+        phone: memberB.user.phone,
+        openPhone: null,
+        source: 'REFERRAL',
+        stage: 'WON',
+        convertedMembershipId: memberB.id,
+      },
+    });
+  }
+  await prisma.lead.create({
+    data: {
+      studioId: flowStudioId,
+      fullName: 'Kerem Tas',
+      phone: SEED_LEAD_PHONES.flowTrial,
+      openPhone: SEED_LEAD_PHONES.flowTrial,
+      source: 'INSTAGRAM',
+      stage: 'TRIAL_BOOKED',
+    },
+  });
+  count('leads', memberA && memberB ? 5 : 3);
+
+  await prisma.$executeRawUnsafe('SELECT crm_backfill_contacts()');
+  count('pipeline_stages', await prisma.pipelineStage.count());
+  count('contacts', await prisma.contact.count());
+}
 
 function printSummary() {
   console.log('');

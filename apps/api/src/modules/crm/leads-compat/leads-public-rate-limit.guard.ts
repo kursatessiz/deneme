@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type { Request } from 'express';
-import { RedisService } from '../redis/redis.service';
+import { RedisService } from '../../redis/redis.service';
 
 const WINDOW_SECONDS = 60;
 const MAX_REQUESTS = 5;

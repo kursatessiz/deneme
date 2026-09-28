@@ -47,8 +47,14 @@ export const PERMISSIONS = {
   'notifications.manage': 'Bildirim şablonları ve SMS kredisi',
   'reports.view': 'Raporları görüntüleme',
 
+  // Deprecated with the /leads endpoints (G1b); kept valid for the
+  // compatibility wrappers and the current web and mobile lead screens.
   'leads.view': 'Potansiyel üyeleri görüntüleme',
   'leads.manage': 'Potansiyel üye ekleme, aşama değiştirme, üyeliğe dönüştürme',
+
+  'crm.view': 'Kişileri, satış hattını ve atıf raporlarını görüntüleme',
+  'crm.manage': 'Kişi ekleme, düzenleme, birleştirme; etiket, özel alan, satış hattı aşaması ve görev yönetimi',
+  'crm.export': 'Kişi listesini CSV olarak dışa aktarma',
 
   'integrations.manage': 'API anahtarı ve webhook yönetimi',
 
@@ -82,6 +88,7 @@ export const PERMISSION_AREAS = {
   Finans: ['finance.view', 'finance.manage', 'commissions.view.own', 'commissions.view.all', 'payroll.manage'],
   Bildirim: ['notifications.manage', 'reports.view'],
   'Potansiyel üyeler': ['leads.view', 'leads.manage'],
+  'Kişiler (CRM)': ['crm.view', 'crm.manage', 'crm.export'],
   Entegrasyon: ['integrations.manage', 'integrations.partners.manage'],
   İçerik: ['content.view', 'content.manage'],
 } as const satisfies Record<string, readonly PermissionKey[]>;
@@ -126,6 +133,8 @@ export const DEFAULT_ROLE_TEMPLATES: readonly DefaultRoleTemplate[] = [
       'finance.manage',
       'leads.view',
       'leads.manage',
+      'crm.view',
+      'crm.manage',
     ],
   },
   {

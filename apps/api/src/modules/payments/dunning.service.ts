@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PaymentProviderRegistry } from './providers/payment-provider.registry';
@@ -39,6 +40,7 @@ export class DunningService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private providers: PaymentProviderRegistry,
+    @Optional() private crm?: CrmHooksService,
   ) {}
 
   /**
@@ -125,7 +127,7 @@ export class DunningService {
     const newStart = sub.currentPeriodEnd;
     const newEnd = new Date(newStart.getTime() + sub.packageDefinition.validityDays * DAY_MS);
 
-    await this.prisma.$transaction(async (tx) => {
+    const paymentId = await this.prisma.$transaction(async (tx) => {
       const advanced = await tx.memberSubscription.updateMany({
         where: { id: sub.id, nextChargeAt: sub.nextChargeAt },
         data: {
@@ -135,7 +137,7 @@ export class DunningService {
           nextChargeAt: newEnd,
         },
       });
-      if (advanced.count === 0) return;
+      if (advanced.count === 0) return null;
 
       const memberPackage = await tx.memberPackage.create({
         data: {
@@ -178,7 +180,10 @@ export class DunningService {
           status: PaymentAttemptStatus.SUCCEEDED,
         },
       });
+      return payment.id;
     });
+    // subscription_started / subscription_renewed conversion; never throws.
+    if (paymentId) await this.crm?.onPaymentCompleted(sub.studioId, paymentId);
 
     return { subscriptionId: sub.id, outcome: 'renewed', nextChargeAt: newEnd };
   }

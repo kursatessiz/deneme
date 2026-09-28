@@ -101,13 +101,8 @@ describe('Public API and webhooks (e2e)', () => {
     await prisma.webhookDelivery.deleteMany({ where: { endpointId: { in: webhookEndpointIds } } });
     await prisma.webhookEndpoint.deleteMany({ where: { id: { in: webhookEndpointIds } } });
     await prisma.apiKey.deleteMany({ where: { id: { in: apiKeyIds } } });
-    const embedLeads = await prisma.lead.findMany({
-      where: { studioId: ZEN, phone: { startsWith: EMBED_LEAD_PHONE_PREFIX } },
-      select: { id: true },
-    });
-    const embedLeadIds = embedLeads.map((l) => l.id);
-    await prisma.leadActivity.deleteMany({ where: { leadId: { in: embedLeadIds } } });
-    await prisma.lead.deleteMany({ where: { id: { in: embedLeadIds } } });
+    // G1b: the public lead form writes contacts (activities cascade).
+    await prisma.contact.deleteMany({ where: { studioId: ZEN, phone: { startsWith: EMBED_LEAD_PHONE_PREFIX } } });
     await prisma.$disconnect();
     await app.close();
   });
@@ -474,7 +469,7 @@ describe('Public API and webhooks (e2e)', () => {
       });
       expect(res.status).toBe(202);
 
-      const lead = await prisma.lead.findFirst({ where: { studioId: ZEN, phone } });
+      const lead = await prisma.contact.findFirst({ where: { studioId: ZEN, phone } });
       expect(lead).not.toBeNull();
       expect(lead?.sourceDetail).toContain('deneme dersi');
     });

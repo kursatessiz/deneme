@@ -74,6 +74,8 @@ describe('Auth + Invites e2e', () => {
     await prisma.otpChallenge.deleteMany({ where: { phone: { in: phonesToClean } } });
     await prisma.notificationLog.deleteMany({ where: { recipientPhone: { in: phonesToClean } } });
     await prisma.inviteToken.deleteMany({ where: { phone: { in: phonesToClean } } });
+    // G1b: accepting a member invite creates a CRM contact.
+    await prisma.contact.deleteMany({ where: { phone: { in: phonesToClean } } });
     const invitee = await prisma.user.findUnique({ where: { phone: inviteePhone } });
     if (invitee) {
       await prisma.auditLog.deleteMany({ where: { userId: invitee.id } });
