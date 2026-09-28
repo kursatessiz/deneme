@@ -1,4 +1,5 @@
 import { trAdminI18n } from './tr/admin-i18n';
+import { trAds } from './tr/ads';
 import { trAuth } from './tr/auth';
 import { trCommon } from './tr/common';
 import { trConsent } from './tr/consent';
@@ -10,6 +11,7 @@ import { trMAuth } from './tr/mAuth';
 import { trMNav } from './tr/mNav';
 import { trNav } from './tr/nav';
 import { enAdminI18n } from './en/admin-i18n';
+import { enAds } from './en/ads';
 import { enAuth } from './en/auth';
 import { enCommon } from './en/common';
 import { enConsent } from './en/consent';
@@ -35,6 +37,7 @@ import { enNav } from './en/nav';
  */
 export const TR_NAMESPACES = [
   trAdminI18n,
+  trAds,
   trAuth,
   trCommon,
   trConsent,
@@ -49,6 +52,7 @@ export const TR_NAMESPACES = [
 
 export const EN_NAMESPACES = [
   enAdminI18n,
+  enAds,
   enAuth,
   enCommon,
   enConsent,

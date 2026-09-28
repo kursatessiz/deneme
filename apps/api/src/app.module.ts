@@ -22,6 +22,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
 import { CrmModule } from './modules/crm/crm.module';
+import { AdsModule } from './modules/ads/ads.module';
 import { InvoicingModule } from './modules/invoicing/invoicing.module';
 import { AutomationsModule } from './modules/automations/automations.module';
 import { JobsModule } from './modules/jobs/jobs.module';
@@ -71,6 +72,7 @@ import { validateEnv } from './config/env';
     ReportsModule,
     PayrollModule,
     CrmModule,
+    AdsModule,
     InvoicingModule,
     AutomationsModule,
     JobsModule,

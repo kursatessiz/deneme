@@ -5,6 +5,7 @@ import {
   Calendar,
   CheckSquare,
   LayoutDashboard,
+  Megaphone,
   Package,
   Settings,
   UserCog,
@@ -65,6 +66,14 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { key: 'reports', label: 'Raporlar', labelKey: 'nav.reports', href: '/raporlar', icon: BarChart3, permissions: ['reports.view'] },
   { key: 'leads', label: 'Adaylar', labelKey: 'nav.leads', href: '/adaylar', icon: UserPlus, permissions: ['leads.view'] },
   {
+    key: 'ads',
+    label: 'Reklam performansı',
+    labelKey: 'nav.ads',
+    href: '/reklam-performansi',
+    icon: Megaphone,
+    permissions: ['ads.view'],
+  },
+  {
     key: 'churn',
     label: 'Riskli Üyeler',
     labelKey: 'nav.churn',
@@ -87,8 +96,10 @@ export const NAV_ITEMS: readonly NavItem[] = [
       'notifications.manage',
       'integrations.manage',
       'integrations.partners.manage',
+      'ads.manage',
     ],
-  },];
+  },
+];
 
 /** Owners see everything; everyone else needs at least one of an item's permissions (or the item declares none). */
 export function filterNavByPermissions(

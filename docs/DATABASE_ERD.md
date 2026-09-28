@@ -298,6 +298,20 @@ Açık (WON/LOST olmayan) bir aday aynı telefonla tekrar başvurursa (web formu
 
 `studios.is_platform`: platformun kendi kiracısı (slug `platform`); `WHERE is_platform` kısmi benzersiz index'i en fazla bir satırın işaretli olmasını zorunlu kılar.
 
+`studios.attribution_window_days` (varsayılan 30): atıf penceresi artık kiracı ayarıdır, sabit `DEFAULT_ATTRIBUTION_WINDOW_DAYS` yalnızca varsayılan değerdir (G2b, migration `20260930000000_ads_integration`). `touchpoints.advertising_consent`: temas noktası kaydedilirken `consent.advertising` değeri; reklam platformlarına gönderim bu alana bakarak izinsiz hiçbir şey göndermez.
+
+## Reklam Entegrasyonu (G2b)
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `ad_connections` | Kiracının bir reklam platformu hesabına bağlantısı: platform (META/GOOGLE/TIKTOK), durum (DISCONNECTED/CONNECTED/ERROR), hesap kimliği, pixel/dataset kimliği, şifreli kimlik bilgileri (`CredentialCipher`), son 4 karakter (görüntüleme için düz metin), dönüşüm olayı türü başına platform dönüşüm eylemi kimliği (JSON), test modu, son senkron, son hata | (studio_id, platform, label) benzersiz; (studio_id, status) index |
+| `ad_entities` | Senkronize edilen kampanya/reklam seti/reklam yapısı: seviye, harici kimlik, ad (yenilenir), durum, üst harici kimlik. Atıf her zaman kimlikle yapılır; bu tablo yalnızca insan tarafından okunabilir adı günceller | (studio_id, platform, level, external_id) benzersiz; (studio_id, platform, parent_external_id) index |
+| `ad_spend_daily` | Varlık başına günlük harcama: tutar + para birimi, gösterim, tıklama | (studio_id, platform, level, external_id, date) benzersiz; (studio_id, platform, date) index |
+
+Atıf raporu (`GET /crm/studios/:studioId/attribution`), `groupBy` seviyesine karşılık gelen `ad_spend_daily` satırlarını eşleştirerek harcama, CPL, CAC ve ROAS hesaplar (`source` grubu, çifte saymayı önlemek için yalnızca kampanya seviyesi harcamayı toplar). Ayrıntılar: `docs/REKLAM_ENTEGRASYONU.md`.
+
+`conversion_deliveries` artık gerçek bir işçi tarafından tüketilir: `ConversionDeliveryDispatcherService`, `JobsService.runAll()` içindeki 15 dakikalık kalp atışından (veya Redis varsa BullMQ tekrarlayan işinden) çağrılır; `PENDING` ve zamanı gelmiş satırları alır, `Meta CAPI` / `Google Ads` / `TikTok Events` adaptörlerinden birine gönderir ve `CONVERSION_RETRY_DELAYS_SECONDS` ile üstel geri çekilme uygular. Son denemeden sonra `FAILED` (ölü mektup) kalır; izin veya eşleşme yoksa `SKIPPED_NO_CONSENT` / `SKIPPED_NO_MATCH` ile hemen sonlanır, yeniden denenmez.
+
 ## Otomasyon (Otomatik Pazarlama ve Yaşam Döngüsü Akışları)
 
 | Tablo | Amaç | Kısıtlar |

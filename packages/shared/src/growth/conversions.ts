@@ -71,6 +71,13 @@ export type ConversionDeliveryStatus = (typeof CONVERSION_DELIVERY_STATUSES)[num
 
 /** Retry schedule for outbox deliveries, in seconds after the first attempt. */
 export const CONVERSION_RETRY_DELAYS_SECONDS = [60, 300, 1800, 7200, 21600] as const;
+export const CONVERSION_MAX_ATTEMPTS = CONVERSION_RETRY_DELAYS_SECONDS.length;
+
+/** Delay in seconds before the given attempt number is retried (attempt is 1-based, the attempt that just failed). Past the last configured delay the delivery is abandoned as FAILED (dead-letter). */
+export function conversionDeliveryBackoffSeconds(attempt: number): number {
+  const index = Math.min(Math.max(attempt, 1), CONVERSION_RETRY_DELAYS_SECONDS.length) - 1;
+  return CONVERSION_RETRY_DELAYS_SECONDS[index];
+}
 
 /** Contact lifecycle stages (section 3.1). */
 export const LIFECYCLE_STAGES = ['LEAD', 'TRIAL', 'MEMBER', 'LAPSED', 'LOST'] as const;

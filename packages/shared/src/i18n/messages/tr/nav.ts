@@ -10,6 +10,7 @@ export const trNav = {
   'nav.payroll': 'Hakediş',
   'nav.reports': 'Raporlar',
   'nav.leads': 'Adaylar',
+  'nav.ads': 'Reklam performansı',
   'nav.churn': 'Riskli Üyeler',
   'nav.settings': 'Ayarlar',
 } as const satisfies Record<string, string>;
