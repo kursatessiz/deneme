@@ -5,6 +5,7 @@ import { EntitlementKind, onColor } from '@platform/shared';
 import type { MemberPackageDTO } from '@platform/shared';
 
 import { GradientSurface } from './GradientSurface';
+import { useLocale } from '../i18n';
 import { spacing, typography, useTheme, useThemeFonts } from '../theme';
 
 function entitlementLabel(pkg: MemberPackageDTO): string {
@@ -27,6 +28,7 @@ const STATUS_LABEL: Record<string, string> = {
 export function PackageCard({ pkg }: { pkg: MemberPackageDTO }) {
   const { theme } = useTheme();
   const fonts = useThemeFonts();
+  const { locale } = useLocale();
   const textColor = onColor(theme.gradient.stops[0]);
 
   return (
@@ -38,12 +40,12 @@ export function PackageCard({ pkg }: { pkg: MemberPackageDTO }) {
       <View style={styles.footer}>
         <Text style={[styles.status, fonts.body, { color: textColor }]}>{STATUS_LABEL[pkg.status] ?? pkg.status}</Text>
         <Text style={[styles.status, fonts.body, { color: textColor }]}>
-          Bitiş: {new Date(pkg.endDate).toLocaleDateString('tr-TR')}
+          Bitiş: {new Date(pkg.endDate).toLocaleDateString(locale)}
         </Text>
       </View>
       {pkg.frozenUntil ? (
         <Text style={[styles.status, fonts.body, { color: textColor }]}>
-          Dondurma bitiş: {new Date(pkg.frozenUntil).toLocaleDateString('tr-TR')}
+          Dondurma bitiş: {new Date(pkg.frozenUntil).toLocaleDateString(locale)}
         </Text>
       ) : null}
     </GradientSurface>

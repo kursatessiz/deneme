@@ -5,16 +5,17 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import type { SessionScheduleSummaryDTO } from '@platform/shared';
 
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
+import { useLocale } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../src/theme';
 
-function formatDayTime(startTime: string, endTime: string): string {
+function formatDayTime(startTime: string, endTime: string, locale: string): string {
   const start = new Date(startTime);
   const end = new Date(endTime);
-  const day = start.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
-  const startHour = start.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-  const endHour = end.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  const day = start.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
+  const startHour = start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  const endHour = end.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   return `${day}, ${startHour} - ${endHour}`;
 }
 
@@ -23,6 +24,7 @@ export default function SeanslarScreen() {
   const router = useRouter();
   const colors = useThemeColors();
   const fonts = useThemeFonts();
+  const { locale } = useLocale();
   const { activeMembership } = useSession();
   const studioId = activeMembership?.studioId;
 
@@ -71,14 +73,14 @@ export default function SeanslarScreen() {
         <Pressable
           key={item.id}
           accessibilityRole="button"
-          accessibilityLabel={`${item.serviceTypeName}, ${formatDayTime(item.startTime, item.endTime)}`}
+          accessibilityLabel={`${item.serviceTypeName}, ${formatDayTime(item.startTime, item.endTime, locale)}`}
           onPress={() => openSchedule(item)}
           style={[styles.row, { borderColor: colors.border, backgroundColor: colors.surface }]}
         >
           <View style={styles.rowText}>
             <Text style={[styles.title, fonts.bodyStrong, { color: colors.textPrimary }]}>{item.serviceTypeName}</Text>
             <Text style={[styles.subtitle, fonts.body, { color: colors.textSecondary }]}>
-              {formatDayTime(item.startTime, item.endTime)}
+              {formatDayTime(item.startTime, item.endTime, locale)}
             </Text>
             {item.trainerName ? (
               <Text style={[styles.subtitle, fonts.body, { color: colors.textSecondary }]}>{item.trainerName}</Text>

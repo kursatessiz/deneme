@@ -4,6 +4,7 @@ import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-nati
 
 import type { ChurnMemberSummaryDTO, MemberDetailDTO, MemberPackageDTO } from '@platform/shared';
 
+import { useLocale } from '../i18n';
 import { ApiError, apiRequest } from '../lib/api';
 import { useSession } from '../lib/session';
 import { palette, radii, spacing, typography, useTheme, useThemeColors, useThemeFonts } from '../theme';
@@ -47,6 +48,7 @@ export function MemberCard({ memberId, onChanged }: MemberCardProps) {
   const { theme } = useTheme();
   const colors = useThemeColors();
   const fonts = useThemeFonts();
+  const { locale } = useLocale();
   const { activeMembership } = useSession();
   const studioId = activeMembership?.studioId;
   const canViewHealth = activeMembership?.permissions.includes('members.health.view') ?? false;
@@ -225,7 +227,7 @@ export function MemberCard({ memberId, onChanged }: MemberCardProps) {
             {b.schedule?.title ?? 'Seans'}
           </Text>
           <Text style={[styles.historyMeta, fonts.body, { color: colors.textMuted }]}>
-            {b.schedule?.startTime ? new Date(b.schedule.startTime).toLocaleDateString('tr-TR') : ''} ·{' '}
+            {b.schedule?.startTime ? new Date(b.schedule.startTime).toLocaleDateString(locale) : ''} ·{' '}
             {BOOKING_STATUS_LABEL[b.status] ?? b.status}
           </Text>
         </View>

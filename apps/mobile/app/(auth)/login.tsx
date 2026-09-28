@@ -6,6 +6,7 @@ import { StyleSheet, Text } from 'react-native';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../src/components/ScreenContainer';
 import { TextField } from '../../src/components/TextField';
+import { useT } from '../../src/i18n';
 import { ApiError } from '../../src/lib/api';
 import { useSession } from '../../src/lib/session';
 import { palette, spacing, typography, useThemeColors } from '../../src/theme';
@@ -13,6 +14,7 @@ import { palette, spacing, typography, useThemeColors } from '../../src/theme';
 export default function LoginScreen() {
   const router = useRouter();
   const colors = useThemeColors();
+  const t = useT();
   const { requestOtp } = useSession();
 
   const [phone, setPhone] = useState('');
@@ -26,7 +28,7 @@ export default function LoginScreen() {
 
     const parsed = PhoneSchema.safeParse(phone);
     if (!parsed.success) {
-      setFieldError(parsed.error.issues[0]?.message ?? 'Geçerli bir telefon numarası giriniz');
+      setFieldError(parsed.error.issues[0]?.message ?? t('mAuth.phone.invalid'));
       return;
     }
 
@@ -35,7 +37,7 @@ export default function LoginScreen() {
       await requestOtp(parsed.data);
       router.push({ pathname: '/(auth)/otp', params: { phone: parsed.data } });
     } catch (error) {
-      setFormError(error instanceof ApiError ? error.message : 'Beklenmeyen bir hata oluştu.');
+      setFormError(error instanceof ApiError ? error.message : t('common.error.generic'));
     } finally {
       setIsSubmitting(false);
     }
@@ -43,26 +45,24 @@ export default function LoginScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={[styles.title, { color: colors.textPrimary }]}>Hoş geldiniz</Text>
-      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-        Devam etmek için telefon numaranızı girin, size bir doğrulama kodu gönderelim.
-      </Text>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mAuth.login.title')}</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{t('mAuth.login.subtitle')}</Text>
 
       <TextField
-        label="Telefon numarası"
+        label={t('mAuth.phone.label')}
         value={phone}
         onChangeText={setPhone}
-        placeholder="05XX XXX XX XX"
+        placeholder={t('mAuth.phone.placeholder')}
         keyboardType="phone-pad"
         errorMessage={fieldError}
       />
 
       {formError ? <Text style={styles.formError}>{formError}</Text> : null}
 
-      <PrimaryButton label="Devam et" onPress={handleContinue} loading={isSubmitting} />
+      <PrimaryButton label={t('mAuth.login.continue')} onPress={handleContinue} loading={isSubmitting} />
 
       <Link href="/(auth)/pin-login" style={[styles.linkWrap]}>
-        <Text style={[styles.link, { color: colors.textSecondary }]}>PIN ile giriş</Text>
+        <Text style={[styles.link, { color: colors.textSecondary }]}>{t('mAuth.login.pinLoginLink')}</Text>
       </Link>
     </ScreenContainer>
   );

@@ -6,6 +6,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../src/components/ScreenContainer';
 import { TextField } from '../../src/components/TextField';
+import { useT } from '../../src/i18n';
 import { ApiError } from '../../src/lib/api';
 import { useSession } from '../../src/lib/session';
 import { palette, spacing, typography, useThemeColors } from '../../src/theme';
@@ -15,6 +16,7 @@ const RESEND_COOLDOWN_SECONDS = 60;
 export default function OtpScreen() {
   const router = useRouter();
   const colors = useThemeColors();
+  const t = useT();
   const { phone: phoneParam } = useLocalSearchParams<{ phone: string }>();
   const phone = typeof phoneParam === 'string' ? phoneParam : '';
   const { verifyOtp, requestOtp } = useSession();
@@ -40,7 +42,7 @@ export default function OtpScreen() {
 
     const parsed = OtpCodeSchema.safeParse(code);
     if (!parsed.success) {
-      setFieldError(parsed.error.issues[0]?.message ?? 'Doğrulama kodu 6 haneli olmalıdır');
+      setFieldError(parsed.error.issues[0]?.message ?? t('mAuth.otp.invalid'));
       return;
     }
 
@@ -53,7 +55,7 @@ export default function OtpScreen() {
         router.replace({ pathname: '/(auth)/set-pin', params: { phone } });
       }
     } catch (error) {
-      setFormError(error instanceof ApiError ? error.message : 'Beklenmeyen bir hata oluştu.');
+      setFormError(error instanceof ApiError ? error.message : t('common.error.generic'));
     } finally {
       setIsSubmitting(false);
     }
@@ -66,7 +68,7 @@ export default function OtpScreen() {
       await requestOtp(phone);
       setCooldown(RESEND_COOLDOWN_SECONDS);
     } catch (error) {
-      setFormError(error instanceof ApiError ? error.message : 'Beklenmeyen bir hata oluştu.');
+      setFormError(error instanceof ApiError ? error.message : t('common.error.generic'));
     } finally {
       setIsResending(false);
     }
@@ -74,11 +76,11 @@ export default function OtpScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={[styles.title, { color: colors.textPrimary }]}>Doğrulama kodu</Text>
-      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{phone} numarasına gönderilen 6 haneli kodu girin.</Text>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mAuth.otp.title')}</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{t('mAuth.otp.subtitle', { phone })}</Text>
 
       <TextField
-        label="Doğrulama kodu"
+        label={t('mAuth.otp.label')}
         value={code}
         onChangeText={setCode}
         placeholder="123456"
@@ -89,12 +91,12 @@ export default function OtpScreen() {
 
       {formError ? <Text style={styles.formError}>{formError}</Text> : null}
 
-      <PrimaryButton label="Doğrula" onPress={handleVerify} loading={isSubmitting} />
+      <PrimaryButton label={t('mAuth.otp.verify')} onPress={handleVerify} loading={isSubmitting} />
 
       <View style={styles.spacer} />
 
       <PrimaryButton
-        label={cooldown > 0 ? `Tekrar gönder (${cooldown}s)` : 'Kodu tekrar gönder'}
+        label={cooldown > 0 ? t('mAuth.otp.resendCooldown', { seconds: cooldown }) : t('mAuth.otp.resend')}
         onPress={handleResend}
         disabled={cooldown > 0}
         loading={isResending}
