@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Header, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import { Controller, Delete, Get, Header, Param, ParseUUIDPipe, Patch, Post, Put } from '@nestjs/common';
 import {
   AddContactActivitySchema,
   AttributionReportQuerySchema,
@@ -16,6 +16,7 @@ import {
   UpdateContactSchema,
   UpdateContactTaskSchema,
   UpdatePipelineStageSchema,
+  UpdateContactConsentSchema,
 } from '@platform/shared';
 import type {
   AddContactActivityInput,
@@ -34,6 +35,8 @@ import type {
   UpdateContactInput,
   UpdateContactTaskInput,
   UpdatePipelineStageInput,
+  UpdateContactConsentInput,
+  ContactDetailDTO,
 } from '@platform/shared';
 import { RequirePermission, StudioScoped } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
@@ -44,6 +47,7 @@ import { PipelineService } from './pipeline/pipeline.service';
 import { FieldsService } from './fields/fields.service';
 import { TasksService } from './tasks/tasks.service';
 import { AttributionService } from './attribution/attribution.service';
+import { ContactConsentService } from '../notifications/consent/contact-consent.service';
 
 /**
  * CRM (G1b): contacts, tags, custom fields, pipeline stages, tasks, CSV
@@ -60,6 +64,7 @@ export class CrmController {
     private readonly fields: FieldsService,
     private readonly tasks: TasksService,
     private readonly attribution: AttributionService,
+    private readonly consents: ContactConsentService,
   ) {}
 
   // -- contacts ---------------------------------------------------------------
@@ -87,8 +92,28 @@ export class CrmController {
 
   @Get('contacts/:contactId')
   @RequirePermission('crm.view')
-  detail(@Tenant() tenant: TenantContext, @Param('contactId', ParseUUIDPipe) contactId: string) {
-    return this.contacts.detail(tenant, contactId);
+  async detail(@Tenant() tenant: TenantContext, @Param('contactId', ParseUUIDPipe) contactId: string): Promise<ContactDetailDTO> {
+    const detail = await this.contacts.detail(tenant, contactId);
+    return { ...detail, consents: await this.consents.listForContact(tenant.studioId, contactId) };
+  }
+
+  /** Contact-level commercial consent (G2a): effective status per channel, merged with the member's own. */
+  @Get('contacts/:contactId/consents')
+  @RequirePermission('crm.view')
+  async listConsents(@Tenant() tenant: TenantContext, @Param('contactId', ParseUUIDPipe) contactId: string) {
+    await this.contacts.getOwn(tenant, contactId);
+    return { items: await this.consents.listForContact(tenant.studioId, contactId) };
+  }
+
+  @Put('contacts/:contactId/consents')
+  @RequirePermission('crm.manage')
+  async setConsent(
+    @Tenant() tenant: TenantContext,
+    @Param('contactId', ParseUUIDPipe) contactId: string,
+    @ZodBody(UpdateContactConsentSchema) body: UpdateContactConsentInput,
+  ) {
+    await this.contacts.getOwn(tenant, contactId);
+    return { items: await this.consents.set(tenant.studioId, contactId, body, 'staff-entry') };
   }
 
   @Post('contacts')

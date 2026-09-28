@@ -5,12 +5,13 @@ import { ContactsService } from '../contacts/contacts.service';
 import { AttributionService } from '../attribution/attribution.service';
 import { ConversionService } from '../conversions/conversion.service';
 import { PipelineService } from '../pipeline/pipeline.service';
+import { GrowthEventsService } from './growth-events.service';
 
 /**
  * Small, explicit hooks the existing business services call after their
- * own work is committed (no event bus). Every method logs and swallows its
- * errors: CRM bookkeeping must never block or fail a membership, booking,
- * check-in or payment.
+ * own work is committed. Every method logs and swallows its errors: CRM
+ * bookkeeping must never block or fail a membership, booking, check-in or
+ * payment. Journey triggers (G2a) are forwarded through GrowthEventsService.
  */
 @Injectable()
 export class CrmHooksService {
@@ -22,7 +23,45 @@ export class CrmHooksService {
     private readonly attribution: AttributionService,
     private readonly conversions: ConversionService,
     private readonly pipeline: PipelineService,
+    private readonly events: GrowthEventsService,
   ) {}
+
+  /**
+   * A booking was created, cancelled, checked in or marked as a no-show:
+   * tells the journey engine (G2a). A check-in that is the member's first
+   * ever also fires first_session_attended. The booking id is the
+   * enrollment reference, so the heartbeat scan of the same booking never
+   * enrolls the contact a second time.
+   */
+  async onBookingEvent(
+    studioId: string,
+    bookingId: string,
+    event: 'booking_created' | 'booking_cancelled' | 'no_show' | 'session_attended',
+  ): Promise<void> {
+    await this.safely(`booking ${event} ${bookingId}`, async () => {
+      const booking = await this.prisma.booking.findFirst({
+        where: { id: bookingId, studioId },
+        select: {
+          memberId: true,
+          checkInAt: true,
+          member: { select: { membershipId: true } },
+          schedule: { select: { startTime: true } },
+        },
+      });
+      if (!booking) return;
+      const contact = await this.contactForMembership(studioId, booking.member.membershipId);
+      if (!contact) return;
+      const occurredAt =
+        event === 'session_attended' ? (booking.checkInAt ?? new Date()) : event === 'no_show' ? booking.schedule.startTime : new Date();
+      await this.events.emit({ studioId, contactId: contact.id, event, ref: bookingId, occurredAt });
+      if (event === 'session_attended') {
+        const attended = await this.prisma.booking.count({ where: { studioId, memberId: booking.memberId, status: 'ATTENDED' } });
+        if (attended === 1) {
+          await this.events.emit({ studioId, contactId: contact.id, event: 'first_session_attended', ref: bookingId, occurredAt });
+        }
+      }
+    });
+  }
 
   /**
    * A membership with a member profile was created or activated (invite
@@ -60,6 +99,7 @@ export class CrmHooksService {
    * pipeline card to TRIAL_DONE.
    */
   async onBookingAttended(studioId: string, bookingId: string): Promise<void> {
+    await this.onBookingEvent(studioId, bookingId, 'session_attended');
     await this.safely(`booking attended ${bookingId}`, async () => {
       const booking = await this.prisma.booking.findFirst({
         where: { id: bookingId, studioId },
@@ -171,6 +211,11 @@ export class CrmHooksService {
       await this.pipeline.ensureDefaults(newStudioId);
       await this.conversions.recordStudioSignup(newStudioId, ownerPhone);
     });
+  }
+
+  /** Journeys (G2a): the member's contact, created and linked when missing; null for partner guests. */
+  async ensureContactForMembership(studioId: string, membershipId: string): Promise<Contact | null> {
+    return this.safely(`contact for membership ${membershipId}`, () => this.contactForMembership(studioId, membershipId));
   }
 
   /** The contact linked to a member membership, created (and linked) when missing. */

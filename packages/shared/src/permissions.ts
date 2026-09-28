@@ -56,6 +56,13 @@ export const PERMISSIONS = {
   'crm.manage': 'Kişi ekleme, düzenleme, birleştirme; etiket, özel alan, satış hattı aşaması ve görev yönetimi',
   'crm.export': 'Kişi listesini CSV olarak dışa aktarma',
 
+  'segments.view': 'Segmentleri ve kitle önizlemesini görüntüleme',
+  'segments.manage': 'Segment oluşturma, kurallarını düzenleme ve silme',
+  'campaigns.view': 'Kampanyaları ve sonuçlarını görüntüleme',
+  'campaigns.manage': 'Kampanya hazırlama, zamanlama, test gönderimi ve iptal',
+  'journeys.view': 'Otomatik akışları ve istatistiklerini görüntüleme',
+  'journeys.manage': 'Otomatik akış oluşturma, düzenleme, başlatma ve durdurma',
+
   'inbox.view': 'Gelen kutusundaki konuşmaları görüntüleme',
   'inbox.reply': 'Gelen kutusundan cevap yazma',
   'inbox.manage': 'Konuşma atama, kapatma ve hazır cevapları yönetme',
@@ -99,6 +106,7 @@ export const PERMISSION_AREAS = {
   Bildirim: ['notifications.manage', 'reports.view'],
   'Potansiyel üyeler': ['leads.view', 'leads.manage'],
   'Kişiler (CRM)': ['crm.view', 'crm.manage', 'crm.export'],
+  Pazarlama: ['segments.view', 'segments.manage', 'campaigns.view', 'campaigns.manage', 'journeys.view', 'journeys.manage'],
   'Gelen kutusu': ['inbox.view', 'inbox.reply', 'inbox.manage'],
   Entegrasyon: ['integrations.manage', 'integrations.partners.manage'],
   Reklam: ['ads.view', 'ads.manage'],

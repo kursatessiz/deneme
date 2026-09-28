@@ -26,6 +26,7 @@ import { CrmModule } from './modules/crm/crm.module';
 import { AdsModule } from './modules/ads/ads.module';
 import { InvoicingModule } from './modules/invoicing/invoicing.module';
 import { AutomationsModule } from './modules/automations/automations.module';
+import { GrowthModule } from './modules/growth/growth.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
 import { ChurnModule } from './modules/churn/churn.module';
@@ -78,6 +79,7 @@ import { validateEnv } from './config/env';
     AdsModule,
     InvoicingModule,
     AutomationsModule,
+    GrowthModule,
     JobsModule,
     PromotionsModule,
     ExpensesModule,

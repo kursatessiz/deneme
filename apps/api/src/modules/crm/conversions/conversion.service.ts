@@ -7,6 +7,7 @@ import type { ConversionEventType } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AttributionService } from '../attribution/attribution.service';
 import { ConversionOutboxService } from './conversion-outbox.service';
+import { GrowthEventsService } from '../hooks/growth-events.service';
 
 export interface RecordConversionInput {
   studioId: string;
@@ -48,6 +49,7 @@ export class ConversionService {
     private readonly prisma: PrismaService,
     private readonly attribution: AttributionService,
     private readonly outbox: ConversionOutboxService,
+    private readonly events: GrowthEventsService,
   ) {}
 
   async record(input: RecordConversionInput): Promise<RecordConversionResult> {
@@ -113,6 +115,8 @@ export class ConversionService {
     }
 
     await this.outbox.enqueue({ id: event.id, studioId: event.studioId, isTest: event.isTest });
+    // Journeys may start on any funnel event (lead, trial_booked, purchase, ...).
+    await this.events.emit({ studioId: event.studioId, contactId: event.contactId, event: input.type, ref: event.id, occurredAt: event.occurredAt });
     return { event, created: true };
   }
 

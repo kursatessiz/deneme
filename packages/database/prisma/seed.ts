@@ -23,6 +23,11 @@ import {
   BUILTIN_TEMPLATES,
   BUILTIN_TEMPLATE_LOCALES,
   builtinTemplateContent,
+  AUTOMATION_RULE_TYPES,
+  LEGACY_RULE_TEMPLATE_KEY,
+  legacyRuleToJourney,
+  legacyTemplateRule,
+  winBackSegmentRules,
 } from '@platform/shared';
 import type { BadgeThresholdParams } from '@platform/shared';
 
@@ -42,6 +47,14 @@ const ALL_TABLES = [
   'health_sync_records',
   'health_daily_summaries',
   'member_health_settings',
+  'journey_step_runs',
+  'journey_enrollments',
+  'journeys',
+  'campaign_recipients',
+  'campaigns',
+  'segment_members',
+  'segments',
+  'contact_consents',
   'automation_runs',
   'automation_rules',
   'communication_consents',
@@ -220,6 +233,7 @@ async function main() {
   await seedMessaging({ zen: zen.studioId, flow: flow.studioId, guc: guc.studioId, denge: denge.studioId });
 
   const platformStudioId = await seedCrm(zen.studioId, flow.studioId);
+  await seedGrowth(zen.studioId);
   await seedSites(platformStudioId);
 
   printSummary();
@@ -240,7 +254,7 @@ async function seedMessaging(studioIds: { zen: string; flow: string; guc: string
   await createGlobalMessageTemplates();
 
   for (const studioId of Object.values(studioIds)) {
-    await createDefaultAutomationRules(studioId);
+    await createDefaultJourneys(studioId);
   }
 
   // Zen's demo member (+905321000016, used across the e2e suite) opts in to
@@ -264,83 +278,87 @@ async function seedMessaging(studioIds: { zen: string; flow: string; guc: string
 }
 
 /**
- * Default automation rules for a tenant. Everything is inactive except the
+ * Default journeys for a tenant (G2a): the six former automation rule types
+ * from the shared template gallery. Everything is a draft except the
  * booking reminder, which already had an equivalent tenant setting
- * (Studio.reminderHoursBefore) so it is safe to turn on by default.
+ * (Studio.reminderHoursBefore) so it is safe to run by default. Win-back
+ * gets its own dynamic audience segment.
  */
-const DEFAULT_AUTOMATION_RULES: {
-  type: 'WIN_BACK' | 'PACKAGE_EXPIRING' | 'BIRTHDAY' | 'FIRST_CLASS_FOLLOW_UP' | 'BOOKING_REMINDER' | 'NO_SHOW_FOLLOW_UP';
-  name: string;
-  params: Record<string, unknown>;
-  templateKey: string;
-  isActive: boolean;
-  isTransactional: boolean;
-}[] = [
-  {
-    type: 'BOOKING_REMINDER',
-    name: 'Seans hatırlatması',
-    params: { type: 'BOOKING_REMINDER', hoursBefore: 2 },
-    templateKey: 'BOOKING_REMINDER',
-    isActive: true,
-    isTransactional: true,
-  },
-  {
-    type: 'PACKAGE_EXPIRING',
-    name: 'Paket bitiş hatırlatması',
-    params: { type: 'PACKAGE_EXPIRING', daysBefore: 7 },
-    templateKey: 'PACKAGE_EXPIRING',
-    isActive: false,
-    isTransactional: true,
-  },
-  {
-    type: 'WIN_BACK',
-    name: 'Kayıp üye kazanma',
-    params: { type: 'WIN_BACK', noAttendanceDays: 30, requireNoActivePackage: true },
-    templateKey: 'WIN_BACK',
-    isActive: false,
-    isTransactional: false,
-  },
-  {
-    type: 'BIRTHDAY',
-    name: 'Doğum günü mesajı',
-    params: { type: 'BIRTHDAY', daysBefore: 0 },
-    templateKey: 'BIRTHDAY',
-    isActive: false,
-    isTransactional: false,
-  },
-  {
-    type: 'FIRST_CLASS_FOLLOW_UP',
-    name: 'İlk seans sonrası geri bildirim',
-    params: { type: 'FIRST_CLASS_FOLLOW_UP', hoursAfter: 24 },
-    templateKey: 'FIRST_CLASS_FOLLOW_UP',
-    isActive: false,
-    isTransactional: true,
-  },
-  {
-    type: 'NO_SHOW_FOLLOW_UP',
-    name: 'Gelmeme sonrası hatırlatma',
-    params: { type: 'NO_SHOW_FOLLOW_UP', hoursAfter: 2 },
-    templateKey: 'NO_SHOW_FOLLOW_UP',
-    isActive: false,
-    isTransactional: true,
-  },
-];
-
-async function createDefaultAutomationRules(studioId: string) {
-  for (const rule of DEFAULT_AUTOMATION_RULES) {
-    await prisma.automationRule.create({
+async function createDefaultJourneys(studioId: string) {
+  for (const type of AUTOMATION_RULE_TYPES) {
+    const rule = legacyTemplateRule(type);
+    let winBackSegmentId: string | undefined;
+    if (type === 'WIN_BACK') {
+      const segment = await prisma.segment.create({
+        data: {
+          studioId,
+          name: 'Geri kazanma kitlesi',
+          kind: 'DYNAMIC',
+          rules: winBackSegmentRules({ type: 'WIN_BACK', noAttendanceDays: 30, requireNoActivePackage: true }) as unknown as Prisma.InputJsonValue,
+        },
+      });
+      count('segments');
+      winBackSegmentId = segment.id;
+    }
+    const active = type === 'BOOKING_REMINDER';
+    await prisma.journey.create({
       data: {
         studioId,
-        type: rule.type,
-        name: rule.name,
-        params: rule.params as Prisma.InputJsonValue,
-        templateKey: rule.templateKey,
-        isActive: rule.isActive,
-        isTransactional: rule.isTransactional,
+        name: JOURNEY_NAMES[type],
+        status: active ? 'ACTIVE' : 'DRAFT',
+        activatedAt: active ? new Date() : null,
+        definition: legacyRuleToJourney(rule, { winBackSegmentId }) as unknown as Prisma.InputJsonValue,
+        templateKey: LEGACY_RULE_TEMPLATE_KEY[type],
+        legacyRuleType: type,
       },
     });
-    count('automation_rules');
+    count('journeys');
   }
+}
+
+/** Tenant data (journey names belong to the tenant, like service names). */
+const JOURNEY_NAMES: Record<(typeof AUTOMATION_RULE_TYPES)[number], string> = {
+  BOOKING_REMINDER: 'Seans hatırlatması',
+  PACKAGE_EXPIRING: 'Paket bitiş hatırlatması',
+  WIN_BACK: 'Geri kazanma',
+  BIRTHDAY: 'Doğum günü mesajı',
+  FIRST_CLASS_FOLLOW_UP: 'İlk seans sonrası takip',
+  NO_SHOW_FOLLOW_UP: 'Gelmeyene takip',
+};
+
+/**
+ * Demo segments and a campaign draft for Zen (G2a). Segment counts are
+ * filled by the first scheduler heartbeat (refreshedAt is still null).
+ */
+async function seedGrowth(zenStudioId: string) {
+  const members = await prisma.segment.create({
+    data: {
+      studioId: zenStudioId,
+      name: 'Aktif üyeler',
+      description: 'Yaşam döngüsü aşaması aktif olan herkes',
+      kind: 'DYNAMIC',
+      rules: { combinator: 'and', rules: [{ field: 'contact.lifecycleStage', op: 'in', value: ['MEMBER'] }] },
+    },
+  });
+  await prisma.segment.create({
+    data: {
+      studioId: zenStudioId,
+      name: 'Ticari izni olan adaylar',
+      kind: 'DYNAMIC',
+      rules: {
+        combinator: 'and',
+        rules: [
+          { field: 'contact.lifecycleStage', op: 'in', value: ['LEAD', 'TRIAL'] },
+          { field: 'consent.commercialAllowed', op: 'is_true' },
+        ],
+      },
+    },
+  });
+  count('segments', 2);
+  await prisma.campaign.create({
+    data: { studioId: zenStudioId, name: 'Sonbahar dönemi duyurusu', segmentId: members.id, templateKey: 'WIN_BACK' },
+  });
+  count('campaigns');
 }
 
 // Global default templates: every built-in template (packages/shared
