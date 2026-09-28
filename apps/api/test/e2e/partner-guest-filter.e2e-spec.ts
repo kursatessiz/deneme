@@ -132,6 +132,9 @@ describe('Partner guest filtering (e2e)', () => {
     await prisma.partnerGuest.deleteMany({ where: { id: { in: partnerGuestIds } } });
     await prisma.partnerSpotAllocation.deleteMany({ where: { connectionId: { in: connectionIds } } });
     await prisma.partnerWebhookEvent.deleteMany({ where: { connectionId: { in: connectionIds } } });
+    // G1b: promoting a guest to a real member creates its CRM contact.
+    await prisma.contact.deleteMany({ where: { membership: { userId: { in: userIds } } } });
+    await prisma.contact.deleteMany({ where: { studioId: ZEN, phone: { startsWith: '+90555000900' } } });
     await prisma.membership.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.memberProfile.deleteMany({ where: { membership: { userId: { in: userIds } } } });
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });

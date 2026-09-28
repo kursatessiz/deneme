@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { resolveTheme, themeCssVariables, THEME_FAMILY_KEYS, DEFAULT_THEME_FAMILY, STUDIO_SLUG_PATTERN } from '@platform/shared';
+import { trackingHeaders } from '@/lib/tracking/client';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 import type { ThemeFamilyKey } from '@platform/shared';
@@ -176,7 +177,8 @@ export default function EmbedBookingPage() {
         : 'Web widget üzerinden deneme seansı talebi';
       await fetch(`${API_BASE_URL}/public/studios/${encodeURIComponent(slug)}/leads`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        // X-PW-VID links this visitor's tracked visits to the new contact (only present after consent).
+        headers: { 'Content-Type': 'application/json', ...trackingHeaders() },
         body: JSON.stringify({
           fullName: leadName.trim(),
           phone: leadPhone.trim(),

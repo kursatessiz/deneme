@@ -20,3 +20,4 @@ export * from './video';
 export * from './admin';
 export * from './i18n';
 export * from './growth';
+export * from './crm';

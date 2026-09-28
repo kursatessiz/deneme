@@ -70,6 +70,8 @@ Kiracı başına her tanınan kişi tek bir `Contact` satırıdır: aday, deneme
 - Satış hattı (pipeline) aşamaları kiracı verisidir; görevler (arama, mesaj, takip) personele atanır.
 - Tekilleştirme: aynı kiracıda telefon veya e-posta eşleşmesi. Birleştirme işlemi denetim kaydına yazılır.
 
+**Durum (G1b, yapıldı):** `Contact` (tüm alanlar, etiketler, özel alanlar, ilk/son atıf özeti, test işareti, birleştirme), `ContactActivity`, `ContactFieldDefinition`, `PipelineStage` (her kiracıya varsayılan aşamalar), `ContactTask`; `Lead`/`LeadActivity` verisinin ve üyelerin kişiye taşınması (eski tablolar daraltma sürümüne kadar yerinde, yazılmıyor); üyelik bağlama ve yaşam döngüsü kancaları; tekilleştirme ve denetimli birleştirme; `crm.view`/`crm.manage`/`crm.export` izinleri; `/crm` API'si ve kullanımdan kaldırılmış `/leads` sarmalayıcıları. Kalan: kişi listesi, kartı ve satış hattı panosu arayüzü (G2a ile). Ayrıntılar: `docs/CRM_VE_ATIF.md`.
+
 ### 3.2 Atıf (attribution)
 **Ziyaretçi ve oturum.** Birinci taraf çerezi `pw_vid` (anonim ziyaretçi kimliği, 13 ay) ve `pw_sid` (oturum). Çerez izni gereken bölgelerde izin verilmeden yalnızca oturum içi, çerezsiz sayım yapılır.
 
@@ -85,13 +87,15 @@ Kiracı başına her tanınan kişi tek bir `Contact` satırıdır: aday, deneme
 
 **Modeller.** Raporlarda ilk temas, son temas (varsayılan) ve doğrusal model seçilebilir. Atıf penceresi kiracı ayarıdır (varsayılan 30 gün tıklama).
 
+**Durum (G1b, yapıldı):** `pw_vid`/`pw_sid` çerezleri ve bölgeye göre izin bandı (AB/Birleşik Krallık/Kanada açık rıza ve Consent Mode v2, TR KVKK, ABD ve diğerleri bilgilendirme + GPC); `Visitor` ve `Touchpoint` kaydı (izinsiz hiçbir şey, reklam izni olmadan tıklama kimliği yok, sorgu dizesi ve IP saklanmaz, bot filtresi, hız sınırı); sunucu tarafında bağlama (herkese açık identify ucu yok) ve geriye dönük temas noktası bağlama; `lead`, `trial_booked`, `trial_attended`, `purchase`, `subscription_started`, `subscription_renewed`, platform kiracısında `studio_signup` olayları (idempotent, son temasa atfedilmiş); ilk/son/doğrusal modelli atıf raporu ve etiketsiz ücretli trafik sayısı. Kalan: `studio_paid` bağlantısı (platform faturalaması ile) ve atıf penceresinin kiracı ayarı olarak açılması (G2b). Ayrıntılar: `docs/CRM_VE_ATIF.md`.
+
 ### 3.3 Reklam platformlarına geri bildirim
 `ConversionEvent` bir giden kuyruğuna (outbox) yazılır. Arka plan işi, izin durumuna bakarak şu hedeflere gönderir:
 - **Meta Conversions API:** `event_id` tarayıcı Pixel'i ile aynıdır (çift sayım olmaz); hash'lenmiş e-posta ve telefon, `fbc`, `fbp`.
 - **Google Ads:** `gclid` / `gbraid` / `wbraid` varsa çevrimdışı tıklama dönüşümü; yoksa hash'lenmiş verilerle gelişmiş dönüşüm (enhanced conversions for leads).
 - **TikTok Events API** ve **LinkedIn Conversions API:** adaptör olarak, ihtiyaç olduğunda açılır.
 
-Başarısız gönderimler üstel beklemeyle tekrar denenir, sonuç panelde görünür. Bu geri bildirim, reklam algoritmalarının yalnızca gerçekten ödeme yapan kişilere benzer kitleleri hedeflemesini sağlar; reklam bütçesinin boşa gitmesini önleyen asıl mekanizma budur.
+Başarısız gönderimler üstel beklemeyle tekrar denenir, sonuç panelde görünür. (G1b: `ConversionDelivery` giden kuyruk tablosu ve kuyruğa yazma fonksiyonu yapıldı; satırlar yalnızca kiracının bağlı reklam hesabı olduğunda yazılır. Gönderim işi ve adaptörler G2b'dedir.) Bu geri bildirim, reklam algoritmalarının yalnızca gerçekten ödeme yapan kişilere benzer kitleleri hedeflemesini sağlar; reklam bütçesinin boşa gitmesini önleyen asıl mekanizma budur.
 
 ### 3.4 Reklam yapısı ve harcama senkronu
 Meta Marketing API ve Google Ads API'den günlük olarak kampanya, reklam seti ve reklam adları, durumları ve günlük harcama çekilir (`AdAccount`, `AdEntity`, `AdSpendDaily`). URL'lerde kimlikler taşındığı için reklam adı sonradan değişse bile atıf bozulmaz; raporda güncel ad gösterilir. Raporlar: kaynak, kampanya, reklam seti ve reklam bazında harcama, aday, deneme, satış, gelir, aday başı maliyet (CPL), müşteri edinme maliyeti (CAC), reklam getirisi (ROAS).
@@ -181,7 +185,7 @@ Her madde ayrı PR'dır; her PR kendi e2e testleriyle gelir.
 |---|---|---|
 | G0 | Bu belge; CLAUDE.md güncellemesi; paylaşılan sözleşmeler (atıf, dönüşüm, segment kural dili, akış şeması, para) | - |
 | G1a | Tamamlandı. Globalleşme: bölge ayarları, para ve vergi, sağlayıcı kayıt defteri, Stripe ve Twilio adaptörleri, uyum paketleri (İYS dahil yeniden yazım) | G0 |
-| G1b | CRM ve atıf: Contact (Lead taşıması), ziyaretçi ve temas noktası yakalama, dönüşüm olayları, platform kiracısı | G0 |
+| G1b | Tamamlandı. CRM ve atıf: Contact (Lead taşıması), ziyaretçi ve temas noktası yakalama, dönüşüm olayları, platform kiracısı (`docs/CRM_VE_ATIF.md`) | G0 |
 | G1c | Mesajlaşma motoru: e-posta kanalı (SES), şablonlar, gönderim kontrolleri, izleme, gelen mesajlar ve gelen kutusu | G1a |
 | G2a | Segmentler, kampanyalar, akışlar (otomasyon taşıması) | G1b, G1c |
 | G2b | Reklam entegrasyonu: Meta CAPI, Google Ads dönüşümleri, reklam yapısı ve harcama senkronu, atıf raporları, UTM oluşturucu | G1b |

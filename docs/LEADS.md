@@ -1,5 +1,7 @@
 # Potansiyel müşteri hattı (W11)
 
+> **G1b ile kullanımdan kaldırıldı.** Adaylar artık `Contact` (kişi) modelinde, aşamalar kiracı verisi olan `PipelineStage` satırlarında tutulur. `/leads` uçları aynı biçim ve izinlerle, kişiler üzerinde çalışan uyumluluk sarmalayıcılarıdır; `leads` ve `lead_activities` tabloları artık yazılmaz ve daraltma sürümünde kaldırılır. Yeni geliştirmeler `/crm` uçlarını kullanır. Ayrıntılar: `docs/CRM_VE_ATIF.md`. Aşağıdaki metin eski davranışı ve sarmalayıcıların koruduğu kuralları anlatır.
+
 Bu belge, bir stüdyonun kendi web sitesinden aday toplamasını sağlayan herkese
 açık form uç noktasını ve personelin bu adayları takip ettiği aşama akışını
 özetler.

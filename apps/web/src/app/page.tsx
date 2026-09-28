@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { DEFAULT_TENANT_THEME } from '@platform/shared';
 import { ThemeRoot } from '@/components/theme/ThemeRoot';
 import { LandingFeature } from './landing-feature';
+import { PublicTracking } from '@/components/consent/PublicTracking';
 
 /**
  * Product landing page (no tenant context). Uses the default tenant theme
@@ -34,6 +35,8 @@ export default function RootLandingPage() {
 
   return (
     <ThemeRoot tenantTheme={DEFAULT_TENANT_THEME} appearance={{ themeFamily: null, colorScheme: 'SYSTEM' }}>
+      {/* The product site is the platform tenant's own site (docs/CRM_VE_ATIF.md). */}
+      <PublicTracking studioSlug="platform" />
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <header
           style={{

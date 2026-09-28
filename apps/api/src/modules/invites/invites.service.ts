@@ -5,6 +5,7 @@ import {
   GoneException,
   Injectable,
   NotFoundException,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -18,6 +19,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { AuthService } from '../auth/auth.service';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import { PlanLimitsService } from '../admin/plan-limits.service';
+import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 
 export const INVITE_TTL_MS = 72 * 60 * 60 * 1000;
 /** Documents a person must accept to join a studio (latest published version). */
@@ -41,6 +43,7 @@ export class InvitesService {
     private readonly auth: AuthService,
     private readonly config: ConfigService,
     private readonly planLimits: PlanLimitsService,
+    @Optional() private readonly crm?: CrmHooksService,
   ) {}
 
   async create(tenant: TenantContext, creator: AuthUser, dto: CreateInviteInput) {
@@ -152,7 +155,7 @@ export class InvitesService {
     return { message: 'Doğrulama kodu gönderildi', phoneMasked: maskPhone(invite.phone) };
   }
 
-  async accept(token: string, dto: AcceptInviteInput, ip: string | null) {
+  async accept(token: string, dto: AcceptInviteInput, ip: string | null, visitorId: string | null = null) {
     const invite = await this.findUsable(token);
 
     const documents = await this.requiredDocuments(invite.studioId);
@@ -174,7 +177,7 @@ export class InvitesService {
     const lastName = rest.join(' ') || '-';
     const now = new Date();
 
-    const userId = await this.prisma.$transaction(async (tx) => {
+    const { userId, membershipId } = await this.prisma.$transaction(async (tx) => {
       // Single use: exactly one request can claim the invite.
       const claimed = await tx.inviteToken.updateMany({
         where: { id: invite.id, usedAt: null, revokedAt: null, expiresAt: { gt: now } },
@@ -246,8 +249,13 @@ export class InvitesService {
           metadata: { inviteId: invite.id, role: invite.roleTemplate.key } as Prisma.InputJsonValue,
         },
       });
-      return user.id;
+      return { userId: user.id, membershipId: membership.id };
     });
+
+    // CRM: a member who finished onboarding becomes (or is linked to) a contact.
+    if (invite.roleTemplate.key === 'member') {
+      await this.crm?.onMemberJoined(invite.studioId, membershipId, { visitorId });
+    }
 
     const tokens = await this.auth.issueTokens(userId);
     return { ...tokens, user: await this.auth.sessionUser(userId) };
