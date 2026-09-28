@@ -1,8 +1,9 @@
-import { Controller, Delete, Get, HttpCode, Param, Post, Put, Query, Res } from '@nestjs/common';
+import { BadRequestException, Controller, Delete, Get, HttpCode, Param, Post, Put, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import {
   CreateLanguageSchema,
   ImportLanguagePackSchema,
+  LocaleCodeSchema,
   TranslationEntriesQuerySchema,
   UpdateLanguageSchema,
   UpsertTranslationSchema,
@@ -74,17 +75,19 @@ export class AdminI18nController {
 
   @Get('languages/:code/export')
   async exportLanguage(@Param('code') code: string, @Query('format') format: string | undefined, @Res() res: Response) {
+    if (!LocaleCodeSchema.safeParse(code).success) throw new BadRequestException('Geçersiz dil kodu');
     const fmt = format === 'csv' ? 'csv' : 'json';
-    const { name, nativeName, messages } = await this.i18n.adminExport(code);
-    const filename = packFilename(code, fmt);
-    if (fmt === 'csv') {
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      return res.send(this.i18n.buildPackCsv(code, name, nativeName, messages));
-    }
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    return res.send(this.i18n.buildPackJson(code, name, nativeName, messages));
+    const { locale, name, nativeName, messages } = await this.i18n.adminExport(code);
+    const body =
+      fmt === 'csv'
+        ? this.i18n.buildPackCsv(locale, name, nativeName, messages)
+        : this.i18n.buildPackJson(locale, name, nativeName, messages);
+    res.setHeader('Content-Type', fmt === 'csv' ? 'text/csv; charset=utf-8' : 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${packFilename(locale, fmt)}"`);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    // Sent as bytes with an explicit type and attachment disposition: a
+    // download, never a page the browser renders.
+    return res.send(Buffer.from(body, 'utf8'));
   }
 
   @Post('languages/:code/import')

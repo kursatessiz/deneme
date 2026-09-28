@@ -289,8 +289,9 @@ export class I18nService implements OnModuleInit {
 
   async adminExport(code: string): Promise<{ locale: string; name: string; nativeName: string; messages: Record<string, string> }> {
     const language = await this.getLanguageOrThrow(code);
-    const messages = await this.computeEffectiveMessages(code);
-    return { locale: code, name: language.name, nativeName: language.nativeName, messages };
+    // Everything below uses the stored code, never the request parameter.
+    const messages = await this.computeEffectiveMessages(language.code);
+    return { locale: language.code, name: language.name, nativeName: language.nativeName, messages };
   }
 
   buildPackJson(code: string, name: string, nativeName: string, messages: Record<string, string>): string {

@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
 import { PrismaClient } from '@platform/database';
 import { AppModule } from '../../src/app.module';
+import { createIsolatedTrainers, removeIsolatedTrainers, type IsolatedTrainer } from './support/isolated-trainers';
 
 /**
  * Web panel backlog 2.2: the two endpoints added for the calendar and
@@ -26,6 +27,7 @@ describe('Web panel 2.2: schedule update, package unfreeze (e2e)', () => {
   let serviceTypeId: string;
   let trainerA: string;
   let trainerB: string;
+  let isolatedTrainers: IsolatedTrainer[] = [];
   let memberId: string;
   let packageDefinitionId: string;
 
@@ -76,14 +78,13 @@ describe('Web panel 2.2: schedule update, package unfreeze (e2e)', () => {
     });
     serviceTypeId = serviceType.id;
 
-    const trainers = await prisma.trainerProfile.findMany({
+    const seededTrainer = await prisma.trainerProfile.findFirstOrThrow({
       where: { studioId: ZEN, membership: { status: 'ACTIVE' } },
-      take: 2,
-      orderBy: { id: 'asc' },
+      include: { membership: true },
     });
-    expect(trainers).toHaveLength(2);
-    trainerA = trainers[0].id;
-    trainerB = trainers[1].id;
+    isolatedTrainers = await createIsolatedTrainers(prisma, ZEN, seededTrainer.membership.roleTemplateId, 2);
+    trainerA = isolatedTrainers[0].trainerProfileId;
+    trainerB = isolatedTrainers[1].trainerProfileId;
 
     memberId = (
       await prisma.memberProfile.findFirstOrThrow({ where: { studioId: ZEN, membership: { user: { phone: '+905321000016' } } } })
@@ -107,6 +108,7 @@ describe('Web panel 2.2: schedule update, package unfreeze (e2e)', () => {
     await prisma.booking.deleteMany({ where: { scheduleId: { in: scheduleIds } } });
     await prisma.auditLog.deleteMany({ where: { entityId: { in: scheduleIds } } });
     await prisma.sessionSchedule.deleteMany({ where: { id: { in: scheduleIds } } });
+    await removeIsolatedTrainers(prisma, isolatedTrainers);
     await prisma.packageFreezeHistory.deleteMany({ where: { memberPackageId: { in: packageIds } } });
     await prisma.memberPackage.deleteMany({ where: { id: { in: packageIds } } });
     await prisma.packageDefinition.deleteMany({ where: { id: packageDefinitionId } });
