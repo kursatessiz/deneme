@@ -77,6 +77,7 @@ const ALL_TABLES = [
   'sms_packages',
   'plans',
   'business_type_templates',
+  'company_info',
 ];
 
 // ---------------------------------------------------------------------------
@@ -203,7 +204,8 @@ async function main() {
 
   await seedMessaging({ zen: zen.studioId, flow: flow.studioId, guc: guc.studioId, denge: denge.studioId });
 
-  await seedCrm(zen.studioId, flow.studioId);
+  const platformStudioId = await seedCrm(zen.studioId, flow.studioId);
+  await seedSites(platformStudioId);
 
   printSummary();
 }
@@ -2250,8 +2252,8 @@ const SEED_LEAD_PHONES = {
   flowTrial: '+905399960002',
 } as const;
 
-async function seedCrm(zenStudioId: string, flowStudioId: string) {
-  await prisma.studio.create({
+async function seedCrm(zenStudioId: string, flowStudioId: string): Promise<string> {
+  const platform = await prisma.studio.create({
     data: { name: 'Platform', slug: 'platform', isPlatform: true },
   });
   count('studios');
@@ -2341,6 +2343,8 @@ async function seedCrm(zenStudioId: string, flowStudioId: string) {
   await prisma.$executeRawUnsafe('SELECT crm_backfill_contacts()');
   count('pipeline_stages', await prisma.pipelineStage.count());
   count('contacts', await prisma.contact.count());
+
+  return platform.id;
 }
 
 function printSummary() {
@@ -2361,6 +2365,292 @@ function printSummary() {
     // The password itself is never printed (CodeQL: clear-text logging).
     'Sifre: SEED_DEMO_PASSWORD ortam degiskeni; verilmemisse seed.ts icindeki varsayilan gelistirme sifresi.',
   );
+}
+
+// ---------------------------------------------------------------------------
+// G2c: page engine - platform site (corporate + legal pages, sector landings)
+// ---------------------------------------------------------------------------
+
+interface SeedBlock {
+  type: string;
+  data: unknown;
+}
+
+interface SeedLocale {
+  locale: string;
+  slug: string;
+  seoTitle: string;
+  seoDescription?: string;
+  legalApproved?: boolean;
+}
+
+async function createPublishedPage(
+  siteId: string,
+  kind: 'HOME' | 'LANDING' | 'CORPORATE' | 'LEGAL',
+  internalLabel: string,
+  locales: SeedLocale[],
+  blocksByLocaleKey: (locale: string) => SeedBlock[] | null,
+  sectorKey: string | null = null,
+): Promise<void> {
+  // blocksByLocaleKey returns the same ordered block list for every locale
+  // (blocks carry all locales' text at once); called once to build it.
+  const blocks = blocksByLocaleKey(locales[0].locale) ?? [];
+
+  const page = await prisma.page.create({
+    data: { siteId, kind, sectorKey, internalLabel, status: 'PUBLISHED', publishedAt: new Date() },
+  });
+  count('pages');
+
+  const localeRows = await Promise.all(
+    locales.map((l) =>
+      prisma.pageLocale.create({
+        data: {
+          pageId: page.id,
+          siteId,
+          locale: l.locale,
+          slug: l.slug,
+          seoTitle: l.seoTitle,
+          seoDescription: l.seoDescription ?? null,
+          legalApproved: l.legalApproved ?? false,
+          legalApprovedAt: l.legalApproved ? new Date() : null,
+        },
+      }),
+    ),
+  );
+  count('page_locales', locales.length);
+
+  const blockRows = await Promise.all(
+    blocks.map((b, i) => prisma.block.create({ data: { pageId: page.id, type: b.type, position: i, data: b.data as Prisma.InputJsonValue } })),
+  );
+  count('blocks', blocks.length);
+
+  await prisma.pageVersion.create({
+    data: {
+      pageId: page.id,
+      version: 1,
+      snapshot: {
+        locales: localeRows.map((l) => ({
+          locale: l.locale,
+          slug: l.slug,
+          seoTitle: l.seoTitle,
+          seoDescription: l.seoDescription,
+          ogImageUrl: l.ogImageUrl,
+          legalApproved: l.legalApproved,
+          legalApprovedAt: l.legalApprovedAt?.toISOString() ?? null,
+        })),
+        blocks: blockRows.map((b) => ({ id: b.id, type: b.type, position: b.position, abVariantKey: b.abVariantKey, data: b.data })),
+      } as unknown as Prisma.InputJsonValue,
+    },
+  });
+  count('page_versions');
+}
+
+async function seedSites(platformStudioId: string): Promise<void> {
+  const site = await prisma.site.create({
+    data: { studioId: platformStudioId, kind: 'PLATFORM', defaultLocale: 'tr', enabledLocales: ['tr', 'en'] },
+  });
+  count('sites');
+
+  await prisma.companyInfo.create({
+    data: {
+      id: 'platform',
+      legalName: 'Platform Yazilim Anonim Sirketi',
+      address: 'Maslak Mahallesi, Buyukdere Caddesi No:1, Sariyer/Istanbul',
+      tradeRegistryNo: '123456',
+      mersisNo: '0123456789000010',
+      taxOffice: 'Maslak',
+      taxNumber: '1234567890',
+      email: 'iletisim@platform.example',
+      phone: '+902121234567',
+      socialLinks: { instagram: 'https://instagram.com/platform', linkedin: 'https://linkedin.com/company/platform' },
+    },
+  });
+  count('company_info');
+
+  // Home
+  await createPublishedPage(site.id, 'HOME', 'Ana sayfa', [
+    { locale: 'tr', slug: '', seoTitle: 'Platform | Uyelik ve randevu yonetimi', seoDescription: 'Studyolar, kisisel antrenorluk, fizyoterapi ve benzeri isletmeler icin tek platform.' },
+    { locale: 'en', slug: '', seoTitle: 'Platform | Membership and booking management', seoDescription: 'One platform for studios, personal training, physiotherapy and similar businesses.' },
+  ], () => [
+    {
+      type: 'hero',
+      data: {
+        config: {},
+        text: {
+          tr: { title: 'Uyelik ve randevu tabanli isletmeniz icin tek platform', subtitle: 'Takvim, paket/kredi yonetimi, odeme ve raporlama; kod degisikligi gerektirmeden isletmenize gore yapilandirilir.', primaryCtaLabel: 'Ucretsiz deneyin', primaryCtaHref: '#iletisim' },
+          en: { title: 'The all-in-one platform for membership and booking businesses', subtitle: 'Scheduling, packages, payments and reporting, configured for your business without code changes.', primaryCtaLabel: 'Start free trial', primaryCtaHref: '#contact' },
+        },
+      },
+    },
+    {
+      type: 'sector_cards',
+      data: { config: { sectorKeys: [] }, text: { tr: { title: 'Isletme turunuzu secin' }, en: { title: 'Choose your business type' } } },
+    },
+    {
+      type: 'feature_grid',
+      data: {
+        config: {},
+        text: {
+          tr: {
+            title: 'Ozellikler',
+            items: [
+              { title: 'Online rezervasyon', description: 'Uyeler seans ve randevularini kendi telefonlarindan planlar.' },
+              { title: 'Paket ve kredi takibi', description: 'Seans sayisi, sinirsiz sure veya kredi tabanli paketler.' },
+              { title: 'Odeme ve raporlama', description: 'Tahsilat, iade ve gelir raporlari tek ekrandan.' },
+            ],
+          },
+          en: {
+            title: 'Features',
+            items: [
+              { title: 'Online booking', description: 'Members schedule sessions and appointments from their phone.' },
+              { title: 'Packages and credits', description: 'Session count, unlimited time or credit based packages.' },
+              { title: 'Payments and reporting', description: 'Collections, refunds and revenue reports in one place.' },
+            ],
+          },
+        },
+      },
+    },
+    { type: 'cta', data: { config: {}, text: { tr: { title: 'Isletmenizi kaydedin', buttonLabel: 'Iletisime gecin', buttonHref: '#iletisim' }, en: { title: 'Register your business', buttonLabel: 'Contact us', buttonHref: '#contact' } } } },
+    { type: 'lead_form', data: { config: { fields: ['fullName', 'phone', 'email'] }, text: { tr: { title: 'Iletisim', submitLabel: 'Gonder' }, en: { title: 'Contact', submitLabel: 'Send' } } } },
+  ]);
+
+  // Corporate pages
+  await createPublishedPage(site.id, 'CORPORATE', 'Ozellikler', [
+    { locale: 'tr', slug: 'ozellikler', seoTitle: 'Ozellikler' },
+    { locale: 'en', slug: 'features', seoTitle: 'Features' },
+  ], () => [
+    { type: 'feature_grid', data: { config: {}, text: { tr: { title: 'Ozellikler', items: [{ title: 'Takvim', description: 'Seans ve kaynak yonetimi.' }, { title: 'Odeme', description: 'Tahsilat ve fatura.' }] }, en: { title: 'Features', items: [{ title: 'Scheduling', description: 'Sessions and resource management.' }, { title: 'Payments', description: 'Collections and invoicing.' }] } } } },
+  ]);
+
+  await createPublishedPage(site.id, 'CORPORATE', 'Fiyatlandirma', [
+    { locale: 'tr', slug: 'fiyatlandirma', seoTitle: 'Fiyatlandirma' },
+    { locale: 'en', slug: 'pricing', seoTitle: 'Pricing' },
+  ], () => [
+    { type: 'pricing', data: { config: { hidden: false }, text: { tr: { title: 'Planlar' }, en: { title: 'Plans' } } } },
+  ]);
+
+  await createPublishedPage(site.id, 'CORPORATE', 'SSS', [
+    { locale: 'tr', slug: 'sss', seoTitle: 'Sikca Sorulan Sorular' },
+    { locale: 'en', slug: 'faq', seoTitle: 'Frequently Asked Questions' },
+  ], () => [
+    {
+      type: 'faq',
+      data: {
+        config: {},
+        text: {
+          tr: { items: [{ question: 'Kurulum ne kadar surer?', answer: 'Isletmenizi birkac dakika icinde kaydedip kullanmaya baslayabilirsiniz.' }, { question: 'Verilerim guvende mi?', answer: 'Tum veriler sifrelenmis baglanti uzerinden tasinir ve kiracilar arasinda izole edilir.' }] },
+          en: { items: [{ question: 'How long does setup take?', answer: 'You can register your business and start using it within minutes.' }, { question: 'Is my data secure?', answer: 'All data travels over encrypted connections and is isolated between tenants.' }] },
+        },
+      },
+    },
+  ]);
+
+  await createPublishedPage(site.id, 'CORPORATE', 'Hakkimizda', [
+    { locale: 'tr', slug: 'hakkimizda', seoTitle: 'Hakkimizda' },
+    { locale: 'en', slug: 'about', seoTitle: 'About' },
+  ], () => [
+    { type: 'legal_text', data: { config: {}, text: { tr: { title: 'Hakkimizda', body: 'Platform, uyelik ve randevu tabanli isletmelerin gunluk operasyonunu tek yerden yonetmesini saglar.' }, en: { title: 'About', body: 'Platform lets membership and booking based businesses run their daily operations from one place.' } } } },
+  ]);
+
+  await createPublishedPage(site.id, 'CORPORATE', 'Iletisim', [
+    { locale: 'tr', slug: 'iletisim', seoTitle: 'Iletisim' },
+    { locale: 'en', slug: 'contact', seoTitle: 'Contact' },
+  ], () => [
+    { type: 'contact', data: { config: { showAddress: true, showPhone: true, showEmail: true }, text: { tr: { title: 'Bize ulasin' }, en: { title: 'Get in touch' } } } },
+    { type: 'lead_form', data: { config: { fields: ['fullName', 'phone', 'email', 'interest'] }, text: { tr: { title: 'Mesaj gonderin', submitLabel: 'Gonder' }, en: { title: 'Send a message', submitLabel: 'Send' } } } },
+  ]);
+
+  // Legal pages (drafts pending legal review, per docs/SAYFA_MOTORU.md)
+  const legalPages: Array<{ label: string; slugTr: string; slugEn: string; titleTr: string; titleEn: string; bodyTr: string; bodyEn: string }> = [
+    {
+      label: 'KVKK Aydinlatma Metni',
+      slugTr: 'kvkk-aydinlatma-metni',
+      slugEn: 'privacy-notice-tr',
+      titleTr: 'KVKK Aydinlatma Metni',
+      titleEn: 'Turkish Data Protection Notice (KVKK)',
+      bodyTr:
+        'Veri sorumlusu [SIRKET UNVANI] olarak, 6698 sayili Kisisel Verilerin Korunmasi Kanunu kapsaminda kisisel verileriniz; hizmet sunumu, iletisim ve yasal yukumluluklerin yerine getirilmesi amaciyla islenir.\n\n' +
+        'Verileriniz; barindirma hizmeti saglayicimiz, Cloudflare (icerik dagitim ve guvenlik), odeme kuruluslari (Stripe, iyzico veya PayTR), mesajlasma saglayicilarimiz (Twilio, Netgsm veya Ileti Merkezi) ve Amazon SES (e-posta gonderimi) ile, yalnizca hizmetin gerektirdigi olcude paylasilabilir.\n\n' +
+        'Bu metin bir taslaktir ve hukuk danismani tarafindan gozden gecirilmeden yayinlanmamalidir.',
+      bodyEn:
+        'As the data controller [COMPANY LEGAL NAME], we process your personal data under Turkish Law No. 6698 for service delivery, communication and legal obligations.\n\n' +
+        'Your data may be shared, only to the extent the service requires, with our hosting provider, Cloudflare (content delivery and security), payment processors (Stripe, iyzico or PayTR), messaging providers (Twilio, Netgsm or Ileti Merkezi) and Amazon SES (email delivery).\n\n' +
+        'This text is a draft and must not be published without legal counsel review.',
+    },
+    {
+      label: 'Gizlilik Politikasi',
+      slugTr: 'gizlilik-politikasi',
+      slugEn: 'privacy-policy',
+      titleTr: 'Gizlilik Politikasi',
+      titleEn: 'Privacy Policy',
+      bodyTr: 'Bu gizlilik politikasi hangi verileri topladigimizi, neden topladigimizi ve nasil koruduğumuzu aciklar. Bu metin bir taslaktir ve hukuk danismani tarafindan gozden gecirilmeden yayinlanmamalidir.',
+      bodyEn: 'This privacy policy explains what data we collect, why, and how we protect it. This text is a draft and must not be published without legal counsel review.',
+    },
+    {
+      label: 'Cerez Politikasi',
+      slugTr: 'cerez-politikasi',
+      slugEn: 'cookie-policy',
+      titleTr: 'Cerez Politikasi',
+      titleEn: 'Cookie Policy',
+      bodyTr: 'Sitemiz, analiz ve reklam icin yalnizca aciktan onay verdiginizde birinci taraf cerezler kullanir. Bu metin bir taslaktir ve hukuk danismani tarafindan gozden gecirilmeden yayinlanmamalidir.',
+      bodyEn: 'Our site uses first-party cookies for analytics and advertising only once you explicitly consent. This text is a draft and must not be published without legal counsel review.',
+    },
+    {
+      label: 'Kullanim Kosullari',
+      slugTr: 'kullanim-kosullari',
+      slugEn: 'terms-of-use',
+      titleTr: 'Kullanim Kosullari',
+      titleEn: 'Terms of Use',
+      bodyTr: 'Bu platformu kullanarak asagidaki kosullari kabul etmis olursunuz. Bu metin bir taslaktir ve hukuk danismani tarafindan gozden gecirilmeden yayinlanmamalidir.',
+      bodyEn: 'By using this platform you agree to the following terms. This text is a draft and must not be published without legal counsel review.',
+    },
+  ];
+
+  for (const lp of legalPages) {
+    await createPublishedPage(
+      site.id,
+      'LEGAL',
+      lp.label,
+      [
+        { locale: 'tr', slug: lp.slugTr, seoTitle: lp.titleTr, legalApproved: false },
+        { locale: 'en', slug: lp.slugEn, seoTitle: lp.titleEn, legalApproved: false },
+      ],
+      () => [{ type: 'legal_text', data: { config: {}, text: { tr: { title: lp.titleTr, body: lp.bodyTr }, en: { title: lp.titleEn, body: lp.bodyEn } } } }],
+    );
+  }
+
+  // Sector landing pages (at least two, generated in the same spirit as the
+  // super admin "Landing sayfasi olustur" wizard: docs/SAYFA_MOTORU.md).
+  const sectorLandings: Array<{ sectorKey: string; nameTr: string; nameEn: string; slug: string; memberTr: string }> = [
+    { sectorKey: 'pilates_studio', nameTr: 'Pilates Studyosu', nameEn: 'Pilates Studio', slug: 'pilates', memberTr: 'Uye' },
+    { sectorKey: 'personal_training', nameTr: 'Personal Training', nameEn: 'Personal Training', slug: 'personal-training', memberTr: 'Danisan' },
+  ];
+  for (const s of sectorLandings) {
+    await createPublishedPage(
+      site.id,
+      'LANDING',
+      `${s.nameTr} - Landing`,
+      [
+        { locale: 'tr', slug: s.slug, seoTitle: `${s.nameTr} Yazilimi | Platform`, seoDescription: `${s.nameTr} isletmeniz icin randevu, paket ve odeme yonetimi.` },
+        { locale: 'en', slug: s.slug, seoTitle: `${s.nameEn} Software | Platform`, seoDescription: `Booking, packages and payments for your ${s.nameEn.toLowerCase()} business.` },
+      ],
+      () => [
+        {
+          type: 'hero',
+          data: {
+            config: {},
+            text: {
+              tr: { title: `${s.nameTr} isletmeniz icin tek platform`, subtitle: `${s.memberTr} yonetimi, takvim, paket ve odeme bir arada.`, primaryCtaLabel: 'Ucretsiz deneyin', primaryCtaHref: '#iletisim' },
+              en: { title: `The all-in-one platform for your ${s.nameEn}`, subtitle: 'Scheduling, packages, payments and reporting in one place.', primaryCtaLabel: 'Start free trial', primaryCtaHref: '#contact' },
+            },
+          },
+        },
+        { type: 'cta', data: { config: {}, text: { tr: { title: 'Hemen baslayin', buttonLabel: 'Iletisime gecin', buttonHref: '#iletisim' }, en: { title: 'Get started today', buttonLabel: 'Contact us', buttonHref: '#contact' } } } },
+        { type: 'lead_form', data: { config: { fields: ['fullName', 'phone'] }, text: { tr: { title: 'Bize ulasin', submitLabel: 'Gonder' }, en: { title: 'Contact us', submitLabel: 'Send' } } } },
+      ],
+      s.sectorKey,
+    );
+  }
 }
 
 main()

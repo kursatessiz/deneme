@@ -65,6 +65,9 @@ export const PERMISSIONS = {
 
   'content.view': 'Video kütüphanesi içeriklerini ve izlenme raporlarını görüntüleme',
   'content.manage': 'Video içeriği ekleme, düzenleme, yayınlama ve seans yayın bağlantısı ayarlama',
+
+  'site.view': 'İşletme web sitesini ve sayfalarını görüntüleme',
+  'site.manage': 'İşletme web sitesi sayfalarını düzenleme, yayınlama ve alan adı ayarlama',
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
@@ -95,6 +98,7 @@ export const PERMISSION_AREAS = {
   Entegrasyon: ['integrations.manage', 'integrations.partners.manage'],
   Reklam: ['ads.view', 'ads.manage'],
   İçerik: ['content.view', 'content.manage'],
+  'Web sitem': ['site.view', 'site.manage'],
 } as const satisfies Record<string, readonly PermissionKey[]>;
 
 export type PermissionArea = keyof typeof PERMISSION_AREAS;

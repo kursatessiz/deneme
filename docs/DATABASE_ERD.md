@@ -399,6 +399,20 @@ Sahip kararı: partner misafiri kendisi stüdyoya katılana kadar mesajlaşma/et
 
 `service_types.health_activity_type` (varsayılan `OTHER`) bir hizmetin genel `HealthActivityType` (STRENGTH, FLEXIBILITY, YOGA, PILATES, DANCE, MARTIAL_ARTS, SWIMMING, CYCLING, RUNNING, WALKING, TENNIS, OTHER) ile eşlemesidir; sektöre özgü kod içermez, kiracı verisidir. Sağlık verisi KVKK kapsamında özel nitelikli kişisel veridir: `document_versions.type = HEALTH_DATA` ayrı, isteğe bağlı bir onam metnidir (zorunlu üyelik belgelerinden biri değildir); yükleme uç noktaları bu türden aktif bir `consents` kaydı olmadan 403 döner. Üyenin "Verilerimi sil" eylemi `health_daily_summaries` ve `health_sync_records` satırlarını kalıcı olarak siler, `member_health_settings`'i sıfırlar, HEALTH_DATA onayını geri alır ve bir `audit_logs` kaydı (`member_health.data_deleted`) oluşturur. Personel görünümü `members.health.view` iznini (mevcut izin, üye sağlık notları görünürlüğüyle paylaşılır) VE üyenin `share_with_studio` açığını gerektirir; şube kısıtlı personel yalnızca kendi şubesindeki üyeleri görür. Detaylar: `docs/HEALTH_INTEGRATION.md`.
 
+## Sayfa motoru (Sites, G2c)
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `sites` | Bir kiracının web sitesi: `kind` (PLATFORM/TENANT), birincil alan adı, varsayılan/etkin diller | `studio_id` benzersiz (kiracı başına en fazla bir site) |
+| `site_domains` | Özel alan adı ve doğrulama durumu (PENDING/VERIFIED/FAILED), DNS doğrulama jetonu | `domain` genel benzersiz |
+| `pages` | Bir sayfa: tür (HOME/LANDING/CORPORATE/LEGAL/CUSTOM), sektör/teklif anahtarı, durum (DRAFT/PUBLISHED), A/B varyant grubu | `(site_id, kind)` index |
+| `page_locales` | Sayfanın dil başına yolu, SEO alanları, hukuki onay bayrağı | `(site_id, locale, slug)` benzersiz |
+| `blocks` | Sayfanın dilden bağımsız yapılandırma + dile göre metin taşıyan bir bölümü, sırası ve isteğe bağlı A/B varyant anahtarı | `(page_id, position)` index |
+| `page_versions` | Yayınlanan anın değişmez anlık görüntüsü (geri alma için) | `(page_id, version)` benzersiz, artan |
+| `company_info` | Tekil satır: platformun ticari unvanı, adresi, MERSIS/vergi bilgisi, iletişim, sosyal medya | tekil kayıt (sabit id) |
+
+`site.view`/`site.manage` izinleri kiracının kendi sitesini kapsar; platform sitesi aynı tablolar üzerinde, platform kiracısının `studio_id`'siyle, yalnızca süper admin tarafından yönetilir. Ayrıntılar: `docs/SAYFA_MOTORU.md`.
+
 ## Denetim (Audit)
 
 | Tablo | Amaç | Kısıtlar |

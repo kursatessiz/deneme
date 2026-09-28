@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { PermissionKey } from '@platform/shared';
-import { Award, ChevronRight, KeyRound, Layers, Megaphone, Palette, ShieldCheck, Store } from 'lucide-react';
+import { Award, ChevronRight, Globe, KeyRound, Layers, Megaphone, Palette, ShieldCheck, Store } from 'lucide-react';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { hasAnyPermission } from '@/lib/nav';
 import { SettingsHeader } from '@/components/settings/ui';
@@ -56,6 +56,14 @@ const CARDS: SettingsCard[] = [
     description: 'Küresel ve işletmenize özel oyunlaştırma rozetlerini yönetin',
     icon: Award,
     permissions: ['reports.view', 'studio.settings.manage'],
+  },
+  {
+    key: 'web-sitem',
+    href: '/ayarlar/web-sitem',
+    title: 'Web sitem',
+    description: 'İşletme web sitesi sayfaları, alan adı ve yayın ayarları',
+    icon: Globe,
+    permissions: ['site.view', 'site.manage'],
   },
   {
     key: 'entegrasyonlar',
