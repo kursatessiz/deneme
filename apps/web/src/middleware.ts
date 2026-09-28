@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { EMBED_ORIGIN_PATTERN, STUDIO_SLUG_PATTERN } from '@platform/shared';
+import { EMBED_ORIGIN_PATTERN, LocaleCodeSchema, STUDIO_SLUG_PATTERN } from '@platform/shared';
+import { PAGE_LOCALE_HEADER } from '@/lib/i18n/constants';
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE, accessTokenCookieOptions, refreshTokenCookieOptions } from '@/lib/bff/cookies';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -19,6 +20,15 @@ const SITES_BASE_DOMAIN = process.env.SITES_DOMAIN || process.env.WEB_DOMAIN || 
  */
 /** These resolve the host for themselves (see sitemap.xml/robots.txt route handlers), so they are never rewritten. */
 const HOST_AWARE_PATHS = ['/sitemap.xml', '/robots.txt'];
+
+/** Adds PAGE_LOCALE_HEADER for a `/<locale>/...` path; any client-sent value is dropped first. */
+function requestHeadersWithPageLocale(request: NextRequest): Headers {
+  const headers = new Headers(request.headers);
+  headers.delete(PAGE_LOCALE_HEADER);
+  const first = request.nextUrl.pathname.split('/').filter(Boolean)[0];
+  if (first && first !== 'api' && LocaleCodeSchema.safeParse(first).success) headers.set(PAGE_LOCALE_HEADER, first);
+  return headers;
+}
 
 async function tenantSiteRewrite(request: NextRequest): Promise<NextResponse | null> {
   if (HOST_AWARE_PATHS.includes(request.nextUrl.pathname)) return null;
@@ -40,7 +50,7 @@ async function tenantSiteRewrite(request: NextRequest): Promise<NextResponse | n
 
   const url = request.nextUrl.clone();
   url.pathname = `/tenant-site/${studioSlug}${request.nextUrl.pathname}`;
-  return NextResponse.rewrite(url);
+  return NextResponse.rewrite(url, { request: { headers: requestHeadersWithPageLocale(request) } });
 }
 
 /** Exchanges the refresh cookie for a new token pair; null when the session is gone. */
@@ -181,7 +191,7 @@ export async function middleware(request: NextRequest) {
   // only place the ad pixel scripts (loaded client-side, gated on consent)
   // are allowed to run. BFF and route handlers need no page CSP.
   if (isProtected || request.nextUrl.pathname.startsWith('/api/')) return NextResponse.next();
-  return publicAdsCsp(NextResponse.next());
+  return publicAdsCsp(NextResponse.next({ request: { headers: requestHeadersWithPageLocale(request) } }));
 }
 
 export const config = {

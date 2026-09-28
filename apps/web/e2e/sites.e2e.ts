@@ -36,6 +36,8 @@ test.describe('platform site', () => {
     await form.getByLabel('Ad soyad').fill('Test Ziyaretci');
     await form.getByLabel('Telefon').fill('+905551234567');
     await form.locator('input[type="checkbox"]').check();
+    // The form drops submissions made under 1.5 s after it mounted (bot guard).
+    await page.waitForTimeout(1600);
 
     const request = page.waitForRequest((req) => req.method() === 'POST' && /\/public\/studios\/platform\/leads$/.test(req.url()));
     await form.getByRole('button', { name: 'Gonder' }).or(form.getByRole('button', { name: 'Gönder' })).click();
