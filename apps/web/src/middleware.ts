@@ -5,6 +5,43 @@ import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE, accessTokenCookieOptions, re
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 /** Server-side API base for the session refresh; same variable the BFF uses. */
 const API_INTERNAL_BASE_URL = process.env.API_INTERNAL_URL || API_BASE_URL;
+/** The same domain the dashboard and the platform's own site are served on. */
+const SITES_BASE_DOMAIN = process.env.SITES_DOMAIN || process.env.WEB_DOMAIN || 'localhost';
+
+/**
+ * Tenant site host routing (docs/SAYFA_MOTORU.md): a request for
+ * `<slug>.<SITES_BASE_DOMAIN>` or a verified custom domain is rewritten to
+ * `tenant-site/<slug>/<path>`, rendered by
+ * `app/tenant-site/[studioSlug]/[locale]/[[...slug]]/page.tsx`. A request
+ * for the base domain itself (or localhost in dev) is untouched: it keeps
+ * serving the dashboard, admin panel and the platform's own site exactly as
+ * before.
+ */
+/** These resolve the host for themselves (see sitemap.xml/robots.txt route handlers), so they are never rewritten. */
+const HOST_AWARE_PATHS = ['/sitemap.xml', '/robots.txt'];
+
+async function tenantSiteRewrite(request: NextRequest): Promise<NextResponse | null> {
+  if (HOST_AWARE_PATHS.includes(request.nextUrl.pathname)) return null;
+  const host = (request.headers.get('host') ?? '').split(':')[0].toLowerCase();
+  if (!host || host === SITES_BASE_DOMAIN || host === 'localhost' || host === '127.0.0.1') return null;
+
+  let studioSlug: string | null = null;
+  if (host.endsWith(`.${SITES_BASE_DOMAIN}`)) {
+    studioSlug = host.slice(0, -`.${SITES_BASE_DOMAIN}`.length);
+  } else {
+    try {
+      const res = await fetch(`${API_INTERNAL_BASE_URL}/public/sites/resolve?host=${encodeURIComponent(host)}`, { signal: AbortSignal.timeout(2000) });
+      if (res.ok) studioSlug = ((await res.json()) as { studioSlug?: string }).studioSlug ?? null;
+    } catch {
+      return null; // API unreachable: fall through to the platform site rather than failing the request.
+    }
+  }
+  if (!studioSlug || !STUDIO_SLUG_PATTERN.test(studioSlug)) return null;
+
+  const url = request.nextUrl.clone();
+  url.pathname = `/tenant-site/${studioSlug}${request.nextUrl.pathname}`;
+  return NextResponse.rewrite(url);
+}
 
 /** Exchanges the refresh cookie for a new token pair; null when the session is gone. */
 async function refreshSession(refreshToken: string): Promise<{ accessToken: string; refreshToken: string } | null> {
@@ -76,6 +113,9 @@ async function embedCsp(request: NextRequest): Promise<NextResponse> {
  * cheap and only about routing, not authorization.
  */
 export async function middleware(request: NextRequest) {
+  const tenantRewrite = await tenantSiteRewrite(request);
+  if (tenantRewrite) return tenantRewrite;
+
   if (request.nextUrl.pathname.startsWith('/embed/')) {
     return embedCsp(request);
   }
@@ -106,20 +146,10 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Keep in sync with PROTECTED_PATHS (Next requires a static literal here).
   matcher: [
-    '/embed/:path*',
-    '/dashboard/:path*',
-    '/calendar/:path*',
-    '/members/:path*',
-    '/packages/:path*',
-    '/trainers/:path*',
-    '/attendance/:path*',
-    '/ayarlar/:path*',
-    '/finans/:path*',
-    '/raporlar/:path*',
-    '/adaylar/:path*',
-    '/riskli-uyeler/:path*',
-    '/admin/:path*',
+    // Runs on every request (except static assets) so a tenant subdomain or
+    // custom domain is rewritten whatever path it requests; the protected-path
+    // and embed-CSP checks below still only act on their own paths.
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
