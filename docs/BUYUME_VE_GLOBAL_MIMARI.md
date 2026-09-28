@@ -1,0 +1,206 @@
+# Büyüme ve Global Mimari
+
+Bu belge pazarlama, reklam atıfı, iletişim ve globalleşme işlerinin ortak tasarımıdır. Bu alandaki her PR bu belgeye uyar; belgeyle çelişen bir ihtiyaç çıkarsa önce belge güncellenir. Amaç, sonradan eklenen modüllerin birbirine yamanmış parçalar gibi değil, tek bir çekirdeğin parçaları gibi çalışmasıdır.
+
+## 1. İlkeler
+
+1. **Tek çekirdek, iki kullanıcı.** Platformun kendi pazarlaması (işletme sahiplerine satış) ve işletmelerin pazarlaması (üyelere satış) aynı modülleri kullanır. Platform, sistemde `isPlatform = true` işaretli özel bir kiracı (Studio) olarak temsil edilir. Süper admin kendi pazarlamasını bu kiracının içinden yapar. Böylece CRM, kampanya, akış, atıf ve sayfa motoru bir kez yazılır, iki kez kullanılır.
+2. **Yama değil, yeniden yazım.** Aşağıdaki mevcut modüller yeni çekirdeğe taşınır ve eski hâlleri kaldırılır:
+   - `leads` -> `crm` (Kişi modeli, aday ve üye aynı kişide birleşir)
+   - `automations` (tek adımlı kurallar) -> `journeys` (çok adımlı akışlar); mevcut kural türleri hazır akış şablonu olur
+   - `notifications` içindeki gönderim, şablon ve izin kodu -> `messaging` (kanal, bölge, izin, gelen kutusu)
+   - `notifications/consent` (İYS) -> `compliance` altında bölgesel izin paketlerinden biri
+   - açılış sayfası ve gömülü widget sayfaları -> `sites` (sayfa motoru)
+3. **Önce genişlet, sonra daralt.** Şema değişiklikleri CLAUDE.md kuralına uyar: yeni tablolar eklenir, veri taşınır, eski tablolar bir sürüm boyunca okunur, sonra kaldırılır.
+4. **Global varsayılan, bölgesel adaptör.** Hiçbir modül bir ülkeyi varsaymaz. Ülkeye özgü her şey (ödeme, SMS, e-fatura, izin sicili, vergi) bir adaptördür ve kiracının ülkesine göre seçilir.
+5. **Her metin çok dilli.** CLAUDE.md kural 11. Mesaj şablonları, sayfa blokları ve form alanları da dile göre varyant taşır.
+6. **Ölçülemeyen harcama yok.** Reklamdan gelen her ziyaret, form, deneme, satın alma ve abonelik aynı atıf zincirine bağlanır ve reklam platformlarına sunucu tarafından geri bildirilir.
+
+## 2. Globalleşme çekirdeği
+
+### 2.1 Kiracı bölge ayarları
+`Studio` üzerinde: `countryCode` (ISO 3166-1), `currency` (ISO 4217), `defaultLocale`, `timezone` (mevcut), `taxRegime` (aşağıda). Para tutarları her yerde `Prisma.Decimal` + `currency` çifti olarak tutulur; kodda sabit `'TRY'` kalmaz. Biçimlendirme `Intl.NumberFormat(locale, { style: 'currency', currency })` ile yapılır.
+
+Telefon numaraları zaten E.164; Türkiye'ye özgü normalleştirme `phone.ts` içinde ülke parametresi alacak şekilde genelleştirilir (varsayılan ülke kiracının ülkesi).
+
+### 2.2 Sağlayıcı kayıt defteri
+Tek bir `ProviderRegistry` deseni: her yetenek için bir arayüz, ülkeye göre öncelik listesi, kiracı ayarıyla geçersiz kılma, kimlik bilgileri şifreli (`credential-cipher`).
+
+| Yetenek | Global varsayılan | Türkiye | Not |
+|---|---|---|---|
+| Kart ödemesi, abonelik | Stripe | iyzico, PayTR | Mevcut `PaymentProvider` arayüzü korunur, Stripe adaptörü eklenir |
+| SMS | Twilio | Netgsm, İleti Merkezi | |
+| WhatsApp | WhatsApp Cloud API (Meta) | aynı | Gelen mesaj webhook'u eklenir |
+| E-posta | Amazon SES | aynı | Alan adı doğrulama (SPF, DKIM, DMARC) |
+| OTP | SMS sağlayıcısı üzerinden | aynı | |
+| Fatura | PDF fatura (genel) | e-Arşiv / e-Fatura entegratörü | |
+| İzin sicili | yok | İYS | |
+
+### 2.3 Uyum (compliance) paketleri
+`compliance` modülü, alıcının ülkesine göre kuralları uygular:
+- **TR:** KVKK aydınlatma ve açık rıza, İYS kaydı ve sorgusu, ticari ileti saatleri.
+- **AB/EEA ve Birleşik Krallık:** GDPR açık rıza (önceden işaretli kutu yok), çerez izni ve Google Consent Mode v2, veri dışa aktarma ve silme talepleri.
+- **ABD:** TCPA (SMS için açık yazılı onay, STOP/HELP anahtar kelimeleri, alıcının yerel saatine göre gönderim penceresi), CAN-SPAM (fiziksel adres, tek tıkla abonelikten çıkma).
+- **Diğer:** en katı ortak kural (açık rıza + abonelikten çıkma + sessiz saatler).
+
+Her ticari gönderim `compliance.canSend(recipient, channel, purpose)` kontrolünden geçer. İşlemsel mesajlar (rezervasyon onayı, OTP) izin gerektirmez ama sessiz saat ve sıklık sınırına yine tabidir.
+
+### 2.4 Vergi ve fatura
+`taxRegime`: `TR_KDV`, `EU_VAT`, `US_SALES_TAX`, `NONE`. Paket fiyatları vergi dahil veya hariç girilebilir (kiracı ayarı). e-Arşiv yalnızca `TR_KDV` için etkinleşir; diğer bölgelerde sıra numaralı PDF fatura üretilir.
+
+### 2.5 Barındırma ve veri yerleşimi
+Tek sunucu (6 GB) başlangıç için yeterlidir. AB müşterileri için GDPR gereği veri işleme sözleşmesi (DPA) ve alt işleyen listesi yayınlanır. AB'de veri tutma şartı getiren büyük müşteriler için bölgesel ikinci kurulum ileride değerlendirilir; kod buna engel olacak şekilde yazılmaz (bölge sabitlenmez).
+
+## 3. Büyüme çekirdeği
+
+### 3.1 CRM: Kişi (Contact)
+Kiracı başına her tanınan kişi tek bir `Contact` satırıdır: aday, deneme alan, üye, eski üye. Alanlar: ad, telefon (E.164), e-posta, dil, ülke, saat dilimi, yaşam döngüsü aşaması (`LEAD`, `TRIAL`, `MEMBER`, `LAPSED`, `LOST`), sahibi (personel), etiketler, özel alanlar (kiracının tanımladığı `ContactFieldDefinition`), ilk ve son atıf özeti.
+
+- Kullanıcı hesabı oluşunca `Contact.membershipId` bağlanır; `MemberProfile` üyelik ayrıntısı olarak kalır.
+- Mevcut `Lead` ve `LeadActivity` verisi `Contact` ve `ContactActivity`'ye taşınır.
+- Satış hattı (pipeline) aşamaları kiracı verisidir; görevler (arama, mesaj, takip) personele atanır.
+- Tekilleştirme: aynı kiracıda telefon veya e-posta eşleşmesi. Birleştirme işlemi denetim kaydına yazılır.
+
+### 3.2 Atıf (attribution)
+**Ziyaretçi ve oturum.** Birinci taraf çerezi `pw_vid` (anonim ziyaretçi kimliği, 13 ay) ve `pw_sid` (oturum). Çerez izni gereken bölgelerde izin verilmeden yalnızca oturum içi, çerezsiz sayım yapılır.
+
+**Temas noktası (Touchpoint).** Her oturumun ilk isteğinde kaydedilir:
+- `utm_source`, `utm_medium`, `utm_campaign`, `utm_id`, `utm_term`, `utm_content`
+- reklam kimlikleri: `pw_cid` (kampanya), `pw_asid` (reklam seti / reklam grubu), `pw_adid` (reklam), `pw_plc` (yerleşim)
+- tıklama kimlikleri: `fbclid` (ve türetilen `_fbc`), `_fbp`, `gclid`, `gbraid`, `wbraid`, `ttclid`, `li_fat_id`, `msclkid`
+- açılış URL'si, yönlendiren, cihaz, dil, ülke (IP'den kaba konum; IP saklanmaz, yalnızca ülke)
+
+**Bağlama.** Bir form gönderildiğinde, deneme alındığında veya hesap açıldığında ziyaretçi `Contact`'a bağlanır. Aynı kişinin önceki temas noktaları da geriye dönük bağlanır.
+
+**Dönüşüm olayları (ConversionEvent).** `lead`, `trial_booked`, `trial_attended`, `purchase`, `subscription_started`, `subscription_renewed`, platform kiracısında ayrıca `studio_signup` ve `studio_paid`. Her olay tutar, para birimi, benzersiz `eventId` ve kişiyi taşır.
+
+**Modeller.** Raporlarda ilk temas, son temas (varsayılan) ve doğrusal model seçilebilir. Atıf penceresi kiracı ayarıdır (varsayılan 30 gün tıklama).
+
+### 3.3 Reklam platformlarına geri bildirim
+`ConversionEvent` bir giden kuyruğuna (outbox) yazılır. Arka plan işi, izin durumuna bakarak şu hedeflere gönderir:
+- **Meta Conversions API:** `event_id` tarayıcı Pixel'i ile aynıdır (çift sayım olmaz); hash'lenmiş e-posta ve telefon, `fbc`, `fbp`.
+- **Google Ads:** `gclid` / `gbraid` / `wbraid` varsa çevrimdışı tıklama dönüşümü; yoksa hash'lenmiş verilerle gelişmiş dönüşüm (enhanced conversions for leads).
+- **TikTok Events API** ve **LinkedIn Conversions API:** adaptör olarak, ihtiyaç olduğunda açılır.
+
+Başarısız gönderimler üstel beklemeyle tekrar denenir, sonuç panelde görünür. Bu geri bildirim, reklam algoritmalarının yalnızca gerçekten ödeme yapan kişilere benzer kitleleri hedeflemesini sağlar; reklam bütçesinin boşa gitmesini önleyen asıl mekanizma budur.
+
+### 3.4 Reklam yapısı ve harcama senkronu
+Meta Marketing API ve Google Ads API'den günlük olarak kampanya, reklam seti ve reklam adları, durumları ve günlük harcama çekilir (`AdAccount`, `AdEntity`, `AdSpendDaily`). URL'lerde kimlikler taşındığı için reklam adı sonradan değişse bile atıf bozulmaz; raporda güncel ad gösterilir. Raporlar: kaynak, kampanya, reklam seti ve reklam bazında harcama, aday, deneme, satış, gelir, aday başı maliyet (CPL), müşteri edinme maliyeti (CAC), reklam getirisi (ROAS).
+
+### 3.5 Segmentler
+Kural dili (Zod ile tanımlı, `packages/shared`) kişi alanları, etiketler, özel alanlar, yaşam döngüsü, katılım (son X günde seans, toplam seans), paket durumu (bitiyor, bitti), ödeme, atıf (kaynak, kampanya), dil, ülke ve şube üzerinde çalışır. `AND`/`OR` grupları desteklenir. Kurallar güvenli biçimde parametreli sorguya çevrilir (serbest SQL yok). Segment boyutu önbelleğe alınır ve arka planda yenilenir. Segmentler kampanyalar, akışlar ve raporlar tarafından ortak kullanılır.
+
+### 3.6 Mesajlaşma motoru
+- **Kanallar:** e-posta, SMS, WhatsApp, push, uygulama içi. Hepsi bölgesel sağlayıcı kayıt defterinden seçilir. Mevcut WhatsApp -> SMS sırası kiracı ayarı olarak kalır.
+- **Şablonlar:** kanal ve dil başına varyant, değişkenler (`{firstName}` gibi), e-posta için blok tabanlı düzenleyici ve marka teması. WhatsApp şablonları Meta onay durumunu taşır.
+- **Gönderim kontrolleri** (sırayla): uyum ve izin, alıcının saat dilimine göre sessiz saatler, sıklık sınırı (kişi başına günlük ve haftalık ticari mesaj sayısı), tekilleştirme.
+- **Takip:** iletildi, okundu (e-posta pikseli, WhatsApp okundu bilgisi), tıklandı (bağlantılar kısa izleme adresine çevrilir, tıklama dönüşüm zincirine bağlanır), abonelikten çıktı, geri döndü (bounce), şikâyet.
+- **Gelen kutusu:** WhatsApp, SMS ve e-posta cevapları `Conversation` ve `ConversationMessage` olarak kaydedilir; kişi kartına bağlanır, personele atanır, hazır cevaplar ve yapay zeka önerisi kullanılabilir. Uygulama içi üye-personel sohbeti de aynı kutuya düşer.
+- **SMS kredisi:** mevcut kural korunur, kredi yalnızca fiilen gönderilen SMS için düşer.
+
+### 3.7 Kampanyalar ve akışlar
+- **Kampanya:** bir segmente tek seferlik gönderim; kanal, şablon, zamanlama (alıcının yerel saatine göre gönderim seçeneği), A/B varyantı (kazananı açılma veya tıklamaya göre otomatik seçme), sonuç raporu ve atfedilen gelir.
+- **Akış (journey):** tetikleyici (segmente girme, olay: deneme alındı, paket bitiyor, doğum günü, gelmedi, form gönderildi vb.), adımlar (bekle, koşul dalı, mesaj gönder, etiket veya alan güncelle, görev oluştur, puan ver, webhook), hedef (ör. satın aldı) ve çıkış kuralları. Her kişi için akış durumu saklanır; adımlar kuyrukta idempotent çalışır.
+- Mevcut altı otomasyon kuralı (geri kazanma, paket bitiyor, doğum günü, ilk seans sonrası, rezervasyon hatırlatma, gelmeyene takip) hazır akış şablonları olarak gelir ve mevcut kurallar taşıma sırasında otomatik akışa çevrilir.
+
+### 3.8 Sadakat
+Puan defteri (`LoyaltyLedger`): kazanma kuralları (seansa katılım, satın alma tutarı, tavsiye, doğum günü, rozet), harcama (indirim, ek seans hakkı, hediye), son kullanma politikası (kiracı ayarı). Mevcut tavsiye ödülü ve rozetler puan kazanma kaynağına dönüşür.
+
+### 3.9 Sayfa motoru (Sites)
+`Site` -> `Page` -> `Block`. Bloklar tipli ve şemalıdır (başlık bandı, özellik listesi, sektör kartları, fiyatlar, SSS, yorumlar, form, rezervasyon takvimi, eğitmenler, iletişim). Her sayfanın dil varyantları vardır; metinler blok içinde dile göre tutulur, çevrilmemiş dil ana dile düşer.
+
+- **Platform sitesi:** platform kiracısının sitesi; sektör ve dile göre dinamik açılış sayfaları (bölüm 5).
+- **İşletme siteleri:** her kiracı kendi sitesini aynı motorla kurar; alan adı `<slug>.<platform-alanı>` veya kendi alan adı (Caddy on-demand TLS ile otomatik sertifika).
+- **Formlar:** form bloğu `Contact` oluşturur, atıfı bağlar, `lead` dönüşümü üretir, KVKK/GDPR onay metnini ülkeye göre gösterir, bot koruması (gizli alan + hız sınırı + zaman kontrolü) içerir.
+- **A/B testi:** sayfa varyantı ziyaretçiye çerezle sabitlenir, dönüşüm oranı raporlanır.
+- **SEO:** sayfa başlığı ve açıklaması, Open Graph, `hreflang`, site haritası, yapılandırılmış veri (Organization, LocalBusiness, FAQPage, Offer), sunucu tarafında render.
+- **Performans:** sayfalar statik üretilir ve önbelleğe alınır; içerik değişince yeniden üretilir.
+
+### 3.10 Yapay zeka çekirdeği
+Tek sağlayıcı katmanı (varsayılan Anthropic Claude), şifreli anahtar, model seçimi, kullanım ve maliyet ölçümü, kiracı başına aylık limit. Kullananlar: dil çevirisi, kampanya ve sayfa metni yazımı, gelen kutusu cevap önerisi, kişiye özel geri kazanma mesajı, segment tarifinden kural üretme.
+
+## 4. UTM ve reklam adlandırma standardı
+
+### 4.1 Adlandırma
+Adlar raporlarda okunabilirlik içindir; atıf kimliklerle yapılır.
+
+- **Kampanya:** `{pazar}_{dil}_{sektör}_{amaç}_{yyyymm}`, örnek `tr_tr_pilates_lead_202610`, `de_de_yoga_trial_202611`, `us_en_allsector_brand_202610`
+- **Reklam seti / reklam grubu:** `{kitle}_{yerleşim}_{teklif}`, örnek `lookalike1pct_feed_freetrial`
+- **Reklam:** `{kreatif}_{format}_{varyant}`, örnek `ownerdashboard_video15s_v2`
+
+İzin verilen değerler (pazar, dil, sektör, amaç) platform panelinde bir listedir; UTM oluşturucu yalnızca bu değerlerle ad üretir.
+
+### 4.2 URL parametreleri
+**Meta (Facebook, Instagram) - "URL parametreleri" alanına yapıştırılır:**
+```
+utm_source={{site_source_name}}&utm_medium=paid_social&utm_campaign={{campaign.name}}&utm_id={{campaign.id}}&utm_term={{adset.name}}&utm_content={{ad.name}}&pw_cid={{campaign.id}}&pw_asid={{adset.id}}&pw_adid={{ad.id}}&pw_plc={{placement}}
+```
+
+**Google Ads - hesap düzeyinde "Nihai URL son eki" alanına yapıştırılır** (otomatik etiketleme açık kalır, `gclid` ayrıca gelir):
+```
+utm_source=google&utm_medium=cpc&utm_campaign={_campaign}&utm_id={campaignid}&utm_term={keyword}&utm_content={creative}&pw_cid={campaignid}&pw_asid={adgroupid}&pw_adid={creative}&pw_plc={network}
+```
+`{_campaign}` özel parametresi her kampanyada kampanya adıyla tanımlanır (UTM oluşturucu bunu hazırlar).
+
+**TikTok:**
+```
+utm_source=tiktok&utm_medium=paid_social&utm_campaign=__CAMPAIGN_NAME__&utm_id=__CAMPAIGN_ID__&utm_term=__AID_NAME__&utm_content=__CID_NAME__&pw_cid=__CAMPAIGN_ID__&pw_asid=__AID__&pw_adid=__CID__&pw_plc=__PLACEMENT__
+```
+
+**LinkedIn** dinamik parametre desteği sınırlı olduğu için UTM oluşturucu her reklam için sabit kimlikli URL üretir.
+
+### 4.3 Doğrulama
+- Parametresiz veya standart dışı reklam trafiği raporda "Etiketsiz ücretli trafik" olarak ayrıca gösterilir.
+- UTM oluşturucu adı ve URL'yi doğrular, açılış sayfasının var olduğunu ve dilin etkin olduğunu kontrol eder.
+
+## 5. Platform açılış sayfaları
+
+URL yapısı: `/{dil}/{sektör}` ve kampanya varyantları için `/{dil}/{sektör}/{teklif}`.
+Örnekler: `/tr/pilates`, `/en/yoga-studio-software`, `/de/yoga`, `/tr/pilates/ucretsiz-deneme`.
+
+- Sektör listesi `BusinessTypeTemplate` verisinden gelir; her sektörün her dilde yerelleştirilmiş adı ve URL parçası vardır.
+- İçerik, sayfa motorunun blokları ve sektör kelime dağarcığıyla üretilir (ör. yoga için "öğrenci", fizyoterapi için "danışan").
+- Yayındaki her sayfa `hreflang` ile diğer dillerine bağlanır; olmayan dil varyantı yayınlanmaz.
+- Form ve deneme başlatma, platform kiracısında `Contact` ve `lead` / `studio_signup` dönüşümü üretir; yeni işletme açıldığında ve ilk ödemeyi yaptığında `studio_signup` ve `studio_paid` dönüşümleri reklam platformlarına gönderilir.
+- Genel kurumsal sayfalar (ana sayfa, özellikler, fiyatlar, SSS, iletişim, hakkımızda, yasal metinler) aynı motorla yazılır; kurumsal bilgiler (unvan, adres, sicil ve vergi numarası, iletişim) süper admin panelinden gelir.
+
+## 6. Uygulama sırası
+
+Her madde ayrı PR'dır; her PR kendi e2e testleriyle gelir.
+
+| Faz | İş | Bağımlılık |
+|---|---|---|
+| G0 | Bu belge; CLAUDE.md güncellemesi; paylaşılan sözleşmeler (atıf, dönüşüm, segment kural dili, akış şeması, para) | - |
+| G1a | Globalleşme: bölge ayarları, para ve vergi, sağlayıcı kayıt defteri, Stripe ve Twilio adaptörleri, uyum paketleri (İYS dahil yeniden yazım) | G0 |
+| G1b | CRM ve atıf: Contact (Lead taşıması), ziyaretçi ve temas noktası yakalama, dönüşüm olayları, platform kiracısı | G0 |
+| G1c | Mesajlaşma motoru: e-posta kanalı (SES), şablonlar, gönderim kontrolleri, izleme, gelen mesajlar ve gelen kutusu | G1a |
+| G2a | Segmentler, kampanyalar, akışlar (otomasyon taşıması) | G1b, G1c |
+| G2b | Reklam entegrasyonu: Meta CAPI, Google Ads dönüşümleri, reklam yapısı ve harcama senkronu, atıf raporları, UTM oluşturucu | G1b |
+| G2c | Sayfa motoru: platform sitesi, sektör ve dil bazlı açılış sayfaları, kurumsal sayfalar, işletme siteleri ve özel alan adı | G1b |
+| G3a | Sadakat puanı | G2a |
+| G3b | Yapay zeka çekirdeği: çeviri, metin yazımı, cevap önerisi | G1c |
+| G3c | Perakende ve stok, atölye/kurs/etkinlik, muhasebe ve Zapier | G1a |
+| G4 | Yayın öncesi sertleştirme: uçtan uca huni testi, güvenlik incelemesi, yük testi, hazırlık (staging) ortamında gerçek sağlayıcılarla deneme | hepsi |
+
+## 7. Yayın öncesi kabul ölçütleri
+
+Reklam bütçesi harcanmadan önce şunların hepsi doğrulanmış olmalıdır:
+1. Uçtan uca test: reklam URL'si -> açılış sayfası -> form -> kişi kaydı -> deneme -> ödeme -> abonelik; her adımda atıfın korunduğu ve dönüşümün Meta ve Google'a (test modunda) gittiği otomatik testle kanıtlanır.
+2. Meta Events Manager'da tarayıcı ve sunucu olaylarının tekilleştirildiği (event match quality) görülür; Google Ads'de dönüşüm eylemleri "kaydediliyor" durumundadır.
+3. Çerez izni reddedildiğinde hiçbir reklam çerezi yazılmaz ve olay gönderilmez (AB testleri).
+4. Tüm açılış sayfaları iki dilde de SEO ve erişilebilirlik denetiminden geçer; mobil sayfa hızı hedefi sağlanır.
+5. E-posta alan adı doğrulaması tamamdır ve spam testleri geçer; SMS ve WhatsApp şablonları onaylıdır.
+6. Formlarda bot koruması ve hız sınırı etkin; test verisi raporları kirletmez (test trafiği işaretlenir).
+7. Hata izleme ve uyarılar açık: dönüşüm gönderim hatası, form hatası, ödeme hatası.
+
+## 8. Sahibin sağlaması gerekenler
+
+| Konu | Neden | Süre notu |
+|---|---|---|
+| Meta Business hesabı, Pixel, Conversions API erişim anahtarı, alan adı doğrulaması | Meta reklam atıfı ve geri bildirim | Hemen başlanabilir |
+| Google Ads hesabı, Google Ads API geliştirici anahtarı (developer token) | Google dönüşüm yükleme ve harcama senkronu | Onayı günler-haftalar sürebilir, erken başvurulmalı |
+| Hedef pazarlar ve öncelik sırası | Dil, para birimi, uyum paketi, sağlayıcı önceliği | |
+| E-posta gönderim alan adı ve Amazon SES hesabı | E-posta kanalı | SES üretim erişimi onay gerektirir |
+| Twilio hesabı (global SMS), WhatsApp Business numarası | Global mesajlaşma ve gelen kutusu | WhatsApp şablon onayı gerekir |
+| Stripe hesabı | Global ödeme | |
+| Hukuki metinler (ülkelere göre) ve AB için veri işleme sözleşmesi | Uyum | |
