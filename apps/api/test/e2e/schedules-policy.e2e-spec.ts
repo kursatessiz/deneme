@@ -14,6 +14,21 @@ import { AppModule } from '../../src/app.module';
 const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? 'Demo1234!';
 const HOUR = 3600_000;
 
+
+/**
+ * Hours from now to the first 01:00 UTC that is at least `minHours` away.
+ * The seed places sessions during the day, so anchoring e2e sessions at night
+ * keeps trainer and member conflict checks independent of when the suite runs.
+ */
+const hoursUntilNightSlot = (minHours: number): number => {
+  const HOUR_MS = 60 * 60 * 1000;
+  const earliest = Date.now() + minHours * HOUR_MS;
+  const slot = new Date(earliest);
+  slot.setUTCHours(1, 0, 0, 0);
+  if (slot.getTime() < earliest) slot.setUTCDate(slot.getUTCDate() + 1);
+  return (slot.getTime() - Date.now()) / HOUR_MS;
+};
+
 describe('Schedules: policy, waitlist, substitution (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaClient;
@@ -356,9 +371,10 @@ describe('Schedules: policy, waitlist, substitution (e2e)', () => {
 
   describe('trainer substitution', () => {
     let scheduleId: string;
+    const substitutionAt = hoursUntilNightSlot(70);
 
     beforeAll(async () => {
-      scheduleId = await makeSchedule(72, 3, trainers[0]);
+      scheduleId = await makeSchedule(substitutionAt, 3, trainers[0]);
       const pkg = await makePackage(otherMembers[0], 2);
       expect((await book(otherMembers[0], scheduleId, pkg)).status).toBe(201);
     });
@@ -397,7 +413,7 @@ describe('Schedules: policy, waitlist, substitution (e2e)', () => {
     });
 
     it('substitute who is busy at that time -> 409', async () => {
-      await makeSchedule(72.5, 1, trainers[1]);
+      await makeSchedule(substitutionAt + 0.5, 1, trainers[1]);
       const res = await as(ownerToken).post(`/schedules/${scheduleId}/substitute`).send({ trainerId: trainers[1] });
       expect(res.status).toBe(409);
     });

@@ -15,7 +15,8 @@ const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? 'Demo1234!';
 const SUPER_ADMIN_PHONE = '+905321000001';
 const OWNER_PHONE = '+905321000002';
 const TRAINER_PHONE = '+905321000004';
-const TEST_LANGUAGE_CODE = 'de-i18ntest';
+// ISO 639 reserves qaa-qtz for local use, so this never clashes with a real language.
+const TEST_LANGUAGE_CODE = 'qaa';
 
 describe('i18n (e2e)', () => {
   let app: INestApplication;
