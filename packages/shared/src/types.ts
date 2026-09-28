@@ -32,6 +32,8 @@ export interface StudioDTO {
   gradientPresetKey: GradientPresetKey;
   maxAdvanceBookingDays: number;
   reminderHoursBefore: number;
+  /** Language new users of this studio see until they pick their own. */
+  defaultLocale: string;
   isActive: boolean;
 }
 
@@ -62,11 +64,15 @@ export interface MembershipDTO {
   homeBranchId?: string | null;
   /** The studio's brand and default theme family, for theming the app. */
   theme: TenantTheme;
+  /** The studio's default language; see resolveLocale in i18n/locales.ts. */
+  defaultLocale: string;
 }
 
 export interface SessionUserDTO extends UserDTO {
   memberships: MembershipDTO[];
   appearance: AppearancePreference;
+  /** The user's own language choice; null follows the active studio's default. */
+  locale: string | null;
 }
 
 export interface MemberProfileDTO {

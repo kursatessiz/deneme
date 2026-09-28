@@ -7,6 +7,7 @@ import type { JoinSessionResultDTO, MemberPackageDTO, ScheduleSpotsDTO, SpotDTO,
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
+import { useLocale } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, spacing, typography, useTheme, useThemeColors, useThemeFonts } from '../../../src/theme';
@@ -46,13 +47,13 @@ function sortByLabel(spots: SpotDTO[]): SpotDTO[] {
   });
 }
 
-function formatDayTime(startTime?: string, endTime?: string): string {
+function formatDayTime(startTime: string | undefined, endTime: string | undefined, locale: string): string {
   if (!startTime || !endTime) return '';
   const start = new Date(startTime);
   const end = new Date(endTime);
-  const day = start.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
-  const startHour = start.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-  const endHour = end.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  const day = start.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
+  const startHour = start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  const endHour = end.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   return `${day}, ${startHour} - ${endHour}`;
 }
 
@@ -182,6 +183,7 @@ export default function SeansDetailScreen() {
   const scheduleId = params.scheduleId;
   const fonts = useThemeFonts();
   const colors = useThemeColors();
+  const { locale } = useLocale();
   const { activeMembership, refreshUser } = useSession();
   const studioId = activeMembership?.studioId;
   const memberId = activeMembership?.memberProfileId ?? null;
@@ -286,7 +288,7 @@ export default function SeansDetailScreen() {
     <ScreenContainer>
       <Text style={[styles.title, fonts.display, { color: colors.textPrimary }]}>{params.serviceTypeName ?? params.title}</Text>
       <Text style={[styles.subtitle, fonts.body, { color: colors.textSecondary }]}>
-        {formatDayTime(params.startTime, params.endTime)}
+        {formatDayTime(params.startTime, params.endTime, locale)}
       </Text>
       {params.trainerName ? (
         <Text style={[styles.subtitle, fonts.body, { color: colors.textSecondary }]}>{params.trainerName}</Text>

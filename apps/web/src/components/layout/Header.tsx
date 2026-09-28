@@ -5,6 +5,8 @@ import { LogOut } from 'lucide-react';
 import type { BranchDTO, MembershipDTO } from '@platform/shared';
 import { setActiveBranchCookie } from '@/lib/session/active-selection';
 import { bffFetch } from '@/lib/session/client';
+import { useT, useLocale } from '@/components/i18n/I18nProvider';
+import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
 
 export function Header({
   userName,
@@ -18,7 +20,9 @@ export function Header({
   activeBranchId: string | null;
 }) {
   const router = useRouter();
-  const today = new Date().toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const t = useT();
+  const locale = useLocale();
+  const today = new Date().toLocaleDateString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   function switchBranch(branchId: string) {
     setActiveBranchCookie(branchId);
@@ -60,7 +64,7 @@ export function Header({
             className="text-xs rounded-lg border px-2.5 py-1.5 outline-none"
             style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)', backgroundColor: 'var(--color-surface-muted)' }}
           >
-            <option value="">Tüm şubeler</option>
+            <option value="">{t('layout.allBranches')}</option>
             {branches.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
@@ -68,6 +72,11 @@ export function Header({
             ))}
           </select>
         )}
+
+        <LanguageSwitcher
+          mode="me"
+          className="text-xs rounded-lg border px-2.5 py-1.5 outline-none"
+        />
 
         <div className="flex items-center space-x-3 pl-3 border-l" style={{ borderColor: 'var(--color-border)' }}>
           <div
@@ -85,8 +94,8 @@ export function Header({
             </p>
           </div>
           <button
-            title="Çıkış yap"
-            aria-label="Çıkış yap"
+            title={t('layout.signOut')}
+            aria-label={t('layout.signOut')}
             onClick={signOut}
             className="p-2 rounded-lg"
             style={{ color: 'var(--color-text-muted)' }}

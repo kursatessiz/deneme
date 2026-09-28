@@ -4,11 +4,13 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { contrastRatio } from '@platform/shared';
 
+import { useT } from '../../src/i18n';
 import { useSession } from '../../src/lib/session';
 import { palette, radii, spacing, typography, useThemeColors } from '../../src/theme';
 
 function StudioSwitcher() {
   const colors = useThemeColors();
+  const t = useT();
   const { memberships, activeStudioId, setActiveStudioId } = useSession();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -26,11 +28,13 @@ function StudioSwitcher() {
     <>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Stüdyo seç"
+        accessibilityLabel={t('mNav.studioSwitcher.select')}
         onPress={() => setIsOpen(true)}
         style={styles.badge}
       >
-        <Text style={[styles.badgeText, { color: colors.textPrimary }]}>{activeMembership?.studioName ?? 'Stüdyo seç'} v</Text>
+        <Text style={[styles.badgeText, { color: colors.textPrimary }]}>
+          {activeMembership?.studioName ?? t('mNav.studioSwitcher.select')} v
+        </Text>
       </Pressable>
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
         <Pressable style={styles.overlay} onPress={() => setIsOpen(false)}>
@@ -47,7 +51,9 @@ function StudioSwitcher() {
                 }}
               >
                 <Text style={[styles.sheetRowText, { color: colors.textPrimary }]}>{membership.studioName}</Text>
-                {membership.studioId === activeStudioId ? <Text style={styles.checkmark}>Seçili</Text> : null}
+                {membership.studioId === activeStudioId ? (
+                  <Text style={styles.checkmark}>{t('mNav.studioSwitcher.selected')}</Text>
+                ) : null}
               </Pressable>
             ))}
           </View>
@@ -60,6 +66,7 @@ function StudioSwitcher() {
 export default function AppLayout() {
   const { user, isLoading } = useSession();
   const colors = useThemeColors();
+  const t = useT();
 
   if (!isLoading && !user) {
     return <Redirect href="/(auth)/login" />;
@@ -77,10 +84,10 @@ export default function AppLayout() {
         tabBarInactiveTintColor: colors.textMuted,
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'Ana sayfa' }} />
-      <Tabs.Screen name="seans" options={{ title: 'Seanslar', headerShown: false }} />
-      <Tabs.Screen name="videolar" options={{ title: 'Videolar', headerShown: false }} />
-      <Tabs.Screen name="hesabim" options={{ title: 'Hesabım', headerShown: false }} />
+      <Tabs.Screen name="index" options={{ title: t('mNav.tab.home') }} />
+      <Tabs.Screen name="seans" options={{ title: t('mNav.tab.sessions'), headerShown: false }} />
+      <Tabs.Screen name="videolar" options={{ title: t('mNav.tab.videos'), headerShown: false }} />
+      <Tabs.Screen name="hesabim" options={{ title: t('mNav.tab.account'), headerShown: false }} />
     </Tabs>
   );
 }

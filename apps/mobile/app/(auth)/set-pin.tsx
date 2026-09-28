@@ -6,6 +6,7 @@ import { StyleSheet, Text } from 'react-native';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../src/components/ScreenContainer';
 import { TextField } from '../../src/components/TextField';
+import { useT } from '../../src/i18n';
 import { ApiError } from '../../src/lib/api';
 import { useSession } from '../../src/lib/session';
 import { palette, spacing, typography, useThemeColors } from '../../src/theme';
@@ -13,6 +14,7 @@ import { palette, spacing, typography, useThemeColors } from '../../src/theme';
 export default function SetPinScreen() {
   const router = useRouter();
   const colors = useThemeColors();
+  const t = useT();
   const { setPin } = useSession();
 
   const [pin, setPinValue] = useState('');
@@ -29,11 +31,11 @@ export default function SetPinScreen() {
 
     const parsed = PinSchema.safeParse(pin);
     if (!parsed.success) {
-      setPinError(parsed.error.issues[0]?.message ?? 'Geçerli bir PIN giriniz');
+      setPinError(parsed.error.issues[0]?.message ?? t('mAuth.setPin.invalid'));
       return;
     }
     if (pin !== confirmPin) {
-      setConfirmError('Girdiğiniz PIN\'ler eşleşmiyor');
+      setConfirmError(t('mAuth.setPin.mismatch'));
       return;
     }
 
@@ -42,7 +44,7 @@ export default function SetPinScreen() {
       await setPin(parsed.data);
       router.replace('/(app)');
     } catch (error) {
-      setFormError(error instanceof ApiError ? error.message : 'Beklenmeyen bir hata oluştu.');
+      setFormError(error instanceof ApiError ? error.message : t('common.error.generic'));
     } finally {
       setIsSubmitting(false);
     }
@@ -50,13 +52,11 @@ export default function SetPinScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={[styles.title, { color: colors.textPrimary }]}>PIN oluşturun</Text>
-      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-        Sonraki girişlerinizde kullanmak üzere 6 haneli bir PIN belirleyin.
-      </Text>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mAuth.setPin.title')}</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{t('mAuth.setPin.subtitle')}</Text>
 
       <TextField
-        label="Yeni PIN"
+        label={t('mAuth.setPin.newLabel')}
         value={pin}
         onChangeText={setPinValue}
         placeholder="••••••"
@@ -67,7 +67,7 @@ export default function SetPinScreen() {
       />
 
       <TextField
-        label="PIN (tekrar)"
+        label={t('mAuth.setPin.confirmLabel')}
         value={confirmPin}
         onChangeText={setConfirmPin}
         placeholder="••••••"
@@ -79,7 +79,7 @@ export default function SetPinScreen() {
 
       {formError ? <Text style={styles.formError}>{formError}</Text> : null}
 
-      <PrimaryButton label="PIN'i kaydet" onPress={handleSubmit} loading={isSubmitting} />
+      <PrimaryButton label={t('mAuth.setPin.submit')} onPress={handleSubmit} loading={isSubmitting} />
     </ScreenContainer>
   );
 }

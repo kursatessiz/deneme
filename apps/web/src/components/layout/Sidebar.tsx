@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import type { MembershipDTO } from '@platform/shared';
 import { filterNavByPermissions, NAV_ITEMS } from '@/lib/nav';
 import { setActiveStudioCookie } from '@/lib/session/active-selection';
+import { useT } from '@/components/i18n/I18nProvider';
 
 export function Sidebar({
   memberships,
@@ -17,6 +18,7 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const t = useT();
   const items = filterNavByPermissions(NAV_ITEMS, activeMembership.permissions, activeMembership.isOwner);
 
   function switchStudio(studioId: string) {
@@ -47,7 +49,7 @@ export function Sidebar({
             {activeMembership.studioName}
           </h1>
           <p className="text-xs font-medium opacity-90" style={{ color: 'var(--color-on-primary, #fff)' }}>
-            Yönetim Paneli
+            {t('layout.managementPanel')}
           </p>
         </div>
       </div>
@@ -55,7 +57,7 @@ export function Sidebar({
       {memberships.length > 1 && (
         <div className="px-4 py-3 mx-3 my-4 rounded-xl border" style={{ borderColor: 'var(--color-border)' }}>
           <label className="text-[10px] font-semibold tracking-wider uppercase block mb-1" style={{ color: 'var(--color-text-muted)' }}>
-            Aktif İşletme
+            {t('layout.activeStudio')}
           </label>
           <select
             value={activeMembership.studioId}
@@ -88,7 +90,7 @@ export function Sidebar({
               }}
             >
               <Icon className="w-5 h-5 mr-3" />
-              {item.label}
+              {t(item.labelKey)}
             </Link>
           );
         })}

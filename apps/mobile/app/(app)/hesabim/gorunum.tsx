@@ -7,30 +7,32 @@ import type { AppearancePreference, ColorSchemePreference, ThemeFamilyKey } from
 import { ChoiceRow } from '../../../src/components/ChoiceRow';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { Swatches } from '../../../src/components/Swatches';
+import { useT } from '../../../src/i18n';
 import { ApiError } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
-
-const SCHEMES: { key: ColorSchemePreference; label: string; description: string }[] = [
-  { key: 'SYSTEM', label: 'Sistem', description: 'Telefonun açık veya koyu ayarını izler' },
-  { key: 'LIGHT', label: 'Açık', description: 'Her zaman açık zemin' },
-  { key: 'DARK', label: 'Koyu', description: 'Her zaman koyu zemin' },
-];
 
 /** The user's own theme family and light/dark choice. The studio's brand colors stay as they are. */
 export default function GorunumScreen() {
   const { theme, appearance, setAppearance } = useTheme();
   const fonts = useThemeFonts();
+  const t = useT();
   const { activeMembership } = useSession();
   const [error, setError] = useState<string | undefined>();
   const c = theme.colors;
+
+  const SCHEMES: { key: ColorSchemePreference; label: string; description: string }[] = [
+    { key: 'SYSTEM', label: t('mAccount.appearance.system'), description: t('mAccount.appearance.systemDescription') },
+    { key: 'LIGHT', label: t('mAccount.appearance.light'), description: t('mAccount.appearance.lightDescription') },
+    { key: 'DARK', label: t('mAccount.appearance.dark'), description: t('mAccount.appearance.darkDescription') },
+  ];
 
   const save = async (next: AppearancePreference) => {
     setError(undefined);
     try {
       await setAppearance(next);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Görünüm kaydedilemedi.');
+      setError(e instanceof ApiError ? e.message : t('mAccount.appearance.saveError'));
     }
   };
 
@@ -39,11 +41,15 @@ export default function GorunumScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>Tema</Text>
+      <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mAccount.appearance.section.theme')}</Text>
       <View style={styles.group}>
         <ChoiceRow
-          label="İşletmenin teması"
-          description={studioLabel ? `${studioLabel}, işletmenin seçtiği tema` : 'İşletmenin seçtiği tema'}
+          label={t('mAccount.appearance.studioTheme')}
+          description={
+            studioLabel
+              ? t('mAccount.appearance.studioThemeDescription', { family: studioLabel })
+              : t('mAccount.appearance.studioThemeDescriptionFallback')
+          }
           selected={appearance.themeFamily === null}
           onPress={() => save({ ...appearance, themeFamily: null })}
         />
@@ -68,7 +74,7 @@ export default function GorunumScreen() {
         })}
       </View>
 
-      <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>Açık veya koyu</Text>
+      <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mAccount.appearance.section.colorScheme')}</Text>
       <View style={styles.group}>
         {SCHEMES.map((s) => (
           <ChoiceRow
@@ -81,9 +87,7 @@ export default function GorunumScreen() {
         ))}
       </View>
 
-      <Text style={[styles.note, fonts.body, { color: c.textMuted }]}>
-        Logo, ana renk ve gradyan işletmeye aittir; burada yalnızca yazı tipi, köşe yapısı ve zemin renkleri değişir.
-      </Text>
+      <Text style={[styles.note, fonts.body, { color: c.textMuted }]}>{t('mAccount.appearance.note')}</Text>
       {error ? <Text style={[styles.error, { color: palette.danger }]}>{error}</Text> : null}
     </ScreenContainer>
   );

@@ -16,6 +16,21 @@ import { AppModule } from '../../src/app.module';
 const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? 'Demo1234!';
 const HOUR = 3600_000;
 
+
+/**
+ * Hours from now to the first 01:00 UTC that is at least `minHours` away.
+ * The seed places sessions during the day, so anchoring e2e sessions at night
+ * keeps trainer and member conflict checks independent of when the suite runs.
+ */
+const hoursUntilNightSlot = (minHours: number): number => {
+  const HOUR_MS = 60 * 60 * 1000;
+  const earliest = Date.now() + minHours * HOUR_MS;
+  const slot = new Date(earliest);
+  slot.setUTCHours(1, 0, 0, 0);
+  if (slot.getTime() < earliest) slot.setUTCDate(slot.getUTCDate() + 1);
+  return (slot.getTime() - Date.now()) / HOUR_MS;
+};
+
 describe('Schedules: spot map (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaClient;
@@ -196,7 +211,7 @@ describe('Schedules: spot map (e2e)', () => {
     let scheduleId: string;
 
     beforeAll(async () => {
-      scheduleId = await makeEmsSchedule(60);
+      scheduleId = await makeEmsSchedule(hoursUntilNightSlot(60));
     });
 
     it('a service requiring a selectable spot rejects a booking with no spot chosen', async () => {
@@ -287,7 +302,7 @@ describe('Schedules: spot map (e2e)', () => {
     let bookingId: string;
 
     beforeAll(async () => {
-      scheduleId = await makeEmsSchedule(72);
+      scheduleId = await makeEmsSchedule(hoursUntilNightSlot(60) + 24);
       const pkg = await makePackage(selfMemberId, emsPackageDefinitionId, 5);
       const res = await bookSelf(selfMemberId, scheduleId, pkg, [emsDevice1]);
       expect(res.status).toBe(201);

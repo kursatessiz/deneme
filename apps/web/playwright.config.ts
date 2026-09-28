@@ -41,7 +41,10 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // Turkish is the base language and the scenarios select elements by their
+  // Turkish labels, so the browser asks for Turkish unless a test overrides it
+  // (see e2e/i18n.e2e.ts for the English rendering check).
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], locale: 'tr-TR' } }],
   // Both servers are started fresh for every run (reuseExistingServer: false)
   // so they always bind to the DATABASE_URL this run was given, never to a
   // stale process left over from a previous seeded database.
