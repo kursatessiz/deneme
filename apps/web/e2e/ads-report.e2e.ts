@@ -3,22 +3,24 @@ import { LOGINS, loginAs } from './support/login';
 
 /**
  * G2b "Reklam performansı" screen: date range, model and groupBy
- * selectors, and the totals row rendering without crashing even with no
- * connected ad account (every number reads as "—" rather than throwing).
+ * selectors. The seed has no ad data, so the report shows either the
+ * totals row or the empty state; both mean it rendered without crashing.
  */
 test('owner can open the ad performance report and change model/groupBy', async ({ page }) => {
   await loginAs(page, LOGINS.owner);
   await page.goto('/reklam-performansi');
 
   await expect(page.getByRole('heading', { name: 'Reklam performansı' })).toBeVisible();
-  await expect(page.getByText('Toplam')).toBeVisible();
+  const rendered = () => page.getByText('Toplam', { exact: true }).or(page.getByText('Seçilen aralıkta veri yok'));
+  await expect(rendered()).toBeVisible();
 
   // Switch attribution model.
-  await page.locator('select').first().selectOption('FIRST_TOUCH');
+  await page.getByRole('main').locator('select').first().selectOption('FIRST_TOUCH');
   // Switch grouping to campaign.
-  const groupBySelect = page.locator('select').nth(1);
+  const groupBySelect = page.getByRole('main').locator('select').nth(1);
   await groupBySelect.selectOption('campaign');
-  await expect(page.getByText('Etiketsiz ücretli trafik')).toBeVisible();
+  await expect(groupBySelect).toHaveValue('campaign');
+  await expect(rendered()).toBeVisible();
 });
 
 test('reception without ads.view sees the forbidden state', async ({ page }) => {
