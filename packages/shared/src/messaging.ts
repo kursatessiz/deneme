@@ -69,6 +69,10 @@ export const MESSAGE_TEMPLATE_KEYS = [
   'WIN_BACK',
   'FIRST_CLASS_FOLLOW_UP',
   'NO_SHOW_FOLLOW_UP',
+  // G1c: invites, inbox keyword replies (see message-templates.ts BUILTIN_TEMPLATES)
+  'INVITE_LINK',
+  'INBOX_HELP_REPLY',
+  'INBOX_OPT_OUT_CONFIRM',
 ] as const;
 export type MessageTemplateKey = (typeof MESSAGE_TEMPLATE_KEYS)[number];
 
@@ -105,7 +109,7 @@ export function renderTemplate(body: string, params: Record<string, string>): st
 export const UpsertMessageTemplateSchema = z
   .object({
     key: z.string().trim().min(1).max(60),
-    channel: z.enum(['WHATSAPP', 'SMS', 'PUSH', 'EMAIL']),
+    channel: z.enum(['WHATSAPP', 'SMS', 'PUSH', 'EMAIL', 'IN_APP']),
     locale: z.string().trim().min(2).max(5).default('tr'),
     body: z.string().trim().min(1, 'Şablon metni boş olamaz').max(2000),
     whatsappTemplateName: z.string().trim().max(120).optional(),

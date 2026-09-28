@@ -11,5 +11,6 @@ export const trNav = {
   'nav.reports': 'Raporlar',
   'nav.leads': 'Adaylar',
   'nav.churn': 'Riskli Üyeler',
+  'nav.inbox': 'Gelen Kutusu',
   'nav.settings': 'Ayarlar',
 } as const satisfies Record<string, string>;

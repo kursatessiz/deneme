@@ -5,6 +5,9 @@ import { trConsent } from './tr/consent';
 import { trCrm } from './tr/crm';
 import { trLanguage } from './tr/language';
 import { trLayout } from './tr/layout';
+import { trMessaging } from './tr/messaging';
+import { trMsgTpl } from './tr/msgTpl';
+import { trMMessaging } from './tr/mMessaging';
 import { trMAccount } from './tr/mAccount';
 import { trMAuth } from './tr/mAuth';
 import { trMNav } from './tr/mNav';
@@ -16,6 +19,9 @@ import { enConsent } from './en/consent';
 import { enCrm } from './en/crm';
 import { enLanguage } from './en/language';
 import { enLayout } from './en/layout';
+import { enMessaging } from './en/messaging';
+import { enMsgTpl } from './en/msgTpl';
+import { enMMessaging } from './en/mMessaging';
 import { enMAccount } from './en/mAccount';
 import { enMAuth } from './en/mAuth';
 import { enMNav } from './en/mNav';
@@ -41,8 +47,11 @@ export const TR_NAMESPACES = [
   trCrm,
   trLanguage,
   trLayout,
+  trMessaging,
+  trMsgTpl,
   trMAccount,
   trMAuth,
+  trMMessaging,
   trMNav,
   trNav,
 ] as const;
@@ -55,8 +64,11 @@ export const EN_NAMESPACES = [
   enCrm,
   enLanguage,
   enLayout,
+  enMessaging,
+  enMsgTpl,
   enMAccount,
   enMAuth,
+  enMMessaging,
   enMNav,
   enNav,
 ] as const;

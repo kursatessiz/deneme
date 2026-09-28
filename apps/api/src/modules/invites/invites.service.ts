@@ -108,19 +108,22 @@ export class InvitesService {
           channel,
           expiresAt,
         },
-        include: { studio: { select: { name: true } } },
+        include: { studio: { select: { name: true, defaultLocale: true } } },
       });
     });
 
     const inviteUrl = `${this.config.getOrThrow<string>('PUBLIC_APP_URL').replace(/\/$/, '')}/j/${token}`;
 
     if (channel !== InviteChannel.SHOWN) {
-      // WhatsApp Cloud API is not wired yet (backlog 1.6); SMS carries both.
-      await this.notifications.sendSms({
+      // INVITE_LINK template in the studio's language; a WhatsApp invite falls back to SMS.
+      await this.notifications.sendTemplateToPhone({
         studioId,
         phone,
-        message: `${invite.studio.name} sizi davet ediyor: ${inviteUrl}`,
+        templateKey: 'INVITE_LINK',
+        variables: { studioName: invite.studio.name, inviteUrl },
+        channels: channel === InviteChannel.WHATSAPP ? ['WHATSAPP', 'SMS'] : ['SMS'],
         type: 'INVITE_LINK',
+        locale: invite.studio.defaultLocale,
         sensitive: true,
       });
     }

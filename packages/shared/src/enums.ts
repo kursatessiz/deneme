@@ -63,12 +63,16 @@ export enum NotificationChannel {
   SMS = 'SMS',
   PUSH = 'PUSH',
   EMAIL = 'EMAIL',
+  IN_APP = 'IN_APP',
 }
 
 export enum NotificationStatus {
   PENDING = 'PENDING',
   SENT = 'SENT',
   FAILED = 'FAILED',
+  DELIVERED = 'DELIVERED',
+  BOUNCED = 'BOUNCED',
+  COMPLAINED = 'COMPLAINED',
 }
 
 export enum CommissionType {
