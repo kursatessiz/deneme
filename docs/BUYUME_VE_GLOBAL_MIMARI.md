@@ -132,6 +132,24 @@ Puan defteri (`LoyaltyLedger`): kazanma kuralları (seansa katılım, satın alm
 ### 3.10 Yapay zeka çekirdeği
 Tek sağlayıcı katmanı (varsayılan Anthropic Claude), şifreli anahtar, model seçimi, kullanım ve maliyet ölçümü, kiracı başına aylık limit. Kullananlar: dil çevirisi, kampanya ve sayfa metni yazımı, gelen kutusu cevap önerisi, kişiye özel geri kazanma mesajı, segment tarifinden kural üretme.
 
+### 3.11 Rakip incelemesinden gelen eklemeler
+
+Sahibin paylaştığı Momence yönetim paneli kaydından (Eylül 2026) çıkarılan fikirler. Birebir kopyalanmaz; ilke ve akış olarak alınır, tasarım bizim token ve tema sistemimizle yapılır.
+
+**Kullanıcı deneyimi iyileştirmeleri (mevcut ekranlar)**
+- **Global hızlı işlem çubuğu:** Web ve mobil üst barda her ekrandan erişilen hızlı satış (sepet), takvim, bildirimler ve profil. Hızlı satış küçük bir pencerede açılır: kişi seç veya yeni kişi ekle, paket/ürün seç, "başkası adına ödüyor" seçeneği, ödeme yöntemi. Satış akışı üye kartındakiyle aynı servisi kullanır.
+- **Açıklayıcı boş durumlar:** Her boş liste, özelliğin ne işe yaradığını anlatan tek cümle ve tek birincil eylem içerir. Ortak `EmptyState` bileşeni, metinler i18n anahtarı.
+- **Raporlarda dönem karşılaştırması:** Tarih aralığı, "önceki dönem / geçen yıl" karşılaştırması ve günlük/haftalık/aylık gruplama; kartlarda değişim yüzdesi.
+- **Yetki uyarısı:** Menüden ulaşılan ama yetkisi olmayan bir işlemde tam sayfa 403 yerine satır içi bildirim; doğrudan URL ile gelinen sayfalarda 403 ekranı kalır.
+
+**Yeni modüller**
+- **Topluluk ve erişim katmanları:** Üyelere özel içerik akışı (gönderi, video, dosya, duyuru), yorum ve beğeni, erişim katmanları (hangi üyelik veya paket hangi içeriği görür), herkese açık paylaşım bağlantısı (isteğe bağlı), mobilde akış ekranı. Mevcut video kütüphanesi (W19) bu modüle bağlanır.
+- **Uygulama pazarı (ek modüller):** Modül kataloğu (ad, açıklama, tanıtım videosu, ekran görüntüleri, aylık fiyat, deneme süresi), kiracının modülü etkinleştirmesi ve denemeyi ücretliye çevirmesi, faturalamaya eklenmesi. Mevcut `Plan`, `Subscription` ve `FeatureFlag` altyapısı üzerine kurulur; platform için ek gelir modeli.
+- **Dönüşüm hunileri:** Hazır huniler (aday -> deneme randevusu -> katıldı -> üye; deneme teklifi -> üye) ve kiracının tanımlayacağı huniler; adım bazında dönüşüm oranı, ortalama geçiş süresi, kaynak ve kampanya kırılımı. Veri kaynağı CRM ve `ConversionEvent`.
+- **Banka ödemeleri ve mutabakat:** Ödeme sağlayıcısından (Stripe payout, iyzico/PayTR hakediş) banka hesabına geçen toplu tutarların listesi, içindeki tek tek tahsilatlar, komisyon ve iade kesintileri, muhasebe dışa aktarımı.
+- **Deneme süresi ve etkinleştirme (platform satışı):** Yeni işletmeler için deneme süresi, panelde kalan gün bandı ve "hesabı etkinleştir" akışı, süresi dolunca kısıtlı mod. Etkinleştirme `studio_paid` dönüşümünü üretir (bölüm 3.2).
+- **İşletmeden işletmeye tavsiye programı:** Platformu başka bir işletmeye öneren kiracıya ödül (abonelik kredisi); platform kiracısının CRM ve atıf altyapısını kullanır.
+
 ## 4. UTM ve reklam adlandırma standardı
 
 ### 4.1 Adlandırma
@@ -193,6 +211,10 @@ Her madde ayrı PR'dır; her PR kendi e2e testleriyle gelir.
 | G3a | Sadakat puanı | G2a |
 | G3b | Yapay zeka çekirdeği: çeviri, metin yazımı, cevap önerisi | G1c |
 | G3c | Perakende ve stok, atölye/kurs/etkinlik, muhasebe ve Zapier | G1a |
+| G5a | Kullanıcı deneyimi iyileştirmeleri: global hızlı işlem çubuğu ve hızlı satış, açıklayıcı boş durumlar, raporlarda dönem karşılaştırması, satır içi yetki uyarısı (bölüm 3.11) | G1a |
+| G5b | Topluluk ve erişim katmanları (bölüm 3.11) | G1c |
+| G5c | Uygulama pazarı ve ek modül faturalaması; deneme süresi ve etkinleştirme; işletmeden işletmeye tavsiye (bölüm 3.11) | G2b |
+| G5d | Dönüşüm hunileri; banka ödemeleri ve mutabakat (bölüm 3.11) | G2a |
 | G4 | Yayın öncesi sertleştirme: uçtan uca huni testi, güvenlik incelemesi, yük testi, hazırlık (staging) ortamında gerçek sağlayıcılarla deneme | hepsi |
 
 ## 7. Yayın öncesi kabul ölçütleri
