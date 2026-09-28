@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 import { SitePageView, buildSiteMetadata } from '@/components/sites/SitePage';
-import { fetchSitemapEntries } from '@/lib/sites/api';
 
-export const revalidate = 300;
-
-export async function generateStaticParams() {
-  const entries = await fetchSitemapEntries('platform');
-  return entries.map((e) => ({ locale: e.locale, slug: e.slug ? e.slug.split('/') : [] }));
-}
+/**
+ * Rendered per request: the root layout reads the locale header and cookies,
+ * and the A/B variant is cookie-sticky. The API responses are still cached
+ * (fetch revalidate + publish tags in lib/sites/api.ts), so a request costs
+ * one render, not one API round trip.
+ */
+export const dynamic = 'force-dynamic';
 
 /**
  * Platform site: `/tr`, `/en` (home), `/tr/pilates` (sector landing),
