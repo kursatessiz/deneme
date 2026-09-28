@@ -48,17 +48,28 @@ const BOT_PATTERN =
  * mode announce "HeadlessChrome" and are ignored; test traffic that looks
  * like a real browser is marked through Contact.isTest instead.
  */
+/** Real user agents are a few hundred characters; anything longer is cut before matching. */
+const MAX_USER_AGENT_LENGTH = 512;
+
 export function isLikelyBot(userAgent: string | undefined): boolean {
   if (!userAgent || userAgent.trim().length < 12) return true;
-  return BOT_PATTERN.test(userAgent);
+  return BOT_PATTERN.test(userAgent.slice(0, MAX_USER_AGENT_LENGTH));
 }
 
 export type DeviceType = 'mobile' | 'tablet' | 'desktop';
 
+/**
+ * Plain substring checks (no backtracking patterns): the user agent is
+ * attacker-controlled on a public endpoint.
+ */
 export function deviceTypeOf(userAgent: string | undefined): DeviceType | null {
   if (!userAgent) return null;
-  if (/ipad|tablet|kindle|silk|playbook|(android(?!.*mobile))/i.test(userAgent)) return 'tablet';
-  if (/mobi|iphone|ipod|android.*mobile|windows phone|blackberry/i.test(userAgent)) return 'mobile';
+  const ua = userAgent.slice(0, MAX_USER_AGENT_LENGTH).toLowerCase();
+  const has = (...needles: string[]) => needles.some((needle) => ua.includes(needle));
+  const android = ua.includes('android');
+  const mobile = ua.includes('mobile');
+  if (has('ipad', 'tablet', 'kindle', 'silk', 'playbook') || (android && !mobile)) return 'tablet';
+  if (has('mobi', 'iphone', 'ipod', 'windows phone', 'blackberry') || (android && mobile)) return 'mobile';
   return 'desktop';
 }
 

@@ -39,6 +39,8 @@ describe('tracking utils', () => {
   });
 
   it('classifies the device', () => {
+    expect(deviceTypeOf('Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/141.0 Mobile Safari/537.36')).toBe('mobile');
+    expect(deviceTypeOf('Mozilla/5.0 (Linux; Android 14; SM-X910) AppleWebKit/537.36 Chrome/141.0 Safari/537.36')).toBe('tablet');
     expect(deviceTypeOf(CHROME)).toBe('desktop');
     expect(deviceTypeOf(IPHONE)).toBe('mobile');
     expect(deviceTypeOf('Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X)')).toBe('tablet');
@@ -58,5 +60,15 @@ describe('tracking utils', () => {
     expect(readVisitorId({ cookie: 'pw_vid=not-a-uuid' })).toBeNull();
     expect(readVisitorId({ 'x-pw-vid': 'nope' })).toBeNull();
     expect(readVisitorId({})).toBeNull();
+  });
+});
+
+describe('user agent handling on hostile input', () => {
+  it('stays fast on a long repeated android string', () => {
+    const hostile = 'android'.repeat(50_000);
+    const started = Date.now();
+    deviceTypeOf(hostile);
+    isLikelyBot(hostile);
+    expect(Date.now() - started).toBeLessThan(50);
   });
 });
