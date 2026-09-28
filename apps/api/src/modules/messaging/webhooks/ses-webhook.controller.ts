@@ -1,7 +1,7 @@
 import { BadRequestException, Body, Controller, ForbiddenException, HttpCode, Inject, Logger, Post } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DeliveryStatusService } from './delivery-status.service';
-import { SNS_CERT_FETCHER, SnsVerifier, isTrustedSnsUrl, parseSnsEnvelope } from './sns-verifier';
+import { SNS_CERT_FETCHER, SnsVerifier, isTrustedSnsUrl, parseSnsEnvelope, snsConfirmSubscriptionUrl } from './sns-verifier';
 import type { SnsCertFetcher } from './sns-verifier';
 
 interface SesEvent {
@@ -48,8 +48,9 @@ export class SesWebhookController {
     }
 
     if (envelope.Type === 'SubscriptionConfirmation') {
-      if (envelope.SubscribeURL && isTrustedSnsUrl(envelope.SubscribeURL, false)) {
-        await fetch(envelope.SubscribeURL, { signal: AbortSignal.timeout(5000), redirect: 'error' }).catch((err: Error) =>
+      const confirmUrl = envelope.SubscribeURL && isTrustedSnsUrl(envelope.SubscribeURL, false) ? snsConfirmSubscriptionUrl(envelope) : null;
+      if (confirmUrl) {
+        await fetch(confirmUrl, { signal: AbortSignal.timeout(5000), redirect: 'error' }).catch((err: Error) =>
           this.logger.error(`SNS subscription confirmation failed: ${err.message}`),
         );
       }

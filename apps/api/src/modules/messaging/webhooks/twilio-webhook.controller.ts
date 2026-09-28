@@ -37,8 +37,9 @@ export class TwilioWebhookController {
   ) {}
 
   private callbackUrl(req: Request): string {
-    const base = this.config.get<string>('PUBLIC_API_URL') ?? `${req.protocol}://${req.get('host')}`;
-    return `${base.replace(/\/+$/, '')}${req.originalUrl}`;
+    let base = this.config.get<string>('PUBLIC_API_URL') ?? `${req.protocol}://${req.get('host')}`;
+    while (base.endsWith('/')) base = base.slice(0, -1);
+    return `${base}${req.originalUrl}`;
   }
 
   @Post('status')

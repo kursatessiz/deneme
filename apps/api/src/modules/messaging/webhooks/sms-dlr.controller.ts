@@ -45,10 +45,10 @@ export class SmsDlrController {
 
   @All(':provider')
   @HttpCode(200)
-  async report(@Param('provider') provider: string, @Query('token') token: string | undefined, @Req() req: Request) {
+  async report(@Param('provider') provider: string, @Query('token') token: unknown, @Req() req: Request) {
     if (provider !== 'netgsm' && provider !== 'iletimerkezi') throw new NotFoundException();
     const expected = this.config.get<string>('SMS_DLR_WEBHOOK_TOKEN');
-    if (!expected || !token || token.length !== expected.length || !timingSafeEqual(Buffer.from(token), Buffer.from(expected))) {
+    if (!expected || typeof token !== 'string' || token.length !== expected.length || !timingSafeEqual(Buffer.from(token), Buffer.from(expected))) {
       throw new ForbiddenException();
     }
     const body = req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body) ? (req.body as Record<string, unknown>) : {};

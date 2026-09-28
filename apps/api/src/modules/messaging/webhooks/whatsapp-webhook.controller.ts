@@ -66,13 +66,15 @@ export class WhatsAppWebhookController {
 
   @Get()
   verify(
-    @Query('hub.mode') mode: string | undefined,
-    @Query('hub.verify_token') token: string | undefined,
-    @Query('hub.challenge') challenge: string | undefined,
+    @Query('hub.mode') mode: unknown,
+    @Query('hub.verify_token') token: unknown,
+    @Query('hub.challenge') challenge: unknown,
     @Res() res: Response,
   ): void {
-    if (!this.whatsapp.verifySubscription(mode, token) || !challenge) throw new ForbiddenException();
-    res.status(200).type('text/plain').send(challenge.slice(0, 200));
+    if (typeof mode !== 'string' || typeof token !== 'string' || !this.whatsapp.verifySubscription(mode, token)) throw new ForbiddenException();
+    // Meta's challenge is an integer; echo it back as a number, never as raw request text.
+    if (typeof challenge !== 'string' || !/^\d{1,15}$/.test(challenge)) throw new ForbiddenException();
+    res.status(200).type('text/plain').set('X-Content-Type-Options', 'nosniff').send(String(Number(challenge)));
   }
 
   @Post()

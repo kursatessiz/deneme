@@ -1,5 +1,5 @@
 import { createSign, generateKeyPairSync } from 'crypto';
-import { SnsVerifier, isTrustedSnsUrl, parseSnsEnvelope, snsStringToSign } from './sns-verifier';
+import { SnsVerifier, isTrustedSnsUrl, parseSnsEnvelope, snsConfirmSubscriptionUrl, snsStringToSign } from './sns-verifier';
 import type { SnsEnvelope } from './sns-verifier';
 import { signMetaBody, verifyMetaSignature } from './whatsapp-signature';
 import { mapSmsDlrStatus } from './sms-dlr.controller';
@@ -91,5 +91,20 @@ describe('Netgsm / İleti Merkezi delivery report statuses', () => {
     ['??', null],
   ])('%s -> %s', (raw, expected) => {
     expect(mapSmsDlrStatus(raw)).toBe(expected);
+  });
+});
+
+describe('snsConfirmSubscriptionUrl', () => {
+  it('rebuilds the callback on the topic region SNS host with the signed token', () => {
+    const url = new URL(snsConfirmSubscriptionUrl({ TopicArn: 'arn:aws:sns:eu-central-1:123456789012:ses-events', Token: 'tok&x=1' })!);
+    expect(url.origin).toBe('https://sns.eu-central-1.amazonaws.com');
+    expect(url.searchParams.get('Action')).toBe('ConfirmSubscription');
+    expect(url.searchParams.get('Token')).toBe('tok&x=1');
+  });
+
+  it('refuses unknown regions, malformed topics and missing tokens', () => {
+    expect(snsConfirmSubscriptionUrl({ TopicArn: 'arn:aws:sns:evil.example.com:123456789012:t', Token: 't' })).toBeNull();
+    expect(snsConfirmSubscriptionUrl({ TopicArn: 'arn:aws:sns:xx-fake-9:123456789012:t', Token: 't' })).toBeNull();
+    expect(snsConfirmSubscriptionUrl({ TopicArn: 'arn:aws:sns:eu-central-1:123456789012:t', Token: undefined })).toBeNull();
   });
 });

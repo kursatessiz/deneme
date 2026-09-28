@@ -78,6 +78,38 @@ export function isTrustedSnsUrl(value: string, requirePem: boolean): boolean {
   return !requirePem || url.pathname.endsWith('.pem');
 }
 
+/**
+ * AWS regions that host SNS. The subscription callback host is built only
+ * from this list (never from the message), so a message can never make the
+ * API call an arbitrary host. Add a region here when AWS launches one we use.
+ */
+export const SNS_REGIONS = [
+  'us-east-1', 'us-east-2', 'us-west-1', 'us-west-2', 'af-south-1', 'ap-east-1', 'ap-south-1', 'ap-south-2',
+  'ap-southeast-1', 'ap-southeast-2', 'ap-southeast-3', 'ap-southeast-4', 'ap-southeast-5', 'ap-southeast-7',
+  'ap-northeast-1', 'ap-northeast-2', 'ap-northeast-3', 'ca-central-1', 'ca-west-1', 'eu-central-1', 'eu-central-2',
+  'eu-west-1', 'eu-west-2', 'eu-west-3', 'eu-south-1', 'eu-south-2', 'eu-north-1', 'il-central-1', 'me-south-1',
+  'me-central-1', 'mx-central-1', 'sa-east-1',
+] as const;
+
+const TOPIC_ARN = /^arn:aws:sns:([a-z0-9-]{1,32}):\d{12}:[A-Za-z0-9_-]{1,256}$/;
+
+/**
+ * The ConfirmSubscription URL for a verified SubscriptionConfirmation,
+ * rebuilt from the signed TopicArn and Token: host from SNS_REGIONS, fixed
+ * path and action. Null when the topic's region is unknown or the token is missing.
+ */
+export function snsConfirmSubscriptionUrl(msg: Pick<SnsEnvelope, 'TopicArn' | 'Token'>): string | null {
+  const match = TOPIC_ARN.exec(msg.TopicArn);
+  if (!match || !msg.Token) return null;
+  const region = SNS_REGIONS.find((r) => r === match[1]);
+  if (!region) return null;
+  const url = new URL(`https://sns.${region}.amazonaws.com/`);
+  url.searchParams.set('Action', 'ConfirmSubscription');
+  url.searchParams.set('TopicArn', msg.TopicArn);
+  url.searchParams.set('Token', msg.Token);
+  return url.toString();
+}
+
 /** AWS's canonical string-to-sign for the message type, or null for an unknown type. */
 export function snsStringToSign(msg: SnsEnvelope): string | null {
   let keys: (keyof SnsEnvelope)[];
