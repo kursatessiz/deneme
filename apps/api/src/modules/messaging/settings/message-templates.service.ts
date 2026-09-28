@@ -102,13 +102,12 @@ export class MessageTemplatesService {
   }
 
   async upsert(studioId: string, input: TenantTemplateUpsertInput): Promise<MessageTemplateDTO> {
+    const whatsappTemplateName = input.channel === 'WHATSAPP' ? (input.whatsappTemplateName ?? null) : null;
     const fields = {
       body: input.body,
       subject: input.channel === 'EMAIL' || input.channel === 'PUSH' || input.channel === 'IN_APP' ? (input.subject ?? null) : null,
       blocks: input.channel === 'EMAIL' && input.blocks ? (input.blocks as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
-      whatsappTemplateName: input.channel === 'WHATSAPP' ? (input.whatsappTemplateName ?? null) : null,
-      // A tenant's own WhatsApp template is pending until someone confirms Meta approved it.
-      whatsappStatus: input.channel === 'WHATSAPP' ? (input.whatsappStatus ?? 'PENDING') : 'APPROVED',
+      whatsappTemplateName,
       isTransactional: input.isTransactional,
       isActive: input.isActive,
     };
@@ -116,8 +115,19 @@ export class MessageTemplatesService {
       const existing = await tx.messageTemplate.findFirst({
         where: { studioId, key: input.key, channel: input.channel, locale: input.locale },
       });
-      if (existing) return tx.messageTemplate.update({ where: { id: existing.id }, data: fields });
-      return tx.messageTemplate.create({ data: { studioId, key: input.key, channel: input.channel, locale: input.locale, ...fields } });
+      // Meta approval is recorded by the platform owner (admin content), never
+      // self-declared by a tenant: a new WhatsApp template, or one whose
+      // approved name or text changed, is pending until it is confirmed again.
+      const whatsappStatus =
+        input.channel !== 'WHATSAPP'
+          ? 'APPROVED'
+          : existing && existing.whatsappTemplateName === whatsappTemplateName && existing.body === input.body
+            ? existing.whatsappStatus
+            : 'PENDING';
+      if (existing) return tx.messageTemplate.update({ where: { id: existing.id }, data: { ...fields, whatsappStatus } });
+      return tx.messageTemplate.create({
+        data: { studioId, key: input.key, channel: input.channel, locale: input.locale, ...fields, whatsappStatus },
+      });
     });
     return toDto(rowToVariant(saved, input.channel), input.channel, saved.isActive);
   }

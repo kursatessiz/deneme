@@ -163,10 +163,12 @@ export class InboxService {
 
   async assign(tenant: TenantContext, conversationId: string, dto: AssignConversationInput): Promise<ConversationSummaryDTO> {
     const conversation = await this.getOwn(tenant, conversationId);
-    if (dto.membershipId) await this.contacts.assertStaffMembership(tenant.studioId, dto.membershipId);
+    const membershipId = dto.membershipId === 'me' ? tenant.membershipId : dto.membershipId;
+    if (dto.membershipId === 'me' && !membershipId) throw new BadRequestException('Bu işletmede bir üyeliğiniz yok');
+    if (membershipId) await this.contacts.assertStaffMembership(tenant.studioId, membershipId);
     const updated = await this.prisma.conversation.update({
       where: { id: conversation.id },
-      data: { assignedMembershipId: dto.membershipId },
+      data: { assignedMembershipId: membershipId ?? null },
       include: CONVERSATION_INCLUDE,
     });
     return this.toSummary(updated, canSeeMemberContact(tenant));

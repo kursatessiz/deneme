@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { NotificationCategory } from '@platform/shared';
+import type { MessageSendReasonCode, NotificationCategory } from '@platform/shared';
 import type { PushMessage } from './push.service';
 import { MessagingService } from '../messaging/engine/messaging.service';
 
@@ -34,6 +34,8 @@ export interface SendResult {
   providerMessageId?: string;
   /** Why no channel could deliver the message (or why it was skipped). */
   reason?: string;
+  /** Machine-readable form of `reason` (policy skips vs. provider errors). */
+  reasonCode?: MessageSendReasonCode;
 }
 
 /**
@@ -69,6 +71,7 @@ export class NotificationsService {
       channel: result.channel,
       providerMessageId: result.providerMessageId,
       reason: result.success ? undefined : result.reason,
+      ...(result.success || !result.reasonCode ? {} : { reasonCode: result.reasonCode }),
     };
   }
 

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma, AutomationRunStatus } from '@platform/database';
 import type { AutomationRule } from '@platform/database';
-import { AutomationRuleParamsSchema, isWithinQuietHours, type NotificationCategory } from '@platform/shared';
+import { AutomationRuleParamsSchema, isWithinQuietHours, type MessageSendReasonCode, type NotificationCategory } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AUTOMATION_BATCH_LIMIT, AutomationCandidate, RuleEvaluator } from './evaluators/types';
@@ -20,8 +20,13 @@ export interface RunOutcome {
   deferredForQuietHours: boolean;
 }
 
-/** Failure reasons that reflect a policy or preference decision, not a delivery error. */
-const SKIP_REASON_RE = /onay|kapat|bulunamadı|şablon|yapılandır|yetersiz|sessiz|sıklık|çıktı|adres|cihaz/i;
+/**
+ * Outcomes that reflect a policy or preference decision, not a delivery
+ * error (MessagingService reason codes). Only a provider failure counts as
+ * FAILED. QUIET_HOURS is neither: the claim is released and the target is
+ * tried again on a later cycle, once it is daytime for the recipient.
+ */
+const FAILED_REASON_CODES: ReadonlySet<MessageSendReasonCode> = new Set(['PROVIDER_ERROR']);
 
 /** Prisma's unique-constraint violation code (P2002). */
 function isUniqueConstraintViolation(err: unknown): boolean {
@@ -146,10 +151,21 @@ export class AutomationRunnerService {
       params: candidate.templateParams,
     });
 
-    const status = result.success ? AutomationRunStatus.SENT : SKIP_REASON_RE.test(result.reason ?? '') ? AutomationRunStatus.SKIPPED : AutomationRunStatus.FAILED;
+    const where = { ruleId_userId_targetRef: { ruleId: rule.id, userId: candidate.userId, targetRef: candidate.targetRef } };
+    if (!result.success && result.reasonCode === 'QUIET_HOURS') {
+      // The recipient's local time is outside the commercial window: nothing
+      // was sent, so the at-most-once claim is released for a later cycle.
+      await this.prisma.automationRun.delete({ where });
+      return 'ALREADY_HANDLED';
+    }
+    const status = result.success
+      ? AutomationRunStatus.SENT
+      : result.reasonCode && !FAILED_REASON_CODES.has(result.reasonCode)
+        ? AutomationRunStatus.SKIPPED
+        : AutomationRunStatus.FAILED;
 
     await this.prisma.automationRun.update({
-      where: { ruleId_userId_targetRef: { ruleId: rule.id, userId: candidate.userId, targetRef: candidate.targetRef } },
+      where,
       data: { status, sentAt: result.success ? now : null, reason: result.success ? null : (result.reason ?? 'Bilinmeyen hata') },
     });
 

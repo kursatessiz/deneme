@@ -138,7 +138,6 @@ export const TenantTemplateUpsertSchema = z
     subject: z.string().trim().min(1).max(200).nullable().optional(),
     blocks: EmailBlocksSchema.nullable().optional(),
     whatsappTemplateName: z.string().trim().max(120).nullable().optional(),
-    whatsappStatus: z.enum(WHATSAPP_TEMPLATE_STATUSES).optional(),
     isTransactional: z.boolean().default(true),
     isActive: z.boolean().default(true),
   })

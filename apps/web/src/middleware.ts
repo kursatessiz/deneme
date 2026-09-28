@@ -37,6 +37,7 @@ const PROTECTED_PATHS = [
   '/raporlar',
   '/adaylar',
   '/riskli-uyeler',
+  '/gelen-kutusu',
   '/admin',
 ];
 

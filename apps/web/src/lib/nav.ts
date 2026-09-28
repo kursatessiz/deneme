@@ -4,6 +4,7 @@ import {
   BarChart3,
   Calendar,
   CheckSquare,
+  Inbox,
   LayoutDashboard,
   Package,
   Settings,
@@ -64,6 +65,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   { key: 'reports', label: 'Raporlar', labelKey: 'nav.reports', href: '/raporlar', icon: BarChart3, permissions: ['reports.view'] },
   { key: 'leads', label: 'Adaylar', labelKey: 'nav.leads', href: '/adaylar', icon: UserPlus, permissions: ['leads.view'] },
+  { key: 'inbox', label: 'Gelen Kutusu', labelKey: 'nav.inbox', href: '/gelen-kutusu', icon: Inbox, permissions: ['inbox.view'] },
   {
     key: 'churn',
     label: 'Riskli Üyeler',

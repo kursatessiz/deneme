@@ -649,6 +649,15 @@ describe('Messaging engine G1c (e2e)', () => {
       expect((await as(ownerToken, ZEN).patch(`/studios/${ZEN}/inbox/conversations/${waConversationId}/status`).send({ status: 'CLOSED' })).status).toBe(200);
       expect((await as(ownerToken, ZEN).post(`/studios/${ZEN}/inbox/conversations/${waConversationId}/reply`).send({ templateKey: 'BOOKING_REMINDER' })).status).toBe(400);
       expect((await as(ownerToken, ZEN).patch(`/studios/${ZEN}/inbox/conversations/${waConversationId}/status`).send({ status: 'OPEN' })).status).toBe(200);
+
+      // "me" assigns the caller; null unassigns; a trainer (no inbox.manage) cannot.
+      const toMe = await as(receptionToken, ZEN).patch(`/studios/${ZEN}/inbox/conversations/${waConversationId}/assign`).send({ membershipId: 'me' });
+      expect(toMe.status).toBe(200);
+      const receptionMembership = await prisma.membership.findFirstOrThrow({ where: { studioId: ZEN, user: { phone: RECEPTION_PHONE } } });
+      expect(toMe.body.assignedMembershipId).toBe(receptionMembership.id);
+      const none = await as(receptionToken, ZEN).patch(`/studios/${ZEN}/inbox/conversations/${waConversationId}/assign`).send({ membershipId: null });
+      expect(none.body.assignedMembershipId).toBeNull();
+      expect((await as(trainerToken, ZEN).patch(`/studios/${ZEN}/inbox/conversations/${waConversationId}/assign`).send({ membershipId: 'me' })).status).toBe(403);
     });
 
     it('saved replies are tenant data managed with inbox.manage', async () => {
@@ -717,6 +726,34 @@ describe('Messaging engine G1c (e2e)', () => {
       expect((await as(receptionToken, ZEN).put(`/studios/${ZEN}/messaging/settings`).send({ frequencyCap: { perDay: 1, perWeek: 1 } })).status).toBe(403);
       expect((await as(ownerToken, ZEN).put(`/studios/${ZEN}/messaging/settings`).send({ inboundSmsNumber: '+15005550007' })).status).toBe(400);
       expect((await request(server).put(`/admin/messaging/studios/${ZEN}/routing`).set('Authorization', `Bearer ${ownerToken}`).send({})).status).toBe(403);
+    });
+
+    it('a tenant cannot mark its own WhatsApp template as Meta-approved; it stays pending and is not sent', async () => {
+      const selfApproved = await as(ownerToken, ZEN)
+        .put(`/studios/${ZEN}/messaging/templates`)
+        .send({ key: 'E2E_WA', channel: 'WHATSAPP', locale: 'tr', body: 'Merhaba {firstName}', whatsappTemplateName: 'e2e_wa', whatsappStatus: 'APPROVED' });
+      expect(selfApproved.status).toBe(400);
+      const saved = await as(ownerToken, ZEN)
+        .put(`/studios/${ZEN}/messaging/templates`)
+        .send({ key: 'E2E_WA', channel: 'WHATSAPP', locale: 'tr', body: 'Merhaba {firstName}', whatsappTemplateName: 'e2e_wa' });
+      expect(saved.status).toBe(200);
+      expect(saved.body.whatsappStatus).toBe('PENDING');
+
+      const member = await prisma.user.findUniqueOrThrow({ where: { phone: MEMBER_PHONE } });
+      const result = await messaging.send({ studioId: ZEN, recipient: { userId: member.id }, channel: 'WHATSAPP', templateKey: 'E2E_WA' });
+      expect(result).toMatchObject({ success: false, reasonCode: 'TEMPLATE_NOT_APPROVED' });
+
+      // The platform owner records Meta's approval (admin content); an unchanged tenant save keeps it.
+      const row = await prisma.messageTemplate.findFirstOrThrow({ where: { studioId: ZEN, key: 'E2E_WA' } });
+      await prisma.messageTemplate.update({ where: { id: row.id }, data: { whatsappStatus: 'APPROVED' } });
+      const again = await as(ownerToken, ZEN)
+        .put(`/studios/${ZEN}/messaging/templates`)
+        .send({ key: 'E2E_WA', channel: 'WHATSAPP', locale: 'tr', body: 'Merhaba {firstName}', whatsappTemplateName: 'e2e_wa' });
+      expect(again.body.whatsappStatus).toBe('APPROVED');
+      const changed = await as(ownerToken, ZEN)
+        .put(`/studios/${ZEN}/messaging/templates`)
+        .send({ key: 'E2E_WA', channel: 'WHATSAPP', locale: 'tr', body: 'Selam {firstName}', whatsappTemplateName: 'e2e_wa' });
+      expect(changed.body.whatsappStatus).toBe('PENDING');
     });
 
     it('rejects an email template without a subject and deletes only the tenant\'s own rows', async () => {

@@ -43,7 +43,13 @@ describe('NotificationsService (facade over MessagingService)', () => {
       template: 'WIN_BACK',
       params: { firstName: 'Ada' },
     });
-    expect(result).toEqual({ success: false, channel: undefined, providerMessageId: undefined, reason: 'KVKK/İYS ticari ileti onayı yok' });
+    expect(result).toEqual({
+      success: false,
+      channel: undefined,
+      providerMessageId: undefined,
+      reason: 'KVKK/İYS ticari ileti onayı yok',
+      reasonCode: 'CONSENT_REQUIRED',
+    });
     const call = send.mock.calls[0][0];
     expect(call).toMatchObject({ studioId: 's1', recipient: { userId: 'u1' }, templateKey: 'WIN_BACK', category: 'MARKETING' });
     expect(call.channel).toBeUndefined();

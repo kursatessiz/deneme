@@ -24,12 +24,16 @@ import { SesEmailAdapter } from './email-ses.adapter';
  *   5. nothing configured: the first candidate, which simulates success
  *      (MOCK), exactly as before this registry existed.
  *
- * WhatsApp (Cloud API) and email (SES) have one global adapter each; push
- * and in-app are delivered by the engine itself.
+ * WhatsApp (Cloud API) and email (Amazon SES) are registries with a single
+ * global entry today, the same for Türkiye (docs section 2.2 table); a
+ * regional adapter is one more catalogue entry. Push (Expo) and in-app are
+ * delivered by the engine itself (no third-party choice to make).
  */
 @Injectable()
 export class MessagingChannelRegistry {
   private readonly sms: ProviderRegistry<SmsChannelAdapter>;
+  private readonly whatsappProviders: ProviderRegistry<WhatsAppCloudAdapter>;
+  private readonly emailProviders: ProviderRegistry<SesEmailAdapter>;
 
   constructor(
     private readonly config: ConfigService,
@@ -44,6 +48,18 @@ export class MessagingChannelRegistry {
       { key: 'ILETI_MERKEZI', adapter: iletiMerkezi, countries: ['TR'] },
       { key: 'TWILIO', adapter: twilio, countries: ['*'] },
     ]);
+    this.whatsappProviders = new ProviderRegistry([{ key: whatsapp.key, adapter: whatsapp, countries: ['*'] }]);
+    this.emailProviders = new ProviderRegistry([{ key: email.key, adapter: email, countries: ['*'] }]);
+  }
+
+  /** WhatsApp adapter for the recipient's country (Cloud API everywhere today). */
+  resolveWhatsApp(countryCode: string | null | undefined): WhatsAppCloudAdapter {
+    return this.whatsappProviders.resolveFor(countryCode) ?? this.whatsapp;
+  }
+
+  /** Email adapter for the recipient's country (Amazon SES everywhere today). */
+  resolveEmail(countryCode: string | null | undefined): SesEmailAdapter {
+    return this.emailProviders.resolveFor(countryCode) ?? this.email;
   }
 
   /** The env default (SMS_PROVIDER) when it names a real provider; MOCK means "no preference". */

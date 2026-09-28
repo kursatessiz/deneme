@@ -25,6 +25,15 @@ G1a fazında (bölge ayarları, para/vergi, sağlayıcı kayıt defteri, Stripe/
 - Sağlayıcı kayıt defteri (`apps/api/src/common/provider-registry.ts`) `PaymentProviderRegistry.resolveFor(countryCode, tenantOverrideKey)` ile kullanıma sunuldu; `.default`/`.get`/`.byName` (mevcut davranış) değişmedi. Mesajlaşma kanalları (WhatsApp/Netgsm/İleti Merkezi/Twilio) henüz aynı jenerik sınıfa taşınmadı, `SMS_PROVIDER` ortam değişkeniyle seçiliyor; bir sonraki fazda per-tenant override ile birleştirilebilir.
 - Vergi rejimi dışındaki (`TR_KDV` olmayan) kiracılar için sıra numaralı dahili fatura kaydı ve PDF üretimi bu fazın kapsamı dışında bırakıldı (madde 6'da belirtildiği gibi); yalnızca `taxRegime`/`pricesIncludeTax` alanları ve `StudioRegion` sözleşmesi eklendi.
 
+## 1b. G1c uygulama notları
+
+G1c fazında (mesajlaşma motoru) netleşen noktalar; ayrıntılar `docs/MESAJLASMA.md`:
+
+- `notifications` içindeki gönderim, şablon ve kanal kodu `apps/api/src/modules/messaging/` altına taşındı; tek giriş noktası `MessagingService.send()`. `NotificationsService` eski çağıranlar için ince bir uyumluluk katmanı olarak kaldı (imzalar ve uç noktalar değişmedi). İYS dosyaları hâlâ `notifications/consent/` altındadır (1a notu geçerli).
+- 1a'daki `skipQuietHours` geçici çözümü kaldırıldı: sessiz saat (alıcının yerel saatiyle 08:00-21:00) **yalnızca ticari** mesajlarda uygulanır. İşlemsel mesajlar izin, sessiz saat ve sıklık sınırından muaftır; bölüm 2.3'teki eski cümle buna göre düzeltildi (bugünkü Türkiye hatırlatmaları değişmesin diye).
+- Mesajlaşma kanalları `ProviderRegistry` üzerine taşındı (SMS: TR için Netgsm, sonra İleti Merkezi; diğer ülkeler Twilio; kiracı sabitleyebilir). `SMS_PROVIDER` artık yalnızca global varsayılandır.
+- Ticari izin şimdilik kullanıcı hesabına bağlıdır; hesabı olmayan kişiler için kişi düzeyinde izin kaydı G2a'da eklenecek.
+
 ## 2. Globalleşme çekirdeği
 
 ### 2.1 Kiracı bölge ayarları
@@ -52,7 +61,7 @@ Tek bir `ProviderRegistry` deseni: her yetenek için bir arayüz, ülkeye göre 
 - **ABD:** TCPA (SMS için açık yazılı onay, STOP/HELP anahtar kelimeleri, alıcının yerel saatine göre gönderim penceresi), CAN-SPAM (fiziksel adres, tek tıkla abonelikten çıkma).
 - **Diğer:** en katı ortak kural (açık rıza + abonelikten çıkma + sessiz saatler).
 
-Her ticari gönderim `compliance.canSend(recipient, channel, purpose)` kontrolünden geçer. İşlemsel mesajlar (rezervasyon onayı, OTP) izin gerektirmez ama sessiz saat ve sıklık sınırına yine tabidir.
+Her ticari gönderim `compliance.canSend(recipient, channel, purpose)` kontrolünden geçer. İşlemsel mesajlar (rezervasyon onayı, OTP) izin, sessiz saat ve sıklık sınırına tabi değildir (G1c kararı, bkz. bölüm 1b ve `docs/MESAJLASMA.md`).
 
 ### 2.4 Vergi ve fatura
 `taxRegime`: `TR_KDV`, `EU_VAT`, `US_SALES_TAX`, `NONE`. Paket fiyatları vergi dahil veya hariç girilebilir (kiracı ayarı). e-Arşiv yalnızca `TR_KDV` için etkinleşir; diğer bölgelerde sıra numaralı PDF fatura üretilir.
@@ -110,6 +119,8 @@ Kural dili (Zod ile tanımlı, `packages/shared`) kişi alanları, etiketler, ö
 - **Takip:** iletildi, okundu (e-posta pikseli, WhatsApp okundu bilgisi), tıklandı (bağlantılar kısa izleme adresine çevrilir, tıklama dönüşüm zincirine bağlanır), abonelikten çıktı, geri döndü (bounce), şikâyet.
 - **Gelen kutusu:** WhatsApp, SMS ve e-posta cevapları `Conversation` ve `ConversationMessage` olarak kaydedilir; kişi kartına bağlanır, personele atanır, hazır cevaplar ve yapay zeka önerisi kullanılabilir. Uygulama içi üye-personel sohbeti de aynı kutuya düşer.
 - **SMS kredisi:** mevcut kural korunur, kredi yalnızca fiilen gönderilen SMS için düşer.
+
+**Durum (G1c, yapıldı):** tek giriş noktası `MessagingService.send()` (kişi, üyelik, kullanıcı veya ham adres; kanal veya kanal sırası; TRANSACTIONAL/COMMERCIAL; şablon anahtarı veya kimliği; dil; değişkenler; tekilleştirme anahtarı; kampanya ve akış kimlikleri); e-posta (Amazon SES, üretimde yapılandırılmamışsa reddeder), SMS, WhatsApp, push ve uygulama içi kanalları sağlayıcı kayıt defterinde; sırayla uyum/izin, alıcının yerel saatine göre sessiz saat (yalnızca ticari), kişi başına günlük/haftalık ticari mesaj sınırı (kiracı ayarı, varsayılan 3/10) ve tekilleştirme; dil yedeklemeli şablonlar (alıcı, işletme varsayılanı, Türkçe), tipli e-posta blokları ve kiracı markalı HTML; ticari e-postada fiziksel adres, abonelikten çıkma bağlantısı ve `List-Unsubscribe` başlıkları; açılma pikseli (makine açılışları ayrı), imzalı ve hedefi sunucuda saklı tıklama bağlantıları, ziyaretçi-kişi bağlama; SES/SNS, Twilio, WhatsApp, Netgsm/İleti Merkezi teslim bildirimleri, bounce/şikâyette bastırma; `/m/u` abonelikten çıkma sayfası ve tek tık uç noktası (İYS dahil); WhatsApp ve Twilio SMS gelen mesajları, STOP/HELP anahtar kelimeleri, gelen kutusu API'si (`inbox.view`/`inbox.reply`/`inbox.manage`), WhatsApp 24 saat kuralı, hazır cevaplar, üyenin uygulama içi sohbeti; web "Gelen Kutusu" ve "Mesaj şablonları" ekranları, mobil üye sohbeti ve resepsiyon gelen kutusu. Kalan: e-posta cevaplarının gelen kutusuna alınması, Netgsm/İleti Merkezi gelen SMS webhook'ları, kişi düzeyinde ticari izin (G2a), yapay zeka cevap önerisi (G3b). Ayrıntılar: `docs/MESAJLASMA.md`.
 
 ### 3.7 Kampanyalar ve akışlar
 - **Kampanya:** bir segmente tek seferlik gönderim; kanal, şablon, zamanlama (alıcının yerel saatine göre gönderim seçeneği), A/B varyantı (kazananı açılma veya tıklamaya göre otomatik seçme), sonuç raporu ve atfedilen gelir.
@@ -204,7 +215,7 @@ Her madde ayrı PR'dır; her PR kendi e2e testleriyle gelir.
 | G0 | Bu belge; CLAUDE.md güncellemesi; paylaşılan sözleşmeler (atıf, dönüşüm, segment kural dili, akış şeması, para) | - |
 | G1a | Tamamlandı. Globalleşme: bölge ayarları, para ve vergi, sağlayıcı kayıt defteri, Stripe ve Twilio adaptörleri, uyum paketleri (İYS dahil yeniden yazım) | G0 |
 | G1b | Tamamlandı. CRM ve atıf: Contact (Lead taşıması), ziyaretçi ve temas noktası yakalama, dönüşüm olayları, platform kiracısı (`docs/CRM_VE_ATIF.md`) | G0 |
-| G1c | Mesajlaşma motoru: e-posta kanalı (SES), şablonlar, gönderim kontrolleri, izleme, gelen mesajlar ve gelen kutusu | G1a |
+| G1c | Tamamlandı. Mesajlaşma motoru: e-posta kanalı (SES), şablonlar, gönderim kontrolleri, izleme, gelen mesajlar ve gelen kutusu (`docs/MESAJLASMA.md`) | G1a |
 | G2a | Segmentler, kampanyalar, akışlar (otomasyon taşıması) | G1b, G1c |
 | G2b | Reklam entegrasyonu: Meta CAPI, Google Ads dönüşümleri, reklam yapısı ve harcama senkronu, atıf raporları, UTM oluşturucu | G1b |
 | G2c | Sayfa motoru: platform sitesi, sektör ve dil bazlı açılış sayfaları, kurumsal sayfalar, işletme siteleri ve özel alan adı | G1b |

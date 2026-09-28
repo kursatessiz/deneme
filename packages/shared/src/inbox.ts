@@ -46,7 +46,8 @@ export const InboxReplySchema = z
   });
 export type InboxReplyInput = z.infer<typeof InboxReplySchema>;
 
-export const AssignConversationSchema = z.object({ membershipId: z.string().uuid().nullable() }).strict();
+/** A staff membership id, `me` (the caller) or null to unassign. */
+export const AssignConversationSchema = z.object({ membershipId: z.union([z.string().uuid(), z.literal('me')]).nullable() }).strict();
 export type AssignConversationInput = z.infer<typeof AssignConversationSchema>;
 
 export const UpdateConversationStatusSchema = z.object({ status: z.enum(CONVERSATION_STATUSES) }).strict();

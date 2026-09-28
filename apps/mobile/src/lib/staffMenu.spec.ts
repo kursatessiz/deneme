@@ -1,6 +1,15 @@
 import { buildHesabimMenu } from './staffMenu';
 
 describe('buildHesabimMenu', () => {
+  it('members get the chat with the studio; inbox.view adds the staff inbox', () => {
+    const member = buildHesabimMenu({ permissions: [], isMember: true, isTrainer: false }).map((m) => m.key);
+    expect(member).toContain('chat');
+    expect(member).not.toContain('inbox');
+    const reception = buildHesabimMenu({ permissions: ['inbox.view'], isMember: false, isTrainer: false }).map((m) => m.key);
+    expect(reception).toContain('inbox');
+    expect(reception).not.toContain('chat');
+  });
+
   it('shows only the base menu for a plain member with no staff permissions', () => {
     const menu = buildHesabimMenu({ permissions: [], isMember: true, isTrainer: false });
     const keys = menu.map((m) => m.key);

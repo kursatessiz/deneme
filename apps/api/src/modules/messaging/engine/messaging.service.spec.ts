@@ -84,7 +84,8 @@ function setup(opts: { consent?: boolean; suppressed?: boolean; counts?: [number
     isConfigured: () => true,
     send: jest.fn(async (_req: Record<string, unknown>) => (opts.whatsappFails ? { success: false, errorMessage: 'wa down' } : { success: true, providerMessageId: 'wa-1' })),
   };
-  const registry = { resolveSms: jest.fn(() => smsAdapter), whatsapp, email: { key: 'SES', isConfigured: () => false, send: jest.fn() } };
+  const email = { key: 'SES', isConfigured: () => false, send: jest.fn() };
+  const registry = { resolveSms: jest.fn(() => smsAdapter), resolveWhatsApp: () => whatsapp, resolveEmail: () => email, whatsapp, email };
   const consents = { isGranted: jest.fn(async () => opts.consent ?? false) };
   const optOut = { isSuppressed: jest.fn(async () => opts.suppressed ?? false) };
   const config = { get: jest.fn((key: string, fallback?: string) => ({ JWT_SECRET: 'x'.repeat(40), NODE_ENV: 'test' })[key] ?? fallback) };

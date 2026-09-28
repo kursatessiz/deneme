@@ -383,7 +383,7 @@ export class MessagingService {
         return { provider, result };
       }
       case 'WHATSAPP': {
-        const adapter = this.registry.whatsapp;
+        const adapter = this.registry.resolveWhatsApp(ctx.regionCountry);
         const provider = adapter.isConfigured() ? adapter.key : 'MOCK';
         const used = new Set(messagePlaceholders(msg.variant.body));
         const params = Object.fromEntries(Object.entries(stringParams(msg.variables)).filter(([k]) => used.has(k)));
@@ -424,7 +424,7 @@ export class MessagingService {
     msg: { address: string; text: string; subject: string | null; blocks: EmailBlock[] | null; variant: ResolvedTemplateVariant; purpose: MessagePurpose },
   ): Promise<{ provider: string; result?: ChannelSendResult; skippedReason?: { reason: string; code: MessageSendReasonCode } }> {
     const { studio } = ctx;
-    const adapter = this.registry.email;
+    const adapter = this.registry.resolveEmail(ctx.regionCountry);
     const provider = adapter.isConfigured() ? adapter.key : 'MOCK';
     const commercial = msg.purpose === 'COMMERCIAL';
     const locale = msg.variant.locale;
