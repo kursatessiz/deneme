@@ -103,3 +103,11 @@ sağlanmalı veya yapılmalı:
   etkisi ölçülüp ayarlanmalı.
 - `remainingUnits` alanı `TIME_UNLIMITED` paketlerde `null`; widget bunu
   "Sinirsiz" olarak gösteriyor, ürün metni onaylanmalı.
+- Widget metinleri (`src/widgets/format.ts`) şu an sabit Türkçe. Widget'lar
+  kendi başlıksız arka plan görev bağlamında çalışır ve uygulamanın React
+  ağacına (dolayısıyla `I18nProvider`/`useT()`'e) erişemez; bu yüzden
+  `apps/mobile/src/i18n` üzerinden çok dilli hale getirilmediler. Bunu
+  çözmek, görev işleyicisinin (`android/taskHandler.ts`, iOS tarafı)
+  `AsyncStorage`'daki önbelleğe alınmış dil/mesaj kaydını kendi başına okuyup
+  küçük bir çevirici kurmasını gerektirir; ayrıntı ve gerekçe
+  `docs/MOBILE_APP.md`'nin "Mobil uygulamada dil" bölümündedir.

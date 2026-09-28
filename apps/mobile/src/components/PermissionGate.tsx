@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { PermissionKey } from '@platform/shared';
 
+import { useT } from '../i18n';
 import { useSession } from '../lib/session';
 import { spacing, typography, useThemeColors } from '../theme';
 import { ScreenContainer } from './ScreenContainer';
@@ -22,6 +23,7 @@ interface PermissionGateProps {
  */
 export function PermissionGate({ anyOf, children }: PermissionGateProps) {
   const colors = useThemeColors();
+  const t = useT();
   const { activeMembership } = useSession();
   const permissions = activeMembership?.permissions ?? [];
   const allowed = anyOf.length === 0 || anyOf.some((key) => permissions.includes(key));
@@ -30,11 +32,8 @@ export function PermissionGate({ anyOf, children }: PermissionGateProps) {
     return (
       <ScreenContainer>
         <View style={styles.wrap}>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>Bu ekrana erişim yetkiniz yok</Text>
-          <Text style={[styles.body, { color: colors.textSecondary }]}>
-            Bu ekranı görüntülemek için gereken izne sahip değilsiniz. Gerekiyorsa işletme sahibinizden izin talep
-            edin.
-          </Text>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mAccount.permissionGate.title')}</Text>
+          <Text style={[styles.body, { color: colors.textSecondary }]}>{t('mAccount.permissionGate.body')}</Text>
         </View>
       </ScreenContainer>
     );

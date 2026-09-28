@@ -6,6 +6,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import { GradientSurface } from '../../src/components/GradientSurface';
 import { ScreenContainer } from '../../src/components/ScreenContainer';
+import { useLocale } from '../../src/i18n';
 import { ApiError, apiRequest } from '../../src/lib/api';
 import { addBookingToDeviceCalendar, CalendarSyncError } from '../../src/lib/calendarSync';
 import { syncAllPendingWorkouts, syncTodayAggregatesIfOptedIn } from '../../src/health';
@@ -13,8 +14,8 @@ import { useSession } from '../../src/lib/session';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../src/theme';
 import { refreshWidgets } from '../../src/widgets';
 
-function formatBookingTime(booking: UpcomingBookingDTO): string {
-  return new Intl.DateTimeFormat('tr-TR', {
+function formatBookingTime(booking: UpcomingBookingDTO, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
     weekday: 'short',
     day: 'numeric',
     month: 'long',
@@ -26,6 +27,7 @@ function formatBookingTime(booking: UpcomingBookingDTO): string {
 function UpcomingBookingCard({ booking }: { booking: UpcomingBookingDTO }) {
   const { theme } = useTheme();
   const fonts = useThemeFonts();
+  const { locale } = useLocale();
   const c = theme.colors;
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
@@ -55,7 +57,7 @@ function UpcomingBookingCard({ booking }: { booking: UpcomingBookingDTO }) {
       ]}
     >
       <Text style={[styles.cardTitle, fonts.bodyStrong, { color: c.textPrimary }]}>{booking.serviceName}</Text>
-      <Text style={[styles.cardSubtitle, fonts.body, { color: c.textSecondary }]}>{formatBookingTime(booking)}</Text>
+      <Text style={[styles.cardSubtitle, fonts.body, { color: c.textSecondary }]}>{formatBookingTime(booking, locale)}</Text>
       <Text style={[styles.cardSubtitle, fonts.body, { color: c.textSecondary }]}>
         {booking.studioName}
         {booking.branchName ? `, ${booking.branchName}` : ''}

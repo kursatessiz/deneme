@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
+import { useT } from '../../../src/i18n';
 import { buildHesabimMenu } from '../../../src/lib/staffMenu';
 import { useSession } from '../../../src/lib/session';
 import { radii, spacing, typography, useThemeColors } from '../../../src/theme';
@@ -31,6 +32,7 @@ function MenuLink({ label, onPress }: MenuLinkProps) {
 export default function HesabimScreen() {
   const router = useRouter();
   const colors = useThemeColors();
+  const t = useT();
   const { user, memberships, activeMembership, signOut } = useSession();
   const isMember = Boolean(activeMembership?.memberProfileId);
   const isTrainer = Boolean(activeMembership?.trainerProfileId);
@@ -60,7 +62,7 @@ export default function HesabimScreen() {
         <Text style={[styles.phone, { color: colors.textSecondary }]}>{user?.phone ?? ''}</Text>
       </View>
 
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Üyeliklerim</Text>
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{t('mAccount.memberships.title')}</Text>
       <View style={[styles.membershipsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         {memberships.map((membership) => (
           <View key={membership.id} style={styles.membershipRow}>
@@ -72,11 +74,11 @@ export default function HesabimScreen() {
 
       <View style={styles.menu}>
         {menu.map((item) => (
-          <MenuLink key={item.key} label={item.label} onPress={() => router.push(item.route as never)} />
+          <MenuLink key={item.key} label={t(item.labelKey)} onPress={() => router.push(item.route as never)} />
         ))}
       </View>
 
-      <PrimaryButton label="Çıkış yap" onPress={handleSignOut} loading={isSigningOut} variant="danger" />
+      <PrimaryButton label={t('mAccount.signOut')} onPress={handleSignOut} loading={isSigningOut} variant="danger" />
     </ScreenContainer>
   );
 }

@@ -6,6 +6,7 @@ import { AppState, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { THEME_FONT_ASSETS } from '../src/fonts';
+import { I18nProvider } from '../src/i18n';
 import { SessionProvider } from '../src/lib/session';
 import { ThemeProvider, useTheme } from '../src/theme';
 import { refreshWidgets } from '../src/widgets';
@@ -44,9 +45,11 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <SessionProvider>
-        <ThemeProvider fontsLoaded={fontsLoaded}>
-          <ThemedStack />
-        </ThemeProvider>
+        <I18nProvider>
+          <ThemeProvider fontsLoaded={fontsLoaded}>
+            <ThemedStack />
+          </ThemeProvider>
+        </I18nProvider>
       </SessionProvider>
     </SafeAreaProvider>
   );

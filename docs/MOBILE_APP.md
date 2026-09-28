@@ -90,6 +90,84 @@ birim testli). 768px ve üzeri genişlikte:
 Telefon genişliğinde aynı ekranlar tek panel kalır ve seçim `expo-router` stack push'una döner
 (`hesabim/uyeler/[memberId]`, `hesabim/programim/[scheduleId]`). Yeni bir düzen kütüphanesi eklenmedi.
 
+## Mobil uygulamada dil
+
+Çok dilli destek `apps/mobile/src/i18n/` altında yaşar; anahtarların ve İngilizce/Türkçe metinlerin tek
+doğruluk kaynağı `packages/shared/src/i18n/` (bkz. `packages/shared/src/i18n/locales.ts`,
+`translator.ts`, `messages/index.ts`). Mobil uygulamaya özgü ekran metinleri, çakışmayı önlemek için
+`m` önekli isim alanlarında (namespace) tutulur: `mNav` (sekme başlıkları, stüdyo değiştirici), `mAuth`
+(telefon/OTP/PIN ekranları), `mAccount` (Hesabım menüsü, Görünüm, Dil ekranı). Ortak metinler (Kaydet,
+Vazgeç, hata mesajları vb.) `common.*` isim alanından tekrar kullanılır.
+
+### Dil çözümleme sırası
+
+`I18nProvider` (`app/_layout.tsx`, `SessionProvider` içinde) etkin dili `resolveLocale()` ile şu sırayla
+belirler (`src/i18n/localeResolution.ts` -- `buildLocaleCandidates()`):
+
+1. Oturum açıksa: kullanıcının kendi seçimi (`SessionUserDTO.locale`), ardından aktif stüdyo
+   üyeliğinin varsayılan dili (`MembershipDTO.defaultLocale`), ardından cihaz dilleri
+   (`expo-localization`'ın `getLocales()`'i).
+2. Oturum kapalıyken: cihazda daha önce yerel olarak kaydedilmiş seçim (`storage.ts`,
+   `getStoredLocaleChoice()`), ardından cihaz dilleri.
+3. Hiçbiri etkin diller arasında değilse: Türkçe (`BASE_LOCALE`).
+
+Bölge kodlu bir cihaz dili (ör. `en-GB`) etkin bir `en` diliyle eşleşir (`resolveLocale`'in kendi
+davranışı). Hesabım > Dil ekranından yapılan seçim oturum açıkken `PUT /me/locale` ile sunucuya
+yazılır (`null` = "işletmenin varsayılan dili") ve aynı zamanda cihazda saklanır, böylece bir sonraki
+oturum açılışında da (henüz sunucudan `SessionUserDTO` gelmeden) aynı dil kullanılabilir.
+
+### Mesaj önbellekleme
+
+Ekranlar hiçbir zaman ağ isteğini beklemez: `BUNDLED_MESSAGES[locale]` (`packages/shared`'a gömülü,
+yalnızca `tr` ve `en`) ile hemen render edilir. Ardından `GET /i18n/messages/:locale` çağrılır ve
+sonucu (`messages` + `version`) `AsyncStorage`'da önbelleğe alınır (`storage.ts`); önbellek bulunduğu
+sürece uygulama tamamen çevrimdışı çalışır. Yeniden çekme en fazla 10 dakikada bir yapılır
+(`MESSAGES_REFRESH_INTERVAL_MS`, `localeResolution.ts`), uygulamanın ön plana her geçişinde de bu kural
+kontrol edilir; istek `If-None-Match: <önbellekteki version>` gönderir, 304 dönerse önbellek olduğu
+gibi kalır. `BUNDLED_MESSAGES` içinde olmayan bir dil (CMS'te eklenmiş) için gömülü bir küme yoktur;
+render doğrudan `resolveLocale`'in Türkçe'ye düşüşüyle ve sunucudan gelen çeviriyle yapılır.
+
+Eksik bir anahtar (`onMissing`), yalnızca `__DEV__` derlemede ve anahtar başına bir kez konsola
+loglanır; üretimde sessizce anahtarın kendisi gösterilir (`createTranslator`'ın varsayılan davranışı).
+
+### Yeni metin eklemek
+
+1. Türkçe metni `packages/shared/src/i18n/messages/tr/<mNamespace>.ts` içine ekleyin (anahtar
+   `"<namespace>.<...>"` ile başlamalı).
+2. İngilizcesini aynı anahtarla `packages/shared/src/i18n/messages/en/<mNamespace>.ts` içine ekleyin;
+   tip tanımı eksik bir İngilizce anahtarı derleme hatası yapar.
+3. Yeni bir isim alanıysa `packages/shared/src/i18n/messages/index.ts`'deki `TR_NAMESPACES`/
+   `EN_NAMESPACES` listelerine ekleyin.
+4. Ekranda `useT()` (`apps/mobile/src/i18n`) ile `t('mNamespace.key')` çağırın; `{name}` yer tutucuları
+   ve `count` ile çoğul biçimler (`.one`/`.other`) `packages/shared/src/i18n/translator.ts`'de
+   açıklanan kurallara uyar.
+
+Bu tur; kök/uygulama düzenini, sekme başlıklarını, stüdyo değiştiriciyi, (auth) altındaki tüm ekranları
+(telefon, OTP, PIN girişi, PIN oluşturma), Hesabım menüsünü, Görünüm ekranını, yeni Dil ekranını ve
+`PermissionGate` bileşenini anahtarlara taşıdı. Hesabım altındaki diğer ekranlar (ör. Bordro,
+Faturalarım, Raporlar, Potansiyel üyeler) henüz sabit Türkçe metin içerir; aynı `mAccount` deseniyle
+sonraki bir turda taşınabilir.
+
+Tarih/sayı biçimlendirmesi için sabit kodlanmış `'tr-TR'` yerine `src/i18n/formatting.ts`'deki
+`formatDate`/`formatTime`/`formatDateTime`/`formatNumber`/`formatCurrency` (etkin `locale`'i
+`useLocale()`'den alarak) kullanılmalıdır. Bu tur bu yardımcıları oluşturdu ve birkaç paylaşılan
+bileşeni (`DateTimeField`, `SessionDetail`, `PackageCard`, `MemberCard`) ve ana ekranları
+(Ana sayfa, Seanslar) taşıdı; Hesabım altındaki para/tarih biçimlendiren diğer ekranlarda (Bordro,
+Faturalarım, Ödemelerim, Hakedişim, Raporlar, Şubeler, Bugün, Programım, Riskli üyeler, Potansiyel
+üyeler, Sağlık özeti, Arkadaşını getir, Resepsiyon tarama, Walk-in) hâlâ `'tr-TR'` sabit kodludur;
+metin taşımasıyla aynı sonraki turda ele alınmalıdır.
+
+### Widget'lar ve bildirimler
+
+Ana ekran widget'ları (`src/widgets/`, iOS ve Android) kendi başlıksız arka plan görevlerinde çalışır
+ve uygulamanın React ağacına (dolayısıyla `I18nProvider`'a) erişemez; `src/widgets/format.ts` bu yüzden
+şimdilik sabit Türkçe metin üretmeye devam eder. Bunu doğru şekilde çözmek, widget görev işleyicisinin
+(`android/taskHandler.ts`, iOS tarafı) `AsyncStorage`'daki önbelleklenmiş dil/mesaj kaydını kendi
+başına okuyup küçük bir çevirici kurmasını gerektirir; bu turda kapsam dışı bırakıldı ve burada
+belgelenmiştir. Push bildirimleri sunucudan gelir (`src/lib/push.ts` yalnızca cihaz kaydı yapar,
+bildirim metnini oluşturmaz), bu yüzden yerel olarak planlanmış/biçimlendirilmiş bir bildirim metni
+yoktur.
+
 ## EAS Build
 
 `apps/mobile/eas.json`: `development` (internal dağıtım, dev client), `preview` (internal, Android APK)

@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { PrimaryButton } from './PrimaryButton';
+import { useLocale } from '../i18n';
 import { palette, radii, spacing, typography, useThemeColors } from '../theme';
 
 interface DateTimeFieldProps {
@@ -26,6 +27,7 @@ interface DateTimeFieldProps {
  */
 export function DateTimeField({ label, value, onChange, errorMessage }: DateTimeFieldProps) {
   const colors = useThemeColors();
+  const { locale } = useLocale();
   const [mode, setMode] = useState<'date' | 'time' | null>(null);
   const [draft, setDraft] = useState<Date | null>(null);
 
@@ -65,9 +67,9 @@ export function DateTimeField({ label, value, onChange, errorMessage }: DateTime
   const cancelIos = () => setMode(null);
 
   const dateLabel = current
-    ? current.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' })
+    ? current.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })
     : 'Tarih seç';
-  const timeLabel = current ? current.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : 'Saat seç';
+  const timeLabel = current ? current.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }) : 'Saat seç';
 
   const buttonStyle = [
     styles.button,

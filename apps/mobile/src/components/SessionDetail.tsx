@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useLocale } from '../i18n';
 import { ApiError, apiRequest } from '../lib/api';
 import {
   BOOKING_STATUS_LABEL,
@@ -32,6 +33,7 @@ export function SessionDetail({ scheduleId, hintStartTime, onChanged }: SessionD
   const router = useRouter();
   const colors = useThemeColors();
   const fonts = useThemeFonts();
+  const { locale } = useLocale();
   const { activeMembership } = useSession();
   const studioId = activeMembership?.studioId;
   const permissions = activeMembership?.permissions ?? [];
@@ -101,9 +103,9 @@ export function SessionDetail({ scheduleId, hintStartTime, onChanged }: SessionD
         {schedule.title || schedule.serviceType?.name || 'Seans'}
       </Text>
       <Text style={[styles.subtitle, fonts.body, { color: colors.textSecondary }]}>
-        {start.toLocaleDateString('tr-TR', { weekday: 'long', day: '2-digit', month: 'long' })} ·{' '}
-        {start.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}-
-        {end.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+        {start.toLocaleDateString(locale, { weekday: 'long', day: '2-digit', month: 'long' })} ·{' '}
+        {start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}-
+        {end.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
       </Text>
       {trainerName(schedule.trainer) ? (
         <Text style={[styles.subtitle, fonts.body, { color: colors.textSecondary }]}>
