@@ -341,6 +341,10 @@ export const AttributionReportQuerySchema = z
   .refine((v) => Date.parse(v.from) < Date.parse(v.to), { message: 'Başlangıç bitişten önce olmalı', path: ['from'] });
 export type AttributionReportQuery = z.infer<typeof AttributionReportQuerySchema>;
 
+/** Tenant setting (G2b): replaces the previously hard-coded DEFAULT_ATTRIBUTION_WINDOW_DAYS. */
+export const UpdateAttributionWindowSchema = z.object({ attributionWindowDays: z.number().int().min(1).max(365) }).strict();
+export type UpdateAttributionWindowInput = z.infer<typeof UpdateAttributionWindowSchema>;
+
 /** Placeholder bucket keys for conversions without a matching touch. */
 export const ATTRIBUTION_DIRECT = '(direct)';
 export const ATTRIBUTION_NONE = '(none)';
@@ -351,6 +355,12 @@ export interface AttributionReportRowDTO {
   conversions: Partial<Record<ConversionEventType, number>>;
   /** Credited revenue per ISO 4217 currency, as decimal strings. */
   revenue: Record<string, string>;
+  /** Ad spend matched to this key (G2b), per ISO 4217 currency, as decimal strings. Empty when no AdSpendDaily matched. */
+  spend: Record<string, string>;
+  /** Cost per lead, customer acquisition cost and return on ad spend, per currency; null when there is no spend or no matching conversions in that currency. */
+  cpl: Record<string, number | null>;
+  cac: Record<string, number | null>;
+  roas: Record<string, number | null>;
 }
 
 export interface AttributionReportDTO {
@@ -360,7 +370,14 @@ export interface AttributionReportDTO {
   to: string;
   windowDays: number;
   rows: AttributionReportRowDTO[];
-  totals: { conversions: Partial<Record<ConversionEventType, number>>; revenue: Record<string, string> };
+  totals: {
+    conversions: Partial<Record<ConversionEventType, number>>;
+    revenue: Record<string, string>;
+    spend: Record<string, string>;
+    cpl: Record<string, number | null>;
+    cac: Record<string, number | null>;
+    roas: Record<string, number | null>;
+  };
   /** Touchpoints in the range that came from paid ads without our standard parameters. */
   untaggedPaidTouchpoints: number;
 }
