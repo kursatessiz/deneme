@@ -35,6 +35,11 @@ export const enMAccount: Record<keyof typeof trMAccount, string> = {
   'mAccount.menu.partners': 'Partner platforms',
   'mAccount.menu.videoContent': 'Video content',
   'mAccount.menu.chat': 'Message the studio',
+  'mAccount.menu.contacts': 'Contacts',
+  'mAccount.contacts.search': 'Search name or phone',
+  'mAccount.contacts.empty': 'No contacts found.',
+  'mAccount.contacts.back': 'Back to contacts',
+  'mAccount.contacts.loadError': 'Contacts could not be loaded.',
   'mAccount.menu.inbox': 'Inbox',
 
   'mAccount.appearance.section.theme': 'Theme',

@@ -1,5 +1,7 @@
 # Otomatik Pazarlama ve Yaşam Döngüsü Akışları (W10)
 
+> **Kullanımdan kaldırıldı (G2a).** Kural değerlendiricileri ve çalıştırıcı silindi; altı kural türü akış şablonu, kayıtlı kurallar akış olarak taşınır ve `/automation-rules` akışlar üzerinde bir uyumluluk sarmalayıcısıdır. Güncel tasarım: `docs/KAMPANYA_VE_AKISLAR.md`. Bu belge tarihsel başvuru içindir.
+
 Bu doküman, kiracıların tanımladığı otomasyon kurallarını, bu kuralları
 15 dakikada bir değerlendiren zamanlayıcıyı ve at-most-once (en fazla bir kez)
 teslimat garantisini anlatır. Her gönderim `NotificationsService.send()`
