@@ -625,6 +625,7 @@ model Studio {
   healthDailySummaries  HealthDailySummary[]
   videoContents         VideoContent[]
   videoViews            VideoView[]
+  site                  Site?
 
   @@map("studios")
 }
@@ -735,6 +736,7 @@ model User {
   apiKeysCreated        ApiKey[]                 @relation("ApiKeyCreatedBy")
   partnerGuestOf        PartnerGuest[]
   translationOverridesUpdated TranslationOverride[]
+  pageVersionsPublished PageVersion[]
 
   @@map("users")
 }
@@ -3151,4 +3153,184 @@ model VideoView {
   @@unique([videoContentId, memberId])
   @@index([studioId, videoContentId])
   @@map("video_views")
+}
+
+// ---------------------------------------------------------------------------
+// Page engine (G2c): Site -> Page -> Block, with immutable PageVersion
+// snapshots. See docs/SAYFA_MOTORU.md. The platform tenant has one PLATFORM
+// site; any tenant may create one TENANT site through the same engine.
+// A/B testing lives at the block level (Block.abVariantKey), not as
+// duplicate Page rows, so a slug stays unique per site+locale.
+// ---------------------------------------------------------------------------
+
+enum SiteKind {
+  PLATFORM
+  TENANT
+}
+
+enum PageKind {
+  HOME
+  LANDING
+  CORPORATE
+  LEGAL
+  CUSTOM
+}
+
+enum PageStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum DomainVerificationStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+model Site {
+  id             String   @id @default(uuid()) @db.Uuid
+  studioId       String   @unique @map("studio_id") @db.Uuid
+  kind           SiteKind
+  primaryDomain  String?  @map("primary_domain") @db.VarChar(190)
+  defaultLocale  String   @default("tr") @map("default_locale") @db.VarChar(10)
+  enabledLocales String[] @default(["tr"]) @map("enabled_locales")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  studio  Studio       @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  pages   Page[]
+  domains SiteDomain[]
+
+  @@map("sites")
+}
+
+/// Custom domain a tenant site can be reached on, once verified (docs/SAYFA_MOTORU.md).
+/// Caddy's on-demand TLS "ask" endpoint only approves domains with status VERIFIED.
+model SiteDomain {
+  id                String                    @id @default(uuid()) @db.Uuid
+  siteId            String                    @map("site_id") @db.Uuid
+  domain            String                    @unique @db.VarChar(190)
+  status            DomainVerificationStatus  @default(PENDING)
+  verificationToken String                    @map("verification_token") @db.VarChar(64)
+  verifiedAt        DateTime?                 @map("verified_at")
+  createdAt         DateTime                  @default(now()) @map("created_at")
+  updatedAt         DateTime                  @updatedAt @map("updated_at")
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId])
+  @@map("site_domains")
+}
+
+/// A logical page (one URL family across locales). `status` governs the
+/// whole page; a locale not present in `locales` is unpublished for that
+/// locale even while the page itself is PUBLISHED in others.
+model Page {
+  id            String     @id @default(uuid()) @db.Uuid
+  siteId        String     @map("site_id") @db.Uuid
+  kind          PageKind
+  /// BusinessTypeTemplate.key for a sector landing page; null otherwise.
+  sectorKey     String?    @map("sector_key") @db.VarChar(60)
+  /// Campaign offer slug for /{locale}/{sector}/{offer} variants; null otherwise.
+  offerKey      String?    @map("offer_key") @db.VarChar(60)
+  /// Admin-facing label only; never rendered to visitors.
+  internalLabel String     @map("internal_label") @db.VarChar(150)
+  status        PageStatus @default(DRAFT)
+  publishedAt   DateTime?  @map("published_at")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  site     Site          @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  locales  PageLocale[]
+  blocks   Block[]
+  versions PageVersion[]
+
+  @@index([siteId, status])
+  @@index([siteId, sectorKey, offerKey])
+  @@map("pages")
+}
+
+/// One locale variant of a page: its URL slug and SEO fields. Existence of
+/// a row is what makes that locale servable at all for the page.
+model PageLocale {
+  id              String    @id @default(uuid()) @db.Uuid
+  pageId          String    @map("page_id") @db.Uuid
+  /// Denormalized from Page.siteId so (site, locale, slug) can be unique.
+  siteId          String    @map("site_id") @db.Uuid
+  locale          String    @db.VarChar(10)
+  slug            String    @db.VarChar(160)
+  seoTitle        String?   @map("seo_title") @db.VarChar(200)
+  seoDescription  String?   @map("seo_description") @db.VarChar(400)
+  ogImageUrl      String?   @map("og_image_url") @db.Text
+  /// Legal pages are marked draft until the super admin ticks this
+  /// (docs/SAYFA_MOTORU.md "hukuki onay alındı").
+  legalApproved   Boolean   @default(false) @map("legal_approved")
+  legalApprovedAt DateTime? @map("legal_approved_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@unique([pageId, locale])
+  @@unique([siteId, locale, slug])
+  @@map("page_locales")
+}
+
+/// One typed, per-locale-text content block on a page. `type` is validated
+/// against packages/shared/src/sites/blocks.ts (BLOCK_SCHEMAS) at the API
+/// layer, not a DB enum, so a new block type ships without a migration.
+/// `abVariantKey` null means the block always renders; a non-null key
+/// renders only for visitors assigned that variant (packages/shared/src/sites/ab.ts).
+model Block {
+  id           String   @id @default(uuid()) @db.Uuid
+  pageId       String   @map("page_id") @db.Uuid
+  type         String   @db.VarChar(40)
+  position     Int
+  abVariantKey String?  @map("ab_variant_key") @db.VarChar(40)
+  data         Json     @default("{}")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId, position])
+  @@map("blocks")
+}
+
+/// Immutable snapshot written on every publish; rollback restores a page's
+/// locales and blocks from a chosen version (a new version is then created
+/// for the restored state, so history only ever grows).
+model PageVersion {
+  id                String   @id @default(uuid()) @db.Uuid
+  pageId            String   @map("page_id") @db.Uuid
+  version           Int
+  /// { locales: PageLocaleDTO[], blocks: BlockDTO[] } as published.
+  snapshot          Json
+  publishedAt       DateTime @default(now()) @map("published_at")
+  publishedByUserId String?  @map("published_by_user_id") @db.Uuid
+
+  page            Page  @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  publishedByUser User? @relation(fields: [publishedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([pageId, version])
+  @@map("page_versions")
+}
+
+/// Platform-wide singleton (no studioId: this is the platform's own legal
+/// identity, not tenant data). Editable by super admin only; tenant sites
+/// use the studio's own name/address/phone/email instead.
+model CompanyInfo {
+  id              String   @id @default(uuid())
+  legalName       String   @map("legal_name") @db.VarChar(200)
+  address         String?  @db.Text
+  tradeRegistryNo String?  @map("trade_registry_no") @db.VarChar(60)
+  mersisNo        String?  @map("mersis_no") @db.VarChar(60)
+  taxOffice       String?  @map("tax_office") @db.VarChar(100)
+  taxNumber       String?  @map("tax_number") @db.VarChar(30)
+  email           String?  @db.VarChar(120)
+  phone           String?  @db.VarChar(30)
+  socialLinks     Json     @default("{}") @map("social_links")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("company_info")
 }
