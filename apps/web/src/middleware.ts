@@ -1,10 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { EMBED_ORIGIN_PATTERN, STUDIO_SLUG_PATTERN } from '@platform/shared';
+import { EMBED_ORIGIN_PATTERN, LocaleCodeSchema, STUDIO_SLUG_PATTERN } from '@platform/shared';
+import { PAGE_LOCALE_HEADER } from '@/lib/i18n/constants';
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE, accessTokenCookieOptions, refreshTokenCookieOptions } from '@/lib/bff/cookies';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 /** Server-side API base for the session refresh; same variable the BFF uses. */
 const API_INTERNAL_BASE_URL = process.env.API_INTERNAL_URL || API_BASE_URL;
+/** The same domain the dashboard and the platform's own site are served on. */
+const SITES_BASE_DOMAIN = process.env.SITES_DOMAIN || process.env.WEB_DOMAIN || 'localhost';
+
+/**
+ * Tenant site host routing (docs/SAYFA_MOTORU.md): a request for
+ * `<slug>.<SITES_BASE_DOMAIN>` or a verified custom domain is rewritten to
+ * `tenant-site/<slug>/<path>`, rendered by
+ * `app/tenant-site/[studioSlug]/[locale]/[[...slug]]/page.tsx`. A request
+ * for the base domain itself (or localhost in dev) is untouched: it keeps
+ * serving the dashboard, admin panel and the platform's own site exactly as
+ * before.
+ */
+/** These resolve the host for themselves (see sitemap.xml/robots.txt route handlers), so they are never rewritten. */
+const HOST_AWARE_PATHS = ['/sitemap.xml', '/robots.txt'];
+
+/** Adds PAGE_LOCALE_HEADER for a `/<locale>/...` path; any client-sent value is dropped first. */
+function requestHeadersWithPageLocale(request: NextRequest): Headers {
+  const headers = new Headers(request.headers);
+  headers.delete(PAGE_LOCALE_HEADER);
+  const first = request.nextUrl.pathname.split('/').filter(Boolean)[0];
+  if (first && first !== 'api' && LocaleCodeSchema.safeParse(first).success) headers.set(PAGE_LOCALE_HEADER, first);
+  return headers;
+}
+
+async function tenantSiteRewrite(request: NextRequest): Promise<NextResponse | null> {
+  if (HOST_AWARE_PATHS.includes(request.nextUrl.pathname)) return null;
+  const host = (request.headers.get('host') ?? '').split(':')[0].toLowerCase();
+  if (!host || host === SITES_BASE_DOMAIN || host === 'localhost' || host === '127.0.0.1') return null;
+
+  let studioSlug: string | null = null;
+  if (host.endsWith(`.${SITES_BASE_DOMAIN}`)) {
+    studioSlug = host.slice(0, -`.${SITES_BASE_DOMAIN}`.length);
+  } else {
+    try {
+      const res = await fetch(`${API_INTERNAL_BASE_URL}/public/sites/resolve?host=${encodeURIComponent(host)}`, { signal: AbortSignal.timeout(2000) });
+      if (res.ok) studioSlug = ((await res.json()) as { studioSlug?: string }).studioSlug ?? null;
+    } catch {
+      return null; // API unreachable: fall through to the platform site rather than failing the request.
+    }
+  }
+  if (!studioSlug || !STUDIO_SLUG_PATTERN.test(studioSlug)) return null;
+
+  const url = request.nextUrl.clone();
+  url.pathname = `/tenant-site/${studioSlug}${request.nextUrl.pathname}`;
+  return NextResponse.rewrite(url, { request: { headers: requestHeadersWithPageLocale(request) } });
+}
 
 /** Exchanges the refresh cookie for a new token pair; null when the session is gone. */
 async function refreshSession(refreshToken: string): Promise<{ accessToken: string; refreshToken: string } | null> {
@@ -37,6 +84,8 @@ const AD_PIXEL_SCRIPT_SRC = [
   'https://connect.facebook.net',
   'https://www.googletagmanager.com',
   'https://analytics.tiktok.com',
+  // next dev evaluates modules with eval; production builds never do.
+  ...(process.env.NODE_ENV === 'development' ? ["'unsafe-eval'"] : []),
 ];
 const AD_PIXEL_CONNECT_SRC = [
   "'self'",
@@ -71,9 +120,6 @@ const PROTECTED_PATHS = [
   '/riskli-uyeler',
   '/admin',
 ];
-
-/** Every top-level static route, dashboard or otherwise; anything else at one or two segments is a public studio slug page. */
-const RESERVED_TOP_LEVEL_SEGMENTS = new Set([...PROTECTED_PATHS.map((p) => p.slice(1)), 'giris', 'embed', 'api']);
 
 async function embedCsp(request: NextRequest): Promise<NextResponse> {
   const response = NextResponse.next();
@@ -111,21 +157,11 @@ async function embedCsp(request: NextRequest): Promise<NextResponse> {
  * cheap and only about routing, not authorization.
  */
 export async function middleware(request: NextRequest) {
+  const tenantRewrite = await tenantSiteRewrite(request);
+  if (tenantRewrite) return publicAdsCsp(tenantRewrite);
+
   if (request.nextUrl.pathname.startsWith('/embed/')) {
     return embedCsp(request);
-  }
-
-  // A public studio page (product page, embedded widget host page or
-  // booking page): "/<slug>" or "/<slug>/book", where <slug> is not one of
-  // the reserved static routes above. This is the only place the ad pixel
-  // scripts (loaded client-side, gated on consent) are allowed to run.
-  const segments = request.nextUrl.pathname.split('/').filter(Boolean);
-  if (
-    (segments.length === 1 || (segments.length === 2 && segments[1] === 'book')) &&
-    !RESERVED_TOP_LEVEL_SEGMENTS.has(segments[0]) &&
-    STUDIO_SLUG_PATTERN.test(segments[0])
-  ) {
-    return publicAdsCsp(NextResponse.next());
   }
 
   const isProtected = PROTECTED_PATHS.some(
@@ -150,29 +186,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  // Every other page is public (platform site, booking pages, login): the
+  // only place the ad pixel scripts (loaded client-side, gated on consent)
+  // are allowed to run. BFF and route handlers need no page CSP.
+  if (isProtected || request.nextUrl.pathname.startsWith('/api/')) return NextResponse.next();
+  return publicAdsCsp(NextResponse.next({ request: { headers: requestHeadersWithPageLocale(request) } }));
 }
 
 export const config = {
-  // Keep in sync with PROTECTED_PATHS (Next requires a static literal here).
-  // '/:slug' and '/:slug/book' additionally cover public studio pages, so
-  // publicAdsCsp can run for them (see RESERVED_TOP_LEVEL_SEGMENTS).
   matcher: [
-    '/embed/:path*',
-    '/dashboard/:path*',
-    '/calendar/:path*',
-    '/members/:path*',
-    '/packages/:path*',
-    '/trainers/:path*',
-    '/attendance/:path*',
-    '/ayarlar/:path*',
-    '/finans/:path*',
-    '/raporlar/:path*',
-    '/adaylar/:path*',
-    '/reklam-performansi/:path*',
-    '/riskli-uyeler/:path*',
-    '/admin/:path*',
-    '/:slug',
-    '/:slug/book',
+    // Runs on every request (except static assets) so a tenant subdomain or
+    // custom domain is rewritten whatever path it requests; the protected-path
+    // and embed-CSP checks below still only act on their own paths.
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };

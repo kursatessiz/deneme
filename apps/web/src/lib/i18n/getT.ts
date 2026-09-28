@@ -12,3 +12,14 @@ export async function getT(): Promise<{ t: Translate; locale: string }> {
   const messages = await getLocaleMessages(locale);
   return { t: createTranslator({ locale, messages, fallback: BASE_MESSAGES }), locale };
 }
+
+/**
+ * Same as getT(), but for an explicit locale rather than the request's own.
+ * Used by the page engine's public rendering (apps/web/src/components/sites),
+ * where the text language is the page's own locale (from the URL), not the
+ * viewer's app-locale preference.
+ */
+export async function getTFor(locale: string): Promise<Translate> {
+  const messages = await getLocaleMessages(locale);
+  return createTranslator({ locale, messages, fallback: BASE_MESSAGES });
+}
