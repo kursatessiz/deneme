@@ -20,12 +20,22 @@ export async function fetchPublicPage(studioSlug: string, locale: string, slug: 
 }
 
 export async function fetchSitemapEntries(studioSlug: string): Promise<SitemapPageEntry[]> {
-  const res = await fetch(`${apiInternalBaseUrl()}/public/sites/${encodeURIComponent(studioSlug)}/sitemap-entries`, {
-    next: { revalidate: PAGE_REVALIDATE_SECONDS },
-  });
-  if (!res.ok) return [];
-  const data = (await res.json()) as { items: SitemapPageEntry[] };
-  return data.items;
+  // Called from generateStaticParams at build time, when the API may not be
+  // reachable yet (CI builds the web app before the API is running). A
+  // network failure here must not fail `next build`: on-demand rendering
+  // (revalidate + on-demand ISR triggered by publish) fills these pages in
+  // once the API is up, so falling back to an empty static param set is
+  // safe rather than an outage.
+  try {
+    const res = await fetch(`${apiInternalBaseUrl()}/public/sites/${encodeURIComponent(studioSlug)}/sitemap-entries`, {
+      next: { revalidate: PAGE_REVALIDATE_SECONDS },
+    });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { items: SitemapPageEntry[] };
+    return data.items;
+  } catch {
+    return [];
+  }
 }
 
 export interface ResolvedHost {

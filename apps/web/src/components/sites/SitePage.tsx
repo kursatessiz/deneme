@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { DEFAULT_TENANT_THEME } from '@platform/shared';
 import { fetchPublicPage } from '@/lib/sites/api';
 import { pickPageVariant } from '@/lib/sites/ab';
+import { getTFor } from '@/lib/i18n/getT';
 import { ThemeRoot } from '@/components/theme/ThemeRoot';
 import { PublicTracking } from '@/components/consent/PublicTracking';
 import { BlockRenderer } from './BlockRenderer';
@@ -61,6 +62,7 @@ export async function SitePageView({ studioSlug, isPlatform, locale, slugParts }
 
   const variantKeys = Array.from(new Set(page.blocks.map((b) => b.abVariantKey).filter((v): v is string => !!v))).sort();
   const { variant } = await pickPageVariant(variantKeys);
+  const t = await getTFor(locale);
 
   const origin = siteOrigin(studioSlug, isPlatform);
   const pageUrl = `${origin}${pathFor(locale, slug)}`;
@@ -96,11 +98,11 @@ export async function SitePageView({ studioSlug, isPlatform, locale, slugParts }
               fontWeight: 600,
             }}
           >
-            Taslak: bu metin hukuki incelemeden geçmelidir.
+            {t('sites.legalDraftBanner')}
           </div>
         )}
         <main style={{ flex: 1 }}>
-          <BlockRenderer blocks={page.blocks} locale={locale} defaultLocale={page.defaultLocale} studioSlug={studioSlug} context={page.context} variant={variant} />
+          <BlockRenderer blocks={page.blocks} locale={locale} defaultLocale={page.defaultLocale} studioSlug={studioSlug} context={page.context} variant={variant} t={t} />
         </main>
       </div>
     </ThemeRoot>

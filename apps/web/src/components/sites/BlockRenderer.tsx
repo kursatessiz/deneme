@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { resolveBlockText } from '@platform/shared';
-import type { BlockDTO, PublicPageContext } from '@platform/shared';
+import type { BlockDTO, PublicPageContext, Translate } from '@platform/shared';
 import { formatMoney } from '@/lib/money';
 import { LeadFormBlock } from './LeadFormBlock';
 
@@ -24,6 +24,17 @@ function slugifySectorKey(key: string): string {
 }
 
 /**
+ * The contact/lead_form sections' anchor id, matched to the convention CTA
+ * blocks are authored with per locale (`#iletisim` in Turkish content,
+ * `#contact` otherwise -- see the seed data and the sector landing wizard).
+ * If a page has both a `contact` and a `lead_form` block, both intentionally
+ * share this id so either CTA link lands on whichever comes first.
+ */
+function contactAnchorId(locale: string): string {
+  return locale.startsWith('tr') ? 'iletisim' : 'contact';
+}
+
+/**
  * Renders one page's blocks in order, server side. Only the lead_form block
  * mounts client JS (docs/SAYFA_MOTORU.md: "no client-side JS beyond
  * consent/tracking/forms/AB"). A/B: blocks without `abVariantKey` always
@@ -36,6 +47,7 @@ export function BlockRenderer({
   studioSlug,
   context,
   variant,
+  t,
 }: {
   blocks: readonly BlockDTO[];
   locale: string;
@@ -43,12 +55,13 @@ export function BlockRenderer({
   studioSlug: string;
   context: PublicPageContext;
   variant: string;
+  t: Translate;
 }) {
   const visible = blocks.filter((b) => !b.abVariantKey || b.abVariantKey === variant);
   return (
     <>
       {visible.map((block) => (
-        <div key={block.id}>{renderBlock(block, { locale, defaultLocale, studioSlug, context })}</div>
+        <div key={block.id}>{renderBlock(block, { locale, defaultLocale, studioSlug, context, t })}</div>
       ))}
     </>
   );
@@ -59,6 +72,7 @@ interface RenderCtx {
   defaultLocale: string;
   studioSlug: string;
   context: PublicPageContext;
+  t: Translate;
 }
 
 function text<T>(data: unknown, ctx: RenderCtx): T | null {
@@ -254,13 +268,23 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
       const t = text<{ title?: string; submitLabel?: string; consentText?: string }>(block.data, ctx);
       const cfg = (block.data as { config?: { fields?: string[] } })?.config;
       return (
-        <section style={{ ...container, borderTop: '1px solid var(--color-border)' }} id="iletisim">
+        <section style={{ ...container, borderTop: '1px solid var(--color-border)' }} id={contactAnchorId(ctx.locale)}>
           <LeadFormBlock
             studioSlug={ctx.studioSlug}
             fields={(cfg?.fields as ('fullName' | 'phone' | 'email' | 'interest')[]) ?? ['fullName', 'phone']}
             title={t?.title}
             submitLabel={t?.submitLabel}
             consentText={t?.consentText}
+            i18n={{
+              fullName: ctx.t('sites.leadForm.fullName'),
+              phone: ctx.t('sites.leadForm.phone'),
+              email: ctx.t('sites.leadForm.email'),
+              message: ctx.t('sites.leadForm.message'),
+              defaultConsent: ctx.t('sites.leadForm.defaultConsent'),
+              submit: ctx.t('sites.leadForm.submit'),
+              sent: ctx.t('sites.leadForm.sent'),
+              error: ctx.t('sites.leadForm.error'),
+            }}
           />
         </section>
       );
@@ -272,7 +296,7 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
         <section style={{ ...container, textAlign: 'center' }}>
           {t?.title && <h2 style={heading}>{t.title}</h2>}
           <Link href={`/booking/${ctx.studioSlug}/book`} style={{ ...primaryLink, marginTop: 20 }}>
-            {t?.buttonLabel || 'Randevu al'}
+            {t?.buttonLabel || ctx.t('sites.bookingWidget.defaultButton')}
           </Link>
         </section>
       );
@@ -301,7 +325,7 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
       const cfg = (block.data as { config?: { showAddress?: boolean; showPhone?: boolean; showEmail?: boolean } })?.config;
       const info = ctx.context.companyInfo ?? ctx.context.studioContact;
       return (
-        <section style={{ ...container, textAlign: 'center', borderTop: '1px solid var(--color-border)' }} id="iletisim">
+        <section style={{ ...container, textAlign: 'center', borderTop: '1px solid var(--color-border)' }} id={contactAnchorId(ctx.locale)}>
           {t?.title && <h2 style={heading}>{t.title}</h2>}
           {t?.description && <p style={body}>{t.description}</p>}
           {info && (

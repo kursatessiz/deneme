@@ -13,18 +13,32 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
  * field plus a minimum time-on-page check (the endpoint's own rate limit
  * covers the rest).
  */
+interface LeadFormI18n {
+  fullName: string;
+  phone: string;
+  email: string;
+  message: string;
+  defaultConsent: string;
+  submit: string;
+  sent: string;
+  error: string;
+}
+
 export function LeadFormBlock({
   studioSlug,
   fields,
   title,
   submitLabel,
   consentText,
+  i18n,
 }: {
   studioSlug: string;
   fields: readonly ('fullName' | 'phone' | 'email' | 'interest')[];
   title?: string;
   submitLabel?: string;
   consentText?: string;
+  /** Chrome text in the page's own locale (packages/shared/src/i18n/messages/{tr,en}/sites.ts), passed down from the server component since this form is client-side. */
+  i18n: LeadFormI18n;
 }) {
   const mountedAt = useRef(Date.now());
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
@@ -57,7 +71,7 @@ export function LeadFormBlock({
   if (status === 'sent') {
     return (
       <p role="status" style={{ color: 'var(--color-text-primary)' }}>
-        Teşekkürler, en kısa sürede sizinle iletişime geçeceğiz.
+        {i18n.sent}
       </p>
     );
   }
@@ -79,7 +93,7 @@ export function LeadFormBlock({
         aria-hidden="true"
       />
       <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 14 }}>
-        Ad soyad
+        {i18n.fullName}
         <input
           required
           value={values.fullName}
@@ -88,7 +102,7 @@ export function LeadFormBlock({
         />
       </label>
       <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 14 }}>
-        Telefon
+        {i18n.phone}
         <input
           required
           value={values.phone}
@@ -99,7 +113,7 @@ export function LeadFormBlock({
       </label>
       {fields.includes('email') && (
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 14 }}>
-          E-posta
+          {i18n.email}
           <input
             type="email"
             value={values.email}
@@ -110,7 +124,7 @@ export function LeadFormBlock({
       )}
       {fields.includes('interest') && (
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 14 }}>
-          Mesajınız
+          {i18n.message}
           <textarea
             value={values.interest}
             onChange={(e) => setValues({ ...values, interest: e.target.value })}
@@ -121,11 +135,11 @@ export function LeadFormBlock({
       )}
       <label style={{ display: 'flex', gap: 8, fontSize: 13, alignItems: 'flex-start', color: 'var(--color-text-secondary)' }}>
         <input type="checkbox" required checked={values.consent} onChange={(e) => setValues({ ...values, consent: e.target.checked })} style={{ marginTop: 3 }} />
-        <span>{consentText || 'İletişim bilgilerimin bu işletme tarafından aranmak için kullanılmasına izin veriyorum.'}</span>
+        <span>{consentText || i18n.defaultConsent}</span>
       </label>
       {status === 'error' && (
         <p role="alert" style={{ color: 'var(--color-danger, #b42318)', fontSize: 13 }}>
-          Gönderilemedi, lütfen tekrar deneyin.
+          {i18n.error}
         </p>
       )}
       <button
@@ -141,7 +155,7 @@ export function LeadFormBlock({
           cursor: 'pointer',
         }}
       >
-        {submitLabel || 'Gönder'}
+        {submitLabel || i18n.submit}
       </button>
     </form>
   );

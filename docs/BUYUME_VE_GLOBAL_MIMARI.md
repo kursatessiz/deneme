@@ -129,6 +129,8 @@ Puan defteri (`LoyaltyLedger`): kazanma kuralları (seansa katılım, satın alm
 - **SEO:** sayfa başlığı ve açıklaması, Open Graph, `hreflang`, site haritası, yapılandırılmış veri (Organization, LocalBusiness, FAQPage, Offer), sunucu tarafında render.
 - **Performans:** sayfalar statik üretilir ve önbelleğe alınır; içerik değişince yeniden üretilir.
 
+**Durum (G2c, yapıldı):** `Site`/`Page`/`PageLocale`/`Block`/`PageVersion`/`CompanyInfo` modeli; tipli ve Zod ile doğrulanan bloklar (hero, özellik listesi, sektör kartları, nasıl çalışır, fiyatlar, yorumlar, SSS + `FAQPage` JSON-LD, istatistikler, CTA, form, rezervasyon widget'ı, eğitmenler, iletişim, yasal metin); platform sitesi ve işletme siteleri aynı motorla, `/{dil}/{sektör}/{teklif}` ve `<slug>.<platform-alan-adı>`/özel alan adı yönlendirmesiyle; yalnızca yayınlanan diller render edilir, `hreflang`/canonical/OG/JSON-LD/sitemap/robots; A/B varyantı çerezle sabitlenir; süper admin "Web sitesi" ve kiracı "Web sitem" editörleri (blok düzenleme, sürüm geçmişi + geri alma, sektör açılış sayfası sihirbazı, özel alan adı doğrulama); Caddy on-demand TLS "ask" uç noktası. Kalan: joker (wildcard) sertifika ve tam CMS önizleme deneyimi ileride ele alınabilir. Ayrıntılar: `docs/SAYFA_MOTORU.md`.
+
 ### 3.10 Yapay zeka çekirdeği
 Tek sağlayıcı katmanı (varsayılan Anthropic Claude), şifreli anahtar, model seçimi, kullanım ve maliyet ölçümü, kiracı başına aylık limit. Kullananlar: dil çevirisi, kampanya ve sayfa metni yazımı, gelen kutusu cevap önerisi, kişiye özel geri kazanma mesajı, segment tarifinden kural üretme.
 
@@ -207,7 +209,7 @@ Her madde ayrı PR'dır; her PR kendi e2e testleriyle gelir.
 | G1c | Mesajlaşma motoru: e-posta kanalı (SES), şablonlar, gönderim kontrolleri, izleme, gelen mesajlar ve gelen kutusu | G1a |
 | G2a | Segmentler, kampanyalar, akışlar (otomasyon taşıması) | G1b, G1c |
 | G2b | Reklam entegrasyonu: Meta CAPI, Google Ads dönüşümleri, reklam yapısı ve harcama senkronu, atıf raporları, UTM oluşturucu | G1b |
-| G2c | Sayfa motoru: platform sitesi, sektör ve dil bazlı açılış sayfaları, kurumsal sayfalar, işletme siteleri ve özel alan adı | G1b |
+| G2c | Tamamlandı. Sayfa motoru: platform sitesi, sektör ve dil bazlı açılış sayfaları, kurumsal sayfalar, işletme siteleri ve özel alan adı (`docs/SAYFA_MOTORU.md`) | G1b |
 | G3a | Sadakat puanı | G2a |
 | G3b | Yapay zeka çekirdeği: çeviri, metin yazımı, cevap önerisi | G1c |
 | G3c | Perakende ve stok, atölye/kurs/etkinlik, muhasebe ve Zapier | G1a |

@@ -300,6 +300,13 @@ hook'u kullanır.
   yeniden gönder, test olayı), partner platform bağlantıları
   (`integrations.partners.manage`: listele, oluştur, aç/kapa; kimlik bilgisi
   her zaman yalnızca yazılır, hiçbir uç nokta geri döndürmez).
+- `ayarlar/web-sitem/` -- G2c sayfa motoru, kiracının kendi sitesi
+  (`site.view`/`site.manage`, sahip varsayılan): sayfa listesi, dil bazlı
+  blok editörü, yayınla/yayından kaldır, sürüm geçmişi + geri alma, özel
+  alan adı ekleme ve DNS doğrulama (TXT + CNAME). Süper admin panelinde aynı
+  bileşen (`components/sites/SiteEditor.tsx`), platform sitesi için
+  `/admin/web-sitesi`'nde çalışır (ayrıca sektör açılış sayfası sihirbazı ve
+  şirket bilgisi formu ekler). Ayrıntılar: `docs/SAYFA_MOTORU.md`.
 
 Ortak sunum bileşenleri `apps/web/src/components/settings/ui.tsx`'te (düz
 yüzey + ince çizgi, iç içe kart yok; birincil buton gradyan slotlarından

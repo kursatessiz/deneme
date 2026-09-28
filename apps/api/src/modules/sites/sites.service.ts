@@ -102,8 +102,21 @@ export class SitesService {
     return toDomainDto(updated);
   }
 
-  /** Used by the public "ask" endpoint for Caddy on-demand TLS. */
+  /**
+   * Used by the public "ask" endpoint for Caddy on-demand TLS. Accepts
+   * either a verified custom domain of an active studio, or the platform's
+   * own `<slug>.<SITES_DOMAIN>` subdomain of an active studio's site (the
+   * slug is only ever set through the site creation flow, so this cannot
+   * be used to force certificate issuance for arbitrary hostnames).
+   */
   async isVerifiedActiveDomain(domain: string): Promise<boolean> {
+    const base = sitesBaseDomain();
+    if (domain.endsWith(`.${base}`)) {
+      const slug = domain.slice(0, -(`.${base}`.length));
+      if (!slug) return false;
+      const studio = await this.prisma.studio.findUnique({ where: { slug }, select: { isActive: true, site: { select: { id: true } } } });
+      return !!studio?.isActive && !!studio.site;
+    }
     const row = await this.prisma.siteDomain.findFirst({
       where: { domain, status: 'VERIFIED' },
       include: { site: { include: { studio: { select: { isActive: true } } } } },
