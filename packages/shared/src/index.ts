@@ -19,3 +19,4 @@ export * from './health';
 export * from './video';
 export * from './admin';
 export * from './i18n';
+export * from './growth';
