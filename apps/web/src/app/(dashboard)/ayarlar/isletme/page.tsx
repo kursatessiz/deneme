@@ -6,6 +6,7 @@ import type {
   GamificationSettingsDTO,
   MessageChannelName,
   NotificationSettings,
+  PublicLanguagesDTO,
   UpdateCheckInWindowInput,
 } from '@platform/shared';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
@@ -187,6 +188,45 @@ function CheckInWindowSection() {
             style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)', backgroundColor: 'var(--color-background)', color: 'var(--color-text-primary)' }}
           />
         </label>
+      </div>
+      {saveError && <InlineMessage text={saveError} tone="error" />}
+      {saved && <InlineMessage text="Kaydedildi" tone="success" />}
+      <PrimaryButton onClick={() => save(form)} disabled={saving}>
+        {saving ? 'Kaydediliyor...' : 'Kaydet'}
+      </PrimaryButton>
+    </Section>
+  );
+}
+
+function LocaleSection() {
+  const { activeStudioId } = useDashboardSession();
+  const { data: languages } = useBff<PublicLanguagesDTO>('i18n/languages', null);
+  const { data, loading, error } = useBff<{ defaultLocale: string }>(`studios/${activeStudioId}/locale`, activeStudioId);
+  const { form, setForm, saving, error: saveError, saved, save } = useSave<{ defaultLocale: string }>(
+    activeStudioId,
+    `studios/${activeStudioId}/locale`,
+    data,
+  );
+
+  if (loading) return <LoadingState />;
+  if (error) return <ErrorState message={error} />;
+  if (!form) return null;
+
+  return (
+    <Section title="Varsayılan dil" description="Kendi dilini seçmemiş üye ve personelin göreceği dil">
+      <div className="max-w-xs">
+        <select
+          value={form.defaultLocale}
+          onChange={(e) => setForm({ defaultLocale: e.target.value })}
+          className="w-full px-2 py-1.5 border text-sm"
+          style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)', backgroundColor: 'var(--color-background)', color: 'var(--color-text-primary)' }}
+        >
+          {(languages?.items ?? []).map((l) => (
+            <option key={l.code} value={l.code}>
+              {l.nativeName}
+            </option>
+          ))}
+        </select>
       </div>
       {saveError && <InlineMessage text={saveError} tone="error" />}
       {saved && <InlineMessage text="Kaydedildi" tone="success" />}
@@ -415,6 +455,7 @@ function BusinessSettings() {
     <div className="space-y-6">
       <SettingsHeader title="İşletme" description="İptal politikası, check-in, bildirim, oyunlaştırma ve geri bildirim ayarları" />
       {canCatalog && <CancellationPolicySection />}
+      {canStudio && <LocaleSection />}
       {canStudio && <CheckInWindowSection />}
       {canNotify && <NotificationChannelSection />}
       {canGamify && <GamificationSection />}

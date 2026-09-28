@@ -1,0 +1,20 @@
+/** Staff login page (/giris). */
+export const trAuth = {
+  'auth.login.title': 'Yönetim Paneline Giriş',
+  'auth.login.subtitle': 'İşletmenizi yönetmek için giriş yapın',
+  'auth.login.emailOrPhone': 'E-posta veya telefon',
+  'auth.login.password': 'Şifre',
+  'auth.login.submit': 'Giriş yap',
+  'auth.login.submitting': 'Giriş yapılıyor...',
+  'auth.login.useOtp': 'Telefon ile tek kullanımlık kod isteyin',
+  'auth.login.usePassword': 'Şifre ile giriş yapın',
+  'auth.login.phone': 'Telefon numarası',
+  'auth.login.sendCode': 'Kod gönder',
+  'auth.login.sendingCode': 'Gönderiliyor...',
+  'auth.login.code': 'Doğrulama kodu',
+  'auth.login.verify': 'Doğrula ve giriş yap',
+  'auth.login.verifying': 'Doğrulanıyor...',
+  'auth.login.error.password': 'Giriş yapılamadı',
+  'auth.login.error.otpRequest': 'Kod gönderilemedi',
+  'auth.login.error.otpVerify': 'Kod doğrulanamadı',
+} as const satisfies Record<string, string>;

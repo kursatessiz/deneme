@@ -10,6 +10,7 @@ const LINKS = [
   { href: '/admin/feature-flags', label: 'Özellik Bayrakları' },
   { href: '/admin/sms-packages', label: 'SMS Paketleri' },
   { href: '/admin/content', label: 'Şablon ve Belgeler' },
+  { href: '/admin/i18n', label: 'Diller' },
   { href: '/admin/benchmark', label: 'Karşılaştırma' },
   { href: '/admin/health', label: 'Sistem Sağlığı' },
 ];

@@ -1,4 +1,4 @@
-import type { PermissionKey } from '@platform/shared';
+import type { MessageKey, PermissionKey } from '@platform/shared';
 import {
   AlertTriangle,
   BarChart3,
@@ -16,7 +16,10 @@ import type { ComponentType } from 'react';
 
 export interface NavItem {
   key: string;
+  /** Turkish fallback label, used until the translation loads. */
   label: string;
+  /** Translation key rendered instead of `label` once useT() is available. */
+  labelKey: MessageKey;
   href: string;
   icon: ComponentType<{ className?: string }>;
   /** Any one of these permissions is enough to see the item. Owners always see everything. */
@@ -29,27 +32,50 @@ export interface NavItem {
  * this list, so there is exactly one place that decides what a role sees.
  */
 export const NAV_ITEMS: readonly NavItem[] = [
-  { key: 'dashboard', label: 'Genel Bakış', href: '/dashboard', icon: LayoutDashboard, permissions: [] },
-  { key: 'calendar', label: 'Takvim', href: '/calendar', icon: Calendar, permissions: ['schedule.view'] },
-  { key: 'attendance', label: 'Yoklama', href: '/attendance', icon: CheckSquare, permissions: ['attendance.manage'] },
-  { key: 'members', label: 'Üyeler', href: '/members', icon: Users, permissions: ['members.view'] },
-  { key: 'packages', label: 'Paket Tanımları', href: '/packages', icon: Package, permissions: ['catalog.view'] },
-  { key: 'trainers', label: 'Eğitmenler', href: '/trainers', icon: UserCog, permissions: ['schedule.view'] },
+  { key: 'dashboard', label: 'Genel Bakış', labelKey: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard, permissions: [] },
+  { key: 'calendar', label: 'Takvim', labelKey: 'nav.calendar', href: '/calendar', icon: Calendar, permissions: ['schedule.view'] },
+  {
+    key: 'attendance',
+    label: 'Yoklama',
+    labelKey: 'nav.attendance',
+    href: '/attendance',
+    icon: CheckSquare,
+    permissions: ['attendance.manage'],
+  },
+  { key: 'members', label: 'Üyeler', labelKey: 'nav.members', href: '/members', icon: Users, permissions: ['members.view'] },
+  { key: 'packages', label: 'Paket Tanımları', labelKey: 'nav.packages', href: '/packages', icon: Package, permissions: ['catalog.view'] },
+  { key: 'trainers', label: 'Eğitmenler', labelKey: 'nav.trainers', href: '/trainers', icon: UserCog, permissions: ['schedule.view'] },
 
-  { key: 'finance', label: 'Finans', href: '/finans', icon: Wallet, permissions: ['finance.view', 'finance.manage', 'promotions.manage'] },
+  {
+    key: 'finance',
+    label: 'Finans',
+    labelKey: 'nav.finance',
+    href: '/finans',
+    icon: Wallet,
+    permissions: ['finance.view', 'finance.manage', 'promotions.manage'],
+  },
   {
     key: 'payroll',
     label: 'Hakediş',
+    labelKey: 'nav.payroll',
     href: '/finans/bordro',
     icon: Wallet,
     permissions: ['commissions.view.own', 'commissions.view.all', 'payroll.manage'],
   },
-  { key: 'reports', label: 'Raporlar', href: '/raporlar', icon: BarChart3, permissions: ['reports.view'] },
-  { key: 'leads', label: 'Adaylar', href: '/adaylar', icon: UserPlus, permissions: ['leads.view'] },
-  { key: 'churn', label: 'Riskli Üyeler', href: '/riskli-uyeler', icon: AlertTriangle, permissions: ['reports.view'] },
+  { key: 'reports', label: 'Raporlar', labelKey: 'nav.reports', href: '/raporlar', icon: BarChart3, permissions: ['reports.view'] },
+  { key: 'leads', label: 'Adaylar', labelKey: 'nav.leads', href: '/adaylar', icon: UserPlus, permissions: ['leads.view'] },
+  {
+    key: 'churn',
+    label: 'Riskli Üyeler',
+    labelKey: 'nav.churn',
+    href: '/riskli-uyeler',
+    icon: AlertTriangle,
+    permissions: ['reports.view'],
+  },
   {
     key: 'settings',
     label: 'Ayarlar',
+    labelKey: 'nav.settings',
     href: '/ayarlar',
     icon: Settings,
     permissions: [
