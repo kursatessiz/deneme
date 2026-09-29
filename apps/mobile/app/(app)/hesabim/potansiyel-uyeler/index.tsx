@@ -5,19 +5,22 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, T
 import { LeadStage } from '@platform/shared';
 import type { LeadDTO, LeadListResponseDTO } from '@platform/shared';
 
-import { useLocale } from '../../../../src/i18n';
+import { useLocale, useT } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { useSession } from '../../../../src/lib/session';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../../src/theme';
+import type { Translate } from '@platform/shared';
 
-const STAGES: { key: LeadStage; label: string }[] = [
-  { key: LeadStage.NEW, label: 'Yeni' },
-  { key: LeadStage.CONTACTED, label: 'Görüşüldü' },
-  { key: LeadStage.TRIAL_BOOKED, label: 'Deneme planlandı' },
-  { key: LeadStage.TRIAL_DONE, label: 'Deneme yapıldı' },
-  { key: LeadStage.WON, label: 'Üye oldu' },
-  { key: LeadStage.LOST, label: 'Kaybedildi' },
-];
+function stages(t: Translate): { key: LeadStage; label: string }[] {
+  return [
+    { key: LeadStage.NEW, label: t('mLeads.stage.new') },
+    { key: LeadStage.CONTACTED, label: t('mLeads.stage.contacted') },
+    { key: LeadStage.TRIAL_BOOKED, label: t('mLeads.stage.trialBooked') },
+    { key: LeadStage.TRIAL_DONE, label: t('mLeads.stage.trialDone') },
+    { key: LeadStage.WON, label: t('mLeads.stage.won') },
+    { key: LeadStage.LOST, label: t('mLeads.stage.lost') },
+  ];
+}
 
 /** W11: staff with leads.view browse the lead pipeline by stage. */
 export default function PotansiyelUyelerScreen() {
@@ -25,6 +28,8 @@ export default function PotansiyelUyelerScreen() {
   const { activeMembership } = useSession();
   const { theme } = useTheme();
   const { locale } = useLocale();
+  const t = useT();
+  const STAGES = stages(t);
   const dateLabel = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(locale) : null);
   const fonts = useThemeFonts();
   const c = theme.colors;
@@ -64,7 +69,7 @@ export default function PotansiyelUyelerScreen() {
       );
       setItems(res.items);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Potansiyel üyeler yüklenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mLeads.errors.listLoadFailed'));
     }
   }, [studioId, stage]);
 
@@ -99,7 +104,9 @@ export default function PotansiyelUyelerScreen() {
               key={s.key}
               accessibilityRole="tab"
               accessibilityState={{ selected }}
-              accessibilityLabel={`${s.label}${counts[s.key] !== undefined ? `, ${counts[s.key]} kişi` : ''}`}
+              accessibilityLabel={
+                counts[s.key] !== undefined ? t('mLeads.a11y.stageTabWithCount', { label: s.label, count: counts[s.key] as number }) : s.label
+              }
               onPress={() => setStage(s.key)}
               style={[
                 styles.tab,
@@ -118,7 +125,7 @@ export default function PotansiyelUyelerScreen() {
       {!items && !error ? <ActivityIndicator style={styles.spinner} /> : null}
       {error ? <Text style={{ color: palette.danger }}>{error}</Text> : null}
       {items && items.length === 0 ? (
-        <Text style={[styles.empty, fonts.body, { color: c.textSecondary }]}>Bu aşamada potansiyel üye yok.</Text>
+        <Text style={[styles.empty, fonts.body, { color: c.textSecondary }]}>{t('mLeads.noLeadsInStage')}</Text>
       ) : null}
 
       {items?.map((lead) => {
@@ -127,17 +134,17 @@ export default function PotansiyelUyelerScreen() {
           <Pressable
             key={lead.id}
             accessibilityRole="button"
-            accessibilityLabel={`${lead.fullName} detayını aç`}
+            accessibilityLabel={t('mLeads.a11y.openDetail', { name: lead.fullName })}
             onPress={() => router.push(`/(app)/hesabim/potansiyel-uyeler/${lead.id}`)}
             style={[styles.card, card, theme.family.cardBorder && styles.bordered]}
           >
             <Text style={[styles.name, fonts.display, { color: c.textPrimary }]}>{lead.fullName}</Text>
             <Text style={[styles.meta, fonts.body, { color: c.textSecondary }]}>{lead.phone}</Text>
             {lead.ownerName ? (
-              <Text style={[styles.meta, fonts.body, { color: c.textMuted }]}>Sorumlu: {lead.ownerName}</Text>
+              <Text style={[styles.meta, fonts.body, { color: c.textMuted }]}>{t('mLeads.ownerLabel', { name: lead.ownerName })}</Text>
             ) : null}
             {followUp ? (
-              <Text style={[styles.meta, fonts.body, { color: c.textMuted }]}>Takip: {followUp}</Text>
+              <Text style={[styles.meta, fonts.body, { color: c.textMuted }]}>{t('mLeads.followUpLabel', { date: followUp })}</Text>
             ) : null}
           </Pressable>
         );

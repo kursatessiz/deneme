@@ -1,0 +1,27 @@
+/** Mobile app: Hesabım > Partner platformlar (ClassPass, Urban Sports Club, Wellhub connections). */
+export const trMPartners = {
+  'mPartners.provider.mock': 'Test (Mock)',
+  'mPartners.provider.other': 'Diğer',
+  'mPartners.intro':
+    'ClassPass, Urban Sports Club, Wellhub (Gympass) ve benzeri toplayıcı/pazaryeri platformlarını buradan bağlayın. Kimlik bilgileri yalnızca burada girilir, hiçbir zaman görüntülenmez.',
+  'mPartners.missingCredentials': ' · Kimlik bilgisi eksik',
+  'mPartners.consecutiveFailures': ' · {count} ardışık senkronizasyon hatası',
+  'mPartners.activeLabel': '{label} aktif',
+  'mPartners.spotsPerSession': 'Seans başına kontenjan: {count}',
+  'mPartners.payoutPerVisit': 'Ziyaret başı ödeme: {amount} TRY',
+  'mPartners.newConnection': 'Yeni bağlantı',
+  'mPartners.providerLabel': 'Sağlayıcı',
+  'mPartners.labelField': 'Etiket',
+  'mPartners.labelPlaceholder': 'Örn. ClassPass - Ana şube',
+  'mPartners.webhookSecretLabel': 'Webhook sırrı',
+  'mPartners.webhookSecretPlaceholder': 'Partnerin verdiği webhook imza sırrı',
+  'mPartners.apiKeyLabel': 'API anahtarı (opsiyonel)',
+  'mPartners.spotsPerSessionLabel': 'Seans başına kontenjan',
+  'mPartners.payoutRateLabel': 'Ziyaret başı ödeme (TRY)',
+  'mPartners.saveConnection': 'Bağlantıyı kaydet',
+  'mPartners.addConnection': 'Yeni partner bağlantısı ekle',
+  'mPartners.errors.loadFailed': 'Partner bağlantıları yüklenemedi.',
+  'mPartners.errors.toggleFailed': 'Değişiklik kaydedilemedi, tekrar deneyin.',
+  'mPartners.errors.labelAndSecretRequired': 'Etiket ve webhook sırrı zorunludur.',
+  'mPartners.errors.createFailed': 'Bağlantı oluşturulamadı.',
+} as const satisfies Record<string, string>;

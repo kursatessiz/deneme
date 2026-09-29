@@ -5,7 +5,7 @@ import type { BranchSummaryDTO, PortfolioSummaryDTO } from '@platform/shared';
 
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { formatCurrency, useLocale } from '../../../src/i18n';
+import { formatCurrency, useLocale, useT } from '../../../src/i18n';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
 
 const percent = (v: number) => `%${Math.round(v * 100)}`;
@@ -14,6 +14,7 @@ const percent = (v: number) => `%${Math.round(v * 100)}`;
 export default function SubelerScreen() {
   const { activeMembership, memberships } = useSession();
   const { locale } = useLocale();
+  const t = useT();
   const currency = activeMembership?.currency ?? 'USD';
   const money = (v: string) => formatCurrency(Number(v), locale, currency, { maximumFractionDigits: 0 });
   const { theme } = useTheme();
@@ -37,7 +38,7 @@ export default function SubelerScreen() {
       setRows(summary);
       setPortfolio(all && all.studios.length > 1 ? all : null);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Özet yüklenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mBranchSummary.errors.loadFailed'));
     }
   }, [studioId, memberships.length]);
 
@@ -62,7 +63,7 @@ export default function SubelerScreen() {
         />
       }
     >
-      <Text style={[styles.caption, fonts.body, { color: c.textSecondary }]}>Son 30 gün</Text>
+      <Text style={[styles.caption, fonts.body, { color: c.textSecondary }]}>{t('mBranchSummary.last30Days')}</Text>
       {!rows && !error ? <ActivityIndicator /> : null}
       {error ? <Text style={{ color: palette.danger }}>{error}</Text> : null}
 
@@ -70,27 +71,27 @@ export default function SubelerScreen() {
         <View key={r.branchId ?? 'none'} style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
           <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{r.branchName}</Text>
           <View style={styles.metrics}>
-            <Metric label="Doluluk" value={percent(r.occupancy)} />
-            <Metric label="Seans" value={String(r.sessions)} />
-            <Metric label="Katılım" value={String(r.attended)} />
-            <Metric label="Gelmedi" value={String(r.noShows)} />
-            <Metric label="Gelir" value={money(r.revenue)} />
-            <Metric label="Üye" value={String(r.homeMembers)} />
+            <Metric label={t('mBranchSummary.metric.occupancy')} value={percent(r.occupancy)} />
+            <Metric label={t('mBranchSummary.metric.sessions')} value={String(r.sessions)} />
+            <Metric label={t('mBranchSummary.metric.attended')} value={String(r.attended)} />
+            <Metric label={t('mBranchSummary.metric.noShows')} value={String(r.noShows)} />
+            <Metric label={t('mBranchSummary.metric.revenue')} value={money(r.revenue)} />
+            <Metric label={t('mBranchSummary.metric.members')} value={String(r.homeMembers)} />
           </View>
         </View>
       ))}
 
       {portfolio ? (
         <>
-          <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>Tüm işletmelerim</Text>
+          <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mBranchSummary.allMyBusinesses')}</Text>
           {portfolio.studios.map((s) => (
             <View key={s.studioId} style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
               <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{s.studioName}</Text>
               <View style={styles.metrics}>
-                <Metric label="Şube" value={String(s.branchCount)} />
-                <Metric label="Aktif üye" value={String(s.activeMembers)} />
-                <Metric label="Doluluk" value={percent(s.occupancy)} />
-                <Metric label="Gelir" value={money(s.revenue)} />
+                <Metric label={t('mBranchSummary.metric.branches')} value={String(s.branchCount)} />
+                <Metric label={t('mBranchSummary.metric.activeMembers')} value={String(s.activeMembers)} />
+                <Metric label={t('mBranchSummary.metric.occupancy')} value={percent(s.occupancy)} />
+                <Metric label={t('mBranchSummary.metric.revenue')} value={money(s.revenue)} />
               </View>
             </View>
           ))}

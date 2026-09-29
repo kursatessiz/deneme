@@ -5,7 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, Vi
 import { PermissionGate } from '../../../../src/components/PermissionGate';
 import { ScreenContainer } from '../../../../src/components/ScreenContainer';
 import { SessionDetail } from '../../../../src/components/SessionDetail';
-import { useLocale } from '../../../../src/i18n';
+import { useLocale, useT } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { dayRange, weekRange } from '../../../../src/lib/dateRange';
 import { isTabletWidth } from '../../../../src/lib/layout';
@@ -27,6 +27,7 @@ function ProgramimContent() {
   const colors = useThemeColors();
   const fonts = useThemeFonts();
   const { locale } = useLocale();
+  const t = useT();
   const { width } = useWindowDimensions();
   const isTablet = isTabletWidth(width);
   const { activeMembership } = useSession();
@@ -50,7 +51,7 @@ function ProgramimContent() {
       );
       setSchedules(data);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Seanslar yüklenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mScheduleForm.errors.listLoadFailed'));
     }
   }, [studioId, trainerId, mode]);
 
@@ -82,7 +83,7 @@ function ProgramimContent() {
             ]}
           >
             <Text style={[fonts.bodyStrong, { color: mode === m ? colors.onPrimary : colors.textPrimary }]}>
-              {m === 'day' ? 'Bugün' : 'Bu hafta'}
+              {m === 'day' ? t('mScheduleForm.today') : t('mScheduleForm.thisWeek')}
             </Text>
           </Pressable>
         ))}
@@ -90,7 +91,7 @@ function ProgramimContent() {
       {!schedules && !error ? <ActivityIndicator /> : null}
       {error ? <Text style={[styles.error, { color: palette.danger }]}>{error}</Text> : null}
       {schedules?.length === 0 ? (
-        <Text style={[styles.empty, fonts.body, { color: colors.textSecondary }]}>Bu aralıkta seans yok.</Text>
+        <Text style={[styles.empty, fonts.body, { color: colors.textSecondary }]}>{t('mScheduleForm.noSessionsInRange')}</Text>
       ) : null}
       {schedules?.map((item) => (
         <Pressable
@@ -136,7 +137,7 @@ function ProgramimContent() {
           </ScreenContainer>
         ) : (
           <View style={styles.placeholder}>
-            <Text style={[fonts.body, { color: colors.textSecondary }]}>Bir seans seçin.</Text>
+            <Text style={[fonts.body, { color: colors.textSecondary }]}>{t('mScheduleForm.pickASession')}</Text>
           </View>
         )}
       </View>

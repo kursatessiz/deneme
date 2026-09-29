@@ -5,6 +5,7 @@ import QRCode from 'react-native-qrcode-svg';
 
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
+import { useT } from '../../../src/i18n';
 import { apiRequest, ApiError } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { radii, spacing, typography, useThemeColors } from '../../../src/theme';
@@ -22,6 +23,7 @@ const REFRESH_MS = 45_000;
 export default function QrIleGirisScreen() {
   const router = useRouter();
   const colors = useThemeColors();
+  const t = useT();
   const { activeStudioId } = useSession();
 
   const [payload, setPayload] = useState<DynamicQrResponse | null>(null);
@@ -38,7 +40,7 @@ export default function QrIleGirisScreen() {
       setPayload(res);
       setError(undefined);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'QR kodu alınamadı.');
+      setError(err instanceof ApiError ? err.message : t('mCheckIn.errors.qrFetchFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -52,10 +54,8 @@ export default function QrIleGirisScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={[styles.title, { color: colors.textPrimary }]}>QR ile giriş</Text>
-      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-        Bu kodu resepsiyona veya kiosk cihazına okutun. Kod kendiliğinden yenilenir.
-      </Text>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mCheckIn.qrIleGiris.title')}</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{t('mCheckIn.qrIleGiris.subtitle')}</Text>
 
       <View style={[styles.qrCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         {isLoading ? (
@@ -63,13 +63,13 @@ export default function QrIleGirisScreen() {
         ) : payload ? (
           <QRCode value={payload.token} size={220} backgroundColor={colors.surface} color={colors.textPrimary} />
         ) : (
-          <Text style={[styles.error, { color: colors.textSecondary }]}>{error ?? 'QR kodu alınamadı.'}</Text>
+          <Text style={[styles.error, { color: colors.textSecondary }]}>{error ?? t('mCheckIn.errors.qrFetchFailed')}</Text>
         )}
       </View>
 
       {error && payload ? <Text style={[styles.error, { color: colors.textSecondary }]}>{error}</Text> : null}
 
-      <PrimaryButton label="Stüdyo QR'ını tara" onPress={() => router.push('/(app)/hesabim/studyo-qr-tara')} variant="secondary" />
+      <PrimaryButton label={t('mCheckIn.qrIleGiris.scanStudioQr')} onPress={() => router.push('/(app)/hesabim/studyo-qr-tara')} variant="secondary" />
     </ScreenContainer>
   );
 }

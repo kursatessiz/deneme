@@ -5,6 +5,7 @@ import type { BranchDTO } from '@platform/shared';
 
 import { ChoiceRow } from '../../../src/components/ChoiceRow';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
+import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
@@ -14,6 +15,7 @@ export default function AnaSubeScreen() {
   const { activeMembership, refreshUser } = useSession();
   const { theme } = useTheme();
   const fonts = useThemeFonts();
+  const t = useT();
   const studioId = activeMembership?.studioId;
   const [branches, setBranches] = useState<BranchDTO[] | null>(null);
   const [selected, setSelected] = useState<string | null>(activeMembership?.homeBranchId ?? null);
@@ -23,7 +25,7 @@ export default function AnaSubeScreen() {
     if (!studioId) return;
     apiRequest<BranchDTO[]>(`/branches/studio/${studioId}`)
       .then(setBranches)
-      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Şubeler yüklenemedi.'));
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : t('mBranches.errors.loadFailed')));
   }, [studioId]);
 
   const choose = async (branchId: string | null) => {
@@ -35,15 +37,13 @@ export default function AnaSubeScreen() {
       await refreshUser();
     } catch (e) {
       setSelected(previous);
-      setError(e instanceof ApiError ? e.message : 'Ana şube kaydedilemedi.');
+      setError(e instanceof ApiError ? e.message : t('mBranches.errors.homeBranchSaveFailed'));
     }
   };
 
   return (
     <ScreenContainer>
-      <Text style={[styles.lead, fonts.body, { color: theme.colors.textSecondary }]}>
-        Takvim ve bildirimlerde önce bu şube gösterilir. Diğer şubelerden de rezervasyon yapabilirsiniz.
-      </Text>
+      <Text style={[styles.lead, fonts.body, { color: theme.colors.textSecondary }]}>{t('mBranches.homeBranchLead')}</Text>
       {!branches && !error ? <ActivityIndicator /> : null}
       {branches?.map((b) => (
         <ChoiceRow
@@ -54,7 +54,7 @@ export default function AnaSubeScreen() {
           onPress={() => choose(b.id)}
         />
       ))}
-      {branches ? <ChoiceRow label="Belirtmek istemiyorum" selected={selected === null} onPress={() => choose(null)} /> : null}
+      {branches ? <ChoiceRow label={t('mBranches.noPreference')} selected={selected === null} onPress={() => choose(null)} /> : null}
       {error ? <Text style={[styles.error, { color: palette.danger }]}>{error}</Text> : null}
     </ScreenContainer>
   );

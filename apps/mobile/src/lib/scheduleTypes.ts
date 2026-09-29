@@ -1,3 +1,5 @@
+import type { Translate } from '@platform/shared';
+
 /**
  * Local view types for the staff-facing schedule endpoints
  * (GET /schedules/studio/:studioId and friends), which return a raw,
@@ -64,21 +66,23 @@ export function trainerName(t: ScheduleRow['trainer']): string | null {
   return `${t.membership.user.firstName} ${t.membership.user.lastName}`.trim();
 }
 
-export function bookingMemberName(b: BookingRow): string {
+export function bookingMemberName(b: BookingRow, t: Translate): string {
   const user = b.member?.membership?.user;
   if (user) return `${user.firstName} ${user.lastName}`.trim();
   if (b.partnerConnection) return b.partnerConnection.label || b.partnerConnection.provider;
-  return 'Üye';
+  return t('mBooking.genericMember');
 }
 
-export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
-  CONFIRMED: 'Onaylı',
-  ATTENDED: 'Katıldı',
-  CANCELLED_EARLY: 'İptal',
-  CANCELLED_LATE: 'Geç iptal',
-  NO_SHOW: 'Gelmedi',
-  WAITLIST: 'Bekleme listesi',
-};
+export function bookingStatusLabel(t: Translate): Record<BookingStatus, string> {
+  return {
+    CONFIRMED: t('mBooking.status.confirmed'),
+    ATTENDED: t('mBooking.status.attended'),
+    CANCELLED_EARLY: t('mBooking.status.cancelledEarly'),
+    CANCELLED_LATE: t('mBooking.status.cancelledLate'),
+    NO_SHOW: t('mBooking.status.noShow'),
+    WAITLIST: t('mBooking.status.waitlist'),
+  };
+}
 
 /** Bookings shown in the roster section, excluding the separate waitlist section. */
 export function rosterOf(schedule: ScheduleRow): BookingRow[] {

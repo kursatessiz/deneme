@@ -9,27 +9,32 @@ import { ChoiceRow } from '../../../../src/components/ChoiceRow';
 import { PrimaryButton } from '../../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../../src/components/ScreenContainer';
 import { TextField } from '../../../../src/components/TextField';
-import { useLocale } from '../../../../src/i18n';
+import { useLocale, useT } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { useSession } from '../../../../src/lib/session';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../../src/theme';
+import type { Translate } from '@platform/shared';
 
-const STAGE_LABELS: Record<string, string> = {
-  NEW: 'Yeni',
-  CONTACTED: 'Görüşüldü',
-  TRIAL_BOOKED: 'Deneme planlandı',
-  TRIAL_DONE: 'Deneme yapıldı',
-  WON: 'Üye oldu',
-  LOST: 'Kaybedildi',
-};
+function stageLabels(t: Translate): Record<string, string> {
+  return {
+    NEW: t('mLeads.stage.new'),
+    CONTACTED: t('mLeads.stage.contacted'),
+    TRIAL_BOOKED: t('mLeads.stage.trialBooked'),
+    TRIAL_DONE: t('mLeads.stage.trialDone'),
+    WON: t('mLeads.stage.won'),
+    LOST: t('mLeads.stage.lost'),
+  };
+}
 
-const ACTIVITY_LABELS: Record<string, string> = {
-  NOTE: 'Not',
-  CALL: 'Arama',
-  MESSAGE: 'Mesaj',
-  STAGE_CHANGE: 'Aşama değişikliği',
-  TRIAL_BOOKED: 'Deneme seansı',
-};
+function activityLabels(t: Translate): Record<string, string> {
+  return {
+    NOTE: t('mLeads.activity.note'),
+    CALL: t('mLeads.activity.call'),
+    MESSAGE: t('mLeads.activity.message'),
+    STAGE_CHANGE: t('mLeads.activity.stageChange'),
+    TRIAL_BOOKED: t('mLeads.activity.trialBooked'),
+  };
+}
 
 /** W11 mobile: lead detail with quick actions for staff who have leads.view/manage. */
 export default function LeadDetailScreen() {
@@ -38,6 +43,7 @@ export default function LeadDetailScreen() {
   const { activeMembership } = useSession();
   const { theme } = useTheme();
   const { locale } = useLocale();
+  const t = useT();
   const fonts = useThemeFonts();
   const c = theme.colors;
   const studioId = activeMembership?.studioId;
@@ -57,7 +63,7 @@ export default function LeadDetailScreen() {
       const res = await apiRequest<LeadDetailDTO>(`/leads/${leadId}/studio/${studioId}`, { studioId });
       setLead(res);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Potansiyel üye yüklenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mLeads.errors.detailLoadFailed'));
     }
   }, [studioId, leadId]);
 
@@ -78,7 +84,7 @@ export default function LeadDetailScreen() {
       setNoteBody('');
       await load();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Not eklenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mLeads.errors.noteAddFailed'));
     } finally {
       setBusy(false);
     }
@@ -102,7 +108,7 @@ export default function LeadDetailScreen() {
       setLostReason('');
       await load();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Aşama değiştirilemedi.');
+      setError(e instanceof ApiError ? e.message : t('mLeads.errors.stageChangeFailed'));
     } finally {
       setBusy(false);
     }
@@ -116,7 +122,7 @@ export default function LeadDetailScreen() {
       await apiRequest(`/leads/${leadId}/convert`, { method: 'POST', body: {}, studioId });
       await load();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Üyeliğe dönüştürülemedi.');
+      setError(e instanceof ApiError ? e.message : t('mLeads.errors.convertFailed'));
     } finally {
       setBusy(false);
     }
@@ -136,10 +142,10 @@ export default function LeadDetailScreen() {
   return (
     <ScreenContainer>
       <Text style={[styles.name, fonts.display, { color: c.textPrimary }]}>{lead.fullName}</Text>
-      <Text style={[styles.stage, fonts.bodyStrong, { color: c.primary }]}>{STAGE_LABELS[lead.stage] ?? lead.stage}</Text>
+      <Text style={[styles.stage, fonts.bodyStrong, { color: c.primary }]}>{stageLabels(t)[lead.stage] ?? lead.stage}</Text>
 
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: c.textSecondary }]}>Ara</Text>
+        <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mLeads.call')}</Text>
         {/* Selectable text, not a tel: link: staff dial from their own phone app. */}
         <Text selectable style={[styles.phone, fonts.body, { color: c.textPrimary }]}>
           {lead.phone}
@@ -151,19 +157,19 @@ export default function LeadDetailScreen() {
 
       {canManage && !isClosed ? (
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: c.textSecondary }]}>Not ekle</Text>
-          <TextField label="Not" value={noteBody} onChangeText={setNoteBody} placeholder="Görüşme notu, hatırlatma..." />
-          <PrimaryButton label="Notu kaydet" onPress={addNote} loading={busy} disabled={!noteBody.trim()} />
+          <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mLeads.addNote')}</Text>
+          <TextField label={t('mLeads.noteLabel')} value={noteBody} onChangeText={setNoteBody} placeholder={t('mLeads.notePlaceholder')} />
+          <PrimaryButton label={t('mLeads.saveNote')} onPress={addNote} loading={busy} disabled={!noteBody.trim()} />
         </View>
       ) : null}
 
       {canManage && !isClosed && nextStages.length > 0 ? (
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: c.textSecondary }]}>Aşama değiştir</Text>
+          <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mLeads.changeStage')}</Text>
           {nextStages.map((s) => (
             <ChoiceRow
               key={s}
-              label={STAGE_LABELS[s] ?? s}
+              label={stageLabels(t)[s] ?? s}
               selected={pendingStage === s}
               onPress={() => changeStage(s)}
               disabled={busy}
@@ -172,13 +178,13 @@ export default function LeadDetailScreen() {
           {pendingStage === LeadStage.LOST ? (
             <View style={styles.lostReason}>
               <TextField
-                label="Kayıp nedeni"
+                label={t('mLeads.lostReasonLabel')}
                 value={lostReason}
                 onChangeText={setLostReason}
-                placeholder="Ör: Fiyat uygun bulunmadı"
+                placeholder={t('mLeads.lostReasonPlaceholder')}
               />
               <PrimaryButton
-                label="Kaybedildi olarak işaretle"
+                label={t('mLeads.markLost')}
                 variant="danger"
                 onPress={() => changeStage(LeadStage.LOST)}
                 loading={busy}
@@ -191,24 +197,24 @@ export default function LeadDetailScreen() {
 
       {canManage && !isClosed ? (
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: c.textSecondary }]}>Üyeye dönüştür</Text>
-          <PrimaryButton label="Üyeliğe dönüştür" onPress={convert} loading={busy} />
+          <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mLeads.convertToMemberSection')}</Text>
+          <PrimaryButton label={t('mLeads.convert')} onPress={convert} loading={busy} />
         </View>
       ) : null}
 
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: c.textSecondary }]}>Geçmiş</Text>
+        <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mLeads.history')}</Text>
         {lead.activities.length === 0 ? (
-          <Text style={[styles.meta, fonts.body, { color: c.textMuted }]}>Henüz kayıt yok.</Text>
+          <Text style={[styles.meta, fonts.body, { color: c.textMuted }]}>{t('mLeads.noRecords')}</Text>
         ) : null}
         {lead.activities.map((a) => (
           <View key={a.id} style={[styles.activityRow, { borderColor: c.border }]}>
             <Text style={[styles.activityType, fonts.bodyStrong, { color: c.textPrimary }]}>
-              {ACTIVITY_LABELS[a.type] ?? a.type}
+              {activityLabels(t)[a.type] ?? a.type}
             </Text>
             <Text style={[styles.meta, fonts.body, { color: c.textSecondary }]}>{a.body}</Text>
             <Text style={[styles.activityMeta, fonts.body, { color: c.textMuted }]}>
-              {a.actorName ?? 'Web formu'} · {new Date(a.createdAt).toLocaleString(locale)}
+              {a.actorName ?? t('mLeads.webForm')} · {new Date(a.createdAt).toLocaleString(locale)}
             </Text>
           </View>
         ))}

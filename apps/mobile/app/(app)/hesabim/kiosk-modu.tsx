@@ -6,6 +6,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { TextField } from '../../../src/components/TextField';
+import { useT } from '../../../src/i18n';
 import { apiRequest, ApiError } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { radii, spacing, typography, useThemeColors } from '../../../src/theme';
@@ -32,11 +33,12 @@ interface CreateKioskDeviceResponse {
 export default function KioskModuScreen() {
   const router = useRouter();
   const colors = useThemeColors();
+  const t = useT();
   const { activeStudioId } = useSession();
 
   const [branches, setBranches] = useState<BranchDTO[]>([]);
   const [devices, setDevices] = useState<KioskDeviceDTO[]>([]);
-  const [name, setName] = useState('Resepsiyon Tablet');
+  const [name, setName] = useState(t('mKiosk.defaultDeviceName'));
   const [branchId, setBranchId] = useState<string | null>(null);
   const [pairing, setPairing] = useState<CreateKioskDeviceResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -55,7 +57,7 @@ export default function KioskModuScreen() {
       setDevices(deviceList);
       if (!branchId && branchList[0]) setBranchId(branchList[0].id);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Yüklenemedi.');
+      setError(err instanceof ApiError ? err.message : t('mKiosk.errors.loadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -79,7 +81,7 @@ export default function KioskModuScreen() {
       setPairing(res);
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Cihaz oluşturulamadı.');
+      setError(err instanceof ApiError ? err.message : t('mKiosk.errors.deviceCreateFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -95,28 +97,24 @@ export default function KioskModuScreen() {
       });
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'İptal edilemedi.');
+      setError(err instanceof ApiError ? err.message : t('mKiosk.errors.revokeFailed'));
     }
   };
 
   return (
     <ScreenContainer>
-      <Text style={[styles.title, { color: colors.textPrimary }]}>Kiosk modu</Text>
-      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-        Bir tableti kiosk olarak eşleştirin. Eşleştirme kodu 10 dakika geçerlidir.
-      </Text>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mKiosk.title')}</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{t('mKiosk.pairingSubtitle')}</Text>
 
       {pairing ? (
         <View style={[styles.pairingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.pairingLabel, { color: colors.textSecondary }]}>Eşleştirme kodu</Text>
+          <Text style={[styles.pairingLabel, { color: colors.textSecondary }]}>{t('mKiosk.pairingCodeLabel2')}</Text>
           <Text style={[styles.pairingCode, { color: colors.textPrimary }]}>{pairing.pairingCode}</Text>
-          <Text style={[styles.pairingHint, { color: colors.textMuted }]}>
-            Bu kodu tablette "Kiosk moduna gir" ekranına girin.
-          </Text>
+          <Text style={[styles.pairingHint, { color: colors.textMuted }]}>{t('mKiosk.pairingCodeHint')}</Text>
         </View>
       ) : (
         <>
-          <TextField label="Cihaz adı" value={name} onChangeText={setName} placeholder="Resepsiyon Tablet" />
+          <TextField label={t('mKiosk.deviceNameLabel')} value={name} onChangeText={setName} placeholder={t('mKiosk.defaultDeviceName')} />
           <View style={styles.branchRow}>
             {branches.map((b) => (
               <Pressable
@@ -134,19 +132,19 @@ export default function KioskModuScreen() {
               </Pressable>
             ))}
           </View>
-          <PrimaryButton label="Yeni kiosk oluştur" onPress={() => void createDevice()} loading={isSubmitting} disabled={!branchId} />
+          <PrimaryButton label={t('mKiosk.createNewKiosk')} onPress={() => void createDevice()} loading={isSubmitting} disabled={!branchId} />
         </>
       )}
 
       <PrimaryButton
-        label="Bu cihazı kiosk olarak ayarla"
+        label={t('mKiosk.setThisDeviceAsKiosk')}
         onPress={() => router.push('/kiosk-mode')}
         variant="secondary"
       />
 
       {error ? <Text style={[styles.error, { color: colors.textSecondary }]}>{error}</Text> : null}
 
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Eşleştirilmiş cihazlar</Text>
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{t('mKiosk.pairedDevices')}</Text>
       {isLoading ? (
         <ActivityIndicator color={colors.textPrimary} />
       ) : (
@@ -155,12 +153,12 @@ export default function KioskModuScreen() {
             <View>
               <Text style={[styles.deviceName, { color: colors.textPrimary }]}>{d.name}</Text>
               <Text style={[styles.deviceStatus, { color: colors.textMuted }]}>
-                {d.revokedAt ? 'İptal edildi' : d.isPending ? 'Eşleştirme bekleniyor' : 'Aktif'}
+                {d.revokedAt ? t('mKiosk.device.revoked') : d.isPending ? t('mKiosk.device.pending') : t('mKiosk.device.active')}
               </Text>
             </View>
             {!d.revokedAt ? (
-              <Pressable accessibilityRole="button" accessibilityLabel={`${d.name} iptal et`} onPress={() => void revoke(d.id)}>
-                <Text style={{ color: colors.textSecondary }}>İptal et</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel={t('mKiosk.a11y.revokeDevice', { name: d.name })} onPress={() => void revoke(d.id)}>
+                <Text style={{ color: colors.textSecondary }}>{t('mKiosk.revoke')}</Text>
               </Pressable>
             ) : null}
           </View>

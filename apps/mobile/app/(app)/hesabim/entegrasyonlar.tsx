@@ -8,6 +8,7 @@ import type { ApiKeyScope, WebhookEvent } from '@platform/shared';
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
+import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
@@ -59,6 +60,7 @@ function ScopeToggle({ scope, selected, onToggle }: { scope: ApiKeyScope; select
  */
 export default function EntegrasyonlarScreen() {
   const colors = useThemeColors();
+  const t = useT();
   const { activeMembership } = useSession();
   const studioId = activeMembership?.studioId;
   const canManage = activeMembership?.permissions.includes('integrations.manage') ?? false;
@@ -85,7 +87,7 @@ export default function EntegrasyonlarScreen() {
       setApiKeys(keys);
       setWebhooks(hooks);
     } catch (error) {
-      setLoadError(error instanceof ApiError ? error.message : 'Entegrasyonlar yüklenemedi.');
+      setLoadError(error instanceof ApiError ? error.message : t('mIntegrations.errors.loadFailed'));
     }
   }, [studioId]);
 
@@ -106,7 +108,7 @@ export default function EntegrasyonlarScreen() {
 
   const createKey = async () => {
     if (!studioId || newKeyName.trim().length < 2 || newKeyScopes.size === 0) {
-      setFormError('Anahtar adı ve en az bir yetki alanı gerekli.');
+      setFormError(t('mIntegrations.errors.nameAndScopeRequired'));
       return;
     }
     setCreating(true);
@@ -123,7 +125,7 @@ export default function EntegrasyonlarScreen() {
       setNewKeyScopes(new Set());
       await load();
     } catch (error) {
-      setFormError(error instanceof ApiError ? error.message : 'Anahtar oluşturulamadı.');
+      setFormError(error instanceof ApiError ? error.message : t('mIntegrations.errors.keyCreateFailed'));
     } finally {
       setCreating(false);
     }
@@ -135,7 +137,7 @@ export default function EntegrasyonlarScreen() {
       await apiRequest(`/integrations/api-keys/${id}`, { method: 'DELETE', studioId });
       await load();
     } catch (error) {
-      setLoadError(error instanceof ApiError ? error.message : 'Anahtar iptal edilemedi.');
+      setLoadError(error instanceof ApiError ? error.message : t('mIntegrations.errors.keyRevokeFailed'));
     }
   };
 
@@ -147,25 +149,20 @@ export default function EntegrasyonlarScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={[styles.title, { color: colors.textPrimary }]}>Entegrasyonlar</Text>
-      <Text style={[styles.description, { color: colors.textSecondary }]}>
-        Herkese açık rezervasyon API'sini kullanacak entegrasyonlar için API anahtarı oluşturun ve webhook uç
-        noktalarınızın durumunu görüntüleyin. Ayrıntılar için docs/PUBLIC_API.md dosyasına bakın.
-      </Text>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mIntegrations.title')}</Text>
+      <Text style={[styles.description, { color: colors.textSecondary }]}>{t('mIntegrations.description')}</Text>
 
       {loadError ? <Text style={styles.errorText}>{loadError}</Text> : null}
 
-      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>API anahtarları</Text>
+      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('mIntegrations.apiKeys')}</Text>
 
       {createdSecret ? (
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.primary }]}>
-          <Text style={[styles.secretLabel, { color: colors.textSecondary }]}>
-            Bu anahtar yalnızca şimdi gösterilir, tekrar görüntülenemez.
-          </Text>
+          <Text style={[styles.secretLabel, { color: colors.textSecondary }]}>{t('mIntegrations.secretShownOnceNotice')}</Text>
           <Text style={[styles.secretValue, { color: colors.textPrimary }]} selectable>
             {createdSecret}
           </Text>
-          <PrimaryButton label={copied ? 'Kopyalandı' : 'Anahtarı kopyala'} onPress={copySecret} variant="secondary" />
+          <PrimaryButton label={copied ? t('mIntegrations.copied') : t('mIntegrations.copyKey')} onPress={copySecret} variant="secondary" />
         </View>
       ) : null}
 
@@ -177,13 +174,13 @@ export default function EntegrasyonlarScreen() {
             <View style={{ flex: 1 }}>
               <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{key.name}</Text>
               <Text style={[styles.cardSubtitle, { color: colors.textMuted }]}>
-                pk_live_{key.prefix}_**** · {key.scopes.length} yetki alanı
+                {t('mIntegrations.keyPrefixSuffix', { prefix: key.prefix, count: key.scopes.length })}
               </Text>
-              {key.revokedAt ? <Text style={[styles.badge, { color: palette.danger }]}>İptal edildi</Text> : null}
+              {key.revokedAt ? <Text style={[styles.badge, { color: palette.danger }]}>{t('mIntegrations.revoked')}</Text> : null}
             </View>
             {!key.revokedAt ? (
               <Pressable accessibilityRole="button" onPress={() => revokeKey(key.id)}>
-                <Text style={{ color: palette.danger, fontSize: typography.size.sm }}>İptal et</Text>
+                <Text style={{ color: palette.danger, fontSize: typography.size.sm }}>{t('mIntegrations.revoke')}</Text>
               </Pressable>
             ) : null}
           </View>
@@ -191,11 +188,11 @@ export default function EntegrasyonlarScreen() {
       ))}
 
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Text style={[styles.cardTitle, { color: colors.textPrimary, marginBottom: spacing[2] }]}>Yeni anahtar</Text>
+        <Text style={[styles.cardTitle, { color: colors.textPrimary, marginBottom: spacing[2] }]}>{t('mIntegrations.newKey')}</Text>
         <TextInput
           value={newKeyName}
           onChangeText={setNewKeyName}
-          placeholder="Anahtar adı (ör. Web sitesi widget'ı)"
+          placeholder={t('mIntegrations.keyNamePlaceholder')}
           placeholderTextColor={colors.textMuted}
           style={[styles.input, { borderColor: colors.border, color: colors.textPrimary }]}
         />
@@ -205,29 +202,27 @@ export default function EntegrasyonlarScreen() {
           ))}
         </View>
         {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
-        <PrimaryButton label="Anahtar oluştur" onPress={createKey} loading={creating} />
+        <PrimaryButton label={t('mIntegrations.createKey')} onPress={createKey} loading={creating} />
       </View>
 
-      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Webhook uç noktaları</Text>
+      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('mIntegrations.webhookEndpoints')}</Text>
       {webhooks?.length === 0 ? (
-        <Text style={[styles.description, { color: colors.textSecondary }]}>
-          Henüz webhook uç noktası tanımlanmamış. Webhook eklemek için işletme panelini kullanın.
-        </Text>
+        <Text style={[styles.description, { color: colors.textSecondary }]}>{t('mIntegrations.noWebhooksYet')}</Text>
       ) : null}
       {webhooks?.map((hook) => (
         <View key={hook.id} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={[styles.cardTitle, { color: colors.textPrimary }]} numberOfLines={1}>
             {hook.url}
           </Text>
-          <Text style={[styles.cardSubtitle, { color: colors.textMuted }]}>{hook.events.length} olay</Text>
+          <Text style={[styles.cardSubtitle, { color: colors.textMuted }]}>{t('mIntegrations.eventsCount', { count: hook.events.length })}</Text>
           <Text
             style={[
               styles.badge,
               { color: hook.isActive ? palette.success : palette.danger },
             ]}
           >
-            {hook.isActive ? 'Aktif' : 'Pasif'}
-            {hook.failureCount > 0 ? ` · ${hook.failureCount} ardışık hata` : ''}
+            {hook.isActive ? t('mIntegrations.active') : t('mIntegrations.inactive')}
+            {hook.failureCount > 0 ? t('mIntegrations.consecutiveFailures', { count: hook.failureCount }) : ''}
           </Text>
         </View>
       ))}

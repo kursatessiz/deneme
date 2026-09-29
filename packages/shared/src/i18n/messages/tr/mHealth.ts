@@ -1,0 +1,45 @@
+/** Mobile app: Hesabım > Sağlık entegrasyonu and Sağlık summary screens. */
+export const trMHealth = {
+  'mHealth.errors.settingsLoadFailed': 'Sağlık ayarları yüklenemedi.',
+  'mHealth.errors.consentSaveFailed': 'Onay kaydedilemedi.',
+  'mHealth.errors.consentRequired': 'Önce sağlık verisi paylaşımı için onay vermelisiniz.',
+  'mHealth.errors.settingSaveFailed': 'Ayar kaydedilemedi.',
+  'mHealth.errors.dataDeleteFailed': 'Veriler silinemedi.',
+  'mHealth.lead':
+    'Apple Health veya Health Connect ile katıldığınız seansları ve isterseniz günlük adım, aktif enerji ve dinlenme nabzı verilerinizi bu uygulamayla paylaşabilirsiniz. Sağlık verisi özel nitelikli kişisel veridir: hiçbir şey açık onayınız olmadan paylaşılmaz ve dilediğiniz zaman tamamen silinebilir.',
+  'mHealth.consent.title': 'Onay',
+  'mHealth.consent.granted': 'Sağlık verisi paylaşımı için onayınız var.',
+  'mHealth.consent.notGranted': 'Ayarları açmak için önce sağlık verisi paylaşımı açık rıza metnini onaylamalısınız.',
+  'mHealth.consent.accept': 'Onaylıyorum',
+  'mHealth.writeWorkouts.title': 'Seanslarımı sağlığa yaz',
+  'mHealth.writeWorkouts.description':
+    'Katıldığınız bir seans bittiğinde, seans türü ve süresi (girdiyseniz kalori) cihazınızın sağlık uygulamasına antrenman olarak yazılır. Aynı seans asla iki kez yazılmaz.',
+  'mHealth.readAggregates.title': 'Adım ve nabız verimi oku',
+  'mHealth.readAggregates.description':
+    'Günlük adım, aktif enerji ve dinlenme nabzı özetleriniz yalnızca cihazınızda, "Sağlık" ekranınızda gösterilir.',
+  'mHealth.shareWithStudio.title': 'İşletmeyle paylaş',
+  'mHealth.shareWithStudio.description':
+    'Ayrı bir onay: açarsanız günlük özetleriniz (asla ham veri değil) işletmenizle paylaşılır, eğitmeniniz üye kartınızda eğilimi görebilir. Bu ayar yalnızca "Adım ve nabız verimi oku" açıkken çalışır.',
+  'mHealth.toggleOn': 'Aç',
+  'mHealth.viewHealthScreen': 'Sağlık ekranımı gör',
+  'mHealth.deleteData.title': 'Verilerimi sil',
+  'mHealth.deleteData.description':
+    'Sunucuda saklanan tüm sağlık verileriniz (günlük özetler ve senkronizasyon kayıtları) kalıcı olarak silinir, tüm ayarlar kapatılır ve onayınız geri alınır. Cihazınızın kendi sağlık uygulamasındaki veriler bu işlemden etkilenmez.',
+  'mHealth.deleteData.confirm': 'Emin misiniz? Bu işlem geri alınamaz.',
+  'mHealth.deleteData.confirmYes': 'Evet, verilerimi sil',
+  'mHealth.deleteData.cancel': 'Vazgeç',
+  'mHealth.deleteData.action': 'Verilerimi sil',
+  'mHealth.trend.title': 'Sağlık eğilimi',
+  'mHealth.trend.notShared': 'Üye sağlık verilerini işletmeyle paylaşmayı seçmedi.',
+  'mHealth.trend.noDataYet': 'Henüz veri yok.',
+  'mHealth.trend.avgSteps7Days': 'Ort. adım (7 gün)',
+  'mHealth.trend.lastRestingHeartRate': 'Son dinlenme nabzı',
+  'mHealth.errors.trendLoadFailed': 'Sağlık verisi yüklenemedi.',
+  'mHealth.a11y.lastNDays': 'Son {days} gün',
+  'mHealth.lastNDays': 'Son {days} gün',
+  'mHealth.noDataSharedYet': "Henüz sağlık verisi paylaşılmamış. Hesabım > Sağlık entegrasyonu ekranından açabilirsiniz.",
+  'mHealth.steps': 'Adım',
+  'mHealth.activeEnergyKcal': 'Aktif enerji (kcal)',
+  'mHealth.restingHeartRate': 'Dinlenme nabzı',
+  'mHealth.errors.summariesLoadFailed': 'Sağlık verileri yüklenemedi.',
+} as const satisfies Record<string, string>;

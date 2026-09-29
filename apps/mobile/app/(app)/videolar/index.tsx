@@ -4,13 +4,15 @@ import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'r
 import type { MemberPackageDTO, MemberVideoContentDTO } from '@platform/shared';
 
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
+import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../src/theme';
+import type { Translate } from '@platform/shared';
 
-function formatDuration(seconds: number): string {
+function formatDuration(seconds: number, t: Translate): string {
   const minutes = Math.round(seconds / 60);
-  return `${minutes} dk`;
+  return t('mVideoContent.durationMinutes', { minutes });
 }
 
 /**
@@ -23,6 +25,7 @@ function formatDuration(seconds: number): string {
 export default function VideolarScreen() {
   const colors = useThemeColors();
   const fonts = useThemeFonts();
+  const t = useT();
   const { activeMembership } = useSession();
   const studioId = activeMembership?.studioId;
 
@@ -38,7 +41,7 @@ export default function VideolarScreen() {
       const res = await apiRequest<MemberVideoContentDTO[]>('/video/content/self', { studioId });
       setItems(res);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Videolar yüklenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mVideoContent.errors.memberLoadFailed'));
     }
   }, [studioId]);
 
@@ -84,7 +87,7 @@ export default function VideolarScreen() {
       }
       await load();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Video açılamadı.');
+      setError(e instanceof ApiError ? e.message : t('mVideoContent.errors.openFailed'));
     } finally {
       setStartingId(null);
     }
@@ -96,11 +99,11 @@ export default function VideolarScreen() {
         <View style={styles.filterRow}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Tümü"
+            accessibilityLabel={t('mVideoContent.all')}
             onPress={() => setServiceTypeFilter(null)}
             style={[styles.chip, { borderColor: !serviceTypeFilter ? colors.primary : colors.border, backgroundColor: !serviceTypeFilter ? colors.primary : 'transparent' }]}
           >
-            <Text style={{ color: !serviceTypeFilter ? colors.surface : colors.textPrimary, fontSize: typography.size.xs }}>Tümü</Text>
+            <Text style={{ color: !serviceTypeFilter ? colors.surface : colors.textPrimary, fontSize: typography.size.xs }}>{t('mVideoContent.all')}</Text>
           </Pressable>
           {serviceTypes.map(([id, name]) => (
             <Pressable
@@ -119,7 +122,7 @@ export default function VideolarScreen() {
       {!items && !error ? <ActivityIndicator style={styles.loader} /> : null}
       {error ? <Text style={[styles.message, { color: palette.danger }]}>{error}</Text> : null}
       {items?.length === 0 ? (
-        <Text style={[styles.message, fonts.body, { color: colors.textSecondary }]}>Henüz video içeriği yok.</Text>
+        <Text style={[styles.message, fonts.body, { color: colors.textSecondary }]}>{t('mVideoContent.noVideosYet')}</Text>
       ) : null}
 
       <View style={styles.grid}>
@@ -127,7 +130,7 @@ export default function VideolarScreen() {
           <Pressable
             key={item.id}
             accessibilityRole="button"
-            accessibilityLabel={item.isLocked ? `${item.title}, kilitli: ${item.lockedReason}` : item.title}
+            accessibilityLabel={item.isLocked ? t('mVideoContent.a11y.locked', { title: item.title, reason: item.lockedReason ?? '' }) : item.title}
             disabled={item.isLocked || startingId === item.id}
             onPress={() => handleWatch(item)}
             style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, opacity: item.isLocked ? 0.6 : 1 }]}
@@ -136,17 +139,17 @@ export default function VideolarScreen() {
               {item.title}
             </Text>
             <Text style={[styles.cardMeta, fonts.body, { color: colors.textSecondary }]}>
-              {formatDuration(item.durationSeconds)}
+              {formatDuration(item.durationSeconds, t)}
               {item.serviceTypeName ? ` · ${item.serviceTypeName}` : ''}
             </Text>
             {item.isLocked ? (
               <Text style={[styles.cardLocked, { color: palette.warning }]}>{item.lockedReason}</Text>
             ) : item.lastPositionSeconds ? (
               <Text style={[styles.cardMeta, { color: colors.primary }]}>
-                Kaldığın yer: {formatDuration(item.lastPositionSeconds)}
+                {t('mVideoContent.resumePosition', { position: formatDuration(item.lastPositionSeconds, t) })}
               </Text>
             ) : null}
-            {item.completedAt ? <Text style={[styles.cardMeta, { color: palette.success }]}>Tamamlandı</Text> : null}
+            {item.completedAt ? <Text style={[styles.cardMeta, { color: palette.success }]}>{t('mVideoContent.completed')}</Text> : null}
             {startingId === item.id ? <ActivityIndicator style={styles.cardLoader} /> : null}
           </Pressable>
         ))}

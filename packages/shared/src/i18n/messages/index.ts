@@ -1,10 +1,19 @@
+import { trMApiErrors } from './tr/mApiErrors';
 import { trAdminI18n } from './tr/admin-i18n';
 import { trAdminAi } from './tr/admin-ai';
 import { trAi } from './tr/ai';
 import { trAds } from './tr/ads';
+import { trMAchievements } from './tr/mAchievements';
 import { trAuth } from './tr/auth';
+import { trMAutomations } from './tr/mAutomations';
+import { trMBooking } from './tr/mBooking';
+import { trMBranchSummary } from './tr/mBranchSummary';
+import { trMCheckIn } from './tr/mCheckIn';
+import { trMBranches } from './tr/mBranches';
+import { trMDateTimeField } from './tr/mDateTimeField';
 import { trBooking } from './tr/booking';
 import { trCalendar } from './tr/calendar';
+import { trMCalendarFeed } from './tr/mCalendarFeed';
 import { trCampaigns } from './tr/campaigns';
 import { trChurn } from './tr/churn';
 import { trJourneys } from './tr/journeys';
@@ -14,17 +23,39 @@ import { trConsent } from './tr/consent';
 import { trEmbed } from './tr/embed';
 import { trCrm } from './tr/crm';
 import { trFinance } from './tr/finance';
+import { trMHealth } from './tr/mHealth';
+import { trMInvoices } from './tr/mInvoices';
+import { trMHome } from './tr/mHome';
+import { trMIntegrations } from './tr/mIntegrations';
 import { trLanguage } from './tr/language';
 import { trLayout } from './tr/layout';
 import { trLeads } from './tr/leads';
+import { trMLeads } from './tr/mLeads';
 import { trMessaging } from './tr/messaging';
 import { trMsgTpl } from './tr/msgTpl';
 import { trMMessaging } from './tr/mMessaging';
 import { trMAccount } from './tr/mAccount';
 import { trMembers } from './tr/members';
+import { trMMembersStaff } from './tr/mMembersStaff';
+import { trMMemberCard } from './tr/mMemberCard';
 import { trMAuth } from './tr/mAuth';
+import { trMKiosk } from './tr/mKiosk';
 import { trMNav } from './tr/mNav';
+import { trMNotificationPrefs } from './tr/mNotificationPrefs';
+import { trMPackageCard } from './tr/mPackageCard';
+import { trMPartners } from './tr/mPartners';
+import { trMPayroll } from './tr/mPayroll';
+import { trMReferral } from './tr/mReferral';
+import { trMRating } from './tr/mRating';
+import { trMRiskyMembers } from './tr/mRiskyMembers';
+import { trMPayments } from './tr/mPayments';
+import { trMScheduleForm } from './tr/mScheduleForm';
+import { trMSessionBooking } from './tr/mSessionBooking';
+import { trMTheme } from './tr/mTheme';
 import { trMScreens } from './tr/mScreens';
+import { trMSession } from './tr/mSession';
+import { trMVideoContent } from './tr/mVideoContent';
+import { trMWalkIn } from './tr/mWalkIn';
 import { trMWidgets } from './tr/mWidgets';
 import { trNav } from './tr/nav';
 import { trPackages } from './tr/packages';
@@ -32,13 +63,22 @@ import { trReports } from './tr/reports';
 import { trScreens } from './tr/screens';
 import { trSettings } from './tr/settings';
 import { trSites } from './tr/sites';
+import { enMApiErrors } from './en/mApiErrors';
 import { enAdminI18n } from './en/admin-i18n';
 import { enAdminAi } from './en/admin-ai';
 import { enAi } from './en/ai';
 import { enAds } from './en/ads';
+import { enMAchievements } from './en/mAchievements';
 import { enAuth } from './en/auth';
+import { enMAutomations } from './en/mAutomations';
+import { enMBooking } from './en/mBooking';
+import { enMBranchSummary } from './en/mBranchSummary';
+import { enMCheckIn } from './en/mCheckIn';
+import { enMBranches } from './en/mBranches';
+import { enMDateTimeField } from './en/mDateTimeField';
 import { enBooking } from './en/booking';
 import { enCalendar } from './en/calendar';
+import { enMCalendarFeed } from './en/mCalendarFeed';
 import { enCampaigns } from './en/campaigns';
 import { enChurn } from './en/churn';
 import { enJourneys } from './en/journeys';
@@ -48,17 +88,39 @@ import { enConsent } from './en/consent';
 import { enEmbed } from './en/embed';
 import { enCrm } from './en/crm';
 import { enFinance } from './en/finance';
+import { enMHealth } from './en/mHealth';
+import { enMInvoices } from './en/mInvoices';
+import { enMHome } from './en/mHome';
+import { enMIntegrations } from './en/mIntegrations';
 import { enLanguage } from './en/language';
 import { enLayout } from './en/layout';
 import { enLeads } from './en/leads';
+import { enMLeads } from './en/mLeads';
 import { enMessaging } from './en/messaging';
 import { enMsgTpl } from './en/msgTpl';
 import { enMMessaging } from './en/mMessaging';
 import { enMAccount } from './en/mAccount';
 import { enMembers } from './en/members';
+import { enMMembersStaff } from './en/mMembersStaff';
+import { enMMemberCard } from './en/mMemberCard';
 import { enMAuth } from './en/mAuth';
+import { enMKiosk } from './en/mKiosk';
 import { enMNav } from './en/mNav';
+import { enMNotificationPrefs } from './en/mNotificationPrefs';
+import { enMPackageCard } from './en/mPackageCard';
+import { enMPartners } from './en/mPartners';
+import { enMPayroll } from './en/mPayroll';
+import { enMReferral } from './en/mReferral';
+import { enMRating } from './en/mRating';
+import { enMRiskyMembers } from './en/mRiskyMembers';
+import { enMPayments } from './en/mPayments';
+import { enMScheduleForm } from './en/mScheduleForm';
+import { enMSessionBooking } from './en/mSessionBooking';
+import { enMTheme } from './en/mTheme';
 import { enMScreens } from './en/mScreens';
+import { enMSession } from './en/mSession';
+import { enMVideoContent } from './en/mVideoContent';
+import { enMWalkIn } from './en/mWalkIn';
 import { enMWidgets } from './en/mWidgets';
 import { enNav } from './en/nav';
 import { enPackages } from './en/packages';
@@ -80,13 +142,22 @@ import { enSites } from './en/sites';
  * mobile app; the others to the web app or both.
  */
 export const TR_NAMESPACES = [
+  trMApiErrors,
   trAdminI18n,
   trAdminAi,
   trAi,
   trAds,
+  trMAchievements,
   trAuth,
+  trMAutomations,
+  trMBooking,
+  trMBranches,
+  trMBranchSummary,
+  trMDateTimeField,
+  trMCheckIn,
   trBooking,
   trCalendar,
+  trMCalendarFeed,
   trCampaigns,
   trChurn,
   trJourneys,
@@ -96,17 +167,39 @@ export const TR_NAMESPACES = [
   trCrm,
   trEmbed,
   trFinance,
+  trMHealth,
+  trMHome,
+  trMInvoices,
+  trMIntegrations,
   trLanguage,
   trLayout,
   trLeads,
   trMessaging,
   trMsgTpl,
   trMAccount,
+  trMLeads,
   trMAuth,
+  trMKiosk,
   trMembers,
+  trMMemberCard,
+  trMMembersStaff,
   trMMessaging,
   trMNav,
+  trMNotificationPrefs,
+  trMPackageCard,
+  trMPartners,
+  trMPayments,
+  trMPayroll,
+  trMRating,
+  trMReferral,
+  trMRiskyMembers,
+  trMScheduleForm,
   trMScreens,
+  trMSession,
+  trMSessionBooking,
+  trMTheme,
+  trMVideoContent,
+  trMWalkIn,
   trMWidgets,
   trNav,
   trPackages,
@@ -117,13 +210,22 @@ export const TR_NAMESPACES = [
 ] as const;
 
 export const EN_NAMESPACES = [
+  enMApiErrors,
   enAdminI18n,
   enAdminAi,
   enAi,
   enAds,
+  enMAchievements,
   enAuth,
+  enMAutomations,
+  enMBooking,
+  enMBranches,
+  enMBranchSummary,
+  enMDateTimeField,
+  enMCheckIn,
   enBooking,
   enCalendar,
+  enMCalendarFeed,
   enCampaigns,
   enChurn,
   enJourneys,
@@ -133,17 +235,39 @@ export const EN_NAMESPACES = [
   enCrm,
   enEmbed,
   enFinance,
+  enMHealth,
+  enMHome,
+  enMInvoices,
+  enMIntegrations,
   enLanguage,
   enLayout,
   enLeads,
   enMessaging,
   enMsgTpl,
   enMAccount,
+  enMLeads,
   enMAuth,
+  enMKiosk,
   enMembers,
+  enMMemberCard,
+  enMMembersStaff,
   enMMessaging,
   enMNav,
+  enMNotificationPrefs,
+  enMPackageCard,
+  enMPartners,
+  enMPayments,
+  enMPayroll,
+  enMRating,
+  enMReferral,
+  enMRiskyMembers,
+  enMScheduleForm,
   enMScreens,
+  enMSession,
+  enMSessionBooking,
+  enMTheme,
+  enMVideoContent,
+  enMWalkIn,
   enMWidgets,
   enNav,
   enPackages,

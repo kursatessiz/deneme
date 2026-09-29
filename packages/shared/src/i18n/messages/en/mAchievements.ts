@@ -1,0 +1,27 @@
+import type { trMAchievements } from '../tr/mAchievements';
+
+export const enMAchievements: Record<keyof typeof trMAchievements, string> = {
+  'mAchievements.streak': 'Streak',
+  'mAchievements.currentStreakWeeks': 'Current week streak',
+  'mAchievements.bestStreak': 'Best streak',
+  'mAchievements.totalSessions': 'Total sessions',
+  'mAchievements.thisMonthsGoal': "This month's goal",
+  'mAchievements.goalProgress': '{progress} / {target} sessions',
+  'mAchievements.goalMetSuffix': ' — goal met',
+  'mAchievements.noGoalYet': "You haven't set a goal for this month yet.",
+  'mAchievements.monthlyGoalPlaceholder': 'Monthly goal (sessions)',
+  'mAchievements.a11y.monthlyGoalInput': 'Monthly goal session count',
+  'mAchievements.save': 'Save',
+  'mAchievements.badges': 'Badges',
+  'mAchievements.earned': 'Earned',
+  'mAchievements.noBadgesYet': 'No badges defined yet.',
+  'mAchievements.leaderboard': 'Leaderboard',
+  'mAchievements.a11y.appearOnLeaderboard': 'Appear on the leaderboard',
+  'mAchievements.leaderboardCaption': "If you opt in, your name (with your last name's first letter) appears among this month's most active members.",
+  'mAchievements.youSuffix': ' (you)',
+  'mAchievements.sessionsCount': '{count} sessions',
+  'mAchievements.noRankingYet': 'No ranking yet this month.',
+  'mAchievements.errors.loadFailed': 'Achievements could not be loaded.',
+  'mAchievements.errors.goalSaveFailed': 'Goal could not be saved.',
+  'mAchievements.errors.settingSaveFailed': 'Setting could not be saved.',
+};

@@ -13,4 +13,5 @@ export const enMScreens: Record<keyof typeof trMScreens, string> = {
   'mScreens.inviteNewMember': 'Invite new member',
   'mScreens.addToSession': 'Add to session',
   'mScreens.sellPackage': 'Sell package',
+  'mScreens.healthSummary': 'Health',
 };

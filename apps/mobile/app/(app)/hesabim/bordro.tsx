@@ -6,8 +6,9 @@ import type { PayrollRunDTO } from '@platform/shared';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { formatCurrency, useLocale } from '../../../src/i18n';
+import { formatCurrency, useLocale, useT } from '../../../src/i18n';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import type { Translate } from '@platform/shared';
 
 
 const dateRange = (isoStart: string, isoEnd: string, locale: string) => {
@@ -16,16 +17,20 @@ const dateRange = (isoStart: string, isoEnd: string, locale: string) => {
   return `${fmt.format(new Date(isoStart))} - ${fmt.format(end)}`;
 };
 
-const STATUS_LABEL: Record<PayrollRunDTO['status'], string> = {
-  DRAFT: 'Taslak',
-  APPROVED: 'Onaylandı',
-  PAID: 'Ödendi',
-};
+function statusLabels(t: Translate): Record<PayrollRunDTO['status'], string> {
+  return {
+    DRAFT: t('mPayroll.status.draft'),
+    APPROVED: t('mPayroll.status.approved'),
+    PAID: t('mPayroll.status.paid'),
+  };
+}
 
 /** Owner/reception: payroll runs for the studio, with approve and mark-paid actions (W14). */
 export default function BordroScreen() {
   const { activeMembership } = useSession();
   const { locale } = useLocale();
+  const t = useT();
+  const STATUS_LABEL = statusLabels(t);
   const currency = activeMembership?.currency ?? 'USD';
   const money = (v: string) => formatCurrency(Number(v), locale, currency, { maximumFractionDigits: 2 });
   const { theme } = useTheme();
@@ -46,7 +51,7 @@ export default function BordroScreen() {
       const rows = await apiRequest<PayrollRunDTO[]>(`/payroll/studio/${studioId}/runs`);
       setRuns(rows);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Bordro dönemleri yüklenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mPayroll.errors.loadFailed'));
     }
   }, [studioId]);
 
@@ -61,7 +66,7 @@ export default function BordroScreen() {
       await apiRequest(`/payroll/studio/${studioId}/runs/${runId}/approve`, { method: 'POST' });
       await load();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Bordro onaylanamadı.');
+      setError(e instanceof ApiError ? e.message : t('mPayroll.errors.approveFailed'));
     } finally {
       setBusyRunId(null);
     }
@@ -74,7 +79,7 @@ export default function BordroScreen() {
       await apiRequest(`/payroll/studio/${studioId}/runs/${runId}/mark-paid`, { method: 'POST' });
       await load();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Bordro ödendi olarak işaretlenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mPayroll.errors.markPaidFailed'));
     } finally {
       setBusyRunId(null);
     }
@@ -97,11 +102,11 @@ export default function BordroScreen() {
         />
       }
     >
-      <Text style={[styles.caption, fonts.body, { color: c.textSecondary }]}>Eğitmen hakediş bordro dönemleri.</Text>
+      <Text style={[styles.caption, fonts.body, { color: c.textSecondary }]}>{t('mPayroll.caption')}</Text>
       {!runs && !error ? <ActivityIndicator /> : null}
       {error ? <Text style={{ color: palette.danger }}>{error}</Text> : null}
       {runs && runs.length === 0 ? (
-        <Text style={[styles.empty, fonts.body, { color: c.textMuted }]}>Henüz bir bordro dönemi oluşturulmadı.</Text>
+        <Text style={[styles.empty, fonts.body, { color: c.textMuted }]}>{t('mPayroll.noRunsYet')}</Text>
       ) : null}
 
       {runs?.map((run) => (
@@ -113,11 +118,11 @@ export default function BordroScreen() {
           <Text style={[styles.net, fonts.display, { color: c.textPrimary }]}>{money(run.totalNet)}</Text>
 
           {canManage && run.status === 'DRAFT' ? (
-            <PrimaryButton label="Onayla" onPress={() => approve(run.id)} loading={busyRunId === run.id} />
+            <PrimaryButton label={t('mPayroll.approve')} onPress={() => approve(run.id)} loading={busyRunId === run.id} />
           ) : null}
 
           {canManage && run.status === 'APPROVED' ? (
-            <PrimaryButton label="Ödendi olarak işaretle" onPress={() => markPaid(run.id)} loading={busyRunId === run.id} />
+            <PrimaryButton label={t('mPayroll.markPaid')} onPress={() => markPaid(run.id)} loading={busyRunId === run.id} />
           ) : null}
         </View>
       ))}

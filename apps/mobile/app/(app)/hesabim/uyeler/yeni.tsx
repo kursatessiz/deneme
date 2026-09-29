@@ -8,6 +8,7 @@ import { PermissionGate } from '../../../../src/components/PermissionGate';
 import { PrimaryButton } from '../../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../../src/components/ScreenContainer';
 import { TextField } from '../../../../src/components/TextField';
+import { useT } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { fieldErrorsFromZod } from '../../../../src/lib/formErrors';
 import { useSession } from '../../../../src/lib/session';
@@ -23,6 +24,7 @@ interface InviteResponse {
 
 function YeniUyeContent() {
   const colors = useThemeColors();
+  const t = useT();
   const { activeMembership } = useSession();
   const studioId = activeMembership?.studioId;
 
@@ -53,7 +55,7 @@ function YeniUyeContent() {
       const result = await apiRequest<InviteResponse>('/invites', { method: 'POST', studioId, body: parsed.data });
       setInvite(result);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Davet oluşturulamadı.');
+      setError(e instanceof ApiError ? e.message : t('mMembersStaff.errors.inviteCreateFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -62,27 +64,25 @@ function YeniUyeContent() {
   if (invite) {
     return (
       <ScreenContainer>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Davet oluşturuldu</Text>
-        <Text style={[styles.lead, { color: colors.textSecondary }]}>
-          Üyeye bu QR kodu gösterin, telefonuyla okutup katılabilir. Bağlantı 72 saat geçerlidir.
-        </Text>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mMembersStaff.inviteCreated')}</Text>
+        <Text style={[styles.lead, { color: colors.textSecondary }]}>{t('mMembersStaff.inviteLead')}</Text>
         <View style={[styles.qrWrap, { borderColor: colors.border, backgroundColor: colors.surface }]}>
           <QRCode value={invite.inviteUrl} size={220} />
         </View>
         <Text style={[styles.url, { color: colors.textMuted }]} selectable>
           {invite.inviteUrl}
         </Text>
-        <PrimaryButton label="Yeni bir davet oluştur" onPress={() => setInvite(null)} />
+        <PrimaryButton label={t('mMembersStaff.createNewInvite')} onPress={() => setInvite(null)} />
       </ScreenContainer>
     );
   }
 
   return (
     <ScreenContainer>
-      <Text style={[styles.title, { color: colors.textPrimary }]}>Yeni üye davet et</Text>
-      <TextField label="Ad soyad" value={fullName} onChangeText={setFullName} errorMessage={fieldErrors.fullName} />
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mMembersStaff.inviteNewMember')}</Text>
+      <TextField label={t('mMembersStaff.fullNameLabel')} value={fullName} onChangeText={setFullName} errorMessage={fieldErrors.fullName} />
       <TextField
-        label="Telefon"
+        label={t('mMembersStaff.phoneLabel')}
         value={phone}
         onChangeText={setPhone}
         keyboardType="phone-pad"
@@ -90,7 +90,7 @@ function YeniUyeContent() {
         errorMessage={fieldErrors.phone}
       />
       {error ? <Text style={[styles.error, { color: palette.danger }]}>{error}</Text> : null}
-      <PrimaryButton label="Davet oluştur" onPress={handleSubmit} loading={isSubmitting} />
+      <PrimaryButton label={t('mMembersStaff.createInvite')} onPress={handleSubmit} loading={isSubmitting} />
     </ScreenContainer>
   );
 }

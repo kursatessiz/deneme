@@ -1,0 +1,22 @@
+/** Mobile app: QR check-in screens (member dynamic QR, static studio QR scan, reception member-QR scan). */
+export const trMCheckIn = {
+  'mCheckIn.cameraPermissionRequired': 'Kamera izni gerekli',
+  'mCheckIn.grantPermission': 'İzin ver',
+  'mCheckIn.checkedIn': 'Giriş yapıldı',
+  'mCheckIn.newScan': 'Yeni tarama',
+  'mCheckIn.cancel': 'Vazgeç',
+  'mCheckIn.ok': 'Tamam',
+  'mCheckIn.errors.checkInFailed': 'Check-in yapılamadı.',
+  'mCheckIn.errors.qrFetchFailed': 'QR kodu alınamadı.',
+  'mCheckIn.errors.qrScanFailed': 'QR okunamadı.',
+  'mCheckIn.qrIleGiris.title': 'QR ile giriş',
+  'mCheckIn.qrIleGiris.subtitle': 'Bu kodu resepsiyona veya kiosk cihazına okutun. Kod kendiliğinden yenilenir.',
+  'mCheckIn.qrIleGiris.scanStudioQr': "Stüdyo QR'ını tara",
+  'mCheckIn.studyoQrTara.permissionHint': 'Stüdyo QR kodunu okutmak için kameraya erişim izni verin.',
+  'mCheckIn.studyoQrTara.bookingMarkedCheckedIn': 'Rezervasyonunuz check-in olarak işaretlendi.',
+  'mCheckIn.studyoQrTara.alignQr': 'Stüdyo girişindeki QR kodunu kareye hizalayın.',
+  'mCheckIn.resepsiyonTarama.memberBookingCheckedIn': 'Üyenin rezervasyonu check-in olarak işaretlendi.',
+  'mCheckIn.resepsiyonTarama.todaysBookings': 'Bugünkü rezervasyonlar',
+  'mCheckIn.resepsiyonTarama.multipleBookingsHint': 'Üyenin birden fazla uygun rezervasyonu var, birini seçin.',
+  'mCheckIn.resepsiyonTarama.alignMemberQr': 'Üyenin uygulamasındaki QR kodunu kareye hizalayın.',
+} as const satisfies Record<string, string>;

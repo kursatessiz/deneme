@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 
+import { resolveOfflineTranslate } from '../i18n/offlineTranslate';
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from './tokenStore';
 
 const DEFAULT_API_URL = 'http://localhost:4000';
@@ -93,7 +94,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
-    throw new ApiError(0, 'Sunucuya bağlanılamadı. Bağlantınızı kontrol edip tekrar deneyin.');
+    const t = await resolveOfflineTranslate();
+    throw new ApiError(0, t('mApiErrors.networkUnreachable'));
   }
 
   if (response.status === 401 && auth && !isRetry) {
@@ -102,11 +104,13 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       return apiRequest<T>(path, { ...options, isRetry: true });
     }
     await clearTokens();
-    throw new ApiError(401, 'Oturum süresi doldu, lütfen tekrar giriş yapın.');
+    const t = await resolveOfflineTranslate();
+    throw new ApiError(401, t('mApiErrors.sessionExpired'));
   }
 
   if (response.status === 429) {
-    throw new ApiError(429, 'Çok fazla deneme yapıldı. Lütfen bir süre sonra tekrar deneyin.');
+    const t = await resolveOfflineTranslate();
+    throw new ApiError(429, t('mApiErrors.tooManyAttempts'));
   }
 
   if (response.status === 204) {
@@ -125,7 +129,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   if (!response.ok) {
     const errorBody = payload as { message?: string; errors?: ApiFieldError[] } | null;
-    throw new ApiError(response.status, errorBody?.message ?? 'Beklenmeyen bir hata oluştu.', errorBody?.errors);
+    const message = errorBody?.message ?? (await resolveOfflineTranslate())('mApiErrors.unexpectedError');
+    throw new ApiError(response.status, message, errorBody?.errors);
   }
 
   return payload as T;

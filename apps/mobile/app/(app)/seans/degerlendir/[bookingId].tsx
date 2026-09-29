@@ -6,13 +6,12 @@ import type { RateBookingResultDTO } from '@platform/shared';
 
 import { PrimaryButton } from '../../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../../src/components/ScreenContainer';
+import { useT } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { useSession } from '../../../../src/lib/session';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../../src/theme';
 
 const SCORE_SIZE = 56; // >= 44pt touch target
-
-const SCORE_LABELS = ['Çok kötü', 'Kötü', 'Orta', 'İyi', 'Harika'];
 
 /** Post-class rating screen: five large score targets and an optional comment. */
 export default function RateSessionScreen() {
@@ -21,6 +20,14 @@ export default function RateSessionScreen() {
   const { activeMembership } = useSession();
   const { theme } = useTheme();
   const fonts = useThemeFonts();
+  const t = useT();
+  const SCORE_LABELS = [
+    t('mRating.score.veryBad'),
+    t('mRating.score.bad'),
+    t('mRating.score.average'),
+    t('mRating.score.good'),
+    t('mRating.score.great'),
+  ];
   const c = theme.colors;
   const studioId = activeMembership?.studioId;
 
@@ -41,7 +48,7 @@ export default function RateSessionScreen() {
       });
       setResult(res);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Değerlendirme gönderilemedi.');
+      setError(e instanceof ApiError ? e.message : t('mRating.errors.submitFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -51,36 +58,32 @@ export default function RateSessionScreen() {
     try {
       await Linking.openURL(url);
     } catch {
-      Alert.alert('Bağlantı açılamadı', 'Google yorum sayfası açılamadı.');
+      Alert.alert(t('mRating.linkOpenFailedTitle'), t('mRating.linkOpenFailedBody'));
     }
   };
 
   if (result) {
     return (
       <ScreenContainer>
-        <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>Teşekkürler!</Text>
-        <Text style={[styles.subtitle, fonts.body, { color: c.textSecondary }]}>Değerlendirmeniz kaydedildi.</Text>
+        <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mRating.thankYou')}</Text>
+        <Text style={[styles.subtitle, fonts.body, { color: c.textSecondary }]}>{t('mRating.ratingSaved')}</Text>
 
         {result.reviewPrompt ? (
           <View style={[styles.reviewCard, { backgroundColor: c.surface, borderColor: c.border, borderRadius: theme.family.radii.card }]}>
-            <Text style={[styles.reviewTitle, fonts.bodyStrong, { color: c.textPrimary }]}>
-              Deneyiminizi başkalarıyla da paylaşmak ister misiniz?
-            </Text>
-            <Text style={[styles.reviewSubtitle, fonts.body, { color: c.textSecondary }]}>
-              İsterseniz Google üzerinden kısa bir yorum bırakabilirsiniz. Tamamen isteğe bağlıdır.
-            </Text>
-            <PrimaryButton label="Google'da yorum bırak" onPress={() => openGoogleReview(result.reviewPrompt!.googleReviewUrl)} variant="secondary" />
+            <Text style={[styles.reviewTitle, fonts.bodyStrong, { color: c.textPrimary }]}>{t('mRating.shareExperiencePrompt')}</Text>
+            <Text style={[styles.reviewSubtitle, fonts.body, { color: c.textSecondary }]}>{t('mRating.googleReviewHint')}</Text>
+            <PrimaryButton label={t('mRating.leaveGoogleReview')} onPress={() => openGoogleReview(result.reviewPrompt!.googleReviewUrl)} variant="secondary" />
           </View>
         ) : null}
 
-        <PrimaryButton label="Bitti" onPress={() => router.back()} />
+        <PrimaryButton label={t('mRating.done')} onPress={() => router.back()} />
       </ScreenContainer>
     );
   }
 
   return (
     <ScreenContainer>
-      <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>Seansını nasıl buldun?</Text>
+      <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mRating.howWasYourSession')}</Text>
 
       <View style={styles.scoreRow}>
         {[1, 2, 3, 4, 5].map((value) => {
@@ -89,7 +92,7 @@ export default function RateSessionScreen() {
             <Pressable
               key={value}
               accessibilityRole="button"
-              accessibilityLabel={`${value} yıldız: ${SCORE_LABELS[value - 1]}`}
+              accessibilityLabel={t('mRating.a11y.starRating', { value, label: SCORE_LABELS[value - 1] })}
               accessibilityState={{ selected }}
               onPress={() => setScore(value)}
               style={[
@@ -110,11 +113,11 @@ export default function RateSessionScreen() {
         <Text style={[styles.scoreLabel, fonts.body, { color: c.textSecondary }]}>{SCORE_LABELS[score - 1]}</Text>
       ) : null}
 
-      <Text style={[styles.fieldLabel, fonts.bodyStrong, { color: c.textPrimary }]}>Yorum (opsiyonel)</Text>
+      <Text style={[styles.fieldLabel, fonts.bodyStrong, { color: c.textPrimary }]}>{t('mRating.commentLabel')}</Text>
       <TextInput
         value={comment}
         onChangeText={setComment}
-        placeholder="Deneyiminizi anlatın..."
+        placeholder={t('mRating.commentPlaceholder')}
         placeholderTextColor={c.textMuted}
         multiline
         maxLength={1000}
@@ -123,7 +126,7 @@ export default function RateSessionScreen() {
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      <PrimaryButton label="Gönder" onPress={submit} disabled={score === null} loading={submitting} />
+      <PrimaryButton label={t('mRating.send')} onPress={submit} disabled={score === null} loading={submitting} />
     </ScreenContainer>
   );
 }
