@@ -44,6 +44,13 @@ describe('inbox navigation', () => {
   });
 });
 
+describe('events navigation', () => {
+  it('events.view unlocks the events page; a trainer without it does not see it', () => {
+    expect(filterNavByPermissions(NAV_ITEMS, ['events.view', 'events.checkin'], false).map((i) => i.key)).toContain('events');
+    expect(filterNavByPermissions(NAV_ITEMS, ['schedule.view', 'attendance.manage'], false).map((i) => i.key)).not.toContain('events');
+  });
+});
+
 describe('hasAnyPermission', () => {
   it('an item with no required permissions is always visible', () => {
     expect(hasAnyPermission([], [], false)).toBe(true);
