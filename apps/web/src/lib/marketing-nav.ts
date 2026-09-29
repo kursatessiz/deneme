@@ -26,6 +26,7 @@ export const MARKETING_NAV_ITEMS: readonly MarketingNavItem[] = [
   { key: 'templates', labelKey: 'marketing.nav.templates', href: '/pazarlama/sablonlar', permissions: ['platform.marketing.manage'] },
   { key: 'site', labelKey: 'marketing.nav.site', href: '/pazarlama/site', permissions: ['platform.marketing.manage'] },
   { key: 'ads', labelKey: 'marketing.nav.ads', href: '/pazarlama/reklam', permissions: ['platform.ads.view'] },
+  { key: 'social', labelKey: 'marketing.nav.social', href: '/pazarlama/sosyal', permissions: ['platform.marketing.view'] },
   { key: 'reports', labelKey: 'marketing.nav.reports', href: '/pazarlama/raporlar', permissions: ['platform.marketing.view'] },
   { key: 'integrations', labelKey: 'marketing.nav.integrations', href: '/pazarlama/entegrasyonlar', permissions: ['platform.integrations.manage'] },
   { key: 'brand', labelKey: 'marketing.nav.brand', href: '/pazarlama/marka', permissions: ['platform.brand.manage', 'platform.marketing.view'] },

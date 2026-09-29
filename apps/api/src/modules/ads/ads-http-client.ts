@@ -1,11 +1,22 @@
 import { Injectable } from '@nestjs/common';
-import { AD_PLATFORM_ALLOWED_HOSTS } from '@platform/shared';
-import type { AdConnectionPlatform } from '@platform/shared';
+import { AD_PLATFORM_ALLOWED_HOSTS, SOCIAL_PROVIDER_ALLOWED_HOSTS } from '@platform/shared';
+import type { AdConnectionPlatform, SocialProvider } from '@platform/shared';
+
+/** Which allow-list applies: an ad platform (conversions, spend) or a social provider (organic publishing, M4b). */
+export type OutboundScope = AdConnectionPlatform | SocialProvider;
 
 export interface AdsHttpResponse {
   ok: boolean;
   status: number;
   body: unknown;
+  /** Response headers, lower-cased names (LinkedIn returns the new post id in x-restli-id). Absent in older test doubles. */
+  headers?: Readonly<Record<string, string>>;
+}
+
+/** The fixed hosts of a scope; a name in neither list has none. */
+function allowedHostsOf(scope: OutboundScope): readonly string[] {
+  if (Object.prototype.hasOwnProperty.call(AD_PLATFORM_ALLOWED_HOSTS, scope)) return AD_PLATFORM_ALLOWED_HOSTS[scope as AdConnectionPlatform];
+  return SOCIAL_PROVIDER_ALLOWED_HOSTS[scope as SocialProvider] ?? [];
 }
 
 /**
@@ -18,19 +29,19 @@ export interface AdsHttpResponse {
 export class AdsHttpClient {
   private readonly timeoutMs = 8000;
 
-  async postJson(platform: AdConnectionPlatform, url: string, headers: Record<string, string>, body: unknown): Promise<AdsHttpResponse> {
+  async postJson(platform: OutboundScope, url: string, headers: Record<string, string>, body: unknown): Promise<AdsHttpResponse> {
     this.assertAllowedHost(platform, url);
     return this.send(url, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
   }
 
-  async getJson(platform: AdConnectionPlatform, url: string, headers: Record<string, string>): Promise<AdsHttpResponse> {
+  async getJson(platform: OutboundScope, url: string, headers: Record<string, string>): Promise<AdsHttpResponse> {
     this.assertAllowedHost(platform, url);
     return this.send(url, { method: 'GET', headers });
   }
 
-  private assertAllowedHost(platform: AdConnectionPlatform, url: string): void {
+  private assertAllowedHost(platform: OutboundScope, url: string): void {
     const host = new URL(url).hostname;
-    if (!AD_PLATFORM_ALLOWED_HOSTS[platform].includes(host)) {
+    if (!allowedHostsOf(platform).includes(host)) {
       throw new Error(`Reklam platformu için izin verilmeyen host: ${host}`);
     }
   }
@@ -47,7 +58,11 @@ export class AdsHttpClient {
       } catch {
         json = text;
       }
-      return { ok: res.ok, status: res.status, body: json };
+      const headers: Record<string, string> = {};
+      res.headers.forEach((value, key) => {
+        headers[key.toLowerCase()] = value;
+      });
+      return { ok: res.ok, status: res.status, body: json, headers };
     } finally {
       clearTimeout(timer);
     }

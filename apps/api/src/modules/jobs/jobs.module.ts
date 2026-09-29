@@ -14,6 +14,7 @@ import { AiModule } from '../ai/ai.module';
 import { PlatformMarketingModule } from '../platform-marketing/platform-marketing.module';
 import { LoyaltyModule } from '../loyalty/loyalty.module';
 import { EventsModule } from '../events/events.module';
+import { SocialModule } from '../social/social.module';
 import { JobsService } from './jobs.service';
 import { SchedulerController } from './scheduler.controller';
 import { SchedulerProcessor } from './scheduler.processor';
@@ -49,6 +50,7 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
     PlatformMarketingModule,
     LoyaltyModule,
     EventsModule,
+    SocialModule,
     BillingModule,
     PayoutsModule,
     BackupsModule,

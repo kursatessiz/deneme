@@ -137,4 +137,6 @@ export const trMarketingApprovals = {
   'marketingApprovals.error.APPROVAL_FOUR_EYES': 'Kendi talebinizi onaylayamazsınız.',
   'marketingApprovals.error.APPROVAL_CONTENT_CHANGED': 'Kampanya talepten sonra değişti; yeni bir onay talebi açıldı.',
   'marketingApprovals.error.APPROVAL_CANCEL_FORBIDDEN': 'Talebi yalnızca talep eden veya süper admin geri çekebilir.',
+  'marketingApprovals.reason.SOCIAL_APPROVAL_REQUIRED_SETTING': 'Ayar gereği tüm sosyal gönderiler onay ister',
+  'marketingApprovals.reason.SOCIAL_BRAND_CHECK_BLOCKING': 'Marka kontrolünde engelleyici sorun var',
 } as const satisfies Record<string, string>;

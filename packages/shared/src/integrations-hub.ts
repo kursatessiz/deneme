@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { HubSocialConnectionDTO } from './marketing/social';
 
 /**
  * Platform integrations hub (docs/PAZARLAMA_MODULU.md 5.1): one summary of
@@ -118,6 +119,8 @@ export interface HubPlatformCardDTO {
 export interface IntegrationHubDTO {
   platformStudioId: string;
   adConnections: HubAdConnectionDTO[];
+  /** M4b: connected social accounts (organic publishing), credentials masked. */
+  socialConnections: HubSocialConnectionDTO[];
   apiKeys: HubApiKeyDTO[];
   webhooks: HubWebhookDTO[];
   messaging: HubMessagingChannelDTO[];

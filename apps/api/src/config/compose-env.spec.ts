@@ -18,6 +18,7 @@ const ENV_EXAMPLE = readFileSync(join(REPO_ROOT, '.env.example'), 'utf8');
 const API_INTENTIONALLY_NOT_PASSED: Record<string, string> = {
   OTP_TEST_CODE: 'test only; env validation rejects it outside NODE_ENV=test',
   AI_FAKE_PROVIDER: 'test only (web e2e); env validation refuses it in production',
+  SOCIAL_FAKE_PROVIDER: 'test only (social publishing e2e); env validation refuses it in production',
   PATH: 'inherited from the image; read by the backup pg_dump child process',
 };
 const WEB_INTENTIONALLY_NOT_PASSED: Record<string, string> = {

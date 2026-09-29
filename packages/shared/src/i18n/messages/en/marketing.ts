@@ -28,4 +28,5 @@ export const enMarketing = {
   'marketing.ads.settings': 'Connections and UTM',
 
   'marketing.placeholder.soon': 'This section arrives in a later phase.',
+  'marketing.nav.social': 'Social',
 } as const satisfies Record<keyof typeof trMarketing, string>;

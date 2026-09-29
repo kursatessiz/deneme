@@ -119,6 +119,8 @@ export const EnvSchema = z
     ANTHROPIC_API_KEY: z.string().min(20).optional(),
     /** Test-only deterministic AI provider (web e2e suite). Refused in production. */
     AI_FAKE_PROVIDER: z.enum(['0', '1']).optional(),
+    /** Test-only deterministic social publishers (M4b e2e suite). Refused in production. */
+    SOCIAL_FAKE_PROVIDER: z.enum(['0', '1']).optional(),
 
     // H1 error reporting (docs/HATA_RAPORLAMA.md).
     /** Release of this build (the deploy passes RELEASE_TAG, e.g. sha-<commit>). */
@@ -203,6 +205,9 @@ export const EnvSchema = z
     if (env.NODE_ENV !== 'production') return;
     if (env.AI_FAKE_PROVIDER === '1') {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['AI_FAKE_PROVIDER'], message: 'must not be enabled in production' });
+    }
+    if (env.SOCIAL_FAKE_PROVIDER === '1') {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['SOCIAL_FAKE_PROVIDER'], message: 'must not be enabled in production' });
     }
     if (!env.REDIS_URL) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['REDIS_URL'], message: 'required in production' });
