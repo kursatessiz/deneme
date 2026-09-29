@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import type { ReactNode } from 'react';
 
 /**
@@ -15,15 +16,27 @@ const controlStyle: React.CSSProperties = {
   color: 'var(--color-text-primary)',
 };
 
-function Label({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
+/**
+ * Label plus optional hint for one control. The label is bound with
+ * `htmlFor`, and the hint is linked with `aria-describedby` instead of being
+ * nested in the label, so the control's accessible name stays exactly the
+ * label text (screen readers and `getByLabel` in the browser tests).
+ */
+function Label({ label, hint, children }: { label: string; hint?: ReactNode; children: (ids: { id: string; describedBy?: string }) => ReactNode }) {
+  const id = useId();
+  const hintId = hint ? `${id}-hint` : undefined;
   return (
-    <label className="block space-y-1">
-      <span className="flex items-baseline justify-between gap-2 text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-        <span>{label}</span>
-        {hint && <span style={{ color: 'var(--color-text-muted)' }}>{hint}</span>}
-      </span>
-      {children}
-    </label>
+    <div className="space-y-1">
+      <div className="flex items-baseline justify-between gap-2 text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+        <label htmlFor={id}>{label}</label>
+        {hint && (
+          <span id={hintId} style={{ color: 'var(--color-text-muted)' }}>
+            {hint}
+          </span>
+        )}
+      </div>
+      {children({ id, ...(hintId ? { describedBy: hintId } : {}) })}
+    </div>
   );
 }
 
@@ -46,14 +59,18 @@ export function AreaField({
 }) {
   return (
     <Label label={label} hint={hint}>
-      <textarea
-        value={value}
-        rows={rows}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 text-sm border outline-none disabled:opacity-60"
-        style={{ ...controlStyle, ...(invalid ? { borderColor: 'var(--color-danger)' } : {}) }}
-      />
+      {({ id, describedBy }) => (
+        <textarea
+          id={id}
+          aria-describedby={describedBy}
+          value={value}
+          rows={rows}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full px-3 py-2 text-sm border outline-none disabled:opacity-60"
+          style={{ ...controlStyle, ...(invalid ? { borderColor: 'var(--color-danger)' } : {}) }}
+        />
+      )}
     </Label>
   );
 }
@@ -79,15 +96,19 @@ export function InputField({
 }) {
   return (
     <Label label={label} hint={hint}>
-      <input
-        type={type}
-        value={value}
-        disabled={disabled}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 text-sm border outline-none disabled:opacity-60"
-        style={{ ...controlStyle, ...(invalid ? { borderColor: 'var(--color-danger)' } : {}) }}
-      />
+      {({ id, describedBy }) => (
+        <input
+          id={id}
+          aria-describedby={describedBy}
+          type={type}
+          value={value}
+          disabled={disabled}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full px-3 py-2 text-sm border outline-none disabled:opacity-60"
+          style={{ ...controlStyle, ...(invalid ? { borderColor: 'var(--color-danger)' } : {}) }}
+        />
+      )}
     </Label>
   );
 }
@@ -107,19 +128,22 @@ export function SelectField({
 }) {
   return (
     <Label label={label}>
-      <select
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 text-sm border outline-none disabled:opacity-60"
-        style={controlStyle}
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+      {({ id }) => (
+        <select
+          id={id}
+          value={value}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full px-3 py-2 text-sm border outline-none disabled:opacity-60"
+          style={controlStyle}
+        >
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      )}
     </Label>
   );
 }
