@@ -5,11 +5,23 @@ import React, { useEffect } from 'react';
 import { AppState, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { ErrorBoundary as RootErrorBoundary } from '../src/errors/ErrorBoundary';
+import { ErrorFallback } from '../src/errors/ErrorFallback';
+import { ErrorTelemetry } from '../src/errors/ErrorTelemetry';
+import { installErrorReporting } from '../src/errors/runtime';
 import { THEME_FONT_ASSETS } from '../src/fonts';
 import { I18nProvider } from '../src/i18n';
 import { SessionProvider } from '../src/lib/session';
 import { ThemeProvider, useTheme } from '../src/theme';
 import { refreshWidgets } from '../src/widgets';
+
+// Global JS error handler, unhandled rejections and the offline queue flush (H2, docs/HATA_RAPORLAMA.md).
+installErrorReporting();
+
+/** Expo Router renders this for errors thrown by a route below the root layout. */
+export function ErrorBoundary({ error, retry }: { error: Error; retry: () => Promise<void> }) {
+  return <ErrorFallback error={error} onRetry={() => void retry()} />;
+}
 
 if (Platform.OS === 'android') {
   // Registers the Android widget headless task at bundle load, which also
@@ -43,14 +55,17 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <SessionProvider>
-        <I18nProvider>
-          <ThemeProvider fontsLoaded={fontsLoaded}>
-            <ThemedStack />
-          </ThemeProvider>
-        </I18nProvider>
-      </SessionProvider>
-    </SafeAreaProvider>
+    <RootErrorBoundary>
+      <SafeAreaProvider>
+        <SessionProvider>
+          <I18nProvider>
+            <ThemeProvider fontsLoaded={fontsLoaded}>
+              <ErrorTelemetry />
+              <ThemedStack />
+            </ThemeProvider>
+          </I18nProvider>
+        </SessionProvider>
+      </SafeAreaProvider>
+    </RootErrorBoundary>
   );
 }

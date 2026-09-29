@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import { TRANSLATED_API_ERROR_CODES } from '@platform/shared';
 
+import { appBreadcrumbs, trackRequest } from '../errors/breadcrumbs';
 import { resolveOfflineTranslate } from '../i18n/offlineTranslate';
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from './tokenStore';
 
@@ -98,9 +99,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
+    trackRequest(appBreadcrumbs, method, path, 0);
     const t = await resolveOfflineTranslate();
     throw new ApiError(0, t('mApiErrors.networkUnreachable'));
   }
+  trackRequest(appBreadcrumbs, method, path, response.status);
 
   if (response.status === 401 && auth && !isRetry) {
     const refreshed = await refreshOnce();
