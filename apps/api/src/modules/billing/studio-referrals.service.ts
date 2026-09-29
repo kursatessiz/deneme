@@ -5,8 +5,10 @@ import {
   REFERRAL_TRACKING_PARAM,
   ReferralRewardSettingSchema,
   creditBalanceOf,
+  isPlatformBillingCurrency,
   isSelfReferral,
   referralRewardEntry,
+  studioBillingCurrency,
 } from '@platform/shared';
 import type {
   AdminReferralOverviewDTO,
@@ -68,7 +70,8 @@ export class StudioReferralsService {
 
   async overview(studioId: string): Promise<StudioReferralOverviewDTO> {
     const code = await this.codeFor(studioId);
-    const [rows, ledger, reward] = await Promise.all([
+    const [studio, rows, ledger, reward] = await Promise.all([
+      this.prisma.studio.findUniqueOrThrow({ where: { id: studioId }, select: { countryCode: true, billingCurrency: true } }),
       this.prisma.studioReferral.findMany({
         where: { referrerStudioId: studioId },
         include: { referred: { select: { name: true } }, creditEntries: { where: { kind: 'REFERRAL_REWARD' } } },
@@ -89,7 +92,13 @@ export class StudioReferralsService {
         reward: entry ? { amount: entry.amount ? entry.amount.toFixed(2) : null, currency: entry.currency, months: entry.months } : null,
       };
     });
-    return { code, query: `?${REFERRAL_TRACKING_PARAM}=${code}`, referrals, credit: balanceOf(ledger), reward };
+    return {
+      code,
+      query: `?${REFERRAL_TRACKING_PARAM}=${code}`,
+      referrals,
+      credit: balanceOf(ledger),
+      reward: referralRewardEntry(reward, studioBillingCurrency(studio)),
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -190,7 +199,10 @@ export class StudioReferralsService {
         });
         return;
       }
-      const referrer = await this.prisma.studio.findUnique({ where: { id: referral.referrerStudioId }, select: { isActive: true } });
+      const referrer = await this.prisma.studio.findUnique({
+        where: { id: referral.referrerStudioId },
+        select: { isActive: true, countryCode: true, billingCurrency: true },
+      });
       if (!referrer?.isActive) {
         await this.prisma.studioReferral.updateMany({
           where: { id: referral.id, status: 'SIGNED_UP' },
@@ -198,7 +210,14 @@ export class StudioReferralsService {
         });
         return;
       }
-      const entry = referralRewardEntry(await this.rewardSetting());
+      // Money rewards are credited in the referrer's own billing currency (G5c-1b).
+      // No amount in that currency: never converted, the default (1 free month) applies.
+      const setting = await this.rewardSetting();
+      const referrerCurrency = studioBillingCurrency(referrer);
+      const entry = referralRewardEntry(setting, referrerCurrency);
+      if (setting.kind === 'AMOUNT' && entry.amount === null) {
+        this.logger.log(`No ${referrerCurrency} referral amount set; ${referral.referrerStudioId} gets the default reward`);
+      }
       await this.prisma.$transaction(async (tx) => {
         const moved = await tx.studioReferral.updateMany({
           where: { id: referral.id, status: 'SIGNED_UP' },
@@ -238,12 +257,18 @@ export class StudioReferralsService {
   // ---------------------------------------------------------------------------
 
   async rewardSetting(): Promise<ReferralRewardSetting> {
-    const row = await this.prisma.platformBillingSettings.findUnique({ where: { id: SETTINGS_ID } });
+    const [row, amountRows] = await Promise.all([
+      this.prisma.platformBillingSettings.findUnique({ where: { id: SETTINGS_ID } }),
+      this.prisma.platformReferralRewardAmount.findMany({ orderBy: { currency: 'asc' } }),
+    ]);
     if (!row) return DEFAULT_REFERRAL_REWARD;
+    // AMOUNT: one amount per billing currency (G5c-1b, platform_referral_reward_amounts);
+    // unknown currencies (removed from the list) are ignored.
+    const amounts = amountRows
+      .filter((a) => isPlatformBillingCurrency(a.currency))
+      .map((a) => ({ currency: a.currency, amount: a.amount.toFixed(2) }));
     const parsed = ReferralRewardSettingSchema.safeParse(
-      row.referralRewardKind === 'AMOUNT'
-        ? { kind: 'AMOUNT', amount: row.referralRewardAmount?.toFixed(2), currency: row.referralRewardCurrency }
-        : { kind: 'FREE_MONTHS', months: row.referralRewardMonths },
+      row.referralRewardKind === 'AMOUNT' ? { kind: 'AMOUNT', amounts } : { kind: 'FREE_MONTHS', months: row.referralRewardMonths },
     );
     return parsed.success ? parsed.data : DEFAULT_REFERRAL_REWARD;
   }
@@ -252,15 +277,30 @@ export class StudioReferralsService {
     const reward = dto.referralReward;
     const data =
       reward.kind === 'AMOUNT'
-        ? { referralRewardKind: 'AMOUNT', referralRewardAmount: reward.amount, referralRewardCurrency: reward.currency, referralRewardMonths: null }
+        ? { referralRewardKind: 'AMOUNT', referralRewardAmount: null, referralRewardCurrency: null, referralRewardMonths: null }
         : { referralRewardKind: 'FREE_MONTHS', referralRewardAmount: null, referralRewardCurrency: null, referralRewardMonths: reward.months };
-    await this.prisma.platformBillingSettings.upsert({
-      where: { id: SETTINGS_ID },
-      create: { id: SETTINGS_ID, ...data, updatedByUserId: actorUserId },
-      update: { ...data, updatedByUserId: actorUserId },
-    });
-    await this.prisma.auditLog.create({
-      data: { studioId: null, userId: actorUserId, action: 'billing.settings_update', entityType: 'PlatformBillingSettings', entityId: SETTINGS_ID, metadata: { referralReward: reward } },
+    const previous = await this.rewardSetting();
+    await this.prisma.$transaction(async (tx) => {
+      await tx.platformBillingSettings.upsert({
+        where: { id: SETTINGS_ID },
+        create: { id: SETTINGS_ID, ...data, updatedByUserId: actorUserId },
+        update: { ...data, updatedByUserId: actorUserId },
+      });
+      // The per-currency amounts are the full set: a currency left out has no amount.
+      await tx.platformReferralRewardAmount.deleteMany({});
+      if (reward.kind === 'AMOUNT') {
+        await tx.platformReferralRewardAmount.createMany({ data: reward.amounts.map((a) => ({ currency: a.currency, amount: new Prisma.Decimal(a.amount) })) });
+      }
+      await tx.auditLog.create({
+        data: {
+          studioId: null,
+          userId: actorUserId,
+          action: 'billing.settings_update',
+          entityType: 'PlatformBillingSettings',
+          entityId: SETTINGS_ID,
+          metadata: { previous, referralReward: reward },
+        },
+      });
     });
     return { referralReward: await this.rewardSetting() };
   }

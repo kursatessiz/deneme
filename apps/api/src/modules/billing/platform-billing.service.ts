@@ -1,12 +1,16 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { Prisma, SubscriptionStatus } from '@platform/database';
-import type { PaymentProvider, Plan, PlatformBillingPayment } from '@platform/database';
+import type { PaymentProvider, Plan, PlanPrice, PlatformBillingPayment } from '@platform/database';
 import {
   DEFAULT_TRIAL_DAYS,
+  PLAN_PRICE_UNAVAILABLE_ERROR_CODE,
   applyCredits,
   canTransitionBillingStatus,
   creditBalanceOf,
+  isPlatformBillingCurrency,
   isStudioBillingStatus,
+  planPriceIn,
+  studioBillingCurrency,
   trialDaysLeft,
   trialEndFrom,
 } from '@platform/shared';
@@ -14,9 +18,12 @@ import type {
   ActivateStudioInput,
   ActivateStudioResultDTO,
   AdminForceBillingStatusInput,
+  AdminSetBillingCurrencyInput,
   BillingPlanDTO,
   CreditBalance,
+  CurrentBillingPlanDTO,
   ExtendTrialInput,
+  PlatformBillingCurrency,
   PlatformPaymentDTO,
   PlatformPaymentStatus,
   StudioBillingDTO,
@@ -32,7 +39,17 @@ import { StudioReferralsService } from './studio-referrals.service';
 import type { TenantContext } from '../auth/tenant-context';
 
 type Tx = Prisma.TransactionClient;
+type PricedPlan = Plan & { prices: PlanPrice[] };
 const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** 400 when the plan has no price in the studio's billing currency; clients translate `billing.error.PLAN_PRICE_UNAVAILABLE`. */
+export function planPriceUnavailableError(): BadRequestException {
+  return new BadRequestException({
+    statusCode: 400,
+    code: PLAN_PRICE_UNAVAILABLE_ERROR_CODE,
+    message: 'Bu plan işletmenin faturalama para biriminde sunulmuyor',
+  });
+}
 
 /**
  * Platform billing of tenants (G5c-1, docs/DENEME_VE_ETKINLESTIRME.md).
@@ -43,6 +60,10 @@ const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
  * adapter (MOCK completes immediately outside production), consumes
  * referral credits first, moves the studio to ACTIVE, records studio_paid
  * on the platform tenant once per studio and rewards the referrer.
+ *
+ * Every price is the plan's plan_prices row in the studio's billing
+ * currency (G5c-1b: the super admin's override, else derived from the
+ * studio's country); a plan without one is not offered.
  */
 @Injectable()
 export class PlatformBillingService implements OnModuleInit {
@@ -85,27 +106,41 @@ export class PlatformBillingService implements OnModuleInit {
   // ---------------------------------------------------------------------------
 
   async summary(studioId: string, now = new Date()): Promise<StudioBillingDTO> {
-    const [studio, subscription, plans, credit] = await Promise.all([
+    const [studio, subscription, plans, credit, locked] = await Promise.all([
       this.prisma.studio.findUnique({
         where: { id: studioId },
-        select: { billingStatus: true, trialStartedAt: true, trialEndsAt: true, activatedAt: true },
+        select: { billingStatus: true, trialStartedAt: true, trialEndsAt: true, activatedAt: true, countryCode: true, billingCurrency: true },
       }),
       this.currentSubscription(studioId),
-      this.prisma.plan.findMany({ where: { isActive: true }, orderBy: { priceMonthly: 'asc' } }),
+      this.prisma.plan.findMany({ where: { isActive: true }, include: { prices: true } }),
       this.creditBalance(studioId),
+      this.hasCompletedPayment(studioId),
     ]);
     if (!studio) throw new NotFoundException('İşletme bulunamadı');
+    const currency = studioBillingCurrency(studio);
+    const offered = plans
+      .map((plan) => toPlanDto(plan, currency))
+      .filter((plan): plan is BillingPlanDTO => plan !== null)
+      .sort((a, b) => new Prisma.Decimal(a.priceMonthly).comparedTo(new Prisma.Decimal(b.priceMonthly)));
     return {
       status: this.statusOf(studio.billingStatus),
+      billingCurrency: currency,
+      billingCurrencyLocked: locked,
       trialStartedAt: studio.trialStartedAt?.toISOString() ?? null,
       trialEndsAt: studio.trialEndsAt?.toISOString() ?? null,
       trialDaysLeft: studio.billingStatus === 'TRIALING' ? trialDaysLeft(studio.trialEndsAt, now) : null,
       activatedAt: studio.activatedAt?.toISOString() ?? null,
-      plan: subscription ? toPlanDto(subscription.plan) : null,
+      plan: subscription ? toCurrentPlanDto(subscription.plan, currency) : null,
       currentPeriodEnd: subscription?.currentPeriodEnd.toISOString() ?? null,
       credit,
-      plans: plans.map(toPlanDto),
+      plans: offered,
     };
+  }
+
+  /** A completed platform payment fixes the studio's billing currency. */
+  async hasCompletedPayment(studioId: string): Promise<boolean> {
+    const paid = await this.prisma.platformBillingPayment.findFirst({ where: { studioId, status: 'COMPLETED' }, select: { id: true } });
+    return paid !== null;
   }
 
   async listPayments(studioId: string): Promise<PlatformPaymentDTO[]> {
@@ -126,12 +161,15 @@ export class PlatformBillingService implements OnModuleInit {
   async activate(tenant: TenantContext, actorUserId: string, dto: ActivateStudioInput): Promise<ActivateStudioResultDTO> {
     const studioId = tenant.studioId;
     const [studio, plan] = await Promise.all([
-      this.prisma.studio.findUnique({ where: { id: studioId }, select: { id: true, billingStatus: true, isPlatform: true } }),
-      this.prisma.plan.findFirst({ where: { key: dto.planKey, isActive: true } }),
+      this.prisma.studio.findUnique({ where: { id: studioId }, select: { id: true, billingStatus: true, isPlatform: true, countryCode: true, billingCurrency: true } }),
+      this.prisma.plan.findFirst({ where: { key: dto.planKey, isActive: true }, include: { prices: true } }),
     ]);
     if (!studio) throw new NotFoundException('İşletme bulunamadı');
     if (studio.isPlatform) throw new BadRequestException('Platform kiracısı etkinleştirilemez');
     if (!plan) throw new BadRequestException('Plan bulunamadı');
+    const currency = studioBillingCurrency(studio);
+    const price = planPriceIn(plan.prices, currency);
+    if (!price) throw planPriceUnavailableError();
     const status = this.statusOf(studio.billingStatus);
     if (status === 'ACTIVE') throw new ConflictException('Hesap zaten etkin');
     if (!canTransitionBillingStatus(status, 'ACTIVE')) throw new ConflictException('Hesap bu durumdan etkinleştirilemez');
@@ -143,9 +181,10 @@ export class PlatformBillingService implements OnModuleInit {
     if (pendingExists) throw new ConflictException('Bekleyen bir ödeme var; tamamlanmasını bekleyin');
 
     const periodMonths = 1;
-    const listAmount = new Prisma.Decimal(plan.priceMonthly).toFixed(2);
+    const listAmount = new Prisma.Decimal(price.priceMonthly).toFixed(2);
     const balance = await this.creditBalance(studioId);
-    const applied = applyCredits({ amount: listAmount, currency: plan.currency, periodMonths }, balance);
+    // Money credit only applies in the charge's own currency (never converted).
+    const applied = applyCredits({ amount: listAmount, currency, periodMonths }, balance);
 
     const payment = await this.prisma.$transaction(async (tx) => {
       const created = await tx.platformBillingPayment.create({
@@ -156,13 +195,13 @@ export class PlatformBillingService implements OnModuleInit {
           creditAmount: applied.creditAmount,
           creditMonths: applied.creditMonths,
           amount: applied.payable,
-          currency: plan.currency,
+          currency,
           periodMonths,
           status: 'PENDING',
           createdByUserId: actorUserId,
         },
       });
-      await this.reserveCredits(tx, studioId, created.id, applied.creditAmount, plan.currency, applied.creditMonths);
+      await this.reserveCredits(tx, studioId, created.id, applied.creditAmount, currency, applied.creditMonths);
       return created;
     });
 
@@ -180,7 +219,7 @@ export class PlatformBillingService implements OnModuleInit {
         studioId,
         memberId: studioId,
         amount: payable.toNumber(),
-        currency: plan.currency,
+        currency,
         installmentCount: dto.installmentCount,
         description: `Platform subscription ${plan.key}`,
         reference: `platform_${payment.id}`,
@@ -268,16 +307,29 @@ export class PlatformBillingService implements OnModuleInit {
     return { status: 'TRIALING' as StudioBillingStatus, trialEndsAt: trialEndsAt.toISOString() };
   }
 
-  /** Force ACTIVE (no payment, no studio_paid, no referral reward) or RESTRICTED. Audit logged. */
+  /**
+   * Force ACTIVE (no payment) or RESTRICTED. Audit logged. A forced
+   * activation is not a paying customer unless the super admin sets
+   * recordAsPaid (G5c-1b): then studio_paid is recorded at the plan's list
+   * price in the studio's billing currency and the referrer is rewarded,
+   * through the same code as a paid activation and at most once per studio.
+   */
   async forceStatus(actorUserId: string, studioId: string, dto: AdminForceBillingStatusInput, now = new Date()) {
-    const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { id: true, billingStatus: true, isPlatform: true } });
+    const recordAsPaid = dto.recordAsPaid === true;
+    if (recordAsPaid && dto.status !== 'ACTIVE') throw new BadRequestException('Ödeme kaydı yalnızca etkinleştirmede seçilebilir');
+    const studio = await this.prisma.studio.findUnique({
+      where: { id: studioId },
+      select: { id: true, billingStatus: true, isPlatform: true, countryCode: true, billingCurrency: true },
+    });
     if (!studio) throw new NotFoundException('İşletme bulunamadı');
     if (studio.isPlatform) throw new BadRequestException('Platform kiracısının durumu değiştirilemez');
     const from = this.statusOf(studio.billingStatus);
-    if (from === dto.status) return { status: from };
+    if (from === dto.status) return { status: from, recordAsPaid: false };
     if (!canTransitionBillingStatus(from, dto.status)) throw new ConflictException('Bu durum geçişine izin verilmiyor');
+    const currency = studioBillingCurrency(studio);
 
     let planKey: string | null = null;
+    let paidValue: { amount: string; currency: string } | null = null;
     await this.prisma.$transaction(async (tx) => {
       const moved = await tx.studio.updateMany({
         where: { id: studioId, billingStatus: from },
@@ -288,6 +340,11 @@ export class PlatformBillingService implements OnModuleInit {
         await tx.studio.updateMany({ where: { id: studioId, activatedAt: null }, data: { activatedAt: now } });
         const plan = await this.planForForce(tx, studioId, dto.planKey);
         planKey = plan.key;
+        if (recordAsPaid) {
+          const price = planPriceIn(plan.prices, currency);
+          if (!price) throw planPriceUnavailableError();
+          paidValue = { amount: new Prisma.Decimal(price.priceMonthly).toFixed(2), currency };
+        }
         await this.startPaidPeriod(tx, studioId, plan.id, now, 1);
       }
       await tx.auditLog.create({
@@ -297,11 +354,49 @@ export class PlatformBillingService implements OnModuleInit {
           action: dto.status === 'ACTIVE' ? 'billing.force_activate' : 'billing.force_restrict',
           entityType: 'Studio',
           entityId: studioId,
-          metadata: { from, to: dto.status, planKey, reason: dto.reason ?? null },
+          metadata: { from, to: dto.status, planKey, reason: dto.reason ?? null, recordAsPaid, paidValue },
         },
       });
     });
-    return { status: dto.status };
+    if (paidValue) await this.recordPaidActivation(studioId, paidValue, now);
+    return { status: dto.status, recordAsPaid };
+  }
+
+  /**
+   * Super admin: pin the studio's billing currency, or null to derive it
+   * from the country again. Allowed after a completed payment too (this is
+   * the override the owner cannot make); audit logged with that fact.
+   */
+  async setBillingCurrency(actorUserId: string, studioId: string, dto: AdminSetBillingCurrencyInput) {
+    const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { id: true, countryCode: true, billingCurrency: true } });
+    if (!studio) throw new NotFoundException('İşletme bulunamadı');
+    const before = studioBillingCurrency(studio);
+    const override = dto.currency;
+    const after = studioBillingCurrency({ countryCode: studio.countryCode, billingCurrency: override });
+    const pending = await this.prisma.platformBillingPayment.findFirst({ where: { studioId, status: 'PENDING' }, select: { id: true } });
+    if (pending && before !== after) throw new ConflictException('Bekleyen bir ödeme var; tamamlanmasını bekleyin');
+    const hadCompletedPayment = await this.hasCompletedPayment(studioId);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.studio.update({ where: { id: studioId }, data: { billingCurrency: override } });
+      await tx.auditLog.create({
+        data: {
+          studioId,
+          userId: actorUserId,
+          action: 'billing.currency_override',
+          entityType: 'Studio',
+          entityId: studioId,
+          metadata: {
+            previousOverride: isPlatformBillingCurrency(studio.billingCurrency) ? studio.billingCurrency : null,
+            override,
+            from: before,
+            to: after,
+            hadCompletedPayment,
+            reason: dto.reason ?? null,
+          },
+        },
+      });
+    });
+    return { billingCurrency: after, billingCurrencyOverride: override };
   }
 
   // ---------------------------------------------------------------------------
@@ -357,13 +452,19 @@ export class PlatformBillingService implements OnModuleInit {
     if (!payment) return;
 
     // After commit, best effort: neither may undo a completed payment.
-    await this.conversions.recordStudioPaid(
-      payment.studioId,
-      { kind: 'studio_activation', id: payment.studioId },
-      { amount: payment.listAmount.toFixed(2), currency: payment.currency },
-      now,
-    );
-    await this.referrals.onReferredStudioActivated(payment.studioId);
+    await this.recordPaidActivation(payment.studioId, { amount: payment.listAmount.toFixed(2), currency: payment.currency }, now);
+  }
+
+  /**
+   * The paying-customer side effects of an activation, shared by a completed
+   * payment and a super-admin force-activation with recordAsPaid: studio_paid
+   * on the platform tenant (source studio_activation:<studioId>, so once per
+   * studio, with the usual attribution) and the referral reward (once per
+   * referred studio). Runs after commit and never undoes the activation.
+   */
+  private async recordPaidActivation(studioId: string, value: { amount: string; currency: string }, now: Date): Promise<void> {
+    await this.conversions.recordStudioPaid(studioId, { kind: 'studio_activation', id: studioId }, value, now);
+    await this.referrals.onReferredStudioActivated(studioId);
   }
 
   private async fail(paymentId: string): Promise<void> {
@@ -404,13 +505,13 @@ export class PlatformBillingService implements OnModuleInit {
     });
   }
 
-  private async planForForce(tx: Tx, studioId: string, planKey: string | undefined): Promise<Plan> {
+  private async planForForce(tx: Tx, studioId: string, planKey: string | undefined): Promise<PricedPlan> {
     if (planKey) {
-      const plan = await tx.plan.findUnique({ where: { key: planKey } });
+      const plan = await tx.plan.findUnique({ where: { key: planKey }, include: { prices: true } });
       if (!plan) throw new BadRequestException('Plan bulunamadı');
       return plan;
     }
-    const current = await tx.subscription.findFirst({ where: { studioId }, orderBy: { createdAt: 'desc' }, include: { plan: true } });
+    const current = await tx.subscription.findFirst({ where: { studioId }, orderBy: { createdAt: 'desc' }, include: { plan: { include: { prices: true } } } });
     if (!current) throw new BadRequestException('Plan seçilmelidir');
     return current.plan;
   }
@@ -419,7 +520,7 @@ export class PlatformBillingService implements OnModuleInit {
     return this.prisma.subscription.findFirst({
       where: { studioId, status: { not: SubscriptionStatus.CANCELLED } },
       orderBy: { createdAt: 'desc' },
-      include: { plan: true },
+      include: { plan: { include: { prices: true } } },
     });
   }
 
@@ -434,8 +535,22 @@ export class PlatformBillingService implements OnModuleInit {
   }
 }
 
-function toPlanDto(plan: Plan): BillingPlanDTO {
-  return { key: plan.key, name: plan.name, priceMonthly: new Prisma.Decimal(plan.priceMonthly).toFixed(2), currency: plan.currency, trialDays: plan.trialDays };
+/** The plan as offered in `currency`; null when it has no price there (not offered). */
+function toPlanDto(plan: PricedPlan, currency: PlatformBillingCurrency): BillingPlanDTO | null {
+  const price = planPriceIn(plan.prices, currency);
+  if (!price) return null;
+  return { key: plan.key, name: plan.name, priceMonthly: new Prisma.Decimal(price.priceMonthly).toFixed(2), currency, trialDays: plan.trialDays };
+}
+
+function toCurrentPlanDto(plan: PricedPlan, currency: PlatformBillingCurrency): CurrentBillingPlanDTO {
+  const price = planPriceIn(plan.prices, currency);
+  return {
+    key: plan.key,
+    name: plan.name,
+    priceMonthly: price ? new Prisma.Decimal(price.priceMonthly).toFixed(2) : null,
+    currency,
+    trialDays: plan.trialDays,
+  };
 }
 
 function toPaymentDto(row: PlatformBillingPayment & { plan: { key: string } }): PlatformPaymentDTO {

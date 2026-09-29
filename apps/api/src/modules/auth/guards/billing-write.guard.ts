@@ -24,8 +24,10 @@ export function billingRestrictedError(): ForbiddenException {
  * - reads (GET/HEAD/OPTIONS) always pass: staff can view and export;
  * - a write passes only when every permission the handler requires is in
  *   RESTRICTED_MODE_ALLOWED_WRITE_PERMISSIONS (billing, settings, roles,
- *   staff, exports) or the handler is marked @AllowWhenRestricted();
- * - every other write (bookings, sessions, sales, campaigns, members,
+ *   staff, exports) or the handler is marked @AllowWhenRestricted() (the
+ *   member's own data, and since G5c-1b attendance, no-show and check-in
+ *   marking plus booking, waitlist, session and event cancellation);
+ * - every other write (new bookings, sessions, sales, campaigns, members,
  *   member self-service booking and checkout) gets 403 BILLING_RESTRICTED.
  * Super admins are never restricted. Deny by default: a new write
  * endpoint is blocked in restricted mode unless it is added to the list.

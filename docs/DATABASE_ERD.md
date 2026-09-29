@@ -510,11 +510,14 @@ Ayrıntılar: `docs/BANKA_ODEMELERI.md`.
 | `subscriptions` | SaaS aboneliği: durum (deneme, aktif, gecikmiş, iptal edildi), dönem tarihleri | (studio_id, status) index; stüdyo başına bir canlı abonelik (status IN trialing/active/past_due) |
 | `feature_flags` | Özellik bayrakları: kapsam (global, iş türü, stüdyo); çözümleme sırası: kiracı > iş türü > global | (studio_id) index; (key, scope, business_type_template_id, studio_id) NULLS NOT DISTINCT ile benzersiz |
 | `studios` (G5c-1 sütunları) | Platform faturalama kapısı: `billing_status` (TRIALING/ACTIVE/PAST_DUE/RESTRICTED/CANCELLED), deneme başlangıç/bitiş, `activated_at`, hatırlatma eşiği, platform tavsiye kodu | `billing_status` CHECK; `platform_referral_code` benzersiz |
-| `plans` (G5c-1 sütunları) | `currency` (fiyatın para birimi), `trial_days` (plan başına deneme süresi) | `trial_days` 0-365 CHECK |
+| `plans` (G5c-1 sütunları) | `trial_days` (plan başına deneme süresi). `price_monthly` ve `currency` G5c-1b ile kullanımdan kalktı: fiyat seçen hiçbir kod okumaz, bir sürüm boyunca bir fiyatın aynası olarak yazılır, sonraki daraltma migration'ında silinecek; `currency` varsayılanı (`'TRY'`) kaldırıldı | `trial_days` 0-365 CHECK |
+| `plan_prices` (G5c-1b) | Planın bir platform faturalama para birimindeki aylık fiyatı (`PLATFORM_BILLING_CURRENCIES`: TRY, USD, EUR, GBP). İşletmenin para biriminde fiyatı olmayan plan o işletmeye sunulmaz; migration mevcut her plan için `plans.price_monthly` + `plans.currency` değerinden bir satır doldurdu | (plan_id, currency) benzersiz; plan -> cascade |
+| `studios.billing_currency` (G5c-1b) | Süper adminin faturalama para birimi seçimi; boşsa `country_code` üzerinden türetilir (TR -> TRY, euro bölgesi -> EUR, GB/GG/JE/IM -> GBP, diğerleri USD) | boş olabilir |
 | `platform_billing_payments` | İşletmenin platforma ödemesi: liste tutarı, kullanılan kredi (tutar/ay), çekilen tutar, para birimi, sağlayıcı ve referansı, durum | (provider, provider_reference) benzersiz; (studio_id, created_at) index; plan -> restrict |
 | `studio_referrals` | İşletmeden işletmeye tavsiye: tavsiye eden/edilen işletme, kod, kaynak, temas noktası, durum ve ret nedeni | referred_studio_id benzersiz (işletme başına bir tavsiye); touchpoint -> set null |
 | `platform_credit_ledger` | Yalnızca ekleme yapılan abonelik kredisi defteri (ödül +, kullanım -, ters kayıt) | idempotency_key benzersiz; tutar veya ay dolu olmalı (CHECK) |
-| `platform_billing_settings` | Tek satırlık platform ayarı (`id = 'platform'`): tavsiye ödülü türü ve değeri | - |
+| `platform_billing_settings` | Tek satırlık platform ayarı (`id = 'platform'`): tavsiye ödülü türü ve değeri. G5c-1b: tutar ödülü para birimi başına `platform_referral_reward_amounts` tablosundadır; eski tek tutar/para birimi sütunları bir sürüm boyunca yerinde kalır, sonra silinecek | - |
+| `platform_referral_reward_amounts` (G5c-1b) | Tavsiye tutar ödülünün para birimi başına değeri (platform düzeyi); tavsiye eden kendi faturalama para biriminde alır, satır yoksa 1 ücretsiz ay | currency birincil anahtar |
 
 ## Veritabanı Tarafından Zorunlu Kılınan Kurallar
 

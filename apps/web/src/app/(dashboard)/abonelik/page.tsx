@@ -75,6 +75,7 @@ function BillingPage() {
       : []),
     ...(data.activatedAt ? [{ label: t('billing.summary.activatedAt'), value: formatDate(data.activatedAt, locale) }] : []),
     ...(data.plan ? [{ label: t('billing.summary.plan'), value: data.plan.name }] : []),
+    { label: t('billing.summary.billingCurrency'), value: data.billingCurrency },
     ...(data.status === 'ACTIVE' && data.currentPeriodEnd ? [{ label: t('billing.summary.periodEnd'), value: formatDate(data.currentPeriodEnd, locale) }] : []),
     { label: t('billing.summary.credit'), value: <CreditSummary credit={data.credit} /> },
   ];
@@ -154,7 +155,7 @@ function BillingPage() {
             </fieldset>
           )}
           <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {t('billing.activate.creditNote')}
+            {t('billing.activate.currencyNote', { currency: data.billingCurrency })} {t('billing.activate.creditNote')}
           </p>
           {actionError && (
             <p role="alert" className="text-xs" style={{ color: 'var(--color-danger, #b42318)' }}>

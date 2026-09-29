@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import type { StudioBillingStatus } from '@platform/shared';
+import { PLATFORM_BILLING_CURRENCIES } from '@platform/shared';
+import type { PlatformBillingCurrency, StudioBillingStatus } from '@platform/shared';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 
@@ -13,26 +14,36 @@ const inputStyle: React.CSSProperties = {
 };
 
 /**
- * Super-admin billing cell of the tenants table (G5c-1): status, trial end
- * and the three audit-logged actions (extend trial, activate without
- * payment, restrict). The API refuses transitions that are not allowed.
+ * Super-admin billing cell of the tenants table (G5c-1): status, trial end,
+ * billing currency and the audit-logged actions (extend trial, activate
+ * without payment, optionally counted as a paying customer, restrict,
+ * override the billing currency). The API refuses transitions that are not
+ * allowed.
  */
 export function TenantBillingActions({
   studioId,
   status,
   trialEndsAt,
+  countryCode,
+  billingCurrency,
+  billingCurrencyOverride,
   onChanged,
 }: {
   studioId: string;
   status: StudioBillingStatus;
   trialEndsAt: string | null;
+  countryCode: string;
+  billingCurrency: PlatformBillingCurrency;
+  billingCurrencyOverride: PlatformBillingCurrency | null;
   onChanged: () => void;
 }) {
   const t = useT();
   const locale = useLocale();
-  const [mode, setMode] = useState<'idle' | 'extend' | 'ACTIVE' | 'RESTRICTED'>('idle');
+  const [mode, setMode] = useState<'idle' | 'extend' | 'ACTIVE' | 'RESTRICTED' | 'currency'>('idle');
   const [days, setDays] = useState('7');
   const [reason, setReason] = useState('');
+  const [recordAsPaid, setRecordAsPaid] = useState(false);
+  const [currency, setCurrency] = useState<PlatformBillingCurrency | ''>(billingCurrencyOverride ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,11 +56,17 @@ export function TenantBillingActions({
       } else if (mode === 'ACTIVE' || mode === 'RESTRICTED') {
         await bffFetch(`admin/tenants/${studioId}/billing-status`, {
           method: 'POST',
-          body: { status: mode, ...(reason.trim() ? { reason: reason.trim() } : {}) },
+          body: { status: mode, ...(mode === 'ACTIVE' ? { recordAsPaid } : {}), ...(reason.trim() ? { reason: reason.trim() } : {}) },
+        });
+      } else if (mode === 'currency') {
+        await bffFetch(`admin/tenants/${studioId}/billing-currency`, {
+          method: 'PUT',
+          body: { currency: currency === '' ? null : currency, ...(reason.trim() ? { reason: reason.trim() } : {}) },
         });
       }
       setMode('idle');
       setReason('');
+      setRecordAsPaid(false);
       onChanged();
     } catch (err) {
       setError(err instanceof BffError ? err.message : t('adminBilling.tenants.actionFailed'));
@@ -71,6 +88,10 @@ export function TenantBillingActions({
           {trialEnd}
         </p>
       )}
+      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+        {t('adminBilling.tenants.billingCurrency', { currency: billingCurrency })}{' '}
+        {billingCurrencyOverride ? t('adminBilling.tenants.currencyOverridden') : t('adminBilling.tenants.currencyFromCountry', { country: countryCode })}
+      </p>
       {mode === 'idle' ? (
         <div className="flex flex-wrap gap-2">
           {(status === 'TRIALING' || status === 'RESTRICTED') && (
@@ -88,6 +109,9 @@ export function TenantBillingActions({
               {t('adminBilling.tenants.forceRestrict')}
             </button>
           )}
+          <button type="button" onClick={() => setMode('currency')} className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
+            {t('adminBilling.tenants.changeCurrency')}
+          </button>
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
@@ -103,6 +127,23 @@ export function TenantBillingActions({
               style={inputStyle}
             />
           ) : (
+            <>
+            {mode === 'currency' && (
+              <select
+                aria-label={t('adminBilling.tenants.currency')}
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value as PlatformBillingCurrency | '')}
+                className="border px-2 py-1 text-xs"
+                style={inputStyle}
+              >
+                <option value="">{t('adminBilling.tenants.currencyAuto')}</option>
+                {PLATFORM_BILLING_CURRENCIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            )}
             <input
               aria-label={t('adminBilling.tenants.reason')}
               placeholder={t('adminBilling.tenants.reason')}
@@ -111,6 +152,13 @@ export function TenantBillingActions({
               className="border px-2 py-1 text-xs"
               style={inputStyle}
             />
+            {mode === 'ACTIVE' && (
+              <label className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                <input type="checkbox" checked={recordAsPaid} onChange={(e) => setRecordAsPaid(e.target.checked)} />
+                {t('adminBilling.tenants.recordAsPaid')}
+              </label>
+            )}
+            </>
           )}
           <button
             type="button"
@@ -123,7 +171,9 @@ export function TenantBillingActions({
               ? t('adminBilling.tenants.extendSubmit')
               : mode === 'ACTIVE'
                 ? t('adminBilling.tenants.forceActivate')
-                : t('adminBilling.tenants.forceRestrict')}
+                : mode === 'currency'
+                  ? t('adminBilling.tenants.currencySave')
+                  : t('adminBilling.tenants.forceRestrict')}
           </button>
           <button type="button" onClick={() => setMode('idle')} className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
             {t('adminBilling.tenants.cancel')}

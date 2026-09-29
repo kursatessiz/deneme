@@ -6,22 +6,9 @@ import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { useT } from '@/components/i18n/I18nProvider';
 import { TenantBillingActions } from '@/components/admin/TenantBillingActions';
-import type { StudioBillingStatus } from '@platform/shared';
+import type { TenantListItemDTO } from '@platform/shared';
 
-interface TenantListItem {
-  id: string;
-  name: string;
-  slug: string;
-  isActive: boolean;
-  businessTypeTemplateKey: string | null;
-  planKey: string | null;
-  subscriptionStatus: string | null;
-  branchCount: number;
-  activeMemberCount: number;
-  staffCount: number;
-  billingStatus: StudioBillingStatus;
-  trialEndsAt: string | null;
-}
+type TenantListItem = TenantListItemDTO;
 
 const inputStyle: React.CSSProperties = {
   borderRadius: 'var(--radius-input)',
@@ -214,7 +201,15 @@ export default function TenantsPage() {
                     </span>
                   </td>
                   <td className="px-3 py-2 align-top">
-                    <TenantBillingActions studioId={tenant.id} status={tenant.billingStatus} trialEndsAt={tenant.trialEndsAt} onChanged={refresh} />
+                    <TenantBillingActions
+                      studioId={tenant.id}
+                      status={tenant.billingStatus}
+                      trialEndsAt={tenant.trialEndsAt}
+                      countryCode={tenant.countryCode}
+                      billingCurrency={tenant.billingCurrency}
+                      billingCurrencyOverride={tenant.billingCurrencyOverride}
+                      onChanged={refresh}
+                    />
                   </td>
                   <td className="px-3 py-2">
                     <button onClick={() => toggleActive(tenant)} className="text-xs font-medium underline" style={{ color: 'var(--color-text-secondary)' }}>

@@ -4,7 +4,7 @@ import * as request from 'supertest';
 import * as bcrypt from 'bcrypt';
 import { randomInt, randomUUID } from 'crypto';
 import { PrismaClient } from '@platform/database';
-import type { PlatformBillingSettings } from '@platform/database';
+import type { PlatformBillingSettings, PlatformReferralRewardAmount } from '@platform/database';
 import { AppModule } from '../../src/app.module';
 import { StudioReferralsService } from '../../src/modules/billing/studio-referrals.service';
 
@@ -14,6 +14,10 @@ import { StudioReferralsService } from '../../src/modules/billing/studio-referra
  * the platform site, the reward written only after the referred business
  * pays and only once, the credit consumed by the referrer's own payment,
  * self-referral rejected, tenant isolation and the super-admin overview.
+ *
+ * G5c-1b: an AMOUNT reward is credited in the referrer's billing currency,
+ * and a super-admin force-activation counts as a paying customer only with
+ * recordAsPaid (studio_paid and the reward, each exactly once).
  *
  * Everything uses the +9053987 phone prefix, the "e2e-b2b" slug/plan
  * prefix and e2eb2b visitor ids, and is removed in afterAll; the platform
@@ -27,6 +31,10 @@ const PREFIX = '+9053987';
 const SLUG = 'e2e-b2b';
 const PLAN_KEY = 'e2e-b2b-plan';
 const VISITOR = 'e2eb2b00-0000-4000-8000-000000000001';
+const VISITOR_2 = 'e2eb2b00-0000-4000-8000-000000000002';
+const VISITOR_3 = 'e2eb2b00-0000-4000-8000-000000000003';
+/** Amounts come back ordered by currency code. */
+const REWARD = { kind: 'AMOUNT', amounts: [{ currency: 'EUR', amount: '10.00' }, { currency: 'TRY', amount: '250.00' }] };
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
 
 const phone = () => `${PREFIX}${String(randomInt(0, 100_000)).padStart(5, '0')}`;
@@ -43,6 +51,7 @@ describe('Business-to-business referrals G5c-1 (e2e)', () => {
   let superToken: string;
   let zenOwnerToken: string;
   let originalSettings: PlatformBillingSettings | null;
+  let originalAmounts: PlatformReferralRewardAmount[];
 
   let referrerId: string;
   let referrerOwnerPhone: string;
@@ -106,7 +115,7 @@ describe('Business-to-business referrals G5c-1 (e2e)', () => {
       await prisma.contactTask.deleteMany({ where: { contactId: { in: contactIds } } });
       await prisma.lead.deleteMany({ where: { studioId: PLATFORM, phone: { startsWith: PREFIX } } });
       await prisma.contact.deleteMany({ where: { id: { in: contactIds } } });
-      await prisma.visitor.deleteMany({ where: { studioId: PLATFORM, id: VISITOR } });
+      await prisma.visitor.deleteMany({ where: { studioId: PLATFORM, id: { in: [VISITOR, VISITOR_2, VISITOR_3] } } });
     }
     await prisma.studioReferral.deleteMany({ where: { OR: [{ referrerStudioId: { in: ids } }, { referredStudioId: { in: ids } }] } });
     for (const id of ids) {
@@ -131,15 +140,18 @@ describe('Business-to-business referrals G5c-1 (e2e)', () => {
     PLATFORM = (await prisma.studio.findFirstOrThrow({ where: { isPlatform: true } })).id;
     ZEN = (await prisma.studio.findUniqueOrThrow({ where: { slug: 'zen-reformer-pilates' } })).id;
     originalSettings = await prisma.platformBillingSettings.findUnique({ where: { id: 'platform' } });
+    originalAmounts = await prisma.platformReferralRewardAmount.findMany();
     await cleanup();
     passwordHash = await bcrypt.hash(DEMO_PASSWORD, 4);
 
     superToken = await login(SUPER_ADMIN_PHONE);
     zenOwnerToken = await login(ZEN_OWNER_PHONE);
+    // Deprecated single-price input still works (TRY only).
     const plan = await admin().post('/admin/plans').send({ key: PLAN_KEY, name: 'E2E B2B', priceMonthly: 500, currency: 'TRY', trialDays: 14, limits: {} });
     expect(plan.status).toBe(201);
-    // Reward: 250 TRY of subscription credit.
-    const settings = await admin().put('/admin/billing/settings').send({ referralReward: { kind: 'AMOUNT', amount: '250.00', currency: 'TRY' } });
+    expect(plan.body.prices).toEqual([{ currency: 'TRY', priceMonthly: '500.00' }]);
+    // Reward: 250 TRY (or 10 EUR) of subscription credit, in the referrer's billing currency.
+    const settings = await admin().put('/admin/billing/settings').send({ referralReward: REWARD });
     expect(settings.status).toBe(200);
 
     referrerOwnerPhone = phone();
@@ -156,6 +168,8 @@ describe('Business-to-business referrals G5c-1 (e2e)', () => {
     } else {
       await prisma.platformBillingSettings.deleteMany({ where: { id: 'platform' } });
     }
+    await prisma.platformReferralRewardAmount.deleteMany({});
+    if (originalAmounts.length > 0) await prisma.platformReferralRewardAmount.createMany({ data: originalAmounts.map(({ currency, amount }) => ({ currency, amount })) });
     await prisma.$disconnect();
     await app.close();
   });
@@ -166,7 +180,8 @@ describe('Business-to-business referrals G5c-1 (e2e)', () => {
     code = first.body.code;
     expect(code).toMatch(/^[A-HJ-NP-Z2-9]{8}$/);
     expect(first.body.query).toBe(`?pw_ref=${code}`);
-    expect(first.body.reward).toEqual({ kind: 'AMOUNT', amount: '250.00', currency: 'TRY' });
+    // The owner sees the reward in its own billing currency (TRY for a business in Turkey).
+    expect(first.body.reward).toEqual({ amount: '250.00', currency: 'TRY', months: null });
     expect(first.body.referrals).toEqual([]);
     const second = await as(referrerToken, referrerId).get(`/studios/${referrerId}/business-referrals`);
     expect(second.body.code).toBe(code);
@@ -275,9 +290,129 @@ describe('Business-to-business referrals G5c-1 (e2e)', () => {
     expect(res.status).toBe(200);
     const mine = (res.body.items as { referrerStudioId: string; referredStudioId: string; status: string }[]).filter((i) => i.referrerStudioId === referrerId);
     expect(mine.map((i) => i.status).sort()).toEqual(['REJECTED', 'REWARDED']);
-    expect(res.body.reward).toEqual({ kind: 'AMOUNT', amount: '250.00', currency: 'TRY' });
+    expect(res.body.reward).toEqual(REWARD);
     expect((await request(server).get('/admin/business-referrals').set('Authorization', `Bearer ${referrerToken}`)).status).toBe(403);
     const bad = await admin().put('/admin/billing/settings').send({ referralReward: { kind: 'FREE_MONTHS', months: 0 } });
     expect(bad.status).toBe(400);
+  });
+
+  /** A new business that arrived through the referrer's pw_ref link and whose owner is known to the platform CRM. */
+  async function referredBusiness(slug: string, visitorId: string) {
+    const owner = phone();
+    const tp = await request(server)
+      .post('/track/platform/touchpoint')
+      .set('User-Agent', UA)
+      .send({
+        visitorId,
+        sessionId: randomUUID(),
+        landingUrl: `https://platform.example/tr?pw_ref=${code}`,
+        utm: {},
+        adIds: {},
+        clickIds: {},
+        consent: { analytics: true, advertising: false },
+      });
+    expect(tp.status).toBe(204);
+    const lead = await request(server).post('/public/studios/platform/leads').set('X-PW-VID', visitorId).send({ fullName: 'Zorla Etkin', phone: owner, consent: true });
+    expect(lead.status).toBe(202);
+    const sid = await createTenant(slug, owner);
+    await addOwner(sid, owner);
+    expect((await prisma.studioReferral.findUniqueOrThrow({ where: { referredStudioId: sid } })).status).toBe('SIGNED_UP');
+    return sid;
+  }
+
+  const paidEvents = (sid: string) => prisma.conversionEvent.count({ where: { studioId: PLATFORM, type: 'studio_paid', sourceId: sid } });
+  const rewardsFor = (sid: string) => prisma.platformCreditLedger.count({ where: { kind: 'REFERRAL_REWARD', idempotencyKey: `referral-reward:${sid}` } });
+
+  it('a force-activation without recordAsPaid is not a paying customer: no studio_paid, no reward', async () => {
+    const sid = await referredBusiness(`${SLUG}-forced-free`, VISITOR_2);
+    const res = await admin().post(`/admin/tenants/${sid}/billing-status`).send({ status: 'ACTIVE', planKey: PLAN_KEY, reason: 'e2e' });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ status: 'ACTIVE', recordAsPaid: false });
+    expect(await paidEvents(sid)).toBe(0);
+    expect(await rewardsFor(sid)).toBe(0);
+    expect((await prisma.studioReferral.findUniqueOrThrow({ where: { referredStudioId: sid } })).status).toBe('SIGNED_UP');
+    const log = await prisma.auditLog.findFirstOrThrow({ where: { studioId: sid, action: 'billing.force_activate' } });
+    expect(log.metadata).toMatchObject({ recordAsPaid: false, paidValue: null });
+  });
+
+  it('a force-activation with recordAsPaid records studio_paid and rewards the referrer in its billing currency, exactly once', async () => {
+    // The referrer is now billed in EUR (super-admin override): its money reward is the EUR amount.
+    await admin().put(`/admin/tenants/${referrerId}/billing-currency`).send({ currency: 'EUR', reason: 'e2e' }).expect(200);
+    const sid = await referredBusiness(`${SLUG}-forced-paid`, VISITOR_3);
+    const res = await admin().post(`/admin/tenants/${sid}/billing-status`).send({ status: 'ACTIVE', planKey: PLAN_KEY, recordAsPaid: true, reason: 'offline' });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ status: 'ACTIVE', recordAsPaid: true });
+
+    // Same as a paid activation: studio_paid at the plan's list price in the studio's currency, attributed.
+    const paid = await prisma.conversionEvent.findMany({ where: { studioId: PLATFORM, type: 'studio_paid', sourceId: sid } });
+    expect(paid).toHaveLength(1);
+    expect(paid[0].valueAmount?.toFixed(2)).toBe('500.00');
+    expect(paid[0].currency).toBe('TRY');
+    expect(paid[0].attributedTouchpointId).not.toBeNull();
+    const reward = await prisma.platformCreditLedger.findUniqueOrThrow({ where: { idempotencyKey: `referral-reward:${sid}` } });
+    expect(reward).toMatchObject({ studioId: referrerId, kind: 'REFERRAL_REWARD', currency: 'EUR', months: null });
+    expect(reward.amount?.toFixed(2)).toBe('10.00');
+    expect((await prisma.studioReferral.findUniqueOrThrow({ where: { referredStudioId: sid } })).status).toBe('REWARDED');
+    const log = await prisma.auditLog.findFirstOrThrow({ where: { studioId: sid, action: 'billing.force_activate' } });
+    expect(log.metadata).toMatchObject({ recordAsPaid: true, paidValue: { amount: '500.00', currency: 'TRY' }, reason: 'offline' });
+
+    // Repeating it (already ACTIVE, then restrict and force again) never records or rewards twice.
+    expect((await admin().post(`/admin/tenants/${sid}/billing-status`).send({ status: 'ACTIVE', planKey: PLAN_KEY, recordAsPaid: true })).body).toEqual({
+      status: 'ACTIVE',
+      recordAsPaid: false,
+    });
+    await admin().post(`/admin/tenants/${sid}/billing-status`).send({ status: 'RESTRICTED' }).expect(200);
+    await admin().post(`/admin/tenants/${sid}/billing-status`).send({ status: 'ACTIVE', planKey: PLAN_KEY, recordAsPaid: true }).expect(200);
+    expect(await paidEvents(sid)).toBe(1);
+    expect(await rewardsFor(sid)).toBe(1);
+    // A later real payment path also stays at one.
+    await referrals.onReferredStudioActivated(sid);
+    expect(await rewardsFor(sid)).toBe(1);
+
+    // The EUR credit shows next to the TRY history, never converted.
+    const overview = await as(referrerToken, referrerId).get(`/studios/${referrerId}/business-referrals`);
+    expect(overview.body.reward).toEqual({ amount: '10.00', currency: 'EUR', months: null });
+    expect(overview.body.credit).toEqual({ amounts: [{ currency: 'EUR', amount: '10.00' }], months: 0 });
+  });
+
+  it('recordAsPaid is refused for a restriction and for a plan with no price in the billing currency', async () => {
+    const sid = await createTenant(`${SLUG}-forced-bad`, phone());
+    expect((await admin().post(`/admin/tenants/${sid}/billing-status`).send({ status: 'RESTRICTED', recordAsPaid: true })).status).toBe(400);
+    await admin().put(`/admin/tenants/${sid}/billing-currency`).send({ currency: 'USD' }).expect(200);
+    const res = await admin().post(`/admin/tenants/${sid}/billing-status`).send({ status: 'ACTIVE', planKey: PLAN_KEY, recordAsPaid: true });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('PLAN_PRICE_UNAVAILABLE');
+    expect((await prisma.studio.findUniqueOrThrow({ where: { id: sid } })).billingStatus).toBe('TRIALING');
+  });
+
+  it('the super admin edits the reward per billing currency (audit logged); a currency without an amount gets the default month', async () => {
+    const perCurrency = {
+      kind: 'AMOUNT',
+      amounts: [
+        { currency: 'GBP', amount: '8.00' },
+        { currency: 'TRY', amount: '300.00' },
+      ],
+    };
+    const saved = await admin().put('/admin/billing/settings').send({ referralReward: perCurrency });
+    expect(saved.status).toBe(200);
+    expect(saved.body.referralReward).toEqual(perCurrency);
+    expect((await admin().get('/admin/billing/settings')).body.referralReward).toEqual(perCurrency);
+    expect((await prisma.platformReferralRewardAmount.findMany({ orderBy: { currency: 'asc' } })).map((r) => r.currency)).toEqual(['GBP', 'TRY']);
+    const log = await prisma.auditLog.findFirstOrThrow({ where: { action: 'billing.settings_update', userId: { not: null } }, orderBy: { createdAt: 'desc' } });
+    expect(log.metadata).toMatchObject({ previous: REWARD, referralReward: perCurrency });
+
+    // The referrer is billed in EUR (earlier override) and EUR has no amount now: one free month, never a conversion.
+    const overview = await as(referrerToken, referrerId).get(`/studios/${referrerId}/business-referrals`);
+    expect(overview.body.reward).toEqual({ amount: null, currency: null, months: 1 });
+    // Pinned to GBP it earns the GBP amount.
+    await admin().put(`/admin/tenants/${referrerId}/billing-currency`).send({ currency: 'GBP' }).expect(200);
+    expect((await as(referrerToken, referrerId).get(`/studios/${referrerId}/business-referrals`)).body.reward).toEqual({ amount: '8.00', currency: 'GBP', months: null });
+
+    // Back to free months clears the amounts; only the super admin may edit.
+    const months = await admin().put('/admin/billing/settings').send({ referralReward: { kind: 'FREE_MONTHS', months: 2 } });
+    expect(months.body.referralReward).toEqual({ kind: 'FREE_MONTHS', months: 2 });
+    expect(await prisma.platformReferralRewardAmount.count()).toBe(0);
+    const forbidden = await request(server).put('/admin/billing/settings').set('Authorization', `Bearer ${referrerToken}`).send({ referralReward: perCurrency });
+    expect(forbidden.status).toBe(403);
   });
 });

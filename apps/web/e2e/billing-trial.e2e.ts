@@ -44,6 +44,8 @@ test('the trial owner sees the days-left banner and activates the account', asyn
   await page.waitForURL('**/abonelik');
   await expect(main.getByRole('heading', { name: 'Abonelik', exact: true })).toBeVisible();
   await expect(main.getByTestId('billing-summary').getByText('Deneme', { exact: true })).toBeVisible();
+  // G5c-1b: a business in Turkey is billed in TRY, derived from its country.
+  await expect(main.getByTestId('billing-summary').getByText('TRY', { exact: true })).toBeVisible();
 
   const plans = main.getByRole('group', { name: 'Plan seçin', exact: true });
   await plans.getByRole('radio').first().check();

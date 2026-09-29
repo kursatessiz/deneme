@@ -8,7 +8,7 @@ import {
   UpdateCheckInWindowSchema,
   UpdateCheckInWindowInput,
 } from '@platform/shared';
-import { StudioScoped, RequirePermission } from '../auth/decorators/require-permission.decorator';
+import { StudioScoped, RequirePermission, AllowWhenRestricted } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import { ZodBody } from '../../common/zod-body.pipe';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
@@ -65,6 +65,7 @@ export class CheckInController {
 
   /** Reception scans a member's dynamic QR. Branch-restricted staff only see/check-in bookings in their branches. */
   @Post('member-qr')
+  @AllowWhenRestricted()
   @RequirePermission('attendance.manage')
   async checkInByMemberQr(
     @Tenant() tenant: TenantContext,

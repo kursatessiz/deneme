@@ -314,8 +314,9 @@ describe('Admin (super-admin) panel e2e', () => {
       const plan = await request(server)
         .post('/admin/plans')
         .set('Authorization', `Bearer ${superAdminToken}`)
-        .send({ key: planKeyLocal, name: 'E2E Plan', priceMonthly: 999, limits: { maxActiveMembers: 3 }, isActive: true });
+        .send({ key: planKeyLocal, name: 'E2E Plan', prices: [{ currency: 'TRY', priceMonthly: 999 }], limits: { maxActiveMembers: 3 }, isActive: true });
       expect(plan.status).toBe(201);
+      expect(plan.body.prices).toEqual([{ currency: 'TRY', priceMonthly: '999.00' }]);
       createdPlanKeys.push(planKeyLocal);
 
       const btKey = `e2e_business_type_${Date.now()}`;
@@ -355,7 +356,7 @@ describe('Admin (super-admin) panel e2e', () => {
         .send({
           key: tightPlanKey,
           name: 'Tight Plan',
-          priceMonthly: 0,
+          prices: [{ currency: 'TRY', priceMonthly: 0 }],
           limits: { maxActiveMembers: currentActiveMembers },
           isActive: true,
         })
