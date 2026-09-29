@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'crypto';
 import { promises as fs } from 'fs';
 import type { FileHandle } from 'fs/promises';
-import { tmpdir } from 'os';
 import { join } from 'path';
 import { SOURCEMAP_LIMITS, SOURCEMAP_PLATFORMS, isValidSourcemapRelease } from '@platform/shared';
 import type { SourcemapPlatform, SourcemapUploadResult } from '@platform/shared';
@@ -41,7 +40,8 @@ export class SourcemapStoreService {
   private readonly cache = new Map<string, { mtimeMs: number; map: RawSourceMap }>();
 
   constructor(config: ConfigService) {
-    this.dir = config.get<string>('SOURCEMAP_DIR') ?? join(tmpdir(), 'platform-sourcemaps');
+    // No shared temp directory as a fallback (a predictable path there is open to symlink attacks): production sets SOURCEMAP_DIR, a bare dev run writes under the API directory.
+    this.dir = config.get<string>('SOURCEMAP_DIR') ?? join(process.cwd(), '.sourcemaps');
   }
 
   private releaseDir(platform: SourcemapPlatform, release: string): string {
