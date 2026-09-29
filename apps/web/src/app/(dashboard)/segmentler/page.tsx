@@ -49,7 +49,7 @@ function SegmentList() {
               {data.items.map((s) => (
                 <tr key={s.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
                   <td className="px-4 py-2.5">
-                    <Link href={`/segmentler/${s.id}`} className="font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                    <Link href={`/segmentler/${encodeURIComponent(s.id)}`} className="font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
                       {s.name}
                     </Link>
                   </td>

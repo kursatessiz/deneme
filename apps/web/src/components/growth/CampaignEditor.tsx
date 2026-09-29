@@ -353,7 +353,7 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
           <ul className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
             {recipients.map((r) => (
               <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5 text-sm">
-                <Link href={`/kisiler/${r.contactId}`} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                <Link href={`/kisiler/${encodeURIComponent(r.contactId)}`} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
                   {r.fullName}
                 </Link>
                 <span className="flex items-center gap-2">

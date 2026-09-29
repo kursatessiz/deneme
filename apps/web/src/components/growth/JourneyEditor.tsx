@@ -665,7 +665,7 @@ export function JourneyEditor({ journeyId }: { journeyId?: string }) {
               <ul className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
                 {enrollments.map((e) => (
                   <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5 text-sm">
-                    <Link href={`/kisiler/${e.contactId}`} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                    <Link href={`/kisiler/${encodeURIComponent(e.contactId)}`} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
                       {e.fullName}
                     </Link>
                     <span className="flex items-center gap-2">

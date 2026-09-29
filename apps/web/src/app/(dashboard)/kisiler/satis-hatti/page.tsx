@@ -47,7 +47,11 @@ function PipelineBoard() {
     load();
   }, [load]);
 
-  async function move(contact: ContactDTO, targetKey: string) {
+  async function move(contact: ContactDTO, requestedKey: string) {
+    // Only a known stage can be a target; the key comes from a DOM control.
+    const target = stages?.find((s) => s.key === requestedKey);
+    if (!target) return;
+    const targetKey = target.key;
     const fromKey = contact.pipelineStage?.key;
     if (!fromKey || fromKey === targetKey) return;
     setMoveError(null);
@@ -56,10 +60,10 @@ function PipelineBoard() {
     setCards((current) => ({
       ...current,
       [fromKey]: (current[fromKey] ?? []).filter((c) => c.id !== contact.id),
-      [targetKey]: [{ ...contact, pipelineStage: stages?.find((s) => s.key === targetKey) ?? contact.pipelineStage }, ...(current[targetKey] ?? [])],
+      [targetKey]: [{ ...contact, pipelineStage: target }, ...(current[targetKey] ?? [])],
     }));
     try {
-      await bffFetch(`crm/studios/${activeStudioId}/contacts/${contact.id}`, { method: 'PATCH', studioId: activeStudioId, body: { pipelineStageKey: targetKey } });
+      await bffFetch(`crm/studios/${activeStudioId}/contacts/${encodeURIComponent(contact.id)}`, { method: 'PATCH', studioId: activeStudioId, body: { pipelineStageKey: targetKey } });
     } catch (err) {
       setCards(previous);
       setMoveError(errorMessage(err, t('common.error.generic')));
@@ -125,7 +129,7 @@ function PipelineBoard() {
                     className="p-3 text-sm space-y-2"
                     style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)', cursor: canManage ? 'grab' : 'default' }}
                   >
-                    <Link href={`/kisiler/${contact.id}`} className="block font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                    <Link href={`/kisiler/${encodeURIComponent(contact.id)}`} className="block font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
                       {contact.fullName}
                     </Link>
                     {contact.ownerName && <Muted>{contact.ownerName}</Muted>}

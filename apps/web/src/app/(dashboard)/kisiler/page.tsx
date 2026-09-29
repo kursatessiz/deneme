@@ -138,7 +138,7 @@ function ContactList() {
                 {data.items.map((c) => (
                   <tr key={c.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
                     <td className="px-4 py-2.5">
-                      <Link href={`/kisiler/${c.id}`} className="font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                      <Link href={`/kisiler/${encodeURIComponent(c.id)}`} className="font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
                         {c.fullName}
                       </Link>
                     </td>

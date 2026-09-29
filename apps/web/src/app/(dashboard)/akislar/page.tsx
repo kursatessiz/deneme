@@ -57,7 +57,7 @@ function JourneyList() {
               {data.items.map((j) => (
                 <tr key={j.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
                   <td className="px-4 py-2.5">
-                    <Link href={`/akislar/${j.id}`} className="font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                    <Link href={`/akislar/${encodeURIComponent(j.id)}`} className="font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
                       {j.name}
                     </Link>
                     {j.legacyRuleType && (

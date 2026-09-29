@@ -185,7 +185,7 @@ export function SegmentEditor({ segmentId }: { segmentId?: string }) {
                 <ul className="space-y-1">
                   {members.items.map((m) => (
                     <li key={m.id} className="flex items-center justify-between gap-2 text-sm">
-                      <Link href={`/kisiler/${m.id}`} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                      <Link href={`/kisiler/${encodeURIComponent(m.id)}`} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
                         {m.fullName}
                       </Link>
                       {segment.kind === 'STATIC' && canManage && (
