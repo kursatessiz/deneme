@@ -4,7 +4,7 @@ import { PublicLeadFormSchema, PublicLeadFormInput } from '@platform/shared';
 import { ZodBody } from '../../../common/zod-body.pipe';
 import { LeadsCompatService } from './leads-compat.service';
 import { LeadsPublicRateLimitGuard } from './leads-public-rate-limit.guard';
-import { readVisitorId } from '../tracking/tracking-utils';
+import { countryFromHeaders, readVisitorId } from '../tracking/tracking-utils';
 
 /**
  * Unauthenticated web-form endpoint, meant to be embedded on the tenant's
@@ -25,7 +25,7 @@ export class LeadsPublicController {
   @HttpCode(202)
   @UseGuards(LeadsPublicRateLimitGuard)
   async submit(@Param('slug') slug: string, @ZodBody(PublicLeadFormSchema) body: PublicLeadFormInput, @Req() req: Request) {
-    await this.leads.submitPublicForm(slug, body, readVisitorId(req.headers));
+    await this.leads.submitPublicForm(slug, body, readVisitorId(req.headers), countryFromHeaders(req.headers));
     return { received: true };
   }
 }

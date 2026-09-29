@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { complianceRegionOf } from '@platform/shared';
-import type { ComplianceRegion } from '@platform/shared';
+import { complianceRegionOf, evaluateCommercialEligibility } from '@platform/shared';
+import type { CommercialIneligibilityReason, ComplianceRegion, ConsentLegalBasis } from '@platform/shared';
 import type { CanSendInput, CanSendResult } from './compliance.types';
 
 /** Every region sends commercial messages only inside this local-time window (docs section 2.3: TCPA's 08:00-21:00, applied as the platform-wide default quiet hours). */
@@ -29,7 +29,16 @@ export class ComplianceService {
       return { allow: false, region, reasonCode: 'OPTED_OUT', reason: 'Alıcı bu kanaldan çıktı (STOP/abonelikten çık)' };
     }
 
-    if (!input.recipient.consentGranted) {
+    let basis: { legalBasis?: ConsentLegalBasis; legalBasisRecorded?: boolean } = {};
+    const facts = input.recipient.legalBasis;
+    if (facts && (input.channel === 'EMAIL' || input.channel === 'SMS' || input.channel === 'WHATSAPP')) {
+      // M3e: the shared rule set decides the legal basis per region and channel (never a country in code).
+      const decision = evaluateCommercialEligibility({ region, channel: input.channel, optedOut: false, ...facts });
+      if (!decision.eligible) {
+        return { allow: false, region, reasonCode: decision.reason, reason: this.ineligibleMessage(decision.reason, region) };
+      }
+      basis = { legalBasis: decision.basis, legalBasisRecorded: decision.recorded };
+    } else if (!input.recipient.consentGranted) {
       return {
         allow: false,
         region,
@@ -39,7 +48,7 @@ export class ComplianceService {
     }
 
     if (input.skipQuietHours) {
-      return { allow: true, region };
+      return { allow: true, region, ...basis };
     }
 
     const timezone = input.recipient.timezone || input.studioTimezone || 'UTC';
@@ -53,7 +62,22 @@ export class ComplianceService {
       };
     }
 
-    return { allow: true, region };
+    return { allow: true, region, ...basis };
+  }
+
+  private ineligibleMessage(reason: CommercialIneligibilityReason, region: ComplianceRegion): string {
+    switch (reason) {
+      case 'DOUBLE_OPT_IN_PENDING':
+        return 'Çift onay bekleniyor (onay bağlantısına henüz tıklanmadı)';
+      case 'NO_LEGAL_BASIS':
+        return 'Alıcının bölgesinde geçerli bir izin dayanağı yok';
+      case 'TR_EXEMPTION_DISABLED':
+        return 'Tacir muafiyeti kapalı ve açık onay yok';
+      case 'OPTED_OUT':
+        return 'Alıcı bu kanaldan çıktı (STOP/abonelikten çık)';
+      default:
+        return this.consentDeniedMessage(region);
+    }
   }
 
   private consentDeniedMessage(region: ComplianceRegion): string {

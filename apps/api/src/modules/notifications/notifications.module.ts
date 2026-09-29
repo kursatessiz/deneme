@@ -6,6 +6,8 @@ import { ConsentService } from './consent/consent.service';
 import { ContactConsentService } from './consent/contact-consent.service';
 import { ConsentController } from './consent/consent.controller';
 import { IysClientAdapter } from './consent/iys-client.adapter';
+import { ConsentConfirmationService } from './consent/consent-confirmation.service';
+import { ConsentConfirmRateLimitGuard, PublicConsentConfirmationController } from './consent/consent-confirmation.controller';
 import { NotificationSettingsService } from './settings/notification-settings.service';
 import { SmsProviderBalanceService } from './sms-provider-balance.service';
 import {
@@ -21,13 +23,15 @@ import {
  */
 @Global()
 @Module({
-  controllers: [ConsentController, NotificationSettingsController, SmsWalletController, SmsWalletAdminController],
+  controllers: [ConsentController, PublicConsentConfirmationController, NotificationSettingsController, SmsWalletController, SmsWalletAdminController],
   providers: [
     NotificationsService,
     PushService,
     NotificationPreferencesService,
     ConsentService,
     ContactConsentService,
+    ConsentConfirmationService,
+    ConsentConfirmRateLimitGuard,
     IysClientAdapter,
     NotificationSettingsService,
     SmsProviderBalanceService,
@@ -38,6 +42,7 @@ import {
     NotificationPreferencesService,
     ConsentService,
     ContactConsentService,
+    ConsentConfirmationService,
     IysClientAdapter,
     NotificationSettingsService,
     SmsProviderBalanceService,

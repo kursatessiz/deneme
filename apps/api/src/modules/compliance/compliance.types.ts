@@ -1,4 +1,4 @@
-import type { ComplianceRegion } from '@platform/shared';
+import type { CommercialIneligibilityReason, ComplianceRegion, ConsentFacts, ConsentLegalBasis, ConsentPolicy } from '@platform/shared';
 
 export type CompliancePurpose = 'TRANSACTIONAL' | 'COMMERCIAL';
 export type ComplianceChannel = 'WHATSAPP' | 'SMS' | 'EMAIL' | 'PUSH' | 'IN_APP';
@@ -18,6 +18,18 @@ export interface ComplianceRecipient {
   consentGranted: boolean;
   /** US TCPA / general unsubscribe: an explicit STOP or unsubscribe click recorded for this recipient+channel. */
   optedOut?: boolean;
+  /**
+   * M3e legal basis facts (ContactConsentService.commercialFacts). When
+   * present, canSend decides consent with the shared rule set
+   * (evaluateCommercialEligibility: double opt-in, existing customer soft
+   * opt-in, TR merchant exemption) instead of `consentGranted` alone.
+   */
+  legalBasis?: {
+    policy: ConsentPolicy | null;
+    consent: ConsentFacts;
+    isBusiness: boolean;
+    isExistingCustomer: boolean;
+  };
 }
 
 export interface CanSendInput {
@@ -39,8 +51,12 @@ export interface CanSendInput {
 
 export interface CanSendResult {
   allow: boolean;
-  /** Machine-readable reason for a deny, e.g. 'CONSENT_REQUIRED', 'QUIET_HOURS', 'OPTED_OUT'. Undefined when allowed. */
-  reasonCode?: 'CONSENT_REQUIRED' | 'OPTED_OUT' | 'QUIET_HOURS';
+  /** Machine-readable reason for a deny, e.g. 'CONSENT_REQUIRED', 'QUIET_HOURS', 'OPTED_OUT', or an M3e legal-basis reason. Undefined when allowed. */
+  reasonCode?: CommercialIneligibilityReason | 'QUIET_HOURS';
+  /** The legal basis a commercial message goes out on (set when allowed with legal basis facts). */
+  legalBasis?: ConsentLegalBasis;
+  /** False when the basis was derived without a recorded consent row (the caller records it first). */
+  legalBasisRecorded?: boolean;
   /** Human-readable (Turkish) reason, for logs and the sender's own diagnostics -- never shown to the recipient. */
   reason?: string;
   region: ComplianceRegion;
