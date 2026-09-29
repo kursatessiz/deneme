@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@platform/database';
-import { DEFAULT_TENANT_THEME } from '@platform/shared';
+import { DEFAULT_TENANT_THEME, studioBillingCurrency } from '@platform/shared';
 import type { PublicPageDTO, PublicPageContext, PageLocaleDTO, BlockDTO, SitemapPageEntry, TenantTheme } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { sitesBaseDomain } from './sites.service';
@@ -107,8 +107,14 @@ export class PublicSitesService {
 
     if (needs.has('pricing')) {
       if (studio.site?.kind === 'PLATFORM') {
-        const plans = await this.prisma.plan.findMany({ where: { isActive: true }, orderBy: { priceMonthly: 'asc' } });
-        context.plans = plans.map((p) => ({ key: p.key, name: p.name, priceMonthly: p.priceMonthly.toString(), currency: p.currency, limits: p.limits }));
+        // G5c-1b: prices in the platform tenant's billing currency (plan_prices);
+        // a plan without a price in it is not listed.
+        const platform = await this.prisma.studio.findUnique({ where: { id: studio.id }, select: { countryCode: true, billingCurrency: true } });
+        const currency = studioBillingCurrency({ countryCode: platform?.countryCode, billingCurrency: platform?.billingCurrency });
+        const plans = await this.prisma.plan.findMany({ where: { isActive: true, prices: { some: { currency } } }, include: { prices: { where: { currency } } } });
+        context.plans = plans
+          .map((p) => ({ key: p.key, name: p.name, priceMonthly: p.prices[0].priceMonthly.toString(), currency, limits: p.limits }))
+          .sort((a, b) => Number(a.priceMonthly) - Number(b.priceMonthly));
       } else {
         const packages = await this.prisma.packageDefinition.findMany({ where: { studioId: studio.id, isActive: true }, orderBy: { price: 'asc' } });
         context.packages = packages.map((p) => ({ id: p.id, name: p.name, price: p.price.toString(), currency: studio.currency }));

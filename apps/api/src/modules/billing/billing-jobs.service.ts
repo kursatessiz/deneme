@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { BILLING_TEMPLATE_KEYS, TRIAL_REMINDER_DAYS, dueTrialReminder, trialDaysLeft } from '@platform/shared';
+import { BILLING_TEMPLATE_KEYS, TRIAL_REMINDER_DAYS, dueTrialReminder, planPriceIn, studioBillingCurrency, trialDaysLeft } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { MessagingService } from '../messaging/engine/messaging.service';
 
@@ -20,7 +20,9 @@ export interface BillingHeartbeatResult {
  *   end (Studio.trialReminderSentDays claims it; the messaging idempotency
  *   key covers a crash between claim and send).
  * Messages are TRANSACTIONAL and billing EXEMPT: a platform notice never
- * spends the tenant's SMS credits.
+ * spends the tenant's SMS credits. TRIAL_ENDING carries the trial plan's
+ * monthly price in the studio's billing currency as {planPrice} (G5c-1b)
+ * when the plan is offered in that currency.
  */
 @Injectable()
 export class BillingJobsService {
@@ -70,7 +72,21 @@ export class BillingJobsService {
     const horizon = new Date(now.getTime() + Math.max(...TRIAL_REMINDER_DAYS) * DAY_MS);
     const trialing = await this.prisma.studio.findMany({
       where: { billingStatus: 'TRIALING', trialEndsAt: { gt: now, lte: horizon }, isPlatform: false },
-      select: { id: true, trialEndsAt: true, trialReminderSentDays: true, timezone: true, defaultLocale: true },
+      select: {
+        id: true,
+        trialEndsAt: true,
+        trialReminderSentDays: true,
+        timezone: true,
+        defaultLocale: true,
+        countryCode: true,
+        billingCurrency: true,
+        subscriptions: {
+          where: { status: { not: 'CANCELLED' } },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { plan: { select: { prices: { select: { currency: true, priceMonthly: true } } } } },
+        },
+      },
       take: BATCH,
     });
     let sent = 0;
@@ -92,7 +108,11 @@ export class BillingJobsService {
         studio.id,
         BILLING_TEMPLATE_KEYS.trialEnding,
         `trial-ending:${studio.id}:${threshold}:${studio.trialEndsAt.toISOString()}`,
-        { daysLeft: daysLeft ?? threshold, trialEndDate: formatDate(studio.trialEndsAt, studio.defaultLocale, studio.timezone) },
+        {
+          daysLeft: daysLeft ?? threshold,
+          trialEndDate: formatDate(studio.trialEndsAt, studio.defaultLocale, studio.timezone),
+          ...planPriceVariable(studio.subscriptions[0]?.plan.prices ?? [], studioBillingCurrency(studio), studio.defaultLocale),
+        },
       );
       if (ok) sent++;
     }
@@ -123,6 +143,18 @@ export class BillingJobsService {
       this.logger.warn(`Billing notice ${templateKey} for ${studioId} failed: ${err instanceof Error ? err.message : String(err)}`);
       return false;
     }
+  }
+}
+
+/** {planPrice}: the monthly price in the billing currency, formatted for the studio's language; omitted when not offered. */
+function planPriceVariable(prices: { currency: string; priceMonthly: { toString(): string } }[], currency: string, locale: string): { planPrice?: string } {
+  const price = planPriceIn(prices, currency);
+  if (!price) return {};
+  const amount = Number(price.priceMonthly.toString());
+  try {
+    return { planPrice: new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount) };
+  } catch {
+    return { planPrice: `${price.priceMonthly.toString()} ${currency}` };
   }
 }
 

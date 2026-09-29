@@ -25,6 +25,7 @@ export const enBilling: Record<keyof typeof trBilling, string> = {
   'billing.summary.activatedAt': 'Activated on',
   'billing.summary.plan': 'Plan',
   'billing.summary.periodEnd': 'Period ends',
+  'billing.summary.billingCurrency': 'Billing currency',
   'billing.summary.credit': 'Subscription credit',
   'billing.summary.noCredit': 'No credit',
   'billing.summary.creditMonths.one': '{count} free month',
@@ -43,6 +44,7 @@ export const enBilling: Record<keyof typeof trBilling, string> = {
   'billing.activate.alreadyActive': 'Your account is active. Thank you.',
   'billing.activate.failed': 'The activation could not be completed.',
   'billing.activate.noPlans': 'There is no plan to choose from right now.',
+  'billing.activate.currencyNote': 'Prices are in {currency}, your business billing currency.',
 
   'billing.payments.title': 'Payments',
   'billing.payments.empty': 'No subscription payments yet.',
@@ -55,6 +57,8 @@ export const enBilling: Record<keyof typeof trBilling, string> = {
   'billing.payments.status.COMPLETED': 'Paid',
   'billing.payments.status.FAILED': 'Failed',
 
+  'billing.error.BILLING_CURRENCY_LOCKED': 'The billing currency cannot change once a subscription payment has been completed. Contact platform support to change it.',
+  'billing.error.PLAN_PRICE_UNAVAILABLE': 'This plan is not offered in your business billing currency.',
   'billing.error.BILLING_RESTRICTED': 'This account is restricted. The business owner needs to activate it before new records can be created.',
 
   'billing.referral.title': 'Refer a business',

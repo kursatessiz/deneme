@@ -5,6 +5,9 @@ import type { PermissionKey } from '@platform/shared';
 import { BillingWriteGuard } from './billing-write.guard';
 import { ALLOW_WHEN_RESTRICTED_KEY, PERMISSIONS_KEY } from '../decorators/require-permission.decorator';
 import type { AuthenticatedRequest, TenantContext } from '../tenant-context';
+import { SchedulesController } from '../../schedules/schedules.controller';
+import { CheckInController } from '../../checkin/checkin.controller';
+import { EventsController } from '../../events/events.controller';
 
 function tenant(overrides: Partial<TenantContext> = {}): TenantContext {
   return {
@@ -67,5 +70,34 @@ describe('BillingWriteGuard (restricted mode)', () => {
 
   it('never restricts a super admin', () => {
     expect(guard.canActivate(ctx('POST', tenant({ isSuperAdmin: true }), { permissions: ['bookings.manage'] }))).toBe(true);
+  });
+});
+
+/**
+ * Owner decision (G5c-1b): a restricted (or cancelled) studio can still
+ * record attendance and cancel what was already booked, but not create new
+ * bookings. The allow-list is metadata on the handlers themselves.
+ */
+describe('restricted-mode allow-list for attendance and cancellation', () => {
+  const allowed = (proto: object, name: string): boolean =>
+    Reflect.getMetadata(ALLOW_WHEN_RESTRICTED_KEY, (proto as Record<string, unknown>)[name] as object) === true;
+
+  it('opens attendance, no-show, check-in and every cancellation endpoint', () => {
+    for (const name of ['cancelBooking', 'cancelBookingSelf', 'checkIn', 'markNoShow', 'leaveWaitlist', 'leaveWaitlistSelf', 'cancelSession']) {
+      expect([name, allowed(SchedulesController.prototype, name)]).toEqual([name, true]);
+    }
+    expect(allowed(CheckInController.prototype, 'checkInByMemberQr')).toBe(true);
+    for (const name of ['cancelRegistration', 'checkIn', 'noShow', 'cancel']) {
+      expect([name, allowed(EventsController.prototype, name)]).toEqual([name, true]);
+    }
+  });
+
+  it('keeps new bookings, sessions and waitlist joins closed', () => {
+    for (const name of ['bookSession', 'bookSessionSelf', 'createSchedule', 'updateSchedule', 'joinWaitlist', 'joinWaitlistSelf', 'changeSpot', 'substituteTrainer']) {
+      expect([name, allowed(SchedulesController.prototype, name)]).toEqual([name, false]);
+    }
+    for (const name of ['create', 'publish', 'recordPayment']) {
+      expect([name, allowed(EventsController.prototype, name)]).toEqual([name, false]);
+    }
   });
 });

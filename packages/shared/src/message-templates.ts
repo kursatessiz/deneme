@@ -92,7 +92,7 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplateDefinition[] = [
   {
     key: 'TRIAL_ENDING',
     purpose: 'TRANSACTIONAL',
-    variables: ['firstName', 'studioName', 'daysLeft', 'trialEndDate'],
+    variables: ['firstName', 'studioName', 'daysLeft', 'trialEndDate', 'planPrice'],
     whatsappName: 'trial_ending',
   },
   { key: 'TRIAL_RESTRICTED', purpose: 'TRANSACTIONAL', variables: ['firstName', 'studioName'], whatsappName: 'trial_restricted' },

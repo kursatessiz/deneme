@@ -1,5 +1,9 @@
 import {
   ActivateStudioSchema,
+  AdminForceBillingStatusSchema,
+  AdminSetBillingCurrencySchema,
+  DEFAULT_REFERRAL_REWARD,
+  PLATFORM_BILLING_CURRENCIES,
   ReferralRewardSettingSchema,
   STUDIO_BILLING_STATUSES,
   TRANSLATED_API_ERROR_CODES,
@@ -12,7 +16,10 @@ import {
   isTrialExpired,
   isWriteRestricted,
   parseReferralParam,
+  planPriceIn,
+  platformBillingCurrencyOf,
   referralRewardEntry,
+  studioBillingCurrency,
   trialDaysLeft,
   trialEndFrom,
 } from './billing';
@@ -110,14 +117,28 @@ describe('referral reward and credits', () => {
   it('validates the reward setting', () => {
     expect(ReferralRewardSettingSchema.safeParse({ kind: 'FREE_MONTHS', months: 1 }).success).toBe(true);
     expect(ReferralRewardSettingSchema.safeParse({ kind: 'FREE_MONTHS', months: 0 }).success).toBe(false);
-    expect(ReferralRewardSettingSchema.safeParse({ kind: 'AMOUNT', amount: '500.00', currency: 'TRY' }).success).toBe(true);
-    expect(ReferralRewardSettingSchema.safeParse({ kind: 'AMOUNT', amount: '500' }).success).toBe(false);
-    expect(ReferralRewardSettingSchema.safeParse({ kind: 'AMOUNT', amount: '-5', currency: 'EUR' }).success).toBe(false);
+    expect(ReferralRewardSettingSchema.safeParse({ kind: 'AMOUNT', amounts: [{ currency: 'TRY', amount: '500.00' }] }).success).toBe(true);
+    expect(ReferralRewardSettingSchema.safeParse({ kind: 'AMOUNT', amounts: [] }).success).toBe(false);
+    expect(ReferralRewardSettingSchema.safeParse({ kind: 'AMOUNT', amounts: [{ currency: 'EUR', amount: '-5' }] }).success).toBe(false);
+    // Only platform billing currencies, each once.
+    expect(ReferralRewardSettingSchema.safeParse({ kind: 'AMOUNT', amounts: [{ currency: 'GBP', amount: '5.00' }] }).success).toBe(true);
+    expect(ReferralRewardSettingSchema.safeParse({ kind: 'AMOUNT', amounts: [{ currency: 'CHF', amount: '5.00' }] }).success).toBe(false);
+    expect(
+      ReferralRewardSettingSchema.safeParse({ kind: 'AMOUNT', amounts: [{ currency: 'EUR', amount: '5.00' }, { currency: 'EUR', amount: '6.00' }] }).success,
+    ).toBe(false);
   });
 
-  it('turns the setting into one ledger entry', () => {
-    expect(referralRewardEntry({ kind: 'FREE_MONTHS', months: 2 })).toEqual({ amount: null, currency: null, months: 2 });
-    expect(referralRewardEntry({ kind: 'AMOUNT', amount: '250.50', currency: 'EUR' })).toEqual({ amount: '250.50', currency: 'EUR', months: null });
+  it('the default reward is one free month (owner decision)', () => {
+    expect(DEFAULT_REFERRAL_REWARD).toEqual({ kind: 'FREE_MONTHS', months: 1 });
+  });
+
+  it('turns the setting into one ledger entry in the referrer billing currency', () => {
+    expect(referralRewardEntry({ kind: 'FREE_MONTHS', months: 2 }, 'TRY')).toEqual({ amount: null, currency: null, months: 2 });
+    const amounts = { kind: 'AMOUNT' as const, amounts: [{ currency: 'EUR' as const, amount: '25.50' }, { currency: 'TRY' as const, amount: '900.00' }] };
+    expect(referralRewardEntry(amounts, 'EUR')).toEqual({ amount: '25.50', currency: 'EUR', months: null });
+    expect(referralRewardEntry(amounts, 'TRY')).toEqual({ amount: '900.00', currency: 'TRY', months: null });
+    // No amount in the referrer's currency: never converted, the default applies.
+    expect(referralRewardEntry(amounts, 'USD')).toEqual({ amount: null, currency: null, months: 1 });
   });
 
   it('sums a signed ledger per currency and in months', () => {
@@ -198,12 +219,66 @@ describe('business referrals', () => {
     expect(tp.success).toBe(true);
   });
 
-  it('plans carry a currency and a trial length; activation needs a plan', () => {
-    const plan = UpsertPlanSchema.parse({ key: 'p', name: 'P', priceMonthly: 10, currency: 'EUR', trialDays: 21 });
-    expect(plan.currency).toBe('EUR');
+  it('plans carry prices per billing currency and a trial length; activation needs a plan', () => {
+    const plan = UpsertPlanSchema.parse({ key: 'p', name: 'P', prices: [{ currency: 'EUR', priceMonthly: 10 }, { currency: 'TRY', priceMonthly: 390 }], trialDays: 21 });
+    expect(plan.prices).toHaveLength(2);
     expect(plan.trialDays).toBe(21);
-    expect(UpsertPlanSchema.safeParse({ key: 'p', name: 'P', priceMonthly: 10, trialDays: 400 }).success).toBe(false);
+    expect(UpsertPlanSchema.safeParse({ key: 'p', name: 'P', prices: [{ currency: 'EUR', priceMonthly: 10 }], trialDays: 400 }).success).toBe(false);
+    // Deprecated single price still accepted, but only with its currency.
+    expect(UpsertPlanSchema.safeParse({ key: 'p', name: 'P', priceMonthly: 10, currency: 'USD' }).success).toBe(true);
+    expect(UpsertPlanSchema.safeParse({ key: 'p', name: 'P', priceMonthly: 10 }).success).toBe(false);
+    expect(UpsertPlanSchema.safeParse({ key: 'p', name: 'P', prices: [{ currency: 'GBP', priceMonthly: 10 }] }).success).toBe(true);
+    expect(UpsertPlanSchema.safeParse({ key: 'p', name: 'P', prices: [{ currency: 'CHF', priceMonthly: 10 }] }).success).toBe(false);
+    expect(
+      UpsertPlanSchema.safeParse({ key: 'p', name: 'P', prices: [{ currency: 'TRY', priceMonthly: 1 }, { currency: 'TRY', priceMonthly: 2 }] }).success,
+    ).toBe(false);
     expect(ActivateStudioSchema.parse({ planKey: 'starter' }).installmentCount).toBe(1);
     expect(ActivateStudioSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe('platform billing currency (G5c-1b)', () => {
+  it('offers TRY, USD and EUR', () => {
+    expect(PLATFORM_BILLING_CURRENCIES).toEqual(['TRY', 'USD', 'EUR', 'GBP']);
+  });
+
+  it('maps a country to its billing currency', () => {
+    expect(platformBillingCurrencyOf('TR')).toBe('TRY');
+    expect(platformBillingCurrencyOf('tr')).toBe('TRY');
+    for (const euro of ['DE', 'FR', 'NL', 'IT', 'ES', 'AT', 'IE', 'HR', 'BG']) expect(platformBillingCurrencyOf(euro)).toBe('EUR');
+    // United Kingdom and the Crown dependencies: GBP (owner decision).
+    for (const pound of ['GB', 'GG', 'JE', 'IM']) expect(platformBillingCurrencyOf(pound)).toBe('GBP');
+    // EU but not euro area, and everything else: USD.
+    for (const other of ['PL', 'SE', 'DK', 'CH', 'US', 'CA', 'AE', 'SA']) expect(platformBillingCurrencyOf(other)).toBe('USD');
+    expect(platformBillingCurrencyOf(null)).toBe('USD');
+  });
+
+  it('a super-admin override wins over the country', () => {
+    expect(studioBillingCurrency({ countryCode: 'TR', billingCurrency: null })).toBe('TRY');
+    expect(studioBillingCurrency({ countryCode: 'TR', billingCurrency: 'EUR' })).toBe('EUR');
+    // An override no longer offered is ignored.
+    expect(studioBillingCurrency({ countryCode: 'DE', billingCurrency: 'CHF' })).toBe('EUR');
+  });
+
+  it('finds a plan price only in the same currency', () => {
+    const prices = [{ currency: 'TRY', priceMonthly: '1490.00' }, { currency: 'EUR', priceMonthly: '45.00' }];
+    expect(planPriceIn(prices, 'EUR')?.priceMonthly).toBe('45.00');
+    expect(planPriceIn(prices, 'USD')).toBeNull();
+  });
+
+  it('force activation records a payment only when asked, and the override accepts null', () => {
+    expect(AdminForceBillingStatusSchema.parse({ status: 'ACTIVE' }).recordAsPaid).toBe(false);
+    expect(AdminForceBillingStatusSchema.parse({ status: 'ACTIVE', recordAsPaid: true }).recordAsPaid).toBe(true);
+    expect(AdminSetBillingCurrencySchema.safeParse({ currency: null }).success).toBe(true);
+    expect(AdminSetBillingCurrencySchema.safeParse({ currency: 'USD' }).success).toBe(true);
+    expect(AdminSetBillingCurrencySchema.safeParse({ currency: 'GBP' }).success).toBe(true);
+    expect(AdminSetBillingCurrencySchema.safeParse({ currency: 'CHF' }).success).toBe(false);
+  });
+
+  it('translates the new billing error codes', () => {
+    expect(TRANSLATED_API_ERROR_CODES.BILLING_CURRENCY_LOCKED).toBe('billing.error.BILLING_CURRENCY_LOCKED');
+    expect(TRANSLATED_API_ERROR_CODES.PLAN_PRICE_UNAVAILABLE).toBe('billing.error.PLAN_PRICE_UNAVAILABLE');
+    expect(BASE_MESSAGES['billing.error.BILLING_CURRENCY_LOCKED']).toBeTruthy();
+    expect(BASE_MESSAGES['billing.error.PLAN_PRICE_UNAVAILABLE']).toBeTruthy();
   });
 });

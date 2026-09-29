@@ -478,16 +478,17 @@ model Plan {
   limits       Json     @default("{}")
   isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at")
-  /// ISO 4217 currency of priceMonthly (G5c-1). The column default only
-  /// backfills plans created before this field existed; the super admin
-  /// sets it per plan.
-  currency     String   @default("TRY") @db.VarChar(3)
+  /// Deprecated (G5c-1b): prices live in plan_prices. priceMonthly and
+  /// currency are still written (mirror of one price) for one release and
+  /// will be dropped; never read them to choose a price.
+  currency     String   @db.VarChar(3)
   /// Free trial length in days for a new business on this plan (G5c-1).
   /// Platform data set by the super admin, never a constant in code.
   trialDays    Int      @default(14) @map("trial_days")
 
   subscriptions   Subscription[]
   billingPayments PlatformBillingPayment[]
+  prices          PlanPrice[]
 
   @@map("plans")
 }
@@ -624,6 +625,9 @@ model Studio {
   /// Business-to-business referral code (platform level), created on the
   /// owner's first visit to the referral page.
   platformReferralCode   String?   @unique @map("platform_referral_code") @db.VarChar(16)
+  /// Super-admin override of the platform billing currency (G5c-1b); null
+  /// derives it from countryCode (platformBillingCurrencyOf in shared).
+  billingCurrency        String?   @map("billing_currency") @db.VarChar(3)
   isActive               Boolean  @default(true) @map("is_active")
   createdAt              DateTime @default(now()) @map("created_at")
   updatedAt              DateTime @updatedAt @map("updated_at")
@@ -5032,4 +5036,32 @@ model PayoutConnection {
 
   @@unique([studioId, provider])
   @@map("payout_connections")
+}
+
+/// Monthly price of a plan in one platform billing currency (G5c-1b,
+/// PLATFORM_BILLING_CURRENCIES). A plan without a row in a studio's billing
+/// currency is not offered to that studio.
+model PlanPrice {
+  id           String   @id @default(uuid()) @db.Uuid
+  planId       String   @map("plan_id") @db.Uuid
+  currency     String   @db.VarChar(3)
+  priceMonthly Decimal  @map("price_monthly") @db.Decimal(10, 2)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, currency])
+  @@map("plan_prices")
+}
+
+/// AMOUNT referral reward per platform billing currency (G5c-1b). Platform
+/// level (no tenant): the referrer is credited in its own billing currency;
+/// a currency without a row falls back to DEFAULT_REFERRAL_REWARD.
+model PlatformReferralRewardAmount {
+  currency  String   @id @db.VarChar(3)
+  amount    Decimal  @db.Decimal(10, 2)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_referral_reward_amounts")
 }
