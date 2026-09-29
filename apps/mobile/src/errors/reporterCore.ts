@@ -55,10 +55,42 @@ export interface ReportResult {
 }
 
 /** RFC 4122 v4 from Math.random: ids need to be unique, not unguessable. */
-export function randomUuid(random: () => number = Math.random): string {
-  const hex = (n: number) => Array.from({ length: n }, () => Math.floor(random() * 16).toString(16)).join('');
-  const variant = (8 + Math.floor(random() * 4)).toString(16);
-  return `${hex(8)}-${hex(4)}-4${hex(3)}-${variant}${hex(3)}-${hex(12)}`;
+type WebCryptoLike = { getRandomValues?: (array: Uint8Array) => Uint8Array; randomUUID?: () => string };
+
+let fallbackCounter = 0;
+
+/**
+ * Random bytes from the runtime's Web Crypto (Expo's runtime and Node both
+ * expose `crypto.getRandomValues`). Without it, a time-and-counter sequence
+ * keeps ids unique within the process; event ids only need to be unique, they
+ * are not secrets.
+ */
+function randomHex(length: number): string {
+  const webCrypto = (globalThis as { crypto?: WebCryptoLike }).crypto;
+  if (webCrypto && typeof webCrypto.getRandomValues === 'function') {
+    const bytes = new Uint8Array(Math.ceil(length / 2));
+    webCrypto.getRandomValues(bytes);
+    return Array.from(bytes, (b) => b.toString(16).padStart(2, '0'))
+      .join('')
+      .slice(0, length);
+  }
+  fallbackCounter = (fallbackCounter + 1) % 0xffffff;
+  const seed = `${Date.now().toString(16)}${fallbackCounter.toString(16).padStart(6, '0')}`;
+  return seed.repeat(Math.ceil(length / seed.length)).slice(0, length);
+}
+
+/** RFC 4122 v4 id. Tests inject `random` for determinism; the runtime uses Web Crypto. */
+export function randomUuid(random?: () => number): string {
+  if (random) {
+    const hex = (n: number) => Array.from({ length: n }, () => Math.floor(random() * 16).toString(16)).join('');
+    const variant = (8 + Math.floor(random() * 4)).toString(16);
+    return `${hex(8)}-${hex(4)}-4${hex(3)}-${variant}${hex(3)}-${hex(12)}`;
+  }
+  const webCrypto = (globalThis as { crypto?: WebCryptoLike }).crypto;
+  if (webCrypto && typeof webCrypto.randomUUID === 'function') return webCrypto.randomUUID();
+  const h = randomHex(32);
+  const variant = (8 + (parseInt(h[16] ?? '0', 16) % 4)).toString(16);
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
 function describe(error: unknown): { type: string; message: string; stack?: string } {
@@ -80,7 +112,7 @@ function describe(error: unknown): { type: string; message: string; stack?: stri
  */
 export function createMobileReporter(deps: ReporterDeps) {
   const now = deps.now ?? Date.now;
-  const random = deps.random ?? Math.random;
+  const random = deps.random;
   const schedule = deps.schedule ?? ((fn: () => void, ms: number) => setTimeout(fn, ms));
   const queue = new ErrorQueue(deps.storage, deps.cap);
   const dedupe = new ErrorDedupeWindow(1000);

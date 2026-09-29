@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'crypto';
 import { promises as fs } from 'fs';
+import type { FileHandle } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { SOURCEMAP_LIMITS, SOURCEMAP_PLATFORMS, isValidSourcemapRelease } from '@platform/shared';
@@ -78,19 +79,27 @@ export class SourcemapStoreService {
     const dir = this.releaseDir(platform, release);
     for (const candidate of candidates) {
       const file = join(dir, `${fileKey(candidate)}.map`);
-      let mtimeMs: number;
+      // One handle for stat and read, so the file cannot be swapped between the two.
+      let handle: FileHandle;
       try {
-        mtimeMs = (await fs.stat(file)).mtimeMs;
+        handle = await fs.open(file, 'r');
       } catch {
         continue;
       }
-      const cached = this.cache.get(file);
-      if (cached && cached.mtimeMs === mtimeMs) {
-        this.cache.delete(file);
-        this.cache.set(file, cached);
-        return cached.map;
+      let mtimeMs: number;
+      let content: string;
+      try {
+        mtimeMs = (await handle.stat()).mtimeMs;
+        const cached = this.cache.get(file);
+        if (cached && cached.mtimeMs === mtimeMs) {
+          this.cache.delete(file);
+          this.cache.set(file, cached);
+          return cached.map;
+        }
+        content = await handle.readFile('utf8');
+      } finally {
+        await handle.close();
       }
-      const content = await fs.readFile(file, 'utf8');
       const newline = content.indexOf('\n');
       // The stored path must be the candidate itself (a hash collision would otherwise resolve a wrong file).
       if (newline === -1 || content.slice(0, newline) !== candidate) continue;

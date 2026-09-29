@@ -12,7 +12,7 @@
 // dependencies. Failures print warnings and exit 1; the CI step marks itself
 // continue-on-error, because missing maps only degrade stack traces.
 
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { open, readdir } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -75,13 +75,20 @@ export async function uploadDirectory({ apiUrl, token, release, platform, dir, p
     while (next < files.length) {
       const file = files[next++];
       const full = join(dir, ...file.split('/'));
-      const size = (await stat(full)).size;
-      if (size > MAX_MAP_BYTES) {
-        log.warn(`skipped ${file}: ${size} bytes is over the ${MAX_MAP_BYTES} byte limit`);
-        result.skipped++;
-        continue;
+      // One handle for the size check and the read, so the file cannot change in between.
+      const handle = await open(full, 'r');
+      let map;
+      try {
+        const size = (await handle.stat()).size;
+        if (size > MAX_MAP_BYTES) {
+          log.warn(`skipped ${file}: ${size} bytes is over the ${MAX_MAP_BYTES} byte limit`);
+          result.skipped++;
+          continue;
+        }
+        map = await handle.readFile('utf8');
+      } finally {
+        await handle.close();
       }
-      const map = await readFile(full, 'utf8');
       const outcome = await post(endpoint, token, { release, platform, path: bundlePathFor(flatten ? file.slice(file.lastIndexOf('/') + 1) : file, pathPrefix), map });
       if (outcome.ok) result.uploaded++;
       else {
