@@ -747,6 +747,7 @@ model Studio {
   referralsMade         StudioReferral[]     @relation("StudioReferralReferrer")
   referredBy            StudioReferral?      @relation("StudioReferralReferred")
   funnels               Funnel[]
+  errorGroupStats       ErrorGroupStudio[]
 
   @@map("studios")
 }
@@ -4905,4 +4906,102 @@ model PlatformBillingSettings {
   updatedAt              DateTime @updatedAt @map("updated_at")
 
   @@map("platform_billing_settings")
+}
+
+// ---------------------------------------------------------------------------
+// H1 error reporting (docs/HATA_RAPORLAMA.md)
+// ---------------------------------------------------------------------------
+
+/// One distinct error across the platform, keyed by sha256 of the shared
+/// fingerprint (source + type + normalised message + top in-app frame).
+/// Platform-wide on purpose: the tenant of each occurrence lives on
+/// ErrorEvent.studioId and in ErrorGroupStudio, so one bug hitting many
+/// tenants is one group (and one alert).
+model ErrorGroup {
+  id                  String    @id @default(uuid()) @db.Uuid
+  fingerprintHash     String    @unique @map("fingerprint_hash") @db.VarChar(64)
+  fingerprint         String    @db.VarChar(1000)
+  /// api | web | mobile | job (ERROR_SOURCES).
+  source              String    @db.VarChar(10)
+  type                String    @db.VarChar(120)
+  /// Scrubbed, normalised "Type: message".
+  title               String    @db.VarChar(200)
+  topFrame            String?   @map("top_frame") @db.VarChar(300)
+  /// OPEN | RESOLVED | IGNORED (ERROR_GROUP_STATUSES).
+  status              String    @default("OPEN") @db.VarChar(10)
+  count               Int       @default(0)
+  affectedStudioCount Int       @default(0) @map("affected_studio_count")
+  /// Approximate: distinct user hashes among the stored events.
+  affectedUserCount   Int       @default(0) @map("affected_user_count")
+  firstSeenAt         DateTime  @map("first_seen_at")
+  lastSeenAt          DateTime  @map("last_seen_at")
+  lastRelease         String?   @map("last_release") @db.VarChar(64)
+  resolvedInRelease   String?   @map("resolved_in_release") @db.VarChar(64)
+  resolvedAt          DateTime? @map("resolved_at")
+  /// Seen on a login, auth, payment or billing route.
+  critical            Boolean   @default(false)
+  lastCode            String?   @map("last_code") @db.VarChar(8)
+  note                String?   @db.Text
+  /// Alert cooldown claim (one email per group per window).
+  lastAlertAt         DateTime? @map("last_alert_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  events  ErrorEvent[]
+  studios ErrorGroupStudio[]
+
+  @@index([lastSeenAt])
+  @@index([status, lastSeenAt])
+  @@map("error_groups")
+}
+
+/// One occurrence, already scrubbed. The id is the reporter's event id (the
+/// user-facing code is its first 8 hex digits). The last 50 per group are
+/// kept and none older than 30 days (heartbeat purge).
+model ErrorEvent {
+  id          String   @id @db.Uuid
+  groupId     String   @map("group_id") @db.Uuid
+  code        String   @db.VarChar(8)
+  source      String   @db.VarChar(10)
+  severity    String   @db.VarChar(10)
+  release     String   @db.VarChar(64)
+  environment String   @db.VarChar(20)
+  route       String?  @db.VarChar(300)
+  requestId   String?  @map("request_id") @db.VarChar(64)
+  /// From the authenticated context only. No FK: events are purged by age, and the group cascades.
+  studioId    String?  @map("studio_id") @db.Uuid
+  /// sha256(server salt + user id), never the raw id.
+  userIdHash  String?  @map("user_id_hash") @db.VarChar(64)
+  type        String   @db.VarChar(120)
+  message     String   @db.Text
+  stack       String?  @db.Text
+  breadcrumbs Json?
+  statusCode  Int?     @map("status_code")
+  occurredAt  DateTime @map("occurred_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  group ErrorGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, occurredAt])
+  @@index([code])
+  @@index([occurredAt])
+  @@map("error_events")
+}
+
+/// Per-tenant counters of a group: the tenant owner view and the exact
+/// affected studio count.
+model ErrorGroupStudio {
+  groupId     String   @map("group_id") @db.Uuid
+  studioId    String   @map("studio_id") @db.Uuid
+  count       Int      @default(0)
+  firstSeenAt DateTime @map("first_seen_at")
+  lastSeenAt  DateTime @map("last_seen_at")
+  lastCode    String?  @map("last_code") @db.VarChar(8)
+
+  group  ErrorGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  studio Studio     @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, studioId])
+  @@index([studioId, lastSeenAt])
+  @@map("error_group_studios")
 }

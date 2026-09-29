@@ -15,6 +15,8 @@ import {
 import { isLogoutPath, isTokenIssuingPath } from '@/lib/bff/auth-paths';
 import { translateApiError } from '@/lib/bff/translate-error';
 import { PW_LOCALE_COOKIE } from '@/lib/i18n/constants';
+import { ERROR_CODE_HEADER, REQUEST_ID_HEADER } from '@platform/shared';
+import { reportServerError, requestIdFrom } from '@/lib/errors/server';
 
 /**
  * Backend-for-frontend proxy. Every `/api/bff/<path>` call from the browser
@@ -33,9 +35,11 @@ async function forward(
   apiPath: string,
   accessToken: string | null,
   body: ArrayBuffer | undefined,
+  requestId: string,
 ): Promise<Response> {
   const url = new URL(`${apiInternalBaseUrl()}/${apiPath}${req.nextUrl.search}`);
   const headers = stripHopByHopHeaders(req.headers);
+  headers.set(REQUEST_ID_HEADER, requestId);
   if (accessToken) headers.set('authorization', `Bearer ${accessToken}`);
 
   const studioId = req.headers.get('x-studio-id') ?? req.cookies.get(ACTIVE_STUDIO_COOKIE)?.value;
@@ -101,10 +105,12 @@ async function toNextResponse(
   const filtered =
     !apiRes.ok && req ? translateApiError(kept, req.cookies.get(PW_LOCALE_COOKIE)?.value, req.headers.get('accept-language')) : kept;
   const res = NextResponse.json(filtered, { status: apiRes.status });
+  const errorCode = apiRes.headers.get(ERROR_CODE_HEADER);
+  if (errorCode) res.headers.set(ERROR_CODE_HEADER, errorCode);
   return { body: filtered, res };
 }
 
-async function handle(req: NextRequest, context: { params: Promise<{ path: string[] }> }): Promise<NextResponse> {
+async function handle(req: NextRequest, context: { params: Promise<{ path: string[] }> }, requestId: string): Promise<NextResponse> {
   const { path } = await context.params;
   const apiPath = sanitizeApiPath(path);
   if (!apiPath) {
@@ -126,7 +132,7 @@ async function handle(req: NextRequest, context: { params: Promise<{ path: strin
   // auth/login, auth/otp/verify, auth/pin/login: the body carries tokens
   // that must become cookies and never reach the browser as JSON.
   if (isTokenIssuingPath(apiPath) && req.method === 'POST') {
-    const apiRes = await forward(req, apiPath, null, requestBody);
+    const apiRes = await forward(req, apiPath, null, requestBody, requestId);
     if (!apiRes.ok) return (await toNextResponse(apiRes)).res as NextResponse;
     // Read the tokens from the API's own JSON, then send the browser the
     // same payload without them.
@@ -140,18 +146,23 @@ async function handle(req: NextRequest, context: { params: Promise<{ path: strin
   }
 
   if (isLogoutPath(apiPath) && req.method === 'POST') {
-    if (accessToken) await forward(req, apiPath, accessToken, requestBody).catch(() => undefined);
+    if (accessToken) await forward(req, apiPath, accessToken, requestBody, requestId).catch(() => undefined);
     const res = new NextResponse(null, { status: 204 });
     clearSessionCookies(res);
     return res;
   }
 
-  let apiRes = await forward(req, apiPath, accessToken, requestBody);
+  let apiRes = await forward(req, apiPath, accessToken, requestBody, requestId);
+  // A 5xx the API recorded itself carries x-error-code; anything else
+  // (a crash before the API's filter, a proxy error) is recorded here.
+  if (apiRes.status >= 500 && !apiRes.headers.get(ERROR_CODE_HEADER)) {
+    reportServerError({ type: 'UpstreamError', message: `API answered ${apiRes.status}`, route: `${req.method} /${apiPath}`, requestId });
+  }
 
   if (apiRes.status === 401 && refreshToken) {
     const refreshed = await refreshAccessToken(refreshToken);
     if (refreshed) {
-      apiRes = await forward(req, apiPath, refreshed.accessToken, requestBody);
+      apiRes = await forward(req, apiPath, refreshed.accessToken, requestBody, requestId);
       const { res } = await toNextResponse(apiRes);
       setSessionCookies(res, refreshed);
       return res;
@@ -165,4 +176,33 @@ async function handle(req: NextRequest, context: { params: Promise<{ path: strin
   return res;
 }
 
-export { handle as GET, handle as POST, handle as PUT, handle as PATCH, handle as DELETE };
+/**
+ * Every BFF call carries a correlation id to the API (x-request-id, the
+ * browser's when well formed) and echoes it. An unreachable API is
+ * recorded as an error and answered with 502.
+ */
+async function handleWithRequestId(req: NextRequest, context: { params: Promise<{ path: string[] }> }): Promise<NextResponse> {
+  const requestId = requestIdFrom(req.headers);
+  let res: NextResponse;
+  try {
+    res = await handle(req, context, requestId);
+  } catch (err) {
+    reportServerError({
+      type: err instanceof Error ? err.name : 'UpstreamError',
+      message: `API unreachable: ${err instanceof Error ? err.message : String(err)}`,
+      route: `${req.method} ${req.nextUrl.pathname}`,
+      requestId,
+    });
+    res = NextResponse.json({ message: 'Sunucuya ulaşılamadı' }, { status: 502 });
+  }
+  res.headers.set(REQUEST_ID_HEADER, requestId);
+  return res;
+}
+
+export {
+  handleWithRequestId as GET,
+  handleWithRequestId as POST,
+  handleWithRequestId as PUT,
+  handleWithRequestId as PATCH,
+  handleWithRequestId as DELETE,
+};

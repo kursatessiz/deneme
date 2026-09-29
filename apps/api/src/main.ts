@@ -5,10 +5,17 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { configureBodyParsers } from './common/body-parsers';
+import { ERROR_CODE_HEADER, REQUEST_ID_HEADER } from '@platform/shared';
+import { RequestContextLogger } from './modules/error-reporting/request-context.logger';
+import { ErrorCaptureService } from './modules/error-reporting/error-capture.service';
+import { installProcessErrorHandlers } from './modules/error-reporting/process-handlers';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false, bufferLogs: true });
+  // Every log line carries the request's correlation id (x-request-id).
+  app.useLogger(new RequestContextLogger());
+  installProcessErrorHandlers(app.get(ErrorCaptureService), new Logger('Process'));
   configureBodyParsers(app);
   // Caddy is the only proxy in front of the API; trust exactly one hop so
   // request.ip is the client address used for rate limiting.
@@ -32,6 +39,7 @@ async function bootstrap() {
     origin: origins.length > 0 ? origins : !isProduction,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: origins.length > 0,
+    exposedHeaders: [REQUEST_ID_HEADER, ERROR_CODE_HEADER],
   });
 
   if (!isProduction) {

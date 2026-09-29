@@ -52,6 +52,7 @@ import { AccountingModule } from './modules/accounting/accounting.module';
 import { FunnelsModule } from './modules/funnels/funnels.module';
 import { validateEnv } from './config/env';
 import { BillingModule } from './modules/billing/billing.module';
+import { ErrorReportingModule } from './modules/error-reporting/error-reporting.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { BillingModule } from './modules/billing/billing.module';
     }),
     PrismaModule,
     RedisModule,
+    ErrorReportingModule,
     PlanLimitsModule,
     AuthModule,
     StudiosModule,

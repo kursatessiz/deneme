@@ -19,6 +19,7 @@ import { TranslationEngineService } from '../ai/translation/translation-engine.s
 import { LoyaltyJobsService, LoyaltyHeartbeatResult } from '../loyalty/loyalty-jobs.service';
 import { EventsJobsService, EventsHeartbeatResult } from '../events/events-jobs.service';
 import { BillingJobsService, BillingHeartbeatResult } from '../billing/billing-jobs.service';
+import { ErrorReportingJobsService, ErrorReportingHeartbeatResult } from '../error-reporting/error-reporting-jobs.service';
 
 export interface SchedulerRunResult {
   runAt: string;
@@ -39,6 +40,7 @@ export interface SchedulerRunResult {
   loyalty: LoyaltyHeartbeatResult;
   events: EventsHeartbeatResult;
   billing: BillingHeartbeatResult;
+  errorReporting: ErrorReportingHeartbeatResult;
 }
 
 /**
@@ -82,6 +84,7 @@ export class JobsService {
     private readonly loyalty: LoyaltyJobsService,
     private readonly events: EventsJobsService,
     private readonly billing: BillingJobsService,
+    private readonly errorReporting: ErrorReportingJobsService,
     @Optional() @InjectQueue(SCHEDULER_QUEUE) private readonly queue?: Queue,
   ) {}
 
@@ -109,6 +112,7 @@ export class JobsService {
     const loyalty = await this.loyalty.run(now);
     const events = await this.events.run(now);
     const billing = await this.billing.run(now);
+    const errorReporting = await this.errorReporting.run(now);
     // Last: AI translation batches may take a while; the other steps are time-sensitive.
     const aiTranslation = await this.aiTranslation.processPending(now);
 
@@ -125,7 +129,8 @@ export class JobsService {
         `AI translation ${aiTranslation.jobs} job(s)/${aiTranslation.paused} paused, ` +
         `loyalty ${loyalty.birthdayPoints} birthday point(s)/${loyalty.expiredPoints} expired/${loyalty.expiryNotices} notice(s), ` +
         `events ${events.holdsReleased} hold(s) released/${events.promoted} promoted/${events.reminders} reminder(s)/${events.completed} completed, ` +
-        `billing ${billing.restricted} trial(s) restricted/${billing.reminders} reminder(s)`,
+        `billing ${billing.restricted} trial(s) restricted/${billing.reminders} reminder(s), ` +
+        `errors ${errorReporting.purged} event(s) purged/digest ${errorReporting.digestSent ? 'sent' : 'not due'}`,
     );
 
     this.lastRunAt = now;
@@ -148,6 +153,7 @@ export class JobsService {
       loyalty,
       events,
       billing,
+      errorReporting,
     };
   }
 }

@@ -34,3 +34,4 @@ export * from './accounting';
 export * from './report-compare';
 export * from './funnels';
 export * from './billing';
+export * from './error-reporting';

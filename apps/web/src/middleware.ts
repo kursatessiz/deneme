@@ -3,6 +3,7 @@ import { EMBED_ORIGIN_PATTERN, LocaleCodeSchema, STUDIO_SLUG_PATTERN } from '@pl
 import { PAGE_LOCALE_HEADER } from '@/lib/i18n/constants';
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE, accessTokenCookieOptions, refreshTokenCookieOptions } from '@/lib/bff/cookies';
 import { dashboardCsp, generateNonce } from '@/lib/security/csp';
+import { isProtectedPath } from '@/lib/security/protected-paths';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 /** Server-side API base for the session refresh; same variable the BFF uses. */
@@ -105,26 +106,6 @@ function publicAdsCsp(response: NextResponse): NextResponse {
   return response;
 }
 
-/** Route group `(dashboard)` pages, matched without the group segment. */
-const PROTECTED_PATHS = [
-  '/dashboard',
-  '/calendar',
-  '/members',
-  '/packages',
-  '/trainers',
-  '/attendance',
-  '/ayarlar',
-  '/finans',
-  '/raporlar',
-  '/adaylar',
-  '/reklam-performansi',
-  '/riskli-uyeler',
-  '/gelen-kutusu',
-  '/etkinlikler',
-  '/abonelik',
-  '/tavsiye',
-  '/admin',
-];
 
 /** The login page: not protected (no session yet), but still gets the strict dashboard CSP. */
 const LOGIN_PATH = '/giris';
@@ -191,9 +172,7 @@ export async function middleware(request: NextRequest) {
     return embedCsp(request);
   }
 
-  const isProtected = PROTECTED_PATHS.some(
-    (p) => request.nextUrl.pathname === p || request.nextUrl.pathname.startsWith(`${p}/`),
-  );
+  const isProtected = isProtectedPath(request.nextUrl.pathname);
   const isLogin = request.nextUrl.pathname === LOGIN_PATH;
   if (isProtected && !request.cookies.get(ACCESS_TOKEN_COOKIE)?.value) {
     // The access cookie expires with the token (1h); a valid refresh cookie
