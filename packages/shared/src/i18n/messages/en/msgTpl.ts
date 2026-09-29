@@ -45,6 +45,10 @@ export const enMsgTpl = {
   'msgTpl.TRIAL_ENDING.text': 'Hi {firstName}, the trial of your {studioName} account ends in {daysLeft} days ({trialEndDate}). Activate your account in the admin panel to continue without interruption.',
   'msgTpl.TRIAL_RESTRICTED.subject': 'Your account is now restricted',
   'msgTpl.TRIAL_RESTRICTED.text': 'Hi {firstName}, the trial of your {studioName} account has ended. Your data is safe and you can still view and export it. Activate your account in the admin panel to take new bookings and sales again.',
+  'msgTpl.ADDON_TRIAL_ENDING.subject': 'Your app trial is ending',
+  'msgTpl.ADDON_TRIAL_ENDING.text': 'Hi {firstName}, the trial of the {addOnName} app on your {studioName} account ends in {daysLeft} days ({trialEndDate}). Activate it in the app marketplace to continue without interruption.',
+  'msgTpl.ADDON_RENEWAL_FAILED.subject': 'App payment could not be collected',
+  'msgTpl.ADDON_RENEWAL_FAILED.text': 'Hi {firstName}, the renewal payment of the {addOnName} app on your {studioName} account could not be collected. We will try again; check the payment in the app marketplace so the app does not turn off.',
 
   'msgTpl.ERROR_ALERT.cta': 'Open the error',
   'msgTpl.ERROR_NEW_GROUP.subject': 'New error: {title}',

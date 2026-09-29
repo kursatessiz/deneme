@@ -36,6 +36,7 @@ export const trMAccount = {
   'mAccount.menu.businessTheme': 'İşletme teması',
   'mAccount.menu.automations': 'Otomatik mesajlar',
   'mAccount.menu.integrations': 'Entegrasyonlar',
+  'mAccount.menu.addOns': 'Uygulamalar',
   'mAccount.menu.partners': 'Partner platformlar',
   'mAccount.menu.videoContent': 'Video içerikleri',
   'mAccount.menu.chat': 'İşletmeye yaz',

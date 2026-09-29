@@ -96,6 +96,14 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplateDefinition[] = [
     whatsappName: 'trial_ending',
   },
   { key: 'TRIAL_RESTRICTED', purpose: 'TRANSACTIONAL', variables: ['firstName', 'studioName'], whatsappName: 'trial_restricted' },
+  /** G5c-2 add-on marketplace: trial ending and failed renewal, to the owner about their own account. */
+  {
+    key: 'ADDON_TRIAL_ENDING',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'studioName', 'addOnName', 'daysLeft', 'trialEndDate'],
+    whatsappName: 'addon_trial_ending',
+  },
+  { key: 'ADDON_RENEWAL_FAILED', purpose: 'TRANSACTIONAL', variables: ['firstName', 'studioName', 'addOnName'], whatsappName: 'addon_renewal_failed' },
   /**
    * H1 error reporting (docs/HATA_RAPORLAMA.md): email-only operational
    * alerts to super admins, TRANSACTIONAL. The link opens the group in the

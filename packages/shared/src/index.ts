@@ -35,6 +35,8 @@ export * from './report-compare';
 export * from './funnels';
 export * from './payouts';
 export * from './billing';
+export * from './add-on-errors';
+export * from './add-ons';
 export * from './error-reporting';
 export * from './sourcemaps';
 export * from './community';

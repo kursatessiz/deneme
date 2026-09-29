@@ -18,6 +18,8 @@ export const enSettings = {
   'settings.hub.loyalty.description': 'Earning rules, rewards and the points expiry policy',
   'settings.hub.community.title': 'Community access tiers',
   'settings.hub.community.description': 'Which membership or package sees which community posts',
+  'settings.hub.addOns.title': 'App marketplace',
+  'settings.hub.addOns.description': 'Try, activate or cancel add-on modules for your plan',
   'settings.hub.site.title': 'My website',
   'settings.hub.site.description': 'Business website pages, domain and publishing settings',
   'settings.hub.integrations.title': 'Integrations',

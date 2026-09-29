@@ -49,6 +49,10 @@ export const trMsgTpl = {
   'msgTpl.TRIAL_ENDING.text': 'Merhaba {firstName}, {studioName} hesabınızın deneme süresinin bitmesine {daysLeft} gün kaldı ({trialEndDate}). Kesintisiz devam etmek için yönetim panelinden hesabınızı etkinleştirin.',
   'msgTpl.TRIAL_RESTRICTED.subject': 'Hesabınız kısıtlı moda geçti',
   'msgTpl.TRIAL_RESTRICTED.text': 'Merhaba {firstName}, {studioName} hesabınızın deneme süresi doldu. Verileriniz güvende; görüntüleyebilir ve dışa aktarabilirsiniz. Yeni randevu ve satış için yönetim panelinden hesabınızı etkinleştirin.',
+  'msgTpl.ADDON_TRIAL_ENDING.subject': 'Uygulama denemeniz bitiyor',
+  'msgTpl.ADDON_TRIAL_ENDING.text': 'Merhaba {firstName}, {studioName} hesabınızda {addOnName} uygulamasının deneme süresinin bitmesine {daysLeft} gün kaldı ({trialEndDate}). Kesintisiz devam etmek için uygulama pazarından etkinleştirin.',
+  'msgTpl.ADDON_RENEWAL_FAILED.subject': 'Uygulama ödemesi alınamadı',
+  'msgTpl.ADDON_RENEWAL_FAILED.text': 'Merhaba {firstName}, {studioName} hesabınızdaki {addOnName} uygulamasının yenileme ödemesi alınamadı. Yeniden denenecek; uygulamanın kapanmaması için uygulama pazarından ödemeyi kontrol edin.',
 
   'msgTpl.ERROR_ALERT.cta': 'Hatayı aç',
   'msgTpl.ERROR_NEW_GROUP.subject': 'Yeni hata: {title}',
