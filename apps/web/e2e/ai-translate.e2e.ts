@@ -42,11 +42,11 @@ test('the super admin sets the AI key and translates a language section with AI'
     await page.goto('/admin/ai');
     const main = page.getByRole('main');
     await expect(main.getByRole('heading', { name: 'Yapay zeka', exact: true })).toBeVisible();
-    await main.getByLabel('API anahtarı').fill(FAKE_KEY);
+    await main.getByRole('textbox', { name: 'API anahtarı', exact: true }).fill(FAKE_KEY);
     await main.getByRole('button', { name: /Anahtarı (kaydet|değiştir)/ }).click();
     await expect(main.getByTestId('ai-key-status')).toHaveText('Tanımlı anahtar: ****PWKY');
     await expect(main.getByText('Anahtar şifrelenerek kaydedildi.')).toBeVisible();
-    await expect(main.getByLabel('API anahtarı')).toHaveValue('');
+    await expect(main.getByRole('textbox', { name: 'API anahtarı', exact: true })).toHaveValue('');
     await expect(main.getByText(FAKE_KEY)).toHaveCount(0);
 
     await main.getByRole('button', { name: 'Bağlantıyı test et' }).click();
@@ -78,14 +78,14 @@ test('the super admin sets the AI key and translates a language section with AI'
     await expect(job.getByText(/^(\d+) \/ \1 tamamlandı/)).toBeVisible();
 
     // 4. Review: filter the unreviewed AI values, check placeholders, approve.
-    await main.getByLabel('Kaynak').selectOption('AI_UNREVIEWED');
+    await main.getByLabel('Kaynak', { exact: true }).selectOption('AI_UNREVIEWED');
     const pluralRow = main.getByRole('row').filter({ hasText: 'common.itemCount.other' });
     await expect(pluralRow.getByRole('textbox')).toHaveValue(/\{count\}/);
     await expect(pluralRow.getByText('Yapay zeka, onay bekliyor')).toBeVisible();
     await main.getByRole('button', { name: 'Görünen yapay zeka çevirilerini onayla' }).click();
     await expect(main.getByText('Yapay zeka, onay bekliyor')).toHaveCount(0);
 
-    await main.getByLabel('Kaynak').selectOption('AI');
+    await main.getByLabel('Kaynak', { exact: true }).selectOption('AI');
     await expect(main.getByRole('row').filter({ hasText: 'common.itemCount.other' }).getByText('Yapay zeka', { exact: true })).toBeVisible();
   } finally {
     await page.request.delete(`/api/bff/admin/i18n/languages/${code}`, { headers: CSRF });
