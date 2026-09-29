@@ -58,8 +58,20 @@ async function embedFetch<T>(slug: string, path: string, init?: RequestInit): Pr
   return res.json();
 }
 
+/** No signed-in session here (third-party embed): falls back to the visitor's own browser language. */
+function embedLocale(): string {
+  if (typeof navigator === 'undefined' || !navigator.language) return 'tr';
+  return navigator.language;
+}
+
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleString('tr-TR', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleString(embedLocale(), {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 /**

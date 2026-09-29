@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { ChurnListResponseDTO, ChurnMemberSummaryDTO, ChurnRiskLevel, ChurnSummaryDTO } from '@platform/shared';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { PageGuard } from '@/components/common/PageGuard';
 import { PermissionButton } from '@/components/common/PermissionButton';
@@ -64,6 +65,7 @@ function ContactedDialog({ studioId, member, onClose, onDone }: { studioId: stri
 }
 
 function ChurnList() {
+  const locale = useLocale();
   const { activeStudioId } = useDashboardSession();
   const [level, setLevel] = useState<ChurnRiskLevel | ''>('');
   const [branchId, setBranchId] = useState('');
@@ -202,7 +204,7 @@ function ChurnList() {
                 </ul>
                 {m.contactedAt && (
                   <div className="text-[11px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                    Son görüşme: {new Date(m.contactedAt).toLocaleDateString('tr-TR')}
+                    Son görüşme: {new Date(m.contactedAt).toLocaleDateString(locale)}
                   </div>
                 )}
               </div>

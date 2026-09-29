@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { PaymentMethod, PaymentStatus } from '@platform/shared';
 import type { PaymentDTO } from '@platform/shared';
 import { useDashboardSession, useFormatMoney } from '@/components/session/DashboardSessionProvider';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { buildReportQuery } from '@/lib/reports/query';
 import { formatMoney } from '@/lib/money';
@@ -122,6 +123,7 @@ function RefundDialog({ payment, studioId, onClose, onDone }: { payment: Payment
 
 export function PaymentsTab() {
   const formatMoney = useFormatMoney();
+  const locale = useLocale();
   const { activeStudioId } = useDashboardSession();
   const [branchId, setBranchId] = useState('');
   const [method, setMethod] = useState('');
@@ -213,7 +215,7 @@ export function PaymentsTab() {
               {payments.map((p) => (
                 <tr key={p.id} className="border-t" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
                   <td className="px-4 py-2.5 whitespace-nowrap" style={{ color: 'var(--color-text-primary)' }}>
-                    {new Date(p.paidAt).toLocaleString('tr-TR')}
+                    {new Date(p.paidAt).toLocaleString(locale)}
                   </td>
                   <td className="px-4 py-2.5">
                     <a href={`/members/${p.memberId}`} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>

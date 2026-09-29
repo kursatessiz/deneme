@@ -6,6 +6,7 @@ import { PermissionGate } from '../../../src/components/PermissionGate';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { SessionDetail } from '../../../src/components/SessionDetail';
+import { useLocale } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { dayRange } from '../../../src/lib/dateRange';
 import { isTabletWidth } from '../../../src/lib/layout';
@@ -13,14 +14,15 @@ import { trainerName, type ScheduleRow } from '../../../src/lib/scheduleTypes';
 import { useSession } from '../../../src/lib/session';
 import { palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../src/theme';
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+function formatTime(iso: string, locale: string): string {
+  return new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 }
 
 function BugunContent() {
   const router = useRouter();
   const colors = useThemeColors();
   const fonts = useThemeFonts();
+  const { locale } = useLocale();
   const { width } = useWindowDimensions();
   const isTablet = isTabletWidth(width);
   const { activeMembership } = useSession();
@@ -94,7 +96,7 @@ function BugunContent() {
             { borderColor: colors.border, backgroundColor: selectedId === item.id ? colors.surfaceMuted : colors.surface },
           ]}
         >
-          <Text style={[styles.time, fonts.bodyStrong, { color: colors.textPrimary }]}>{formatTime(item.startTime)}</Text>
+          <Text style={[styles.time, fonts.bodyStrong, { color: colors.textPrimary }]}>{formatTime(item.startTime, locale)}</Text>
           <View style={styles.rowText}>
             <Text style={[styles.title, fonts.bodyStrong, { color: colors.textPrimary }]}>
               {item.serviceType?.name ?? item.title}

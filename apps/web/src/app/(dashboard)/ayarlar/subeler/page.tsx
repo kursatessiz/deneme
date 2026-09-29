@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { BranchDTO, BranchSummaryDTO, StaffMembershipDTO } from '@platform/shared';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
@@ -154,6 +155,7 @@ function StaffBranchAccess({ studioId, branches }: { studioId: string; branches:
 }
 
 function BranchSummaryTable({ studioId }: { studioId: string }) {
+  const locale = useLocale();
   const { data, loading, error } = useBff<BranchSummaryDTO[]>(`branches/studio/${studioId}/summary`, studioId);
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} />;
@@ -179,7 +181,7 @@ function BranchSummaryTable({ studioId }: { studioId: string }) {
               <td className="py-1.5 pr-4">{Math.round(row.occupancy * 100)}%</td>
               <td className="py-1.5 pr-4">{row.attended}</td>
               <td className="py-1.5 pr-4">{row.noShows}</td>
-              <td className="py-1.5 pr-4">{Number(row.revenue).toLocaleString('tr-TR')} TL</td>
+              <td className="py-1.5 pr-4">{Number(row.revenue).toLocaleString(locale)} TL</td>
             </tr>
           ))}
         </tbody>

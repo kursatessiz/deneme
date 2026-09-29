@@ -5,6 +5,7 @@ import type { InvoiceDTO } from '@platform/shared';
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
+import { useLocale } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
@@ -16,18 +17,19 @@ const INVOICE_STATUS_LABELS: Record<string, string> = {
   FAILED: 'Başarısız',
 };
 
-function formatAmount(amount: string, currency: string): string {
+function formatAmount(amount: string, currency: string, locale: string): string {
   const value = Number(amount);
-  return `${value.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+  return `${value.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+function formatDate(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
 /** Member self-service invoice history ("Faturalarım"), with a link to open each issued document. */
 export default function FaturalarimScreen() {
   const { activeMembership } = useSession();
+  const { locale } = useLocale();
   const { theme } = useTheme();
   const fonts = useThemeFonts();
   const c = theme.colors;
@@ -104,9 +106,9 @@ export default function FaturalarimScreen() {
               {INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status}
             </Text>
           </View>
-          <Text style={[styles.meta, fonts.body, { color: c.textSecondary }]}>{formatDate(invoice.issueDate)}</Text>
+          <Text style={[styles.meta, fonts.body, { color: c.textSecondary }]}>{formatDate(invoice.issueDate, locale)}</Text>
           <Text style={[styles.amount, fonts.bodyStrong, { color: c.textPrimary }]}>
-            {formatAmount(invoice.total, invoice.currency)}
+            {formatAmount(invoice.total, invoice.currency, locale)}
           </Text>
           {invoice.status === 'ISSUED' ? (
             <View style={styles.cardAction}>

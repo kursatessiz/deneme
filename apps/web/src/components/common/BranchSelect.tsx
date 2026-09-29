@@ -2,6 +2,7 @@
 
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { useBff } from '@/lib/session/use-bff';
+import { useT } from '@/components/i18n/I18nProvider';
 
 interface BranchRow {
   id: string;
@@ -20,6 +21,7 @@ const selectStyle: React.CSSProperties = {
 export function BranchSelect({ value, onChange, className }: { value: string; onChange: (branchId: string) => void; className?: string }) {
   const { activeStudioId } = useDashboardSession();
   const { data: branches } = useBff<BranchRow[]>(`branches/studio/${activeStudioId}`, activeStudioId);
+  const t = useT();
 
   return (
     <select
@@ -28,7 +30,7 @@ export function BranchSelect({ value, onChange, className }: { value: string; on
       className={`text-xs px-2.5 py-1.5 ${className ?? ''}`}
       style={selectStyle}
     >
-      <option value="">Tüm şubeler</option>
+      <option value="">{t('common.allBranches')}</option>
       {(branches ?? [])
         .filter((b) => b.isActive)
         .map((b) => (

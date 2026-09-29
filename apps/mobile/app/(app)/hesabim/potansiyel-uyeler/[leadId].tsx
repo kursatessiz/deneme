@@ -9,6 +9,7 @@ import { ChoiceRow } from '../../../../src/components/ChoiceRow';
 import { PrimaryButton } from '../../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../../src/components/ScreenContainer';
 import { TextField } from '../../../../src/components/TextField';
+import { useLocale } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { useSession } from '../../../../src/lib/session';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../../src/theme';
@@ -36,6 +37,7 @@ export default function LeadDetailScreen() {
   const router = useRouter();
   const { activeMembership } = useSession();
   const { theme } = useTheme();
+  const { locale } = useLocale();
   const fonts = useThemeFonts();
   const c = theme.colors;
   const studioId = activeMembership?.studioId;
@@ -206,7 +208,7 @@ export default function LeadDetailScreen() {
             </Text>
             <Text style={[styles.meta, fonts.body, { color: c.textSecondary }]}>{a.body}</Text>
             <Text style={[styles.activityMeta, fonts.body, { color: c.textMuted }]}>
-              {a.actorName ?? 'Web formu'} · {new Date(a.createdAt).toLocaleString('tr-TR')}
+              {a.actorName ?? 'Web formu'} · {new Date(a.createdAt).toLocaleString(locale)}
             </Text>
           </View>
         ))}

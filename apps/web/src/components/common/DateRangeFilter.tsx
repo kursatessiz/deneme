@@ -1,6 +1,13 @@
 'use client';
 
-import { DATE_RANGE_PRESETS, fromDateInputValue, resolveDateRangePreset, toDateInputValue, type DateRangePresetKey } from '@/lib/date-range';
+import {
+  DATE_RANGE_PRESET_MESSAGE_KEY,
+  DATE_RANGE_PRESETS,
+  fromDateInputValue,
+  resolveDateRangePreset,
+  toDateInputValue,
+} from '@/lib/date-range';
+import { useT } from '@/components/i18n/I18nProvider';
 
 const inputStyle: React.CSSProperties = {
   borderRadius: 'var(--radius-input)',
@@ -19,18 +26,19 @@ export function DateRangeFilter({
   to: Date | null;
   onChange: (range: { from: Date | null; to: Date | null }) => void;
 }) {
+  const t = useT();
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="flex flex-wrap gap-1">
-        {DATE_RANGE_PRESETS.map((preset: { key: DateRangePresetKey; label: string }) => (
+        {DATE_RANGE_PRESETS.map((key) => (
           <button
-            key={preset.key}
+            key={key}
             type="button"
-            onClick={() => onChange(resolveDateRangePreset(preset.key))}
+            onClick={() => onChange(resolveDateRangePreset(key))}
             className="text-xs font-medium px-2.5 py-1.5"
             style={{ ...inputStyle, background: 'var(--color-surface-muted)' }}
           >
-            {preset.label}
+            {t(DATE_RANGE_PRESET_MESSAGE_KEY[key])}
           </button>
         ))}
       </div>

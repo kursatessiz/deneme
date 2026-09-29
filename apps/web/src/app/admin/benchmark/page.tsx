@@ -1,6 +1,7 @@
 'use client';
 
 import { useBff } from '@/lib/session/use-bff';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { LoadingState, ErrorState, EmptyState } from '@/components/common/DataState';
 
 interface Bucket {
@@ -19,6 +20,7 @@ function pct(v: number | null) {
 }
 
 export default function BenchmarkPage() {
+  const locale = useLocale();
   const { data, loading, error, forbidden } = useBff<{ buckets: Bucket[] }>('admin/benchmark', null);
 
   if (forbidden) return <EmptyState title="Erişim yok" />;
@@ -48,7 +50,7 @@ export default function BenchmarkPage() {
                 <ul className="text-xs mt-3 space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
                   <li>Doluluk oranı: {pct(b.avgOccupancyRate)}</li>
                   <li>İptal oranı: {pct(b.avgCancellationRate)}</li>
-                  <li>Üye başına gelir: {b.avgRevenuePerMember === null ? '-' : `${Math.round(b.avgRevenuePerMember).toLocaleString('tr-TR')} TL`}</li>
+                  <li>Üye başına gelir: {b.avgRevenuePerMember === null ? '-' : `${Math.round(b.avgRevenuePerMember).toLocaleString(locale)} TL`}</li>
                   <li>Yenileme oranı: {pct(b.avgRenewalRate)}</li>
                 </ul>
               )}

@@ -10,8 +10,8 @@ import { formatCurrency, useLocale } from '../../../src/i18n';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
 
 
-const dateRange = (isoStart: string, isoEnd: string) => {
-  const fmt = new Intl.DateTimeFormat('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+const dateRange = (isoStart: string, isoEnd: string, locale: string) => {
+  const fmt = new Intl.DateTimeFormat(locale, { day: '2-digit', month: 'long', year: 'numeric' });
   const end = new Date(new Date(isoEnd).getTime() - 24 * 3600_000);
   return `${fmt.format(new Date(isoStart))} - ${fmt.format(end)}`;
 };
@@ -107,7 +107,7 @@ export default function BordroScreen() {
       {runs?.map((run) => (
         <View key={run.id} style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
           <View style={styles.headerRow}>
-            <Text style={[styles.period, fonts.display, { color: c.textPrimary }]}>{dateRange(run.periodStart, run.periodEnd)}</Text>
+            <Text style={[styles.period, fonts.display, { color: c.textPrimary }]}>{dateRange(run.periodStart, run.periodEnd, locale)}</Text>
             <Text style={[styles.status, fonts.bodyStrong, { color: statusColor(run.status, c) }]}>{STATUS_LABEL[run.status]}</Text>
           </View>
           <Text style={[styles.net, fonts.display, { color: c.textPrimary }]}>{money(run.totalNet)}</Text>

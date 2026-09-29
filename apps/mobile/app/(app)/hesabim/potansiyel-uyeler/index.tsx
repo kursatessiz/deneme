@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, T
 import { LeadStage } from '@platform/shared';
 import type { LeadDTO, LeadListResponseDTO } from '@platform/shared';
 
+import { useLocale } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { useSession } from '../../../../src/lib/session';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../../src/theme';
@@ -18,13 +19,13 @@ const STAGES: { key: LeadStage; label: string }[] = [
   { key: LeadStage.LOST, label: 'Kaybedildi' },
 ];
 
-const dateLabel = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('tr-TR') : null);
-
 /** W11: staff with leads.view browse the lead pipeline by stage. */
 export default function PotansiyelUyelerScreen() {
   const router = useRouter();
   const { activeMembership } = useSession();
   const { theme } = useTheme();
+  const { locale } = useLocale();
+  const dateLabel = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(locale) : null);
   const fonts = useThemeFonts();
   const c = theme.colors;
   const studioId = activeMembership?.studioId;

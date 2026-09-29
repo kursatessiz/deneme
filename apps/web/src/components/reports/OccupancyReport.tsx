@@ -91,7 +91,7 @@ export function OccupancyReport({ report, loading, error }: { report: OccupancyR
               {report.byDay.map((d) => (
                 <tr key={d.date} className="border-t" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
                   <td className="px-4 py-2" style={{ color: 'var(--color-text-primary)' }}>
-                    {new Date(d.date).toLocaleDateString('tr-TR')}
+                    {new Date(d.date).toLocaleDateString(locale)}
                   </td>
                   <td className="px-4 py-2" style={{ color: 'var(--color-text-secondary)' }}>
                     {d.sessions}

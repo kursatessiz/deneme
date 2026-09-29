@@ -24,19 +24,24 @@ function startOfMonth(d: Date): Date {
 
 export type DateRangePresetKey = 'today' | 'this_week' | 'last_7_days' | 'this_month' | 'last_30_days' | 'this_year';
 
-export interface DateRangePreset {
-  key: DateRangePresetKey;
-  label: string;
-}
-
-export const DATE_RANGE_PRESETS: readonly DateRangePreset[] = [
-  { key: 'today', label: 'Bugün' },
-  { key: 'this_week', label: 'Bu hafta' },
-  { key: 'last_7_days', label: 'Son 7 gün' },
-  { key: 'this_month', label: 'Bu ay' },
-  { key: 'last_30_days', label: 'Son 30 gün' },
-  { key: 'this_year', label: 'Bu yıl' },
+export const DATE_RANGE_PRESETS: readonly DateRangePresetKey[] = [
+  'today',
+  'this_week',
+  'last_7_days',
+  'this_month',
+  'last_30_days',
+  'this_year',
 ];
+
+/** Maps a preset key to its i18n message key (`common.dateRange.*`), so the label is never hardcoded. */
+export const DATE_RANGE_PRESET_MESSAGE_KEY: Record<DateRangePresetKey, string> = {
+  today: 'common.dateRange.today',
+  this_week: 'common.dateRange.thisWeek',
+  last_7_days: 'common.dateRange.last7Days',
+  this_month: 'common.dateRange.thisMonth',
+  last_30_days: 'common.dateRange.last30Days',
+  this_year: 'common.dateRange.thisYear',
+};
 
 /** Pure date-range presets for report and finance filters; `now` is injectable for tests. */
 export function resolveDateRangePreset(key: DateRangePresetKey, now: Date = new Date()): DateRange {

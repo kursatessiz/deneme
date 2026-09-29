@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
+import { useLocale } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
@@ -20,8 +21,8 @@ function lastNDates(days: number): string[] {
   return out;
 }
 
-function shortDayLabel(iso: string): string {
-  return new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'numeric' }).format(new Date(iso));
+function shortDayLabel(iso: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'numeric' }).format(new Date(iso));
 }
 
 /** One vertical bar built purely from Views, no chart library. */
@@ -40,6 +41,7 @@ function DailyBar({ value, maxValue, label, color, trackColor }: { value: number
 /** Member self-service: "Sağlık" screen with 7/30-day step, energy and resting HR bars. */
 export default function SaglikOzetScreen() {
   const colors = useThemeColors();
+  const { locale } = useLocale();
   const { activeMembership } = useSession();
   const studioId = activeMembership?.studioId;
 
@@ -113,7 +115,7 @@ export default function SaglikOzetScreen() {
             <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Adım</Text>
             <View style={styles.chart}>
               {dates.map((d, i) => (
-                <DailyBar key={d} value={steps[i]} maxValue={maxSteps} label={shortDayLabel(d)} color={palette.info} trackColor={colors.border} />
+                <DailyBar key={d} value={steps[i]} maxValue={maxSteps} label={shortDayLabel(d, locale)} color={palette.info} trackColor={colors.border} />
               ))}
             </View>
           </View>
@@ -122,7 +124,7 @@ export default function SaglikOzetScreen() {
             <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Aktif enerji (kcal)</Text>
             <View style={styles.chart}>
               {dates.map((d, i) => (
-                <DailyBar key={d} value={energy[i]} maxValue={maxEnergy} label={shortDayLabel(d)} color={palette.success} trackColor={colors.border} />
+                <DailyBar key={d} value={energy[i]} maxValue={maxEnergy} label={shortDayLabel(d, locale)} color={palette.success} trackColor={colors.border} />
               ))}
             </View>
           </View>

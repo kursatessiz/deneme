@@ -29,4 +29,13 @@ export const enCommon: Record<keyof typeof trCommon, string> = {
   'common.empty': 'Nothing to show.',
   'common.itemCount.one': '{count} item',
   'common.itemCount.other': '{count} items',
+  'common.allBranches': 'All branches',
+  'common.dateRange.today': 'Today',
+  'common.dateRange.thisWeek': 'This week',
+  'common.dateRange.last7Days': 'Last 7 days',
+  'common.dateRange.thisMonth': 'This month',
+  'common.dateRange.last30Days': 'Last 30 days',
+  'common.dateRange.thisYear': 'This year',
+  'common.forbidden.title': 'You do not have permission to view this page',
+  'common.forbidden.description': 'Ask your business owner to grant you this permission.',
 };

@@ -3,6 +3,8 @@ import type { MeSummaryDTO } from '@platform/shared';
 
 import { apiRequest } from '../lib/api';
 import { getAccessToken } from '../lib/tokenStore';
+import { toWidgetDisplayModel } from './format';
+import { resolveWidgetTranslation } from './locale';
 import { saveWidgetSummary, clearWidgetSummary } from './store';
 import type { WidgetSummaryData } from './types';
 
@@ -62,13 +64,16 @@ function toWidgetSummaryData(summary: MeSummaryDTO): WidgetSummaryData {
   return { nextSession, activePackage, updatedAt: new Date().toISOString() };
 }
 
-/** Pushes the new snapshot into the OS widget for the current platform. */
+/** Pushes the new snapshot into the OS widget for the current platform, already translated. */
 async function pushToNativeWidgets(data: WidgetSummaryData | null): Promise<void> {
+  const { locale, t } = await resolveWidgetTranslation();
+  const display = toWidgetDisplayModel(data, locale, t);
+
   if (Platform.OS === 'ios') {
     const { updateIosWidget } = await import('./ios/nextSessionWidget');
-    updateIosWidget(data);
+    updateIosWidget(display);
   } else if (Platform.OS === 'android') {
     const { updateAndroidWidgets } = await import('./android/nextSessionWidget');
-    await updateAndroidWidgets(data);
+    await updateAndroidWidgets(display);
   }
 }

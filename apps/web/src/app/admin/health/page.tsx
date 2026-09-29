@@ -1,6 +1,7 @@
 'use client';
 
 import { useBff } from '@/lib/session/use-bff';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { LoadingState, ErrorState } from '@/components/common/DataState';
 
 interface SystemHealth {
@@ -28,6 +29,7 @@ function StatusChip({ ok, label }: { ok: boolean; label: string }) {
 }
 
 export default function SystemHealthPage() {
+  const locale = useLocale();
   const { data, loading, error } = useBff<SystemHealth>('admin/health', null);
 
   return (
@@ -62,7 +64,7 @@ export default function SystemHealthPage() {
           <div className="p-5 border space-y-2" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
             <h3 className="text-sm font-semibold">Zamanlayıcı (Heartbeat)</h3>
             <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              Son çalışma: {data.lastHeartbeatRunAt ? new Date(data.lastHeartbeatRunAt).toLocaleString('tr-TR') : 'Henüz çalışmadı'}
+              Son çalışma: {data.lastHeartbeatRunAt ? new Date(data.lastHeartbeatRunAt).toLocaleString(locale) : 'Henüz çalışmadı'}
             </p>
           </div>
 
@@ -94,7 +96,7 @@ export default function SystemHealthPage() {
             {data.smsProvider ? (
               <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                 Sağlayıcı: {data.smsProvider.provider} · Bakiye: {data.smsProvider.credits ?? '-'} · Eşik: {data.smsProvider.threshold} · Son kontrol:{' '}
-                {new Date(data.smsProvider.checkedAt).toLocaleString('tr-TR')}
+                {new Date(data.smsProvider.checkedAt).toLocaleString(locale)}
               </p>
             ) : (
               <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Henüz kontrol edilmedi (zamanlayıcı ilk çalıştığında eklenir)</p>

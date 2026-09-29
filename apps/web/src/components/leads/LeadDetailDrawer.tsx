@@ -7,6 +7,7 @@ import { bffFetch, BffError } from '@/lib/session/client';
 import { PermissionButton } from '@/components/common/PermissionButton';
 import { Badge } from '@/components/common/Badge';
 import { Modal } from '@/components/common/Modal';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { upcomingTrialSessions, type TrialSessionRow } from '@/lib/leads/trial-sessions';
 
 const STAGE_LABEL: Record<string, string> = {
@@ -36,6 +37,7 @@ export function LeadDetailDrawer({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const locale = useLocale();
   const [note, setNote] = useState('');
   const [lostReason, setLostReason] = useState('');
   const [scheduleId, setScheduleId] = useState('');
@@ -185,7 +187,7 @@ export function LeadDetailDrawer({
                   </option>
                   {sessionOptions.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {new Date(s.startTime).toLocaleString('tr-TR', {
+                      {new Date(s.startTime).toLocaleString(locale, {
                         weekday: 'short',
                         day: '2-digit',
                         month: 'short',
@@ -234,7 +236,7 @@ export function LeadDetailDrawer({
                 <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
                   {a.actorName ?? 'Sistem'}
                 </span>{' '}
-                {a.body} - {new Date(a.createdAt).toLocaleString('tr-TR')}
+                {a.body} - {new Date(a.createdAt).toLocaleString(locale)}
               </div>
             ))}
           </div>

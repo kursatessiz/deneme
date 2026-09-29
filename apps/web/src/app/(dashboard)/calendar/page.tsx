@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { CreateScheduleInput, UpdateScheduleInput } from '@platform/shared';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { useBff } from '@/lib/session/use-bff';
 import { LoadingState, ErrorState } from '@/components/common/DataState';
@@ -21,6 +22,7 @@ const VIEW_LABEL: Record<CalendarView, string> = { day: 'Gün', week: 'Hafta', m
 
 function CalendarScreen() {
   const { activeStudioId } = useDashboardSession();
+  const locale = useLocale();
   const router = useRouter();
   const [view, setView] = useState<CalendarView>('week');
   const [anchor, setAnchor] = useState(() => new Date());
@@ -103,7 +105,7 @@ function CalendarScreen() {
             Seans Takvimi
           </h2>
           <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-            {start.toLocaleDateString('tr-TR')} - {new Date(end.getTime() - 1).toLocaleDateString('tr-TR')}
+            {start.toLocaleDateString(locale)} - {new Date(end.getTime() - 1).toLocaleDateString(locale)}
           </p>
         </div>
         <div className="flex gap-2">

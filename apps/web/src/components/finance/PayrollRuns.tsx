@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { PayrollLineDTO, PayrollRunDTO, PayrollRunStatus } from '@platform/shared';
 import { useDashboardSession, useFormatMoney } from '@/components/session/DashboardSessionProvider';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { formatMoney } from '@/lib/money';
 import { toDateInputValue, fromDateInputValue } from '@/lib/date-range';
@@ -146,6 +147,7 @@ function AdjustLineDialog({
 
 function RunDetail({ studioId, run, onReload }: { studioId: string; run: PayrollRun; onReload: () => void }) {
   const formatMoney = useFormatMoney();
+  const locale = useLocale();
   const [adjustingLine, setAdjustingLine] = useState<PayrollLineDetail | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -179,7 +181,7 @@ function RunDetail({ studioId, run, onReload }: { studioId: string; run: Payroll
         <div className="flex items-center gap-2">
           <Badge tone={STATUS_TONE[run.status]}>{STATUS_LABEL[run.status]}</Badge>
           <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            {new Date(run.periodStart).toLocaleDateString('tr-TR')} - {new Date(run.periodEnd).toLocaleDateString('tr-TR')}
+            {new Date(run.periodStart).toLocaleDateString(locale)} - {new Date(run.periodEnd).toLocaleDateString(locale)}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -281,6 +283,7 @@ function RunDetail({ studioId, run, onReload }: { studioId: string; run: Payroll
 
 export function PayrollRuns() {
   const { activeStudioId } = useDashboardSession();
+  const locale = useLocale();
   const [runs, setRuns] = useState<PayrollRun[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -348,7 +351,7 @@ export function PayrollRuns() {
                 color: r.id === selectedRunId ? 'var(--color-on-primary)' : 'var(--color-text-primary)',
               }}
             >
-              {new Date(r.periodStart).toLocaleDateString('tr-TR')} - {new Date(r.periodEnd).toLocaleDateString('tr-TR')} ({STATUS_LABEL[r.status]})
+              {new Date(r.periodStart).toLocaleDateString(locale)} - {new Date(r.periodEnd).toLocaleDateString(locale)} ({STATUS_LABEL[r.status]})
             </button>
           ))}
         </div>
