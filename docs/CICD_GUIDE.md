@@ -94,8 +94,28 @@ Job'lar:
    `deploy/docker-compose.prod.yml`, `deploy/caddy/Caddyfile` ve `deploy/scripts/*.sh`
    dosyalarını sunucuda `/opt/app` içine senkronize eder ve `deploy.sh <tag>` çalıştırır.
 
+`publish` ayrıca `web` için kaynak haritalarını yayınlar (`ghcr.io/<owner>/<repo>/web-sourcemaps:sha-<commit>`
+ve `web-sourcemaps-sha-<commit>` Actions artifact'ı, 30 gün), `deploy` da bunları hedef ortamın API'sine yükler;
+ayrıntı aşağıda "Kaynak haritası yükleme".
+
 Eşzamanlılık ortam başınadır (`release-preprod`, `release-production`): `main`'e yapılan yeni bir
 push, bekleyen bir production deploy'unu asla iptal etmez.
+
+### Kaynak haritası yükleme (H2)
+
+Web bundle'ları küçültülmüştür; hata sistemi (`docs/HATA_RAPORLAMA.md`) yığın izlerini sürümün kaynak
+haritasıyla çözer. Akış: `web.Dockerfile` haritaları sunulan imajdan çıkarıp `web-sourcemaps` aşamasına
+taşır (imajda `.map` dosyası yoktur) -> `publish` bu aşamayı ayrı imaj ve artifact olarak yayınlar ->
+`deploy` hedef ortamın API'sine `deploy/scripts/upload-sourcemaps.mjs` ile yükler (dağıtımdan önce, böylece
+yeni sürümün ilk hataları da çözülür). Production terfisi build etmez ama aynı `sha-<commit>` haritası
+imajını çektiği için çalışır.
+
+Sahibin yapması gerekenler, her ortam için: (1) API sunucusunun `/opt/app/.env` dosyasına
+`SOURCEMAP_UPLOAD_TOKEN=$(openssl rand -hex 32)`; (2) aynı değeri GitHub Environment secret'ı
+`SOURCEMAP_UPLOAD_TOKEN` olarak; (3) `PUBLIC_API_URL` değişkenini API'nin herkese açık adresi olarak. İkisi de
+yoksa yükleme bildirimle atlanır ve dağıtım etkilenmez; adım `continue-on-error`'dır. Haritalar sunucuda
+`sourcemaps_data` volume'unda 30 gün tutulur. `release.yml`'in `deploy` job'una `packages: read` izni
+eklendi (imajı çekmek için); başka yeni izin veya action yok.
 
 ### GitHub Environments, secret'lar ve değişkenler
 
@@ -112,6 +132,9 @@ hepsi **ortam seviyesinde** tanımlanır (repository seviyesinde değil); eski r
 | `DEPLOY_ENABLED` | variable | `true` olunca `main`'e her push preprod'a deploy edilir | `true` olunca manuel deploy çalışır |
 | `DEPLOY_ENVIRONMENT` | variable | `preprod` | `production` |
 | `PUBLIC_URL` | variable (opsiyonel) | örn. `https://panel.preprod.<alan-adi>` | örn. `https://panel.<alan-adi>` |
+
+| `SOURCEMAP_UPLOAD_TOKEN` | secret (opsiyonel) | hedef API sunucusundaki `SOURCEMAP_UPLOAD_TOKEN` ile aynı değer (en az 32 karakter) | aynı şekilde, farklı bir değer |
+| `PUBLIC_API_URL` | variable (opsiyonel) | örn. `https://api.preprod.<alan-adi>` (sonunda `/` olmadan) | örn. `https://api.<alan-adi>` |
 
 `production` ortamı için ayrıca: **Required reviewers** (en az bir kişi) ve **Deployment
 branches and tags: Selected branches -> `main`**. `preprod` için onay gerekmez.

@@ -36,6 +36,8 @@ WORKDIR /app
 COPY --from=builder --chown=node:node /out/node_modules ./node_modules
 COPY --from=builder --chown=node:node /out/package.json ./package.json
 COPY --from=builder --chown=node:node /app/apps/api/dist ./dist
+# Source map store (H2): a named volume mounted here inherits this owner.
+RUN mkdir -p /var/lib/app/sourcemaps && chown node:node /var/lib/app/sourcemaps
 USER node
 EXPOSE 4000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \

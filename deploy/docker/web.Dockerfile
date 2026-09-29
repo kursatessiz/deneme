@@ -16,6 +16,17 @@ COPY packages/shared packages/shared
 COPY apps/web apps/web
 ENV NEXT_TELEMETRY_DISABLED=1 NODE_ENV=production
 RUN pnpm --filter @platform/web... run build
+# Browser source maps (productionBrowserSourceMaps) never ship in the served
+# image: they move to /sourcemaps, which the web-sourcemaps stage below exposes
+# to CI (published as an artifact and uploaded to the API for symbolication,
+# docs/HATA_RAPORLAMA.md). Paths stay relative to .next (static/chunks/x.js.map).
+RUN mkdir -p /sourcemaps \
+ && cd apps/web/.next \
+ && find static -name '*.map' | while read -r f; do mkdir -p "/sourcemaps/$(dirname "$f")" && mv "$f" "/sourcemaps/$f"; done
+
+# Only the maps; built with --target web-sourcemaps, never run.
+FROM scratch AS web-sourcemaps
+COPY --from=builder /sourcemaps/ /sourcemaps/
 
 FROM node:22-alpine AS runner
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 \

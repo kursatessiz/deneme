@@ -142,6 +142,43 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
+      # Browser source maps (web only, docs/HATA_RAPORLAMA.md). They are not in
+      # the served image: web.Dockerfile moves them into a scratch stage. That
+      # stage is pushed as its own image, so any later deploy of this tag
+      # (including a promotion to production, which never builds) can upload the
+      # maps to that environment's API, and is also kept as a build artifact.
+      - name: Publish the source map image
+        if: matrix.app == 'web'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/docker/web.Dockerfile
+          target: web-sourcemaps
+          push: true
+          provenance: false
+          sbom: false
+          tags: ${{ steps.image.outputs.name }}-sourcemaps:${{ needs.plan.outputs.tag }}
+          cache-from: type=gha,scope=web
+
+      - name: Export the source maps
+        if: matrix.app == 'web'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/docker/web.Dockerfile
+          target: web-sourcemaps
+          outputs: type=local,dest=sourcemaps
+          cache-from: type=gha,scope=web
+
+      - name: Keep the source maps as an artifact
+        if: matrix.app == 'web'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: web-sourcemaps-${{ needs.plan.outputs.tag }}
+          path: sourcemaps
+          retention-days: 30
+          if-no-files-found: warn
+
   deploy:
     name: Deploy to ${{ needs.plan.outputs.environment }}
     needs: [plan, publish]
@@ -150,6 +187,9 @@ jobs:
       (needs.publish.result == 'success' || (needs.publish.result == 'skipped' && needs.plan.outputs.build == 'false'))
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read # pull the source map image
     # Secrets and variables below resolve from this environment. Required
     # reviewers and a main-only branch rule belong on `production`.
     environment:
@@ -203,6 +243,36 @@ jobs:
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes deploy/docker-compose.prod.yml "$TARGET:/opt/app/"
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes deploy/caddy/Caddyfile "$TARGET:/opt/app/caddy/"
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes deploy/scripts/*.sh "$TARGET:/opt/app/scripts/"
+
+      # Maps go up before the new release serves traffic. Failure only degrades
+      # stack traces (raw stacks are still stored), so it never blocks a deploy.
+      - name: Upload web source maps to the API
+        if: steps.gate.outputs.enabled == 'true'
+        continue-on-error: true
+        env:
+          SOURCEMAP_UPLOAD_TOKEN: ${{ secrets.SOURCEMAP_UPLOAD_TOKEN }}
+          API_URL: ${{ vars.PUBLIC_API_URL }}
+          TAG: ${{ needs.plan.outputs.tag }}
+          REPO: ${{ github.repository }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          if [ -z "$SOURCEMAP_UPLOAD_TOKEN" ] || [ -z "$API_URL" ]; then
+            echo "::notice::Source map upload skipped: set the SOURCEMAP_UPLOAD_TOKEN secret and the PUBLIC_API_URL variable in this environment."
+            exit 0
+          fi
+          [[ "$TAG" =~ ^sha-[0-9a-f]{40}$ ]] || { echo "invalid tag"; exit 2; }
+          image="ghcr.io/${REPO,,}/web-sourcemaps:${TAG}"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          if ! docker pull --quiet "$image"; then
+            echo "::warning::No source map image for $TAG (built before source maps were published?); stack traces of this release stay unresolved."
+            exit 0
+          fi
+          mkdir -p sourcemaps
+          cid=$(docker create "$image" /unused)
+          docker cp "$cid:/sourcemaps/." sourcemaps
+          docker rm "$cid" > /dev/null
+          node deploy/scripts/upload-sourcemaps.mjs --api-url "$API_URL" --release "$TAG" --platform web --dir sourcemaps/static --path-prefix _next/static/
 
       - name: Deploy, smoke test, roll back on failure
         if: steps.gate.outputs.enabled == 'true'

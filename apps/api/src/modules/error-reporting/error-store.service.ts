@@ -49,8 +49,10 @@ export class ErrorStoreService {
   constructor(private readonly prisma: PrismaService) {}
 
   /** Stores one event. Null when the event id was already stored (a retried batch). */
-  async record(event: ErrorEventRecord): Promise<RecordedError | null> {
-    const fingerprint = truncate(errorFingerprint(event), 1000);
+  async record(event: ErrorEventRecord, symbolicatedStack: string | null = null): Promise<RecordedError | null> {
+    // Grouping uses the resolved stack when there is one: original file names do not change with every build.
+    const groupingStack = symbolicatedStack ?? event.stack;
+    const fingerprint = truncate(errorFingerprint({ ...event, stack: groupingStack }), 1000);
     const hash = fingerprintHash(fingerprint);
     const code = errorCodeFromId(event.eventId);
     const critical = isCriticalRoute(event.route);
@@ -66,7 +68,7 @@ export class ErrorStoreService {
             source: event.source,
             type: truncate(event.type, ERROR_LIMITS.typeLength),
             title: errorGroupTitle(event.type, event.message),
-            topFrame: topInAppFrame(event.stack),
+            topFrame: topInAppFrame(groupingStack),
             firstSeenAt: event.occurredAt,
             lastSeenAt: event.occurredAt,
             lastRelease: event.release,
@@ -97,6 +99,7 @@ export class ErrorStoreService {
           type: truncate(event.type, ERROR_LIMITS.typeLength),
           message: event.message,
           stack: event.stack,
+          symbolicatedStack,
           breadcrumbs: event.breadcrumbs.length > 0 ? (event.breadcrumbs as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
           statusCode: event.statusCode,
           occurredAt: event.occurredAt,

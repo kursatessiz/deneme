@@ -32,7 +32,8 @@ export function ErrorReporter({ release, environment }: { release: string; envir
   useEffect(() => {
     configureErrorReporter({ release, environment });
     const onError = (event: ErrorEvent) => {
-      reportError(event.error ?? event.message, { severity: 'error' });
+      const frame = event.filename && event.lineno ? `${event.filename}:${event.lineno}:${event.colno || 1}` : undefined;
+      reportError(event.error ?? event.message, { severity: 'error', frame });
     };
     const onRejection = (event: PromiseRejectionEvent) => {
       reportError(event.reason, { severity: 'error' });

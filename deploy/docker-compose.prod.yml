@@ -112,6 +112,9 @@ services:
       ERROR_CLIENT_SAMPLE_RATE: ${ERROR_CLIENT_SAMPLE_RATE:-}
       ERROR_ALERT_COOLDOWN_MINUTES: ${ERROR_ALERT_COOLDOWN_MINUTES:-}
       ERROR_ALERTS_ENABLED: ${ERROR_ALERTS_ENABLED:-}
+      # H2 source maps: uploads need the token; maps live on a volume (30 days).
+      SOURCEMAP_UPLOAD_TOKEN: ${SOURCEMAP_UPLOAD_TOKEN:-}
+      SOURCEMAP_DIR: /var/lib/app/sourcemaps
       # D2 backups from the super admin panel (docs/YEDEKLER.md): the same
       # off-site settings backup.sh uses, and the host backup directory
       # mounted read-only (listing only).
@@ -130,6 +133,7 @@ services:
       BACKUP_LOCAL_DIR: /var/backups/app
     volumes:
       - ./backups:/var/backups/app:ro
+      - sourcemaps_data:/var/lib/app/sourcemaps
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -234,3 +238,4 @@ volumes:
   caddy_config:
   postgres_data:
   redis_data:
+  sourcemaps_data:

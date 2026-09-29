@@ -1,4 +1,5 @@
 import { trMApiErrors } from './tr/mApiErrors';
+import { trMErrors } from './tr/mErrors';
 import { trAdminI18n } from './tr/admin-i18n';
 import { trAdminAi } from './tr/admin-ai';
 import { trAdminNav } from './tr/admin-nav';
@@ -90,6 +91,7 @@ import { trAdminErrors } from './tr/admin-errors';
 import { trCommunity } from './tr/community';
 import { trMCommunity } from './tr/mCommunity';
 import { enMApiErrors } from './en/mApiErrors';
+import { enMErrors } from './en/mErrors';
 import { enAdminI18n } from './en/admin-i18n';
 import { enAdminAi } from './en/admin-ai';
 import { enAdminNav } from './en/admin-nav';
@@ -213,6 +215,7 @@ import { enJoinInvite } from './en/join-invite';
  */
 export const TR_NAMESPACES = [
   trMApiErrors,
+  trMErrors,
   trAdminI18n,
   trAdminAi,
   trAdminNav,
@@ -316,6 +319,7 @@ export const TR_NAMESPACES = [
 
 export const EN_NAMESPACES = [
   enMApiErrors,
+  enMErrors,
   enAdminI18n,
   enAdminAi,
   enAdminNav,

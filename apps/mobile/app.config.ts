@@ -42,6 +42,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: `${name}${nameSuffix}`,
     slug,
+    // Read by the error reporter as the environment of reported errors.
+    extra: { ...config.extra, appVariant: variant },
     ios: { ...config.ios, bundleIdentifier: config.ios?.bundleIdentifier ? `${config.ios.bundleIdentifier}${idSuffix}` : undefined },
     android: { ...config.android, package: config.android?.package ? `${config.android.package}${idSuffix}` : undefined },
   };

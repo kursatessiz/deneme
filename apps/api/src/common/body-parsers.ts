@@ -1,6 +1,9 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { json, raw, text, urlencoded } from 'express';
-import { ERROR_LIMITS, LANGUAGE_PACK_MAX_BYTES } from '@platform/shared';
+import type { NextFunction, Request, Response } from 'express';
+import { ConfigService } from '@nestjs/config';
+import { ERROR_LIMITS, LANGUAGE_PACK_MAX_BYTES, SOURCEMAP_LIMITS } from '@platform/shared';
+import { sourcemapTokenValid } from '../modules/error-reporting/sourcemap-token';
 
 /** Default request body limit for every route except the ones listed below. */
 export const DEFAULT_BODY_LIMIT = '100kb';
@@ -16,6 +19,9 @@ export const SES_WEBHOOK_PATH = '/messaging/webhook/ses';
 
 /** Client error batches (H1): their own, smaller limit. */
 export const TELEMETRY_ERRORS_PATH = '/telemetry/errors';
+
+/** Source map uploads (H2): a large body, accepted only with the upload token. */
+export const SOURCEMAP_UPLOAD_PATH = '/admin/errors/sourcemaps';
 
 /**
  * Registers the body parsers explicitly. The app must be created with
@@ -38,6 +44,15 @@ export function configureBodyParsers(app: NestExpressApplication): void {
   app.use(WHATSAPP_WEBHOOK_PATH, raw({ type: '*/*', limit: '1mb' }));
   app.use(SES_WEBHOOK_PATH, text({ type: '*/*', limit: '256kb' }));
   app.use('/admin/i18n/languages', json({ limit: LANGUAGE_PACK_MAX_BYTES + 64 * 1024 }));
+  // The token is checked before the large body is read, so an anonymous caller cannot make the API parse 24 MB.
+  app.use(
+    SOURCEMAP_UPLOAD_PATH,
+    (req: Request, res: Response, next: NextFunction) => {
+      if (sourcemapTokenValid(req, app.get(ConfigService, { strict: false }).get<string>('SOURCEMAP_UPLOAD_TOKEN'))) return next();
+      res.status(403).json({ statusCode: 403, message: 'Forbidden' });
+    },
+    json({ limit: SOURCEMAP_LIMITS.bodyBytes }),
+  );
   app.use(TELEMETRY_ERRORS_PATH, json({ limit: ERROR_LIMITS.batchBytes }));
   app.use(json({ limit: DEFAULT_BODY_LIMIT }));
   app.use(urlencoded({ extended: true, limit: DEFAULT_BODY_LIMIT }));
