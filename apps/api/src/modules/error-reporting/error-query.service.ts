@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { ErrorEvent, ErrorGroup, Prisma } from '@platform/database';
-import { BreadcrumbSchema, ERROR_LIMITS, isErrorCode } from '@platform/shared';
+import { BreadcrumbSchema, ERROR_LIMITS, isErrorCode, parseSourceContexts } from '@platform/shared';
 import type {
   Breadcrumb,
   ErrorEventDTO,
+  ErrorAlertSummaryDTO,
   ErrorGroupDetailDTO,
   ErrorGroupListDTO,
   ErrorGroupListQuery,
@@ -20,7 +21,7 @@ const PAGE_SIZE = 25;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function toSummary(g: ErrorGroup): ErrorGroupSummaryDTO {
+export function toSummary(g: ErrorGroup): ErrorGroupSummaryDTO {
   return {
     id: g.id,
     source: g.source as ErrorSource,
@@ -66,6 +67,8 @@ function toEvent(e: ErrorEvent, studioNames: Map<string, string>): ErrorEventDTO
     message: e.message,
     stack: e.stack,
     symbolicatedStack: e.symbolicatedStack,
+    symbolicatedContext: e.symbolicatedContext ? parseSourceContexts(e.symbolicatedContext) : null,
+    feedback: e.feedback,
     breadcrumbs: parseBreadcrumbs(e.breadcrumbs),
     statusCode: e.statusCode,
     occurredAt: e.occurredAt.toISOString(),
@@ -86,7 +89,8 @@ export class ErrorQueryService {
   ) {}
 
   async list(query: ErrorGroupListQuery): Promise<ErrorGroupListDTO> {
-    const and: Prisma.ErrorGroupWhereInput[] = [];
+    // A merged group lives on as its target (H3); it is not listed.
+    const and: Prisma.ErrorGroupWhereInput[] = [{ mergedIntoId: null }];
     if (query.source) and.push({ source: query.source });
     if (query.status) and.push({ status: query.status });
     if (query.release) and.push({ OR: [{ lastRelease: query.release }, { events: { some: { release: query.release } } }] });
@@ -108,7 +112,7 @@ export class ErrorQueryService {
 
   async detail(id: string): Promise<ErrorGroupDetailDTO> {
     const group = await this.findGroup(id);
-    const [events, releases, studios] = await Promise.all([
+    const [events, releases, studios, aliasCount, alerts] = await Promise.all([
       this.prisma.errorEvent.findMany({ where: { groupId: id }, orderBy: { occurredAt: 'desc' }, take: ERROR_LIMITS.eventsPerGroup }),
       this.prisma.errorEvent.groupBy({
         by: ['release'],
@@ -119,6 +123,8 @@ export class ErrorQueryService {
         take: 20,
       }),
       this.prisma.errorGroupStudio.findMany({ where: { groupId: id }, orderBy: { lastSeenAt: 'desc' }, take: 20 }),
+      this.prisma.errorGroupAlias.count({ where: { groupId: id } }),
+      this.prisma.errorAlert.findMany({ where: { groupId: id }, orderBy: { createdAt: 'desc' }, take: 10 }),
     ]);
     const studioIds = new Set<string>([...studios.map((s) => s.studioId), ...events.flatMap((e) => (e.studioId ? [e.studioId] : []))]);
     const names = new Map(
@@ -132,6 +138,15 @@ export class ErrorQueryService {
       releases: releases.map((r) => ({ release: r.release, count: r._count._all, lastSeenAt: (r._max.occurredAt ?? group.lastSeenAt).toISOString() })),
       studios: studios.map((s) => ({ studioId: s.studioId, studioName: names.get(s.studioId) ?? null, count: s.count, lastSeenAt: s.lastSeenAt.toISOString() })),
       events: events.map((e) => toEvent(e, names)),
+      mergedIntoId: group.mergedIntoId,
+      aliasCount,
+      alerts: alerts.map((a) => ({
+        id: a.id,
+        kind: a.kind as ErrorAlertSummaryDTO['kind'],
+        windowCount: a.windowCount,
+        createdAt: a.createdAt.toISOString(),
+        acknowledgedAt: a.acknowledgedAt ? a.acknowledgedAt.toISOString() : null,
+      })),
     };
   }
 

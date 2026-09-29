@@ -1,4 +1,5 @@
-import { ERROR_LIMITS } from '@platform/shared';
+import { ERROR_CONTEXT_MAX_FRAMES, ERROR_LIMITS, extractSourceContext } from '@platform/shared';
+import type { ErrorSourceContext } from '@platform/shared';
 
 /**
  * Minimal source map v3 reader (H2, docs/HATA_RAPORLAMA.md): a base64 VLQ
@@ -15,11 +16,15 @@ export interface RawSourceMap {
   names: string[];
   mappings: string;
   sourceRoot?: string;
+  /** Original file contents by source index (H3); absent or null entries when the build did not embed them. */
+  sourcesContent?: Array<string | null>;
 }
 
 export interface OriginalPosition {
   /** Display path of the original file. */
   source: string;
+  /** Index into the map's sources (and sourcesContent). */
+  sourceIndex: number;
   /** 1-based. */
   line: number;
   /** 0-based. */
@@ -61,12 +66,14 @@ export function parseSourceMap(text: string): RawSourceMap | null {
     const raw = JSON.parse(text) as Partial<RawSourceMap> & { sections?: unknown };
     if (!raw || raw.version !== 3 || raw.sections !== undefined) return null;
     if (typeof raw.mappings !== 'string' || !Array.isArray(raw.sources)) return null;
+    const content = (raw as { sourcesContent?: unknown }).sourcesContent;
     return {
       version: 3,
       sources: raw.sources.map((s) => (typeof s === 'string' ? s : '')),
       names: Array.isArray(raw.names) ? raw.names.map((n) => (typeof n === 'string' ? n : '')) : [],
       mappings: raw.mappings,
       ...(typeof raw.sourceRoot === 'string' ? { sourceRoot: raw.sourceRoot } : {}),
+      ...(Array.isArray(content) ? { sourcesContent: content.map((c) => (typeof c === 'string' ? c : null)) } : {}),
     };
   } catch {
     return null;
@@ -146,6 +153,7 @@ export function originalPositionFor(map: RawSourceMap, line: number, column: num
   if (!best || best.source < 0 || best.source >= map.sources.length) return null;
   return {
     source: displaySource(map, best.source),
+    sourceIndex: best.source,
     line: best.line + 1,
     column: best.column,
     name: best.name >= 0 && best.name < map.names.length ? map.names[best.name] || null : null,
@@ -226,17 +234,28 @@ export type MapLoader = (frameUrl: string) => Promise<RawSourceMap | null>;
 const MAX_FRAMES = 100;
 const MAX_LOADS = 6;
 
+export interface SymbolicationResult {
+  /** The rewritten stack. */
+  stack: string;
+  /** Source lines around the first resolved app frames, only from maps that embed sourcesContent. */
+  context: ErrorSourceContext[];
+}
+
 /**
  * Rewrites every resolvable frame of `stack` to its original file, line,
  * column and (when the map has one) function name. Frames without a map or
  * a mapping are kept unchanged. Null when nothing could be resolved, so the
- * caller stores no symbolicated stack. `load` gets the frame's URL.
+ * caller stores no symbolicated stack. `load` gets the frame's URL. When a
+ * map embeds sourcesContent, the first resolved frames outside node_modules
+ * (at most ERROR_CONTEXT_MAX_FRAMES) also get the lines around them; the
+ * stack text itself is unchanged by that.
  */
-export async function symbolicateStack(stack: string, load: MapLoader): Promise<string | null> {
+export async function symbolicateStackDetailed(stack: string, load: MapLoader): Promise<SymbolicationResult | null> {
   const lines = stack.split('\n', MAX_FRAMES + 20);
   const maps = new Map<string, RawSourceMap | null>();
   let resolved = 0;
   let frames = 0;
+  const context: ErrorSourceContext[] = [];
   const out: string[] = [];
   for (const line of lines) {
     const frame = frames < MAX_FRAMES ? parseFrame(line) : null;
@@ -251,13 +270,18 @@ export async function symbolicateStack(stack: string, load: MapLoader): Promise<
       maps.set(frame.url, map);
     }
     const original = map && frame.column >= 1 ? originalPositionFor(map, frame.line, frame.column - 1) : null;
-    if (!original) {
+    if (!original || !map) {
       out.push(line);
       continue;
     }
     resolved++;
     const name = original.name ?? frame.fn;
     const where = `${original.source}:${original.line}:${original.column + 1}`;
+    if (context.length < ERROR_CONTEXT_MAX_FRAMES && !original.source.includes('node_modules')) {
+      const content = map.sourcesContent?.[original.sourceIndex];
+      const extracted = typeof content === 'string' ? extractSourceContext(content, original.line) : null;
+      if (extracted) context.push({ location: where.slice(0, 400), ...extracted });
+    }
     out.push(
       frame.style === 'moz'
         ? `${frame.indent}${name}@${where}`
@@ -266,5 +290,11 @@ export async function symbolicateStack(stack: string, load: MapLoader): Promise<
   }
   if (resolved === 0) return null;
   const joined = out.join('\n');
-  return joined.length > ERROR_LIMITS.stackLength * 2 ? joined.slice(0, ERROR_LIMITS.stackLength * 2) : joined;
+  return { stack: joined.length > ERROR_LIMITS.stackLength * 2 ? joined.slice(0, ERROR_LIMITS.stackLength * 2) : joined, context };
+}
+
+/** The rewritten stack only (see symbolicateStackDetailed). */
+export async function symbolicateStack(stack: string, load: MapLoader): Promise<string | null> {
+  const result = await symbolicateStackDetailed(stack, load);
+  return result ? result.stack : null;
 }
