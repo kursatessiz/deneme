@@ -63,6 +63,8 @@ Tek bir `ProviderRegistry` deseni: her yetenek için bir arayüz, ülkeye göre 
 
 Her ticari gönderim `compliance.canSend(recipient, channel, purpose)` kontrolünden geçer. İşlemsel mesajlar (rezervasyon onayı, OTP) izin, sessiz saat ve sıklık sınırına tabi değildir (G1c kararı, bkz. bölüm 1b ve `docs/MESAJLASMA.md`).
 
+**İzin dayanağı (M3e, yapıldı):** kişi düzeyindeki ticari izin (`ContactConsent`) artık bir dayanak taşır: `CONSENT` (açık onay), `TR_MERCHANT_EXEMPTION` (TR tacir/esnaf muafiyeti, İYS'ye tacir olarak kaydedilir) veya `EXISTING_CUSTOMER` (mevcut müşteriye benzer ürün için soft opt-in, her mesajda çıkış). Hangi bölgenin hangi dayanağı hangi kanalda kabul ettiği `packages/shared/src/marketing/consent.ts` içindeki `REGION_CONSENT_RULES` verisidir (AB/UK soft opt-in e-posta, SMS, WhatsApp; ABD yalnızca e-posta; tacir muafiyeti yalnızca TR ve kiracı ayarı açıkken); karar saf `evaluateCommercialEligibility` fonksiyonundadır ve `canSend` bunu uygular, gönderim yolunda ülke kodu yazılmaz. Formdan alınan izin, kiracının çift onay listesindeki bir bölgedeyse (varsayılan AB + UK, `MarketingSettings.doubleOptInRegions`) onay e-postasındaki bağlantı tıklanana kadar sayılmaz; onayda yalnızca zaman ve form sürümü saklanır, IP saklanmaz. Çıkış (abonelikten çıkma, STOP) her dayanağı yener. Kuralları ayarı olan kiracı (bugün platform kiracısı) kullanır; diğer kiracılarda davranış değişmedi. Ayrıntılar: `docs/PAZARLAMA_MODULU.md` bölüm 6.4 ve M3e notları.
+
 ### 2.4 Vergi ve fatura
 `taxRegime`: `TR_KDV`, `EU_VAT`, `US_SALES_TAX`, `NONE`. Paket fiyatları vergi dahil veya hariç girilebilir (kiracı ayarı). e-Arşiv yalnızca `TR_KDV` için etkinleşir; diğer bölgelerde sıra numaralı PDF fatura üretilir.
 
