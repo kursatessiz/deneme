@@ -239,12 +239,14 @@ Her madde ayrı PR'dır; her PR kendi e2e testleriyle gelir.
 | G2c | Tamamlandı. Sayfa motoru: platform sitesi, sektör ve dil bazlı açılış sayfaları, kurumsal sayfalar, işletme siteleri ve özel alan adı (`docs/SAYFA_MOTORU.md`) | G1b |
 | G3a | Tamamlandı. Sadakat puanı: puan defteri, kazanma kuralları, ödül kataloğu, FIFO son kullanma, segment alanı ve akış puan adımı (`docs/SADAKAT.md`) | G2a |
 | G3b | Tamamlandı. Yapay zeka çekirdeği: şifreli anahtar, model seçimi, kullanım ve maliyet ölçümü, kiracı limiti, otomatik dil çevirisi, metin yazımı, cevap önerisi (`docs/YAPAY_ZEKA.md`) | G1c |
-| G3c | Perakende ve stok, atölye/kurs/etkinlik, muhasebe ve Zapier | G1a |
+| G3c | Kısmen tamamlandı. G3c-1: etkinlikler, atölyeler ve çok oturumlu kurslar (`docs/ETKINLIKLER.md`). Kalan: perakende ve stok, muhasebe ve Zapier | G1a |
 | G5a | Kullanıcı deneyimi iyileştirmeleri: global hızlı işlem çubuğu ve hızlı satış, açıklayıcı boş durumlar, raporlarda dönem karşılaştırması, satır içi yetki uyarısı (bölüm 3.11) | G1a |
 | G5b | Topluluk ve erişim katmanları (bölüm 3.11) | G1c |
 | G5c | Uygulama pazarı ve ek modül faturalaması; deneme süresi ve etkinleştirme; işletmeden işletmeye tavsiye (bölüm 3.11) | G2b |
 | G5d | Dönüşüm hunileri; banka ödemeleri ve mutabakat (bölüm 3.11) | G2a |
 | G4 | Yayın öncesi sertleştirme: uçtan uca huni testi, güvenlik incelemesi, yük testi, hazırlık (staging) ortamında gerçek sağlayıcılarla deneme | hepsi |
+
+**Durum (G3c-1, yapıldı):** tek migration `20261006000000_events`. Sektörden bağımsız `Event` (tek seferlik veya çok oturumlu, taslak/yayında/iptal/tamamlandı, kontenjan, bekleme listesi, herkese açık veya yalnızca üyeler, kayıt penceresi, etkinlik başına tam iade süresi), kendi tablosunda oturumlar (`SessionSchedule` yerine, gerekçe belgede; eğitmen ve kaynak çakışması seanslarla birlikte kontrol edilir), `EventTicketType` (fiyat + para birimi, adet sınırı, satış penceresi, üyelere özel, paket hakkıyla ödeme) ve `EventRegistration` (üye veya CRM kişisi, kişi başına tekil). Kontenjan ve bilet adedi koşullu güncellemelerle atomik (eşzamanlı kayıtta fazla satış yok), bekleme listesi seanslardaki gibi otomatik dolar. Ödeme mevcut ödeme modülünden: masada ödeme ve sağlayıcı adaptörüyle çevrimiçi checkout `Payment` yazar, iade `refundPayment` ile; paket hakkıyla ödeme; misafir ödemesi masada. Onay, ödeme bekleniyor, bekleme listesi, 24 saat önce hatırlatma (kalp atışı) ve iptal bildirimleri mesajlaşma motorundan TRANSACTIONAL. Web sayfasından misafir kaydı CRM kişisi ve `lead` dönüşümü üretir; check-in sadakat ATTENDANCE puanı verir. `events.view`/`events.manage`/`events.checkin` (resepsiyona view + checkin). Web `/etkinlikler` (liste, düzenleyici, biletler, oturumlar, kayıtlar, giriş, CSV); mobil üye "Etkinlikler" ve personel "Etkinlik girişi". Kalan: işletme sitesinde etkinlik sayfası bloğu, misafir için çevrimiçi ödeme, oturum başına yoklama. Ayrıntılar: `docs/ETKINLIKLER.md`.
 
 ## 7. Yayın öncesi kabul ölçütleri
 

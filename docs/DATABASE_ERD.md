@@ -469,6 +469,17 @@ Sahip kararı: partner misafiri kendisi stüdyoya katılana kadar mesajlaşma/et
 
 `promo_codes.restricted_to_user_id` (boş olabilir): sadakat ödülüyle üretilen kodu tek kullanıcıyla sınırlar; boşsa herkes kullanabilir. Bakiye defterden türetilir, hesap satırı aynı işlemde güncellenen bir önbellektir. Ayrıntılar: `docs/SADAKAT.md`.
 
+## Etkinlikler (G3c-1)
+
+| Tablo | Amaç | Kısıtlar |
+|---|---|---|
+| `events` | Etkinlik, atölye veya kurs: başlık, açıklama, şube, `kind` (SINGLE/SERIES), `status` (DRAFT/PUBLISHED/CANCELLED/COMPLETED), kontenjan ve `seats_taken`, bekleme listesi, `visibility` (PUBLIC/MEMBERS_ONLY), kapak görseli, kayıt penceresi, ilk/son oturum zamanı (`starts_at`/`ends_at`), `full_refund_hours_before`, yayın/iptal/tamamlanma zamanları | Değer listeleri CHECK ile; `capacity > 0`, `0 <= seats_taken <= capacity` CHECK; (studio_id, status, starts_at) ve (status, ends_at) index; branch -> set null |
+| `event_occurrences` | Etkinliğin oturumu: başlangıç, bitiş, kaynak, eğitmen, `reminder_sent_at` | `ends_at > starts_at` CHECK; event -> cascade; resource/trainer -> set null; (event_id, starts_at), (studio_id, starts_at), (starts_at, reminder_sent_at) index |
+| `event_ticket_types` | Bilet türü: ad, `price_amount` + `currency`, `quantity_limit` + `sold_count`, satış penceresi, `members_only`, `allow_multiple`, paket hakkıyla ödeme (`credit_service_type_id` + `credit_units`), satışta mı, sıra | `price_amount >= 0` ve `0 <= sold_count <= quantity_limit` CHECK; event -> cascade; kaydı olan bilet silinmez (registrations -> restrict) |
+| `event_registrations` | Kayıt: üye (`member_id`) veya CRM kişisi (`contact_id`), bilet, `status` (PENDING_PAYMENT/CONFIRMED/WAITLIST/CANCELLED/ATTENDED/NO_SHOW), `source` (STAFF/MEMBER/PUBLIC), `dedupe_key`, bekleme sırası, ödenecek/ödenen/iade tutarı + `currency`, `payment_id`, ödeme yöntemi/bağlantısı/son zamanı, paket ve düşülen/iade hak, giriş ve iptal zamanı | (event_id, dedupe_key) benzersiz (kişi başına tek canlı kayıt; iptalde anahtar silinir); `payment_id` benzersiz (payments -> set null); üye veya kişiden biri zorunlu (CHECK); member ve contact -> cascade; (studio_id, event_id, status), (event_id, status, waitlist_position), (studio_id, status, payment_due_at) index |
+
+Oturumlar bilerek `session_schedules` tablosunda değildir: kapasite, bilet ve kayıt etkinlik başınadır (gerekçe `docs/ETKINLIKLER.md`). Ayrıntılar: `docs/ETKINLIKLER.md`.
+
 ## Denetim (Audit)
 
 | Tablo | Amaç | Kısıtlar |
