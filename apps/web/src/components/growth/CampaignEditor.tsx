@@ -18,6 +18,8 @@ import { useAreaHref } from '@/components/session/AreaBase';
 import { useOptionalPlatformSession } from '@/components/marketing/PlatformSession';
 import { hasAnyPlatformPermission } from '@/lib/marketing-nav';
 import { approvalErrorText } from '@/lib/marketing/errors';
+import { AbTestEditor, SendTimeEditor, VariantResults, abFormFromCampaign, abPayload, abSendTimeError, emptyAbForm, sendTimePayload } from './CampaignAbSection';
+import type { AbForm, SendTimeForm } from './CampaignAbSection';
 
 /** PENDING_APPROVAL only occurs on the platform tenant (M3b); an edit there replaces the approval request. */
 const EDITABLE = new Set(['DRAFT', 'SCHEDULED', 'PENDING_APPROVAL']);
@@ -72,6 +74,8 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
   const [templateKey, setTemplateKey] = useState('');
   const [when, setWhen] = useState<'now' | 'later'>('now');
   const [scheduledAt, setScheduledAt] = useState('');
+  const [ab, setAb] = useState<AbForm>(emptyAbForm());
+  const [sendTime, setSendTime] = useState<SendTimeForm>({ mode: 'FIXED', local: '' });
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: 'error' | 'success' | 'info'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -87,6 +91,8 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
       setSegmentId(c.segmentId);
       setChannel(c.channel ?? '');
       setTemplateKey(c.templateKey);
+      setAb(abFormFromCampaign(c));
+      setSendTime({ mode: c.sendTimeMode, local: c.sendTimeLocal ?? '' });
       if (c.scheduledAt && (c.status === 'SCHEDULED' || c.status === 'PENDING_APPROVAL')) {
         setWhen('later');
         setScheduledAt(toLocalInput(c.scheduledAt));
@@ -113,10 +119,18 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
   }, [activeStudioId, loadCampaign]);
 
   const editable = !campaign || EDITABLE.has(campaign.status);
+  const formError = abSendTimeError(ab, sendTime);
   const selectedSegment = segments.find((s) => s.id === segmentId);
 
   async function saveDraft(): Promise<CampaignDTO | null> {
-    const body = { name, segmentId, templateKey, ...(campaign ? { channel: channel || null } : channel ? { channel } : {}) };
+    const body = {
+      name,
+      segmentId,
+      templateKey,
+      ...(campaign ? { channel: channel || null } : channel ? { channel } : {}),
+      ...abPayload(ab),
+      ...sendTimePayload(sendTime),
+    };
     try {
       const saved = campaign
         ? await bffFetch<CampaignDTO>(`${base}/${campaign.id}`, { method: 'PATCH', studioId: activeStudioId, body })
@@ -187,6 +201,19 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
       setNotice({ tone: 'success', text: t(action === 'pause' ? 'marketingApprovals.campaign.paused' : 'marketingApprovals.campaign.resumed') });
     } catch (err) {
       setNotice({ tone: 'error', text: approvalErrorText(err, t) });
+    }
+    setBusy(false);
+  }
+
+  async function pickWinner(variantKey?: string) {
+    if (!campaign) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      setCampaign(await bffFetch<CampaignDTO>(`${base}/${campaign.id}/pick-winner`, { method: 'POST', studioId: activeStudioId, body: variantKey ? { variantKey } : {} }));
+      setNotice({ tone: 'success', text: t('campaigns.ab.picked') });
+    } catch (err) {
+      setNotice({ tone: 'error', text: errorMessage(err, t('common.error.generic')) });
     }
     setBusy(false);
   }
@@ -341,7 +368,10 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
               </div>
             </fieldset>
           )}
+          <SendTimeEditor form={sendTime} onChange={setSendTime} disabled={!editable || !canManage} />
+          <AbTestEditor form={ab} onChange={setAb} disabled={!editable || !canManage} templateKeys={templateKeys} />
         </div>
+        {formError && editable && canManage && <Muted>{t(formError)}</Muted>}
         <Muted>{t('campaigns.compliance')}</Muted>
         {editable && canManage && (
           <AiDraftPanel
@@ -351,7 +381,7 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
         )}
         {editable && canManage && (
           <div className="flex flex-wrap gap-2">
-            <PermissionButton required={['campaigns.manage']} onClick={() => run('save')} disabled={busy || !name.trim() || !segmentId || !templateKey}>
+            <PermissionButton required={['campaigns.manage']} onClick={() => run('save')} disabled={busy || !name.trim() || !segmentId || !templateKey || formError !== null}>
               {t('campaigns.action.save')}
             </PermissionButton>
             <PermissionButton required={['campaigns.manage']} onClick={testSend} disabled={busy || !name.trim() || !segmentId || !templateKey}>
@@ -364,7 +394,7 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
                   variant="primary"
                   title={t('marketingApprovals.campaign.requestHint')}
                   onClick={requestApproval}
-                  disabled={busy || campaign?.status === 'PENDING_APPROVAL' || !name.trim() || !segmentId || !templateKey || (when === 'later' && !scheduledAt)}
+                  disabled={busy || campaign?.status === 'PENDING_APPROVAL' || !name.trim() || !segmentId || !templateKey || formError !== null || (when === 'later' && !scheduledAt)}
                 >
                   {t('marketingApprovals.campaign.requestApproval')}
                 </PermissionButton>
@@ -374,7 +404,7 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
                 required={['campaigns.manage']}
                 variant="primary"
                 onClick={() => run('schedule')}
-                disabled={busy || !name.trim() || !segmentId || !templateKey || (when === 'later' && !scheduledAt)}
+                disabled={busy || !name.trim() || !segmentId || !templateKey || formError !== null || (when === 'later' && !scheduledAt)}
               >
                 {when === 'now' ? t('campaigns.action.sendNow') : t('campaigns.action.schedule')}
               </PermissionButton>
@@ -441,6 +471,12 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
         </Panel>
       )}
 
+      {campaign && campaign.status !== 'DRAFT' && campaign.abTest && (
+        <Panel title={t('campaigns.ab.results')} labelledBy="campaign-ab-results">
+          <VariantResults campaign={campaign} busy={busy} onPick={pickWinner} />
+        </Panel>
+      )}
+
       {recipients.length > 0 && (
         <Panel title={t('campaigns.recipients.title')} labelledBy="campaign-recipients">
           <ul className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
@@ -450,6 +486,8 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
                   {r.fullName}
                 </Link>
                 <span className="flex items-center gap-2">
+                  {r.variantKey && <Badge>{t('campaigns.recipients.variant', { key: r.variantKey })}</Badge>}
+                  {r.dueAt && <Muted>{t('campaigns.recipients.dueAt', { time: fmt.dateTime(r.dueAt) })}</Muted>}
                   {r.reasonCode && r.status !== 'SENT' && <Muted>{t(`campaigns.reason.${r.reasonCode}`)}</Muted>}
                   <Badge tone={r.status === 'SENT' ? 'success' : r.status === 'FAILED' ? 'danger' : 'neutral'}>{t(`campaigns.recipient.${r.status}`)}</Badge>
                 </span>

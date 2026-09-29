@@ -352,6 +352,8 @@ Atıf raporu (`GET /crm/studios/:studioId/attribution`), `groupBy` seviyesine ka
 | `segment_members` | Segmentin güncel üyeleri; `entered_at` `segment_entered` tetikleyicisini besler | PK (segment_id, contact_id); (studio_id, contact_id), (segment_id, entered_at) index |
 | `contact_consents` | Kişi düzeyinde ticari izin (SMS/WhatsApp/e-posta), kaynak ve kanıt notu, İYS senkron zamanı; M3e ile izin dayanağı, çift onay durumu ve form sürümü (aşağıda) | (contact_id, channel) benzersiz; (studio_id, status), (iys_synced_at) index |
 | `campaigns` | Bir segmente tek seferlik ticari gönderim: kanal (boşsa işletme sırası), şablon anahtarı, durum (DRAFT/SCHEDULED/SENDING/SENT/CANCELLED; M3b ile yalnızca platform kiracısında PENDING_APPROVAL ve PAUSED), zamanlar, kitle sayısı | segment_id -> segments (RESTRICT); (studio_id, status), (status, scheduled_at) index |
+| `contact_consents` | Kişi düzeyinde ticari izin (SMS/WhatsApp/e-posta), kaynak ve kanıt notu, İYS senkron zamanı | (contact_id, channel) benzersiz; (studio_id, status), (iys_synced_at) index |
+| `campaigns` | Bir segmente tek seferlik ticari gönderim: kanal (boşsa işletme sırası), şablon anahtarı, durum (DRAFT/SCHEDULED/SENDING/SENT/CANCELLED; M3b ile yalnızca platform kiracısında PENDING_APPROVAL ve PAUSED), zamanlar, kitle sayısı, M3c ile A/B kurulumu ve gönderim saati modu | segment_id -> segments (RESTRICT); (studio_id, status), (status, scheduled_at) index |
 | `campaign_recipients` | Kampanyanın alıcı anlık görüntüsü ve kişi başına sonuç (durum, neden kodu, kanal, `notification_log_id`, deneme, sonraki deneme) | (campaign_id, contact_id) benzersiz; (campaign_id, status, next_attempt_at) index |
 | `journeys` | Çok adımlı akış: `definition` JSON (`JourneyDefinitionSchema` + `validateJourneyGraph`), durum, şablon anahtarı, taşınan eski kural (`legacy_rule_id` benzersiz, `legacy_rule_type`), `activated_at` | (studio_id, status), (status) index |
 | `journey_enrollments` | Bir kişinin akıştaki çalışması: geçerli adım, adıma varış, sonraki çalışma, işçi kilidi, tetikleyici değişkenleri, bitiş nedeni | (journey_id, contact_id, trigger_ref) benzersiz (idempotent kayıt); (journey_id, contact_id, lock_key) benzersiz (tekrar giriş politikası); (status, next_run_at) index |
@@ -578,6 +580,15 @@ Migration `20261024000000_consent_legal_basis` (yalnızca ekleme: bir enum, `con
 | `contact_consent_confirmations` | Çift onay bağlantısı: `token_hash` (belirtecin SHA-256'sı; belirtecin kendisi saklanmaz), `contact_consent_id`, `expires_at` (7 gün), `confirmed_at` (tek kullanım), `studio_id`, `created_at` (yeniden gönderim sınırı: kişi başına 24 saatte 3) | `token_hash` benzersiz; (contact_consent_id, created_at), (studio_id, created_at) index; studio ve contact_consents -> cascade |
 | `marketing_settings.double_opt_in_regions` | Form izinlerinde çift onay gereken uyum bölgeleri veya ISO ülkeleri (JSON liste, veri) | varsayılan `["EU", "UK"]` |
 | `marketing_settings.tr_merchant_exemption_enabled` | TR tacir muafiyeti anahtarı | varsayılan `false` |
+## Kampanya A/B testi ve gönderim saati (M3c)
+
+Migration `20261023000000_campaign_variants` (yalnızca ekleme: yeni `CampaignSendTimeMode` enum'u, `campaigns` üzerinde üç, `campaign_recipients` üzerinde bir sütun, bir tablo). Tüm kiracılar için geçerlidir; onay kuralları (M3b) yalnızca platform kiracısındadır. Ayrıntılar `docs/PAZARLAMA_MODULU.md` (M3c notları).
+
+| Tablo | Amaç | Kısıtlar |
+|---|---|---|
+| `campaign_variants` | Kampanyanın A/B varyantı: `key` (A-E), boş olabilir `template_key` (boşsa kampanyanın şablonu), boş olabilir `template_overrides` (JSON: `subject`, `preheader`, `body`), `ai_draft_id` (köken, düz kimlik), `is_winner`, `stats` (kazanan seçilirken yazılan önbellek: gönderilen, açılan, tıklanan, dönüşen) | `(campaign_id, key)` benzersiz; `studio_id` index; studio ve campaign -> cascade |
+| `campaigns` (M3c sütunları) | `ab_test` (JSON: `testShare` yüzde, `metric`, `waitMinutes`), `send_time_mode` (`FIXED` varsayılan, `RECIPIENT_LOCAL`, `BEST_TIME`), `send_time_local` ("SS:dd") | boş olabilir / varsayılanlı |
+| `campaign_recipients` (M3c sütunu) | `variant_key`: alıcının aldığı varyant; boşsa test yok ya da kazanan seçilene kadar bekletiliyor | boş olabilir |
 
 ## Denetim (Audit)
 

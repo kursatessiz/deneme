@@ -106,7 +106,7 @@ export const enMarketingStudio = {
   'marketingStudio.check.PLACEHOLDER_EDGE': 'A WhatsApp text should not start or end with a placeholder.',
 
   'marketingStudio.ab.title': 'A/B test setup',
-  'marketingStudio.ab.hint': 'The setup is only stored on the draft. Sending the test comes in a later phase; this screen sends nothing.',
+  'marketingStudio.ab.hint': "The setup is stored on the draft. Exporting to a campaign turns it into the campaign's A/B test; this screen sends nothing.",
   'marketingStudio.ab.enabled': 'Use an A/B test',
   'marketingStudio.ab.share': 'Test share (percent)',
   'marketingStudio.ab.metric': 'Winning metric',
@@ -187,4 +187,6 @@ export const enMarketingStudio = {
   'marketingStudio.error.CALENDAR_DRAFT_NOT_FOUND': 'The linked draft was not found.',
   'marketingStudio.error.CALENDAR_CAMPAIGN_NOT_FOUND': 'The linked campaign was not found.',
   'marketingStudio.error.CALENDAR_OWNER_NOT_FOUND': 'The owner was not found.',
+  'marketingStudio.export.withAb': 'Carry the stored A/B setup and its variants into the campaign',
+  'marketingStudio.export.doneAb': 'The A/B test was carried into the campaign.',
 } as const satisfies Record<keyof typeof trMarketingStudio, string>;

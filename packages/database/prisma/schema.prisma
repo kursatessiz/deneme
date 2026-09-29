@@ -730,6 +730,7 @@ model Studio {
   contactConsentConfirmations ContactConsentConfirmation[]
   campaigns             Campaign[]
   campaignRecipients    CampaignRecipient[]
+  campaignVariants      CampaignVariant[]
   journeys              Journey[]
   journeyEnrollments    JourneyEnrollment[]
   journeyStepRuns       JourneyStepRun[]
@@ -3143,6 +3144,12 @@ model Campaign {
   createdByUserId       String?              @map("created_by_user_id") @db.Uuid
   /// M3b: the approval request the campaign currently depends on (plain id; approval_requests.target_id points back).
   approvalRequestId     String?              @map("approval_request_id") @db.Uuid
+  /// M3c: A/B test setup { testShare (percent), metric, waitMinutes }; null: no test.
+  abTest                Json?                @map("ab_test")
+  /// M3c: FIXED sends at the scheduled instant; the other modes schedule each recipient on their own clock.
+  sendTimeMode          CampaignSendTimeMode @default(FIXED) @map("send_time_mode")
+  /// M3c: "HH:mm" in the recipient's zone (RECIPIENT_LOCAL) or the fallback hour of BEST_TIME.
+  sendTimeLocal         String?              @map("send_time_local") @db.VarChar(5)
   createdAt             DateTime             @default(now()) @map("created_at")
   updatedAt             DateTime             @updatedAt @map("updated_at")
 
@@ -3150,6 +3157,7 @@ model Campaign {
   segment          Segment             @relation(fields: [segmentId], references: [id], onDelete: Restrict)
   recipients       CampaignRecipient[]
   notificationLogs NotificationLog[]
+  variants         CampaignVariant[]
 
   @@index([studioId, status])
   @@index([status, scheduledAt])
@@ -3171,6 +3179,8 @@ model CampaignRecipient {
   attempts          Int                     @default(0)
   nextAttemptAt     DateTime?               @map("next_attempt_at")
   sentAt            DateTime?               @map("sent_at")
+  /// M3c: the A/B variant this recipient gets; null: no test, or still held back until the winner is chosen.
+  variantKey        String?                 @map("variant_key") @db.VarChar(2)
   createdAt         DateTime                @default(now()) @map("created_at")
   updatedAt         DateTime                @updatedAt @map("updated_at")
 
@@ -5797,4 +5807,37 @@ model MarketingSettings {
   studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
 
   @@map("marketing_settings")
+}
+
+/// M3c: how a campaign's send time is decided.
+enum CampaignSendTimeMode {
+  FIXED
+  RECIPIENT_LOCAL
+  BEST_TIME
+}
+
+/// M3c: one variant of a campaign A/B test. Content is the campaign template
+/// (templateKey null) or another template, with optional e-mail/SMS overrides.
+model CampaignVariant {
+  id                String   @id @default(uuid()) @db.Uuid
+  studioId          String   @map("studio_id") @db.Uuid
+  campaignId        String   @map("campaign_id") @db.Uuid
+  /// A, B, C ... (unique per campaign).
+  key               String   @db.VarChar(2)
+  templateKey       String?  @map("template_key") @db.VarChar(60)
+  /// { subject?, preheader?, body? }
+  templateOverrides Json?    @map("template_overrides")
+  /// Provenance only: the AI studio draft the content came from (plain id).
+  aiDraftId         String?  @map("ai_draft_id") @db.Uuid
+  isWinner          Boolean  @default(false) @map("is_winner")
+  /// Cache written when the winner is chosen: { sent, opened, clicked, converted }.
+  stats             Json?
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  studio   Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, key])
+  @@index([studioId])
+  @@map("campaign_variants")
 }

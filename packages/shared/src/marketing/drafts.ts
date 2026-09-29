@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { LocaleCodeSchema } from '../i18n/locales';
 import { SegmentGroupSchema, type SegmentGroup } from '../growth/segments';
 import type { MarketingCheckIssue } from './checks';
+import type { CampaignAbMetric, CampaignAbTestInput } from '../growth/campaign-ab';
 
 /**
  * AI studio drafts (docs/PAZARLAMA_MODULU.md 4.3). Every model output is a
@@ -200,7 +201,10 @@ export type UpdateDraftInput = z.infer<typeof UpdateDraftSchema>;
 export const UpdateVariantSchema = z.object({ content: z.record(z.string(), z.unknown()) }).strict();
 export type UpdateVariantInput = z.infer<typeof UpdateVariantSchema>;
 
-/** A/B setup stub: stored on the draft, nothing is sent (sending is M3). */
+/**
+ * A/B setup: stored on the draft; "export to campaign" turns it into the
+ * campaign's A/B test and variants (M3c, see abSetupToCampaignAbTest).
+ */
 export const AB_TEST_METRICS = ['CLICK', 'CONVERSION'] as const;
 export const AbTestSetupSchema = z
   .object({
@@ -214,11 +218,21 @@ export const AbTestSetupSchema = z
   .strict();
 export type AbTestSetupInput = z.infer<typeof AbTestSetupSchema>;
 
+/** Draft metric (CLICK, CONVERSION) to the campaign metric. */
+const DRAFT_METRIC_TO_CAMPAIGN: Record<(typeof AB_TEST_METRICS)[number], CampaignAbMetric> = { CLICK: 'CLICK_RATE', CONVERSION: 'CONVERSION' };
+
+/** The campaign A/B setup a draft's stored setup stands for (percent share, hours to minutes). */
+export function abSetupToCampaignAbTest(setup: Pick<AbTestSetupInput, 'testSharePercent' | 'metric' | 'waitHours'>): CampaignAbTestInput {
+  return { testShare: setup.testSharePercent, metric: DRAFT_METRIC_TO_CAMPAIGN[setup.metric], waitMinutes: setup.waitHours * 60 };
+}
+
 export const ExportToCampaignSchema = z
   .object({
     variantId: z.string().uuid(),
     segmentId: z.string().uuid(),
     name: z.string().trim().min(1).max(120).optional(),
+    /** Omitted: the stored A/B setup of the draft (when enabled) becomes the campaign's test; false exports the single variant only. */
+    withAbTest: z.boolean().optional(),
   })
   .strict();
 export type ExportToCampaignInput = z.infer<typeof ExportToCampaignSchema>;
@@ -284,8 +298,6 @@ export interface AbTestSetupDTO {
   metric: (typeof AB_TEST_METRICS)[number];
   waitHours: number;
   variantIds: string[];
-  /** Always true in M2: the setup is only stored, nothing is sent. */
-  storedOnly: true;
 }
 
 export interface MarketingDraftDTO {
@@ -343,6 +355,8 @@ export interface ExportToCampaignResultDTO {
   templateKey: string;
   /** Always DRAFT: the studio never schedules or sends. */
   campaignStatus: 'DRAFT';
+  /** M3c: the stored A/B setup and variants were carried into the campaign. */
+  abTest: boolean;
 }
 
 export interface MarketingAiStatusDTO {

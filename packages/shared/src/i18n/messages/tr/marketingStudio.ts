@@ -105,7 +105,7 @@ export const trMarketingStudio = {
   'marketingStudio.check.PLACEHOLDER_EDGE': 'WhatsApp metni bir yer tutucuyla başlamamalı veya bitmemeli.',
 
   'marketingStudio.ab.title': 'A/B testi kurulumu',
-  'marketingStudio.ab.hint': 'Kurulum yalnızca taslakta saklanır. Gerçek test gönderimi sonraki fazdadır; bu ekran hiçbir şey göndermez.',
+  'marketingStudio.ab.hint': 'Kurulum taslakta saklanır. Kampanyaya aktarırken kampanyanın A/B testine dönüşür; bu ekran hiçbir şey göndermez.',
   'marketingStudio.ab.enabled': 'A/B testi kullanılacak',
   'marketingStudio.ab.share': 'Test payı (yüzde)',
   'marketingStudio.ab.metric': 'Kazanan ölçütü',
@@ -186,4 +186,6 @@ export const trMarketingStudio = {
   'marketingStudio.error.CALENDAR_DRAFT_NOT_FOUND': 'Bağlanan taslak bulunamadı.',
   'marketingStudio.error.CALENDAR_CAMPAIGN_NOT_FOUND': 'Bağlanan kampanya bulunamadı.',
   'marketingStudio.error.CALENDAR_OWNER_NOT_FOUND': 'Sorumlu kullanıcı bulunamadı.',
+  'marketingStudio.export.withAb': 'Kayıtlı A/B kurulumunu ve varyantlarını kampanyaya aktar',
+  'marketingStudio.export.doneAb': 'A/B testi kampanyaya aktarıldı.',
 } as const satisfies Record<string, string>;

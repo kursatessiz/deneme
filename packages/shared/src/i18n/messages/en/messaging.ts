@@ -144,4 +144,6 @@ export const enMessaging = {
   'messaging.unsubscribe.invalid': 'This link is not valid.',
   'messaging.unsubscribe.note': 'Transactional messages, such as booking and account notices, will continue.',
   'messaging.unsubscribe.error': 'That did not work, please try again.',
+  'messaging.settings.defaultSendTime': 'Default campaign send time (recipient local time)',
+  'messaging.settings.defaultSendTimeHint': 'Used when a campaign on the recipient-local or best-time mode has no time of its own or not enough data.',
 } as const satisfies Record<keyof typeof trMessaging, string>;

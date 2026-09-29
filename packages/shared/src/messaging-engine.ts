@@ -39,6 +39,9 @@ export type FrequencyCap = z.infer<typeof FrequencyCapSchema>;
 
 export const DEFAULT_FREQUENCY_CAP: FrequencyCap = { perDay: 3, perWeek: 10 };
 
+/** Local send time ("HH:mm") a campaign falls back to when its send time mode needs one and none is given (M3c). */
+export const DEFAULT_CAMPAIGN_SEND_TIME_LOCAL = '10:00';
+
 const E164 = z.string().regex(/^\+[1-9]\d{6,14}$/, 'Telefon numarası E.164 biçiminde olmalıdır');
 
 /**
@@ -52,6 +55,12 @@ export const MessagingSettingsSchema = z
     smsProvider: z.enum(SMS_PROVIDER_KEYS).nullable().optional(),
     /** Commercial messages per contact (all channels together). */
     frequencyCap: FrequencyCapSchema.optional(),
+    /** Fallback local send time of campaigns on the recipient-local and best-time modes ("HH:mm"). */
+    defaultSendTimeLocal: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Saat SS:dd biçiminde olmalı')
+      .nullable()
+      .optional(),
     /** Display name on outgoing email; defaults to the studio name. */
     emailFromName: z.string().trim().min(1).max(80).nullable().optional(),
     /** Reply-To for outgoing email; defaults to the studio email. */
@@ -83,6 +92,7 @@ export type MessagingRoutingInput = z.infer<typeof MessagingRoutingSchema>;
 export interface ResolvedMessagingSettings {
   smsProvider: SmsProviderKey | null;
   frequencyCap: FrequencyCap;
+  defaultSendTimeLocal: string;
   emailFromName: string | null;
   emailReplyTo: string | null;
   whatsappPhoneNumberId: string | null;
@@ -96,6 +106,7 @@ export function parseMessagingSettings(raw: unknown): ResolvedMessagingSettings 
   return {
     smsProvider: v.smsProvider ?? null,
     frequencyCap: v.frequencyCap ?? DEFAULT_FREQUENCY_CAP,
+    defaultSendTimeLocal: v.defaultSendTimeLocal ?? DEFAULT_CAMPAIGN_SEND_TIME_LOCAL,
     emailFromName: v.emailFromName ?? null,
     emailReplyTo: v.emailReplyTo ?? null,
     whatsappPhoneNumberId: v.whatsappPhoneNumberId ?? null,

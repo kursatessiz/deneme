@@ -349,13 +349,13 @@ describe('Marketing studio (M2) e2e', () => {
       expect(JSON.stringify(fake.requests[0])).not.toContain(PII_EMAIL_DOMAIN);
     });
 
-    it('A/B setup is only stored (no send); variants must belong to the draft', async () => {
+    it('A/B setup is stored on the draft (no send); variants must belong to the draft', async () => {
       const notificationsBefore = await prisma.notificationLog.count({ where: { studioId: PLATFORM } });
       const ok = await as(marketingToken)
         .put(`/platform/marketing/studio/drafts/${smsDraftId}/ab-test`)
         .send({ enabled: true, testSharePercent: 25, metric: 'CLICK', waitHours: 12, variantIds: smsVariantIds.slice(0, 2) });
       expect(ok.status).toBe(200);
-      expect(ok.body.abTest).toMatchObject({ enabled: true, testSharePercent: 25, metric: 'CLICK', waitHours: 12, storedOnly: true });
+      expect(ok.body.abTest).toMatchObject({ enabled: true, testSharePercent: 25, metric: 'CLICK', waitHours: 12 });
       const foreign = (await as(marketingToken).get(`/platform/marketing/studio/drafts/${emailDraftId}`)).body.variants[0].id as string;
       const bad = await as(marketingToken)
         .put(`/platform/marketing/studio/drafts/${smsDraftId}/ab-test`)
@@ -424,6 +424,23 @@ describe('Marketing studio (M2) e2e', () => {
       expect(template.body).toContain('Cikis icin STOP yazin.');
       expect((await as(marketingToken).get(`/platform/marketing/studio/drafts/${smsDraftId}`)).body.exportedCampaignId).toBe(campaign.id);
       expect(await prisma.notificationLog.count({ where: { studioId: PLATFORM } })).toBe(notificationsBefore);
+
+      // M3c: the stored A/B setup and its variants became the campaign's test (no longer stored only).
+      expect(ok.body.abTest).toBe(true);
+      expect(campaign.abTest).toEqual({ testShare: 25, metric: 'CLICK_RATE', waitMinutes: 720 });
+      const carried = await prisma.campaignVariant.findMany({ where: { campaignId: campaign.id }, orderBy: { key: 'asc' } });
+      expect(carried.map((v) => v.key)).toEqual(['A', 'B']);
+      expect(carried.every((v) => v.aiDraftId === smsDraftId && v.templateKey !== null && !v.isWinner)).toBe(true);
+      expect(carried[1].templateKey).toBe(ok.body.templateKey);
+      expect(carried[0].templateKey).not.toBe(carried[1].templateKey);
+      expect(await prisma.messageTemplate.count({ where: { studioId: PLATFORM, key: { in: carried.map((v) => v.templateKey as string) } } })).toBe(2);
+      const single = await as(marketingToken)
+        .post(`/platform/marketing/studio/drafts/${smsDraftId}/export-campaign`)
+        .send({ variantId: smsVariantIds[1], segmentId, name: 'M2 e2e tek varyant', withAbTest: false });
+      expect(single.status).toBe(200);
+      expect(single.body.abTest).toBe(false);
+      expect(await prisma.campaignVariant.count({ where: { campaignId: single.body.campaignId } })).toBe(0);
+      expect(await prisma.campaign.findUniqueOrThrow({ where: { id: single.body.campaignId } })).toMatchObject({ abTest: null, sendTimeMode: 'FIXED' });
 
       // Other tenants' segments and non-message kinds are refused.
       const foreignSegment = await prisma.segment.findFirst({ where: { studioId: ZEN } });

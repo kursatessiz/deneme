@@ -361,6 +361,7 @@ function SendingSettings({ studioId }: { studioId: string }) {
   const [settings, setSettings] = useState<ResolvedMessagingSettings | null>(null);
   const [perDay, setPerDay] = useState('3');
   const [perWeek, setPerWeek] = useState('10');
+  const [sendTime, setSendTime] = useState('');
   const [smsProvider, setSmsProvider] = useState<SmsProviderKey | ''>('');
   const [fromName, setFromName] = useState('');
   const [replyTo, setReplyTo] = useState('');
@@ -372,6 +373,7 @@ function SendingSettings({ studioId }: { studioId: string }) {
         setSettings(s);
         setPerDay(String(s.frequencyCap.perDay));
         setPerWeek(String(s.frequencyCap.perWeek));
+        setSendTime(s.defaultSendTimeLocal);
         setSmsProvider(s.smsProvider ?? '');
         setFromName(s.emailFromName ?? '');
         setReplyTo(s.emailReplyTo ?? '');
@@ -387,6 +389,7 @@ function SendingSettings({ studioId }: { studioId: string }) {
         studioId,
         body: {
           frequencyCap: { perDay: Number(perDay), perWeek: Number(perWeek) },
+          ...(sendTime ? { defaultSendTimeLocal: sendTime } : {}),
           smsProvider: smsProvider || null,
           emailFromName: fromName.trim() || null,
           emailReplyTo: replyTo.trim() || null,
@@ -404,6 +407,7 @@ function SendingSettings({ studioId }: { studioId: string }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <TextField label={t('messaging.settings.perDay')} type="number" value={perDay} onChange={setPerDay} />
         <TextField label={t('messaging.settings.perWeek')} type="number" value={perWeek} onChange={setPerWeek} />
+        <TextField label={t('messaging.settings.defaultSendTime')} type="time" value={sendTime} onChange={setSendTime} />
         <label className="block space-y-1">
           <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
             {t('messaging.settings.smsProvider')}
@@ -420,6 +424,9 @@ function SendingSettings({ studioId }: { studioId: string }) {
         <TextField label={t('messaging.settings.emailFromName')} value={fromName} onChange={setFromName} />
         <TextField label={t('messaging.settings.emailReplyTo')} type="email" value={replyTo} onChange={setReplyTo} />
       </div>
+      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+        {t('messaging.settings.defaultSendTimeHint')}
+      </p>
       {message && <InlineMessage text={message.text} tone={message.tone} />}
       <PrimaryButton onClick={save}>{t('messaging.settings.save')}</PrimaryButton>
     </Section>

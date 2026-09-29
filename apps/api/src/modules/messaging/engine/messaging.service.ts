@@ -8,6 +8,7 @@ import {
   MessageRenderError,
   countryOfPhone,
   createTranslator,
+  defaultTimeZoneOfCountry,
   effectiveChannelOrder,
   emailBrandOf,
   emailLinkTargets,
@@ -209,7 +210,8 @@ export class MessagingService {
       const decision = this.compliance.canSend({
         recipient: {
           countryCode: ctx.regionCountry,
-          timezone: recipient.timezone,
+          // The contact's own zone, else their country's default zone (never the tenant's country: that is the studio zone below).
+          timezone: recipient.timezone ?? defaultTimeZoneOfCountry(recipient.countryCode ?? countryOfPhone(recipient.phone)),
           consentGranted: consent.granted,
           legalBasis: consent.legalBasis,
           optedOut: suppressed,
@@ -243,15 +245,24 @@ export class MessagingService {
     let text: string;
     let subject: string | null;
     let blocks: EmailBlock[] | null = null;
+    let preheader: string | null = null;
     try {
       if (input.content) {
         text = input.content.text;
         subject = input.content.subject ?? null;
       } else {
-        text = renderMessageText(variant.body, variables, variant.locale);
-        subject = variant.subject ? renderMessageText(variant.subject, variables, variant.locale) : null;
+        // Campaign A/B overrides apply to e-mail and SMS only; an approved WhatsApp template is never rewritten.
+        const overrides = channel === 'EMAIL' || channel === 'SMS' ? input.overrides : undefined;
+        const bodyTemplate = overrides?.body ?? variant.body;
+        const subjectTemplate = overrides?.subject ?? variant.subject;
+        text = renderMessageText(bodyTemplate, variables, variant.locale);
+        subject = subjectTemplate ? renderMessageText(subjectTemplate, variables, variant.locale) : null;
+        if (channel === 'EMAIL' && overrides?.preheader) preheader = renderMessageText(overrides.preheader, variables, variant.locale);
+        if (channel === 'EMAIL' && overrides?.body) {
+          blocks = interpolateEmailBlocks(paragraphBlocks(overrides.body), variables, variant.locale);
+        }
       }
-      if (channel === 'EMAIL') {
+      if (channel === 'EMAIL' && !blocks) {
         const source: EmailBlock[] = variant.blocks ?? [
           ...(subject ? [{ type: 'heading' as const, text: input.content ? subject : variant.subject ?? '' }] : []),
           { type: 'paragraph', text: input.content ? text : variant.body },
@@ -301,7 +312,7 @@ export class MessagingService {
     if (claimKey) ctx.keyClaimed = true;
 
     // 7. Delivery.
-    const dispatched = await this.dispatch(ctx, channel, log, { address, text, subject, blocks, variant, purpose, freeFormWhatsApp, variables });
+    const dispatched = await this.dispatch(ctx, channel, log, { address, text, subject, preheader, blocks, variant, purpose, freeFormWhatsApp, variables });
     if (dispatched.skippedReason) {
       await this.finish(log.id, 'FAILED', dispatched.provider, undefined, dispatched.skippedReason.reason);
       await this.appendToConversation(ctx, log, text, 'FAILED', dispatched.provider, undefined);
@@ -342,6 +353,7 @@ export class MessagingService {
       address: string;
       text: string;
       subject: string | null;
+      preheader: string | null;
       blocks: EmailBlock[] | null;
       variant: ResolvedTemplateVariant;
       purpose: MessagePurpose;
@@ -432,7 +444,7 @@ export class MessagingService {
   private async dispatchEmail(
     ctx: AttemptContext,
     log: NotificationLog,
-    msg: { address: string; text: string; subject: string | null; blocks: EmailBlock[] | null; variant: ResolvedTemplateVariant; purpose: MessagePurpose },
+    msg: { address: string; text: string; subject: string | null; preheader?: string | null; blocks: EmailBlock[] | null; variant: ResolvedTemplateVariant; purpose: MessagePurpose },
   ): Promise<{ provider: string; result?: ChannelSendResult; skippedReason?: { reason: string; code: MessageSendReasonCode } }> {
     const { studio } = ctx;
     const adapter = this.registry.resolveEmail(ctx.regionCountry);
@@ -468,6 +480,7 @@ export class MessagingService {
     const rendered = renderEmail({
       lang: locale,
       subject: msg.subject ?? '',
+      preheader: msg.preheader ?? null,
       blocks,
       brand: emailBrandOf(studio ?? { name: studioName }),
       footer: {
@@ -716,6 +729,15 @@ export class MessagingService {
       }),
     ]);
   }
+}
+
+/** Plain text split on blank lines into e-mail paragraph blocks (the shape the AI studio export writes). */
+function paragraphBlocks(body: string): EmailBlock[] {
+  return body
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter((p) => p !== '')
+    .map((text) => ({ type: 'paragraph' as const, text }));
 }
 
 function stringParams(variables: Record<string, string | number>): Record<string, string> {
