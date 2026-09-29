@@ -29,6 +29,7 @@ export const trMAccount = {
   'mAccount.menu.kiosk': 'Kiosk modu',
   'mAccount.menu.branchSummary': 'Şube özeti',
   'mAccount.menu.reports': 'Raporlar',
+  'mAccount.menu.quickSale': 'Hızlı satış',
   'mAccount.menu.riskyMembers': 'Riskli üyeler',
   'mAccount.menu.leads': 'Potansiyel üyeler',
   'mAccount.menu.businessTheme': 'İşletme teması',

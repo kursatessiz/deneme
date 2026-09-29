@@ -1,5 +1,5 @@
 import type { MessageKey, PermissionKey } from '@platform/shared';
-import { Calendar, CheckSquare, Package, UserPlus, Wallet } from 'lucide-react';
+import { Calendar, CheckSquare, Package, ShoppingBag, UserPlus, Wallet } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { hasAnyPermission } from '@/lib/nav';
 
@@ -23,6 +23,7 @@ export const QUICK_ACTIONS: readonly QuickAction[] = [
   { key: 'new-member', labelKey: 'screens.dashboard.quickActions.newMember', href: '/members', icon: UserPlus, permissions: ['members.manage'] },
   { key: 'sell-package', labelKey: 'screens.dashboard.quickActions.sellPackage', href: '/members', icon: Package, permissions: ['packages.sell'] },
   { key: 'record-payment', labelKey: 'screens.dashboard.quickActions.recordPayment', href: '/finans', icon: Wallet, permissions: ['finance.manage'] },
+  { key: 'quick-sale', labelKey: 'screens.dashboard.quickActions.quickSale', href: '/magaza/satis', icon: ShoppingBag, permissions: ['retail.sell'] },
   { key: 'check-in', labelKey: 'screens.dashboard.quickActions.checkIn', href: '/attendance', icon: CheckSquare, permissions: ['attendance.manage'] },
 ] as const;
 

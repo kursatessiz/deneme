@@ -31,4 +31,5 @@ export const enScreens = {
   'screens.dashboard.quickActions.sellPackage': 'Sell package',
   'screens.dashboard.quickActions.recordPayment': 'Record payment',
   'screens.dashboard.quickActions.checkIn': 'Check in',
+  'screens.dashboard.quickActions.quickSale': 'Quick sale',
 } as const satisfies Record<keyof typeof trScreens, string>;

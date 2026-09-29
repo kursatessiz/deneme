@@ -79,6 +79,9 @@ export function buildHesabimMenu(input: StaffMenuInput): MenuItem[] {
   if (has(permissions, 'studio.settings.manage')) {
     items.push({ key: 'kiosk', labelKey: 'mAccount.menu.kiosk', route: '/(app)/hesabim/kiosk-modu' });
   }
+  if (has(permissions, 'retail.sell')) {
+    items.push({ key: 'quick-sale', labelKey: 'mAccount.menu.quickSale', route: '/(app)/hesabim/hizli-satis' });
+  }
   if (has(permissions, 'reports.view')) {
     items.push({ key: 'branch-summary', labelKey: 'mAccount.menu.branchSummary', route: '/(app)/hesabim/subeler' });
     items.push({ key: 'reports', labelKey: 'mAccount.menu.reports', route: '/(app)/hesabim/raporlar' });

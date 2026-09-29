@@ -9,6 +9,7 @@ export const trNav = {
   'nav.finance': 'Finans',
   'nav.payroll': 'Hakediş',
   'nav.reports': 'Raporlar',
+  'nav.retail': 'Mağaza',
   'nav.leads': 'Adaylar',
   'nav.ads': 'Reklam performansı',
   'nav.churn': 'Riskli Üyeler',
