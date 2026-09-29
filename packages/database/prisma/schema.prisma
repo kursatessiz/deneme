@@ -4500,6 +4500,8 @@ model SaleLine {
   studioId         String   @map("studio_id") @db.Uuid
   saleId           String   @map("sale_id") @db.Uuid
   productId        String   @map("product_id") @db.Uuid
+  /// Cart order, so the receipt lists lines as they were rung up.
+  position         Int      @default(0)
   /// Snapshots at sale time: later product edits never rewrite a receipt.
   productName      String   @map("product_name") @db.VarChar(120)
   sku              String?  @db.VarChar(60)

@@ -203,6 +203,7 @@ export class RetailSalesService {
               return {
                 studioId,
                 saleId,
+                position: i,
                 productId: product.id,
                 productName: product.name,
                 sku: product.sku,
@@ -263,7 +264,7 @@ export class RetailSalesService {
         const locked = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
           SELECT "id" FROM "sales" WHERE "id" = ${saleId}::uuid AND "studio_id" = ${studioId}::uuid FOR UPDATE`);
         if (locked.length === 0) throw retailError('RETAIL_SALE_NOT_FOUND');
-        const sale = await tx.sale.findUniqueOrThrow({ where: { id: saleId }, include: { lines: true } });
+        const sale = await tx.sale.findUniqueOrThrow({ where: { id: saleId }, include: { lines: { orderBy: { position: 'asc' } } } });
         assertBranchAccess(tenant, sale.branchId);
         if (sale.status === SaleStatus.VOID || sale.status === SaleStatus.REFUNDED) throw retailError('RETAIL_SALE_NOT_REFUNDABLE');
         if (opts.void && sale.lines.some((l) => l.refundedQuantity > 0)) throw retailError('RETAIL_SALE_HAS_REFUNDS');
@@ -415,7 +416,7 @@ export class RetailSalesService {
     const sale = await this.prisma.sale.findFirst({
       where: { id: saleId, studioId: tenant.studioId },
       include: {
-        lines: { orderBy: { id: 'asc' } },
+        lines: { orderBy: { position: 'asc' } },
         refunds: { include: { lines: true }, orderBy: { createdAt: 'asc' } },
         branch: { select: { name: true } },
       },

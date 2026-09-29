@@ -131,6 +131,7 @@ CREATE TABLE "sale_lines" (
     "studio_id" UUID NOT NULL,
     "sale_id" UUID NOT NULL,
     "product_id" UUID NOT NULL,
+    "position" INTEGER NOT NULL DEFAULT 0,
     "product_name" VARCHAR(120) NOT NULL,
     "sku" VARCHAR(60),
     "stock_tracked" BOOLEAN NOT NULL,

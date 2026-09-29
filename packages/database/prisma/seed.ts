@@ -566,6 +566,7 @@ async function seedRetail(zenStudioId: string) {
     data: lines.map((l, i) => ({
       studioId: zenStudioId,
       saleId: sale.id,
+      position: i,
       productId: l.product.id,
       productName: l.product.name,
       sku: l.product.sku,
