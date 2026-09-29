@@ -412,7 +412,7 @@ describe('Marketing dashboard (M3a) e2e', () => {
 
       expect(dto.health.ai).toMatchObject({ budgetCents: 1000, usedMicroUsd: 8_500_000, level: 'warning' });
       expect(dto.health.ai.usedRatio).toBeCloseTo(0.85, 10);
-      expect(dto.health.approvals).toEqual({ available: false, pending: 0 });
+      expect(dto.health.approvals).toEqual({ available: true, pending: 0 });
 
       expect(dto.health.connections.errorCount).toBe(baselineConnectionErrors + 1);
       const broken = dto.health.connections.items.find((c) => c.label === 'M3a e2e broken');
