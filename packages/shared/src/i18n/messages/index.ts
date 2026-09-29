@@ -74,6 +74,7 @@ import { trMWidgets } from './tr/mWidgets';
 import { trNav } from './tr/nav';
 import { trPackages } from './tr/packages';
 import { trReports } from './tr/reports';
+import { trFunnels } from './tr/funnels';
 import { trRetail } from './tr/retail';
 import { trMRetail } from './tr/mRetail';
 import { trAccounting } from './tr/accounting';
@@ -156,6 +157,7 @@ import { enMWidgets } from './en/mWidgets';
 import { enNav } from './en/nav';
 import { enPackages } from './en/packages';
 import { enReports } from './en/reports';
+import { enFunnels } from './en/funnels';
 import { enRetail } from './en/retail';
 import { enMRetail } from './en/mRetail';
 import { enAccounting } from './en/accounting';
@@ -252,6 +254,7 @@ export const TR_NAMESPACES = [
   trNav,
   trPackages,
   trReports,
+  trFunnels,
   trRetail,
   trMRetail,
   trAccounting,
@@ -337,6 +340,7 @@ export const EN_NAMESPACES = [
   enNav,
   enPackages,
   enReports,
+  enFunnels,
   enRetail,
   enMRetail,
   enAccounting,

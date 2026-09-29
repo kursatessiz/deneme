@@ -49,6 +49,7 @@ import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { EventsModule } from './modules/events/events.module';
 import { RetailModule } from './modules/retail/retail.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
+import { FunnelsModule } from './modules/funnels/funnels.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -107,6 +108,7 @@ import { validateEnv } from './config/env';
     EventsModule,
     RetailModule,
     AccountingModule,
+    FunnelsModule,
   ],
 })
 export class AppModule {}

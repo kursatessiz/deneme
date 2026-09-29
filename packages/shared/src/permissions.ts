@@ -108,6 +108,9 @@ export const PERMISSIONS = {
   // G3c-3: accounting export. Owner only by default: it carries every
   // customer name, receipt and expense of the period.
   'accounting.export': 'Muhasebe dışa aktarımı (satış ve gider defteri, vergi özeti)',
+  // G5d-1: viewing funnels reuses reports.view; only creating and editing
+  // tenant funnels needs this. Owner only by default.
+  'funnels.manage': 'Dönüşüm hunisi oluşturma, düzenleme ve silme',
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
@@ -132,7 +135,7 @@ export const PERMISSION_AREAS = {
   Satış: ['packages.sell', 'promotions.manage'],
   Ölçümler: ['measurements.view', 'measurements.manage'],
   Finans: ['finance.view', 'finance.manage', 'commissions.view.own', 'commissions.view.all', 'payroll.manage', 'accounting.export'],
-  Bildirim: ['notifications.manage', 'reports.view'],
+  Bildirim: ['notifications.manage', 'reports.view', 'funnels.manage'],
   'Potansiyel üyeler': ['leads.view', 'leads.manage'],
   'Kişiler (CRM)': ['crm.view', 'crm.manage', 'crm.export'],
   Pazarlama: ['segments.view', 'segments.manage', 'campaigns.view', 'campaigns.manage', 'journeys.view', 'journeys.manage'],

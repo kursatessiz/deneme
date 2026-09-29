@@ -12,6 +12,7 @@ export const enReports = {
   'reports.tabs.renewal': 'Renewal',
   'reports.tabs.cohorts': 'Cohorts',
   'reports.tabs.trainers': 'Trainers',
+  'reports.tabs.funnels': 'Funnels',
   'reports.granularity.day': 'Daily',
   'reports.granularity.week': 'Weekly',
   'reports.granularity.month': 'Monthly',

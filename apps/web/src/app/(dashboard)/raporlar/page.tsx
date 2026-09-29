@@ -17,10 +17,11 @@ import { RenewalReport } from '@/components/reports/RenewalReport';
 import { CohortsReport } from '@/components/reports/CohortsReport';
 import { TrainersReport } from '@/components/reports/TrainersReport';
 import { CompareStrip } from '@/components/reports/CompareStrip';
+import { FunnelsTab } from '@/components/reports/FunnelsTab';
 import { previousPeriodWindow } from '@/lib/reports/compare';
 import { extractReportKpis } from '@/lib/reports/kpis';
 
-const REPORT_KEYS = ['occupancy', 'revenue', 'members', 'renewal', 'cohorts', 'trainers'] as const;
+const REPORT_KEYS = ['occupancy', 'revenue', 'members', 'renewal', 'cohorts', 'trainers', 'funnels'] as const;
 
 type ReportKey = (typeof REPORT_KEYS)[number];
 
@@ -49,7 +50,8 @@ function ReportsPage() {
   const [previousReport, setPreviousReport] = useState<AnyReport | null>(null);
 
   useEffect(() => {
-    if (!activeStudioId) return;
+    // The funnels tab loads its own data (FunnelsTab).
+    if (!activeStudioId || tab === 'funnels') return;
     setLoading(true);
     setError(null);
     const filters = tab === 'cohorts' ? { branchId: branchId || null } : { from, to, branchId: branchId || null, granularity: tab === 'revenue' ? granularity : undefined };
@@ -67,7 +69,7 @@ function ReportsPage() {
   // window immediately before the selected one. Cohorts has no date range,
   // so it is never comparable.
   useEffect(() => {
-    if (!activeStudioId || !compare || tab === 'cohorts' || !from || !to) {
+    if (!activeStudioId || !compare || tab === 'cohorts' || tab === 'funnels' || !from || !to) {
       setPreviousReport(null);
       return;
     }
@@ -89,7 +91,7 @@ function ReportsPage() {
   }, [activeStudioId, compare, tab, branchId, from, to, granularity]);
 
   const exportHref = (() => {
-    if (!activeStudioId) return '#';
+    if (!activeStudioId || tab === 'funnels') return '#';
     const filters =
       tab === 'cohorts'
         ? { branchId: branchId || null, format: 'csv' as const }
@@ -109,9 +111,11 @@ function ReportsPage() {
             {t('reports.subtitle')}
           </p>
         </div>
-        <a href={exportHref} className="text-xs font-medium px-3 py-1.5" style={{ ...selectStyle, background: 'var(--color-surface-muted)' }}>
-          {t('reports.downloadCsv')}
-        </a>
+        {tab !== 'funnels' && (
+          <a href={exportHref} className="text-xs font-medium px-3 py-1.5" style={{ ...selectStyle, background: 'var(--color-surface-muted)' }}>
+            {t('reports.downloadCsv')}
+          </a>
+        )}
       </div>
 
       <Tabs
@@ -155,7 +159,7 @@ function ReportsPage() {
         )}
       </div>
 
-      {compare && tab !== 'cohorts' && (
+      {compare && tab !== 'cohorts' && tab !== 'funnels' && (
         <CompareStrip current={extractReportKpis(tab, report)} previous={extractReportKpis(tab, previousReport)} />
       )}
 
@@ -165,6 +169,7 @@ function ReportsPage() {
         the shape the active tab's component expects; the per-tab cast below
         just tells TypeScript what the tab check above already guarantees.
       */}
+      {tab === 'funnels' && <FunnelsTab from={from} to={to} branchId={branchId} compare={compare} />}
       {tab === 'occupancy' && <OccupancyReport report={report as OccupancyReportDTO | null} loading={loading} error={error} />}
       {tab === 'revenue' && <RevenueReport report={report as RevenueReportDTO | null} loading={loading} error={error} />}
       {tab === 'members' && <MembersReport report={report as MembersReportDTO | null} loading={loading} error={error} />}
