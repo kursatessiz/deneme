@@ -87,9 +87,18 @@ export function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-const WEEKDAY_LABELS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
+/** Full weekday name for the active locale (e.g. "Pazartesi" in tr, "Monday" in en). */
+export function weekdayLabel(date: Date, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(date);
+}
 
-export function weekdayLabel(date: Date): string {
-  const day = date.getDay();
-  return WEEKDAY_LABELS[day === 0 ? 6 : day - 1];
+/** Short weekday names, Monday first, for the active locale (used by month-grid headers). */
+export function shortWeekdayLabels(locale: string): string[] {
+  const referenceMonday = new Date(Date.UTC(2024, 0, 1));
+  const formatter = new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' });
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(referenceMonday);
+    d.setUTCDate(referenceMonday.getUTCDate() + i);
+    return formatter.format(d);
+  });
 }
