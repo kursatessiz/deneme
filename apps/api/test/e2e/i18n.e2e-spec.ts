@@ -1,8 +1,10 @@
 import { INestApplication } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
 import { PrismaClient } from '@platform/database';
 import { AppModule } from '../../src/app.module';
+import { configureBodyParsers } from '../../src/common/body-parsers';
 
 /**
  * Multi-language support (i18n): public reads, super-admin CMS, self and
@@ -36,7 +38,12 @@ describe('i18n (e2e)', () => {
 
   beforeAll(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = moduleRef.createNestApplication();
+    // Body parsing exactly as src/main.ts: a whole language pack is larger
+    // than Nest's default 100kb JSON limit, so the import route needs the
+    // production path-scoped parser.
+    const expressApp = moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false });
+    configureBodyParsers(expressApp);
+    app = expressApp;
     await app.init();
     server = app.getHttpServer();
     prisma = new PrismaClient();
