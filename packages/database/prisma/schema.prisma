@@ -757,6 +757,7 @@ model Studio {
   payoutItems           PayoutItem[]
   payoutConnections     PayoutConnection[]
   errorGroupStats       ErrorGroupStudio[]
+  errorStudioSetting    ErrorStudioSetting?
   accessTiers           AccessTier[]
   communityPosts        CommunityPost[]
   communityComments     CommunityComment[]
@@ -5209,14 +5210,22 @@ model ErrorGroup {
   note                String?   @db.Text
   /// Alert cooldown claim (one email per group per window).
   lastAlertAt         DateTime? @map("last_alert_at")
+  /// H3: set when this group was merged into another; the fingerprint then lives on as an alias of the target.
+  mergedIntoId        String?   @map("merged_into_id") @db.Uuid
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  events  ErrorEvent[]
-  studios ErrorGroupStudio[]
+  events     ErrorEvent[]
+  studios    ErrorGroupStudio[]
+  mergedInto ErrorGroup?        @relation("ErrorGroupMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedFrom ErrorGroup[]       @relation("ErrorGroupMerge")
+  aliases    ErrorGroupAlias[]
+  buckets    ErrorGroupBucket[]
+  alerts     ErrorAlert[]
 
   @@index([lastSeenAt])
   @@index([status, lastSeenAt])
+  @@index([mergedIntoId])
   @@map("error_groups")
 }
 
@@ -5242,6 +5251,10 @@ model ErrorEvent {
   stack       String?  @db.Text
   /// Stack resolved with the release's uploaded source maps (H2); the raw stack stays in `stack`.
   symbolicatedStack String? @map("symbolicated_stack") @db.Text
+  /// H3: source lines around the resolved frames (only when the map carried sourcesContent); the raw stack stays unchanged.
+  symbolicatedContext Json? @map("symbolicated_context")
+  /// H3: the user's optional "what were you doing" note (max 500 characters, PII scrubbed, no e-mail capture).
+  feedback    String?  @db.VarChar(500)
   breadcrumbs Json?
   statusCode  Int?     @map("status_code")
   occurredAt  DateTime @map("occurred_at")
@@ -5264,6 +5277,8 @@ model ErrorGroupStudio {
   firstSeenAt DateTime @map("first_seen_at")
   lastSeenAt  DateTime @map("last_seen_at")
   lastCode    String?  @map("last_code") @db.VarChar(8)
+  /// H3: when the studio owner was last e-mailed about this group (at most once per 24 hours).
+  ownerNotifiedAt DateTime? @map("owner_notified_at")
 
   group  ErrorGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
   studio Studio     @relation(fields: [studioId], references: [id], onDelete: Cascade)
@@ -6063,4 +6078,127 @@ model PlatformIntegrationSettings {
   updatedAt                DateTime  @updatedAt @map("updated_at")
 
   @@map("platform_integration_settings")
+}
+
+// ---------------------------------------------------------------------------
+// H3: error reporting completion (docs/HATA_RAPORLAMA.md)
+// ---------------------------------------------------------------------------
+
+/// Fingerprint hash of a merged group -> the group that now owns it. New
+/// events with this fingerprint land in the target. Always points at a live
+/// (non-merged) group: merging the target later re-points its aliases.
+model ErrorGroupAlias {
+  fingerprintHash String   @id @map("fingerprint_hash") @db.VarChar(64)
+  groupId         String   @map("group_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  group ErrorGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+  @@map("error_group_aliases")
+}
+
+/// Events per group per 15-minute bucket (UTC-aligned), the baseline of spike
+/// detection. Independent of the per-group event cap (50 stored events);
+/// the heartbeat deletes buckets older than 48 hours.
+model ErrorGroupBucket {
+  groupId     String   @map("group_id") @db.Uuid
+  bucketStart DateTime @map("bucket_start")
+  count       Int      @default(0)
+
+  group ErrorGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, bucketStart])
+  @@index([bucketStart])
+  @@map("error_group_buckets")
+}
+
+/// One alert raised for a group: SPIKE, NEW_GROUP or REGRESSION
+/// (ERROR_ALERT_KINDS). (groupId, kind, windowStart) is unique, so a window
+/// alerts once even if two heartbeats overlap.
+model ErrorAlert {
+  id                   String    @id @default(uuid()) @db.Uuid
+  groupId              String    @map("group_id") @db.Uuid
+  kind                 String    @db.VarChar(12)
+  windowStart          DateTime  @map("window_start")
+  windowEnd            DateTime  @map("window_end")
+  windowCount          Int       @map("window_count")
+  /// Events in the trailing 24 hours before the window (SPIKE only).
+  baselineTotal        Int       @default(0) @map("baseline_total")
+  /// Mean events per 15-minute bucket of that baseline.
+  baselineMean         Float     @default(0) @map("baseline_mean")
+  /// The count the window had to reach to count as a spike.
+  threshold            Int       @default(0)
+  notifiedAt           DateTime? @map("notified_at")
+  acknowledgedAt       DateTime? @map("acknowledged_at")
+  /// No FK: a deleted user must not delete alert history.
+  acknowledgedByUserId String?   @map("acknowledged_by_user_id") @db.Uuid
+  createdAt            DateTime  @default(now()) @map("created_at")
+
+  group      ErrorGroup           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  deliveries ErrorAlertDelivery[]
+
+  @@unique([groupId, kind, windowStart])
+  @@index([groupId, createdAt])
+  @@index([createdAt])
+  @@map("error_alerts")
+}
+
+/// Delivery of an alert to one external sink (WEBHOOK or SLACK), retried with
+/// the webhook backoff schedule by the heartbeat. No payload is stored.
+model ErrorAlertDelivery {
+  id             String    @id @default(uuid()) @db.Uuid
+  alertId        String    @map("alert_id") @db.Uuid
+  /// WEBHOOK | SLACK (ERROR_ALERT_SINKS).
+  sink           String    @db.VarChar(10)
+  /// PENDING | SUCCEEDED | ABANDONED
+  status         String    @default("PENDING") @db.VarChar(10)
+  attempt        Int       @default(0)
+  nextAttemptAt  DateTime? @map("next_attempt_at")
+  lastStatusCode Int?      @map("last_status_code")
+  /// Error class or HTTP status only, never a response body or the URL.
+  lastError      String?   @map("last_error") @db.VarChar(200)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  alert ErrorAlert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@index([alertId])
+  @@map("error_alert_deliveries")
+}
+
+/// Platform error alert settings (singleton row id "platform"), super admin
+/// only. Sink URLs and the webhook secret are stored encrypted with
+/// CredentialCipher and never returned (only the host and the last four
+/// characters of the secret).
+model ErrorSettings {
+  id                     String   @id @default("platform") @db.VarChar(20)
+  /// Partial ErrorSpikeSettings; missing keys use ERROR_SPIKE_DEFAULTS.
+  spike                  Json     @default("{}")
+  cooldownMinutes        Int      @default(60) @map("cooldown_minutes")
+  webhookUrlEncrypted    String?  @map("webhook_url_encrypted") @db.Text
+  webhookUrlHost         String?  @map("webhook_url_host") @db.VarChar(255)
+  webhookSecretEncrypted String?  @map("webhook_secret_encrypted") @db.Text
+  webhookSecretLast4     String?  @map("webhook_secret_last4") @db.VarChar(4)
+  webhookEnabled         Boolean  @default(true) @map("webhook_enabled")
+  slackUrlEncrypted      String?  @map("slack_url_encrypted") @db.Text
+  slackEnabled           Boolean  @default(true) @map("slack_enabled")
+  updatedByUserId        String?  @map("updated_by_user_id") @db.Uuid
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@map("error_settings")
+}
+
+/// Per-tenant error notification opt-in: e-mail the owner when a new group or
+/// spike affects the tenant's users. Absent row = off.
+model ErrorStudioSetting {
+  studioId        String   @id @map("studio_id") @db.Uuid
+  ownerNotify     Boolean  @default(false) @map("owner_notify")
+  updatedByUserId String?  @map("updated_by_user_id") @db.Uuid
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@map("error_studio_settings")
 }
