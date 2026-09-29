@@ -21,6 +21,17 @@ updates:
       # Expo pins exact react / react-native versions per SDK. They move only
       # with an Expo SDK upgrade (npx expo install --fix), never on their own.
       - dependency-name: react-native
+      # Same rule for every other package whose version Expo SDK pins for the
+      # mobile app (bundledNativeModules.json). These move only with an Expo
+      # SDK upgrade (npx expo install --fix), never through Dependabot. One
+      # npm entry covers the whole workspace, so react keeps its narrow
+      # update-types rule below and web patch updates still arrive.
+      - dependency-name: expo
+      - dependency-name: 'expo-*'
+      - dependency-name: '@react-native-community/*'
+      - dependency-name: react-native-safe-area-context
+      - dependency-name: react-native-screens
+      - dependency-name: react-native-svg
       - dependency-name: react
         update-types: [version-update:semver-minor, version-update:semver-major]
       - dependency-name: '@types/react'

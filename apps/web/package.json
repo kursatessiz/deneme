@@ -21,7 +21,7 @@
     "@fontsource/schibsted-grotesk": "^5.3.0",
     "@platform/shared": "workspace:*",
     "clsx": "^2.1.1",
-    "lucide-react": "^0.475.0",
+    "lucide-react": "^0.577.0",
     "next": "^15.5.26",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
@@ -29,7 +29,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@playwright/test": "1.56.1",
+    "@playwright/test": "1.63.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.20.4",
     "@types/react": "^19.3.0",
