@@ -195,6 +195,53 @@ describe('AiService.run', () => {
   });
 });
 
+describe('marketing budget', () => {
+  const marketingRequest = { ...request, task: 'MARKETING_DRAFT' as const };
+
+  it('defaults to 50 USD and is editable by the super admin setting', async () => {
+    const { settings } = setup();
+    expect(await settings.getMarketingBudgetCents()).toBe(5000);
+    expect((await settings.toDTO('HEARTBEAT')).marketingAiMonthlyBudgetCents).toBe(5000);
+    await settings.update('admin-1', { marketingAiMonthlyBudgetCents: 1200 });
+    expect(await settings.getMarketingBudgetCents()).toBe(1200);
+  });
+
+  it('is enforced before every marketing call: 402 MARKETING_AI_BUDGET_EXCEEDED, provider never called', async () => {
+    const { ai, settings, adapter, state } = setup();
+    await settings.setKey('admin-1', API_KEY);
+    await settings.update('admin-1', { marketingAiMonthlyBudgetCents: 1 });
+    state.usage.push({ studioId: STUDIO, task: 'MARKETING_DRAFT', costMicroUsd: 10_000 });
+    await expectAiError(ai.run(marketingRequest), 'MARKETING_AI_BUDGET_EXCEEDED', HttpStatus.PAYMENT_REQUIRED);
+    expect(adapter.requests).toHaveLength(0);
+  });
+
+  it('a small tenant budget does not block the marketing studio, and marketing has its own cap', async () => {
+    const { ai, settings, adapter, usage } = setup({ studioBudget: 1 });
+    await settings.setKey('admin-1', API_KEY);
+    await expect(ai.run(marketingRequest)).resolves.toMatchObject({ costMicroUsd: 5_560 });
+    expect(adapter.requests).toHaveLength(1);
+    const status = await usage.marketingStatus(STUDIO, true, new Date());
+    expect(status).toMatchObject({ budgetCents: 5000, usedMicroUsd: 5_560, limitReached: false });
+  });
+
+  it('0 switches the marketing studio off', async () => {
+    const { ai, settings, adapter } = setup();
+    await settings.setKey('admin-1', API_KEY);
+    await settings.update('admin-1', { marketingAiMonthlyBudgetCents: 0 });
+    await expectAiError(ai.run(marketingRequest), 'MARKETING_AI_BUDGET_EXCEEDED', HttpStatus.PAYMENT_REQUIRED);
+    expect(adapter.requests).toHaveLength(0);
+  });
+
+  it('the tenant budget still limits non-marketing tasks of the same studio', async () => {
+    const { ai, settings } = setup({ studioBudget: 1 });
+    await settings.setKey('admin-1', API_KEY);
+    await settings.update('admin-1', { marketingAiMonthlyBudgetCents: 100 });
+    await ai.run(marketingRequest);
+    await ai.run(marketingRequest);
+    await expectAiError(ai.run(request), 'AI_MONTHLY_LIMIT_REACHED', HttpStatus.TOO_MANY_REQUESTS);
+  });
+});
+
 describe('toPlainText', () => {
   it('leaves no angle brackets behind, even from nested or split tags', () => {
     expect(toPlainText('<b>Merhaba</b> <scr<script>ipt>alert(1)</script>')).not.toMatch(/[<>]/);

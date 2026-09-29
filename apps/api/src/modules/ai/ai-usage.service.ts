@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { SubscriptionStatus, type AiTask as DbAiTask } from '@platform/database';
 import {
   AI_TASKS,
+  MARKETING_AI_TASKS,
   aiBudgetMonthOf,
   aiBudgetMonthStart,
   centsToMicroUsd,
@@ -13,6 +14,7 @@ import {
   type AiTokenUsage,
   type AiUsageDashboardDTO,
   type AiUsageTotals,
+  type MarketingAiStatusDTO,
   type PlanLimits,
 } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -111,6 +113,28 @@ export class AiUsageService {
     const budget = await this.resolveBudget(studioId);
     const used = await this.monthCostMicroUsd(studioId, now);
     if (used >= centsToMicroUsd(budget.cents)) throw new AiError('AI_MONTHLY_LIMIT_REACHED');
+  }
+
+  /** Spend of this UTC month on the marketing tasks (MARKETING_DRAFT, MARKETING_ANALYSIS, MARKETING_RESEARCH). */
+  async marketingMonthCostMicroUsd(studioId: string, now: Date): Promise<number> {
+    const agg = await this.prisma.aiUsage.aggregate({
+      where: { studioId, task: { in: [...MARKETING_AI_TASKS] as DbAiTask[] }, createdAt: { gte: aiBudgetMonthStart(now) } },
+      _sum: { costMicroUsd: true },
+    });
+    return agg._sum.costMicroUsd ?? 0;
+  }
+
+  /** Throws 402 MARKETING_AI_BUDGET_EXCEEDED once this month's marketing spend reaches the marketing budget (0 means off). */
+  async assertWithinMarketingBudget(studioId: string, now: Date): Promise<void> {
+    const cents = await this.settings.getMarketingBudgetCents();
+    const used = await this.marketingMonthCostMicroUsd(studioId, now);
+    if (cents <= 0 || used >= centsToMicroUsd(cents)) throw new AiError('MARKETING_AI_BUDGET_EXCEEDED');
+  }
+
+  async marketingStatus(studioId: string, configured: boolean, now: Date): Promise<MarketingAiStatusDTO> {
+    const cents = await this.settings.getMarketingBudgetCents();
+    const used = await this.marketingMonthCostMicroUsd(studioId, now);
+    return { configured, budgetCents: cents, usedMicroUsd: used, limitReached: cents <= 0 || used >= centsToMicroUsd(cents) };
   }
 
   async tenantStatus(studioId: string, configured: boolean, now: Date): Promise<AiTenantStatusDTO> {

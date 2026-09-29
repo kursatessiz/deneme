@@ -40,3 +40,4 @@ export * from './community';
 export * from './backups';
 export * from './platform-permissions';
 export * from './integrations-hub';
+export * from './marketing';

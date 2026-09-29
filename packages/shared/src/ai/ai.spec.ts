@@ -37,6 +37,9 @@ describe('AI models and cost', () => {
       TRANSLATION: 'claude-sonnet-5',
       COPYWRITING: 'claude-sonnet-5',
       REPLY_SUGGESTION: 'claude-haiku-4-5-20251001',
+      MARKETING_DRAFT: 'claude-sonnet-5',
+      MARKETING_ANALYSIS: 'claude-sonnet-5',
+      MARKETING_RESEARCH: 'claude-sonnet-5',
     });
   });
 
