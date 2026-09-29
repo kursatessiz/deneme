@@ -1,4 +1,6 @@
 import { trAdminI18n } from './tr/admin-i18n';
+import { trAdminAi } from './tr/admin-ai';
+import { trAi } from './tr/ai';
 import { trAds } from './tr/ads';
 import { trAuth } from './tr/auth';
 import { trCampaigns } from './tr/campaigns';
@@ -18,6 +20,8 @@ import { trMNav } from './tr/mNav';
 import { trNav } from './tr/nav';
 import { trSites } from './tr/sites';
 import { enAdminI18n } from './en/admin-i18n';
+import { enAdminAi } from './en/admin-ai';
+import { enAi } from './en/ai';
 import { enAds } from './en/ads';
 import { enAuth } from './en/auth';
 import { enCampaigns } from './en/campaigns';
@@ -51,6 +55,8 @@ import { enSites } from './en/sites';
  */
 export const TR_NAMESPACES = [
   trAdminI18n,
+  trAdminAi,
+  trAi,
   trAds,
   trAuth,
   trCampaigns,
@@ -73,6 +79,8 @@ export const TR_NAMESPACES = [
 
 export const EN_NAMESPACES = [
   enAdminI18n,
+  enAdminAi,
+  enAi,
   enAds,
   enAuth,
   enCampaigns,

@@ -15,6 +15,7 @@ import { SmsProviderBalanceService, SmsProviderBalanceResult } from '../notifica
 import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 import { ConversionDeliveryDispatcherService, DispatchOutcome as ConversionDispatchOutcome } from '../ads/delivery/conversion-delivery-dispatcher.service';
 import { AdSpendSyncService, SpendSyncOutcome } from '../ads/spend-sync/ad-spend-sync.service';
+import { TranslationEngineService } from '../ai/translation/translation-engine.service';
 
 export interface SchedulerRunResult {
   runAt: string;
@@ -31,6 +32,7 @@ export interface SchedulerRunResult {
   crmLifecycle: { lapsed: number };
   conversionDelivery: ConversionDispatchOutcome;
   adSpendSync: SpendSyncOutcome | null;
+  aiTranslation: { jobs: number; paused: number };
 }
 
 /**
@@ -70,6 +72,7 @@ export class JobsService {
     private readonly crm: CrmHooksService,
     private readonly conversionDelivery: ConversionDeliveryDispatcherService,
     private readonly adSpendSync: AdSpendSyncService,
+    private readonly aiTranslation: TranslationEngineService,
     @Optional() @InjectQueue(SCHEDULER_QUEUE) private readonly queue?: Queue,
   ) {}
 
@@ -94,6 +97,8 @@ export class JobsService {
     const crmLifecycle = await this.crm.sweepLapsed(now);
     const conversionDelivery = await this.conversionDelivery.dispatchDue(now);
     const adSpendSync = await this.adSpendSync.syncAllDueIfStale(now);
+    // Last: AI translation batches may take a while; the other steps are time-sensitive.
+    const aiTranslation = await this.aiTranslation.processPending(now);
 
     this.logger.log(
       `Scheduler heartbeat at ${now.toISOString()}: growth ${growth.journeySteps} journey step(s)/${growth.journeysEnrolled} enrolled, ` +
@@ -104,7 +109,8 @@ export class JobsService {
         `partner sync ${partnerSyncResult.availabilityPushed} push(es), ` +
         `${joinReminders.reminded} join reminder(s), sms provider balance ${smsProviderBalance.status}, ` +
         `${crmLifecycle.lapsed} contact(s) lapsed, conversion delivery ${conversionDelivery.sent} sent/${conversionDelivery.retrying} retrying/${conversionDelivery.failed} failed, ` +
-        `ad spend sync ${adSpendSync ? `${adSpendSync.connectionsSynced} connection(s)` : 'skipped (not due)'}`,
+        `ad spend sync ${adSpendSync ? `${adSpendSync.connectionsSynced} connection(s)` : 'skipped (not due)'}, ` +
+        `AI translation ${aiTranslation.jobs} job(s)/${aiTranslation.paused} paused`,
     );
 
     this.lastRunAt = now;
@@ -123,6 +129,7 @@ export class JobsService {
       crmLifecycle,
       conversionDelivery,
       adSpendSync,
+      aiTranslation,
     };
   }
 }

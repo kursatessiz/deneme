@@ -16,6 +16,7 @@ import { Badge } from '@/components/common/Badge';
 import { EmptyState, ErrorState, LoadingState } from '@/components/common/DataState';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { hasAnyPermission } from '@/lib/nav';
+import { aiErrorText } from '@/lib/ai/errors';
 
 type AssignedFilter = 'any' | 'me' | 'unassigned';
 
@@ -106,6 +107,8 @@ function Composer({
   const [variables, setVariables] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggested, setSuggested] = useState(false);
 
   const windowClosed = conversation.channel === 'WHATSAPP' && conversation.whatsappWindowOpen === false;
 
@@ -114,7 +117,27 @@ function Composer({
     setTemplateKey('');
     setVariables({});
     setError(null);
+    setSuggested(false);
   }, [conversation.id]);
+
+  /** "Cevap öner" (G3b): an AI draft of the next reply from the last messages; the staff member edits and sends it. */
+  async function suggest() {
+    setSuggesting(true);
+    setError(null);
+    try {
+      const res = await bffFetch<{ text: string }>(`studios/${studioId}/inbox/conversations/${conversation.id}/suggest-reply`, {
+        method: 'POST',
+        studioId,
+        body: {},
+      });
+      setBody(res.text);
+      setSuggested(true);
+    } catch (err) {
+      setError(aiErrorText(err, t));
+    } finally {
+      setSuggesting(false);
+    }
+  }
 
   useEffect(() => {
     if (!windowClosed || templates) return;
@@ -254,7 +277,15 @@ function Composer({
           {error}
         </p>
       )}
-      <div className="flex justify-end">
+      {suggested && (
+        <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+          {t('ai.suggest.hint')}
+        </p>
+      )}
+      <div className="flex justify-end gap-2">
+        <PermissionButton required={['ai.use']} onClick={suggest} disabled={busy || suggesting}>
+          {suggesting ? t('ai.suggesting') : t('ai.suggestReply')}
+        </PermissionButton>
         <PermissionButton required={['inbox.reply']} type="submit" variant="primary" disabled={busy || !body.trim()}>
           {t('messaging.inbox.send')}
         </PermissionButton>

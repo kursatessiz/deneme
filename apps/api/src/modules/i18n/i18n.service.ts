@@ -5,6 +5,7 @@ import {
   BASE_MESSAGES,
   BUNDLED_LANGUAGES,
   BUNDLED_MESSAGES,
+  baseWithPluralExtensions,
   buildLanguagePack,
   LanguagePackError,
   packCompletion,
@@ -17,6 +18,7 @@ import {
   type CreateLanguageInput,
   type ImportLanguagePackInput,
   type ImportReportDTO,
+  type ReviewTranslationsInput,
   type LanguageDTO,
   type LocaleMessagesDTO,
   type PublicLanguagesDTO,
@@ -77,6 +79,24 @@ export class I18nService implements OnModuleInit {
     else this.cache.clear();
   }
 
+  /** Drops the cached messages of a locale after a write outside this service (AI translation). */
+  invalidateLocale(locale: string): void {
+    this.invalidate(locale);
+  }
+
+  /**
+   * The base catalogue as seen by one language: every Turkish key plus the
+   * plural forms the language needs beyond "one"/"other" (G3b).
+   */
+  baseFor(locale: string): Readonly<Record<string, string>> {
+    return baseWithPluralExtensions(BASE_MESSAGES, locale);
+  }
+
+  /** Effective values of a locale (bundled + overrides), for the AI translation engine. */
+  async effectiveMessages(locale: string): Promise<Record<string, string>> {
+    return this.computeEffectiveMessages(locale);
+  }
+
   // -- public ---------------------------------------------------------
 
   async getPublicLanguages(): Promise<PublicLanguagesDTO> {
@@ -108,16 +128,20 @@ export class I18nService implements OnModuleInit {
     return dto;
   }
 
-  /** Bundled values for `locale`, overlaid with overrides; only keys still present in BASE_MESSAGES. */
+  /**
+   * Bundled values for `locale`, overlaid with overrides; only keys still
+   * present in the base catalogue (plus the plural forms this language needs).
+   */
   private async computeEffectiveMessages(locale: string): Promise<Record<string, string>> {
     const bundled: Readonly<Record<string, string>> = BUNDLED_MESSAGES[locale] ?? {};
+    const base = this.baseFor(locale);
     const overrides = await this.prisma.translationOverride.findMany({ where: { locale } });
     const messages: Record<string, string> = {};
-    for (const key of Object.keys(BASE_MESSAGES)) {
+    for (const key of Object.keys(base)) {
       if (hasOwn(bundled, key)) messages[key] = bundled[key];
     }
     for (const o of overrides) {
-      if (hasOwn(BASE_MESSAGES, o.key)) messages[o.key] = o.value;
+      if (hasOwn(base, o.key)) messages[o.key] = o.value;
     }
     return messages;
   }
@@ -129,7 +153,7 @@ export class I18nService implements OnModuleInit {
     const result: AdminLanguageDTO[] = [];
     for (const row of rows) {
       const messages = await this.computeEffectiveMessages(row.code);
-      const { completion, translatedKeys, totalKeys } = packCompletion(messages, BASE_MESSAGES);
+      const { completion, translatedKeys, totalKeys } = packCompletion(messages, this.baseFor(row.code));
       result.push({
         code: row.code,
         name: row.name,
@@ -215,38 +239,64 @@ export class I18nService implements OnModuleInit {
   async adminListEntries(code: string, query: TranslationEntriesQuery): Promise<TranslationEntryDTO[]> {
     await this.getLanguageOrThrow(code);
     const bundled: Readonly<Record<string, string>> = BUNDLED_MESSAGES[code] ?? {};
+    const base = this.baseFor(code);
     const overrides = await this.prisma.translationOverride.findMany({ where: { locale: code } });
-    const overrideMap = new Map(overrides.map((o) => [o.key, o.value]));
+    const overrideMap = new Map(overrides.map((o) => [o.key, o]));
 
     const q = query.q?.toLowerCase();
     const namespace = query.namespace;
     const entries: TranslationEntryDTO[] = [];
-    for (const key of Object.keys(BASE_MESSAGES).sort()) {
+    for (const key of Object.keys(base).sort()) {
       if (namespace && key !== namespace && !key.startsWith(`${namespace}.`)) continue;
-      const base = (BASE_MESSAGES as Record<string, string>)[key];
+      const source = base[key];
       const bundledValue = hasOwn(bundled, key) ? bundled[key] : null;
-      const overrideValue = overrideMap.has(key) ? overrideMap.get(key)! : null;
-      const effective = overrideValue ?? bundledValue;
+      const override = overrideMap.get(key) ?? null;
+      const effective = override?.value ?? bundledValue;
       if (query.missingOnly && effective !== null) continue;
-      if (q && !key.toLowerCase().includes(q) && !base.toLowerCase().includes(q) && !(effective ?? '').toLowerCase().includes(q)) {
+      if (query.source === 'AI_UNREVIEWED' && !(override?.source === 'AI' && override.reviewedAt === null)) continue;
+      if (query.source && query.source !== 'AI_UNREVIEWED' && override?.source !== query.source) continue;
+      if (q && !key.toLowerCase().includes(q) && !source.toLowerCase().includes(q) && !(effective ?? '').toLowerCase().includes(q)) {
         continue;
       }
       entries.push({
         key,
-        base,
+        base: source,
         bundled: bundledValue,
-        override: overrideValue,
+        override: override?.value ?? null,
         effective,
-        placeholders: placeholdersOf(base),
+        placeholders: placeholdersOf(source),
+        source: override?.source ?? null,
+        reviewedAt: override?.reviewedAt?.toISOString() ?? null,
+        isPluralExtension: !hasOwn(BASE_MESSAGES, key),
       });
     }
     return entries;
   }
 
+  /** Approves machine translations: the given keys, or every unreviewed AI value of the language. */
+  async adminReview(actorUserId: string, code: string, input: ReviewTranslationsInput): Promise<{ reviewed: number }> {
+    await this.getLanguageOrThrow(code);
+    const result = await this.prisma.translationOverride.updateMany({
+      where: { locale: code, source: 'AI', reviewedAt: null, ...(input.keys ? { key: { in: input.keys } } : {}) },
+      data: { reviewedAt: new Date(), updatedByUserId: actorUserId },
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        userId: actorUserId,
+        action: 'i18n.translation.review',
+        entityType: 'Language',
+        entityId: code,
+        metadata: { reviewed: result.count, keys: input.keys ? input.keys.slice(0, 200) : 'all' },
+      },
+    });
+    return { reviewed: result.count };
+  }
+
   /** `value: null` (or blank) removes the override; a value equal to the bundled one is not stored either. */
   async adminUpsertEntry(actorUserId: string, code: string, key: string, value: string | null): Promise<TranslationEntryDTO> {
     await this.getLanguageOrThrow(code);
-    const base = (BASE_MESSAGES as Record<string, string>)[key];
+    const localeBase = this.baseFor(code);
+    const base = hasOwn(localeBase, key) ? localeBase[key] : undefined;
     if (base === undefined) throw new BadRequestException(`"${key}" geçerli bir mesaj anahtarı değil.`);
 
     const bundled: Readonly<Record<string, string>> = BUNDLED_MESSAGES[code] ?? {};
@@ -265,10 +315,12 @@ export class I18nService implements OnModuleInit {
     if (trimmed === null || redundant) {
       await this.prisma.translationOverride.deleteMany({ where: { locale: code, key } });
     } else {
+      // A person typed or approved this value: it is MANUAL and reviewed.
+      const reviewedAt = new Date();
       await this.prisma.translationOverride.upsert({
         where: { locale_key: { locale: code, key } },
-        create: { locale: code, key, value: trimmed, updatedByUserId: actorUserId },
-        update: { value: trimmed, updatedByUserId: actorUserId },
+        create: { locale: code, key, value: trimmed, updatedByUserId: actorUserId, source: 'MANUAL', reviewedAt },
+        update: { value: trimmed, updatedByUserId: actorUserId, source: 'MANUAL', reviewedAt },
       });
     }
     this.invalidate(code);
@@ -284,7 +336,17 @@ export class I18nService implements OnModuleInit {
 
     const overrideRow = await this.prisma.translationOverride.findUnique({ where: { locale_key: { locale: code, key } } });
     const override = overrideRow?.value ?? null;
-    return { key, base, bundled: bundledValue, override, effective: override ?? bundledValue, placeholders: placeholdersOf(base) };
+    return {
+      key,
+      base,
+      bundled: bundledValue,
+      override,
+      effective: override ?? bundledValue,
+      placeholders: placeholdersOf(base),
+      source: overrideRow?.source ?? null,
+      reviewedAt: overrideRow?.reviewedAt?.toISOString() ?? null,
+      isPluralExtension: !hasOwn(BASE_MESSAGES, key),
+    };
   }
 
   async adminExport(code: string): Promise<{ locale: string; name: string; nativeName: string; messages: Record<string, string> }> {
@@ -295,13 +357,14 @@ export class I18nService implements OnModuleInit {
   }
 
   buildPackJson(code: string, name: string, nativeName: string, messages: Record<string, string>): string {
-    const pack = buildLanguagePack({ locale: code, name, nativeName, messages, base: BASE_MESSAGES });
+    const pack = buildLanguagePack({ locale: code, name, nativeName, messages, base: this.baseFor(code) });
     return JSON.stringify(pack, null, 2);
   }
 
   buildPackCsv(code: string, name: string, nativeName: string, messages: Record<string, string>): string {
-    const pack = buildLanguagePack({ locale: code, name, nativeName, messages, base: BASE_MESSAGES });
-    return packToCsv(pack, BASE_MESSAGES);
+    const base = this.baseFor(code);
+    const pack = buildLanguagePack({ locale: code, name, nativeName, messages, base });
+    return packToCsv(pack, base);
   }
 
   async adminImport(actorUserId: string, code: string, input: ImportLanguagePackInput): Promise<ImportReportDTO> {
@@ -315,7 +378,7 @@ export class I18nService implements OnModuleInit {
       throw err;
     }
 
-    const { accepted, unknownKeys, emptyKeys, placeholderMismatches } = validatePackMessages(uploaded, BASE_MESSAGES);
+    const { accepted, unknownKeys, emptyKeys, placeholderMismatches } = validatePackMessages(uploaded, this.baseFor(code));
 
     const report: ImportReportDTO = {
       locale: code,
@@ -364,8 +427,8 @@ export class I18nService implements OnModuleInit {
         writes.push(
           this.prisma.translationOverride.upsert({
             where: { locale_key: { locale: code, key } },
-            create: { locale: code, key, value, updatedByUserId: actorUserId },
-            update: { value, updatedByUserId: actorUserId },
+            create: { locale: code, key, value, updatedByUserId: actorUserId, source: 'UPLOAD', reviewedAt: new Date() },
+            update: { value, updatedByUserId: actorUserId, source: 'UPLOAD', reviewedAt: new Date() },
           }),
         );
         changed++;
@@ -446,7 +509,7 @@ export class I18nService implements OnModuleInit {
       isBundled: bundledCodes.has(row.code),
       completion: row.code === BASE_LOCALE ? 1 : 0,
       translatedKeys: 0,
-      totalKeys: Object.keys(BASE_MESSAGES).length,
+      totalKeys: Object.keys(this.baseFor(row.code)).length,
       updatedAt: row.updatedAt.toISOString(),
     };
   }

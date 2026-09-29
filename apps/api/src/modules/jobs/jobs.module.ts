@@ -10,6 +10,7 @@ import { PartnersModule } from '../partners/partners.module';
 import { VideoModule } from '../video/video.module';
 import { CrmCoreModule } from '../crm/crm-core.module';
 import { AdsModule } from '../ads/ads.module';
+import { AiModule } from '../ai/ai.module';
 import { JobsService } from './jobs.service';
 import { SchedulerController } from './scheduler.controller';
 import { SchedulerProcessor } from './scheduler.processor';
@@ -38,6 +39,7 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
     VideoModule,
     CrmCoreModule,
     AdsModule,
+    AiModule,
     ...(redisConfigured
       ? [
           BullModule.forRoot({ connection: { url: process.env.REDIS_URL } }),
