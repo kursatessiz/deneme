@@ -15,6 +15,7 @@ import { SmsProviderBalanceService, SmsProviderBalanceResult } from '../notifica
 import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 import { ConversionDeliveryDispatcherService, DispatchOutcome as ConversionDispatchOutcome } from '../ads/delivery/conversion-delivery-dispatcher.service';
 import { AdSpendSyncService, SpendSyncOutcome } from '../ads/spend-sync/ad-spend-sync.service';
+import { LeadAdsService, DueResult as LeadAdsResult } from '../lead-ads/lead-ads.service';
 import { TranslationEngineService } from '../ai/translation/translation-engine.service';
 import { MarketingInsightsService, type WeeklyRunResult } from '../platform-marketing/insights/marketing-insights.service';
 import { LoyaltyJobsService, LoyaltyHeartbeatResult } from '../loyalty/loyalty-jobs.service';
@@ -41,6 +42,7 @@ export interface SchedulerRunResult {
   crmLifecycle: { lapsed: number };
   conversionDelivery: ConversionDispatchOutcome;
   adSpendSync: SpendSyncOutcome | null;
+  leadAds: LeadAdsResult;
   aiTranslation: { jobs: number; paused: number };
   /** M3d: the weekly marketing summary of the platform tenant. */
   marketingInsights: WeeklyRunResult;
@@ -91,6 +93,7 @@ export class JobsService {
     private readonly crm: CrmHooksService,
     private readonly conversionDelivery: ConversionDeliveryDispatcherService,
     private readonly adSpendSync: AdSpendSyncService,
+    private readonly leadAds: LeadAdsService,
     private readonly aiTranslation: TranslationEngineService,
     private readonly marketingInsights: MarketingInsightsService,
     private readonly loyalty: LoyaltyJobsService,
@@ -126,6 +129,7 @@ export class JobsService {
     const adSpendSync = await this.adSpendSync.syncAllDueIfStale(now);
     // M3d: after the spend sync, so the week's ad spend is in when the summary is written.
     const marketingInsights = await this.marketingInsights.runWeekly(now);
+    const leadAds = await this.leadAds.processDue(now);
     const loyalty = await this.loyalty.run(now);
     const events = await this.events.run(now);
     const billing = await this.billing.run(now);
@@ -147,6 +151,7 @@ export class JobsService {
         `${joinReminders.reminded} join reminder(s), sms provider balance ${smsProviderBalance.status}, ` +
         `${crmLifecycle.lapsed} contact(s) lapsed, conversion delivery ${conversionDelivery.sent} sent/${conversionDelivery.retrying} retrying/${conversionDelivery.failed} failed, ` +
         `ad spend sync ${adSpendSync ? `${adSpendSync.connectionsSynced} connection(s)` : 'skipped (not due)'}, ` +
+        `lead ads ${leadAds.processed} processed/${leadAds.retrying} retrying/${leadAds.failed} failed, ` +
         `AI translation ${aiTranslation.jobs} job(s)/${aiTranslation.paused} paused, ` +
         `loyalty ${loyalty.birthdayPoints} birthday point(s)/${loyalty.expiredPoints} expired/${loyalty.expiryNotices} notice(s), ` +
         `events ${events.holdsReleased} hold(s) released/${events.promoted} promoted/${events.reminders} reminder(s)/${events.completed} completed, ` +
@@ -173,6 +178,7 @@ export class JobsService {
       crmLifecycle,
       conversionDelivery,
       adSpendSync,
+      leadAds,
       aiTranslation,
       marketingInsights,
       loyalty,

@@ -24,6 +24,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
 import { CrmModule } from './modules/crm/crm.module';
 import { AdsModule } from './modules/ads/ads.module';
+import { LeadAdsModule } from './modules/lead-ads/lead-ads.module';
 import { InvoicingModule } from './modules/invoicing/invoicing.module';
 import { AutomationsModule } from './modules/automations/automations.module';
 import { GrowthModule } from './modules/growth/growth.module';
@@ -90,6 +91,7 @@ import { PlatformMarketingModule } from './modules/platform-marketing/platform-m
     PayrollModule,
     CrmModule,
     AdsModule,
+    LeadAdsModule,
     InvoicingModule,
     AutomationsModule,
     GrowthModule,

@@ -1,5 +1,6 @@
-import { Controller, Delete, Get, Headers, HttpCode, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import { Controller, Delete, Get, Headers, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put } from '@nestjs/common';
 import {
+  ConfigureLeadAdsSchema,
   CreateApiKeySchema,
   CreateEmailSenderDomainSchema,
   CreateSocialConnectionSchema,
@@ -7,6 +8,10 @@ import {
   HubUpdateWebhookSchema,
   UpdateSocialConnectionSchema,
   INTEGRATION_ENTRY_HEADER,
+  LeadAdFormIdParamSchema,
+  UpdateSmsSenderSchema,
+  UpsertLeadAdFormMappingSchema,
+  type ConfigureLeadAdsInput,
   type CreateApiKeyInput,
   type CreateEmailSenderDomainInput,
   type CreateSocialConnectionInput,
@@ -14,10 +19,12 @@ import {
   type HubUpdateWebhookInput,
   type IntegrationEntryPoint,
   type UpdateSocialConnectionInput,
+  type UpdateSmsSenderInput,
+  type UpsertLeadAdFormMappingInput,
 } from '@platform/shared';
 import { Platform, PlatformScoped, RequirePlatformPermission } from '../../auth/decorators/platform-scoped.decorator';
 import type { PlatformContext } from '../../auth/tenant-context';
-import { ZodBody } from '../../../common/zod-body.pipe';
+import { ZodBody, ZodValidationPipe } from '../../../common/zod-body.pipe';
 import { IntegrationHubService } from './integration-hub.service';
 
 /**
@@ -137,5 +144,68 @@ export class PlatformIntegrationsController {
   @Delete('email-domains/:id')
   removeEmailDomain(@Platform() platform: PlatformContext, @Headers(INTEGRATION_ENTRY_HEADER) via: string | undefined, @Param('id', ParseUUIDPipe) id: string) {
     return this.hub.removeEmailDomain(platform, entryPoint(platform, via), id);
+  }
+
+  // -- Meta Lead Ads (M4c) --
+
+  @Put('lead-ads/:connectionId')
+  configureLeadAds(
+    @Platform() platform: PlatformContext,
+    @Headers(INTEGRATION_ENTRY_HEADER) via: string | undefined,
+    @Param('connectionId', ParseUUIDPipe) connectionId: string,
+    @ZodBody(ConfigureLeadAdsSchema) body: ConfigureLeadAdsInput,
+  ) {
+    return this.hub.configureLeadAds(platform, entryPoint(platform, via), connectionId, body);
+  }
+
+  @Post('lead-ads/:connectionId/check-subscription')
+  @HttpCode(200)
+  checkLeadAdsSubscription(
+    @Platform() platform: PlatformContext,
+    @Headers(INTEGRATION_ENTRY_HEADER) via: string | undefined,
+    @Param('connectionId', ParseUUIDPipe) connectionId: string,
+  ) {
+    return this.hub.checkLeadAdsSubscription(platform, entryPoint(platform, via), connectionId);
+  }
+
+  @Put('lead-ads/forms/:formId')
+  upsertLeadAdForm(
+    @Platform() platform: PlatformContext,
+    @Headers(INTEGRATION_ENTRY_HEADER) via: string | undefined,
+    @Param('formId', new ZodValidationPipe(LeadAdFormIdParamSchema)) formId: string,
+    @ZodBody(UpsertLeadAdFormMappingSchema) body: UpsertLeadAdFormMappingInput,
+  ) {
+    return this.hub.upsertLeadAdForm(platform, entryPoint(platform, via), formId, body);
+  }
+
+  @Delete('lead-ads/forms/:formId')
+  removeLeadAdForm(
+    @Platform() platform: PlatformContext,
+    @Headers(INTEGRATION_ENTRY_HEADER) via: string | undefined,
+    @Param('formId', new ZodValidationPipe(LeadAdFormIdParamSchema)) formId: string,
+  ) {
+    return this.hub.removeLeadAdForm(platform, entryPoint(platform, via), formId);
+  }
+
+  @Get('lead-ads/events')
+  leadAdEvents(@Platform() platform: PlatformContext) {
+    return this.hub.leadAdEvents(platform);
+  }
+
+  @Post('lead-ads/events/:id/retry')
+  @HttpCode(200)
+  retryLeadAdEvent(@Platform() platform: PlatformContext, @Headers(INTEGRATION_ENTRY_HEADER) via: string | undefined, @Param('id', ParseUUIDPipe) id: string) {
+    return this.hub.retryLeadAdEvent(platform, entryPoint(platform, via), id);
+  }
+
+  // -- SMS sender identity (M4c) --
+
+  @Put('sms-sender')
+  updateSmsSender(
+    @Platform() platform: PlatformContext,
+    @Headers(INTEGRATION_ENTRY_HEADER) via: string | undefined,
+    @ZodBody(UpdateSmsSenderSchema) body: UpdateSmsSenderInput,
+  ) {
+    return this.hub.updateSmsSender(platform, entryPoint(platform, via), body);
   }
 }

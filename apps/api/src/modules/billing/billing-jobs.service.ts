@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { BILLING_TEMPLATE_KEYS, TRIAL_REMINDER_DAYS, dueTrialReminder, planPriceIn, studioBillingCurrency, trialDaysLeft } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { MessagingService } from '../messaging/engine/messaging.service';
+import { PlatformEventsService } from '../webhooks/platform-events.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const BATCH = 200;
@@ -31,6 +32,7 @@ export class BillingJobsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly messaging: MessagingService,
+    @Optional() private readonly platformEvents?: PlatformEventsService,
   ) {}
 
   async run(now = new Date()): Promise<BillingHeartbeatResult> {
@@ -104,6 +106,8 @@ export class BillingJobsService {
         data: { trialReminderSentDays: threshold },
       });
       if (claimed.count === 0) continue;
+      // M4c: the platform tenant's automations hear about it once per threshold, exactly when the owner's notice is claimed.
+      await this.emitTrialExpiring(studio.id, studio.trialEndsAt, daysLeft ?? threshold);
       const ok = await this.notifyOwner(
         studio.id,
         BILLING_TEMPLATE_KEYS.trialEnding,
@@ -117,6 +121,12 @@ export class BillingJobsService {
       if (ok) sent++;
     }
     return sent;
+  }
+
+  private async emitTrialExpiring(studioId: string, trialEndsAt: Date, daysLeft: number): Promise<void> {
+    if (!this.platformEvents) return;
+    const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { name: true } });
+    await this.platformEvents.emit('studio.trial_expiring', { studioId, name: studio?.name ?? null, trialEndsAt: trialEndsAt.toISOString(), daysLeft });
   }
 
   /** Best effort: the first owner membership that is ACTIVE; nothing when the owner has not joined yet. */

@@ -49,6 +49,30 @@ const E164 = z.string().regex(/^\+[1-9]\d{6,14}$/, 'Telefon numarası E.164 biç
  * in Studio.notificationSettings, unchanged). Every field is optional so an
  * empty object means "platform defaults".
  */
+/** Registration state of an SMS identity: an alphanumeric sender id per provider, or a Twilio 10DLC brand or campaign. Entered by hand (M4c). */
+export const SMS_REGISTRATION_STATUSES = ['NOT_STARTED', 'PENDING', 'APPROVED', 'REJECTED'] as const;
+export type SmsRegistrationStatus = (typeof SMS_REGISTRATION_STATUSES)[number];
+
+export const SmsSenderRegistrationSchema = z
+  .object({
+    /** Alphanumeric sender id (3-11 letters and digits, the intersection of the providers' rules). */
+    senderId: z.string().trim().regex(/^[A-Za-z][A-Za-z0-9 ]{2,10}$/, 'Gönderici kimliği 3-11 karakter, harfle başlamalı').nullable().optional(),
+    status: z.enum(SMS_REGISTRATION_STATUSES),
+    updatedAt: z.string().datetime().optional(),
+  })
+  .strict();
+export type SmsSenderRegistration = z.infer<typeof SmsSenderRegistrationSchema>;
+
+/** US A2P 10DLC through Twilio: the brand and the campaign are registered and approved separately. */
+export const Twilio10dlcSchema = z
+  .object({
+    brandStatus: z.enum(SMS_REGISTRATION_STATUSES),
+    campaignStatus: z.enum(SMS_REGISTRATION_STATUSES),
+    updatedAt: z.string().datetime().optional(),
+  })
+  .strict();
+export type Twilio10dlc = z.infer<typeof Twilio10dlcSchema>;
+
 export const MessagingSettingsSchema = z
   .object({
     /** Pins the tenant's SMS provider; null follows the country priority list. */
@@ -74,6 +98,10 @@ export const MessagingSettingsSchema = z
       .optional(),
     /** The tenant's own inbound SMS number (Twilio "To"), for inbound routing. */
     inboundSmsNumber: E164.nullable().optional(),
+    /** Sender id registration status per SMS provider (M4c, set by the platform owner). */
+    smsSenderRegistrations: z.record(z.enum(SMS_PROVIDER_KEYS), SmsSenderRegistrationSchema).optional(),
+    /** Twilio 10DLC brand and campaign status (M4c, set by the platform owner). */
+    twilio10dlc: Twilio10dlcSchema.optional(),
   })
   .strict();
 export type MessagingSettings = z.infer<typeof MessagingSettingsSchema>;
@@ -83,7 +111,12 @@ export type MessagingSettings = z.infer<typeof MessagingSettingsSchema>;
  * tenant receives someone's replies, so only the platform owner sets them
  * (MessagingRoutingSchema), and never to a number another tenant uses.
  */
-export const TenantMessagingSettingsSchema = MessagingSettingsSchema.omit({ whatsappPhoneNumberId: true, inboundSmsNumber: true });
+export const TenantMessagingSettingsSchema = MessagingSettingsSchema.omit({
+  whatsappPhoneNumberId: true,
+  inboundSmsNumber: true,
+  smsSenderRegistrations: true,
+  twilio10dlc: true,
+});
 export type TenantMessagingSettingsInput = z.infer<typeof TenantMessagingSettingsSchema>;
 
 export const MessagingRoutingSchema = MessagingSettingsSchema.pick({ whatsappPhoneNumberId: true, inboundSmsNumber: true });

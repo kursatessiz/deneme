@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, HttpStatus, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpStatus, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { Prisma } from '@platform/database';
 import type { Campaign, CampaignRecipientStatus } from '@platform/database';
 import {
@@ -38,6 +38,7 @@ import { CampaignApprovalService, approvalError } from './approval/campaign-appr
 import { CampaignAbService, parseAbSetup, parseOverrides } from './campaign-ab.service';
 import { CampaignSendTimeService } from './campaign-send-time.service';
 import { MarketingGuardsService } from './marketing-guards.service';
+import { PlatformEventsService } from '../../webhooks/platform-events.service';
 
 const HOUR_MS = 60 * 60 * 1000;
 /** A recipient being sent is leased for this long (concurrent workers). */
@@ -73,6 +74,7 @@ export class CampaignsService {
     private readonly ab: CampaignAbService,
     private readonly sendTime: CampaignSendTimeService,
     private readonly guards: MarketingGuardsService,
+    @Optional() private readonly platformEvents?: PlatformEventsService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -447,7 +449,8 @@ export class CampaignsService {
       }
     }
     if (!remaining) {
-      await this.prisma.campaign.updateMany({ where: { id, status: 'SENDING' }, data: { status: 'SENT', completedAt: now } });
+      const completed = await this.prisma.campaign.updateMany({ where: { id, status: 'SENDING' }, data: { status: 'SENT', completedAt: now } });
+      if (completed.count === 1) await this.emitCampaignSent(id);
     } else {
       await this.queue.scheduleCampaign(id, remaining.nextAttemptAt && remaining.nextAttemptAt > now ? remaining.nextAttemptAt : now);
     }
@@ -461,6 +464,28 @@ export class CampaignsService {
    * With a recipient-local or best-time send each recipient row carries its
    * own due instant; rows are written in chunks, never one job per recipient.
    */
+  /** M4c: campaign.sent for the platform tenant's automations (other tenants' campaigns are ignored by emitForStudio). Never throws. */
+  private async emitCampaignSent(campaignId: string): Promise<void> {
+    if (!this.platformEvents) return;
+    try {
+      const campaign = await this.prisma.campaign.findUnique({ where: { id: campaignId }, select: { id: true, studioId: true, name: true, channel: true, audienceCount: true } });
+      if (!campaign) return;
+      const grouped = await this.prisma.campaignRecipient.groupBy({ by: ['status'], where: { campaignId, studioId: campaign.studioId }, _count: { _all: true } });
+      const count = (status: string) => grouped.find((g) => g.status === status)?._count._all ?? 0;
+      await this.platformEvents.emitForStudio(campaign.studioId, 'campaign.sent', {
+        campaignId: campaign.id,
+        name: campaign.name,
+        channel: campaign.channel,
+        audience: campaign.audienceCount,
+        sent: count('SENT'),
+        skipped: count('SKIPPED'),
+        failed: count('FAILED'),
+      });
+    } catch {
+      // An automation event must never fail the send.
+    }
+  }
+
   private async materialise(campaign: Campaign, contactIds: readonly string[], now: Date): Promise<void> {
     const variantKeys = parseAbSetup(campaign.abTest) ? (await this.ab.variantsOf(campaign.id)).map((v) => v.key) : [];
     const setup = parseAbSetup(campaign.abTest);

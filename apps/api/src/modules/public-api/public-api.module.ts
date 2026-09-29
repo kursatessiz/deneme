@@ -8,10 +8,14 @@ import { EmbedRateLimitGuard } from './embed-rate-limit.guard';
 import { PublicApiService } from './public-api.service';
 import { HooksPublicController } from './hooks-public.controller';
 import { WebhooksModule } from '../webhooks/webhooks.module';
+import { CrmCoreModule } from '../crm/crm-core.module';
+import { ContactsPublicController } from './contacts-public.controller';
+import { PublicContactsService } from './contacts-public.service';
+import { PublicIdempotencyService } from './idempotency.service';
 
 @Module({
-  imports: [ApiKeysModule, SchedulesModule, RedisModule, WebhooksModule],
-  controllers: [PublicApiController, HooksPublicController, EmbedPublicController],
-  providers: [PublicApiService, EmbedRateLimitGuard],
+  imports: [ApiKeysModule, SchedulesModule, RedisModule, WebhooksModule, CrmCoreModule],
+  controllers: [PublicApiController, HooksPublicController, EmbedPublicController, ContactsPublicController],
+  providers: [PublicApiService, EmbedRateLimitGuard, PublicContactsService, PublicIdempotencyService],
 })
 export class PublicApiModule {}
