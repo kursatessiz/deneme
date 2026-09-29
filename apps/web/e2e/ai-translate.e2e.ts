@@ -24,29 +24,26 @@ function localCode(): string {
 }
 
 /**
- * Calls the BFF from inside the page so the browser sends the Origin header
- * the BFF's CSRF check requires (APIRequestContext requests carry none).
+ * Calls the BFF with the browser context's cookies. APIRequestContext sends
+ * no Origin header by itself, so it is set to the page's origin, which is
+ * what the BFF's CSRF check expects from the web app.
  */
 async function bff(page: Page, method: 'GET' | 'POST' | 'DELETE', path: string): Promise<{ status: number; body: unknown }> {
-  return page.evaluate(
-    async ({ method, path, headers }) => {
-      const res = await fetch(`/api/bff/${path}`, {
-        method,
-        credentials: 'same-origin',
-        headers: { ...headers, 'content-type': 'application/json' },
-        body: method === 'POST' ? '{}' : undefined,
-      });
-      const text = await res.text();
-      let body: unknown = null;
-      try {
-        body = text ? JSON.parse(text) : null;
-      } catch {
-        body = text;
-      }
-      return { status: res.status, body };
-    },
-    { method, path, headers: CSRF },
-  );
+  const origin = new URL(page.url()).origin;
+  const res = await page.request.fetch(`/api/bff/${path}`, {
+    method,
+    headers: { ...CSRF, origin, 'content-type': 'application/json' },
+    data: method === 'POST' ? {} : undefined,
+    timeout: 30_000,
+  });
+  const text = await res.text();
+  let body: unknown = null;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch {
+    body = text;
+  }
+  return { status: res.status(), body };
 }
 
 async function loginAsSuperAdmin(page: Page): Promise<void> {
@@ -119,8 +116,9 @@ test('the super admin sets the AI key and translates a language section with AI'
     await main.getByLabel('Kaynak', { exact: true }).selectOption('AI');
     await expect(main.getByRole('row').filter({ hasText: 'common.itemCount.other' }).getByText('Yapay zeka', { exact: true })).toBeVisible();
   } finally {
-    await bff(page, 'DELETE', `admin/i18n/languages/${code}`);
-    await bff(page, 'DELETE', 'admin/ai/settings/key');
+    // Best-effort cleanup; never hide the real failure behind a cleanup error.
+    await bff(page, 'DELETE', `admin/i18n/languages/${code}`).catch(() => undefined);
+    await bff(page, 'DELETE', 'admin/ai/settings/key').catch(() => undefined);
   }
 });
 
