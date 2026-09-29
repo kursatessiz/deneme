@@ -16,6 +16,7 @@ export const trNav = {
   'nav.segments': 'Segmentler',
   'nav.campaigns': 'Kampanyalar',
   'nav.journeys': 'Otomatik akışlar',
+  'nav.events': 'Etkinlikler',
   'nav.inbox': 'Gelen Kutusu',
   'nav.settings': 'Ayarlar',
 } as const satisfies Record<string, string>;

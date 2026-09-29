@@ -38,6 +38,7 @@ export function buildHesabimMenu(input: StaffMenuInput): MenuItem[] {
     items.push({ key: 'my-payments', labelKey: 'mAccount.menu.myPayments', route: '/(app)/hesabim/odemelerim' });
     items.push({ key: 'my-achievements', labelKey: 'mAccount.menu.myAchievements', route: '/(app)/hesabim/basarilarim' });
     items.push({ key: 'my-points', labelKey: 'mAccount.menu.myPoints', route: '/(app)/hesabim/puanlarim' });
+    items.push({ key: 'events', labelKey: 'mAccount.menu.events', route: '/(app)/hesabim/etkinlikler' });
     items.push({ key: 'refer-friend', labelKey: 'mAccount.menu.referFriend', route: '/(app)/hesabim/arkadasini-getir' });
     items.push({ key: 'health', labelKey: 'mAccount.menu.health', route: '/(app)/hesabim/saglik' });
     items.push({ key: 'chat', labelKey: 'mAccount.menu.chat', route: '/(app)/hesabim/mesajlar' });
@@ -68,6 +69,9 @@ export function buildHesabimMenu(input: StaffMenuInput): MenuItem[] {
   }
   if (has(permissions, 'schedule.manage')) {
     items.push({ key: 'new-session', labelKey: 'mAccount.menu.newSession', route: '/(app)/hesabim/programim/yeni' });
+  }
+  if (has(permissions, 'events.checkin') && has(permissions, 'events.view')) {
+    items.push({ key: 'event-check-in', labelKey: 'mAccount.menu.eventCheckIn', route: '/(app)/hesabim/etkinlik-girisi' });
   }
   if (has(permissions, 'attendance.manage')) {
     items.push({ key: 'member-qr-scan', labelKey: 'mAccount.menu.memberQrScan', route: '/(app)/hesabim/resepsiyon-tarama' });

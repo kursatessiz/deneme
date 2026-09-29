@@ -31,6 +31,17 @@ export const enMsgTpl = {
   'msgTpl.LOYALTY_POINTS_EXPIRING.subject': 'Your points are expiring',
   'msgTpl.LOYALTY_POINTS_EXPIRING.text': 'Hi {firstName}, {points} of your {studioName} loyalty points expire on {expiryDate}. Use them on a reward before they expire.',
 
+  'msgTpl.EVENT_REGISTRATION_CONFIRMED.subject': 'Your registration is confirmed',
+  'msgTpl.EVENT_REGISTRATION_CONFIRMED.text': 'Hi {firstName}, your registration for {eventTitle} at {studioName} is confirmed. It starts on {startTime}.',
+  'msgTpl.EVENT_REMINDER.subject': 'Event reminder',
+  'msgTpl.EVENT_REMINDER.text': 'Hi {firstName}, {eventTitle} starts on {startTime}. See you there.',
+  'msgTpl.EVENT_CANCELLED.subject': 'Event cancelled',
+  'msgTpl.EVENT_CANCELLED.text': 'Hi {firstName}, {studioName} has cancelled {eventTitle} on {startTime}. Your payment or the credits you used will be refunded.',
+  'msgTpl.EVENT_WAITLIST_PROMOTED.subject': 'A spot opened up',
+  'msgTpl.EVENT_WAITLIST_PROMOTED.text': 'Hi {firstName}, a spot opened up for {eventTitle} and your registration is confirmed. It starts on {startTime}.',
+  'msgTpl.EVENT_PAYMENT_DUE.subject': 'Payment needed for your registration',
+  'msgTpl.EVENT_PAYMENT_DUE.text': 'Hi {firstName}, a spot for {eventTitle} is being held for you. Complete the payment by {paymentDueAt} to keep it.',
+
   'msgTpl.email.reasonCommercial': 'You are receiving this email because you agreed to hear from {studioName}.',
   'msgTpl.email.reasonTransactional': 'This email is about your account with {studioName}.',
   'msgTpl.email.unsubscribe': 'Unsubscribe',
