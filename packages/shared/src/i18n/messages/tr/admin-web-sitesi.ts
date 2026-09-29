@@ -1,0 +1,20 @@
+/** Super-admin Website (Web Sitesi) screen: platform company info and the platform site editor shell. */
+export const trAdminWebSitesi = {
+  'adminWebSitesi.title': 'Web Sitesi',
+  'adminWebSitesi.subtitle': 'Platformun kurumsal ve pazarlama sitesi: ana sayfa, sektör açılış sayfaları, yasal metinler',
+  'adminWebSitesi.notFound': 'Platform sitesi bulunamadı',
+  'adminWebSitesi.companyInfo.title': 'Şirket bilgileri',
+  'adminWebSitesi.companyInfo.description': 'Yasal metinlerde ve iletişim bloklarında kullanılan platform kimliği',
+  'adminWebSitesi.companyInfo.legalName': 'Unvan',
+  'adminWebSitesi.companyInfo.taxOffice': 'Vergi dairesi',
+  'adminWebSitesi.companyInfo.taxNumber': 'Vergi numarası',
+  'adminWebSitesi.companyInfo.tradeRegistryNo': 'Ticaret sicil no',
+  'adminWebSitesi.companyInfo.mersisNo': 'MERSİS no',
+  'adminWebSitesi.companyInfo.email': 'E-posta',
+  'adminWebSitesi.companyInfo.phone': 'Telefon',
+  'adminWebSitesi.companyInfo.address': 'Adres',
+  'adminWebSitesi.companyInfo.loadFailed': 'Yüklenemedi',
+  'adminWebSitesi.companyInfo.saved': 'Şirket bilgileri kaydedildi',
+  'adminWebSitesi.companyInfo.saveFailed': 'Kaydedilemedi',
+  'adminWebSitesi.companyInfo.submit': 'Kaydet',
+} as const satisfies Record<string, string>;

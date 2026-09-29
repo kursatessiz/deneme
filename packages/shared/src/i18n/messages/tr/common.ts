@@ -39,4 +39,11 @@ export const trCommon = {
   'common.dateRange.thisYear': 'Bu yıl',
   'common.forbidden.title': 'Bu sayfayı görüntüleme yetkiniz yok',
   'common.forbidden.description': 'Erişim için işletme sahibinizden ilgili izni talep edin.',
+  'common.member': 'Üye',
+  'common.invalidForm': 'Form geçersiz',
+  'common.invalidTimeRange': 'Geçersiz zaman aralığı',
+  'common.loadFailed': 'Veriler yüklenemedi',
+  'common.invalidAddress': 'Geçersiz adres',
+  'common.invalidOrigin': 'Geçersiz origin (ör. https://ornek.com)',
+  'common.invalidLink': 'Geçersiz bağlantı',
 } as const satisfies Record<string, string>;

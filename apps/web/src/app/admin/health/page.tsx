@@ -1,7 +1,7 @@
 'use client';
 
 import { useBff } from '@/lib/session/use-bff';
-import { useLocale } from '@/components/i18n/I18nProvider';
+import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { LoadingState, ErrorState } from '@/components/common/DataState';
 
 interface SystemHealth {
@@ -30,14 +30,15 @@ function StatusChip({ ok, label }: { ok: boolean; label: string }) {
 
 export default function SystemHealthPage() {
   const locale = useLocale();
+  const t = useT();
   const { data, loading, error } = useBff<SystemHealth>('admin/health', null);
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold">Sistem Sağlığı</h2>
+        <h2 className="text-xl font-bold">{t('adminHealth.title')}</h2>
         <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          Veritabanı, kuyruk, zamanlayıcı ve SMS sağlayıcı durumu
+          {t('adminHealth.subtitle')}
         </p>
       </div>
 
@@ -47,59 +48,68 @@ export default function SystemHealthPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="p-5 border space-y-2" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Veritabanı</h3>
-              <StatusChip ok={data.database.status === 'ok'} label={data.database.status === 'ok' ? 'Sağlıklı' : 'Hata'} />
+              <h3 className="text-sm font-semibold">{t('adminHealth.database.title')}</h3>
+              <StatusChip ok={data.database.status === 'ok'} label={data.database.status === 'ok' ? t('adminHealth.database.healthy') : t('adminHealth.database.error')} />
             </div>
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Gecikme: {data.database.latencyMs} ms</p>
+            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{t('adminHealth.database.latency', { ms: data.database.latencyMs })}</p>
           </div>
 
           <div className="p-5 border space-y-2" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Redis</h3>
-              <StatusChip ok={data.redis.status !== 'error'} label={data.redis.status === 'ok' ? 'Sağlıklı' : data.redis.status === 'not_configured' ? 'Yapılandırılmamış' : 'Hata'} />
+              <h3 className="text-sm font-semibold">{t('adminHealth.redis.title')}</h3>
+              <StatusChip
+                ok={data.redis.status !== 'error'}
+                label={data.redis.status === 'ok' ? t('adminHealth.redis.healthy') : data.redis.status === 'not_configured' ? t('adminHealth.redis.notConfigured') : t('adminHealth.redis.error')}
+              />
             </div>
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Kuyruk derinliği: {data.queueDepth ?? '-'}</p>
+            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{t('adminHealth.redis.queueDepth', { value: data.queueDepth ?? '-' })}</p>
           </div>
 
           <div className="p-5 border space-y-2" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-            <h3 className="text-sm font-semibold">Zamanlayıcı (Heartbeat)</h3>
+            <h3 className="text-sm font-semibold">{t('adminHealth.heartbeat.title')}</h3>
             <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              Son çalışma: {data.lastHeartbeatRunAt ? new Date(data.lastHeartbeatRunAt).toLocaleString(locale) : 'Henüz çalışmadı'}
+              {t('adminHealth.heartbeat.lastRun', {
+                value: data.lastHeartbeatRunAt ? new Date(data.lastHeartbeatRunAt).toLocaleString(locale) : t('adminHealth.heartbeat.neverRun'),
+              })}
             </p>
           </div>
 
           <div className="p-5 border space-y-2" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Webhook Teslimatları</h3>
-              <StatusChip ok={data.failedWebhookDeliveries === 0} label={`${data.failedWebhookDeliveries} başarısız`} />
+              <h3 className="text-sm font-semibold">{t('adminHealth.webhooks.title')}</h3>
+              <StatusChip ok={data.failedWebhookDeliveries === 0} label={t('adminHealth.webhooks.failed', { count: data.failedWebhookDeliveries })} />
             </div>
           </div>
 
           <div className="p-5 border space-y-2 sm:col-span-2" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">SMS Sağlayıcı Bakiyesi</h3>
+              <h3 className="text-sm font-semibold">{t('adminHealth.smsProvider.title')}</h3>
               {data.smsProvider && (
                 <StatusChip
                   ok={data.smsProvider.status === 'ok' || data.smsProvider.status === 'skipped'}
                   label={
                     data.smsProvider.status === 'ok'
-                      ? 'Sağlıklı'
+                      ? t('adminHealth.smsProvider.healthy')
                       : data.smsProvider.status === 'low_balance'
-                        ? 'Düşük bakiye'
+                        ? t('adminHealth.smsProvider.lowBalance')
                         : data.smsProvider.status === 'skipped'
-                          ? 'MOCK sağlayıcı'
-                          : 'Hata'
+                          ? t('adminHealth.smsProvider.mock')
+                          : t('adminHealth.smsProvider.error')
                   }
                 />
               )}
             </div>
             {data.smsProvider ? (
               <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                Sağlayıcı: {data.smsProvider.provider} · Bakiye: {data.smsProvider.credits ?? '-'} · Eşik: {data.smsProvider.threshold} · Son kontrol:{' '}
-                {new Date(data.smsProvider.checkedAt).toLocaleString(locale)}
+                {t('adminHealth.smsProvider.summary', {
+                  provider: data.smsProvider.provider,
+                  balance: data.smsProvider.credits ?? '-',
+                  threshold: data.smsProvider.threshold,
+                  checkedAt: new Date(data.smsProvider.checkedAt).toLocaleString(locale),
+                })}
               </p>
             ) : (
-              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Henüz kontrol edilmedi (zamanlayıcı ilk çalıştığında eklenir)</p>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{t('adminHealth.smsProvider.neverChecked')}</p>
             )}
           </div>
         </div>

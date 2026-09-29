@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, ErrorState, EmptyState } from '@/components/common/DataState';
+import { useT } from '@/components/i18n/I18nProvider';
 
 interface MessageTemplateRow {
   id: string;
@@ -30,6 +31,7 @@ const inputStyle: React.CSSProperties = {
 };
 
 export default function ContentPage() {
+  const t = useT();
   const [refreshKey, setRefreshKey] = useState(0);
   const { data: templates, loading: tLoading, error: tError } = useBff<{ items: MessageTemplateRow[] }>('admin/content/message-templates', null, refreshKey);
   const { data: docs, loading: dLoading, error: dError } = useBff<{ items: DocumentVersionRow[] }>('admin/content/document-versions', null, refreshKey);
@@ -60,7 +62,7 @@ export default function ContentPage() {
       });
       refresh();
     } catch (err) {
-      setTplError(err instanceof BffError ? err.message : 'Kaydedilemedi');
+      setTplError(err instanceof BffError ? err.message : t('adminContent.templates.saveFailed'));
     }
   };
 
@@ -74,7 +76,7 @@ export default function ContentPage() {
       });
       refresh();
     } catch (err) {
-      setDocError(err instanceof BffError ? err.message : 'Yayınlanamadı');
+      setDocError(err instanceof BffError ? err.message : t('adminContent.documents.saveFailed'));
     }
   };
 
@@ -82,39 +84,40 @@ export default function ContentPage() {
     <div className="space-y-10" key={refreshKey}>
       <section className="space-y-4">
         <div>
-          <h2 className="text-xl font-bold">Mesaj Şablonları</h2>
+          <h2 className="text-xl font-bold">{t('adminContent.templates.title')}</h2>
           <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-            İşletme (studio) ID boş bırakılırsa global varsayılan şablon güncellenir
+            {t('adminContent.templates.subtitle')}
           </p>
         </div>
         <form onSubmit={submitTemplate} className="p-5 border space-y-3" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
           <div className="grid grid-cols-2 gap-3">
-            <input placeholder="İşletme ID (boş = global)" value={tplForm.studioId} onChange={(e) => setTplForm({ ...tplForm, studioId: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
-            <input required placeholder="Anahtar (ör: BOOKING_REMINDER)" value={tplForm.key} onChange={(e) => setTplForm({ ...tplForm, key: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
+            <input placeholder={t('adminContent.templates.studioId')} value={tplForm.studioId} onChange={(e) => setTplForm({ ...tplForm, studioId: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
+            <input required placeholder={t('adminContent.templates.key')} value={tplForm.key} onChange={(e) => setTplForm({ ...tplForm, key: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
             <select value={tplForm.channel} onChange={(e) => setTplForm({ ...tplForm, channel: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle}>
-              <option value="SMS">SMS</option>
-              <option value="WHATSAPP">WhatsApp</option>
-              <option value="PUSH">Push</option>
-              <option value="EMAIL">E-posta</option>
+              <option value="SMS">{t('adminContent.templates.channel.SMS')}</option>
+              <option value="WHATSAPP">{t('adminContent.templates.channel.WHATSAPP')}</option>
+              <option value="PUSH">{t('adminContent.templates.channel.PUSH')}</option>
+              <option value="EMAIL">{t('adminContent.templates.channel.EMAIL')}</option>
             </select>
             {tplForm.channel === 'WHATSAPP' && (
-              <input required placeholder="Onaylı WhatsApp şablon adı" value={tplForm.whatsappTemplateName} onChange={(e) => setTplForm({ ...tplForm, whatsappTemplateName: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
+              <input required placeholder={t('adminContent.templates.whatsappName')} value={tplForm.whatsappTemplateName} onChange={(e) => setTplForm({ ...tplForm, whatsappTemplateName: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
             )}
-            <textarea required placeholder="Şablon metni ({{placeholder}} kullanılabilir)" value={tplForm.body} onChange={(e) => setTplForm({ ...tplForm, body: e.target.value })} className="border px-3 py-2 text-sm col-span-2" style={inputStyle} rows={2} />
+            <textarea required placeholder={t('adminContent.templates.body')} value={tplForm.body} onChange={(e) => setTplForm({ ...tplForm, body: e.target.value })} className="border px-3 py-2 text-sm col-span-2" style={inputStyle} rows={2} />
           </div>
           {tplError && <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{tplError}</p>}
           <button type="submit" className="px-4 py-2 text-sm font-medium" style={{ borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
-            Kaydet
+            {t('adminContent.templates.submit')}
           </button>
         </form>
         {tLoading && <LoadingState />}
         {tError && <ErrorState message={tError} />}
-        {!tLoading && !tError && (!templates || templates.items.length === 0) && <EmptyState title="Henüz şablon yok" />}
+        {!tLoading && !tError && (!templates || templates.items.length === 0) && <EmptyState title={t('adminContent.templates.empty')} />}
         {!tLoading && !tError && templates && templates.items.length > 0 && (
           <ul className="text-sm space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
-            {templates.items.map((t) => (
-              <li key={t.id}>
-                {t.key} · {t.channel} · {t.studioId ? 'kiracı override' : 'global'} {t.isActive ? '' : '(pasif)'}
+            {templates.items.map((tpl) => (
+              <li key={tpl.id}>
+                {tpl.key} · {tpl.channel} · {tpl.studioId ? t('adminContent.templates.rowScope.tenant') : t('adminContent.templates.rowScope.global')}{' '}
+                {tpl.isActive ? '' : t('adminContent.templates.rowInactive')}
               </li>
             ))}
           </ul>
@@ -123,37 +126,38 @@ export default function ContentPage() {
 
       <section className="space-y-4">
         <div>
-          <h2 className="text-xl font-bold">Belge Sürümleri</h2>
+          <h2 className="text-xl font-bold">{t('adminContent.documents.title')}</h2>
           <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-            Sözleşme/KVKK metinleri; her yayın yeni bir sürüm ekler, önceki sürümler değişmez
+            {t('adminContent.documents.subtitle')}
           </p>
         </div>
         <form onSubmit={submitDocument} className="p-5 border space-y-3" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
           <div className="grid grid-cols-2 gap-3">
-            <input placeholder="İşletme ID (boş = global)" value={docForm.studioId} onChange={(e) => setDocForm({ ...docForm, studioId: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
+            <input placeholder={t('adminContent.documents.studioId')} value={docForm.studioId} onChange={(e) => setDocForm({ ...docForm, studioId: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
             <select value={docForm.type} onChange={(e) => setDocForm({ ...docForm, type: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle}>
-              <option value="KVKK_NOTICE">KVKK Aydınlatma Metni</option>
-              <option value="MEMBERSHIP_CONTRACT">Üyelik Sözleşmesi</option>
-              <option value="EXPLICIT_CONSENT">Açık Rıza Metni</option>
-              <option value="HEALTH_WAIVER">Sağlık Beyanı</option>
-              <option value="HEALTH_DATA">Sağlık Verisi Paylaşım Rızası</option>
+              <option value="KVKK_NOTICE">{t('adminContent.documents.type.KVKK_NOTICE')}</option>
+              <option value="MEMBERSHIP_CONTRACT">{t('adminContent.documents.type.MEMBERSHIP_CONTRACT')}</option>
+              <option value="EXPLICIT_CONSENT">{t('adminContent.documents.type.EXPLICIT_CONSENT')}</option>
+              <option value="HEALTH_WAIVER">{t('adminContent.documents.type.HEALTH_WAIVER')}</option>
+              <option value="HEALTH_DATA">{t('adminContent.documents.type.HEALTH_DATA')}</option>
             </select>
-            <input required placeholder="Başlık" value={docForm.title} onChange={(e) => setDocForm({ ...docForm, title: e.target.value })} className="border px-3 py-2 text-sm col-span-2" style={inputStyle} />
-            <textarea required placeholder="Metin" value={docForm.body} onChange={(e) => setDocForm({ ...docForm, body: e.target.value })} className="border px-3 py-2 text-sm col-span-2" style={inputStyle} rows={4} />
+            <input required placeholder={t('adminContent.documents.titleField')} value={docForm.title} onChange={(e) => setDocForm({ ...docForm, title: e.target.value })} className="border px-3 py-2 text-sm col-span-2" style={inputStyle} />
+            <textarea required placeholder={t('adminContent.documents.body')} value={docForm.body} onChange={(e) => setDocForm({ ...docForm, body: e.target.value })} className="border px-3 py-2 text-sm col-span-2" style={inputStyle} rows={4} />
           </div>
           {docError && <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{docError}</p>}
           <button type="submit" className="px-4 py-2 text-sm font-medium" style={{ borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
-            Yeni Sürüm Yayınla
+            {t('adminContent.documents.submit')}
           </button>
         </form>
         {dLoading && <LoadingState />}
         {dError && <ErrorState message={dError} />}
-        {!dLoading && !dError && (!docs || docs.items.length === 0) && <EmptyState title="Henüz belge yok" />}
+        {!dLoading && !dError && (!docs || docs.items.length === 0) && <EmptyState title={t('adminContent.documents.empty')} />}
         {!dLoading && !dError && docs && docs.items.length > 0 && (
           <ul className="text-sm space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
             {docs.items.map((d) => (
               <li key={d.id}>
-                {d.title} · {d.type} v{d.version} · {d.studioId ? 'kiracı' : 'global'} {d.publishedAt ? '' : '(taslak)'}
+                {d.title} · {d.type} v{d.version} · {d.studioId ? t('adminContent.documents.rowScope.tenant') : t('adminContent.documents.rowScope.global')}{' '}
+                {d.publishedAt ? '' : t('adminContent.documents.rowDraft')}
               </li>
             ))}
           </ul>

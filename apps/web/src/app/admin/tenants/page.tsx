@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
+import { useT } from '@/components/i18n/I18nProvider';
 
 interface TenantListItem {
   id: string;
@@ -27,20 +28,10 @@ const inputStyle: React.CSSProperties = {
 
 /** Countries with explicit region defaults (packages/shared countryDefaultsOf); any other ISO code is also
  * accepted by the API and falls back to USD/UTC/NONE/en, completed later from the studio's region settings. */
-const COUNTRY_OPTIONS = [
-  { code: 'TR', label: 'Türkiye' },
-  { code: 'US', label: 'Amerika Birleşik Devletleri' },
-  { code: 'CA', label: 'Kanada' },
-  { code: 'GB', label: 'Birleşik Krallık' },
-  { code: 'DE', label: 'Almanya' },
-  { code: 'FR', label: 'Fransa' },
-  { code: 'ES', label: 'İspanya' },
-  { code: 'IT', label: 'İtalya' },
-  { code: 'NL', label: 'Hollanda' },
-  { code: 'AE', label: 'Birleşik Arap Emirlikleri' },
-];
+const COUNTRY_CODES = ['TR', 'US', 'CA', 'GB', 'DE', 'FR', 'ES', 'IT', 'NL', 'AE'] as const;
 
 function CreateTenantForm({ onCreated }: { onCreated: () => void }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +59,7 @@ function CreateTenantForm({ onCreated }: { onCreated: () => void }) {
       setForm({ name: '', slug: '', businessTypeTemplateKey: '', planKey: '', countryCode: 'TR', ownerFirstName: '', ownerLastName: '', ownerPhone: '' });
       onCreated();
     } catch (err) {
-      setError(err instanceof BffError ? err.message : 'İşletme oluşturulamadı');
+      setError(err instanceof BffError ? err.message : t('adminTenants.form.createFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -81,7 +72,7 @@ function CreateTenantForm({ onCreated }: { onCreated: () => void }) {
         className="px-4 py-2 text-sm font-medium"
         style={{ borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
       >
-        Yeni İşletme Oluştur
+        {t('adminTenants.createButton')}
       </button>
     );
   }
@@ -92,29 +83,29 @@ function CreateTenantForm({ onCreated }: { onCreated: () => void }) {
       className="p-5 border space-y-3"
       style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}
     >
-      <h3 className="text-sm font-semibold">Yeni İşletme</h3>
+      <h3 className="text-sm font-semibold">{t('adminTenants.form.title')}</h3>
       <div className="grid grid-cols-2 gap-3">
-        <input required placeholder="İşletme adı" value={form.name} onChange={set('name')} className="border px-3 py-2 text-sm" style={inputStyle} />
-        <input required placeholder="Slug (ör: yeni-studyo)" value={form.slug} onChange={set('slug')} className="border px-3 py-2 text-sm" style={inputStyle} />
+        <input required placeholder={t('adminTenants.form.name')} value={form.name} onChange={set('name')} className="border px-3 py-2 text-sm" style={inputStyle} />
+        <input required placeholder={t('adminTenants.form.slug')} value={form.slug} onChange={set('slug')} className="border px-3 py-2 text-sm" style={inputStyle} />
         <input
           required
-          placeholder="İşletme türü anahtarı (ör: pilates_studio)"
+          placeholder={t('adminTenants.form.businessType')}
           value={form.businessTypeTemplateKey}
           onChange={set('businessTypeTemplateKey')}
           className="border px-3 py-2 text-sm"
           style={inputStyle}
         />
-        <input required placeholder="Plan anahtarı (ör: starter)" value={form.planKey} onChange={set('planKey')} className="border px-3 py-2 text-sm" style={inputStyle} />
+        <input required placeholder={t('adminTenants.form.plan')} value={form.planKey} onChange={set('planKey')} className="border px-3 py-2 text-sm" style={inputStyle} />
         <select required value={form.countryCode} onChange={set('countryCode')} className="border px-3 py-2 text-sm" style={inputStyle}>
-          {COUNTRY_OPTIONS.map((c) => (
-            <option key={c.code} value={c.code}>
-              {c.label}
+          {COUNTRY_CODES.map((code) => (
+            <option key={code} value={code}>
+              {t(`adminTenants.country.${code}`)}
             </option>
           ))}
         </select>
-        <input required placeholder="Sahibin adı" value={form.ownerFirstName} onChange={set('ownerFirstName')} className="border px-3 py-2 text-sm" style={inputStyle} />
-        <input required placeholder="Sahibin soyadı" value={form.ownerLastName} onChange={set('ownerLastName')} className="border px-3 py-2 text-sm" style={inputStyle} />
-        <input required placeholder="Sahibin telefonu (05XX...)" value={form.ownerPhone} onChange={set('ownerPhone')} className="border px-3 py-2 text-sm" style={inputStyle} />
+        <input required placeholder={t('adminTenants.form.ownerFirstName')} value={form.ownerFirstName} onChange={set('ownerFirstName')} className="border px-3 py-2 text-sm" style={inputStyle} />
+        <input required placeholder={t('adminTenants.form.ownerLastName')} value={form.ownerLastName} onChange={set('ownerLastName')} className="border px-3 py-2 text-sm" style={inputStyle} />
+        <input required placeholder={t('adminTenants.form.ownerPhone')} value={form.ownerPhone} onChange={set('ownerPhone')} className="border px-3 py-2 text-sm" style={inputStyle} />
       </div>
       {error && <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{error}</p>}
       <div className="flex gap-2">
@@ -124,10 +115,10 @@ function CreateTenantForm({ onCreated }: { onCreated: () => void }) {
           className="px-4 py-2 text-sm font-medium"
           style={{ borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
         >
-          {submitting ? 'Oluşturuluyor...' : 'Oluştur ve Davet Gönder'}
+          {submitting ? t('adminTenants.form.submitting') : t('adminTenants.form.submit')}
         </button>
         <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          Vazgeç
+          {t('adminTenants.form.cancel')}
         </button>
       </div>
     </form>
@@ -135,6 +126,7 @@ function CreateTenantForm({ onCreated }: { onCreated: () => void }) {
 }
 
 export default function TenantsPage() {
+  const t = useT();
   const [refreshKey, setRefreshKey] = useState(0);
   const { data, loading, error, forbidden } = useBff<{ items: TenantListItem[] }>('admin/tenants', null, refreshKey);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -147,18 +139,30 @@ export default function TenantsPage() {
       await bffFetch(`admin/tenants/${tenant.id}/${tenant.isActive ? 'suspend' : 'reactivate'}`, { method: 'POST' });
       refresh();
     } catch (err) {
-      setActionError(err instanceof BffError ? err.message : 'İşlem başarısız oldu');
+      setActionError(err instanceof BffError ? err.message : t('adminTenants.actionFailed'));
     }
   };
 
-  if (forbidden) return <EmptyState title="Erişim yok" description="Bu sayfayı görüntüleme yetkiniz yok." />;
+  if (forbidden) return <EmptyState title={t('adminTenants.accessDeniedTitle')} description={t('adminTenants.accessDeniedDescription')} />;
+
+  const columns = [
+    t('adminTenants.table.name'),
+    t('adminTenants.table.slug'),
+    t('adminTenants.table.businessType'),
+    t('adminTenants.table.plan'),
+    t('adminTenants.table.branches'),
+    t('adminTenants.table.members'),
+    t('adminTenants.table.staff'),
+    t('adminTenants.table.status'),
+    '',
+  ];
 
   return (
     <div className="space-y-6" key={refreshKey}>
       <div>
-        <h2 className="text-xl font-bold">İşletmeler</h2>
+        <h2 className="text-xl font-bold">{t('adminTenants.title')}</h2>
         <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          Tüm kiracıların listesi, oluşturma ve askıya alma
+          {t('adminTenants.subtitle')}
         </p>
       </div>
 
@@ -167,44 +171,44 @@ export default function TenantsPage() {
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
-      {!loading && !error && (!data || data.items.length === 0) && <EmptyState title="Henüz işletme yok" />}
+      {!loading && !error && (!data || data.items.length === 0) && <EmptyState title={t('adminTenants.empty')} />}
       {!loading && !error && data && data.items.length > 0 && (
         <div className="overflow-x-auto border" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)' }}>
           <table className="w-full text-sm">
             <thead>
               <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
-                {['İsim', 'Slug', 'İşletme Türü', 'Plan', 'Şube', 'Üye', 'Personel', 'Durum', ''].map((h) => (
-                  <th key={h} className="text-left px-3 py-2 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                {columns.map((h, i) => (
+                  <th key={i} className="text-left px-3 py-2 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
                     {h}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {data.items.map((t) => (
-                <tr key={t.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
-                  <td className="px-3 py-2 font-medium">{t.name}</td>
-                  <td className="px-3 py-2" style={{ color: 'var(--color-text-muted)' }}>{t.slug}</td>
-                  <td className="px-3 py-2">{t.businessTypeTemplateKey ?? '-'}</td>
-                  <td className="px-3 py-2">{t.planKey ?? '-'} {t.subscriptionStatus ? `(${t.subscriptionStatus})` : ''}</td>
-                  <td className="px-3 py-2">{t.branchCount}</td>
-                  <td className="px-3 py-2">{t.activeMemberCount}</td>
-                  <td className="px-3 py-2">{t.staffCount}</td>
+              {data.items.map((tenant) => (
+                <tr key={tenant.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
+                  <td className="px-3 py-2 font-medium">{tenant.name}</td>
+                  <td className="px-3 py-2" style={{ color: 'var(--color-text-muted)' }}>{tenant.slug}</td>
+                  <td className="px-3 py-2">{tenant.businessTypeTemplateKey ?? '-'}</td>
+                  <td className="px-3 py-2">{tenant.planKey ?? '-'} {tenant.subscriptionStatus ? `(${tenant.subscriptionStatus})` : ''}</td>
+                  <td className="px-3 py-2">{tenant.branchCount}</td>
+                  <td className="px-3 py-2">{tenant.activeMemberCount}</td>
+                  <td className="px-3 py-2">{tenant.staffCount}</td>
                   <td className="px-3 py-2">
                     <span
                       className="px-2 py-0.5 text-xs font-medium"
                       style={{
                         borderRadius: 'var(--radius-chip)',
-                        backgroundColor: t.isActive ? 'var(--color-surface-muted)' : 'var(--color-danger)',
-                        color: t.isActive ? 'var(--color-text-secondary)' : 'var(--color-on-primary)',
+                        backgroundColor: tenant.isActive ? 'var(--color-surface-muted)' : 'var(--color-danger)',
+                        color: tenant.isActive ? 'var(--color-text-secondary)' : 'var(--color-on-primary)',
                       }}
                     >
-                      {t.isActive ? 'Aktif' : 'Askıda'}
+                      {tenant.isActive ? t('adminTenants.status.active') : t('adminTenants.status.suspended')}
                     </span>
                   </td>
                   <td className="px-3 py-2">
-                    <button onClick={() => toggleActive(t)} className="text-xs font-medium underline" style={{ color: 'var(--color-text-secondary)' }}>
-                      {t.isActive ? 'Askıya al' : 'Yeniden etkinleştir'}
+                    <button onClick={() => toggleActive(tenant)} className="text-xs font-medium underline" style={{ color: 'var(--color-text-secondary)' }}>
+                      {tenant.isActive ? t('adminTenants.suspend') : t('adminTenants.reactivate')}
                     </button>
                   </td>
                 </tr>

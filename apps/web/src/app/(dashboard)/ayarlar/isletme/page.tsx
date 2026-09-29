@@ -386,7 +386,7 @@ function FeedbackSection() {
   const doSave = () => {
     setUrlError(null);
     if (form.googleReviewUrl) {
-      const check = validateGoogleReviewUrl(form.googleReviewUrl);
+      const check = validateGoogleReviewUrl(form.googleReviewUrl, { invalidLink: t('common.invalidLink') });
       if (!check.valid) {
         setUrlError(check.error);
         return;
@@ -448,7 +448,7 @@ function EmbedOriginsSection() {
   const add = () => {
     const v = draft.trim();
     if (!v) return;
-    const check = validateEmbedOrigin(v);
+    const check = validateEmbedOrigin(v, { invalidOrigin: t('common.invalidOrigin') });
     if (!check.valid) {
       setDraftError(check.error);
       return;

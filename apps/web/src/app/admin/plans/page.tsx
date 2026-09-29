@@ -56,7 +56,7 @@ export default function PlansPage() {
       setForm({ key: '', name: '', priceMonthly: '', maxBranches: '', maxActiveMembers: '', maxStaff: '', aiBudget: '' });
       refresh();
     } catch (err) {
-      setFormError(err instanceof BffError ? err.message : 'Plan kaydedilemedi');
+      setFormError(err instanceof BffError ? err.message : t('adminPlans.form.saveFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -67,26 +67,26 @@ export default function PlansPage() {
     refresh();
   };
 
-  if (forbidden) return <EmptyState title="Erişim yok" />;
+  if (forbidden) return <EmptyState title={t('adminPlans.accessDenied')} />;
 
   return (
     <div className="space-y-6" key={refreshKey}>
       <div>
-        <h2 className="text-xl font-bold">Planlar</h2>
+        <h2 className="text-xl font-bold">{t('adminPlans.title')}</h2>
         <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          Şube, üye ve personel limitleri kiracının aktif aboneliğinden okunur
+          {t('adminPlans.subtitle')}
         </p>
       </div>
 
       <form onSubmit={submit} className="p-5 border space-y-3" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-        <h3 className="text-sm font-semibold">Plan oluştur / güncelle</h3>
+        <h3 className="text-sm font-semibold">{t('adminPlans.form.title')}</h3>
         <div className="grid grid-cols-3 gap-3">
-          <input required placeholder="Anahtar (ör: enterprise)" value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
-          <input required placeholder="Ad" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
-          <input required type="number" placeholder="Aylık fiyat (TL)" value={form.priceMonthly} onChange={(e) => setForm({ ...form, priceMonthly: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
-          <input type="number" placeholder="Max şube" value={form.maxBranches} onChange={(e) => setForm({ ...form, maxBranches: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
-          <input type="number" placeholder="Max aktif üye" value={form.maxActiveMembers} onChange={(e) => setForm({ ...form, maxActiveMembers: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
-          <input type="number" placeholder="Max personel" value={form.maxStaff} onChange={(e) => setForm({ ...form, maxStaff: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
+          <input required placeholder={t('adminPlans.form.key')} value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
+          <input required placeholder={t('adminPlans.form.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
+          <input required type="number" placeholder={t('adminPlans.form.priceMonthly')} value={form.priceMonthly} onChange={(e) => setForm({ ...form, priceMonthly: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
+          <input type="number" placeholder={t('adminPlans.form.maxBranches')} value={form.maxBranches} onChange={(e) => setForm({ ...form, maxBranches: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
+          <input type="number" placeholder={t('adminPlans.form.maxActiveMembers')} value={form.maxActiveMembers} onChange={(e) => setForm({ ...form, maxActiveMembers: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
+          <input type="number" placeholder={t('adminPlans.form.maxStaff')} value={form.maxStaff} onChange={(e) => setForm({ ...form, maxStaff: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
           <input
             type="number"
             min={0}
@@ -101,7 +101,7 @@ export default function PlansPage() {
         </div>
         {formError && <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{formError}</p>}
         <button type="submit" disabled={submitting} className="px-4 py-2 text-sm font-medium" style={{ borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
-          {submitting ? 'Kaydediliyor...' : 'Kaydet'}
+          {submitting ? t('adminPlans.form.submitting') : t('adminPlans.form.submit')}
         </button>
       </form>
 
@@ -117,14 +117,16 @@ export default function PlansPage() {
                   className="px-2 py-0.5 text-xs font-medium"
                   style={{ borderRadius: 'var(--radius-chip)', backgroundColor: p.isActive ? 'var(--color-surface-muted)' : 'var(--color-danger)', color: p.isActive ? 'var(--color-text-secondary)' : 'var(--color-on-primary)' }}
                 >
-                  {p.isActive ? 'Aktif' : 'Pasif'}
+                  {p.isActive ? t('adminPlans.status.active') : t('adminPlans.status.inactive')}
                 </span>
               </div>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>{p.key} · {Number(p.priceMonthly).toLocaleString(locale)} TL/ay</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                {t('adminPlans.priceSummary', { key: p.key, price: Number(p.priceMonthly).toLocaleString(locale) })}
+              </p>
               <ul className="text-xs mt-3 space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
-                <li>Şube: {p.limits.maxBranches ?? 'sınırsız'}</li>
-                <li>Aktif üye: {p.limits.maxActiveMembers ?? 'sınırsız'}</li>
-                <li>Personel: {p.limits.maxStaff ?? 'sınırsız'}</li>
+                <li>{t('adminPlans.limits.branches', { value: p.limits.maxBranches ?? t('adminPlans.limits.unlimited') })}</li>
+                <li>{t('adminPlans.limits.members', { value: p.limits.maxActiveMembers ?? t('adminPlans.limits.unlimited') })}</li>
+                <li>{t('adminPlans.limits.staff', { value: p.limits.maxStaff ?? t('adminPlans.limits.unlimited') })}</li>
                 <li>
                   {p.limits.aiMonthlyBudgetCents !== undefined
                     ? t('adminAi.plan.budgetValue', {
@@ -134,7 +136,7 @@ export default function PlansPage() {
                 </li>
               </ul>
               <button onClick={() => toggleActive(p)} className="text-xs font-medium underline mt-3" style={{ color: 'var(--color-text-secondary)' }}>
-                {p.isActive ? 'Pasifleştir' : 'Etkinleştir'}
+                {p.isActive ? t('adminPlans.deactivate') : t('adminPlans.activate')}
               </button>
             </div>
           ))}

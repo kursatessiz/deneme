@@ -1,0 +1,26 @@
+import type { trAdminFeatureFlags } from '../tr/admin-feature-flags';
+
+export const enAdminFeatureFlags = {
+  'adminFeatureFlags.title': 'Feature Flags',
+  'adminFeatureFlags.subtitle': 'Resolution order: tenant > business type > global',
+  'adminFeatureFlags.knownKeys': 'Known keys: {keys}',
+  'adminFeatureFlags.form.title': 'Set flag',
+  'adminFeatureFlags.form.key': 'Key (e.g. gamification)',
+  'adminFeatureFlags.form.scope.GLOBAL': 'Global',
+  'adminFeatureFlags.form.scope.BUSINESS_TYPE': 'Business type',
+  'adminFeatureFlags.form.scope.TENANT': 'Tenant',
+  'adminFeatureFlags.form.businessTypeId': 'Business type template ID',
+  'adminFeatureFlags.form.studioId': 'Tenant (studio) ID',
+  'adminFeatureFlags.form.enabled': 'Enabled',
+  'adminFeatureFlags.form.saveFailed': 'Could not save',
+  'adminFeatureFlags.form.submit': 'Save',
+  'adminFeatureFlags.form.submitting': 'Saving...',
+  'adminFeatureFlags.accessDenied': 'No access',
+  'adminFeatureFlags.empty': 'No flags yet',
+  'adminFeatureFlags.table.key': 'Key',
+  'adminFeatureFlags.table.scope': 'Scope',
+  'adminFeatureFlags.table.target': 'Target',
+  'adminFeatureFlags.table.status': 'Status',
+  'adminFeatureFlags.status.on': 'On',
+  'adminFeatureFlags.status.off': 'Off',
+} as const satisfies Record<keyof typeof trAdminFeatureFlags, string>;
