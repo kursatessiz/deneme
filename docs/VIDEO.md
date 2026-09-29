@@ -64,6 +64,9 @@ isteğe bağlı video kütüphanesinin davranışını ve API'sini anlatır. Kod
     sahip üyeler.
   - Kilitli bir kart için `GET /video/content/self` yanıtı `isLocked: true`, Türkçe bir
     `lockedReason` döner ve **`sourceUrl` asla döndürülmez**.
+  - Aktif paket sorgusu ve kilit kuralı G5b'den beri topluluk modülüyle ortak tek çözümleyicidedir
+    (`CommunityAccessService`, `apps/api/src/modules/community`); topluluktaki VIDEO gönderileri de
+    aynı kilidi uygular (`docs/TOPLULUK.md`).
 - `VideoView`: üye+içerik başına tek satır (`@@unique([videoContentId, memberId])`); kaldığı yer
   (`lastPositionSeconds`), tamamlanma zamanı ve kredi tahsilatının yapıldığı an
   (`creditChargedAt`).

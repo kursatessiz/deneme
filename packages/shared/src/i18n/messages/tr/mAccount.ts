@@ -13,6 +13,7 @@ export const trMAccount = {
   'mAccount.menu.myAchievements': 'Başarılarım',
   'mAccount.menu.myPoints': 'Puanlarım',
   'mAccount.menu.events': 'Etkinlikler',
+  'mAccount.menu.community': 'Topluluk',
   'mAccount.menu.eventCheckIn': 'Etkinlik girişi',
   'mAccount.menu.referFriend': 'Arkadaşını getir',
   'mAccount.menu.health': 'Sağlık entegrasyonu',

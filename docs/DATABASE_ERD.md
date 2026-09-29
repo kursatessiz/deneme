@@ -157,6 +157,17 @@ erDiagram
     Studio ||--o{ PayoutConnection : configures
     Payout ||--o{ PayoutItem : contains
     Payment ||--o{ PayoutItem : matched_by
+    Studio ||--o{ AccessTier : defines
+    AccessTier ||--o{ AccessTierRule : grants_by
+    PackageDefinition ||--o{ AccessTierRule : unlocks
+    Studio ||--o{ CommunityPost : publishes
+    CommunityPost ||--o{ CommunityPostTier : requires
+    AccessTier ||--o{ CommunityPostTier : gates
+    VideoContent |o--o{ CommunityPost : featured_in
+    Membership |o--o{ CommunityPost : authors
+    CommunityPost ||--o{ CommunityComment : has
+    CommunityPost ||--o{ CommunityReaction : liked_by
+    Membership ||--o{ CommunityReaction : likes
 ```
 
 ## Platform Seviyesi
@@ -496,6 +507,18 @@ Oturumlar bilerek `session_schedules` tablosunda değildir: kapasite, bilet ve k
 | `payout_connections` | İşletme ve sağlayıcı başına eşitleme ayarı ve durumu: `provider_account_id` (Stripe bağlı hesabı), `last_synced_at`, `last_error` | (studio_id, provider) benzersiz; studio -> cascade |
 
 Ayrıntılar: `docs/BANKA_ODEMELERI.md`.
+## Topluluk ve erişim katmanları (G5b)
+
+| Tablo | Amaç | Kısıtlar |
+|---|---|---|
+| `access_tiers` | Kiracı verisi erişim katmanı: ad, açıklama | (studio_id, name) index; studio -> cascade |
+| `access_tier_rules` | Katmanın kuralı: `kind` (ACTIVE_MEMBER/ACTIVE_PACKAGE/PACKAGE_DEFINITION), paket kuralında `package_definition_id`; kurallardan biri yeterlidir | Paket kuralında paket zorunlu, diğerlerinde boş (CHECK); tier ve package_definition -> cascade (paket silinirse kural gider, katman kimseyi kapsamaz) |
+| `community_posts` | Üyelere özel gönderi: `type` (POST/VIDEO/FILE/ANNOUNCEMENT), `status` (DRAFT/PUBLISHED/ARCHIVED), başlık, düz metin gövde, video kütüphanesi bağlantısı, https dosya bağlantısı, sabitleme, yorum açık/kapalı, yazar üyeliği, paylaşım belirteci, yayın/arşiv zamanı | `status` CHECK; `share_token` benzersiz; (studio_id, status, pinned, published_at) index; video ve yazar -> set null |
+| `community_post_tiers` | Gönderinin gerektirdiği katmanlar (herhangi biri yeterli; hiç yoksa tüm aktif üyeler) | (post_id, tier_id) birincil anahtar; post -> cascade; tier -> NO ACTION (kullanılan katman silinemez) |
+| `community_comments` | Düz metin yorum (en fazla 1000 karakter), moderatör gizlemesi (`hidden_at`, `hidden_by_membership_id`), yumuşak silme (`deleted_at`) | (post_id, created_at) ve (studio_id, created_at) index; post -> cascade; yazar -> set null |
+| `community_reactions` | Beğeni | (post_id, membership_id) benzersiz; post ve membership -> cascade |
+
+Erişim kararı yalnızca API'de `CommunityAccessService` ile verilir ve video kütüphanesiyle paylaşılır. Ayrıntılar: `docs/TOPLULUK.md`.
 
 ## Denetim (Audit)
 

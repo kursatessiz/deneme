@@ -1,7 +1,8 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CommunityAccessService } from '../community/community-access.service';
 import type { TenantContext } from '../auth/tenant-context';
-import { EntitlementKind, Prisma, VideoContentVisibility } from '@platform/database';
+import { EntitlementKind, Prisma } from '@platform/database';
 import type {
   CreateVideoContentInput,
   ListVideoContentQueryInput,
@@ -16,7 +17,11 @@ const INSUFFICIENT_CREDIT = 'Pakette yeterli kredi kalmamıştır';
 
 @Injectable()
 export class ContentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    /** Single access resolver shared with the community feed (G5b). */
+    private readonly access: CommunityAccessService,
+  ) {}
 
   // ---------------------------------------------------------------------------
   // Staff CRUD
@@ -131,7 +136,7 @@ export class ContentService {
         skip: (query.page - 1) * query.pageSize,
         take: query.pageSize,
       }),
-      this.activePackageDefinitionIds(studioId, memberId),
+      this.access.activePackageDefinitionIds(studioId, memberId),
       this.prisma.videoView.findMany({ where: { studioId, memberId } }),
     ]);
 
@@ -139,7 +144,7 @@ export class ContentService {
     return contents.map((content) => {
       const dto = this.toDTO(content);
       const view = viewByContent.get(content.id);
-      const { locked, reason } = this.evaluateLock(content, activePackageDefIds);
+      const { locked, reason } = this.access.videoLock(content, activePackageDefIds);
       return {
         ...dto,
         // A locked card explains why but never reveals the playable source.
@@ -176,8 +181,8 @@ export class ContentService {
       throw new NotFoundException('Video içeriği bulunamadı');
     }
 
-    const activePackageDefIds = await this.activePackageDefinitionIds(studioId, memberId);
-    const { locked, reason } = this.evaluateLock(content, activePackageDefIds);
+    const activePackageDefIds = await this.access.activePackageDefinitionIds(studioId, memberId);
+    const { locked, reason } = this.access.videoLock(content, activePackageDefIds);
     if (locked) {
       throw new ForbiddenException(reason ?? 'Bu içeriğe erişiminiz yok');
     }
@@ -302,33 +307,6 @@ export class ContentService {
     if (count !== packageDefinitionIds.length) {
       throw new BadRequestException('Seçilen paketlerden biri bu işletmede bulunamadı');
     }
-  }
-
-  /** Package-definition ids covered by the member's currently ACTIVE, unexpired packages. */
-  private async activePackageDefinitionIds(studioId: string, memberId: string): Promise<Set<string>> {
-    const packages = await this.prisma.memberPackage.findMany({
-      where: { studioId, memberId, status: 'ACTIVE', endDate: { gte: new Date() } },
-      select: { packageDefinitionId: true },
-    });
-    return new Set(packages.map((p) => p.packageDefinitionId));
-  }
-
-  private evaluateLock(
-    content: { visibility: VideoContentVisibility; packages?: { packageDefinitionId: string }[] },
-    activePackageDefIds: Set<string>,
-  ): { locked: boolean; reason: string | null } {
-    if (content.visibility === VideoContentVisibility.ALL_MEMBERS) {
-      return { locked: false, reason: null };
-    }
-    if (content.visibility === VideoContentVisibility.MEMBERS_WITH_ACTIVE_PACKAGE) {
-      if (activePackageDefIds.size > 0) return { locked: false, reason: null };
-      return { locked: true, reason: 'Bu içeriği izlemek için aktif bir paketiniz olmalıdır' };
-    }
-    // SPECIFIC_PACKAGES
-    const required = content.packages ?? [];
-    const unlocked = required.some((p) => activePackageDefIds.has(p.packageDefinitionId));
-    if (unlocked) return { locked: false, reason: null };
-    return { locked: true, reason: 'Bu içerik yalnızca belirli paket sahiplerine açıktır' };
   }
 
   private toDTO(content: {

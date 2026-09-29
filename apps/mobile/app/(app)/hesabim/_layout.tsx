@@ -34,6 +34,7 @@ export default function HesabimLayout() {
       <Stack.Screen name="kisiler" options={{ title: t('mAccount.menu.contacts') }} />
       <Stack.Screen name="puanlarim" options={{ title: t('mLoyalty.title') }} />
       <Stack.Screen name="etkinlikler" options={{ title: t('mEvents.title') }} />
+      <Stack.Screen name="topluluk" options={{ title: t('mCommunity.title') }} />
       <Stack.Screen name="etkinlik" options={{ title: t('mEvents.title') }} />
       <Stack.Screen name="etkinlik-girisi" options={{ title: t('mEvents.checkin.title') }} />
       <Stack.Screen name="hizli-satis" options={{ title: t('mRetail.title') }} />

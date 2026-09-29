@@ -19,6 +19,7 @@ export const PROTECTED_PATHS = [
   '/riskli-uyeler',
   '/gelen-kutusu',
   '/etkinlikler',
+  '/topluluk',
   '/abonelik',
   '/tavsiye',
   '/admin',

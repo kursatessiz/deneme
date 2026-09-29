@@ -122,6 +122,13 @@ export const PERMISSIONS = {
   // H1: the tenant's own error reports (safe message, code, counts; never
   // stack traces or another tenant's data). Owner only by default.
   'errors.view': 'İşletmeye ait hata raporlarını görüntüleme',
+  // G5b: community feed and access tiers. Viewing lets staff read every
+  // post and comment regardless of tiers; reception and trainers get it by
+  // default, reception also moderates. Writing posts and tiers stays with
+  // the owner unless granted.
+  'community.view': 'Topluluk gönderilerini, yorumları ve erişim katmanlarını görüntüleme',
+  'community.manage': 'Topluluk gönderisi yazma, yayınlama, sabitleme, paylaşım bağlantısı ve erişim katmanlarını yönetme',
+  'community.moderate': 'Topluluk yorumlarını gizleme ve silme',
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
@@ -160,6 +167,7 @@ export const PERMISSION_AREAS = {
   Etkinlikler: ['events.view', 'events.manage', 'events.checkin'],
   'Perakende ve stok': ['retail.view', 'retail.sell', 'retail.manage', 'retail.refund'],
   Abonelik: ['billing.manage'],
+  Topluluk: ['community.view', 'community.manage', 'community.moderate'],
 } as const satisfies Record<string, readonly PermissionKey[]>;
 
 export type PermissionArea = keyof typeof PERMISSION_AREAS;
@@ -213,6 +221,8 @@ export const DEFAULT_ROLE_TEMPLATES: readonly DefaultRoleTemplate[] = [
       'events.checkin',
       'retail.view',
       'retail.sell',
+      'community.view',
+      'community.moderate',
     ],
   },
   {
@@ -229,6 +239,7 @@ export const DEFAULT_ROLE_TEMPLATES: readonly DefaultRoleTemplate[] = [
       'measurements.view',
       'measurements.manage',
       'commissions.view.own',
+      'community.view',
     ],
   },
   { key: 'member', name: 'Üye', isOwner: false, permissions: [] },
