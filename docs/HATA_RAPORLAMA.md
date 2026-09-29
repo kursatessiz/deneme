@@ -1,6 +1,6 @@
-# Hata Yakalama ve Raporlama (H1)
+# Hata Yakalama ve Raporlama (H1, H2)
 
-Platform genelindeki beklenmeyen hataları (API, web, arka plan işleri) yakalar, kişisel veriyi temizleyerek saklar, gruplar, süper adminlere e-posta ile uyarır ve işletme sahibine kendi işletmesinin hatalarını sade bir görünümle gösterir. Mobil yakalama H2'dedir.
+Platform genelindeki beklenmeyen hataları (API, web, mobil, arka plan işleri) yakalar, kişisel veriyi temizleyerek saklar, gruplar, süper adminlere e-posta ile uyarır ve işletme sahibine kendi işletmesinin hatalarını sade bir görünümle gösterir. H2 mobil yakalamayı (çevrimdışı kuyruk), kaynak haritası (source map) yüklemeyi ve yığın izlerinin sunucuda çözülmesini ekler.
 
 ## Mimari
 
@@ -26,6 +26,44 @@ ErrorSink arayüzü  ->  StorageErrorSink (Postgres)  ->  ErrorAlertsService (e-
 - **Süreç düzeyi**: `uncaughtException` ve `unhandledRejection` kaydedilir, kayıt en fazla 2 sn beklenir, ardından Node'un varsayılan sonucu korunur (hata yazdırılır, süreç 1 koduyla çıkar; konteyner yeniden başlatır). Yalnızca `main.ts` içinde kurulur, testlerde değil.
 - **Arka plan işleri**: `SchedulerProcessor` her çalıştırmaya yeni bir istek kimliği verir; hata `job` kaynağıyla kaydedilir ve BullMQ'nun yeniden deneme davranışı için tekrar fırlatılır. Süper adminin elle tetiklediği `POST /admin/scheduler/run` bir HTTP isteği olduğu için 5xx filtresinden geçer.
 - **Web**: `ErrorReporter` (kök layout'ta, satır içi script yok, nonce CSP altında çalışır) dinleyicileri kurar; `error.tsx` ve `global-error.tsx` dostça bir hata ekranı ve kısa hata kodu gösterir. BFF, API'ye ulaşamazsa veya API kendi kaydetmediği bir 5xx dönerse (`x-error-code` yoksa) bunu kaydeder; API'nin zaten kaydettiği 5xx ikinci kez kaydedilmez.
+
+## Mobil yakalama (H2)
+
+Kod `apps/mobile/src/errors/` altındadır; mantık (`reporterCore.ts`, `queue.ts`, `breadcrumbs.ts`) React Native'den bağımsızdır ve düz Node altında test edilir, `runtime.ts` gerçek bağımlılıkları bağlar.
+
+- **Hata ekranı**: `ErrorBoundary` (kök, sağlayıcıların dışında) ve Expo Router'ın `ErrorBoundary` dışa aktarımı aynı `ErrorFallback` ekranını gösterir: `mErrors` metinleri, 8 karakterlik hata kodu (web ile aynı türetme: olay kimliğinin ilk 8 onaltılık hanesi, büyük harf), "Tekrar dene". Ekran sağlayıcılar çökmüş olsa bile çalışsın diye temayı `resolveTheme()` ile, metinleri paketli katalogdan doğrudan alır. Aynı hata nesnesi için tek olay yazılır ve aynı kod gösterilir.
+- **Küresel yakalama**: `ErrorUtils.setGlobalHandler` (yakalanmamış JS hataları; ölümcül hata en fazla 500 ms diske yazılmayı bekledikten sonra platformun kendi işleyicisine devredilir) ve yakalanmamış Promise reddi (Hermes `enablePromiseRejectionTracker`; geliştirme modunda React Native'in kendi izleyicisi/LogBox kalır, JSC'de reddedilen Promise'ler yakalanmaz).
+- **Adımlar (breadcrumb)**: son 20 adım. Gezinme (Expo Router `usePathname`, kimlikler `:id`), `PrimaryButton` dokunuşları (yalnızca düğme etiketi, alan değeri asla) ve `apiRequest` istekleri (yöntem, sorgusuz ve kimliksiz rota, durum kodu; gövde ve başlık asla; ağ hatasında durum `0`; telemetri ucunun kendisi yazılmaz).
+- **Temizleme**: mesaj, yığın, `extra` ve adımlar paylaşılan `scrubPii`/`scrubRecord`'dan geçer (web ve sunucuyla aynı kod), sunucu yine yeniden temizler.
+- **Sürüm ve ortam**: `release` = `mobileRelease(uygulama sürümü, EAS Update kimliği)`: `1.4.0` veya bir güncellemeden gelen paketlerde `1.4.0-<update-id>` (`Constants.manifest2.id`). `environment` = EAS profilinin `APP_VARIANT` değeri (`preprod`, `production`; `app.config.ts` `extra.appVariant` olarak verir), yoksa geliştirmede `development`, aksi halde `production`.
+- **Çevrimdışı kuyruk**: her olay önce `AsyncStorage`'a yazılır (`platform.errors.queue`), sonra gönderilir. Sınır **50 olay** (aşılırsa en eski silinir); tekrar gönderime karşı olay kimliği tekildir. Gönderim en eskiden başlayarak **20 olay ve 64 KB** sınırlarına uyan gruplarla `POST /telemetry/errors`'a yapılır (`apiRequest`; oturum açıksa kimlikli ve `x-studio-id` ile, değilse kimliksiz). Yalnızca API'nin kabul ettiği olaylar kuyruktan silinir: ağ yok, 429 veya 5xx ise grup kalır ve gönderim durur; 400/413/422 ise grup geçersiz sayılıp silinir (sonsuz döngü olmasın).
+- **Ne zaman boşaltılır**: uygulama açılışında, uygulama öne geldiğinde (`AppState` `active`), bir hatadan 1 sn sonra ve kuyruk doluyken 30 sn'den başlayıp 5 dakikaya kadar katlanan aralıkla yeniden deneme. Bağlantının dönüşü için yeni bir bağımlılık (NetInfo) eklenmedi; yeniden deneme sayacı bu işi görür.
+- **Sınırlar ve örnekleme**: oturum (uygulama süreci) başına en fazla 30 olay, saniyede bir tekilleştirme, oturum kimliği (`sessionId`) hız sınırı içindir. API halka açık bir örnekleme yapılandırması sunmadığından istemci örnekleme oranı 1'dir; oran sunucuda `ERROR_CLIENT_SAMPLE_RATE` ile uygulanır.
+
+## Kaynak haritaları ve yığın izi çözümleme (H2)
+
+Küçültülmüş (minified) yığın izleri okunamaz; API, ilgili sürümün yüklenmiş kaynak haritalarıyla `web` ve `mobile` olaylarının yığınını çözer. **Ham yığın `error_events.stack`'te, çözülmüş yığın `error_events.symbolicated_stack`'te saklanır**; `/admin/hatalar/[id]` çözülmüş olanı gösterir, ham olan "Ham yığın izi" altında durur.
+
+**Yükleme ucu** `POST /admin/errors/sourcemaps` (gövde: `{ release, platform: 'web'|'mobile', path, map }`):
+- Kullanıcı oturumu değil, `SOURCEMAP_UPLOAD_TOKEN` gerekir (`x-sourcemap-token` veya `Authorization: Bearer`): CI'nin süper admin girişi yoktur ve belirteç platform sahibinin sırrıdır. Belirteç tanımlı değilse uç kapalıdır (403). Belirteç, büyük gövde okunmadan önce `configureBodyParsers` içinde denetlenir; süper admin JWT'si tek başına yetmez.
+- Sınırlar: tek harita 10 MB, istek 24 MB (413), sürüm ve platform başına en fazla 2000 harita (409), gövde `version: 3` bir harita olmalı ve `sections` (indeksli harita) içermemeli, `path` normalize edilir (`..`, ters eğik çizgi, denetim karakteri reddedilir), sürüm `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`.
+- Depolama: `SOURCEMAP_DIR/<platform>/<sürüm>/<sha256(path)>.map` (ilk satır bundle yolu, gerisi harita). Üretimde `sourcemaps_data` adlı Docker volume'u (`/var/lib/app/sourcemaps`, `node` kullanıcısına ait); ayarlanmazsa API çalışma dizini altında `.sourcemaps` (paylaşılan geçici dizin kullanılmaz). Aynı yola yeniden yükleme haritayı değiştirir.
+- **Saklama 30 gün**: 15 dakikalık heartbeat (`ErrorReportingJobsService`) dosya yaşına göre eskileri ve boşalan sürüm klasörlerini siler (`sourcemapsPurged`, `POST /admin/scheduler/run` yanıtında `errorReporting` altında).
+
+**Çözümleme** (`symbolication.service.ts`, `sourcemap-decoder.ts`): workspace'te `source-map` bağımlılığı olmadığından küçük bir okuyucu yazıldı (yeni bağımlılık yok): base64 VLQ çözücü, v3 `mappings` taraması (bir arama dizeyi tek geçişte tarar, dizin kurmaz; bellek yükü yok) ve V8, Hermes (`at fn (address at index.android.bundle:1:2345)`) ve Firefox/Safari (`fn@url:1:2`) çerçeve biçimlerinin yeniden yazılması. Kaynak yolları `webpack://ad/./src/x.tsx` -> `src/x.tsx` olarak sadeleşir; haritada ad varsa işlev adı da orijinal olur.
+- Çerçevenin URL'si (kaynak, sorgu ve parça çıkarılır, yüzde kodlaması çözülür: `%28dashboard%29` -> `(dashboard)`) en uzundan en kısaya yol sonekleriyle aranır (`_next/static/chunks/a.js`, `static/chunks/a.js`, ..., `a.js`; en fazla 8). Böylece web'de tam yol, cihazda yalnızca dosya adı yeterlidir.
+- Olay yazılırken çalışır (`StorageErrorSink`): bilinmeyen sürüm, haritasız çerçeve, bozuk harita veya diğer her hata çözümlemeyi sessizce atlar, olay ham yığınla kaydedilir. Çözülmüş yığın varsa **parmak izi ve `topFrame` çözülmüş yığından** türetilir; bu sayede derleme başına değişen bundle adları ayrı gruplara yol açmaz. Çözümleme yalnızca haritalar olaydan önce yüklenmişse çalışır (bu yüzden CI haritaları dağıtımdan önce yükler); sonradan yüklenen harita eski olayları çözmez.
+- Yük sınırı: bir yığında en fazla 100 çerçeve ve 6 farklı dosya çözülür.
+
+**Web hattı**
+1. `next.config.ts` `productionBrowserSourceMaps: true`.
+2. `deploy/docker/web.Dockerfile`: build sonrası `.next/static/**/*.map` `/sourcemaps` klasörüne **taşınır** (sunulan imajda harita yoktur); `web-sourcemaps` adlı `FROM scratch` aşaması yalnızca bu haritaları içerir.
+3. `release.yml` `publish` (yalnızca `web`): aşama `ghcr.io/<repo>/web-sourcemaps:sha-<commit>` imajı olarak push edilir (terfi ve yeniden dağıtımlar da haritaya ulaşsın diye) ve `web-sourcemaps-sha-<commit>` adlı Actions artifact'ı olarak 30 gün saklanır.
+4. `release.yml` `deploy`: hedef ortamın `SOURCEMAP_UPLOAD_TOKEN` secret'ı ve `PUBLIC_API_URL` değişkeni varsa imaj çekilir, haritalar `deploy/scripts/upload-sourcemaps.mjs` ile `_next/static/` önekiyle API'ye yüklenir, ardından dağıtım yapılır. Adım `continue-on-error`'dır: eksik harita yalnızca yığın izini bozar, dağıtımı durdurmaz. Secret veya değişken yoksa bildirimle atlanır.
+5. Tarayıcı raporlayıcı yığını olduğu gibi gönderir (URL, satır, sütun içerir; temizleyici bunları bozmaz, testle sabitlendi). `error` olayında `Error` nesnesi yoksa (çapraz köken, metin fırlatma) `filename:lineno:colno` bir çerçeve olarak yığına eklenir. `release` `APP_RELEASE`'dir (`sha-<commit>`), yükleme anahtarıyla aynıdır. CSP değişmedi.
+
+**Mobil hat** (ayrıntı ve sahibin yapacakları `docs/MOBILE_APP.md` "Hata raporlama ve kaynak haritaları")
+- `apps/mobile/scripts/upload-sourcemaps.mjs`: `expo export --source-maps` çıktısındaki `.map` dosyalarını `release = <sürüm>[-<update id>]`, `platform = mobile`, yol = dosya adı olarak yükler. Düz Node (`.mjs`): depoda `ts-node`/`tsx` yok, Node 22 doğrudan çalıştırır. Genel yükleyici `deploy/scripts/upload-sourcemaps.mjs`'dir (4 paralel istek, geçici hatada 3 deneme, 4xx'te yeniden deneme yok, 10 MB üstü haritaları atlar).
 
 ## Korelasyon kimliği (x-request-id)
 
@@ -123,15 +161,18 @@ Mesajlaşma motoru üzerinden, TRANSACTIONAL şablonlarla, e-postası olan tüm 
 
 - API: `APP_RELEASE` (Zod ile doğrulanır, varsayılan `dev`). Web: sunucu ortamında `APP_RELEASE` (kök layout çalışma anında okuyup istemci raporlayıcısına verir; derleme argümanı gerekmez).
 - `deploy/docker-compose.prod.yml` her iki servise `APP_RELEASE: ${RELEASE_TAG}` verir; `deploy.sh`/`nightly-deploy.sh` `RELEASE_TAG`'i `sha-<commit>` olarak ayarlar.
-- Diğer ortam değişkenleri: `ERROR_USER_HASH_SALT`, `ERROR_CLIENT_SAMPLE_RATE`, `ERROR_ALERT_COOLDOWN_MINUTES`, `ERROR_ALERTS_ENABLED`.
+- Diğer ortam değişkenleri: `ERROR_USER_HASH_SALT`, `ERROR_CLIENT_SAMPLE_RATE`, `ERROR_ALERT_COOLDOWN_MINUTES`, `ERROR_ALERTS_ENABLED`; H2: `SOURCEMAP_UPLOAD_TOKEN` (en az 32 karakter; boşsa yükleme kapalı), `SOURCEMAP_DIR` (compose `/var/lib/app/sourcemaps` verir).
 
 ## Testler
 
 - Birim: `packages/shared/src/error-reporting.spec.ts` (temizleyici ve saldırgan uzun girdi süresi, parmak izi normalizasyonu, tekilleştirme, örnekleme, regresyon, bekleme penceresi, şemalar), `apps/api/src/modules/error-reporting/error-reporting.spec.ts` (yakalama servisi, kuyruk sınırı, uyarının tek kez gönderilmesi).
 - API e2e: `apps/api/test/e2e/error-reporting.e2e-spec.ts`. Yalnızca `NODE_ENV=test` iken açılan `/telemetry/test/*` rotaları 5xx üretir.
 - Playwright: `apps/web/e2e/error-reporting.e2e.ts` (CI'da koşar).
+- H2 birim: `apps/api/src/modules/error-reporting/sourcemap-decoder.spec.ts` (VLQ bilinen değerler ve gidiş-dönüş, elle yapılmış haritada bilinen eşleme, V8/Hermes/Firefox çerçeveleri, depo, saklama temizliği), `sourcemap-token.spec.ts`, `packages/shared/src/sourcemaps.spec.ts`; mobil `apps/mobile/src/errors/*.spec.ts` (kuyruk sınırı ve sıralı boşaltma sahte depolamayla, yeniden deneme ve tek zamanlayıcı, PII temizleme, `ErrorBoundary`).
+- H2 API e2e: `apps/api/test/e2e/error-sourcemaps.e2e-spec.ts` (belirteçli/belirteçsiz yükleme, boyut sınırları, doğrulama, bilinen ve bilinmeyen sürümde çözümleme, platform ayrımı, saklama temizliği).
 
 ## Kalan işler
 
-- **H2**: mobil (Expo) yakalama ve aynı alma ucuna gönderim; kaynak haritaları (source map) ile yığın izlerinin çözülmesi; ani artış (spike) tespiti; kullanıcı geri bildirimi.
+- **H2 (yapıldı)**: mobil yakalama ve çevrimdışı kuyruk, web ve mobil kaynak haritası hattı, sunucuda yığın izi çözümleme.
+- **H2'den kalanlar (H3'e)**: ani artış (spike) tespiti ve kullanıcı geri bildirimi; mobil gömülü (mağaza) derlemenin Hermes haritasının EAS Build çıktısından otomatik yüklenmesi (şimdilik `--dist` ile elle); mobil için CI'da otomatik yükleme (EAS sırrı gerektirir, sahip kararı); JSC'de yakalanmayan Promise reddi; çözülmüş yığında kaynak satırı bağlamı (`sourcesContent`).
 - **H3**: Sentry (veya benzeri) sink'i, Slack/webhook uyarıları, grup birleştirme, işletme sahibine hata bildirimi, Nest `ExceptionsHandler` log satırının da temizlenmesi.

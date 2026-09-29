@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 
 import { onColor } from '@platform/shared';
 
+import { appBreadcrumbs } from '../errors/breadcrumbs';
 import { GradientSurface } from './GradientSurface';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../theme';
 
@@ -39,7 +40,11 @@ export function PrimaryButton({ label, onPress, disabled, loading, variant = 'pr
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: isDisabled, busy: loading }}
-      onPress={onPress}
+      onPress={() => {
+        // A step for error reports: the button's label only, never field values.
+        appBreadcrumbs.add('click', `button ${label}`);
+        onPress();
+      }}
       disabled={isDisabled}
       style={({ pressed }) => [
         styles.base,

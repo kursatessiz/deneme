@@ -122,7 +122,7 @@ function scheduleFlush(): void {
  * event was deduplicated or over the per-page cap, in which case no code
  * could be found by support).
  */
-export function reportError(error: unknown, options: { severity?: ErrorSeverity; extra?: string } = {}): string | null {
+export function reportError(error: unknown, options: { severity?: ErrorSeverity; extra?: string; frame?: string } = {}): string | null {
   try {
     if (typeof window === 'undefined') return null;
     if (error && typeof error === 'object' && codes.has(error)) return codes.get(error) ?? null;
@@ -130,7 +130,10 @@ export function reportError(error: unknown, options: { severity?: ErrorSeverity;
     const type = truncate(scrubPii(described.type, ERROR_LIMITS.typeLength) || 'Error', ERROR_LIMITS.typeLength);
     const rawMessage = options.extra ? `${described.message} (${options.extra})` : described.message;
     const message = truncate(scrubPii(rawMessage, ERROR_LIMITS.messageLength * 2), ERROR_LIMITS.messageLength);
-    const stack = described.stack ? truncate(scrubPii(described.stack, ERROR_LIMITS.stackLength * 2), ERROR_LIMITS.stackLength) : undefined;
+    // Without an Error object (cross-script errors, string throws) the script URL, line and column of the
+    // ErrorEvent still let the API resolve the location with the release's source maps.
+    const rawStack = described.stack ?? (options.frame ? `${type}: ${described.message}\n    at ${options.frame}` : undefined);
+    const stack = rawStack ? truncate(scrubPii(rawStack, ERROR_LIMITS.stackLength * 2), ERROR_LIMITS.stackLength) : undefined;
     if (!dedupe.accept('web', errorFingerprint({ source: 'web', type, message, stack }), Date.now())) return null;
     if (sent >= MAX_EVENTS_PER_PAGE) return null;
     sent++;

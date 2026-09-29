@@ -176,6 +176,35 @@ belgelenmiştir. Push bildirimleri sunucudan gelir (`src/lib/push.ts` yalnızca 
 bildirim metnini oluşturmaz), bu yüzden yerel olarak planlanmış/biçimlendirilmiş bir bildirim metni
 yoktur.
 
+## Hata raporlama ve kaynak haritaları
+
+Uygulama beklenmedik hataları yakalar, kişisel veriyi temizler ve platformun hata sistemine gönderir (mimari ve sınırlar: `docs/HATA_RAPORLAMA.md` "Mobil yakalama"). Kısaca:
+
+- Kök `ErrorBoundary` ve Expo Router'ın `ErrorBoundary`'si dostça bir ekran ve 8 karakterlik hata kodu gösterir (`mErrors` metinleri); kullanıcı kodu destek ekibine iletir, süper admin `/admin/hatalar` aramasına yazar.
+- Yakalanmamış JS hataları (`ErrorUtils`) ve Hermes'te yakalanmamış Promise redleri kaydedilir; olaylar önce cihaza (`AsyncStorage`, en fazla 50 olay) yazılır, açılışta, öne gelişte ve çevrimdışıysa katlanan aralıklarla `POST /telemetry/errors`'a gönderilir. Yeni bağımlılık eklenmedi (NetInfo yok).
+- `release` uygulama sürümü artı (varsa) EAS Update kimliğidir (`1.4.0-<update-id>`); `environment` EAS profilinin `APP_VARIANT` değeridir (`app.config.ts` `extra.appVariant`).
+
+### Kaynak haritalarını yükleme
+
+Hermes ve Metro paketleri küçültülmüş olduğundan sunucu, yığın izlerini ancak o sürümün haritası yüklüyse çözer. `apps/mobile/scripts/upload-sourcemaps.mjs` bunu yapar (düz Node; depoda `ts-node`/`tsx` yok):
+
+```bash
+# EAS Update (OTA) paketi: harita export çıktısındadır
+npx expo export --platform android --platform ios --source-maps --output-dir dist
+SOURCEMAP_UPLOAD_TOKEN=... API_URL=https://api.<alan-adi> \
+  node scripts/upload-sourcemaps.mjs --dist dist --update-id <eas update id>
+
+# Mağaza derlemesine gömülü paket: sürüm = app.json sürümü, --update-id verilmez
+node scripts/upload-sourcemaps.mjs --dist <EAS Build'in verdiği harita klasörü> --version 1.4.0
+```
+
+- Yüklenen sürüm anahtarı uygulamanın raporladığı `release` ile birebir aynı olmalıdır: `<sürüm>` veya `<sürüm>-<update id>`. Harita dosya adıyla saklanır (`index.android.bundle`, `entry-<hash>.hbc`); cihazdaki dizin önemli değildir, API çerçeveyi yol sonekiyle eşler.
+- Update kimliğinden emin değilseniz, güncellenmiş uygulamada bir hata üretip `/admin/hatalar` detayındaki "Sürüm" alanına bakın; `--update-id` o değerin sürümden sonraki kısmı olmalıdır.
+- Saklama 30 gündür; daha eski sürümlerin izleri ham kalır.
+- Bu hat cihazda doğrulanmadı: Hermes bayt kodu çerçevelerinin gerçek biçimi ve `.hbc.map` eşlemesi sahibin ilk EAS derlemesinde denenmelidir.
+
+**Sahibin yapması gerekenler** (EAS bulut sırrı CI'ya eklenmedi): (1) API sunucusunun `.env` dosyasına `SOURCEMAP_UPLOAD_TOKEN` (en az 32 karakter, `openssl rand -hex 32`); (2) yüklemeyi `expo export`/`eas update` sonrası elle veya kendi CI'nızda çalıştırmak; (3) mağaza derlemelerinde EAS Build'in ürettiği Hermes haritasını `--dist` ile vermek. Mobil için otomatik CI adımı, EAS token'ı (`EXPO_TOKEN`) gerektirdiğinden H3'e bırakıldı.
+
 ## EAS Build
 
 `apps/mobile/eas.json`: `development` (internal dağıtım, dev client), `preview` (internal, Android APK)

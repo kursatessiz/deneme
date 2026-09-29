@@ -5165,6 +5165,8 @@ model ErrorEvent {
   type        String   @db.VarChar(120)
   message     String   @db.Text
   stack       String?  @db.Text
+  /// Stack resolved with the release's uploaded source maps (H2); the raw stack stays in `stack`.
+  symbolicatedStack String? @map("symbolicated_stack") @db.Text
   breadcrumbs Json?
   statusCode  Int?     @map("status_code")
   occurredAt  DateTime @map("occurred_at")

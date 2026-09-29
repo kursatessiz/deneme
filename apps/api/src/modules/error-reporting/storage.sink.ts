@@ -3,9 +3,10 @@ import type { ErrorEventRecord } from '@platform/shared';
 import type { ErrorSink } from './error-sink';
 import { ErrorStoreService } from './error-store.service';
 import { ErrorAlertsService } from './error-alerts.service';
+import { SymbolicationService } from './symbolication.service';
 
 /**
- * The H1 sink: Postgres storage, then alerts. An alert failure never
+ * The H1 sink: stack symbolication (H2), Postgres storage, then alerts. An alert failure never
  * undoes or fails the stored event.
  */
 @Injectable()
@@ -16,10 +17,12 @@ export class StorageErrorSink implements ErrorSink {
   constructor(
     private readonly store: ErrorStoreService,
     private readonly alerts: ErrorAlertsService,
+    private readonly symbolication: SymbolicationService,
   ) {}
 
   async write(event: ErrorEventRecord): Promise<void> {
-    const recorded = await this.store.record(event);
+    const symbolicatedStack = await this.symbolication.symbolicate(event);
+    const recorded = await this.store.record(event, symbolicatedStack);
     if (!recorded) return;
     try {
       await this.alerts.onRecorded(recorded);
