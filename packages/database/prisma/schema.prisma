@@ -718,6 +718,7 @@ model Studio {
   eventOccurrences      EventOccurrence[]
   eventTicketTypes      EventTicketType[]
   eventRegistrations    EventRegistration[]
+  funnels               Funnel[]
 
   @@map("studios")
 }
@@ -2702,6 +2703,8 @@ model ConversionEvent {
   @@unique([studioId, eventId])
   @@unique([studioId, sourceKind, sourceId])
   @@index([studioId, type, occurredAt])
+  /// Funnel reports (G5d-1): per-type scan of a studio's events grouped by contact.
+  @@index([studioId, type, contactId, occurredAt])
   @@index([contactId])
   @@map("conversion_events")
 }
@@ -4742,4 +4745,25 @@ model SaleRefundLine {
   @@index([refundId])
   @@index([saleLineId])
   @@map("sale_refund_lines")
+}
+
+/// Tenant-defined conversion funnel (G5d-1, docs/HUNILER.md): an ordered list
+/// of 2-6 ConversionEvent types with an optional maximum step-to-step window.
+/// Ready-made funnels are code-defined in @platform/shared, not rows.
+model Funnel {
+  id                    String   @id @default(uuid()) @db.Uuid
+  studioId              String   @map("studio_id") @db.Uuid
+  name                  String   @db.VarChar(100)
+  /// FunnelStepsSchema in @platform/shared, validated on every write.
+  steps                 Json
+  /// Maximum days between two consecutive steps; null means no limit.
+  windowDays            Int?     @map("window_days")
+  createdByMembershipId String?  @map("created_by_membership_id") @db.Uuid
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@index([studioId, createdAt])
+  @@map("funnels")
 }
