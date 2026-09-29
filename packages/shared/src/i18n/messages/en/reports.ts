@@ -1,0 +1,61 @@
+import type { trReports } from '../tr/reports';
+
+/** English text for the `reports.*` namespace. Keep keys in sync with tr/reports.ts. */
+export const enReports = {
+  'reports.title': 'Reports',
+  'reports.subtitle': 'Occupancy, revenue, members, renewal, cohort and trainer performance',
+  'reports.downloadCsv': 'Download CSV',
+  'reports.errors.loadFailed': 'The report could not be loaded',
+  'reports.tabs.occupancy': 'Occupancy',
+  'reports.tabs.revenue': 'Revenue',
+  'reports.tabs.members': 'Members',
+  'reports.tabs.renewal': 'Renewal',
+  'reports.tabs.cohorts': 'Cohorts',
+  'reports.tabs.trainers': 'Trainers',
+  'reports.granularity.day': 'Daily',
+  'reports.granularity.week': 'Weekly',
+  'reports.granularity.month': 'Monthly',
+  'reports.empty.title': 'No data',
+  'reports.empty.rangeDescription': 'No session was found in the selected range.',
+  'reports.empty.cohortDescription': 'No package sale has formed a cohort yet.',
+
+  'reports.occupancy.byServiceType': 'Occupancy by service type',
+  'reports.occupancy.heatmap': 'Heatmap (day x hour)',
+  'reports.occupancy.byDay': 'By day',
+  'reports.occupancy.col.date': 'Date',
+  'reports.occupancy.col.sessions': 'Sessions',
+  'reports.occupancy.col.capacity': 'Capacity',
+  'reports.occupancy.col.booked': 'Bookings',
+  'reports.occupancy.col.attended': 'Attendance',
+  'reports.occupancy.col.occupancy': 'Occupancy',
+
+  'reports.revenue.gross': 'Gross revenue',
+  'reports.revenue.refund': 'Refunds',
+  'reports.revenue.net': 'Net revenue',
+  'reports.revenue.byPeriod': 'By period',
+  'reports.revenue.byMethod': 'By payment method',
+  'reports.revenue.byPackage': 'By package',
+
+  'reports.members.active': 'Active members',
+  'reports.members.new': 'New members',
+  'reports.members.churned': 'Churned members',
+  'reports.members.revenue': 'Revenue',
+  'reports.members.arpu': 'Revenue per member (ARPU)',
+
+  'reports.renewal.expired': 'Expired packages',
+  'reports.renewal.renewed': 'Renewed packages',
+  'reports.renewal.rate': 'Renewal rate',
+
+  'reports.cohorts.col.cohort': 'Cohort',
+  'reports.cohorts.col.members': 'Members',
+  'reports.cohorts.col.month': 'Month {index}',
+
+  'reports.trainers.col.trainer': 'Trainer',
+  'reports.trainers.col.sessions': 'Sessions',
+  'reports.trainers.col.booked': 'Bookings',
+  'reports.trainers.col.attended': 'Attendance',
+  'reports.trainers.col.occupancy': 'Occupancy',
+  'reports.trainers.col.noShows': 'No-shows',
+  'reports.trainers.col.lateCancellations': 'Late cancellations',
+  'reports.trainers.col.substitutions': 'Substitutions',
+} as const satisfies Record<keyof typeof trReports, string>;

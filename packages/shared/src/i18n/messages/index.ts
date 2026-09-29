@@ -19,6 +19,7 @@ import { trMNav } from './tr/mNav';
 import { trMScreens } from './tr/mScreens';
 import { trMWidgets } from './tr/mWidgets';
 import { trNav } from './tr/nav';
+import { trReports } from './tr/reports';
 import { trSites } from './tr/sites';
 import { enAdminI18n } from './en/admin-i18n';
 import { enAds } from './en/ads';
@@ -41,6 +42,7 @@ import { enMNav } from './en/mNav';
 import { enMScreens } from './en/mScreens';
 import { enMWidgets } from './en/mWidgets';
 import { enNav } from './en/nav';
+import { enReports } from './en/reports';
 import { enSites } from './en/sites';
 
 /**
@@ -77,6 +79,7 @@ export const TR_NAMESPACES = [
   trMScreens,
   trMWidgets,
   trNav,
+  trReports,
   trSites,
 ] as const;
 
@@ -102,6 +105,7 @@ export const EN_NAMESPACES = [
   enMScreens,
   enMWidgets,
   enNav,
+  enReports,
   enSites,
 ] as const;
 
