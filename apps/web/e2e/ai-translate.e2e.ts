@@ -23,6 +23,25 @@ function localCode(): string {
   return `q${'abcdefghijklmnopqrst'[Math.floor(Math.random() * 20)]}${pick()}`;
 }
 
+/**
+ * Calls the BFF from inside the page so the browser sends the Origin header
+ * the BFF's CSRF check requires (APIRequestContext requests carry none).
+ */
+async function bff(page: Page, method: 'POST' | 'DELETE', path: string): Promise<number> {
+  return page.evaluate(
+    async ({ method, path, headers }) => {
+      const res = await fetch(`/api/bff/${path}`, {
+        method,
+        credentials: 'same-origin',
+        headers: { ...headers, 'content-type': 'application/json' },
+        body: method === 'POST' ? '{}' : undefined,
+      });
+      return res.status;
+    },
+    { method, path, headers: CSRF },
+  );
+}
+
 async function loginAsSuperAdmin(page: Page): Promise<void> {
   await page.goto('/giris');
   const form = page.locator('form').first();
@@ -72,8 +91,8 @@ test('the super admin sets the AI key and translates a language section with AI'
     await expect(job.getByText('Sırada', { exact: true })).toBeVisible();
 
     // No Redis in this stack: one heartbeat runs the queued job.
-    const beat = await page.request.post('/api/bff/admin/scheduler/run', { headers: CSRF, data: {} });
-    expect(beat.ok()).toBeTruthy();
+    const beat = await bff(page, 'POST', 'admin/scheduler/run');
+    expect(beat).toBeLessThan(300);
     await expect(job.getByText('Tamamlandı', { exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(job.getByText(/^(\d+) \/ \1 tamamlandı/)).toBeVisible();
 
@@ -88,8 +107,8 @@ test('the super admin sets the AI key and translates a language section with AI'
     await main.getByLabel('Kaynak', { exact: true }).selectOption('AI');
     await expect(main.getByRole('row').filter({ hasText: 'common.itemCount.other' }).getByText('Yapay zeka', { exact: true })).toBeVisible();
   } finally {
-    await page.request.delete(`/api/bff/admin/i18n/languages/${code}`, { headers: CSRF });
-    await page.request.delete('/api/bff/admin/ai/settings/key', { headers: CSRF });
+    await bff(page, 'DELETE', `admin/i18n/languages/${code}`);
+    await bff(page, 'DELETE', 'admin/ai/settings/key');
   }
 });
 
