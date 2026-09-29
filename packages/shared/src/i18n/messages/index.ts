@@ -222,6 +222,8 @@ import { trSmsSender } from './tr/smsSender';
 import { enSmsSender } from './en/smsSender';
 import { trAutomationHub } from './tr/automationHub';
 import { enAutomationHub } from './en/automationHub';
+import { trIntegrationsOAuth } from './tr/integrationsOAuth';
+import { enIntegrationsOAuth } from './en/integrationsOAuth';
 
 /**
  * Bundled message catalogues. Adding strings:
@@ -348,6 +350,7 @@ export const TR_NAMESPACES = [
   trLeadAds,
   trSmsSender,
   trAutomationHub,
+  trIntegrationsOAuth,
 ] as const;
 
 export const EN_NAMESPACES = [
@@ -463,6 +466,7 @@ export const EN_NAMESPACES = [
   enLeadAds,
   enSmsSender,
   enAutomationHub,
+  enIntegrationsOAuth,
 ] as const;
 
 type UnionToIntersection<U> = (U extends unknown ? (arg: U) => void : never) extends (arg: infer I) => void
