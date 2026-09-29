@@ -27,7 +27,7 @@ function localCode(): string {
  * Calls the BFF from inside the page so the browser sends the Origin header
  * the BFF's CSRF check requires (APIRequestContext requests carry none).
  */
-async function bff(page: Page, method: 'POST' | 'DELETE', path: string): Promise<number> {
+async function bff(page: Page, method: 'GET' | 'POST' | 'DELETE', path: string): Promise<{ status: number; body: unknown }> {
   return page.evaluate(
     async ({ method, path, headers }) => {
       const res = await fetch(`/api/bff/${path}`, {
@@ -36,7 +36,14 @@ async function bff(page: Page, method: 'POST' | 'DELETE', path: string): Promise
         headers: { ...headers, 'content-type': 'application/json' },
         body: method === 'POST' ? '{}' : undefined,
       });
-      return res.status;
+      const text = await res.text();
+      let body: unknown = null;
+      try {
+        body = text ? JSON.parse(text) : null;
+      } catch {
+        body = text;
+      }
+      return { status: res.status, body };
     },
     { method, path, headers: CSRF },
   );
@@ -90,9 +97,14 @@ test('the super admin sets the AI key and translates a language section with AI'
     const job = panel.getByTestId('ai-translate-job');
     await expect(job.getByText('Sırada', { exact: true })).toBeVisible();
 
-    // No Redis in this stack: one heartbeat runs the queued job.
-    const beat = await bff(page, 'POST', 'admin/scheduler/run');
-    expect(beat).toBeLessThan(300);
+    // No Redis in this stack: run the queued job now (the full scheduler
+    // heartbeat would also do it, but runs every other periodic task too).
+    const jobs = await bff(page, 'GET', `admin/i18n/languages/${code}/ai-translate/jobs`);
+    expect(jobs.status).toBe(200);
+    const list = (Array.isArray(jobs.body) ? jobs.body : (jobs.body as { items?: unknown[] }).items ?? []) as { id: string }[];
+    expect(list.length).toBeGreaterThan(0);
+    const run = await bff(page, 'POST', `admin/ai/translation-jobs/${list[0].id}/run`);
+    expect(run.status).toBe(200);
     await expect(job.getByText('Tamamlandı', { exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(job.getByText(/^(\d+) \/ \1 tamamlandı/)).toBeVisible();
 

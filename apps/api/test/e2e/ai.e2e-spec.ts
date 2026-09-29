@@ -351,6 +351,15 @@ describe('AI core (e2e)', () => {
       const list = await admin.get(`/admin/i18n/languages/${TEST_LOCALE}/ai-translate/jobs`);
       expect(list.body.items[0]).toMatchObject({ id, status: 'CANCELLED' });
     });
+
+    it('run now advances one job in the request, without the scheduler heartbeat', async () => {
+      const start = await admin.post(`/admin/i18n/languages/${TEST_LOCALE}/ai-translate`).send({ namespaces: ['common'], overwrite: true, confirmOverwrite: true });
+      const id = start.body.id as string;
+      const run = await admin.post(`/admin/ai/translation-jobs/${id}/run`);
+      expect(run.status).toBe(200);
+      expect(run.body).toMatchObject({ id, status: 'COMPLETED' });
+      expect((await admin.post(`/admin/ai/translation-jobs/00000000-0000-4000-8000-000000000000/run`)).status).toBe(404);
+    });
   });
 
   describe('tenant drafting and reply suggestions', () => {

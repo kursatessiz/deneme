@@ -92,6 +92,12 @@ export class AdminAiController {
     return this.engine.get(jobId);
   }
 
+  @Post('translation-jobs/:jobId/run')
+  @HttpCode(200)
+  runJob(@CurrentUser() user: AuthUser, @Param('jobId', ParseUUIDPipe) jobId: string) {
+    return this.engine.runNow(user.id, jobId);
+  }
+
   @Post('translation-jobs/:jobId/cancel')
   @HttpCode(200)
   cancelJob(@CurrentUser() user: AuthUser, @Param('jobId', ParseUUIDPipe) jobId: string) {
