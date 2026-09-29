@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { GradientSurface } from '../src/components/GradientSurface';
 import { PrimaryButton } from '../src/components/PrimaryButton';
 import { TextField } from '../src/components/TextField';
+import { useT } from '../src/i18n';
 import { ApiError } from '../src/lib/api';
 import { kioskRequest } from '../src/lib/kioskApi';
 import { clearKioskSession, getKioskSession, setKioskSession } from '../src/lib/kioskStore';
@@ -35,6 +36,7 @@ interface KioskCheckInOutcome {
 export default function KioskModeScreen() {
   const router = useRouter();
   const colors = useThemeColors();
+  const t = useT();
   const { pinLogin } = useSession();
   const [permission, requestPermission] = useCameraPermissions();
 
@@ -69,11 +71,11 @@ export default function KioskModeScreen() {
         body: JSON.stringify({ pairingCode }),
       });
       const body = (await response.json()) as PairResponse & { message?: string };
-      if (!response.ok) throw new ApiError(response.status, body.message ?? 'Eşleştirme başarısız');
+      if (!response.ok) throw new ApiError(response.status, body.message ?? t('mKiosk.pairFailed'));
       await setKioskSession(body);
       setSession(body);
     } catch (err) {
-      setPairError(err instanceof ApiError ? err.message : 'Eşleştirme başarısız');
+      setPairError(err instanceof ApiError ? err.message : t('mKiosk.pairFailed'));
     } finally {
       setIsPairing(false);
     }
@@ -88,7 +90,7 @@ export default function KioskModeScreen() {
       const res = await kioskRequest<KioskCheckInOutcome>('/kiosk/check-in', { method: 'POST', body: { token: data } });
       setLastOutcome(res);
     } catch (err) {
-      setScanError(err instanceof ApiError ? err.message : 'Check-in yapılamadı.');
+      setScanError(err instanceof ApiError ? err.message : t('mKiosk.checkInFailed'));
     } finally {
       setIsSubmitting(false);
       setTimeout(() => {
@@ -103,12 +105,12 @@ export default function KioskModeScreen() {
     setExitError(undefined);
     try {
       const parsedPhone = PhoneSchema.safeParse(exitPhone);
-      if (!parsedPhone.success) throw new Error('Geçerli bir telefon numarası giriniz');
+      if (!parsedPhone.success) throw new Error(t('mKiosk.invalidPhone'));
       await pinLogin(parsedPhone.data, exitPin);
       await clearKioskSession();
       router.replace('/(app)');
     } catch (err) {
-      setExitError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Çıkış yapılamadı');
+      setExitError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : t('mKiosk.exitFailed'));
     } finally {
       setIsExiting(false);
     }
@@ -126,13 +128,11 @@ export default function KioskModeScreen() {
     return (
       <SafeAreaView style={[styles.center, { backgroundColor: colors.background }]}>
         <View style={styles.pairForm}>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>Kiosk modu</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Yönetici ekranından aldığınız eşleştirme kodunu girin.
-          </Text>
-          <TextField label="Eşleştirme kodu" value={pairingCode} onChangeText={(v) => setPairingCode(v.toUpperCase())} placeholder="AB12CD34" />
+          <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mKiosk.title')}</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{t('mKiosk.pairingHint')}</Text>
+          <TextField label={t('mKiosk.pairingCodeLabel')} value={pairingCode} onChangeText={(v) => setPairingCode(v.toUpperCase())} placeholder="AB12CD34" />
           {pairError ? <Text style={[styles.error, { color: colors.textSecondary }]}>{pairError}</Text> : null}
-          <PrimaryButton label="Eşleştir" onPress={() => void pair()} loading={isPairing} disabled={pairingCode.length < 8} />
+          <PrimaryButton label={t('mKiosk.pair')} onPress={() => void pair()} loading={isPairing} disabled={pairingCode.length < 8} />
         </View>
       </SafeAreaView>
     );
@@ -141,8 +141,8 @@ export default function KioskModeScreen() {
   if (!permission?.granted) {
     return (
       <SafeAreaView style={[styles.center, { backgroundColor: colors.background }]}>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Kamera izni gerekli</Text>
-        <PrimaryButton label="İzin ver" onPress={() => void requestPermission()} />
+        <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mKiosk.cameraPermissionRequired')}</Text>
+        <PrimaryButton label={t('mKiosk.grantPermission')} onPress={() => void requestPermission()} />
       </SafeAreaView>
     );
   }
@@ -151,8 +151,8 @@ export default function KioskModeScreen() {
     <SafeAreaView style={[styles.fill, { backgroundColor: colors.background }]}>
       <GradientSurface slot="appHeaderBand" style={styles.headerBand}>
         <Text style={styles.headerTitle}>{session.deviceName}</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel="Kiosk modundan çık" style={styles.exitButton} onPress={() => setExitVisible(true)}>
-          <Text style={styles.exitButtonLabel}>Çıkış</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('mKiosk.a11y.exitKiosk')} style={styles.exitButton} onPress={() => setExitVisible(true)}>
+          <Text style={styles.exitButtonLabel}>{t('mKiosk.exit')}</Text>
         </Pressable>
       </GradientSurface>
 
@@ -160,7 +160,7 @@ export default function KioskModeScreen() {
         {lastOutcome ? (
           <View style={styles.center}>
             <Text style={[styles.resultTitle, { color: colors.textPrimary }]}>
-              {lastOutcome.resolved ? 'Giriş yapıldı' : 'Rezervasyon seçin (resepsiyona danışın)'}
+              {lastOutcome.resolved ? t('mKiosk.checkedIn') : t('mKiosk.selectBooking')}
             </Text>
           </View>
         ) : (
@@ -174,19 +174,19 @@ export default function KioskModeScreen() {
         )}
         {isSubmitting ? <ActivityIndicator color={colors.textPrimary} style={{ marginTop: spacing[4] }} /> : null}
         {scanError ? <Text style={[styles.error, { color: colors.textSecondary }]}>{scanError}</Text> : null}
-        <Text style={[styles.hint, { color: colors.textSecondary }]}>Üye QR kodunu kameraya gösterin</Text>
+        <Text style={[styles.hint, { color: colors.textSecondary }]}>{t('mKiosk.showMemberQr')}</Text>
       </View>
 
       <Modal visible={exitVisible} transparent animationType="fade" onRequestClose={() => setExitVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.title, { color: colors.textPrimary }]}>Kiosk modundan çık</Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Devam etmek için personel telefon ve PIN'i ile giriş yapın.</Text>
-            <TextField label="Telefon numarası" value={exitPhone} onChangeText={setExitPhone} placeholder="05XX XXX XX XX" keyboardType="phone-pad" />
+            <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mKiosk.exitKioskModeTitle')}</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{t('mKiosk.exitSubtitle')}</Text>
+            <TextField label={t('mKiosk.phoneLabel')} value={exitPhone} onChangeText={setExitPhone} placeholder="05XX XXX XX XX" keyboardType="phone-pad" />
             <TextField label="PIN" value={exitPin} onChangeText={setExitPin} keyboardType="number-pad" maxLength={6} secureTextEntry />
             {exitError ? <Text style={[styles.error, { color: colors.textSecondary }]}>{exitError}</Text> : null}
-            <PrimaryButton label="Giriş yap ve çık" onPress={() => void handleExit()} loading={isExiting} />
-            <PrimaryButton label="Vazgeç" onPress={() => setExitVisible(false)} variant="secondary" />
+            <PrimaryButton label={t('mKiosk.signInAndExit')} onPress={() => void handleExit()} loading={isExiting} />
+            <PrimaryButton label={t('mKiosk.cancel')} onPress={() => setExitVisible(false)} variant="secondary" />
           </View>
         </View>
       </Modal>

@@ -6,7 +6,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import { GradientSurface } from '../../src/components/GradientSurface';
 import { ScreenContainer } from '../../src/components/ScreenContainer';
-import { useLocale } from '../../src/i18n';
+import { useLocale, useT } from '../../src/i18n';
 import { ApiError, apiRequest } from '../../src/lib/api';
 import { addBookingToDeviceCalendar, CalendarSyncError } from '../../src/lib/calendarSync';
 import { syncAllPendingWorkouts, syncTodayAggregatesIfOptedIn } from '../../src/health';
@@ -28,6 +28,7 @@ function UpcomingBookingCard({ booking }: { booking: UpcomingBookingDTO }) {
   const { theme } = useTheme();
   const fonts = useThemeFonts();
   const { locale } = useLocale();
+  const t = useT();
   const c = theme.colors;
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
@@ -36,11 +37,11 @@ function UpcomingBookingCard({ booking }: { booking: UpcomingBookingDTO }) {
     setStatus('saving');
     setErrorMessage(undefined);
     try {
-      await addBookingToDeviceCalendar(booking);
+      await addBookingToDeviceCalendar(booking, t);
       setStatus('saved');
     } catch (error) {
       setStatus('error');
-      setErrorMessage(error instanceof CalendarSyncError ? error.message : 'Takvime eklenemedi, tekrar deneyin.');
+      setErrorMessage(error instanceof CalendarSyncError ? error.message : t('mHome.errors.calendarAddFailed'));
     }
   };
 
@@ -63,18 +64,18 @@ function UpcomingBookingCard({ booking }: { booking: UpcomingBookingDTO }) {
         {booking.branchName ? `, ${booking.branchName}` : ''}
       </Text>
       {booking.trainerName ? (
-        <Text style={[styles.cardSubtitle, fonts.body, { color: c.textMuted }]}>Eğitmen: {booking.trainerName}</Text>
+        <Text style={[styles.cardSubtitle, fonts.body, { color: c.textMuted }]}>{t('mHome.trainerLabel', { name: booking.trainerName })}</Text>
       ) : null}
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Takvime ekle"
+        accessibilityLabel={t('mHome.a11y.addToCalendar')}
         onPress={handleAddToCalendar}
         disabled={status === 'saving' || status === 'saved'}
         style={styles.calendarButton}
       >
         <Text style={[styles.calendarButtonText, fonts.bodyStrong, { color: c.textPrimary }]}>
-          {status === 'saved' ? 'Takvime eklendi' : status === 'saving' ? 'Ekleniyor...' : 'Takvime ekle'}
+          {status === 'saved' ? t('mHome.addedToCalendar') : status === 'saving' ? t('mHome.addingToCalendar') : t('mHome.addToCalendar')}
         </Text>
       </Pressable>
       {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
@@ -87,11 +88,12 @@ function PendingRatingCard({ prompt }: { prompt: PendingRatingPromptDTO }) {
   const fonts = useThemeFonts();
   const c = theme.colors;
   const router = useRouter();
+  const t = useT();
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${prompt.serviceTypeName} seansını değerlendir`}
+      accessibilityLabel={t('mHome.a11y.rateSession', { service: prompt.serviceTypeName })}
       onPress={() => router.push(`/(app)/seans/degerlendir/${prompt.bookingId}`)}
       style={[
         styles.card,
@@ -103,12 +105,12 @@ function PendingRatingCard({ prompt }: { prompt: PendingRatingPromptDTO }) {
         },
       ]}
     >
-      <Text style={[styles.cardTitle, fonts.bodyStrong, { color: c.textPrimary }]}>Seansını nasıl buldun?</Text>
+      <Text style={[styles.cardTitle, fonts.bodyStrong, { color: c.textPrimary }]}>{t('mHome.howWasYourSession')}</Text>
       <Text style={[styles.cardSubtitle, fonts.body, { color: c.textSecondary }]}>
         {prompt.serviceTypeName}
         {prompt.trainerName ? ` - ${prompt.trainerName}` : ''}
       </Text>
-      <Text style={[styles.calendarButtonText, fonts.bodyStrong, { color: c.textPrimary }]}>Değerlendir</Text>
+      <Text style={[styles.calendarButtonText, fonts.bodyStrong, { color: c.textPrimary }]}>{t('mHome.rate')}</Text>
     </Pressable>
   );
 }
@@ -119,6 +121,7 @@ export default function HomeScreen() {
   const c = theme.colors;
   const router = useRouter();
   const { user, activeMembership } = useSession();
+  const t = useT();
   const isMember = Boolean(activeMembership?.memberProfileId);
   const [bookings, setBookings] = useState<UpcomingBookingDTO[] | null>(null);
   const [pendingRatings, setPendingRatings] = useState<PendingRatingPromptDTO[]>([]);
@@ -133,7 +136,7 @@ export default function HomeScreen() {
       // Widgets show the same "next session"; keep them in sync opportunistically.
       refreshWidgets();
     } catch (error) {
-      setLoadError(error instanceof ApiError ? error.message : 'Rezervasyonlar yüklenemedi.');
+      setLoadError(error instanceof ApiError ? error.message : t('mHome.errors.bookingsLoadFailed'));
     }
   }, []);
 
@@ -167,7 +170,7 @@ export default function HomeScreen() {
         {activeMembership ? (
           <Text style={[styles.studio, fonts.bodyStrong, { color: onBand }]}>{activeMembership.studioName}</Text>
         ) : null}
-        <Text style={[styles.name, fonts.display, { color: onBand }]}>Merhaba, {user?.firstName ?? ''}</Text>
+        <Text style={[styles.name, fonts.display, { color: onBand }]}>{t('mHome.greeting', { name: user?.firstName ?? '' })}</Text>
       </GradientSurface>
 
       {pendingRatings.map((prompt) => (
@@ -177,7 +180,7 @@ export default function HomeScreen() {
       {isMember ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Bu haftanın seanslarını gör"
+          accessibilityLabel={t('mHome.a11y.viewThisWeeksSessions')}
           onPress={() => router.push('/(app)/seans')}
           style={[
             styles.link,
@@ -189,15 +192,15 @@ export default function HomeScreen() {
             },
           ]}
         >
-          <Text style={[styles.linkTitle, fonts.bodyStrong, { color: c.textPrimary }]}>Bu haftanın seansları</Text>
-          <Text style={[styles.linkSubtitle, fonts.body, { color: c.textSecondary }]}>Seans seçip yerinizi ayırın</Text>
+          <Text style={[styles.linkTitle, fonts.bodyStrong, { color: c.textPrimary }]}>{t('mHome.thisWeeksSessions')}</Text>
+          <Text style={[styles.linkSubtitle, fonts.body, { color: c.textSecondary }]}>{t('mHome.pickSessionToBook')}</Text>
         </Pressable>
       ) : null}
 
       {isMember ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Başarılarımı gör"
+          accessibilityLabel={t('mHome.a11y.viewMyAchievements')}
           onPress={() => router.push('/(app)/hesabim/basarilarim')}
           style={[
             styles.link,
@@ -209,17 +212,17 @@ export default function HomeScreen() {
             },
           ]}
         >
-          <Text style={[styles.linkTitle, fonts.bodyStrong, { color: c.textPrimary }]}>Başarılarım</Text>
-          <Text style={[styles.linkSubtitle, fonts.body, { color: c.textSecondary }]}>Seri, rozetler ve aylık hedefiniz</Text>
+          <Text style={[styles.linkTitle, fonts.bodyStrong, { color: c.textPrimary }]}>{t('mHome.myAchievements')}</Text>
+          <Text style={[styles.linkSubtitle, fonts.body, { color: c.textSecondary }]}>{t('mHome.achievementsSubtitle')}</Text>
         </Pressable>
       ) : null}
 
-      <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: c.textSecondary }]}>Yaklaşan rezervasyonlarım</Text>
+      <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mHome.upcomingBookings')}</Text>
 
       {bookings === null && !loadError ? <ActivityIndicator color={c.textPrimary} /> : null}
       {loadError ? <Text style={styles.errorText}>{loadError}</Text> : null}
       {bookings?.length === 0 ? (
-        <Text style={[styles.emptyText, fonts.body, { color: c.textMuted }]}>Yaklaşan rezervasyonunuz yok.</Text>
+        <Text style={[styles.emptyText, fonts.body, { color: c.textMuted }]}>{t('mHome.noUpcomingBookings')}</Text>
       ) : null}
       {bookings?.map((booking) => (
         <UpcomingBookingCard key={booking.bookingId} booking={booking} />

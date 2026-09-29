@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { SwitchRow } from '../../../src/components/SwitchRow';
+import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { getNotificationPermissionStatus } from '../../../src/lib/push';
 import { palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
@@ -13,6 +14,7 @@ type Channel = 'push' | 'sms';
 
 export default function BildirimlerScreen() {
   const colors = useThemeColors();
+  const t = useT();
 
   const [items, setItems] = useState<NotificationPreferenceItemDTO[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,7 +29,7 @@ export default function BildirimlerScreen() {
       const data = await apiRequest<NotificationPreferencesDTO>('/me/notification-preferences');
       setItems(data.items);
     } catch (error) {
-      setLoadError(error instanceof ApiError ? error.message : 'Bildirim ayarları yüklenemedi.');
+      setLoadError(error instanceof ApiError ? error.message : t('mNotificationPrefs.errors.loadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -59,7 +61,7 @@ export default function BildirimlerScreen() {
       });
     } catch (error) {
       setItems(previousItems);
-      setSaveError(error instanceof ApiError ? error.message : 'Değişiklik kaydedilemedi, tekrar deneyin.');
+      setSaveError(error instanceof ApiError ? error.message : t('mNotificationPrefs.errors.saveFailed'));
     }
   };
 
@@ -67,16 +69,14 @@ export default function BildirimlerScreen() {
     <ScreenContainer>
       {permissionDenied ? (
         <View style={[styles.banner, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}>
-          <Text style={[styles.bannerText, { color: colors.textPrimary }]}>
-            Push bildirimlerine izin verilmemiş. Bildirim alabilmek için sistem ayarlarından izin verin.
-          </Text>
+          <Text style={[styles.bannerText, { color: colors.textPrimary }]}>{t('mNotificationPrefs.pushDeniedBanner')}</Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Sistem ayarlarını aç"
+            accessibilityLabel={t('mNotificationPrefs.a11y.openSystemSettings')}
             onPress={() => Linking.openSettings()}
             style={styles.bannerButton}
           >
-            <Text style={styles.bannerButtonText}>Ayarları aç</Text>
+            <Text style={styles.bannerButtonText}>{t('mNotificationPrefs.openSettings')}</Text>
           </Pressable>
         </View>
       ) : null}
@@ -92,18 +92,16 @@ export default function BildirimlerScreen() {
           <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{item.label}</Text>
           <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>{item.description}</Text>
           {item.marketing ? (
-            <Text style={[styles.marketingNote, { color: colors.textMuted }]}>
-              Bu bildirimler açık rızanız olmadan gönderilmez ve varsayılan olarak kapalıdır.
-            </Text>
+            <Text style={[styles.marketingNote, { color: colors.textMuted }]}>{t('mNotificationPrefs.marketingNote')}</Text>
           ) : null}
 
           <View style={styles.switches}>
             <SwitchRow
-              label="Push"
+              label={t('mNotificationPrefs.push')}
               value={item.push}
               onValueChange={(value) => handleToggle(item.category, 'push', value)}
             />
-            <SwitchRow label="SMS" value={item.sms} onValueChange={(value) => handleToggle(item.category, 'sms', value)} />
+            <SwitchRow label={t('mNotificationPrefs.sms')} value={item.sms} onValueChange={(value) => handleToggle(item.category, 'sms', value)} />
           </View>
         </View>
       ))}

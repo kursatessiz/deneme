@@ -26,4 +26,8 @@ export const trMAuth = {
   'mAuth.setPin.mismatch': 'Girdiğiniz PIN\'ler eşleşmiyor',
   'mAuth.setPin.invalid': 'Geçerli bir PIN giriniz',
   'mAuth.setPin.submit': 'PIN\'i kaydet',
+  'mAuth.changePin.subtitle': 'Yeni PIN\'inizi girip onaylayın.',
+  'mAuth.changePin.submit': 'PIN\'i güncelle',
+  'mAuth.changePin.success': 'PIN\'iniz güncellendi.',
+  'mAuth.changePin.unexpectedError': 'Beklenmeyen bir hata oluştu.',
 } as const satisfies Record<string, string>;

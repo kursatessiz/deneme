@@ -3,22 +3,27 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, T
 
 import type { ChurnListResponseDTO, ChurnMemberSummaryDTO } from '@platform/shared';
 
-import { useLocale } from '../../../../src/i18n';
+import { useLocale, useT } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { useSession } from '../../../../src/lib/session';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../../src/theme';
+import type { Translate } from '@platform/shared';
 
-const LEVEL_LABEL: Record<string, string> = { HIGH: 'Yüksek', MEDIUM: 'Orta', LOW: 'Düşük' };
+function levelLabels(t: Translate): Record<string, string> {
+  return { HIGH: t('mRiskyMembers.level.high'), MEDIUM: t('mRiskyMembers.level.medium'), LOW: t('mRiskyMembers.level.low') };
+}
 const LEVEL_ORDER: Record<string, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
 const LEVEL_COLOR: Record<string, string> = { HIGH: palette.danger, MEDIUM: palette.warning, LOW: palette.success };
 
-/** W12 mobile: HIGH then MEDIUM churn-risk members, top 2 reasons, quick "görüşüldü" action. */
+/** W12 mobile: HIGH then MEDIUM churn-risk members, top 2 reasons, quick "contacted" action. */
 export default function RiskliUyelerScreen() {
   const { activeMembership } = useSession();
   const { theme } = useTheme();
   const fonts = useThemeFonts();
   const { locale } = useLocale();
-  const dateLabel = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(locale) : 'Hiç gelmedi');
+  const t = useT();
+  const LEVEL_LABEL = levelLabels(t);
+  const dateLabel = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(locale) : t('mRiskyMembers.neverAttended'));
   const c = theme.colors;
   const studioId = activeMembership?.studioId;
 
@@ -37,7 +42,7 @@ export default function RiskliUyelerScreen() {
         .sort((a, b) => LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level] || b.score - a.score);
       setItems(risky);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Riskli üyeler yüklenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mRiskyMembers.errors.loadFailed'));
     }
   }, [studioId]);
 
@@ -51,11 +56,11 @@ export default function RiskliUyelerScreen() {
     try {
       await apiRequest(`/churn/studio/${studioId}/members/${memberId}/contacted`, {
         method: 'POST',
-        body: { note: 'Telefonla görüşüldü' },
+        body: { note: t('mRiskyMembers.defaultContactNote') },
       });
       await load();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Görüşüldü olarak işaretlenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mRiskyMembers.errors.markContactedFailed'));
     } finally {
       setBusyMemberId(null);
     }
@@ -78,11 +83,11 @@ export default function RiskliUyelerScreen() {
         />
       }
     >
-      <Text style={[styles.caption, fonts.body, { color: c.textSecondary }]}>Yüksek ve orta riskli üyeler</Text>
+      <Text style={[styles.caption, fonts.body, { color: c.textSecondary }]}>{t('mRiskyMembers.caption')}</Text>
       {!items && !error ? <ActivityIndicator style={styles.spinner} /> : null}
       {error ? <Text style={{ color: palette.danger }}>{error}</Text> : null}
       {items && items.length === 0 ? (
-        <Text style={[styles.empty, fonts.body, { color: c.textSecondary }]}>Riskli üye bulunmuyor.</Text>
+        <Text style={[styles.empty, fonts.body, { color: c.textSecondary }]}>{t('mRiskyMembers.noRiskyMembers')}</Text>
       ) : null}
 
       {items?.map((m) => {
@@ -95,11 +100,11 @@ export default function RiskliUyelerScreen() {
                 {m.firstName} {m.lastName}
               </Text>
               <View style={[styles.badge, { backgroundColor: LEVEL_COLOR[m.level] }]}>
-                <Text style={styles.badgeText}>{LEVEL_LABEL[m.level]} - {m.score}</Text>
+                <Text style={styles.badgeText}>{t('mRiskyMembers.levelScore', { level: LEVEL_LABEL[m.level], score: m.score })}</Text>
               </View>
             </View>
             {m.phone ? <Text style={[styles.meta, fonts.body, { color: c.textSecondary }]}>{m.phone}</Text> : null}
-            <Text style={[styles.meta, fonts.body, { color: c.textMuted }]}>Son katılım: {dateLabel(m.lastAttendedAt)}</Text>
+            <Text style={[styles.meta, fonts.body, { color: c.textMuted }]}>{t('mRiskyMembers.lastAttended', { date: dateLabel(m.lastAttendedAt) })}</Text>
             {topReasons.map((r) => (
               <Text key={r.key} style={[styles.reason, fonts.body, { color: c.textSecondary }]}>
                 - {r.label}
@@ -107,13 +112,13 @@ export default function RiskliUyelerScreen() {
             ))}
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${m.firstName} ${m.lastName} ile görüşüldü olarak işaretle`}
+              accessibilityLabel={t('mRiskyMembers.a11y.markContacted', { name: `${m.firstName} ${m.lastName}` })}
               disabled={busyMemberId === m.memberId}
               onPress={() => markContacted(m.memberId)}
               style={[styles.contactButton, { borderColor: c.primary, opacity: busyMemberId === m.memberId ? 0.6 : 1 }]}
             >
               <Text style={[fonts.bodyStrong, { color: c.primary }]}>
-                {alreadyContactedToday ? 'Bugün görüşüldü' : 'Görüşüldü'}
+                {alreadyContactedToday ? t('mRiskyMembers.contactedToday') : t('mRiskyMembers.markContacted')}
               </Text>
             </Pressable>
           </View>

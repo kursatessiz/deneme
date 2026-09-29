@@ -6,9 +6,11 @@ import type { AutomationRuleType } from '@platform/shared';
 
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { SwitchRow } from '../../../src/components/SwitchRow';
+import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import type { Translate } from '@platform/shared';
 
 /** Mirrors AutomationRule as returned by the API; @platform/database types stay server-side. */
 interface AutomationRuleDTO {
@@ -26,18 +28,22 @@ interface RuleStatsDTO {
   failed: number;
 }
 
-const RULE_TYPE_LABELS: Record<AutomationRuleType, string> = {
-  WIN_BACK: 'Kayıp üye kazanma',
-  PACKAGE_EXPIRING: 'Paket bitiş hatırlatması',
-  BIRTHDAY: 'Doğum günü mesajı',
-  FIRST_CLASS_FOLLOW_UP: 'İlk seans sonrası geri bildirim',
-  BOOKING_REMINDER: 'Seans hatırlatması',
-  NO_SHOW_FOLLOW_UP: 'Gelmeme sonrası hatırlatma',
-};
+function ruleTypeLabels(t: Translate): Record<AutomationRuleType, string> {
+  return {
+    WIN_BACK: t('mAutomations.type.winBack'),
+    PACKAGE_EXPIRING: t('mAutomations.type.packageExpiring'),
+    BIRTHDAY: t('mAutomations.type.birthday'),
+    FIRST_CLASS_FOLLOW_UP: t('mAutomations.type.firstClassFollowUp'),
+    BOOKING_REMINDER: t('mAutomations.type.bookingReminder'),
+    NO_SHOW_FOLLOW_UP: t('mAutomations.type.noShowFollowUp'),
+  };
+}
 
 /** Owner screen: automated marketing/lifecycle rules, on/off, last-30-day counts. */
 export default function OtomatikMesajlarScreen() {
   const colors = useThemeColors();
+  const t = useT();
+  const RULE_TYPE_LABELS = ruleTypeLabels(t);
   const { activeMembership } = useSession();
   const studioId = activeMembership?.studioId;
   const canManage = activeMembership?.permissions.includes('notifications.manage') ?? false;
@@ -59,7 +65,7 @@ export default function OtomatikMesajlarScreen() {
       setRules(rulesRes.items);
       setStats(Object.fromEntries(statsRes.items.map((s) => [s.ruleId, s])));
     } catch (error) {
-      setLoadError(error instanceof ApiError ? error.message : 'Otomasyon kuralları yüklenemedi.');
+      setLoadError(error instanceof ApiError ? error.message : t('mAutomations.errors.loadFailed'));
     }
   }, [studioId]);
 
@@ -82,7 +88,7 @@ export default function OtomatikMesajlarScreen() {
       });
     } catch (error) {
       setRules(previous);
-      setSaveError(error instanceof ApiError ? error.message : 'Değişiklik kaydedilemedi, tekrar deneyin.');
+      setSaveError(error instanceof ApiError ? error.message : t('mAutomations.errors.toggleFailed'));
     } finally {
       setTogglingId(null);
     }
@@ -90,10 +96,7 @@ export default function OtomatikMesajlarScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={[styles.intro, { color: colors.textSecondary }]}>
-        Otomatik mesajlar üyelere belirli koşullarda gönderilir. Pazarlama amaçlı mesajlar (kayıp üye kazanma,
-        doğum günü) yalnızca açık rızası olan üyelere gönderilir.
-      </Text>
+      <Text style={[styles.intro, { color: colors.textSecondary }]}>{t('mAutomations.intro')}</Text>
 
       {loadError ? <Text style={styles.error}>{loadError}</Text> : null}
       {saveError ? <Text style={styles.error}>{saveError}</Text> : null}
@@ -108,11 +111,11 @@ export default function OtomatikMesajlarScreen() {
                 <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{rule.name}</Text>
                 <Text style={[styles.cardSubtitle, { color: colors.textMuted }]}>
                   {RULE_TYPE_LABELS[rule.type]}
-                  {!rule.isTransactional ? ' · Pazarlama (onay gerektirir)' : ''}
+                  {!rule.isTransactional ? t('mAutomations.marketingSuffix') : ''}
                 </Text>
               </View>
               <SwitchRow
-                label={`${rule.name} aktif`}
+                label={t('mAutomations.activeLabel', { name: rule.name })}
                 value={rule.isActive}
                 onValueChange={(value) => handleToggle(rule, value)}
                 disabled={togglingId === rule.id}
@@ -120,10 +123,10 @@ export default function OtomatikMesajlarScreen() {
             </View>
 
             <View style={[styles.statsRow, { borderTopColor: colors.border }]}>
-              <Text style={[styles.statText, { color: colors.textSecondary }]}>Son 30 gün:</Text>
-              <Text style={[styles.statValue, { color: palette.success }]}>{s?.sent ?? 0} gönderildi</Text>
-              <Text style={[styles.statValue, { color: colors.textMuted }]}>{s?.skipped ?? 0} atlandı</Text>
-              <Text style={[styles.statValue, { color: palette.danger }]}>{s?.failed ?? 0} başarısız</Text>
+              <Text style={[styles.statText, { color: colors.textSecondary }]}>{t('mAutomations.last30Days')}</Text>
+              <Text style={[styles.statValue, { color: palette.success }]}>{t('mAutomations.sentCount', { count: s?.sent ?? 0 })}</Text>
+              <Text style={[styles.statValue, { color: colors.textMuted }]}>{t('mAutomations.skippedCount', { count: s?.skipped ?? 0 })}</Text>
+              <Text style={[styles.statValue, { color: palette.danger }]}>{t('mAutomations.failedCount', { count: s?.failed ?? 0 })}</Text>
             </View>
           </View>
         );

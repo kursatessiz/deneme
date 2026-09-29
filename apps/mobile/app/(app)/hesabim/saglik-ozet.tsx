@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
-import { useLocale } from '../../../src/i18n';
+import { useLocale, useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
@@ -42,6 +42,7 @@ function DailyBar({ value, maxValue, label, color, trackColor }: { value: number
 export default function SaglikOzetScreen() {
   const colors = useThemeColors();
   const { locale } = useLocale();
+  const t = useT();
   const { activeMembership } = useSession();
   const studioId = activeMembership?.studioId;
 
@@ -56,7 +57,7 @@ export default function SaglikOzetScreen() {
       const data = await apiRequest<HealthDailySummaryDTO[]>('/me/health/summaries', { studioId });
       setSummaries(data);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Sağlık verileri yüklenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mHealth.errors.summariesLoadFailed'));
     }
   }, [studioId]);
 
@@ -87,7 +88,7 @@ export default function SaglikOzetScreen() {
           <Pressable
             key={r}
             accessibilityRole="button"
-            accessibilityLabel={`Son ${r} gün`}
+            accessibilityLabel={t('mHealth.a11y.lastNDays', { days: r })}
             onPress={() => setRange(r)}
             style={[
               styles.rangeButton,
@@ -95,7 +96,7 @@ export default function SaglikOzetScreen() {
             ]}
           >
             <Text style={{ color: range === r ? colors.onPrimary ?? colors.textPrimary : colors.textPrimary, fontSize: typography.size.sm }}>
-              Son {r} gün
+              {t('mHealth.lastNDays', { days: r })}
             </Text>
           </Pressable>
         ))}
@@ -104,15 +105,13 @@ export default function SaglikOzetScreen() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {summaries && summaries.length === 0 ? (
-        <Text style={[styles.empty, { color: colors.textMuted }]}>
-          Henüz sağlık verisi paylaşılmamış. Hesabım {'>'} Sağlık entegrasyonu ekranından açabilirsiniz.
-        </Text>
+        <Text style={[styles.empty, { color: colors.textMuted }]}>{t('mHealth.noDataSharedYet')}</Text>
       ) : null}
 
       {summaries && summaries.length > 0 ? (
         <>
           <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Adım</Text>
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{t('mHealth.steps')}</Text>
             <View style={styles.chart}>
               {dates.map((d, i) => (
                 <DailyBar key={d} value={steps[i]} maxValue={maxSteps} label={shortDayLabel(d, locale)} color={palette.info} trackColor={colors.border} />
@@ -121,7 +120,7 @@ export default function SaglikOzetScreen() {
           </View>
 
           <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Aktif enerji (kcal)</Text>
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{t('mHealth.activeEnergyKcal')}</Text>
             <View style={styles.chart}>
               {dates.map((d, i) => (
                 <DailyBar key={d} value={energy[i]} maxValue={maxEnergy} label={shortDayLabel(d, locale)} color={palette.success} trackColor={colors.border} />
@@ -131,7 +130,7 @@ export default function SaglikOzetScreen() {
 
           {latestRestingHr != null ? (
             <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Dinlenme nabzı</Text>
+              <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{t('mHealth.restingHeartRate')}</Text>
               <Text style={[styles.bigValue, { color: colors.textPrimary }]}>{latestRestingHr} bpm</Text>
             </View>
           ) : null}

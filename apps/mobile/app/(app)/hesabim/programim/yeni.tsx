@@ -9,6 +9,7 @@ import { PermissionGate } from '../../../../src/components/PermissionGate';
 import { PrimaryButton } from '../../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../../src/components/ScreenContainer';
 import { TextField } from '../../../../src/components/TextField';
+import { useT } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { fieldErrorsFromZod } from '../../../../src/lib/formErrors';
 import { useSession } from '../../../../src/lib/session';
@@ -60,6 +61,7 @@ function PickerRow({
 function YeniSeansContent() {
   const router = useRouter();
   const colors = useThemeColors();
+  const t = useT();
   const { activeMembership } = useSession();
   const studioId = activeMembership?.studioId;
 
@@ -126,7 +128,7 @@ function YeniSeansContent() {
       await apiRequest('/schedules', { method: 'POST', studioId, body: parsed.data });
       router.back();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Seans oluşturulamadı.');
+      setError(e instanceof ApiError ? e.message : t('mScheduleForm.errors.createFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -135,28 +137,28 @@ function YeniSeansContent() {
   return (
     <ScreenContainer>
       <ScrollView>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Yeni seans</Text>
-        <TextField label="Başlık" value={title} onChangeText={setTitle} errorMessage={fieldErrors.title} />
-        <PickerRow label="Hizmet türü" options={serviceTypes} value={serviceTypeId} onSelect={setServiceTypeId} />
-        <PickerRow label="Eğitmen" options={trainers} value={trainerId} onSelect={setTrainerId} />
-        <PickerRow label="Kaynak" options={resources} value={resourceId} onSelect={setResourceId} />
-        <PickerRow label="Şube" options={branches} value={branchId} onSelect={setBranchId} />
-        <DateTimeField label="Başlangıç" value={startTime} onChange={setStartTime} errorMessage={fieldErrors.startTime} />
-        <DateTimeField label="Bitiş" value={endTime} onChange={setEndTime} errorMessage={fieldErrors.endTime} />
-        <TextField label="Kontenjan" value={capacity} onChangeText={setCapacity} keyboardType="number-pad" />
+        <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mScheduleForm.newSession')}</Text>
+        <TextField label={t('mScheduleForm.titleLabel')} value={title} onChangeText={setTitle} errorMessage={fieldErrors.title} />
+        <PickerRow label={t('mScheduleForm.serviceType')} options={serviceTypes} value={serviceTypeId} onSelect={setServiceTypeId} />
+        <PickerRow label={t('mScheduleForm.trainer')} options={trainers} value={trainerId} onSelect={setTrainerId} />
+        <PickerRow label={t('mScheduleForm.resource')} options={resources} value={resourceId} onSelect={setResourceId} />
+        <PickerRow label={t('mScheduleForm.branch')} options={branches} value={branchId} onSelect={setBranchId} />
+        <DateTimeField label={t('mScheduleForm.start')} value={startTime} onChange={setStartTime} errorMessage={fieldErrors.startTime} />
+        <DateTimeField label={t('mScheduleForm.end')} value={endTime} onChange={setEndTime} errorMessage={fieldErrors.endTime} />
+        <TextField label={t('mScheduleForm.capacity')} value={capacity} onChangeText={setCapacity} keyboardType="number-pad" />
         <PickerRow
-          label="Teslim şekli"
+          label={t('mScheduleForm.deliveryMode')}
           options={[
-            { id: SessionDeliveryMode.IN_PERSON, name: 'Yüz yüze' },
-            { id: SessionDeliveryMode.ONLINE, name: 'Çevrimiçi' },
-            { id: SessionDeliveryMode.HYBRID, name: 'Hibrit' },
+            { id: SessionDeliveryMode.IN_PERSON, name: t('mScheduleForm.deliveryMode.inPerson') },
+            { id: SessionDeliveryMode.ONLINE, name: t('mScheduleForm.deliveryMode.online') },
+            { id: SessionDeliveryMode.HYBRID, name: t('mScheduleForm.deliveryMode.hybrid') },
           ]}
           value={deliveryMode}
           onSelect={(id) => setDeliveryMode(id as SessionDeliveryMode)}
         />
         {deliveryMode !== SessionDeliveryMode.IN_PERSON ? (
           <TextField
-            label="Toplantı bağlantısı (https)"
+            label={t('mScheduleForm.meetingUrlLabel')}
             value={meetingUrl}
             onChangeText={setMeetingUrl}
             placeholder="https://..."
@@ -164,7 +166,7 @@ function YeniSeansContent() {
           />
         ) : null}
         {error ? <Text style={[styles.error, { color: palette.danger }]}>{error}</Text> : null}
-        <PrimaryButton label="Seansı oluştur" onPress={handleSubmit} loading={isSubmitting} />
+        <PrimaryButton label={t('mScheduleForm.createSession')} onPress={handleSubmit} loading={isSubmitting} />
       </ScrollView>
     </ScreenContainer>
   );

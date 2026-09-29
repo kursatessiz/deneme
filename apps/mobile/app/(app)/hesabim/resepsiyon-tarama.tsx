@@ -5,7 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
-import { useLocale } from '../../../src/i18n';
+import { useLocale, useT } from '../../../src/i18n';
 import { apiRequest, ApiError } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { radii, spacing, typography, useThemeColors } from '../../../src/theme';
@@ -26,6 +26,7 @@ export default function ResepsiyonTaramaScreen() {
   const router = useRouter();
   const colors = useThemeColors();
   const { locale } = useLocale();
+  const t = useT();
   const { activeStudioId } = useSession();
   const [permission, requestPermission] = useCameraPermissions();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,7 +47,7 @@ export default function ResepsiyonTaramaScreen() {
       });
       setOutcome(res);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Check-in yapılamadı.');
+      setError(err instanceof ApiError ? err.message : t('mCheckIn.errors.checkInFailed'));
       setOutcome(null);
     } finally {
       setIsSubmitting(false);
@@ -78,8 +79,8 @@ export default function ResepsiyonTaramaScreen() {
   if (!permission.granted) {
     return (
       <ScreenContainer>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Kamera izni gerekli</Text>
-        <PrimaryButton label="İzin ver" onPress={() => void requestPermission()} />
+        <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mCheckIn.cameraPermissionRequired')}</Text>
+        <PrimaryButton label={t('mCheckIn.grantPermission')} onPress={() => void requestPermission()} />
       </ScreenContainer>
     );
   }
@@ -87,9 +88,9 @@ export default function ResepsiyonTaramaScreen() {
   if (outcome?.resolved) {
     return (
       <ScreenContainer>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Giriş yapıldı</Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Üyenin rezervasyonu check-in olarak işaretlendi.</Text>
-        <PrimaryButton label="Yeni tarama" onPress={reset} />
+        <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mCheckIn.checkedIn')}</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{t('mCheckIn.resepsiyonTarama.memberBookingCheckedIn')}</Text>
+        <PrimaryButton label={t('mCheckIn.newScan')} onPress={reset} />
       </ScreenContainer>
     );
   }
@@ -97,8 +98,8 @@ export default function ResepsiyonTaramaScreen() {
   if (outcome && !outcome.resolved) {
     return (
       <ScreenContainer>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Bugünkü rezervasyonlar</Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Üyenin birden fazla uygun rezervasyonu var, birini seçin.</Text>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mCheckIn.resepsiyonTarama.todaysBookings')}</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{t('mCheckIn.resepsiyonTarama.multipleBookingsHint')}</Text>
         {outcome.candidates.map((c) => (
           <Pressable
             key={c.bookingId}
@@ -113,7 +114,7 @@ export default function ResepsiyonTaramaScreen() {
             </Text>
           </Pressable>
         ))}
-        <PrimaryButton label="Yeni tarama" onPress={reset} variant="secondary" />
+        <PrimaryButton label={t('mCheckIn.newScan')} onPress={reset} variant="secondary" />
       </ScreenContainer>
     );
   }
@@ -128,16 +129,16 @@ export default function ResepsiyonTaramaScreen() {
         />
       </View>
       <Text style={[styles.subtitle, { color: colors.textSecondary, marginTop: spacing[4] }]}>
-        Üyenin uygulamasındaki QR kodunu kareye hizalayın.
+        {t('mCheckIn.resepsiyonTarama.alignMemberQr')}
       </Text>
       {isSubmitting ? <ActivityIndicator color={colors.textPrimary} style={{ marginTop: spacing[3] }} /> : null}
       {error ? (
         <>
           <Text style={[styles.error, { color: colors.textSecondary }]}>{error}</Text>
-          <PrimaryButton label="Yeni tarama" onPress={reset} variant="secondary" />
+          <PrimaryButton label={t('mCheckIn.newScan')} onPress={reset} variant="secondary" />
         </>
       ) : null}
-      <PrimaryButton label="Vazgeç" onPress={() => router.back()} variant="secondary" />
+      <PrimaryButton label={t('mCheckIn.cancel')} onPress={() => router.back()} variant="secondary" />
     </ScreenContainer>
   );
 }

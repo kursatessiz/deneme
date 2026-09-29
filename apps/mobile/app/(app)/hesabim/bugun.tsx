@@ -6,7 +6,7 @@ import { PermissionGate } from '../../../src/components/PermissionGate';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { SessionDetail } from '../../../src/components/SessionDetail';
-import { useLocale } from '../../../src/i18n';
+import { useLocale, useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { dayRange } from '../../../src/lib/dateRange';
 import { isTabletWidth } from '../../../src/lib/layout';
@@ -23,6 +23,7 @@ function BugunContent() {
   const colors = useThemeColors();
   const fonts = useThemeFonts();
   const { locale } = useLocale();
+  const t = useT();
   const { width } = useWindowDimensions();
   const isTablet = isTabletWidth(width);
   const { activeMembership } = useSession();
@@ -46,7 +47,7 @@ function BugunContent() {
       );
       setSchedules(data);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Bugünün seansları yüklenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mScheduleForm.errors.todaySessionsLoadFailed'));
     }
   }, [studioId]);
 
@@ -68,14 +69,14 @@ function BugunContent() {
       <View style={styles.quickLinks}>
         {canScan ? (
           <PrimaryButton
-            label="Üye QR tarama"
+            label={t('mScheduleForm.memberQrScan')}
             variant="secondary"
             onPress={() => router.push('/(app)/hesabim/resepsiyon-tarama')}
           />
         ) : null}
         {canViewMembers ? (
           <PrimaryButton
-            label="Üye ara / walk-in"
+            label={t('mScheduleForm.searchMemberOrWalkIn')}
             variant="secondary"
             onPress={() => router.push('/(app)/hesabim/uyeler')}
           />
@@ -84,7 +85,7 @@ function BugunContent() {
       {!schedules && !error ? <ActivityIndicator /> : null}
       {error ? <Text style={[styles.error, { color: palette.danger }]}>{error}</Text> : null}
       {schedules?.length === 0 ? (
-        <Text style={[styles.empty, fonts.body, { color: colors.textSecondary }]}>Bugün planlanmış seans yok.</Text>
+        <Text style={[styles.empty, fonts.body, { color: colors.textSecondary }]}>{t('mScheduleForm.noSessionsToday')}</Text>
       ) : null}
       {schedules?.map((item) => (
         <Pressable
@@ -127,7 +128,7 @@ function BugunContent() {
           </ScreenContainer>
         ) : (
           <View style={styles.placeholder}>
-            <Text style={[fonts.body, { color: colors.textSecondary }]}>Bir seans seçin.</Text>
+            <Text style={[fonts.body, { color: colors.textSecondary }]}>{t('mScheduleForm.pickASession')}</Text>
           </View>
         )}
       </View>

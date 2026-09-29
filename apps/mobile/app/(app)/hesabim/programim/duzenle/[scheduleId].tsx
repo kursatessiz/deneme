@@ -9,6 +9,7 @@ import { PermissionGate } from '../../../../../src/components/PermissionGate';
 import { PrimaryButton } from '../../../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../../../src/components/ScreenContainer';
 import { TextField } from '../../../../../src/components/TextField';
+import { useT } from '../../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../../src/lib/api';
 import { fieldErrorsFromZod } from '../../../../../src/lib/formErrors';
 import { useSession } from '../../../../../src/lib/session';
@@ -25,6 +26,7 @@ import { palette, spacing, typography, useThemeColors } from '../../../../../src
 function DuzenleContent() {
   const router = useRouter();
   const colors = useThemeColors();
+  const t = useT();
   const { scheduleId, title: initialTitle, startTime: initialStart, endTime: initialEnd, capacity: initialCapacity } =
     useLocalSearchParams<{ scheduleId: string; title?: string; startTime?: string; endTime?: string; capacity?: string }>();
   const { activeMembership } = useSession();
@@ -57,7 +59,7 @@ function DuzenleContent() {
       await apiRequest(`/schedules/${scheduleId}`, { method: 'PATCH', studioId, body: parsed.data });
       router.back();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Seans güncellenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mScheduleForm.errors.updateFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -65,13 +67,13 @@ function DuzenleContent() {
 
   return (
     <ScreenContainer>
-      <Text style={[styles.title, { color: colors.textPrimary }]}>Seansı düzenle</Text>
-      <TextField label="Başlık" value={title} onChangeText={setTitle} errorMessage={fieldErrors.title} />
-      <DateTimeField label="Başlangıç" value={startTime} onChange={setStartTime} errorMessage={fieldErrors.startTime} />
-      <DateTimeField label="Bitiş" value={endTime} onChange={setEndTime} errorMessage={fieldErrors.endTime} />
-      <TextField label="Kontenjan" value={capacity} onChangeText={setCapacity} keyboardType="number-pad" />
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mScheduleForm.editSession')}</Text>
+      <TextField label={t('mScheduleForm.titleLabel')} value={title} onChangeText={setTitle} errorMessage={fieldErrors.title} />
+      <DateTimeField label={t('mScheduleForm.start')} value={startTime} onChange={setStartTime} errorMessage={fieldErrors.startTime} />
+      <DateTimeField label={t('mScheduleForm.end')} value={endTime} onChange={setEndTime} errorMessage={fieldErrors.endTime} />
+      <TextField label={t('mScheduleForm.capacity')} value={capacity} onChangeText={setCapacity} keyboardType="number-pad" />
       {error ? <Text style={[styles.error, { color: palette.danger }]}>{error}</Text> : null}
-      <PrimaryButton label="Kaydet" onPress={handleSubmit} loading={isSubmitting} />
+      <PrimaryButton label={t('mScheduleForm.save')} onPress={handleSubmit} loading={isSubmitting} />
     </ScreenContainer>
   );
 }

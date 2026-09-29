@@ -1,0 +1,22 @@
+/** Mobile app: post-class session rating screen. */
+export const trMRating = {
+  'mRating.score.veryBad': 'Çok kötü',
+  'mRating.score.bad': 'Kötü',
+  'mRating.score.average': 'Orta',
+  'mRating.score.good': 'İyi',
+  'mRating.score.great': 'Harika',
+  'mRating.errors.submitFailed': 'Değerlendirme gönderilemedi.',
+  'mRating.linkOpenFailedTitle': 'Bağlantı açılamadı',
+  'mRating.linkOpenFailedBody': 'Google yorum sayfası açılamadı.',
+  'mRating.thankYou': 'Teşekkürler!',
+  'mRating.ratingSaved': 'Değerlendirmeniz kaydedildi.',
+  'mRating.shareExperiencePrompt': 'Deneyiminizi başkalarıyla da paylaşmak ister misiniz?',
+  'mRating.googleReviewHint': 'İsterseniz Google üzerinden kısa bir yorum bırakabilirsiniz. Tamamen isteğe bağlıdır.',
+  'mRating.leaveGoogleReview': "Google'da yorum bırak",
+  'mRating.done': 'Bitti',
+  'mRating.howWasYourSession': 'Seansını nasıl buldun?',
+  'mRating.a11y.starRating': '{value} yıldız: {label}',
+  'mRating.commentLabel': 'Yorum (opsiyonel)',
+  'mRating.commentPlaceholder': 'Deneyiminizi anlatın...',
+  'mRating.send': 'Gönder',
+} as const satisfies Record<string, string>;

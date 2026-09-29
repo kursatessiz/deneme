@@ -1,0 +1,25 @@
+import type { trMMemberCard } from '../tr/mMemberCard';
+
+export const enMMemberCard: Record<keyof typeof trMMemberCard, string> = {
+  'mMemberCard.risk.high': 'High risk',
+  'mMemberCard.risk.medium': 'Medium risk',
+  'mMemberCard.risk.low': 'Low risk',
+  'mMemberCard.partnerGuest': 'Partner guest',
+  'mMemberCard.noContactPermission': 'Phone: no contact permission',
+  'mMemberCard.addToSessionWalkIn': 'Add to session (walk-in)',
+  'mMemberCard.sellPackage': 'Sell package',
+  'mMemberCard.riskReasons': 'Risk reasons',
+  'mMemberCard.activePackages': 'Active packages',
+  'mMemberCard.noActivePackages': 'No active packages.',
+  'mMemberCard.a11y.freezeDays': 'Freeze day count',
+  'mMemberCard.freeze': 'Freeze',
+  'mMemberCard.unfreeze': 'Remove freeze',
+  'mMemberCard.bookingHistory': 'Booking history',
+  'mMemberCard.noBookings': 'No bookings.',
+  'mMemberCard.session': 'Session',
+  'mMemberCard.notes': 'Notes',
+  'mMemberCard.errors.loadFailed': 'Member details could not be loaded.',
+  'mMemberCard.errors.invalidDayCount': 'Enter a valid number of days.',
+  'mMemberCard.errors.freezeFailed': 'Package could not be frozen.',
+  'mMemberCard.errors.unfreezeFailed': 'Freeze could not be removed.',
+};

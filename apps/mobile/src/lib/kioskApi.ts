@@ -1,3 +1,4 @@
+import { resolveOfflineTranslate } from '../i18n/offlineTranslate';
 import { ApiError } from './api';
 import { resolveApiUrl } from './api';
 import { getKioskSession } from './kioskStore';
@@ -15,7 +16,7 @@ interface KioskRequestOptions {
  */
 export async function kioskRequest<T>(path: string, options: KioskRequestOptions = {}): Promise<T> {
   const session = await getKioskSession();
-  if (!session) throw new ApiError(401, 'Bu cihaz eşleştirilmemiş');
+  if (!session) throw new ApiError(401, (await resolveOfflineTranslate())('mApiErrors.kioskNotPaired'));
 
   const { method = 'GET', body } = options;
   let response: Response;
@@ -26,7 +27,7 @@ export async function kioskRequest<T>(path: string, options: KioskRequestOptions
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
-    throw new ApiError(0, 'Sunucuya bağlanılamadı. Bağlantınızı kontrol edip tekrar deneyin.');
+    throw new ApiError(0, (await resolveOfflineTranslate())('mApiErrors.networkUnreachable'));
   }
 
   const text = await response.text();
@@ -41,7 +42,8 @@ export async function kioskRequest<T>(path: string, options: KioskRequestOptions
 
   if (!response.ok) {
     const errorBody = payload as { message?: string } | null;
-    throw new ApiError(response.status, errorBody?.message ?? 'Beklenmeyen bir hata oluştu.');
+    const message = errorBody?.message ?? (await resolveOfflineTranslate())('mApiErrors.unexpectedError');
+    throw new ApiError(response.status, message);
   }
 
   return payload as T;

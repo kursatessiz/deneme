@@ -7,7 +7,7 @@ import { BookSessionSchema } from '@platform/shared';
 import { PermissionGate } from '../../../../src/components/PermissionGate';
 import { PrimaryButton } from '../../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../../src/components/ScreenContainer';
-import { useLocale } from '../../../../src/i18n';
+import { useLocale, useT } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { weekRange } from '../../../../src/lib/dateRange';
 import { trainerName, type ScheduleRow } from '../../../../src/lib/scheduleTypes';
@@ -28,6 +28,7 @@ function WalkInContent() {
   const colors = useThemeColors();
   const fonts = useThemeFonts();
   const { locale } = useLocale();
+  const t = useT();
   const { memberId } = useLocalSearchParams<{ memberId: string }>();
   const { activeMembership } = useSession();
   const studioId = activeMembership?.studioId;
@@ -47,7 +48,7 @@ function WalkInContent() {
       );
       setSchedules(data.filter((s) => !s.isCancelled && s.bookedCount < s.capacity));
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Seanslar yüklenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mWalkIn.errors.sessionsLoadFailed'));
     }
   }, [studioId]);
 
@@ -61,7 +62,7 @@ function WalkInContent() {
     setError(undefined);
     const parsed = BookSessionSchema.safeParse({ studioId, scheduleId, memberId, resourceIds: [] });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Rezervasyon yapılamadı.');
+      setError(parsed.error.issues[0]?.message ?? t('mWalkIn.errors.bookingFailed'));
       setBusyId(null);
       return;
     }
@@ -69,7 +70,7 @@ function WalkInContent() {
       await apiRequest('/schedules/book', { method: 'POST', studioId, body: parsed.data });
       setDone(scheduleId);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Rezervasyon yapılamadı.');
+      setError(e instanceof ApiError ? e.message : t('mWalkIn.errors.bookingFailed'));
     } finally {
       setBusyId(null);
     }
@@ -78,20 +79,20 @@ function WalkInContent() {
   if (done) {
     return (
       <ScreenContainer>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Rezervasyon oluşturuldu</Text>
-        <PrimaryButton label="Üye kartına dön" onPress={() => router.back()} />
+        <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mWalkIn.bookingCreated')}</Text>
+        <PrimaryButton label={t('mWalkIn.backToMemberCard')} onPress={() => router.back()} />
       </ScreenContainer>
     );
   }
 
   return (
     <ScreenContainer>
-      <Text style={[styles.title, { color: colors.textPrimary }]}>Seansa ekle (walk-in)</Text>
-      <Text style={[styles.lead, fonts.body, { color: colors.textSecondary }]}>Önümüzdeki 7 gün, boş kontenjanı olan seanslar</Text>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mWalkIn.title')}</Text>
+      <Text style={[styles.lead, fonts.body, { color: colors.textSecondary }]}>{t('mWalkIn.lead')}</Text>
       {!schedules && !error ? <ActivityIndicator /> : null}
       {error ? <Text style={[styles.error, { color: palette.danger }]}>{error}</Text> : null}
       {schedules?.length === 0 ? (
-        <Text style={[styles.empty, fonts.body, { color: colors.textSecondary }]}>Uygun seans bulunamadı.</Text>
+        <Text style={[styles.empty, fonts.body, { color: colors.textSecondary }]}>{t('mWalkIn.noAvailableSessions')}</Text>
       ) : null}
       {schedules?.map((item) => (
         <View key={item.id} style={[styles.row, { borderColor: colors.border, backgroundColor: colors.surface }]}>
@@ -112,7 +113,7 @@ function WalkInContent() {
             onPress={() => book(item.id)}
             style={[styles.bookButton, { borderColor: colors.primary }]}
           >
-            <Text style={{ color: colors.primary, fontSize: typography.size.sm }}>Ekle</Text>
+            <Text style={{ color: colors.primary, fontSize: typography.size.sm }}>{t('mWalkIn.add')}</Text>
           </Pressable>
         </View>
       ))}

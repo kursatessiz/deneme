@@ -6,32 +6,39 @@ import type { GiftCardBalanceDTO, GiftCardDTO, MemberPackageDTO, MemberSubscript
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { TextField } from '../../../src/components/TextField';
-import { useLocale } from '../../../src/i18n';
+import { useLocale, useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import type { Translate } from '@platform/shared';
 
-const GIFT_CARD_STATUS_LABELS: Record<string, string> = {
-  ACTIVE: 'Aktif',
-  REDEEMED: 'Bakiyesi bitti',
-  EXPIRED: 'Süresi doldu',
-  CANCELLED: 'İptal edildi',
-};
+function giftCardStatusLabels(t: Translate): Record<string, string> {
+  return {
+    ACTIVE: t('mPayments.giftCard.status.active'),
+    REDEEMED: t('mPayments.giftCard.status.redeemed'),
+    EXPIRED: t('mPayments.giftCard.status.expired'),
+    CANCELLED: t('mPayments.giftCard.status.cancelled'),
+  };
+}
 
-const PAYMENT_STATUS_LABELS: Record<string, string> = {
-  PENDING: 'Beklemede',
-  COMPLETED: 'Tamamlandı',
-  REFUNDED: 'İade edildi',
-  FAILED: 'Başarısız',
-};
+function paymentStatusLabels(t: Translate): Record<string, string> {
+  return {
+    PENDING: t('mPayments.payment.status.pending'),
+    COMPLETED: t('mPayments.payment.status.completed'),
+    REFUNDED: t('mPayments.payment.status.refunded'),
+    FAILED: t('mPayments.payment.status.failed'),
+  };
+}
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  CASH: 'Nakit',
-  CREDIT_CARD_POS: 'Kredi kartı',
-  BANK_TRANSFER: 'Havale/EFT',
-  ONLINE_IYZICO: 'Online ödeme',
-  ONLINE_PAYTR: 'Online ödeme',
-};
+function paymentMethodLabels(t: Translate): Record<string, string> {
+  return {
+    CASH: t('mPayments.payment.method.cash'),
+    CREDIT_CARD_POS: t('mPayments.payment.method.creditCardPos'),
+    BANK_TRANSFER: t('mPayments.payment.method.bankTransfer'),
+    ONLINE_IYZICO: t('mPayments.payment.method.online'),
+    ONLINE_PAYTR: t('mPayments.payment.method.online'),
+  };
+}
 
 function formatAmount(amount: string, currency: string, locale: string): string {
   const value = Number(amount);
@@ -47,6 +54,7 @@ export default function OdemelerimScreen() {
   const { activeMembership } = useSession();
   const { theme } = useTheme();
   const { locale } = useLocale();
+  const t = useT();
   const fonts = useThemeFonts();
   const c = theme.colors;
   const studioId = activeMembership?.studioId;
@@ -91,7 +99,7 @@ export default function OdemelerimScreen() {
         setSelectedPackageDefinitionId(packageList[0].packageDefinitionId);
       }
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Ödemeler yüklenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mPayments.errors.loadFailed'));
     }
   }, [studioId, selectedPackageDefinitionId]);
 
@@ -111,7 +119,7 @@ export default function OdemelerimScreen() {
       });
       setCheckResult(result);
     } catch (e) {
-      setCheckError(e instanceof ApiError ? e.message : 'Hediye kartı bulunamadı.');
+      setCheckError(e instanceof ApiError ? e.message : t('mPayments.errors.giftCardNotFound'));
     } finally {
       setChecking(false);
     }
@@ -128,14 +136,14 @@ export default function OdemelerimScreen() {
         { studioId },
       );
       if (!result.valid) {
-        setPreviewText(result.reason ?? 'Kod geçerli değil.');
+        setPreviewText(result.reason ?? t('mPayments.errors.invalidCode'));
       } else if (result.bonusUnits > 0) {
-        setPreviewText(`Fiyat: ${result.finalAmount} TRY, +${result.bonusUnits} ekstra hak`);
+        setPreviewText(t('mPayments.previewWithBonus', { finalAmount: result.finalAmount, bonusUnits: result.bonusUnits }));
       } else {
-        setPreviewText(`İndirim: ${result.discountAmount} TRY, ödenecek: ${result.finalAmount} TRY`);
+        setPreviewText(t('mPayments.previewWithDiscount', { discountAmount: result.discountAmount, finalAmount: result.finalAmount }));
       }
     } catch (e) {
-      setPreviewText(e instanceof ApiError ? e.message : 'Önizleme alınamadı.');
+      setPreviewText(e instanceof ApiError ? e.message : t('mPayments.errors.previewFailed'));
     } finally {
       setPreviewing(false);
     }
@@ -162,7 +170,7 @@ export default function OdemelerimScreen() {
       setPreviewText(undefined);
       await load();
     } catch (e) {
-      setPurchaseError(e instanceof ApiError ? e.message : 'Satın alma tamamlanamadı.');
+      setPurchaseError(e instanceof ApiError ? e.message : t('mPayments.errors.purchaseFailed'));
     } finally {
       setPurchasing(false);
     }
@@ -180,7 +188,7 @@ export default function OdemelerimScreen() {
       });
       await load();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Abonelik iptal edilemedi.');
+      setError(e instanceof ApiError ? e.message : t('mPayments.errors.subscriptionCancelFailed'));
     } finally {
       setCancellingId(null);
     }
@@ -194,21 +202,30 @@ export default function OdemelerimScreen() {
 
       {subscriptions && subscriptions.length > 0 ? (
         <>
-          <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>Aktif üyeliğim</Text>
+          <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mPayments.activeSubscription')}</Text>
           {subscriptions.map((sub) => (
             <View key={sub.id} style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
               <Text style={[styles.cardTitle, fonts.bodyStrong, { color: c.textPrimary }]}>{sub.packageDefinitionName}</Text>
               <Text style={[styles.cardLine, fonts.body, { color: c.textSecondary }]}>
-                Sonraki yenileme: {formatDate(sub.nextChargeAt, locale)}
+                {t('mPayments.nextRenewal', { date: formatDate(sub.nextChargeAt, locale) })}
               </Text>
               <Text style={[styles.cardLine, fonts.body, { color: c.textMuted }]}>
-                Durum: {sub.status === 'ACTIVE' ? 'Aktif' : sub.status === 'PAUSED' ? 'Durduruldu' : sub.status === 'PAST_DUE' ? 'Ödeme bekleniyor' : 'İptal edildi'}
-                {sub.cancelAtPeriodEnd ? ' (dönem sonunda iptal edilecek)' : ''}
+                {t('mPayments.statusLabel', {
+                  status:
+                    sub.status === 'ACTIVE'
+                      ? t('mPayments.status.active')
+                      : sub.status === 'PAUSED'
+                        ? t('mPayments.status.paused')
+                        : sub.status === 'PAST_DUE'
+                          ? t('mPayments.status.pastDue')
+                          : t('mPayments.status.cancelled'),
+                })}
+                {sub.cancelAtPeriodEnd ? t('mPayments.cancelAtPeriodEndSuffix') : ''}
               </Text>
               {sub.status === 'ACTIVE' && !sub.cancelAtPeriodEnd ? (
                 <View style={styles.cardAction}>
                   <PrimaryButton
-                    label="Dönem sonunda iptal et"
+                    label={t('mPayments.cancelAtPeriodEnd')}
                     variant="secondary"
                     loading={cancellingId === sub.id}
                     onPress={() => cancelAtPeriodEnd(sub.id)}
@@ -220,9 +237,9 @@ export default function OdemelerimScreen() {
         </>
       ) : null}
 
-      <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>Ödemelerim</Text>
+      <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mPayments.myPayments')}</Text>
       {payments && payments.length === 0 ? (
-        <Text style={[styles.empty, fonts.body, { color: c.textMuted }]}>Henüz bir ödemeniz bulunmuyor.</Text>
+        <Text style={[styles.empty, fonts.body, { color: c.textMuted }]}>{t('mPayments.noPayments')}</Text>
       ) : null}
       {payments?.map((payment) => (
         <View key={payment.id} style={[styles.paymentRow, { borderColor: c.border }]}>
@@ -231,7 +248,7 @@ export default function OdemelerimScreen() {
               {formatAmount(payment.amount, payment.currency, locale)}
             </Text>
             <Text style={[styles.paymentMeta, fonts.body, { color: c.textMuted }]}>
-              {PAYMENT_METHOD_LABELS[payment.paymentMethod] ?? payment.paymentMethod} · {formatDate(payment.paidAt, locale)}
+              {paymentMethodLabels(t)[payment.paymentMethod] ?? payment.paymentMethod} · {formatDate(payment.paidAt, locale)}
             </Text>
           </View>
           <Text
@@ -241,14 +258,14 @@ export default function OdemelerimScreen() {
               { color: payment.paymentStatus === 'COMPLETED' ? palette.success : payment.paymentStatus === 'FAILED' ? palette.danger : c.textMuted },
             ]}
           >
-            {PAYMENT_STATUS_LABELS[payment.paymentStatus] ?? payment.paymentStatus}
+            {paymentStatusLabels(t)[payment.paymentStatus] ?? payment.paymentStatus}
           </Text>
         </View>
       ))}
 
       {myGiftCards && myGiftCards.length > 0 ? (
         <>
-          <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>Hediye kartlarım</Text>
+          <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mPayments.myGiftCards')}</Text>
           {myGiftCards.map((card) => (
             <View key={card.id} style={[styles.paymentRow, { borderColor: c.border }]}>
               <View style={styles.paymentInfo}>
@@ -258,22 +275,22 @@ export default function OdemelerimScreen() {
                 <Text style={[styles.paymentMeta, fonts.body, { color: c.textMuted }]}>**** {card.last4}</Text>
               </View>
               <Text style={[styles.paymentStatus, fonts.bodyStrong, { color: card.status === 'ACTIVE' ? palette.success : c.textMuted }]}>
-                {GIFT_CARD_STATUS_LABELS[card.status] ?? card.status}
+                {giftCardStatusLabels(t)[card.status] ?? card.status}
               </Text>
             </View>
           ))}
         </>
       ) : null}
 
-      <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>Hediye kartı bakiyesi sorgula</Text>
+      <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mPayments.giftCardBalanceCheck')}</Text>
       <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-        <TextField label="Hediye kartı kodu" value={checkCode} onChangeText={setCheckCode} placeholder="ORN AB3XY7Q92KLM4T6P" />
+        <TextField label={t('mPayments.giftCardCodeLabel')} value={checkCode} onChangeText={setCheckCode} placeholder={t('mPayments.giftCardCodePlaceholder')} />
         <View style={styles.cardAction}>
-          <PrimaryButton label="Bakiyeyi göster" variant="secondary" loading={checking} onPress={checkGiftCardBalance} />
+          <PrimaryButton label={t('mPayments.showBalance')} variant="secondary" loading={checking} onPress={checkGiftCardBalance} />
         </View>
         {checkResult ? (
           <Text style={[styles.cardLine, fonts.body, { color: c.textPrimary }]}>
-            **** {checkResult.last4}: {formatAmount(checkResult.balance, checkResult.currency, locale)} ({GIFT_CARD_STATUS_LABELS[checkResult.status] ?? checkResult.status})
+            **** {checkResult.last4}: {formatAmount(checkResult.balance, checkResult.currency, locale)} ({giftCardStatusLabels(t)[checkResult.status] ?? checkResult.status})
           </Text>
         ) : null}
         {checkError ? <Text style={[styles.cardLine, fonts.body, { color: palette.danger }]}>{checkError}</Text> : null}
@@ -281,19 +298,19 @@ export default function OdemelerimScreen() {
 
       {myPackages && myPackages.length > 0 && selectedPackageDefinitionId ? (
         <>
-          <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>Paketimi yenile</Text>
+          <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mPayments.renewPackage')}</Text>
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
             <Text style={[styles.cardLine, fonts.body, { color: c.textSecondary }]}>
               {myPackages.find((p) => p.packageDefinitionId === selectedPackageDefinitionId)?.packageDefinitionName}
             </Text>
-            <TextField label="Promosyon kodu (opsiyonel)" value={promoCode} onChangeText={setPromoCode} placeholder="ORN HOSGELDIN10" />
-            <TextField label="Hediye kartı kodu (opsiyonel)" value={giftCardCode} onChangeText={setGiftCardCode} placeholder="ORN AB3XY7Q92KLM4T6P" />
+            <TextField label={t('mPayments.promoCodeLabel')} value={promoCode} onChangeText={setPromoCode} placeholder={t('mPayments.promoCodePlaceholder')} />
+            <TextField label={t('mPayments.giftCardCodeOptionalLabel')} value={giftCardCode} onChangeText={setGiftCardCode} placeholder={t('mPayments.giftCardCodePlaceholder')} />
             <View style={styles.cardAction}>
-              <PrimaryButton label="Fiyatı önizle" variant="secondary" loading={previewing} disabled={!promoCode.trim()} onPress={previewPrice} />
+              <PrimaryButton label={t('mPayments.previewPrice')} variant="secondary" loading={previewing} disabled={!promoCode.trim()} onPress={previewPrice} />
             </View>
             {previewText ? <Text style={[styles.cardLine, fonts.body, { color: c.textPrimary }]}>{previewText}</Text> : null}
             <View style={styles.cardAction}>
-              <PrimaryButton label="Satın al" loading={purchasing} onPress={purchaseWithCodes} />
+              <PrimaryButton label={t('mPayments.purchase')} loading={purchasing} onPress={purchaseWithCodes} />
             </View>
             {purchaseError ? <Text style={[styles.cardLine, fonts.body, { color: palette.danger }]}>{purchaseError}</Text> : null}
           </View>
