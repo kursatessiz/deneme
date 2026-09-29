@@ -127,17 +127,10 @@ durumunda otomatik rollback içeren bir smoke test çalıştırır. Tam sıralam
 
 ## 6. Otomatik günlük yedeklemeler
 
-`deploy/scripts/backup.sh` için bir cron job ekleyin; bu script veritabanını `pg_dump` ile alır,
-gzip ile sıkıştırıp `/opt/app/backups/` içine koyar ve 14 günden eski dump'ları döndürür (rotate
-eder):
-
-```bash
-sudo crontab -e
-```
-
-```cron
-30 3 * * * /bin/bash /opt/app/scripts/backup.sh >> /opt/app/backups/cron.log 2>&1
-```
-
-Object storage'a off-site (site dışı) bir kopya henüz uygulanmadı; bkz. `HANDOVER.md` (bölüm
-6.1) içindeki backlog.
+Yedekler süper admin panelindeki **Yedekler** sayfasından (`/admin/yedekler`) yönetilir: API her
+gün şifreli bir yedeği S3 uyumlu depoya yükler, panel yedekleri listeler, doğrular ve gecikmede
+e-posta ile uyarır. Sunucu tarafında `server-init.sh`, yedek (fallback) olarak
+`/etc/cron.d/app-backup` ile `deploy/scripts/backup.sh`'ı her gün 02:30'da çalıştırır; betik
+`pg_dump` çıktısını gzip ile `/opt/app/backups/` içine koyar, 14 günden eski dump'ları siler ve
+`BACKUP_S3_BUCKET` tanımlıysa şifreli bir kopyayı uzak depoya yükler. Elle ayrı bir crontab
+satırı eklemeyin. Kurulum, ortam değişkenleri ve geri yükleme: `docs/YEDEKLER.md`.

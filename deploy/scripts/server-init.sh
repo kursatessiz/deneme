@@ -77,11 +77,18 @@ fi
 echo "Setting up deployment folders at /opt/app..."
 mkdir -p /opt/app/caddy
 mkdir -p /opt/app/backups
+# Listable (not the dumps themselves, which stay 0600 root) by the API
+# container's group through its read-only mount; see backup.sh.
+chgrp 1000 /opt/app/backups
+chmod 750 /opt/app/backups
 mkdir -p /opt/app/scripts
 mkdir -p /opt/app/releases
 
-# Daily database backup (local rotation plus encrypted off-site copy when
-# BACKUP_S3_BUCKET is set in /opt/app/.env). Output goes to the deploy log.
+# Daily host-side database backup (local rotation plus encrypted off-site
+# copy when BACKUP_S3_BUCKET is set in /opt/app/.env). Output goes to the
+# deploy log. The API also makes a scheduled backup managed from the super
+# admin panel; this cron is the fallback that works even when the API is
+# down (docs/YEDEKLER.md).
 cat > /etc/cron.d/app-backup <<'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

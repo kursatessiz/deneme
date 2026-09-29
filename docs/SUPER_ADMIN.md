@@ -50,7 +50,8 @@ kiracının kendi izin sistemi üzerinden, `StudioTenantGuard` ile olur.
 | Manuel SMS kredi yükleme | `POST /sms-wallet/top-up` (mevcut uç nokta, artık `SuperAdminOnly()`) | Her yükleme `AuditLog`'a yazılır |
 | Global şablon/belge | `GET/POST /admin/content/message-templates`, `GET/POST /admin/content/document-versions` | `studioId: null` küresel varsayılanı, bir uuid ise kiracı geçersiz kılmasını hedefler |
 | Benchmark | `GET /admin/benchmark?businessTypeTemplateKey=` | Aşağıya bakın |
-| Sistem sağlığı | `GET /admin/health` | DB, Redis, kuyruk derinliği, son heartbeat zamanı, başarısız webhook teslimatı sayısı, SMS sağlayıcı bakiye durumu |
+| Sistem sağlığı | `GET /admin/health` | DB, Redis, kuyruk derinliği, son heartbeat zamanı, başarısız webhook teslimatı sayısı, SMS sağlayıcı bakiye durumu, yedek durumu (son başarılı yedek, gecikme) |
+| Yedekler (D2) | `GET /admin/backups`, `POST /admin/backups/run`, `PUT /admin/backups/settings`, `POST /admin/backups/verify`, `POST /admin/backups/download-url`, `POST /admin/backups/delete` | Veritabanı yedeklerinin tek yönetim ekranı: listeleme (uzak depo ve sunucu), şimdi yedek al, zamanlama ve saklama, doğrulama, kısa ömürlü indirme bağlantısı, onaylı silme. Ayrıntılar: `docs/YEDEKLER.md` |
 | Zamanlayıcı/dunning/churn tetikleyicileri | `POST /admin/scheduler/run`, `POST /admin/dunning/run`, `POST /admin/churn/recompute-all`, `POST /admin/feedback/rating-prompts/run` | Önceden var olan uç noktalar, artık `SuperAdminOnly()` |
 
 Tüm payload'lar `packages/shared/src/admin.ts` içindeki Zod şemalarıyla
@@ -111,6 +112,16 @@ uyarısı üretir; ayrı bir push/e-posta kanalı henüz yok, bu iş kaleminin
 notlanan takip maddesidir. Son sonuç `GET /admin/health` üzerinden
 görülebilir.
 
+## Yedekler (D2)
+
+Sahip, yedekleri süper admin paneli dışında yönetmek istemediği için `/admin/yedekler` yedeklerin
+tek operasyon ekranıdır: API her gün (panelden ayarlanan UTC saatinde) ve istek üzerine
+şifreli yedek alıp S3 uyumlu depoya yükler, hemen doğrular, saklama süresini uygular; sunucu
+cron'unun (`backup.sh`) yedekleri de aynı listede görünür. Son başarılı yedek
+`BACKUP_STALE_HOURS` (26) saatten eskiyse süper adminlere günde en fazla bir e-posta gider
+(`BACKUP_STALE` şablonu). Panel veritabanını geri yüklemez; geri yükleme adımları
+`docs/YEDEKLER.md` bölüm 6'dadır.
+
 ## Web paneli
 
 `/admin` route grubu (`apps/web/src/app/admin/`), yalnızca oturum
@@ -120,7 +131,7 @@ src/design`'daki nötr semantik renkleri ve ölçüleri doğrudan okur
 (`AdminTheme` bileşeni), gradyan içermez. Sayfalar: `/admin/tenants`,
 `/admin/plans`, `/admin/business-types`, `/admin/feature-flags`,
 `/admin/sms-packages`, `/admin/content`, `/admin/benchmark`,
-`/admin/health`. Tarayıcı yalnızca `/api/bff/*` üzerinden konuşur
+`/admin/health`, `/admin/yedekler`. Tarayıcı yalnızca `/api/bff/*` üzerinden konuşur
 (`docs/WEB_PANEL.md`), API'ye doğrudan erişmez.
 
 ## Kapsam dışı / takip maddeleri

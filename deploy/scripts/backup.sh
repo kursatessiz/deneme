@@ -13,7 +13,16 @@
 # what a rollback needs, and a storage outage must not block a release).
 #
 # Runs daily from /etc/cron.d/app-backup (installed by server-init.sh) and
-# before every deploy. Restore steps: docs/CICD_GUIDE.md, section "Yedekler".
+# before every deploy. The API makes its own daily backup too, managed from
+# the super admin panel (/admin/yedekler); this script is the host-side
+# fallback. File names carry a UTC stamp and a "-host" marker, the API's a
+# "-api" marker, so both write to the same bucket and prefix without
+# overwriting each other. Restore steps: docs/YEDEKLER.md.
+#
+# The directory is group-readable for the API container's group
+# (BACKUP_READER_GID, default 1000 = the image's "node" user) so the panel
+# can list it through a read-only mount; the dumps themselves stay 0600 root
+# and are never readable by the container.
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,10 +31,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 load_env
 
 BACKUP_DIR="${APP_DIR}/backups"
-STAMP="$(date +%Y%m%d_%H%M%S)"
-FILENAME="${BACKUP_DIR}/db_${STAMP}.sql.gz"
+STAMP="$(date -u +%Y%m%d_%H%M%SZ)"
+FILENAME="${BACKUP_DIR}/db_${STAMP}-host.sql.gz"
+READER_GID="${BACKUP_READER_GID:-1000}"
 mkdir -p "${BACKUP_DIR}"
-chmod 700 "${BACKUP_DIR}"
+chgrp "${READER_GID}" "${BACKUP_DIR}"
+chmod 750 "${BACKUP_DIR}"
 umask 077
 
 log "Starting database backup"
@@ -74,7 +85,7 @@ upload() {
       "${ENDPOINT}/${BACKUP_S3_BUCKET}/${key}"
 }
 
-REMOTE_KEY="${PREFIX}/db_${STAMP}.sql.gz.enc"
+REMOTE_KEY="${PREFIX}/db_${STAMP}-host.sql.gz.enc"
 if upload "${ENCRYPTED}" "${REMOTE_KEY}" && upload "${ENCRYPTED}.sha256" "${REMOTE_KEY}.sha256"; then
   log "Off-site copy uploaded: ${BACKUP_S3_BUCKET}/${REMOTE_KEY}"
 elif [ "${REQUIRED}" = "0" ]; then

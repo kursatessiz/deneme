@@ -1,7 +1,10 @@
 # syntax=docker/dockerfile:1
 # Multi-stage image for the NestJS API.
-# No OS packages are installed: busybox wget covers the healthcheck and
-# compose `init: true` provides PID 1 signal handling.
+# The only OS package is the PostgreSQL 16 client (pg_dump) for backups made
+# from the super admin panel (docs/YEDEKLER.md); its major version matches
+# the postgres:16-alpine server in docker-compose.prod.yml. busybox wget
+# covers the healthcheck and compose `init: true` provides PID 1 signal
+# handling.
 
 FROM node:22-alpine AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
@@ -28,6 +31,7 @@ RUN pnpm --filter @platform/api deploy --prod /out \
 
 FROM node:22-alpine AS runner
 ENV NODE_ENV=production PORT=4000 NODE_OPTIONS=--max-old-space-size=512
+RUN apk add --no-cache postgresql16-client
 WORKDIR /app
 COPY --from=builder --chown=node:node /out/node_modules ./node_modules
 COPY --from=builder --chown=node:node /out/package.json ./package.json
