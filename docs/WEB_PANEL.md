@@ -39,11 +39,19 @@ BFF proxy kullanır:
   `authorization`, ...) iki yön arasında asla ham kopyalanmaz
   (`apps/web/src/lib/bff/headers.ts`); proxy bunları açıkça yeniden kurar.
 
-`NEXT_PUBLIC_API_URL`, yalnızca sunucu tarafında derlenen `apps/web/src/middleware.ts`
-(embed CSP için studio'yu okur) ve `apps/web/src/app/embed/[studioSlug]/page.tsx`
-(herkese açık, kimliksiz embed widget'ı, salt okunur uç noktalar) içinde
-kullanılmaya devam eder -- bunlar zaten kimliksiz herkese açık uç noktalar
-kullanır, jeton taşımaz.
+Tarayıcının doğrudan çağırdığı kimliksiz herkese açık uç noktalar (embed
+widget'ı `apps/web/src/app/embed/[studioSlug]/page.tsx`, sayfa motorunun
+aday formu, ziyaretçi izleme ve reklam pikseli ayarı) jeton taşımaz ve API
+adresini **çalışma anında** alır (D1): sunucu tarafı (`middleware.ts`, sunucu
+bileşenleri) `PUBLIC_API_URL` ortam değişkenini okur, kök layout bu değeri
+`<meta name="platform-public-api-url">` etiketine yazar ve istemci kodu
+`apps/web/src/lib/public-api-url.ts` içindeki `publicApiBaseUrl()` ile istek
+anında okur (satır içi script yok, nonce CSP etkilenmez; herkese açık
+sayfaların `connect-src` listesine bu origin eklenir). Böylece commit başına
+bir kez build edilen aynı image hem preprod hem production'da çalışır.
+`NEXT_PUBLIC_API_URL` artık yalnızca yerel geliştirme yedeğidir; production
+image'ında hiçbir şey ona dayanmaz. Embed CSP için stüdyo bilgisi iç ağdan
+(`API_INTERNAL_URL`) okunur.
 
 ## Sunucu ortam değişkenleri
 

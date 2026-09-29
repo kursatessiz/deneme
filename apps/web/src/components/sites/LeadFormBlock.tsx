@@ -2,8 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { trackingHeaders } from '@/lib/tracking/client';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { publicApiBaseUrl } from '@/lib/public-api-url';
 
 /**
  * The page engine's lead_form block (docs/SAYFA_MOTORU.md). Posts to the
@@ -50,7 +49,7 @@ export function LeadFormBlock({
     if (Date.now() - mountedAt.current < 1500) return; // too fast to be a real visitor; drop silently, like the honeypot
     setStatus('sending');
     try {
-      const res = await fetch(`${API_BASE_URL}/public/studios/${encodeURIComponent(studioSlug)}/leads`, {
+      const res = await fetch(`${publicApiBaseUrl()}/public/studios/${encodeURIComponent(studioSlug)}/leads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...trackingHeaders() },
         body: JSON.stringify({

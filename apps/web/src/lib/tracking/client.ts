@@ -3,6 +3,7 @@ import { CONSENT_COOKIE, CONSENT_COOKIE_MAX_AGE_DAYS, serializeConsent } from '.
 import type { ConsentChoice, ConsentState } from './consent';
 import type { ConsentMode } from './region';
 import { buildTouchpoint, shouldSendTouchpoint } from './touchpoint';
+import { publicApiBaseUrl } from '@/lib/public-api-url';
 
 /**
  * Browser side of visitor tracking (docs/CRM_VE_ATIF.md). First-party
@@ -10,8 +11,6 @@ import { buildTouchpoint, shouldSendTouchpoint } from './touchpoint';
  * 30 minutes idle). Neither is written before the visitor's consent allows
  * analytics; withdrawing consent deletes both.
  */
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 function readCookie(name: string): string | undefined {
   if (typeof document === 'undefined') return undefined;
@@ -104,7 +103,7 @@ export async function trackPageView(opts: { studioSlug: string; consent: Consent
     now: Date.now(),
   });
   try {
-    await fetch(`${API_BASE_URL}/track/${encodeURIComponent(opts.studioSlug)}/touchpoint`, {
+    await fetch(`${publicApiBaseUrl()}/track/${encodeURIComponent(opts.studioSlug)}/touchpoint`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
