@@ -37,3 +37,4 @@ export * from './payouts';
 export * from './billing';
 export * from './error-reporting';
 export * from './community';
+export * from './backups';

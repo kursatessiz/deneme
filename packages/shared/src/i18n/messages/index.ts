@@ -9,6 +9,7 @@ import { trAdminContent } from './tr/admin-content';
 import { trAdminBusinessTypes } from './tr/admin-business-types';
 import { trAdminFeatureFlags } from './tr/admin-feature-flags';
 import { trAdminHealth } from './tr/admin-health';
+import { trAdminBackups } from './tr/admin-backups';
 import { trAdminBenchmark } from './tr/admin-benchmark';
 import { trAdminWebSitesi } from './tr/admin-web-sitesi';
 import { trAi } from './tr/ai';
@@ -99,6 +100,7 @@ import { enAdminContent } from './en/admin-content';
 import { enAdminBusinessTypes } from './en/admin-business-types';
 import { enAdminFeatureFlags } from './en/admin-feature-flags';
 import { enAdminHealth } from './en/admin-health';
+import { enAdminBackups } from './en/admin-backups';
 import { enAdminBenchmark } from './en/admin-benchmark';
 import { enAdminWebSitesi } from './en/admin-web-sitesi';
 import { enAi } from './en/ai';
@@ -203,6 +205,7 @@ export const TR_NAMESPACES = [
   trAdminBusinessTypes,
   trAdminFeatureFlags,
   trAdminHealth,
+  trAdminBackups,
   trAdminBenchmark,
   trAdminWebSitesi,
   trAi,
@@ -296,6 +299,7 @@ export const EN_NAMESPACES = [
   enAdminBusinessTypes,
   enAdminFeatureFlags,
   enAdminHealth,
+  enAdminBackups,
   enAdminBenchmark,
   enAdminWebSitesi,
   enAi,

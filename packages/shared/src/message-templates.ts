@@ -129,6 +129,14 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplateDefinition[] = [
     whatsappName: 'error_digest',
     emailButton: { labelKey: 'msgTpl.ERROR_ALERT.cta', urlVariable: 'link' },
   },
+  /** D2 backups (docs/YEDEKLER.md): email-only operational alert to super admins. */
+  {
+    key: 'BACKUP_STALE',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'hours', 'lastSuccessAt', 'threshold', 'link'],
+    whatsappName: 'backup_stale',
+    emailButton: { labelKey: 'msgTpl.BACKUP_STALE.cta', urlVariable: 'link' },
+  },
 ];
 
 export function builtinTemplate(key: string): BuiltinTemplateDefinition | null {

@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { JobsService } from '../jobs/jobs.service';
 import { SmsProviderBalanceService } from '../notifications/sms-provider-balance.service';
+import { BackupsService } from '../backups/backups.service';
 
 @Injectable()
 export class AdminHealthService {
@@ -14,6 +15,7 @@ export class AdminHealthService {
     private readonly redis: RedisService,
     private readonly jobs: JobsService,
     private readonly smsBalance: SmsProviderBalanceService,
+    private readonly backups: BackupsService,
   ) {}
 
   async getHealth(): Promise<SystemHealthDTO> {
@@ -32,9 +34,10 @@ export class AdminHealthService {
       redis = { status: (await this.redis.ping()) ? 'ok' : 'error' };
     }
 
-    const [queueDepth, failedWebhookDeliveries] = await Promise.all([
+    const [queueDepth, failedWebhookDeliveries, backup] = await Promise.all([
       this.jobs.getQueueDepth(),
       this.prisma.webhookDelivery.count({ where: { status: 'FAILED' } }),
+      this.backups.getStatus(),
     ]);
 
     const lastRunAt = this.jobs.getLastRunAt();
@@ -55,6 +58,7 @@ export class AdminHealthService {
             checkedAt: smsResult.checkedAt,
           }
         : null,
+      backup,
     };
   }
 }

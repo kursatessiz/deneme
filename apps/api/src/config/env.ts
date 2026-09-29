@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+/** Compose passes "" for keys that are unset in /opt/app/.env; treat those as unset. */
+function emptyAsUnset<T extends z.ZodTypeAny>(schema: T) {
+  return z.preprocess((v) => (v === '' ? undefined : v), schema);
+}
+
 // Validated once at startup; the process refuses to boot on invalid config
 // instead of falling back to insecure defaults.
 export const EnvSchema = z
@@ -128,6 +133,33 @@ export const EnvSchema = z
     /** 0 turns the super admin alert and digest emails off (errors are still recorded). */
     ERROR_ALERTS_ENABLED: z.enum(['0', '1']).default('1'),
 
+    // D2 database backups (docs/YEDEKLER.md). The same BACKUP_S3_* settings
+    // deploy/scripts/backup.sh uses; an empty value (compose passes "" for
+    // unset keys) counts as unset.
+    BACKUP_S3_BUCKET: emptyAsUnset(z.string().min(3).max(63).optional()),
+    /** Any S3-compatible endpoint; defaults to AWS S3 in BACKUP_S3_REGION. */
+    BACKUP_S3_ENDPOINT: emptyAsUnset(z.string().url().optional()),
+    BACKUP_S3_REGION: emptyAsUnset(z.string().regex(/^[a-z0-9-]{2,32}$/, 'must be a region name like us-east-1 or auto').default('us-east-1')),
+    BACKUP_S3_PREFIX: emptyAsUnset(
+      z
+        .string()
+        .regex(/^[A-Za-z0-9._\/-]{1,200}$/, 'must be letters, digits, dot, dash, underscore or slash')
+        .transform((v) => v.replace(/^\/+|\/+$/g, ''))
+        .default('db'),
+    ),
+    BACKUP_S3_ACCESS_KEY_ID: emptyAsUnset(z.string().min(1).optional()),
+    BACKUP_S3_SECRET_ACCESS_KEY: emptyAsUnset(z.string().min(1).optional()),
+    /** Passphrase for the openssl-compatible AES-256-CBC (PBKDF2) encryption of off-site copies. */
+    BACKUP_ENCRYPTION_KEY: emptyAsUnset(z.string().min(16, 'BACKUP_ENCRYPTION_KEY must be at least 16 characters').optional()),
+    /** Read-only mount of the host's /opt/app/backups (listing only). Unset: local copies are not shown. */
+    BACKUP_LOCAL_DIR: emptyAsUnset(z.string().startsWith('/').optional()),
+    /** Hours without a successful backup before the status turns stale and super admins get an email. */
+    BACKUP_STALE_HOURS: z.coerce.number().int().min(1).max(720).default(26),
+    /** Lifetime of a presigned download URL, in seconds. */
+    BACKUP_DOWNLOAD_URL_TTL_SECONDS: z.coerce.number().int().min(60).max(900).default(300),
+    /** pg_dump binary; the API image ships the PostgreSQL 16 client. */
+    BACKUP_PG_DUMP_PATH: z.string().min(1).default('pg_dump'),
+
     /** Base URL for JITSI-generated meeting rooms (W19). Must be https. */
     JITSI_BASE_URL: z.string().url().default('https://meet.jit.si'),
   })
@@ -151,6 +183,11 @@ export const EnvSchema = z
     }
     if (env.PAYMENT_PROVIDER === 'STRIPE' && !env.STRIPE_SECRET_KEY) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['STRIPE_SECRET_KEY'], message: 'required when PAYMENT_PROVIDER=STRIPE' });
+    }
+    if (env.BACKUP_S3_BUCKET) {
+      for (const key of ['BACKUP_S3_ACCESS_KEY_ID', 'BACKUP_S3_SECRET_ACCESS_KEY', 'BACKUP_ENCRYPTION_KEY'] as const) {
+        if (!env[key]) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: 'required when BACKUP_S3_BUCKET is set' });
+      }
     }
     if (!env.JITSI_BASE_URL.startsWith('https://')) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['JITSI_BASE_URL'], message: 'must be an https URL' });

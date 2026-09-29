@@ -5306,3 +5306,59 @@ model CommunityReaction {
   @@index([studioId])
   @@map("community_reactions")
 }
+
+// ---------------------------------------------------------------------------
+// D2 database backups (docs/YEDEKLER.md)
+// ---------------------------------------------------------------------------
+
+enum BackupRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum BackupTrigger {
+  MANUAL
+  SCHEDULED
+}
+
+/// Platform-level singleton (id "platform"): the schedule and retention the
+/// super admin edits, plus the run lock. lockRunId is taken with a
+/// conditional update, so only one backup runs at a time; a lock older than
+/// the run timeout is considered abandoned (the process died mid-run).
+model BackupSettings {
+  id              String    @id @default("platform") @db.VarChar(20)
+  scheduleEnabled Boolean   @default(true) @map("schedule_enabled")
+  /// "HH:MM", UTC.
+  scheduleTimeUtc String    @default("01:00") @map("schedule_time_utc") @db.VarChar(5)
+  /// Off-site objects older than this are pruned after a verified backup; 0 = off.
+  retentionDays   Int       @default(35) @map("retention_days")
+  lockRunId       String?   @map("lock_run_id") @db.Uuid
+  lockedAt        DateTime? @map("locked_at")
+  updatedByUserId String?   @map("updated_by_user_id") @db.Uuid
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("backup_settings")
+}
+
+/// One backup made by the API (the host cron's runs are not recorded here;
+/// they are visible through the files they write). Platform data, not
+/// tenant data: no studioId, super admin only.
+model BackupRun {
+  id                String          @id @default(uuid()) @db.Uuid
+  status            BackupRunStatus @default(RUNNING)
+  trigger           BackupTrigger
+  startedAt         DateTime        @default(now()) @map("started_at")
+  finishedAt        DateTime?       @map("finished_at")
+  /// Encrypted size in bytes.
+  sizeBytes         BigInt?         @map("size_bytes")
+  objectKey         String?         @map("object_key") @db.VarChar(512)
+  sha256            String?         @db.VarChar(64)
+  verifiedAt        DateTime?       @map("verified_at")
+  error             String?         @db.VarChar(1000)
+  requestedByUserId String?         @map("requested_by_user_id") @db.Uuid
+
+  @@index([startedAt])
+  @@index([trigger, startedAt])
+  @@map("backup_runs")
+}

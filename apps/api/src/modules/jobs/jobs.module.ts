@@ -19,6 +19,7 @@ import { SchedulerProcessor } from './scheduler.processor';
 import { SCHEDULER_INTERVAL_MS, SCHEDULER_JOB_NAME, SCHEDULER_QUEUE } from './jobs.constants';
 import { BillingModule } from '../billing/billing.module';
 import { PayoutsModule } from '../payouts/payouts.module';
+import { BackupsModule } from '../backups/backups.module';
 
 /**
  * BullMQ is wired up only when REDIS_URL is a real process environment
@@ -48,6 +49,7 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
     EventsModule,
     BillingModule,
     PayoutsModule,
+    BackupsModule,
     ...(redisConfigured
       ? [
           BullModule.forRoot({ connection: { url: process.env.REDIS_URL } }),

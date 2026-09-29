@@ -59,6 +59,9 @@ export const trMsgTpl = {
   'msgTpl.ERROR_CRITICAL.text': 'Merhaba {firstName}, giriş veya ödeme gibi kritik bir akışta hata görüldü. Kaynak: {source}, sürüm: {release}, konum: {route}, toplam tekrar: {count}, hata kodu: {code}. Özet: {title}',
   'msgTpl.ERROR_DIGEST.subject': 'Günlük hata özeti',
   'msgTpl.ERROR_DIGEST.text': 'Merhaba {firstName}, son 24 saatte {events} hata kaydı alındı; {newGroups} yeni hata grubu, {regressions} yeniden açılan grup var. Açık grup sayısı: {openGroups}. En sık görülenler: {topGroups}',
+  'msgTpl.BACKUP_STALE.subject': 'Veritabanı yedeği gecikti',
+  'msgTpl.BACKUP_STALE.text': 'Merhaba {firstName}, son {hours} saattir başarılı bir veritabanı yedeği yok (eşik: {threshold} saat). Son başarılı yedek: {lastSuccessAt}. Süper admin panelindeki Yedekler ekranından durumu kontrol edip hemen yedek alabilirsiniz.',
+  'msgTpl.BACKUP_STALE.cta': 'Yedekleri aç',
 
   'msgTpl.email.reasonCommercial': 'Bu e-postayı {studioName} ile iletişim izniniz olduğu için aldınız.',
   'msgTpl.email.reasonTransactional': 'Bu e-posta {studioName} hesabınızla ilgili bir bilgilendirmedir.',

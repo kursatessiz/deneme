@@ -21,6 +21,8 @@ import { EventsJobsService, EventsHeartbeatResult } from '../events/events-jobs.
 import { BillingJobsService, BillingHeartbeatResult } from '../billing/billing-jobs.service';
 import { PayoutsJobsService, PayoutsHeartbeatResult } from '../payouts/payouts-jobs.service';
 import { ErrorReportingJobsService, ErrorReportingHeartbeatResult } from '../error-reporting/error-reporting-jobs.service';
+import { BackupsJobsService } from '../backups/backups.module';
+import type { BackupsHeartbeatResult } from '../backups/backups.module';
 
 export interface SchedulerRunResult {
   runAt: string;
@@ -43,6 +45,7 @@ export interface SchedulerRunResult {
   billing: BillingHeartbeatResult;
   payouts: PayoutsHeartbeatResult;
   errorReporting: ErrorReportingHeartbeatResult;
+  backups: BackupsHeartbeatResult;
 }
 
 /**
@@ -88,6 +91,7 @@ export class JobsService {
     private readonly billing: BillingJobsService,
     private readonly payouts: PayoutsJobsService,
     private readonly errorReporting: ErrorReportingJobsService,
+    private readonly backups: BackupsJobsService,
     @Optional() @InjectQueue(SCHEDULER_QUEUE) private readonly queue?: Queue,
   ) {}
 
@@ -117,6 +121,8 @@ export class JobsService {
     const billing = await this.billing.run(now);
     const payouts = await this.payouts.run(now);
     const errorReporting = await this.errorReporting.run(now);
+    // Only starts the daily backup in the background; the run itself does not block the heartbeat.
+    const backups = await this.backups.run(now);
     // Last: AI translation batches may take a while; the other steps are time-sensitive.
     const aiTranslation = await this.aiTranslation.processPending(now);
 
@@ -135,7 +141,8 @@ export class JobsService {
         `events ${events.holdsReleased} hold(s) released/${events.promoted} promoted/${events.reminders} reminder(s)/${events.completed} completed, ` +
         `billing ${billing.restricted} trial(s) restricted/${billing.reminders} reminder(s), ` +
         `payouts ${payouts.synced} synced/${payouts.payouts} payout(s)/${payouts.failed} failed`,
-        `errors ${errorReporting.purged} event(s) purged/digest ${errorReporting.digestSent ? 'sent' : 'not due'}`,
+        `errors ${errorReporting.purged} event(s) purged/digest ${errorReporting.digestSent ? 'sent' : 'not due'}, ` +
+        `backups ${backups.scheduled.reason.toLowerCase()}/status ${backups.status}${backups.staleAlertSent ? '/alert sent' : ''}`,
     );
 
     this.lastRunAt = now;
@@ -160,6 +167,7 @@ export class JobsService {
       billing,
       payouts,
       errorReporting,
+      backups,
     };
   }
 }

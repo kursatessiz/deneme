@@ -11,6 +11,7 @@ export const enAdminNav = {
   'adminNav.languages': 'Languages',
   'adminNav.benchmark': 'Benchmark',
   'adminNav.health': 'System Health',
+  'adminNav.backups': 'Backups',
   'adminNav.layout.kicker': 'Platform Management',
   'adminNav.layout.title': 'Super Admin Panel',
   'adminNav.layout.signedInAs': 'Signed in as {firstName} {lastName}',
