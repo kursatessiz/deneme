@@ -73,7 +73,8 @@ export class AdminBenchmarkService {
           where: { studioId, createdAt: { gte: since }, status: { in: ['CANCELLED_EARLY', 'CANCELLED_LATE'] } },
         }),
         this.prisma.payment.aggregate({
-          where: { studioId, paymentStatus: 'COMPLETED', paidAt: { gte: since } },
+          // Revenue per member: guest and walk-in payments carry no member.
+          where: { studioId, memberId: { not: null }, paymentStatus: 'COMPLETED', paidAt: { gte: since } },
           _sum: { amount: true },
         }),
         this.prisma.membership.count({ where: { studioId, status: 'ACTIVE', memberProfile: { isNot: null } } }),

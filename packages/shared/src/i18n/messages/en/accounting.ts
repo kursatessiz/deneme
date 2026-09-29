@@ -22,6 +22,7 @@ export const enAccounting: Record<keyof typeof trAccounting, string> = {
   'accounting.col.section': 'Section',
   'accounting.col.key': 'Key',
   'accounting.col.count': 'Line count',
+  'accounting.xlsx.total': 'Total',
 
   'accounting.card.title': 'Accounting export',
   'accounting.card.description': 'Download the sales and refunds journal, the expenses journal, or the tax and payment method summary as a file for your accountant.',
@@ -32,12 +33,13 @@ export const enAccounting: Record<keyof typeof trAccounting, string> = {
   'accounting.card.kind.expenses': 'Expenses journal',
   'accounting.card.kind.summary': 'Summary (tax rate and payment method)',
   'accounting.card.format': 'File format',
-  'accounting.card.format.csv': 'CSV (Excel)',
+  'accounting.card.format.xlsx': 'Excel (XLSX)',
+  'accounting.card.format.csv': 'CSV',
   'accounting.card.format.json': 'JSON',
   'accounting.card.delimiter': 'Delimiter',
   'accounting.card.delimiter.semicolon': 'Semicolon (;)',
   'accounting.card.delimiter.comma': 'Comma (,)',
   'accounting.card.branch': 'Branch',
   'accounting.card.download': 'Download',
-  'accounting.card.hint': "Amounts use the currency's own minor units and currencies are never mixed in one total.",
+  'accounting.card.hint': "The Excel file has one sheet per currency. Amounts use the currency's own minor units and currencies are never mixed in one total.",
 };

@@ -18,7 +18,8 @@ import { allocateProportionally, roundDivHalfUp, taxRateToBasisPoints } from './
 export const ACCOUNTING_KINDS = ['sales', 'expenses', 'summary'] as const;
 export type AccountingKind = (typeof ACCOUNTING_KINDS)[number];
 
-export const ACCOUNTING_FORMATS = ['csv', 'json'] as const;
+/** XLSX is the default (docs/MUHASEBE.md); CSV and JSON stay available. */
+export const ACCOUNTING_FORMATS = ['xlsx', 'csv', 'json'] as const;
 export type AccountingFormat = (typeof ACCOUNTING_FORMATS)[number];
 
 /** Delimiter names travel in the URL; the literal characters are accepted too. */
@@ -38,9 +39,9 @@ export const AccountingExportQuerySchema = z
     to: z.coerce.date().optional(),
     branchId: z.string().uuid().optional(),
     kind: z.enum(ACCOUNTING_KINDS).default('sales'),
-    format: z.enum(ACCOUNTING_FORMATS).default('csv'),
+    format: z.enum(ACCOUNTING_FORMATS).default('xlsx'),
     delimiter: DelimiterSchema,
-    /** Language of the CSV header row; defaults to the studio language. */
+    /** Language of the CSV / XLSX header row; defaults to the studio language. */
     locale: z
       .string()
       .regex(/^[a-z]{2,3}(-[A-Z]{2})?$/, 'Geçersiz dil kodu')
@@ -368,25 +369,35 @@ export function buildAccountingSummary(sales: readonly SalesJournalRow[], expens
 // CSV
 // ---------------------------------------------------------------------------
 
+/**
+ * How a column is typed in a spreadsheet: `amount` is a money value in the
+ * row's currency (number format with that currency's minor digits), `rate`
+ * a tax percentage, `count` an integer, `date` an ISO timestamp, anything
+ * else text.
+ */
+export type AccountingCellKind = 'text' | 'date' | 'amount' | 'rate' | 'count';
+
 export interface AccountingColumn<Row> {
   key: keyof Row & string;
   /** i18n key of the header cell (namespace `accounting`). */
   labelKey: string;
   /** Plain decimal cells are written as they are (a refund's leading minus is not a formula). */
   numeric?: boolean;
+  /** Spreadsheet cell type; text when absent. */
+  cell?: AccountingCellKind;
 }
 
 export const SALES_JOURNAL_COLUMNS: readonly AccountingColumn<SalesJournalRow>[] = [
-  { key: 'date', labelKey: 'accounting.col.date' },
+  { key: 'date', labelKey: 'accounting.col.date', cell: 'date' },
   { key: 'entryType', labelKey: 'accounting.col.entryType' },
   { key: 'documentNumber', labelKey: 'accounting.col.documentNumber' },
   { key: 'invoiceNumber', labelKey: 'accounting.col.invoiceNumber' },
   { key: 'customerName', labelKey: 'accounting.col.customerName' },
   { key: 'description', labelKey: 'accounting.col.description' },
-  { key: 'net', labelKey: 'accounting.col.net', numeric: true },
-  { key: 'taxRate', labelKey: 'accounting.col.taxRate', numeric: true },
-  { key: 'tax', labelKey: 'accounting.col.tax', numeric: true },
-  { key: 'gross', labelKey: 'accounting.col.gross', numeric: true },
+  { key: 'net', labelKey: 'accounting.col.net', numeric: true, cell: 'amount' },
+  { key: 'taxRate', labelKey: 'accounting.col.taxRate', numeric: true, cell: 'rate' },
+  { key: 'tax', labelKey: 'accounting.col.tax', numeric: true, cell: 'amount' },
+  { key: 'gross', labelKey: 'accounting.col.gross', numeric: true, cell: 'amount' },
   { key: 'currency', labelKey: 'accounting.col.currency' },
   { key: 'paymentMethod', labelKey: 'accounting.col.paymentMethod' },
   { key: 'providerReference', labelKey: 'accounting.col.providerReference' },
@@ -395,10 +406,10 @@ export const SALES_JOURNAL_COLUMNS: readonly AccountingColumn<SalesJournalRow>[]
 ];
 
 export const EXPENSE_JOURNAL_COLUMNS: readonly AccountingColumn<ExpenseJournalRow>[] = [
-  { key: 'date', labelKey: 'accounting.col.date' },
+  { key: 'date', labelKey: 'accounting.col.date', cell: 'date' },
   { key: 'category', labelKey: 'accounting.col.category' },
   { key: 'description', labelKey: 'accounting.col.description' },
-  { key: 'amount', labelKey: 'accounting.col.amount', numeric: true },
+  { key: 'amount', labelKey: 'accounting.col.amount', numeric: true, cell: 'amount' },
   { key: 'currency', labelKey: 'accounting.col.currency' },
   { key: 'expenseId', labelKey: 'accounting.col.expenseId' },
   { key: 'branchId', labelKey: 'accounting.col.branchId' },
@@ -408,10 +419,10 @@ export const SUMMARY_COLUMNS: readonly AccountingColumn<SummaryRow>[] = [
   { key: 'currency', labelKey: 'accounting.col.currency' },
   { key: 'section', labelKey: 'accounting.col.section' },
   { key: 'key', labelKey: 'accounting.col.key' },
-  { key: 'count', labelKey: 'accounting.col.count', numeric: true },
-  { key: 'net', labelKey: 'accounting.col.net', numeric: true },
-  { key: 'tax', labelKey: 'accounting.col.tax', numeric: true },
-  { key: 'gross', labelKey: 'accounting.col.gross', numeric: true },
+  { key: 'count', labelKey: 'accounting.col.count', numeric: true, cell: 'count' },
+  { key: 'net', labelKey: 'accounting.col.net', numeric: true, cell: 'amount' },
+  { key: 'tax', labelKey: 'accounting.col.tax', numeric: true, cell: 'amount' },
+  { key: 'gross', labelKey: 'accounting.col.gross', numeric: true, cell: 'amount' },
 ];
 
 /** A cell that spreadsheet software could run as a formula (OWASP CSV injection), including leading tab/CR tricks. */
@@ -459,4 +470,88 @@ export interface AccountingJsonExport<Row> {
 
 export function buildAccountingJson<Row>(kind: AccountingKind, range: { from: Date; to: Date }, branchId: string | null, rows: Row[]): AccountingJsonExport<Row> {
   return { kind, from: range.from.toISOString(), to: range.to.toISOString(), branchId, rowCount: rows.length, rows };
+}
+
+// ---------------------------------------------------------------------------
+// Spreadsheet (XLSX) layout, kept pure so it is unit tested without a writer
+// ---------------------------------------------------------------------------
+
+/** A typed spreadsheet cell: the writer maps it 1:1 and never builds a formula. */
+export type AccountingSheetCell =
+  | { type: 'text'; value: string }
+  | { type: 'date'; value: Date }
+  | { type: 'number'; value: number; numFmt: string };
+
+/** Excel number format for an amount with the currency's own minor digits ("#,##0.00", "#,##0" for JPY). */
+export function accountingAmountFormat(currency: string): string {
+  return accountingMinorDigits(currency) === 0 ? '#,##0' : '#,##0.00';
+}
+
+export const ACCOUNTING_DATE_FORMAT = 'yyyy-mm-dd hh:mm:ss';
+export const ACCOUNTING_RATE_FORMAT = '0.###';
+export const ACCOUNTING_COUNT_FORMAT = '0';
+
+/**
+ * The typed cell of one row and column. Amounts become numbers formatted
+ * with the row's currency digits, dates become dates (UTC), and every other
+ * value stays a string exactly as the journal holds it: a text cell that
+ * starts with "=" is still a string cell, so it is never evaluated.
+ */
+export function accountingSheetCell<Row extends object>(column: AccountingColumn<Row>, row: Row, currency: string): AccountingSheetCell {
+  const raw = (row as Record<string, unknown>)[column.key];
+  const text = raw === null || raw === undefined ? '' : String(raw);
+  switch (column.cell) {
+    case 'date': {
+      const date = new Date(text);
+      return text === '' || Number.isNaN(date.getTime()) ? { type: 'text', value: text } : { type: 'date', value: date };
+    }
+    case 'amount':
+      if (!PLAIN_NUMBER.test(text)) return { type: 'text', value: text };
+      return { type: 'number', value: Number(minorToAmount(amountToMinor(text, currency), currency)), numFmt: accountingAmountFormat(currency) };
+    case 'rate':
+      return PLAIN_NUMBER.test(text) ? { type: 'number', value: Number(text), numFmt: ACCOUNTING_RATE_FORMAT } : { type: 'text', value: text };
+    case 'count':
+      return PLAIN_NUMBER.test(text) ? { type: 'number', value: Number(text), numFmt: ACCOUNTING_COUNT_FORMAT } : { type: 'text', value: text };
+    default:
+      return { type: 'text', value: text };
+  }
+}
+
+export interface AccountingSheetGroup<Row> {
+  currency: string;
+  rows: Row[];
+}
+
+/**
+ * One sheet per currency (docs/MUHASEBE.md, "XLSX"): rows are grouped by
+ * their `currency` field, currencies in code order, row order kept. An
+ * empty export still yields one sheet in the studio currency with only
+ * the header row.
+ */
+export function accountingSheetGroups<Row extends { currency: string }>(rows: readonly Row[], fallbackCurrency: string): AccountingSheetGroup<Row>[] {
+  const map = new Map<string, Row[]>();
+  for (const row of rows) {
+    const list = map.get(row.currency) ?? [];
+    list.push(row);
+    map.set(row.currency, list);
+  }
+  if (map.size === 0) return [{ currency: fallbackCurrency, rows: [] }];
+  return [...map.keys()].sort().map((currency) => ({ currency, rows: map.get(currency) as Row[] }));
+}
+
+/**
+ * Column totals of one currency sheet, computed in integer minor units (no
+ * formula, no float sum): a number for each `amount` column, null for the
+ * rest. The summary is itself a table of totals and gets no totals row.
+ */
+export function accountingSheetTotals<Row extends object>(columns: readonly AccountingColumn<Row>[], rows: readonly Row[], currency: string): (number | null)[] {
+  return columns.map((column) => {
+    if (column.cell !== 'amount') return null;
+    let sum = 0n;
+    for (const row of rows) {
+      const text = String((row as Record<string, unknown>)[column.key] ?? '');
+      if (PLAIN_NUMBER.test(text)) sum += amountToMinor(text, currency);
+    }
+    return Number(minorToAmount(sum, currency));
+  });
 }

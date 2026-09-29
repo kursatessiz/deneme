@@ -3,7 +3,11 @@ import {
   EXPENSE_JOURNAL_COLUMNS,
   SALES_JOURNAL_COLUMNS,
   SUMMARY_COLUMNS,
+  accountingAmountFormat,
   accountingCsvCell,
+  accountingSheetCell,
+  accountingSheetGroups,
+  accountingSheetTotals,
   amountToMinor,
   buildAccountingJson,
   buildAccountingSummary,
@@ -226,7 +230,8 @@ describe('CSV', () => {
 describe('query schema and json', () => {
   it('applies defaults and accepts delimiter names or characters', () => {
     const q = AccountingExportQuerySchema.parse({ from: '2026-09-01', to: '2026-09-30', delimiter: ',' });
-    expect(q).toMatchObject({ kind: 'sales', format: 'csv', delimiter: 'comma' });
+    expect(q).toMatchObject({ kind: 'sales', format: 'xlsx', delimiter: 'comma' });
+    expect(AccountingExportQuerySchema.parse({ format: 'csv' }).format).toBe('csv');
     expect(AccountingExportQuerySchema.parse({ from: '2026-09-01', to: '2026-09-30' }).delimiter).toBe('semicolon');
   });
 
@@ -239,6 +244,52 @@ describe('query schema and json', () => {
   it('describes the query in the JSON body', () => {
     const json = buildAccountingJson('sales', RANGE, null, [{ a: 1 }]);
     expect(json).toMatchObject({ kind: 'sales', branchId: null, rowCount: 1 });
+  });
+});
+
+describe('spreadsheet layout', () => {
+  const rows = buildSalesJournal(
+    [
+      payment({ paymentId: 'u1', currency: 'USD', gross: '10.00', receiptNumber: 'U-1' }),
+      payment({ paymentId: 'e1', gross: '120.00', description: '=cmd' }),
+      payment({ paymentId: 'j1', currency: 'JPY', gross: '300', receiptNumber: 'J-1', taxComponents: [] }),
+      payment({ paymentId: 'e2', gross: '30.00', receiptNumber: 'R-2', refunds: [{ at: new Date('2026-09-12T09:00:00Z'), amount: '30.00' }] }),
+    ],
+    RANGE,
+  );
+
+  it('groups rows into one sheet per currency, in code order, and keeps an empty export as one sheet', () => {
+    const groups = accountingSheetGroups(rows, 'EUR');
+    expect(groups.map((g) => g.currency)).toEqual(['EUR', 'JPY', 'USD']);
+    expect(groups[0].rows.every((r) => r.currency === 'EUR')).toBe(true);
+    expect(accountingSheetGroups([], 'GBP')).toEqual([{ currency: 'GBP', rows: [] }]);
+  });
+
+  it('types cells: dates as dates, amounts as numbers with the currency digits, text as text', () => {
+    const eur = rows.find((r) => r.paymentId === 'e1');
+    const jpy = rows.find((r) => r.paymentId === 'j1');
+    if (!eur || !jpy) throw new Error('rows missing');
+    const col = (key: string) => SALES_JOURNAL_COLUMNS.find((c) => c.key === key)!;
+    expect(accountingSheetCell(col('date'), eur, 'EUR')).toEqual({ type: 'date', value: new Date('2026-09-10T09:00:00.000Z') });
+    expect(accountingSheetCell(col('gross'), eur, 'EUR')).toEqual({ type: 'number', value: 120, numFmt: '#,##0.00' });
+    expect(accountingSheetCell(col('gross'), jpy, 'JPY')).toEqual({ type: 'number', value: 300, numFmt: '#,##0' });
+    expect(accountingSheetCell(col('taxRate'), eur, 'EUR')).toMatchObject({ type: 'number', value: 20 });
+    expect(accountingSheetCell(col('description'), eur, 'EUR')).toEqual({ type: 'text', value: '=cmd' });
+    expect(accountingSheetCell(col('branchId'), eur, 'EUR')).toEqual({ type: 'text', value: '' });
+    expect(accountingAmountFormat('KWD')).toBe('#,##0.00');
+    const count = SUMMARY_COLUMNS.find((c) => c.key === 'count')!;
+    expect(accountingSheetCell(count, buildAccountingSummary(rows, [])[0], 'EUR')).toMatchObject({ type: 'number', numFmt: '0' });
+  });
+
+  it('totals amount columns per currency in minor units, refunds netted in', () => {
+    const eur = accountingSheetGroups(rows, 'EUR')[0];
+    const totals = accountingSheetTotals(SALES_JOURNAL_COLUMNS, eur.rows, 'EUR');
+    const at = (key: string) => totals[SALES_JOURNAL_COLUMNS.findIndex((c) => c.key === key)];
+    expect(at('gross')).toBe(120);
+    expect((at('net') ?? 0) + (at('tax') ?? 0)).toBeCloseTo(120, 2);
+    expect(at('currency')).toBeNull();
+    expect(at('taxRate')).toBeNull();
+    expect(accountingSheetTotals(EXPENSE_JOURNAL_COLUMNS, [], 'EUR')).toEqual([null, null, null, 0, null, null, null]);
   });
 });
 

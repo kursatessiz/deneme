@@ -1657,7 +1657,12 @@ model MeasurementEntry {
 model Payment {
   id                   String           @id @default(uuid()) @db.Uuid
   studioId             String           @map("studio_id") @db.Uuid
-  memberId             String           @map("member_id") @db.Uuid
+  /// Null for a guest or walk-in payment (event guest, retail walk-in); see
+  /// docs/MUHASEBE.md. contactId then names the payer when known.
+  memberId             String?          @map("member_id") @db.Uuid
+  /// CRM contact who paid when there is no member (same studio, checked by
+  /// the services that write it, like sales.contact_id).
+  contactId            String?          @map("contact_id") @db.Uuid
   memberPackageId      String?          @map("member_package_id") @db.Uuid
   memberSubscriptionId String?          @map("member_subscription_id") @db.Uuid
   storedCardId         String?          @map("stored_card_id") @db.Uuid
@@ -1689,7 +1694,8 @@ model Payment {
   giftCardRefunded     Decimal          @default(0) @map("gift_card_refunded") @db.Decimal(10, 2)
 
   studio             Studio                @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  member             MemberProfile         @relation(fields: [memberId], references: [id])
+  member             MemberProfile?        @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  contact            Contact?              @relation(fields: [contactId], references: [id], onDelete: SetNull)
   memberPackage      MemberPackage?        @relation(fields: [memberPackageId], references: [id], onDelete: SetNull)
   memberSubscription MemberSubscription?   @relation(fields: [memberSubscriptionId], references: [id], onDelete: SetNull)
   storedCard         StoredCard?           @relation(fields: [storedCardId], references: [id], onDelete: SetNull)
@@ -1708,6 +1714,7 @@ model Payment {
   @@index([provider, providerReference])
   @@index([promoCodeId])
   @@index([giftCardId])
+  @@index([contactId])
   @@map("payments")
 }
 
@@ -2507,6 +2514,7 @@ model Contact {
   journeyEnrollments  JourneyEnrollment[]
   retailSales         Sale[]
   eventRegistrations  EventRegistration[]
+  payments            Payment[]
 
   @@index([studioId, lifecycleStage])
   @@index([studioId, pipelineStageId])

@@ -51,6 +51,7 @@ describe('PaymentsService - refunds', () => {
       },
       auditLog: { create: jest.fn() },
       sale: { count: jest.fn().mockResolvedValue(0) },
+      eventRegistration: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
     };
     providers = { get: jest.fn().mockReturnValue({ refund }) };
     service = new PaymentsService(
@@ -74,6 +75,34 @@ describe('PaymentsService - refunds', () => {
     const updateCall = prisma.payment.updateMany.mock.calls[0][0];
     expect(updateCall.data.refundedAmount.toFixed(2)).toBe('1000.00');
     expect(updateCall.data.paymentStatus).toBe(PaymentStatus.REFUNDED);
+  });
+
+  it('refunds a guest payment (no member), mirrors it on the event registration and names the contact in the webhook', async () => {
+    const webhooks = { emit: jest.fn() };
+    service = new PaymentsService(
+      prisma as unknown as PrismaService,
+      { notifyUser: jest.fn() } as unknown as NotificationsService,
+      providers as unknown as PaymentProviderRegistry,
+      { cancelForRefund: jest.fn(), getSettings: jest.fn(), issueForPayment: jest.fn() } as unknown as InvoicingService,
+      {} as unknown as PromotionsService,
+      webhooks as unknown as WebhooksService,
+    );
+    const guest = { ...basePayment, memberId: null, contactId: 'contact-1', providerReference: null, provider: null };
+    prisma.payment.findFirst.mockResolvedValue(guest);
+    prisma.payment.updateMany.mockResolvedValue({ count: 1 });
+    prisma.payment.findUniqueOrThrow.mockResolvedValue({ ...guest, refundedAmount: '1000.00', paymentStatus: PaymentStatus.REFUNDED });
+
+    await service.refundPayment(tenant, 'user-1', 'payment-1', { reason: 'misafir iptal' });
+
+    expect(refund).not.toHaveBeenCalled();
+    const sync = prisma.eventRegistration.updateMany.mock.calls[0][0];
+    expect(sync.where).toEqual({ studioId: 'studio-1', paymentId: 'payment-1' });
+    expect(sync.data.refundedAmount.toFixed(2)).toBe('1000.00');
+    expect(webhooks.emit).toHaveBeenCalledWith(
+      'studio-1',
+      'payment.refunded',
+      expect.objectContaining({ paymentId: 'payment-1', memberId: null, contactId: 'contact-1', amount: '1000.00', currency: basePayment.currency, fullyRefunded: true }),
+    );
   });
 
   it('rejects a refund larger than the paid amount', async () => {

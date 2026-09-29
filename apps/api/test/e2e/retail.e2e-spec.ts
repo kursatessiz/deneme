@@ -11,8 +11,8 @@ import { AppModule } from '../../src/app.module';
  * tenant isolation, currency and tax stored on products and sales, stock
  * receive/adjust/transfer with the append-only ledger, negative stock
  * refused, oversell prevention under concurrent checkouts, gapless receipt
- * numbers per studio, member sales through the payment, promo and loyalty
- * hooks, refunds that return stock and move the payment, voids, the
+ * numbers per studio, every sale (walk-in too) through a payment, member
+ * promo and loyalty hooks, refunds that return stock and move the payment, voids, the
  * low-stock list and the sales report with CSV.
  *
  * Everything created is named "E2E RTL" (products, categories, promo
@@ -313,7 +313,12 @@ describe('Retail G3c-2 (e2e)', () => {
           { unitPrice: '15.00', quantity: 1, taxRate: '10' },
         ],
       });
-      expect(sale).toMatchObject({ currency, total: expected.total, taxTotal: expected.taxTotal, netTotal: expected.netTotal, status: 'COMPLETED', paymentId: null });
+      expect(sale).toMatchObject({ currency, total: expected.total, taxTotal: expected.taxTotal, netTotal: expected.netTotal, status: 'COMPLETED' });
+      // A walk-in sale is a Payment too (no member, no contact), so it reaches finance.
+      expect(sale.paymentId).toBeTruthy();
+      const walkInPayment = await prisma.payment.findUniqueOrThrow({ where: { id: sale.paymentId as string } });
+      expect(walkInPayment).toMatchObject({ studioId: ZEN, memberId: null, contactId: null, currency, paymentStatus: 'COMPLETED', receiptNumber: sale.receiptNumber });
+      expect(walkInPayment.amount.toFixed(2)).toBe(expected.total);
       expect(sale.lines.map((l) => [l.taxRate, l.total])).toEqual([
         ['20', expected.lines[0].total],
         ['10', expected.lines[1].total],

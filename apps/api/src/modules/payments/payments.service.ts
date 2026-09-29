@@ -76,9 +76,27 @@ export class PaymentsService {
     } catch (err) {
       this.logger.warn(`Auto-issue invoice failed for payment ${paymentId}: ${err instanceof Error ? err.message : err}`);
     }
-    await this.webhooks.emit(studioId, 'payment.completed', { paymentId });
+    await this.webhooks.emit(studioId, 'payment.completed', await this.paymentWebhookData(studioId, paymentId));
     // CRM purchase / subscription conversion; never throws (CrmHooksService).
     await this.crm?.onPaymentCompleted(studioId, paymentId);
+  }
+
+  /**
+   * Who paid and how much, for the payment webhooks: memberId is null for a
+   * guest or walk-in payment, contactId then names the payer when known.
+   * Falls back to the id alone if the row is gone (never throws).
+   */
+  async paymentWebhookData(studioId: string, paymentId: string): Promise<Record<string, unknown>> {
+    try {
+      const payment = await this.prisma.payment.findFirst({
+        where: { id: paymentId, studioId },
+        select: { memberId: true, contactId: true, amount: true, currency: true },
+      });
+      if (!payment) return { paymentId };
+      return { paymentId, memberId: payment.memberId, contactId: payment.contactId, amount: payment.amount.toFixed(2), currency: payment.currency };
+    } catch {
+      return { paymentId };
+    }
   }
 
   /**
@@ -308,7 +326,9 @@ export class PaymentsService {
     if (payment.branchId) assertBranchAccess(tenant, payment.branchId);
 
     const meta = (payment.metadata as { packageDefinitionId?: string; startDate?: string | null } | null) ?? null;
-    if (!meta?.packageDefinitionId) {
+    // A package always belongs to a member; a guest payment never carries one.
+    const memberId = payment.memberId;
+    if (!meta?.packageDefinitionId || !memberId) {
       throw new BadRequestException('Ödemede paket bilgisi bulunamadı');
     }
     const pkgDef = await this.prisma.packageDefinition.findFirst({
@@ -328,7 +348,7 @@ export class PaymentsService {
       const memberPackage = await this.createMemberPackageTx(
         tx,
         studioId,
-        payment.memberId,
+        memberId,
         pkgDef,
         meta.startDate ? new Date(meta.startDate) : new Date(),
       );
@@ -483,12 +503,16 @@ export class PaymentsService {
       },
       include: {
         member: { select: { membership: { select: { user: { select: { firstName: true, lastName: true } } } } } },
+        contact: { select: { firstName: true, lastName: true } },
       },
       orderBy: { paidAt: 'desc' },
     });
-    return payments.map(({ member, ...payment }) => ({
+    // Guest and walk-in payments have no member: the contact's name when
+    // known, otherwise both names are null and the screen shows a label.
+    return payments.map(({ member, contact, ...payment }) => ({
       ...payment,
-      memberDisplayName: this.paymentMemberDisplayName(member.membership.user.firstName, member.membership.user.lastName, canViewContact),
+      memberDisplayName: member ? this.paymentMemberDisplayName(member.membership.user.firstName, member.membership.user.lastName, canViewContact) : null,
+      contactDisplayName: !member && contact ? this.paymentMemberDisplayName(contact.firstName, contact.lastName, canViewContact) : null,
     }));
   }
 
@@ -609,6 +633,9 @@ export class PaymentsService {
       );
     }
 
+    // G3c-1: an event ticket's registration mirrors what its payment has refunded.
+    await this.prisma.eventRegistration.updateMany({ where: { studioId, paymentId: payment.id }, data: { refundedAmount: newRefunded } });
+
     await this.prisma.auditLog.create({
       data: {
         studioId,
@@ -633,7 +660,10 @@ export class PaymentsService {
 
     await this.webhooks.emit(studioId, 'payment.refunded', {
       paymentId: payment.id,
+      memberId: payment.memberId,
+      contactId: payment.contactId,
       amount: requested.toFixed(2),
+      currency: payment.currency,
       fullyRefunded,
     });
 
@@ -799,7 +829,9 @@ export class PaymentsService {
       const pkgDef = await this.prisma.packageDefinition.findFirst({
         where: { id: meta.packageDefinitionId, studioId: payment.studioId },
       });
-      if (!pkgDef) return { handled: false };
+      // A package payment always has a member; a guest payment never carries a package.
+      const memberId = payment.memberId;
+      if (!pkgDef || !memberId) return { handled: false };
 
       await this.prisma.$transaction(async (tx) => {
         const transitioned = await tx.payment.updateMany({
@@ -810,7 +842,7 @@ export class PaymentsService {
         const memberPackage = await this.createMemberPackageTx(
           tx,
           payment.studioId,
-          payment.memberId,
+          memberId,
           pkgDef,
           meta.startDate ? new Date(meta.startDate) : new Date(),
         );

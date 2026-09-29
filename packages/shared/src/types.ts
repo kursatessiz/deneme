@@ -327,14 +327,19 @@ export interface StoredCardDTO {
 export interface PaymentDTO {
   id: string;
   studioId: string;
-  memberId: string;
+  /** Null for a guest or walk-in payment (event guest, retail walk-in); see docs/MUHASEBE.md. */
+  memberId: string | null;
+  /** CRM contact who paid when there is no member; null when unknown (anonymous walk-in). */
+  contactId?: string | null;
   /**
    * First name plus the initial of the last name (see
    * `maskLeaderboardName` in gamification.ts), or the full name when the
    * caller has `members.contact.view`. Only set by list endpoints that join
-   * the member; absent elsewhere.
+   * the member; absent elsewhere, and null when the payment has no member.
    */
-  memberDisplayName?: string;
+  memberDisplayName?: string | null;
+  /** Same masking as memberDisplayName, for the contact of a guest payment; null otherwise. */
+  contactDisplayName?: string | null;
   memberPackageId?: string | null;
   memberSubscriptionId?: string | null;
   branchId?: string | null;

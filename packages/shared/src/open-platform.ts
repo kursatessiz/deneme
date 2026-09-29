@@ -141,12 +141,21 @@ export const WEBHOOK_SAMPLE_DATA: Record<WebhookEvent, Record<string, unknown>> 
     firstName: 'Ayşe',
     lastName: 'Yılmaz',
   },
+  // memberId is null for a guest or walk-in payment; contactId then names the
+  // payer when known (both null for an anonymous walk-in sale).
   'payment.completed': {
     paymentId: '1b8d3e5f-7a9c-4d2e-8f10-3a4b5c6d7e05',
+    memberId: '5c2e9a77-1d3b-4f6a-b8c4-7e0d1a2b3c03',
+    contactId: null,
+    amount: '250.00',
+    currency: 'EUR',
   },
   'payment.refunded': {
     paymentId: '1b8d3e5f-7a9c-4d2e-8f10-3a4b5c6d7e05',
+    memberId: null,
+    contactId: '6d1f2a3b-4c5d-4e6f-8a7b-9c0d1e2f3a06',
     amount: '250.00',
+    currency: 'EUR',
     fullyRefunded: false,
   },
   'lead.created': {

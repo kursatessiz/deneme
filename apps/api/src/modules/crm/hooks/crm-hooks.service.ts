@@ -132,7 +132,11 @@ export class CrmHooksService {
    * A payment reached COMPLETED. Subscription charges record
    * subscription_started (first charge) or subscription_renewed; any other
    * payment records purchase. A trial-offer package keeps the contact in
-   * TRIAL, anything else makes it MEMBER.
+   * TRIAL, anything else makes it MEMBER. A guest payment (no member: event
+   * guest, retail customer picked from the CRM) records purchase on its
+   * contact and leaves the lifecycle alone, since paying once does not make
+   * anyone a member; an anonymous walk-in payment has no contact and is
+   * skipped. Loyalty skips payments without a member on its own.
    */
   async onPaymentCompleted(studioId: string, paymentId: string): Promise<void> {
     await this.loyalty?.onPayment(studioId, paymentId);
@@ -145,7 +149,11 @@ export class CrmHooksService {
         },
       });
       if (!payment) return;
-      const contact = await this.contactForMembership(studioId, payment.member.membershipId);
+      const contact = payment.member
+        ? await this.contactForMembership(studioId, payment.member.membershipId)
+        : payment.contactId
+          ? await this.liveContact(studioId, payment.contactId)
+          : null;
       if (!contact) return;
 
       const value = { amount: payment.amount.toFixed(2), currency: payment.currency };
@@ -177,9 +185,17 @@ export class CrmHooksService {
           source: { kind: 'payment', id: payment.id },
         });
       }
+      if (!payment.member) return;
       const isTrial = payment.memberPackage?.packageDefinition.isTrial ?? false;
       await this.contacts.applyLifecycle(contact, isTrial ? 'trial' : 'member');
     });
+  }
+
+  /** A contact of this studio, following a merge to the surviving row; null when gone. */
+  private async liveContact(studioId: string, contactId: string): Promise<Contact | null> {
+    const contact = await this.prisma.contact.findFirst({ where: { id: contactId, studioId } });
+    if (!contact || !contact.mergedIntoId) return contact;
+    return this.prisma.contact.findFirst({ where: { id: contact.mergedIntoId, studioId, mergedIntoId: null } });
   }
 
   /**

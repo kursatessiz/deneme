@@ -37,7 +37,11 @@ export const trFinance = {
   'finance.payments.empty.title': 'Ödeme bulunamadı',
   'finance.payments.empty.description': 'Seçili filtrelere uyan ödeme yok.',
   'finance.payments.col.date': 'Tarih',
-  'finance.payments.col.member': 'Üye',
+  'finance.payments.col.member': 'Ödeyen',
+  /** A payment with a CRM contact but no member (event guest, retail customer). */
+  'finance.payments.guest': 'Misafir',
+  /** A payment with neither member nor contact (anonymous walk-in sale); also the buyer name on its invoice and export line. */
+  'finance.payments.walkIn': 'Kayıtsız müşteri',
   'finance.payments.col.method': 'Yöntem',
   'finance.payments.col.amount': 'Tutar',
   'finance.payments.col.refund': 'İade',

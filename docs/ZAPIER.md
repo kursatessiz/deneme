@@ -55,11 +55,11 @@ teslimat `{ event, studioId, occurredAt, data }` zarfıdır.
 | `booking.created` | Rezervasyon oluşturma | `bookingId`, `scheduleId`, `memberId` |
 | `booking.cancelled` | Rezervasyon iptali | `bookingId`, `scheduleId`, `memberId`, `isLateCancellation` |
 | `booking.attended` | Yoklama | `bookingId`, `scheduleId`, `memberId` |
-| `payment.completed` | Ödeme tamamlandı (paket, etkinlik, perakende) | `paymentId` |
-| `payment.refunded` | İade (kısmi veya tam) | `paymentId`, `amount`, `fullyRefunded` |
+| `payment.completed` | Ödeme tamamlandı (paket, etkinlik, perakende; misafir ve kayıtsız müşteri dahil) | `paymentId`, `memberId` (misafirde `null`), `contactId`, `amount`, `currency` |
+| `payment.refunded` | İade (kısmi veya tam) | `paymentId`, `memberId`, `contactId`, `amount`, `currency`, `fullyRefunded` |
 | `lead.created` | Personelin aday eklemesi veya herkese açık aday formu (yeni ya da satış hattına yeniden alınan kişi) | `contactId`, `fullName`, `phone`, `email`, `source` |
 | `event.registration.created` | Etkinliğe kayıt (üye, personel veya misafir) | `registrationId`, `eventId`, `ticketTypeId`, `status`, `memberId`, `contactId`, `amountDue`, `currency` |
-| `retail.sale.completed` | Mağaza hızlı satışı | `saleId`, `receiptNumber`, `total`, `currency`, `paymentId` (ödeme kaydı yoksa `null`) |
+| `retail.sale.completed` | Mağaza hızlı satışı | `saleId`, `receiptNumber`, `total`, `currency`, `paymentId` (her yeni satışta dolu) |
 
 Örnek yükler `WEBHOOK_SAMPLE_DATA` kataloğundadır (tek doğruluk kaynağı,
 `packages/shared/src/open-platform.ts`); `GET /v1/public/hooks/samples/:event`
@@ -81,9 +81,11 @@ aynı verileri işletme kimliğiyle ve şimdiki zamanla zarfa koyar. Örnek:
 ```
 
 Tutar alanları her zaman para birimiyle birlikte gelir (`amountDue` +
-`currency`, `total` + `currency`). `payment.completed` ve `payment.refunded`
-yalnızca kimlik ve iade tutarını taşır; tutar ve para birimi için ödeme
-uç noktasından okuyun (mevcut yük sözleşmesi bozulmadı).
+`currency`, `total` + `currency`, `amount` + `currency`). `payment.completed`
+ve `payment.refunded` yüklerine `memberId`, `contactId`, tutar ve para birimi
+eklendi (yalnızca ekleme; mevcut alanlar aynı). Misafir veya kayıtsız müşteri
+ödemesinde `memberId` `null`'dır; `contactId` ödeyen kişiyi, anonim satışta
+`null` gösterir.
 
 Kapsam dışı olay noktaları (henüz yayın yapmayanlar):
 

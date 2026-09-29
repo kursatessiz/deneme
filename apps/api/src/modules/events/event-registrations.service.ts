@@ -198,21 +198,22 @@ export class EventRegistrationsService {
             status = 'CONFIRMED';
             amountPaid = price;
             paymentMethod = input.pay.method;
-            if (memberId) {
-              const payment = await tx.payment.create({
-                data: {
-                  studioId,
-                  memberId,
-                  branchId: event.branchId,
-                  amount: price,
-                  currency: ticket.currency,
-                  paymentMethod: input.pay.method,
-                  paymentStatus: PaymentStatus.COMPLETED,
-                  metadata: { eventId: event.id, ticketTypeId: ticket.id },
-                },
-              });
-              paymentId = payment.id;
-            }
+            // Member or guest: the money is a Payment row either way, so it
+            // reaches finance, the accounting export and refunds.
+            const payment = await tx.payment.create({
+              data: {
+                studioId,
+                memberId,
+                contactId: memberId ? null : contactId,
+                branchId: event.branchId,
+                amount: price,
+                currency: ticket.currency,
+                paymentMethod: input.pay.method,
+                paymentStatus: PaymentStatus.COMPLETED,
+                metadata: { eventId: event.id, ticketTypeId: ticket.id },
+              },
+            });
+            paymentId = payment.id;
           } else if (input.pay.kind === 'ONLINE') {
             status = 'PENDING_PAYMENT';
             dueAt = paymentDueAt(now, EVENT_ONLINE_HOLD_MINUTES * MINUTE_MS, event.startsAt);
@@ -395,28 +396,30 @@ export class EventRegistrationsService {
     return reg;
   }
 
-  /** Staff take the money for a held seat at the desk. Members get a Payment row; a guest's amount is recorded on the registration. */
+  /**
+   * Staff take the money for a held seat at the desk. Members and guests
+   * both get a Payment row (a guest's with memberId null and the
+   * registration's contact); the registration's paid fields follow it.
+   */
   async recordPayment(tenant: TenantContext, actorUserId: string, registrationId: string, dto: RecordEventPaymentInput): Promise<EventRegistrationDTO> {
     const reg = await this.findRegistration(tenant, registrationId);
     assertBranchAccess(tenant, reg.event.branchId);
     if (reg.status !== 'PENDING_PAYMENT') throw eventError('EVENT_REGISTRATION_NOT_CHECKABLE');
     const paymentId = await this.prisma.$transaction(async (tx) => {
-      let createdId: string | null = null;
-      if (reg.memberId) {
-        const payment = await tx.payment.create({
-          data: {
-            studioId: tenant.studioId,
-            memberId: reg.memberId,
-            branchId: reg.event.branchId,
-            amount: reg.amountDue,
-            currency: reg.currency,
-            paymentMethod: dto.paymentMethod,
-            paymentStatus: PaymentStatus.COMPLETED,
-            metadata: { eventId: reg.eventId, eventRegistrationId: reg.id },
-          },
-        });
-        createdId = payment.id;
-      }
+      const payment = await tx.payment.create({
+        data: {
+          studioId: tenant.studioId,
+          memberId: reg.memberId,
+          contactId: reg.memberId ? null : reg.contactId,
+          branchId: reg.event.branchId,
+          amount: reg.amountDue,
+          currency: reg.currency,
+          paymentMethod: dto.paymentMethod,
+          paymentStatus: PaymentStatus.COMPLETED,
+          metadata: { eventId: reg.eventId, eventRegistrationId: reg.id },
+        },
+      });
+      const createdId = payment.id;
       const moved = await tx.eventRegistration.updateMany({
         where: { id: reg.id, studioId: tenant.studioId, status: 'PENDING_PAYMENT' },
         data: {
@@ -425,7 +428,7 @@ export class EventRegistrationsService {
           paymentMethod: dto.paymentMethod,
           paymentDueAt: null,
           paymentLink: null,
-          ...(createdId ? { paymentId: createdId } : {}),
+          paymentId: createdId,
         },
       });
       if (moved.count === 0) throw eventError('EVENT_REGISTRATION_NOT_CHECKABLE');
@@ -441,7 +444,7 @@ export class EventRegistrationsService {
       });
       return createdId;
     });
-    if (paymentId) await this.payments.onPaymentCompleted(tenant.studioId, paymentId);
+    await this.payments.onPaymentCompleted(tenant.studioId, paymentId);
     await this.seats.notify(reg.id, EVENT_TEMPLATE_KEYS.confirmed, `event-confirmed:${reg.id}`);
     return this.dto(reg.id, tenant.permissions.has('members.contact.view'));
   }
@@ -700,7 +703,7 @@ export class EventRegistrationsService {
    * created (phone, then email), the visitor's touchpoints are attached,
    * and a new lead records the existing `lead` conversion (idempotent per
    * contact). Paid tickets hold the seat as PENDING_PAYMENT until paid at
-   * the desk or the hold expires.
+   * the desk (a Payment with the contact and no member) or the hold expires.
    */
   async publicRegister(
     slug: string,
