@@ -65,6 +65,13 @@ export const enMsgTpl = {
   'msgTpl.MARKETING_APPROVAL_REJECTED.subject': 'Your send was rejected: {targetName}',
   'msgTpl.MARKETING_APPROVAL_REJECTED.text': 'Hi {firstName}, {deciderName} rejected "{targetName}" and it is back in draft. Reason: {note}',
   'msgTpl.MARKETING_APPROVAL.cta': 'Open approvals',
+  'msgTpl.MARKETING_WEEKLY_SUMMARY.subject': 'Weekly marketing summary: {period}',
+  'msgTpl.MARKETING_WEEKLY_SUMMARY.text': 'Hi {firstName}, the marketing summary for the week of {period} is ready.\n\n{summary}\n\nFigures (against the previous week):\n{metrics}\n\nSuggested actions:\n{actions}',
+  'msgTpl.MARKETING_EMAIL_FUSE_TRIPPED.subject': 'E-mail campaigns paused automatically: {reason}',
+  'msgTpl.MARKETING_EMAIL_FUSE_TRIPPED.text': 'Hi {firstName}, the {reason} rate over the last 24 hours reached {rate} (threshold: {threshold}). To protect the sender reputation, {campaigns} e-mail campaign(s) were paused. Once the cause is fixed you can resume them from the marketing panel.',
+  'msgTpl.MARKETING_AD_CAP_EXCEEDED.subject': 'Monthly ad spend cap exceeded: {currency}',
+  'msgTpl.MARKETING_AD_CAP_EXCEEDED.text': 'Hi {firstName}, ad spend in {currency} for {month} reached {spent} and passed the monthly cap of {cap}. Ads are not stopped automatically; review the campaigns on the ad platform.',
+  'msgTpl.MARKETING_GUARD.cta': 'Open the marketing dashboard',
 
   'msgTpl.CONSENT_CONFIRMATION.subject': '{studioName}: please confirm your subscription',
   'msgTpl.CONSENT_CONFIRMATION.text': 'Hi {firstName}, you told us on the {studioName} form (version {formVersion}) that you would like to receive our news and offers. To start the subscription, open the link below within {days} days and confirm. If this was not you, ignore this e-mail; we will not send you marketing messages unless you confirm. Link: {link}',

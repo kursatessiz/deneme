@@ -29,6 +29,7 @@ export const trAdminAi = {
   'adminAi.task.MARKETING_DRAFT': 'Pazarlama taslağı',
   'adminAi.task.MARKETING_ANALYSIS': 'Pazarlama analizi',
   'adminAi.task.MARKETING_RESEARCH': 'Pazarlama araştırması',
+  'adminAi.task.MARKETING_WEEKLY_SUMMARY': 'Haftalık pazarlama özeti',
   'adminAi.marketingBudget.title': 'Pazarlama stüdyosu aylık limiti',
   'adminAi.marketingBudget.hint': 'Yalnızca platformun kendi pazarlama stüdyosu için geçerlidir; her çağrıdan önce denetlenir. 0 stüdyoyu kapatır.',
   'adminAi.marketingBudget.label': 'Pazarlama aylık limiti (USD)',

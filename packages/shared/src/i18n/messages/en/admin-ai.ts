@@ -30,6 +30,7 @@ export const enAdminAi = {
   'adminAi.task.MARKETING_DRAFT': 'Marketing drafting',
   'adminAi.task.MARKETING_ANALYSIS': 'Marketing analysis',
   'adminAi.task.MARKETING_RESEARCH': 'Marketing research',
+  'adminAi.task.MARKETING_WEEKLY_SUMMARY': 'Weekly marketing summary',
   'adminAi.marketingBudget.title': 'Marketing studio monthly limit',
   'adminAi.marketingBudget.hint': "Applies only to the platform's own marketing studio and is checked before every call. 0 switches the studio off.",
   'adminAi.marketingBudget.label': 'Marketing monthly limit (USD)',

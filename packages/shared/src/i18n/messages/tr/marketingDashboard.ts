@@ -98,6 +98,24 @@ export const trMarketingDashboard = {
   'marketingDashboard.approvals.pending.one': '{count} bekleyen talep',
   'marketingDashboard.approvals.pending.other': '{count} bekleyen talep',
 
+  'marketingDashboard.caps.title': 'Günlük tavanlar',
+  'marketingDashboard.caps.email': 'Bugün {sent} / {cap} ticari e-posta',
+  'marketingDashboard.caps.emailNoCap': 'Bugün {sent} ticari e-posta (tavan yok)',
+  'marketingDashboard.caps.warmup': 'Isınma planı: {day}. gün, tavan planla sınırlı.',
+  'marketingDashboard.caps.sms': 'Bugün {credits} / {cap} SMS kredisi',
+  'marketingDashboard.caps.smsNoCap': 'Bugün {credits} SMS kredisi (tavan yok)',
+  'marketingDashboard.caps.deferred.one': '{count} alıcı tavan nedeniyle ertesi güne bırakıldı.',
+  'marketingDashboard.caps.deferred.other': '{count} alıcı tavan nedeniyle ertesi güne bırakıldı.',
+
+  'marketingDashboard.autoPause.title': 'Otomatik duraklatma',
+  'marketingDashboard.autoPause.none': 'Sistem tarafından duraklatılmış kampanya yok.',
+  'marketingDashboard.autoPause.active.one': '{count} e-posta kampanyası otomatik duraklatıldı ({reasons}). Nedeni giderdikten sonra kampanyadan elle sürdürün.',
+  'marketingDashboard.autoPause.active.other': '{count} e-posta kampanyası otomatik duraklatıldı ({reasons}). Nedeni giderdikten sonra kampanyalardan elle sürdürün.',
+
+  'marketingDashboard.adCap.title': 'Aylık reklam harcama tavanı',
+  'marketingDashboard.adCap.line': 'Bu ay {spent} / {cap}',
+  'marketingDashboard.adCap.exceeded': 'Tavan aşıldı',
+
   'marketingDashboard.connections.title': 'Bağlantı hataları',
   'marketingDashboard.connections.none': 'Bağlantı hatası yok.',
   'marketingDashboard.connections.count.one': '{count} bağlantıda hata var',
