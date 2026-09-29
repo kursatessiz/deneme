@@ -2,8 +2,8 @@ import { Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post } from '@nes
 import { CampaignRecipientsQuerySchema, CreateCampaignSchema, ScheduleCampaignSchema, UpdateCampaignSchema } from '@platform/shared';
 import type { CampaignRecipientsQuery, CreateCampaignInput, ScheduleCampaignInput, UpdateCampaignInput } from '@platform/shared';
 import { RequirePermission, StudioScoped } from '../../auth/decorators/require-permission.decorator';
-import { Tenant } from '../../auth/decorators/current-user.decorator';
-import type { TenantContext } from '../../auth/tenant-context';
+import { CurrentUser, Tenant } from '../../auth/decorators/current-user.decorator';
+import type { AuthUser, TenantContext } from '../../auth/tenant-context';
 import { ZodBody, ZodQuery } from '../../../common/zod-body.pipe';
 import { CampaignsService } from './campaigns.service';
 
@@ -21,8 +21,8 @@ export class CampaignsController {
 
   @Post()
   @RequirePermission('campaigns.manage')
-  create(@Tenant() tenant: TenantContext, @ZodBody(CreateCampaignSchema) body: CreateCampaignInput) {
-    return this.campaigns.create(tenant, body);
+  create(@Tenant() tenant: TenantContext, @CurrentUser() user: AuthUser, @ZodBody(CreateCampaignSchema) body: CreateCampaignInput) {
+    return this.campaigns.create(tenant, body, user.id);
   }
 
   @Get(':campaignId')
@@ -35,10 +35,11 @@ export class CampaignsController {
   @RequirePermission('campaigns.manage')
   update(
     @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
     @Param('campaignId', ParseUUIDPipe) campaignId: string,
     @ZodBody(UpdateCampaignSchema) body: UpdateCampaignInput,
   ) {
-    return this.campaigns.update(tenant.studioId, campaignId, body);
+    return this.campaigns.update(tenant.studioId, campaignId, body, user.id);
   }
 
   @Delete(':campaignId')

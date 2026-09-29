@@ -16,6 +16,9 @@ import { LegacyAutomationMigratorService } from './journeys/legacy-automation-mi
 import { GROWTH_QUEUE, GrowthQueueService } from './growth-queue.service';
 import { GrowthProcessor } from './growth.processor';
 import { GrowthHeartbeatService } from './growth-heartbeat.service';
+import { CampaignApprovalService } from './campaigns/approval/campaign-approval.service';
+import { CampaignPrecheckService } from './campaigns/approval/campaign-precheck.service';
+import { MarketingSettingsService } from './campaigns/approval/marketing-settings.service';
 
 /** Same rule as JobsModule: BullMQ only when REDIS_URL is a real process env var (see jobs.module.ts). */
 const redisConfigured = Boolean(process.env.REDIS_URL);
@@ -33,6 +36,9 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
     SegmentEvaluatorService,
     SegmentsService,
     CampaignsService,
+    CampaignPrecheckService,
+    CampaignApprovalService,
+    MarketingSettingsService,
     JourneyScannersService,
     JourneyEngineService,
     JourneysService,
@@ -45,6 +51,8 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
     SegmentEvaluatorService,
     SegmentsService,
     CampaignsService,
+    CampaignApprovalService,
+    MarketingSettingsService,
     JourneyScannersService,
     JourneyEngineService,
     JourneysService,

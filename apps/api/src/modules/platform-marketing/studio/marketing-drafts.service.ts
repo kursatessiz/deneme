@@ -355,7 +355,7 @@ export class MarketingDraftsService {
       segmentId: input.segmentId,
       channel: kind as CampaignExportableKind,
       templateKey,
-    });
+    }, platform.userId);
     await this.prisma.$transaction([
       this.prisma.marketingDraft.update({ where: { id: draftId }, data: { exportedCampaignId: campaign.id, updatedByUserId: platform.userId } }),
       this.prisma.auditLog.create({
