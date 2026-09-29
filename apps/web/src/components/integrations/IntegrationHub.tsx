@@ -252,7 +252,7 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
           {t('integrations.social.openPosts')}
         </Link>
       </Section>
-      <LeadAdsSection data={data} run={run} call={call} fmtDate={fmtDate} entryHeaders={headers} />
+      <LeadAdsSection data={data} run={run} call={call} fmtDate={fmtDate} entryHeaders={headers} showPlatformCards={entry === 'admin'} />
 
       <Section title={t('integrations.email.title')} description={t('integrations.email.description')}>
         {data.emailDomains.length === 0 && (

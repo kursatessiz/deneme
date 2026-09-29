@@ -47,6 +47,8 @@ interface Props {
   fmtDate: (iso: string | null) => string;
   /** Entry point header of the hub, sent with the events request. */
   entryHeaders: Record<string, string>;
+  /** The super admin console shows the platform-level cards (the webhook verify token); the marketing panel does not. */
+  showPlatformCards: boolean;
 }
 
 interface FormDraft {
@@ -74,7 +76,7 @@ function draftOf(form: HubLeadAdFormMappingDTO | null): FormDraft {
  * only to super admins (the API returns it as null to other platform
  * members). Nothing secret is ever displayed.
  */
-export function LeadAdsSection({ data, run, call, fmtDate, entryHeaders }: Props) {
+export function LeadAdsSection({ data, run, call, fmtDate, entryHeaders, showPlatformCards }: Props) {
   const t = useT();
   const { leadAds } = data;
   const [events, setEvents] = useState<LeadAdEventDTO[]>([]);
@@ -177,7 +179,7 @@ export function LeadAdsSection({ data, run, call, fmtDate, entryHeaders }: Props
         </Section>
       )}
 
-      {leadAds.verifyToken && <VerifyTokenSection state={leadAds.verifyToken} fmtDate={fmtDate} onChanged={() => run(async () => undefined)} />}
+      {showPlatformCards && leadAds.verifyToken && <VerifyTokenSection state={leadAds.verifyToken} fmtDate={fmtDate} onChanged={() => run(async () => undefined)} />}
     </>
   );
 }
