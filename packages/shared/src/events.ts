@@ -313,7 +313,9 @@ export type StaffRegisterInput = z.infer<typeof StaffRegisterSchema>;
 export const MemberRegisterSchema = z
   .object({
     ticketTypeId: z.string().uuid(),
+    /** Pay with package units: this package, or with `useCredits` the member's package that ends first. */
     memberPackageId: z.string().uuid().optional(),
+    useCredits: z.boolean().default(false),
     installmentCount: z.number().int().min(1).max(12).default(1),
   })
   .strict();

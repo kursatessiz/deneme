@@ -62,6 +62,8 @@ interface RegisterInput {
   source: EventRegistrationSource;
   pay: PayPlan;
   memberPackageId?: string;
+  /** Pay with package units even without a chosen package (the one ending first is used). */
+  useCredits?: boolean;
   notes?: string | null;
   actorMembershipId?: string | null;
   /** Members and guests are bound by the registration and sales windows; staff are not. */
@@ -142,12 +144,14 @@ export class EventRegistrationsService {
     }
 
     const price = new Prisma.Decimal(ticket.priceAmount);
-    const useCredits = Boolean(input.memberPackageId);
+    const useCredits = Boolean(input.memberPackageId) || input.useCredits === true;
+    let creditPackageId: string | null = null;
     if (useCredits) {
       if (!memberId) throw eventError('EVENT_CREDITS_NOT_ACCEPTED');
       if (!ticket.creditServiceTypeId || !ticket.creditUnits) throw eventError('EVENT_CREDITS_NOT_ACCEPTED');
       const resolved = await this.seats.resolveCreditPackage(this.prisma, studioId, memberId, ticket, input.memberPackageId);
       if (!resolved) throw eventError('EVENT_NO_CREDITS');
+      creditPackageId = resolved.memberPackage.id;
     }
 
     let paymentId: string | null = null;
@@ -166,7 +170,7 @@ export class EventRegistrationsService {
         let status: 'CONFIRMED' | 'PENDING_PAYMENT' | 'WAITLIST';
         let waitlistPosition: number | null = null;
         let unitsCharged = 0;
-        let memberPackageId: string | null = useCredits ? (input.memberPackageId ?? null) : null;
+        let memberPackageId: string | null = creditPackageId;
         let amountPaid = new Prisma.Decimal(0);
         let paymentMethod: string | null = null;
         let dueAt: Date | null = null;
@@ -178,8 +182,8 @@ export class EventRegistrationsService {
           waitlistPosition = (last._max.waitlistPosition ?? 0) + 1;
         } else {
           if (!(await this.seats.claimTicket(tx, studioId, ticket.id))) throw eventError('EVENT_TICKET_SOLD_OUT');
-          if (useCredits && memberId) {
-            const resolved = await this.seats.resolveCreditPackage(tx, studioId, memberId, ticket, input.memberPackageId);
+          if (creditPackageId && memberId) {
+            const resolved = await this.seats.resolveCreditPackage(tx, studioId, memberId, ticket, creditPackageId);
             if (!resolved || !(await this.seats.chargeCredits(tx, studioId, resolved.memberPackage.id, resolved.units))) {
               throw eventError('EVENT_NO_CREDITS');
             }
@@ -584,6 +588,7 @@ export class EventRegistrationsService {
       source: 'MEMBER',
       pay: { kind: 'ONLINE', installmentCount: dto.installmentCount },
       memberPackageId: dto.memberPackageId,
+      useCredits: dto.useCredits,
       enforceWindow: true,
     });
     return { registration: await this.dto(result.registrationId, true), duplicate: result.duplicate };
