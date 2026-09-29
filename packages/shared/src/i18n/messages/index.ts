@@ -15,6 +15,7 @@ import { trMessaging } from './tr/messaging';
 import { trMsgTpl } from './tr/msgTpl';
 import { trMMessaging } from './tr/mMessaging';
 import { trMAccount } from './tr/mAccount';
+import { trMembers } from './tr/members';
 import { trMAuth } from './tr/mAuth';
 import { trMNav } from './tr/mNav';
 import { trMScreens } from './tr/mScreens';
@@ -42,6 +43,7 @@ import { enMessaging } from './en/messaging';
 import { enMsgTpl } from './en/msgTpl';
 import { enMMessaging } from './en/mMessaging';
 import { enMAccount } from './en/mAccount';
+import { enMembers } from './en/members';
 import { enMAuth } from './en/mAuth';
 import { enMNav } from './en/mNav';
 import { enMScreens } from './en/mScreens';
@@ -83,6 +85,7 @@ export const TR_NAMESPACES = [
   trMsgTpl,
   trMAccount,
   trMAuth,
+  trMembers,
   trMMessaging,
   trMNav,
   trMScreens,
@@ -113,6 +116,7 @@ export const EN_NAMESPACES = [
   enMsgTpl,
   enMAccount,
   enMAuth,
+  enMembers,
   enMMessaging,
   enMNav,
   enMScreens,
