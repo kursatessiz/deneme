@@ -1,0 +1,25 @@
+import type { trMSessionBooking } from '../tr/mSessionBooking';
+
+export const enMSessionBooking: Record<keyof typeof trMSessionBooking, string> = {
+  'mSessionBooking.spot.available': 'Available',
+  'mSessionBooking.spot.taken': 'Taken',
+  'mSessionBooking.spot.maintenance': 'Maintenance',
+  'mSessionBooking.spot.mine': 'Yours',
+  'mSessionBooking.a11y.spot': '{name}, status: {status}',
+  'mSessionBooking.joinSession': 'Join session',
+  'mSessionBooking.joinLinkAppearsLater': 'The join link will appear here 15 minutes before the session starts.',
+  'mSessionBooking.packageToUse': 'Package to use: {name}',
+  'mSessionBooking.noActivePackage': "You don't have an active package covering this service.",
+  'mSessionBooking.bookingConfirmed': 'Your booking is confirmed.',
+  'mSessionBooking.book': 'Book',
+  'mSessionBooking.errors.joinLinkFailed': 'Join link could not be retrieved.',
+  'mSessionBooking.errors.spotsLoadFailed': 'Spot map could not be loaded.',
+  'mSessionBooking.errors.spotTakenRetry': 'This spot was just taken, pick another one',
+  'mSessionBooking.errors.bookingFailed': 'Booking could not be made.',
+  'mSessionBooking.thisWeeksSessions': "This week's sessions",
+  'mSessionBooking.noSessionsThisWeek': 'No sessions scheduled this week.',
+  'mSessionBooking.a11y.sessionRow': '{service}, {when}',
+  'mSessionBooking.deliveryMode.online': 'Online',
+  'mSessionBooking.deliveryMode.hybrid': 'Hybrid (in person + online)',
+  'mSessionBooking.errors.weekLoadFailed': 'Sessions could not be loaded.',
+};

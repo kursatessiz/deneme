@@ -1,11 +1,11 @@
 import { Platform } from 'react-native';
 import * as Calendar from 'expo-calendar/legacy';
-import type { UpcomingBookingDTO } from '@platform/shared';
+import type { Translate, UpcomingBookingDTO } from '@platform/shared';
 
 export class CalendarSyncError extends Error {}
 
 /** Finds a calendar the app can write events into: default on iOS, primary/first writable on Android. */
-async function resolveWritableCalendarId(): Promise<string> {
+async function resolveWritableCalendarId(t: Translate): Promise<string> {
   if (Platform.OS === 'ios') {
     const defaultCalendar = await Calendar.getDefaultCalendarAsync();
     return defaultCalendar.id;
@@ -14,23 +14,23 @@ async function resolveWritableCalendarId(): Promise<string> {
   const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
   const writable = calendars.filter((c) => c.allowsModifications);
   const primary = writable.find((c) => c.isPrimary) ?? writable[0];
-  if (!primary) throw new CalendarSyncError('Yazılabilir takvim bulunamadı');
+  if (!primary) throw new CalendarSyncError(t('mHome.errors.noWritableCalendar'));
   return primary.id;
 }
 
 /**
  * Adds a booking to the device's default calendar with a 60-minute
  * reminder before the session starts. Requests calendar permission first;
- * throws CalendarSyncError with a Turkish message the UI can show directly
- * when permission is denied or no writable calendar exists.
+ * throws CalendarSyncError with a message (via the caller's translator) the
+ * UI can show directly when permission is denied or no writable calendar exists.
  */
-export async function addBookingToDeviceCalendar(booking: UpcomingBookingDTO): Promise<void> {
+export async function addBookingToDeviceCalendar(booking: UpcomingBookingDTO, t: Translate): Promise<void> {
   const { status } = await Calendar.requestCalendarPermissionsAsync();
   if (status !== 'granted') {
-    throw new CalendarSyncError('Takvim izni verilmedi. Ayarlardan izin verip tekrar deneyin.');
+    throw new CalendarSyncError(t('mHome.errors.calendarPermissionDenied'));
   }
 
-  const calendarId = await resolveWritableCalendarId();
+  const calendarId = await resolveWritableCalendarId(t);
   const location = [booking.branchName, booking.studioName].filter(Boolean).join(', ');
 
   await Calendar.createEventAsync(calendarId, {
@@ -38,7 +38,7 @@ export async function addBookingToDeviceCalendar(booking: UpcomingBookingDTO): P
     startDate: new Date(booking.startTime),
     endDate: new Date(booking.endTime),
     location,
-    notes: booking.trainerName ? `Eğitmen: ${booking.trainerName}` : undefined,
+    notes: booking.trainerName ? t('mHome.trainerLabel', { name: booking.trainerName }) : undefined,
     alarms: [{ relativeOffset: -60 }],
   });
 }

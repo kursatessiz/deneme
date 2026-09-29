@@ -12,4 +12,5 @@ export const trMScreens = {
   'mScreens.inviteNewMember': 'Yeni üye davet et',
   'mScreens.addToSession': 'Seansa ekle',
   'mScreens.sellPackage': 'Paket sat',
+  'mScreens.healthSummary': 'Sağlık',
 } as const satisfies Record<string, string>;

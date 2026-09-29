@@ -5,17 +5,20 @@ import type { InvoiceDTO } from '@platform/shared';
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
-import { useLocale } from '../../../src/i18n';
+import { useLocale, useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import type { Translate } from '@platform/shared';
 
-const INVOICE_STATUS_LABELS: Record<string, string> = {
-  DRAFT: 'Hazırlanıyor',
-  ISSUED: 'Kesildi',
-  CANCELLED: 'İptal edildi',
-  FAILED: 'Başarısız',
-};
+function invoiceStatusLabels(t: Translate): Record<string, string> {
+  return {
+    DRAFT: t('mInvoices.status.draft'),
+    ISSUED: t('mInvoices.status.issued'),
+    CANCELLED: t('mInvoices.status.cancelled'),
+    FAILED: t('mInvoices.status.failed'),
+  };
+}
 
 function formatAmount(amount: string, currency: string, locale: string): string {
   const value = Number(amount);
@@ -30,6 +33,8 @@ function formatDate(iso: string, locale: string): string {
 export default function FaturalarimScreen() {
   const { activeMembership } = useSession();
   const { locale } = useLocale();
+  const t = useT();
+  const INVOICE_STATUS_LABELS = invoiceStatusLabels(t);
   const { theme } = useTheme();
   const fonts = useThemeFonts();
   const c = theme.colors;
@@ -46,7 +51,7 @@ export default function FaturalarimScreen() {
       const list = await apiRequest<InvoiceDTO[]>('/invoices/self', { studioId });
       setInvoices(list);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Faturalar yüklenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mInvoices.errors.loadFailed'));
     }
   }, [studioId]);
 
@@ -66,10 +71,10 @@ export default function FaturalarimScreen() {
       if (invoice.pdfUrl) {
         await Linking.openURL(invoice.pdfUrl);
       } else {
-        setError('Bu fatura için görüntüleme bağlantısı sağlayıcı tarafından henüz sunulmuyor.');
+        setError(t('mInvoices.errors.noViewLinkYet'));
       }
     } catch {
-      setError('Fatura açılamadı.');
+      setError(t('mInvoices.errors.openFailed'));
     } finally {
       setOpeningId(null);
     }
@@ -82,7 +87,7 @@ export default function FaturalarimScreen() {
       {loading ? <ActivityIndicator /> : null}
 
       {invoices && invoices.length === 0 ? (
-        <Text style={[styles.empty, fonts.body, { color: c.textMuted }]}>Henüz bir faturanız bulunmuyor.</Text>
+        <Text style={[styles.empty, fonts.body, { color: c.textMuted }]}>{t('mInvoices.noInvoicesYet')}</Text>
       ) : null}
 
       {invoices?.map((invoice) => (
@@ -112,7 +117,7 @@ export default function FaturalarimScreen() {
           </Text>
           {invoice.status === 'ISSUED' ? (
             <View style={styles.cardAction}>
-              <PrimaryButton label="Faturayı görüntüle" loading={openingId === invoice.id} onPress={() => openInvoice(invoice)} />
+              <PrimaryButton label={t('mInvoices.viewInvoice')} loading={openingId === invoice.id} onPress={() => openInvoice(invoice)} />
             </View>
           ) : null}
         </View>

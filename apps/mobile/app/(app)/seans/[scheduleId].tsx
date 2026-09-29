@@ -7,20 +7,23 @@ import type { JoinSessionResultDTO, MemberPackageDTO, ScheduleSpotsDTO, SpotDTO,
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
-import { useLocale } from '../../../src/i18n';
+import { useLocale, useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, spacing, typography, useTheme, useThemeColors, useThemeFonts } from '../../../src/theme';
+import type { Translate } from '@platform/shared';
 
 const SPOT_SIZE = 48;
 const SPOT_GAP = spacing[2];
 
-const STATUS_LABELS: Record<SpotStatus, string> = {
-  AVAILABLE: 'Boş',
-  TAKEN: 'Dolu',
-  MAINTENANCE: 'Bakımda',
-  MINE: 'Sizin',
-};
+function statusLabels(t: Translate): Record<SpotStatus, string> {
+  return {
+    AVAILABLE: t('mSessionBooking.spot.available'),
+    TAKEN: t('mSessionBooking.spot.taken'),
+    MAINTENANCE: t('mSessionBooking.spot.maintenance'),
+    MINE: t('mSessionBooking.spot.mine'),
+  };
+}
 
 function statusColor(status: SpotStatus, colors: ReturnType<typeof useThemeColors>): string {
   switch (status) {
@@ -66,6 +69,8 @@ interface SpotButtonProps {
 function SpotButton({ spot, selected, onPress }: SpotButtonProps) {
   const colors = useThemeColors();
   const fonts = useThemeFonts();
+  const t = useT();
+  const STATUS_LABELS = statusLabels(t);
   const disabled = spot.status !== 'AVAILABLE';
   const color = selected ? colors.primary : statusColor(spot.status, colors);
   const label = spot.label ?? spot.name;
@@ -73,7 +78,7 @@ function SpotButton({ spot, selected, onPress }: SpotButtonProps) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${spot.name}, durum: ${STATUS_LABELS[spot.status]}`}
+      accessibilityLabel={t('mSessionBooking.a11y.spot', { name: spot.name, status: STATUS_LABELS[spot.status] })}
       accessibilityState={{ selected, disabled }}
       disabled={disabled}
       onPress={onPress}
@@ -148,6 +153,8 @@ function SpotGroupView({ group, selectedSpotId, onSelect }: SpotGroupViewProps) 
 function Legend() {
   const fonts = useThemeFonts();
   const colors = useThemeColors();
+  const t = useT();
+  const STATUS_LABELS = statusLabels(t);
   const items: { status: SpotStatus; label: string }[] = [
     { status: 'AVAILABLE', label: STATUS_LABELS.AVAILABLE },
     { status: 'TAKEN', label: STATUS_LABELS.TAKEN },
@@ -184,6 +191,7 @@ export default function SeansDetailScreen() {
   const fonts = useThemeFonts();
   const colors = useThemeColors();
   const { locale } = useLocale();
+  const t = useT();
   const { activeMembership, refreshUser } = useSession();
   const studioId = activeMembership?.studioId;
   const memberId = activeMembership?.memberProfileId ?? null;
@@ -216,7 +224,7 @@ export default function SeansDetailScreen() {
       });
       await Linking.openURL(result.joinUrl);
     } catch (e) {
-      setJoinError(e instanceof ApiError ? e.message : 'Katılım bağlantısı alınamadı.');
+      setJoinError(e instanceof ApiError ? e.message : t('mSessionBooking.errors.joinLinkFailed'));
     } finally {
       setIsJoining(false);
     }
@@ -233,7 +241,7 @@ export default function SeansDetailScreen() {
         return stillAvailable ? prev : null;
       });
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Yer haritası yüklenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mSessionBooking.errors.spotsLoadFailed'));
     }
   }, [scheduleId, studioId]);
 
@@ -273,11 +281,11 @@ export default function SeansDetailScreen() {
       await refreshUser();
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
-        setNotice('Bu yer az önce doldu, başka bir yer seçin');
+        setNotice(t('mSessionBooking.errors.spotTakenRetry'));
         setSelectedSpotId(null);
         await loadSpots();
       } else {
-        setError(e instanceof ApiError ? e.message : 'Rezervasyon yapılamadı.');
+        setError(e instanceof ApiError ? e.message : t('mSessionBooking.errors.bookingFailed'));
       }
     } finally {
       setIsBooking(false);
@@ -298,12 +306,12 @@ export default function SeansDetailScreen() {
         <View style={styles.joinSection}>
           {canJoinNow ? (
             <>
-              <PrimaryButton label="Seansa katıl" onPress={handleJoin} loading={isJoining} />
+              <PrimaryButton label={t('mSessionBooking.joinSession')} onPress={handleJoin} loading={isJoining} />
               {joinError ? <Text style={[styles.message, { color: palette.danger }]}>{joinError}</Text> : null}
             </>
           ) : (
             <Text style={[styles.subtitle, fonts.body, { color: colors.textSecondary }]}>
-              Katılım bağlantısı seans başlamadan 15 dakika önce burada görünecek.
+              {t('mSessionBooking.joinLinkAppearsLater')}
             </Text>
           )}
         </View>
@@ -327,21 +335,19 @@ export default function SeansDetailScreen() {
 
       {chosenPackage ? (
         <Text style={[styles.packageInfo, fonts.body, { color: colors.textSecondary }]}>
-          Kullanılacak paket: {chosenPackage.packageDefinitionName}
+          {t('mSessionBooking.packageToUse', { name: chosenPackage.packageDefinitionName })}
         </Text>
       ) : packages && packages.length === 0 ? (
-        <Text style={[styles.packageInfo, fonts.body, { color: palette.warning }]}>
-          Bu hizmeti kapsayan aktif bir paketiniz bulunmuyor.
-        </Text>
+        <Text style={[styles.packageInfo, fonts.body, { color: palette.warning }]}>{t('mSessionBooking.noActivePackage')}</Text>
       ) : null}
 
       {error ? <Text style={[styles.message, { color: palette.danger }]}>{error}</Text> : null}
       {notice ? <Text style={[styles.message, { color: palette.warning }]}>{notice}</Text> : null}
-      {booked ? <Text style={[styles.message, { color: palette.success }]}>Rezervasyonunuz onaylandı.</Text> : null}
+      {booked ? <Text style={[styles.message, { color: palette.success }]}>{t('mSessionBooking.bookingConfirmed')}</Text> : null}
 
       {!booked ? (
         <PrimaryButton
-          label="Rezerve et"
+          label={t('mSessionBooking.book')}
           onPress={handleBook}
           loading={isBooking}
           disabled={!memberId || needsSpotSelection}

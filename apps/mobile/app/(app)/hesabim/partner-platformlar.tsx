@@ -8,9 +8,11 @@ import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { SwitchRow } from '../../../src/components/SwitchRow';
 import { TextField } from '../../../src/components/TextField';
+import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import type { Translate } from '@platform/shared';
 
 interface PartnerConnectionDTO {
   id: string;
@@ -23,13 +25,15 @@ interface PartnerConnectionDTO {
   consecutiveFailures: number;
 }
 
-const PROVIDER_LABELS: Record<PartnerProviderName, string> = {
-  MOCK: 'Test (Mock)',
-  CLASSPASS: 'ClassPass',
-  URBAN_SPORTS: 'Urban Sports Club',
-  WELLHUB: 'Wellhub (Gympass)',
-  OTHER: 'Diğer',
-};
+function providerLabels(t: Translate): Record<PartnerProviderName, string> {
+  return {
+    MOCK: t('mPartners.provider.mock'),
+    CLASSPASS: 'ClassPass',
+    URBAN_SPORTS: 'Urban Sports Club',
+    WELLHUB: 'Wellhub (Gympass)',
+    OTHER: t('mPartners.provider.other'),
+  };
+}
 const PROVIDERS: PartnerProviderName[] = ['CLASSPASS', 'URBAN_SPORTS', 'WELLHUB', 'OTHER', 'MOCK'];
 
 /**
@@ -40,6 +44,8 @@ const PROVIDERS: PartnerProviderName[] = ['CLASSPASS', 'URBAN_SPORTS', 'WELLHUB'
  */
 export default function PartnerPlatformlarScreen() {
   const colors = useThemeColors();
+  const t = useT();
+  const PROVIDER_LABELS = providerLabels(t);
   const { activeMembership } = useSession();
   const studioId = activeMembership?.studioId;
   const canManage = activeMembership?.permissions.includes('integrations.partners.manage') ?? false;
@@ -65,7 +71,7 @@ export default function PartnerPlatformlarScreen() {
       const res = await apiRequest<PartnerConnectionDTO[]>('/partners/connections');
       setConnections(res);
     } catch (error) {
-      setLoadError(error instanceof ApiError ? error.message : 'Partner bağlantıları yüklenemedi.');
+      setLoadError(error instanceof ApiError ? error.message : t('mPartners.errors.loadFailed'));
     }
   }, [studioId]);
 
@@ -85,7 +91,7 @@ export default function PartnerPlatformlarScreen() {
       await apiRequest(`/partners/connections/${connection.id}`, { method: 'PATCH', body: { status: nextStatus } });
     } catch (error) {
       setConnections(previous);
-      setSaveError(error instanceof ApiError ? error.message : 'Değişiklik kaydedilemedi, tekrar deneyin.');
+      setSaveError(error instanceof ApiError ? error.message : t('mPartners.errors.toggleFailed'));
     } finally {
       setTogglingId(null);
     }
@@ -94,7 +100,7 @@ export default function PartnerPlatformlarScreen() {
   const handleCreate = async () => {
     setSaveError(undefined);
     if (!label.trim() || !webhookSecret.trim()) {
-      setSaveError('Etiket ve webhook sırrı zorunludur.');
+      setSaveError(t('mPartners.errors.labelAndSecretRequired'));
       return;
     }
     setCreating(true);
@@ -119,7 +125,7 @@ export default function PartnerPlatformlarScreen() {
       setShowForm(false);
       await load();
     } catch (error) {
-      setSaveError(error instanceof ApiError ? error.message : 'Bağlantı oluşturulamadı.');
+      setSaveError(error instanceof ApiError ? error.message : t('mPartners.errors.createFailed'));
     } finally {
       setCreating(false);
     }
@@ -127,10 +133,7 @@ export default function PartnerPlatformlarScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={[styles.intro, { color: colors.textSecondary }]}>
-        ClassPass, Urban Sports Club, Wellhub (Gympass) ve benzeri toplayıcı/pazaryeri platformlarını buradan
-        bağlayın. Kimlik bilgileri yalnızca burada girilir, hiçbir zaman görüntülenmez.
-      </Text>
+      <Text style={[styles.intro, { color: colors.textSecondary }]}>{t('mPartners.intro')}</Text>
 
       {loadError ? <Text style={styles.error}>{loadError}</Text> : null}
       {saveError ? <Text style={styles.error}>{saveError}</Text> : null}
@@ -143,12 +146,12 @@ export default function PartnerPlatformlarScreen() {
               <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{connection.label}</Text>
               <Text style={[styles.cardSubtitle, { color: colors.textMuted }]}>
                 {PROVIDER_LABELS[connection.provider]}
-                {connection.hasCredentials ? '' : ' · Kimlik bilgisi eksik'}
-                {connection.consecutiveFailures > 0 ? ` · ${connection.consecutiveFailures} ardışık senkronizasyon hatası` : ''}
+                {connection.hasCredentials ? '' : t('mPartners.missingCredentials')}
+                {connection.consecutiveFailures > 0 ? t('mPartners.consecutiveFailures', { count: connection.consecutiveFailures }) : ''}
               </Text>
             </View>
             <SwitchRow
-              label={`${connection.label} aktif`}
+              label={t('mPartners.activeLabel', { label: connection.label })}
               value={connection.status === 'ACTIVE'}
               onValueChange={(value) => handleToggle(connection, value)}
               disabled={togglingId === connection.id}
@@ -156,10 +159,10 @@ export default function PartnerPlatformlarScreen() {
           </View>
           <View style={[styles.statsRow, { borderTopColor: colors.border }]}>
             <Text style={[styles.statText, { color: colors.textSecondary }]}>
-              Seans başına kontenjan: {connection.config.spotsPerSession}
+              {t('mPartners.spotsPerSession', { count: connection.config.spotsPerSession })}
             </Text>
             <Text style={[styles.statText, { color: colors.textSecondary }]}>
-              Ziyaret başı ödeme: {connection.config.payoutRatePerVisit} TRY
+              {t('mPartners.payoutPerVisit', { amount: connection.config.payoutRatePerVisit })}
             </Text>
           </View>
         </View>
@@ -167,9 +170,9 @@ export default function PartnerPlatformlarScreen() {
 
       {showForm ? (
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.cardTitle, { color: colors.textPrimary, marginBottom: spacing[3] }]}>Yeni bağlantı</Text>
+          <Text style={[styles.cardTitle, { color: colors.textPrimary, marginBottom: spacing[3] }]}>{t('mPartners.newConnection')}</Text>
 
-          <Text style={[styles.label, { color: colors.textSecondary }]}>Sağlayıcı</Text>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>{t('mPartners.providerLabel')}</Text>
           <View style={styles.providerRow}>
             {PROVIDERS.map((p) => (
               <Text
@@ -189,27 +192,27 @@ export default function PartnerPlatformlarScreen() {
             ))}
           </View>
 
-          <TextField label="Etiket" value={label} onChangeText={setLabel} placeholder="Örn. ClassPass - Ana şube" />
+          <TextField label={t('mPartners.labelField')} value={label} onChangeText={setLabel} placeholder={t('mPartners.labelPlaceholder')} />
           <TextField
-            label="Webhook sırrı"
+            label={t('mPartners.webhookSecretLabel')}
             value={webhookSecret}
             onChangeText={setWebhookSecret}
             secureTextEntry
-            placeholder="Partnerin verdiği webhook imza sırrı"
+            placeholder={t('mPartners.webhookSecretPlaceholder')}
           />
-          <TextField label="API anahtarı (opsiyonel)" value={apiKey} onChangeText={setApiKey} secureTextEntry />
+          <TextField label={t('mPartners.apiKeyLabel')} value={apiKey} onChangeText={setApiKey} secureTextEntry />
           <TextField
-            label="Seans başına kontenjan"
+            label={t('mPartners.spotsPerSessionLabel')}
             value={spotsPerSession}
             onChangeText={setSpotsPerSession}
             keyboardType="number-pad"
           />
-          <TextField label="Ziyaret başı ödeme (TRY)" value={payoutRate} onChangeText={setPayoutRate} keyboardType="decimal-pad" />
+          <TextField label={t('mPartners.payoutRateLabel')} value={payoutRate} onChangeText={setPayoutRate} keyboardType="decimal-pad" />
 
-          <PrimaryButton label="Bağlantıyı kaydet" onPress={handleCreate} loading={creating} />
+          <PrimaryButton label={t('mPartners.saveConnection')} onPress={handleCreate} loading={creating} />
         </View>
       ) : (
-        <PrimaryButton label="Yeni partner bağlantısı ekle" onPress={() => setShowForm(true)} variant="secondary" />
+        <PrimaryButton label={t('mPartners.addConnection')} onPress={() => setShowForm(true)} variant="secondary" />
       )}
     </ScreenContainer>
   );

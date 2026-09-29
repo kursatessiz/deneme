@@ -1,4 +1,8 @@
+import { BASE_MESSAGES, createTranslator } from '@platform/shared';
+
 import { bookingMemberName, rosterOf, trainerName, type BookingRow, type ScheduleRow } from './scheduleTypes';
+
+const t = createTranslator({ locale: 'tr', messages: BASE_MESSAGES, fallback: BASE_MESSAGES });
 
 describe('trainerName', () => {
   it('returns null when no trainer is assigned', () => {
@@ -20,16 +24,16 @@ describe('bookingMemberName', () => {
       ...base,
       member: { membership: { user: { firstName: 'Ali', lastName: 'Kaya' } } },
     };
-    expect(bookingMemberName(booking)).toBe('Ali Kaya');
+    expect(bookingMemberName(booking, t)).toBe('Ali Kaya');
   });
 
   it('falls back to the partner label when there is no member profile', () => {
     const booking: BookingRow = { ...base, partnerConnection: { provider: 'classpass', label: 'ClassPass' } };
-    expect(bookingMemberName(booking)).toBe('ClassPass');
+    expect(bookingMemberName(booking, t)).toBe('ClassPass');
   });
 
   it('falls back to a generic label otherwise', () => {
-    expect(bookingMemberName(base)).toBe('Üye');
+    expect(bookingMemberName(base, t)).toBe('Üye');
   });
 });
 

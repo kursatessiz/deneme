@@ -9,6 +9,7 @@ import { ChoiceRow } from '../../../src/components/ChoiceRow';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { Swatches } from '../../../src/components/Swatches';
+import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
@@ -18,6 +19,7 @@ export default function IsletmeTemasiScreen() {
   const { activeMembership, refreshUser } = useSession();
   const { theme } = useTheme();
   const fonts = useThemeFonts();
+  const t = useT();
   const c = theme.colors;
   const studioId = activeMembership?.studioId;
   const canManage = activeMembership?.permissions.includes('studio.settings.manage') ?? false;
@@ -31,7 +33,7 @@ export default function IsletmeTemasiScreen() {
     if (!studioId || !canManage) return;
     apiRequest<TenantTheme>(`/studios/${studioId}/theme`)
       .then(setDraft)
-      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Tema yüklenemedi.'));
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : t('mTheme.errors.loadFailed')));
   }, [studioId, canManage]);
 
   if (!canManage) return <Redirect href="/(app)/hesabim" />;
@@ -60,7 +62,7 @@ export default function IsletmeTemasiScreen() {
       await refreshUser();
       setSaved(true);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Tema kaydedilemedi.');
+      setError(e instanceof ApiError ? e.message : t('mTheme.errors.saveFailed'));
     } finally {
       setIsSaving(false);
     }
@@ -68,25 +70,23 @@ export default function IsletmeTemasiScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={[styles.lead, fonts.body, { color: c.textSecondary }]}>
-        Seçtiğiniz tema üyelerinizin ve ekibinizin varsayılanıdır. Kullanıcılar kendi cihazlarında farklı bir tema seçebilir; logo, ana renk ve gradyan her zaman işletmenizin kalır.
-      </Text>
+      <Text style={[styles.lead, fonts.body, { color: c.textSecondary }]}>{t('mTheme.lead')}</Text>
 
-      <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>Tema ailesi</Text>
+      <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mTheme.family')}</Text>
       {THEME_FAMILY_KEYS.map((key) => {
         const f = THEME_FAMILIES[key];
         return (
           <ChoiceRow
             key={key}
             label={f.label}
-            description={`${f.description} Uygun: ${f.recommendedFor}.`}
+            description={`${f.description} ${t('mTheme.recommendedFor', { recommendedFor: f.recommendedFor })}`}
             selected={draft.themeFamily === key}
             onPress={() => pickFamily(key)}
           />
         );
       })}
 
-      <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>Gradyan</Text>
+      <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mTheme.gradient')}</Text>
       <View style={styles.grid}>
         {family.gradients.map((g) => {
           const selected = draft.gradientPresetKey === g.key;
@@ -110,12 +110,12 @@ export default function IsletmeTemasiScreen() {
       </View>
 
       <View style={[styles.preview, { backgroundColor: draft.themePrimary, borderRadius: family.radii.button }]}>
-        <Text style={[fonts.bodyStrong, { color: onColor(draft.themePrimary) }]}>Ana renk: {draft.themePrimary}</Text>
+        <Text style={[fonts.bodyStrong, { color: onColor(draft.themePrimary) }]}>{t('mTheme.primaryColor', { color: draft.themePrimary })}</Text>
       </View>
 
       {error ? <Text style={[styles.message, { color: palette.danger }]}>{error}</Text> : null}
-      {saved ? <Text style={[styles.message, { color: c.textSecondary }]}>Tema kaydedildi.</Text> : null}
-      <PrimaryButton label="Kaydet" onPress={save} loading={isSaving} />
+      {saved ? <Text style={[styles.message, { color: c.textSecondary }]}>{t('mTheme.saved')}</Text> : null}
+      <PrimaryButton label={t('mTheme.save')} onPress={save} loading={isSaving} />
     </ScreenContainer>
   );
 }

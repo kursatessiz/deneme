@@ -2,11 +2,11 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { useLocale } from '../i18n';
+import { useLocale, useT } from '../i18n';
 import { ApiError, apiRequest } from '../lib/api';
 import {
-  BOOKING_STATUS_LABEL,
   bookingMemberName,
+  bookingStatusLabel,
   rosterOf,
   trainerName,
   type ScheduleRow,
@@ -34,6 +34,8 @@ export function SessionDetail({ scheduleId, hintStartTime, onChanged }: SessionD
   const colors = useThemeColors();
   const fonts = useThemeFonts();
   const { locale } = useLocale();
+  const t = useT();
+  const BOOKING_STATUS_LABEL = bookingStatusLabel(t);
   const { activeMembership } = useSession();
   const studioId = activeMembership?.studioId;
   const permissions = activeMembership?.permissions ?? [];
@@ -59,9 +61,9 @@ export function SessionDetail({ scheduleId, hintStartTime, onChanged }: SessionD
       );
       const found = rows.find((r) => r.id === scheduleId);
       setSchedule(found ?? null);
-      if (!found) setError('Seans bulunamadı.');
+      if (!found) setError(t('mSession.notFound'));
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Seans yüklenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mSession.errors.loadFailed'));
     }
   }, [scheduleId, studioId, hintStartTime]);
 
@@ -84,7 +86,7 @@ export function SessionDetail({ scheduleId, hintStartTime, onChanged }: SessionD
       await load();
       onChanged?.();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'İşlem başarısız oldu.');
+      setError(e instanceof ApiError ? e.message : t('mSession.errors.actionFailed'));
     } finally {
       setBusyId(null);
     }
@@ -100,7 +102,7 @@ export function SessionDetail({ scheduleId, hintStartTime, onChanged }: SessionD
   return (
     <View>
       <Text style={[styles.title, fonts.display, { color: colors.textPrimary }]}>
-        {schedule.title || schedule.serviceType?.name || 'Seans'}
+        {schedule.title || schedule.serviceType?.name || t('mSession.session')}
       </Text>
       <Text style={[styles.subtitle, fonts.body, { color: colors.textSecondary }]}>
         {start.toLocaleDateString(locale, { weekday: 'long', day: '2-digit', month: 'long' })} ·{' '}
@@ -109,19 +111,22 @@ export function SessionDetail({ scheduleId, hintStartTime, onChanged }: SessionD
       </Text>
       {trainerName(schedule.trainer) ? (
         <Text style={[styles.subtitle, fonts.body, { color: colors.textSecondary }]}>
-          Eğitmen: {trainerName(schedule.trainer)}
-          {schedule.originalTrainerId ? ' (ikame)' : ''}
+          {t('mSession.trainerLabel', { name: trainerName(schedule.trainer) ?? '' })}
+          {schedule.originalTrainerId ? t('mSession.substituteSuffix') : ''}
         </Text>
       ) : null}
       {schedule.resource?.name ? (
-        <Text style={[styles.subtitle, fonts.body, { color: colors.textSecondary }]}>Kaynak: {schedule.resource.name}</Text>
+        <Text style={[styles.subtitle, fonts.body, { color: colors.textSecondary }]}>
+          {t('mSession.resourceLabel', { name: schedule.resource.name })}
+        </Text>
       ) : null}
       <Text style={[styles.subtitle, fonts.body, { color: colors.textSecondary }]}>
-        Kontenjan: {schedule.bookedCount}/{schedule.capacity}
+        {t('mSession.capacityLabel', { booked: schedule.bookedCount, capacity: schedule.capacity })}
       </Text>
       {schedule.isCancelled ? (
         <Text style={[styles.notice, { color: palette.danger }]}>
-          Seans iptal edildi{schedule.cancellationReason ? `: ${schedule.cancellationReason}` : ''}
+          {t('mSession.cancelledNotice')}
+          {schedule.cancellationReason ? t('mSession.cancelledReasonSuffix', { reason: schedule.cancellationReason }) : ''}
         </Text>
       ) : null}
       {error ? <Text style={[styles.notice, { color: palette.danger }]}>{error}</Text> : null}
@@ -129,7 +134,7 @@ export function SessionDetail({ scheduleId, hintStartTime, onChanged }: SessionD
       {!schedule.isCancelled && canManageSchedule ? (
         <View style={styles.actionsRow}>
           <PrimaryButton
-            label="Seansı düzenle"
+            label={t('mSession.editSession')}
             variant="secondary"
             onPress={() =>
               router.push({
@@ -145,7 +150,7 @@ export function SessionDetail({ scheduleId, hintStartTime, onChanged }: SessionD
             }
           />
           <PrimaryButton
-            label="Seansı iptal et"
+            label={t('mSession.cancelSession')}
             variant="danger"
             loading={busyId === 'cancel-session'}
             onPress={() =>
@@ -163,27 +168,27 @@ export function SessionDetail({ scheduleId, hintStartTime, onChanged }: SessionD
 
       {!schedule.isCancelled && canManageSchedule && trainers.length > 0 ? (
         <View style={styles.substituteRow}>
-          <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: colors.textPrimary }]}>İkame eğitmen isteği</Text>
+          <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: colors.textPrimary }]}>{t('mSession.substituteRequest')}</Text>
           <View style={styles.chipRow}>
-            {trainers.map((t) => (
+            {trainers.map((trainer) => (
               <Pressable
-                key={t.id}
+                key={trainer.id}
                 accessibilityRole="button"
-                accessibilityState={{ selected: substituteId === t.id }}
-                onPress={() => setSubstituteId(t.id)}
+                accessibilityState={{ selected: substituteId === trainer.id }}
+                onPress={() => setSubstituteId(trainer.id)}
                 style={[
                   styles.chip,
-                  { borderColor: colors.border, backgroundColor: substituteId === t.id ? colors.primary : colors.surface },
+                  { borderColor: colors.border, backgroundColor: substituteId === trainer.id ? colors.primary : colors.surface },
                 ]}
               >
-                <Text style={{ color: substituteId === t.id ? colors.onPrimary : colors.textPrimary }}>
-                  {t.firstName} {t.lastName}
+                <Text style={{ color: substituteId === trainer.id ? colors.onPrimary : colors.textPrimary }}>
+                  {trainer.firstName} {trainer.lastName}
                 </Text>
               </Pressable>
             ))}
           </View>
           <PrimaryButton
-            label="Eğitmeni değiştir"
+            label={t('mSession.changeTrainer')}
             variant="secondary"
             disabled={!substituteId}
             loading={busyId === 'substitute'}
@@ -201,16 +206,16 @@ export function SessionDetail({ scheduleId, hintStartTime, onChanged }: SessionD
       ) : null}
 
       <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: colors.textPrimary, marginTop: spacing[4] }]}>
-        Katılımcılar ({roster.length})
+        {t('mSession.participants', { count: roster.length })}
       </Text>
       {roster.length === 0 ? (
-        <Text style={[styles.notice, { color: colors.textMuted }]}>Henüz rezervasyon yok.</Text>
+        <Text style={[styles.notice, { color: colors.textMuted }]}>{t('mSession.noBookingsYet')}</Text>
       ) : null}
       {roster.map((b) => (
         <View key={b.id} style={[styles.bookingRow, { backgroundColor: colors.surfaceMuted }]}>
           <View style={styles.bookingInfo}>
             <Text style={[fonts.bodyStrong, { color: colors.textPrimary }]} numberOfLines={1}>
-              {bookingMemberName(b)}
+              {bookingMemberName(b, t)}
             </Text>
             <Text style={[styles.statusLabel, fonts.body, { color: colors.textSecondary }]}>
               {BOOKING_STATUS_LABEL[b.status] ?? b.status}
@@ -224,7 +229,7 @@ export function SessionDetail({ scheduleId, hintStartTime, onChanged }: SessionD
                 onPress={() => run(b.id, () => apiRequest(`/schedules/check-in/${b.id}`, { method: 'PATCH', studioId }))}
                 style={[styles.smallButton, { borderColor: colors.primary }]}
               >
-                <Text style={{ color: colors.primary, fontSize: typography.size.xs }}>Giriş yap</Text>
+                <Text style={{ color: colors.primary, fontSize: typography.size.xs }}>{t('mSession.checkIn')}</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
@@ -234,7 +239,7 @@ export function SessionDetail({ scheduleId, hintStartTime, onChanged }: SessionD
                 }
                 style={[styles.smallButton, { borderColor: colors.border }]}
               >
-                <Text style={{ color: colors.textSecondary, fontSize: typography.size.xs }}>Gelmedi</Text>
+                <Text style={{ color: colors.textSecondary, fontSize: typography.size.xs }}>{t('mSession.noShow')}</Text>
               </Pressable>
             </View>
           ) : null}

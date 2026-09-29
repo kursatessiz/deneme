@@ -5,6 +5,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
+import { useT } from '../../../src/i18n';
 import { apiRequest, ApiError } from '../../../src/lib/api';
 import { radii, spacing, typography, useThemeColors } from '../../../src/theme';
 
@@ -17,6 +18,7 @@ interface ScanResult {
 export default function StudyoQrTaraScreen() {
   const router = useRouter();
   const colors = useThemeColors();
+  const t = useT();
   const [permission, requestPermission] = useCameraPermissions();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
@@ -35,7 +37,7 @@ export default function StudyoQrTaraScreen() {
       const res = await apiRequest<ScanResult>('/me/check-in/scan', { method: 'POST', body: { token } });
       setResult(res);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'QR okunamadı.');
+      setError(err instanceof ApiError ? err.message : t('mCheckIn.errors.qrScanFailed'));
       setHasScanned(false);
     } finally {
       setIsSubmitting(false);
@@ -53,11 +55,9 @@ export default function StudyoQrTaraScreen() {
   if (!permission.granted) {
     return (
       <ScreenContainer>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Kamera izni gerekli</Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Stüdyo QR kodunu okutmak için kameraya erişim izni verin.
-        </Text>
-        <PrimaryButton label="İzin ver" onPress={() => void requestPermission()} />
+        <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mCheckIn.cameraPermissionRequired')}</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{t('mCheckIn.studyoQrTara.permissionHint')}</Text>
+        <PrimaryButton label={t('mCheckIn.grantPermission')} onPress={() => void requestPermission()} />
       </ScreenContainer>
     );
   }
@@ -65,9 +65,9 @@ export default function StudyoQrTaraScreen() {
   if (result) {
     return (
       <ScreenContainer>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Giriş yapıldı</Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Rezervasyonunuz check-in olarak işaretlendi.</Text>
-        <PrimaryButton label="Tamam" onPress={() => router.back()} />
+        <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mCheckIn.checkedIn')}</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{t('mCheckIn.studyoQrTara.bookingMarkedCheckedIn')}</Text>
+        <PrimaryButton label={t('mCheckIn.ok')} onPress={() => router.back()} />
       </ScreenContainer>
     );
   }
@@ -82,7 +82,7 @@ export default function StudyoQrTaraScreen() {
         />
       </View>
       <Text style={[styles.subtitle, { color: colors.textSecondary, marginTop: spacing[4] }]}>
-        Stüdyo girişindeki QR kodunu kareye hizalayın.
+        {t('mCheckIn.studyoQrTara.alignQr')}
       </Text>
       {isSubmitting ? <ActivityIndicator color={colors.textPrimary} style={{ marginTop: spacing[3] }} /> : null}
       {error ? <Text style={[styles.error, { color: colors.textSecondary }]}>{error}</Text> : null}

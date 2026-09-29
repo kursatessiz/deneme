@@ -6,6 +6,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
+import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
 
@@ -16,6 +17,7 @@ import { palette, radii, spacing, typography, useThemeColors } from '../../../sr
  */
 export default function TakvimScreen() {
   const colors = useThemeColors();
+  const t = useT();
   const [feed, setFeed] = useState<CalendarFeedCreatedDTO | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | undefined>();
@@ -29,7 +31,7 @@ export default function TakvimScreen() {
       const result = await apiRequest<CalendarFeedCreatedDTO>('/me/calendar-feed', { method: 'POST' });
       setFeed(result);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Takvim aboneliği oluşturulamadı.');
+      setError(err instanceof ApiError ? err.message : t('mCalendarFeed.errors.createFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -42,7 +44,7 @@ export default function TakvimScreen() {
       await apiRequest<void>('/me/calendar-feed', { method: 'DELETE' });
       setFeed(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Abonelik iptal edilemedi.');
+      setError(err instanceof ApiError ? err.message : t('mCalendarFeed.errors.revokeFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -61,36 +63,31 @@ export default function TakvimScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={[styles.title, { color: colors.textPrimary }]}>Takvim aboneliği</Text>
-      <Text style={[styles.description, { color: colors.textSecondary }]}>
-        Rezervasyonlarınızı telefonunuzun veya bilgisayarınızın takvim uygulamasına abone olarak otomatik senkronize
-        edebilirsiniz. Bağlantı yalnızca oluşturulduğunda gösterilir; kaybederseniz yeniden oluşturabilirsiniz.
-      </Text>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mCalendarFeed.title')}</Text>
+      <Text style={[styles.description, { color: colors.textSecondary }]}>{t('mCalendarFeed.description')}</Text>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
       {isLoading ? <ActivityIndicator color={colors.textPrimary} /> : null}
 
       {feed ? (
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.urlLabel, { color: colors.textSecondary }]}>Abonelik bağlantısı</Text>
+          <Text style={[styles.urlLabel, { color: colors.textSecondary }]}>{t('mCalendarFeed.subscriptionUrl')}</Text>
           <Text style={[styles.url, { color: colors.textPrimary }]} selectable>
             {feed.url}
           </Text>
 
-          <PrimaryButton label={copied ? 'Kopyalandı' : 'Bağlantıyı kopyala'} onPress={copyUrl} />
-          <PrimaryButton label="Takvim uygulamasında aç" onPress={openInCalendarApp} variant="secondary" />
-          <PrimaryButton label="Aboneliği iptal et" onPress={revokeFeed} variant="danger" />
+          <PrimaryButton label={copied ? t('mCalendarFeed.copied') : t('mCalendarFeed.copyUrl')} onPress={copyUrl} />
+          <PrimaryButton label={t('mCalendarFeed.openInCalendarApp')} onPress={openInCalendarApp} variant="secondary" />
+          <PrimaryButton label={t('mCalendarFeed.cancelSubscription')} onPress={revokeFeed} variant="danger" />
         </View>
       ) : (
-        <PrimaryButton label="Takvim aboneliği oluştur" onPress={createOrRotateFeed} loading={isLoading} />
+        <PrimaryButton label={t('mCalendarFeed.createSubscription')} onPress={createOrRotateFeed} loading={isLoading} />
       )}
 
       {feed ? (
-        <Text style={[styles.hint, { color: colors.textMuted }]}>
-          Yeniden oluşturmak (döndürmek) önceki bağlantıyı geçersiz kılar.
-        </Text>
+        <Text style={[styles.hint, { color: colors.textMuted }]}>{t('mCalendarFeed.regenerateHint')}</Text>
       ) : null}
-      {feed ? <PrimaryButton label="Bağlantıyı yenile" onPress={createOrRotateFeed} variant="secondary" /> : null}
+      {feed ? <PrimaryButton label={t('mCalendarFeed.refreshUrl')} onPress={createOrRotateFeed} variant="secondary" /> : null}
     </ScreenContainer>
   );
 }

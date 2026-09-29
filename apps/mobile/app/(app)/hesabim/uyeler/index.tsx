@@ -8,6 +8,7 @@ import { MemberCard } from '../../../../src/components/MemberCard';
 import { PermissionGate } from '../../../../src/components/PermissionGate';
 import { PrimaryButton } from '../../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../../src/components/ScreenContainer';
+import { useT } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { isTabletWidth } from '../../../../src/lib/layout';
 import { useSession } from '../../../../src/lib/session';
@@ -18,6 +19,7 @@ function MemberListContent() {
   const router = useRouter();
   const colors = useThemeColors();
   const fonts = useThemeFonts();
+  const t = useT();
   const { width } = useWindowDimensions();
   const isTablet = isTabletWidth(width);
   const { activeMembership } = useSession();
@@ -38,7 +40,7 @@ function MemberListContent() {
         const data = await apiRequest<MemberDetailDTO[]>(`/members/studio/${studioId}${qs}`, { studioId });
         setMembers(data);
       } catch (e) {
-        setError(e instanceof ApiError ? e.message : 'Üyeler yüklenemedi.');
+        setError(e instanceof ApiError ? e.message : t('mMembersStaff.errors.membersLoadFailed'));
       }
     },
     [studioId],
@@ -59,22 +61,22 @@ function MemberListContent() {
 
   const list = (
     <View style={isTablet ? styles.listPane : undefined}>
-      <TextField label="Üye ara" value={search} onChangeText={setSearch} placeholder="Ad, soyad veya telefon" />
+      <TextField label={t('mMembersStaff.searchMembers')} value={search} onChangeText={setSearch} placeholder={t('mMembersStaff.searchPlaceholder')} />
       {canInvite ? (
         <View style={styles.inviteButton}>
-          <PrimaryButton label="Yeni üye davet et" onPress={() => router.push('/(app)/hesabim/uyeler/yeni')} />
+          <PrimaryButton label={t('mMembersStaff.inviteNewMember')} onPress={() => router.push('/(app)/hesabim/uyeler/yeni')} />
         </View>
       ) : null}
       {!members && !error ? <ActivityIndicator /> : null}
       {error ? <Text style={[styles.error, { color: palette.danger }]}>{error}</Text> : null}
       {members?.length === 0 ? (
-        <Text style={[styles.empty, fonts.body, { color: colors.textSecondary }]}>Üye bulunamadı.</Text>
+        <Text style={[styles.empty, fonts.body, { color: colors.textSecondary }]}>{t('mMembersStaff.noMembersFound')}</Text>
       ) : null}
       {members?.map((m) => (
         <Pressable
           key={m.id}
           accessibilityRole="button"
-          accessibilityLabel={`${m.firstName} ${m.lastName}`}
+          accessibilityLabel={t('mMembersStaff.a11y.memberFullName', { firstName: m.firstName ?? '', lastName: m.lastName ?? '' })}
           onPress={() => openMember(m.id)}
           style={[
             styles.row,
@@ -89,7 +91,7 @@ function MemberListContent() {
           </Text>
           {m.phone ? <Text style={[styles.rowMeta, fonts.body, { color: colors.textSecondary }]}>{m.phone}</Text> : null}
           {m.isPartnerGuest ? (
-            <Text style={[styles.rowMeta, fonts.body, { color: colors.textMuted }]}>Partner misafiri</Text>
+            <Text style={[styles.rowMeta, fonts.body, { color: colors.textMuted }]}>{t('mMembersStaff.partnerGuest')}</Text>
           ) : null}
         </Pressable>
       ))}
@@ -110,7 +112,7 @@ function MemberListContent() {
           </ScreenContainer>
         ) : (
           <View style={styles.placeholder}>
-            <Text style={[fonts.body, { color: colors.textSecondary }]}>Bir üye seçin.</Text>
+            <Text style={[fonts.body, { color: colors.textSecondary }]}>{t('mMembersStaff.pickAMember')}</Text>
           </View>
         )}
       </View>

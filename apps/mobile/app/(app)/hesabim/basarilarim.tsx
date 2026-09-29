@@ -4,6 +4,7 @@ import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Switch, Text
 import type { LeaderboardDTO, MyGamificationStatsDTO } from '@platform/shared';
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
+import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
@@ -18,6 +19,7 @@ export default function BasarilarimScreen() {
   const { activeMembership } = useSession();
   const { theme } = useTheme();
   const fonts = useThemeFonts();
+  const t = useT();
   const c = theme.colors;
   const studioId = activeMembership?.studioId;
 
@@ -41,7 +43,7 @@ export default function BasarilarimScreen() {
       setLeaderboard(lb);
       setGoalInput(s.currentMonth.targetSessions ? String(s.currentMonth.targetSessions) : '');
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Başarılar yüklenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mAchievements.errors.loadFailed'));
     }
   }, [studioId]);
 
@@ -61,7 +63,7 @@ export default function BasarilarimScreen() {
       });
       setStats(updated);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Hedef kaydedilemedi.');
+      setError(e instanceof ApiError ? e.message : t('mAchievements.errors.goalSaveFailed'));
     } finally {
       setSavingGoal(false);
     }
@@ -74,7 +76,7 @@ export default function BasarilarimScreen() {
       await apiRequest(`/gamification/studio/${studioId}/me/leaderboard-opt-in`, { method: 'PUT', body: { optedIn: value } });
       await load();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Ayar kaydedilemedi.');
+      setError(e instanceof ApiError ? e.message : t('mAchievements.errors.settingSaveFailed'));
     } finally {
       setTogglingOptIn(false);
     }
@@ -105,19 +107,19 @@ export default function BasarilarimScreen() {
 
       {stats ? (
         <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
-          <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>Seri</Text>
+          <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mAchievements.streak')}</Text>
           <View style={styles.streakRow}>
             <View style={styles.streakItem}>
               <Text style={[styles.bigValue, fonts.display, { color: c.textPrimary }]}>{stats.currentStreakWeeks}</Text>
-              <Text style={[styles.metricLabel, fonts.body, { color: c.textMuted }]}>Güncel hafta serisi</Text>
+              <Text style={[styles.metricLabel, fonts.body, { color: c.textMuted }]}>{t('mAchievements.currentStreakWeeks')}</Text>
             </View>
             <View style={styles.streakItem}>
               <Text style={[styles.bigValue, fonts.display, { color: c.textPrimary }]}>{stats.bestStreakWeeks}</Text>
-              <Text style={[styles.metricLabel, fonts.body, { color: c.textMuted }]}>En iyi seri</Text>
+              <Text style={[styles.metricLabel, fonts.body, { color: c.textMuted }]}>{t('mAchievements.bestStreak')}</Text>
             </View>
             <View style={styles.streakItem}>
               <Text style={[styles.bigValue, fonts.display, { color: c.textPrimary }]}>{stats.totalAttendedSessions}</Text>
-              <Text style={[styles.metricLabel, fonts.body, { color: c.textMuted }]}>Toplam seans</Text>
+              <Text style={[styles.metricLabel, fonts.body, { color: c.textMuted }]}>{t('mAchievements.totalSessions')}</Text>
             </View>
           </View>
         </View>
@@ -125,43 +127,43 @@ export default function BasarilarimScreen() {
 
       {stats ? (
         <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
-          <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>Bu ayın hedefi</Text>
+          <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mAchievements.thisMonthsGoal')}</Text>
           {stats.currentMonth.targetSessions ? (
             <>
               <Text style={[fonts.body, { color: c.textSecondary, marginBottom: spacing[2] }]}>
-                {stats.currentMonth.progress} / {stats.currentMonth.targetSessions} seans
-                {stats.currentMonth.metGoal ? ' — hedef tamamlandı' : ''}
+                {t('mAchievements.goalProgress', { progress: stats.currentMonth.progress, target: stats.currentMonth.targetSessions })}
+                {stats.currentMonth.metGoal ? t('mAchievements.goalMetSuffix') : ''}
               </Text>
               <ProgressBar ratio={goalRatio} />
             </>
           ) : (
-            <Text style={[fonts.body, { color: c.textMuted, marginBottom: spacing[2] }]}>Bu ay için henüz bir hedef belirlemediniz.</Text>
+            <Text style={[fonts.body, { color: c.textMuted, marginBottom: spacing[2] }]}>{t('mAchievements.noGoalYet')}</Text>
           )}
           <View style={styles.goalRow}>
             <TextInput
               value={goalInput}
               onChangeText={setGoalInput}
-              placeholder="Aylık hedef (seans)"
+              placeholder={t('mAchievements.monthlyGoalPlaceholder')}
               placeholderTextColor={c.textMuted}
               keyboardType="number-pad"
               style={[styles.goalInput, { borderColor: c.border, color: c.textPrimary }]}
-              accessibilityLabel="Aylık hedef seans sayısı"
+              accessibilityLabel={t('mAchievements.a11y.monthlyGoalInput')}
             />
-            <PrimaryButton label="Kaydet" onPress={handleSaveGoal} loading={savingGoal} />
+            <PrimaryButton label={t('mAchievements.save')} onPress={handleSaveGoal} loading={savingGoal} />
           </View>
         </View>
       ) : null}
 
       {stats ? (
         <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
-          <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>Rozetler</Text>
+          <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mAchievements.badges')}</Text>
           <View style={styles.badgeGrid}>
             {stats.earnedBadges.map((b) => (
               <View key={b.badgeDefinitionId} style={[styles.badge, styles.badgeEarned, { borderColor: c.primary, backgroundColor: c.surface }]}>
                 <Text style={[fonts.bodyStrong, styles.badgeName, { color: c.textPrimary }]} numberOfLines={2}>
                   {b.name}
                 </Text>
-                <Text style={[styles.badgeMeta, fonts.body, { color: c.textMuted }]}>Kazanıldı</Text>
+                <Text style={[styles.badgeMeta, fonts.body, { color: c.textMuted }]}>{t('mAchievements.earned')}</Text>
               </View>
             ))}
             {stats.nextBadges.map((b) => (
@@ -177,24 +179,22 @@ export default function BasarilarimScreen() {
             ))}
           </View>
           {stats.earnedBadges.length === 0 && stats.nextBadges.length === 0 ? (
-            <Text style={[fonts.body, { color: c.textMuted }]}>Henüz rozet tanımı yok.</Text>
+            <Text style={[fonts.body, { color: c.textMuted }]}>{t('mAchievements.noBadgesYet')}</Text>
           ) : null}
         </View>
       ) : null}
 
       <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
         <View style={styles.optInRow}>
-          <Text style={[styles.title, fonts.display, { color: c.textPrimary, marginBottom: 0 }]}>Liderlik tablosu</Text>
+          <Text style={[styles.title, fonts.display, { color: c.textPrimary, marginBottom: 0 }]}>{t('mAchievements.leaderboard')}</Text>
           <Switch
             value={stats?.leaderboardOptedIn ?? false}
             onValueChange={handleToggleOptIn}
             disabled={togglingOptIn}
-            accessibilityLabel="Liderlik tablosunda görün"
+            accessibilityLabel={t('mAchievements.a11y.appearOnLeaderboard')}
           />
         </View>
-        <Text style={[fonts.body, styles.caption, { color: c.textMuted }]}>
-          Katılırsanız adınız (soyadınızın ilk harfiyle) bu ayki en çok seans yapan üyeler arasında görünür.
-        </Text>
+        <Text style={[fonts.body, styles.caption, { color: c.textMuted }]}>{t('mAchievements.leaderboardCaption')}</Text>
         {leaderboard && leaderboard.entries.length > 0 ? (
           leaderboard.entries.map((entry) => (
             <View key={`${entry.rank}-${entry.displayName}`} style={styles.leaderRow}>
@@ -204,13 +204,13 @@ export default function BasarilarimScreen() {
                 numberOfLines={1}
               >
                 {entry.displayName}
-                {entry.isSelf ? ' (siz)' : ''}
+                {entry.isSelf ? t('mAchievements.youSuffix') : ''}
               </Text>
-              <Text style={[fonts.body, { color: c.textSecondary }]}>{entry.sessions} seans</Text>
+              <Text style={[fonts.body, { color: c.textSecondary }]}>{t('mAchievements.sessionsCount', { count: entry.sessions })}</Text>
             </View>
           ))
         ) : (
-          <Text style={[fonts.body, { color: c.textMuted, marginTop: spacing[2] }]}>Bu ay henüz sıralama yok.</Text>
+          <Text style={[fonts.body, { color: c.textMuted, marginTop: spacing[2] }]}>{t('mAchievements.noRankingYet')}</Text>
         )}
       </View>
     </ScrollView>

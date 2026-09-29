@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { PrimaryButton } from './PrimaryButton';
-import { useLocale } from '../i18n';
+import { useLocale, useT } from '../i18n';
 import { palette, radii, spacing, typography, useThemeColors } from '../theme';
 
 interface DateTimeFieldProps {
@@ -28,6 +28,7 @@ interface DateTimeFieldProps {
 export function DateTimeField({ label, value, onChange, errorMessage }: DateTimeFieldProps) {
   const colors = useThemeColors();
   const { locale } = useLocale();
+  const t = useT();
   const [mode, setMode] = useState<'date' | 'time' | null>(null);
   const [draft, setDraft] = useState<Date | null>(null);
 
@@ -68,8 +69,10 @@ export function DateTimeField({ label, value, onChange, errorMessage }: DateTime
 
   const dateLabel = current
     ? current.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })
-    : 'Tarih seç';
-  const timeLabel = current ? current.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }) : 'Saat seç';
+    : t('mDateTimeField.pickDate');
+  const timeLabel = current
+    ? current.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+    : t('mDateTimeField.pickTime');
 
   const buttonStyle = [
     styles.button,
@@ -80,10 +83,10 @@ export function DateTimeField({ label, value, onChange, errorMessage }: DateTime
     <View style={styles.container}>
       <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
       <View style={styles.row}>
-        <Pressable accessibilityRole="button" accessibilityLabel={`${label} - tarih`} onPress={() => open('date')} style={buttonStyle}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('mDateTimeField.a11y.dateButton', { label })} onPress={() => open('date')} style={buttonStyle}>
           <Text style={{ color: colors.textPrimary }}>{dateLabel}</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel={`${label} - saat`} onPress={() => open('time')} style={buttonStyle}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('mDateTimeField.a11y.timeButton', { label })} onPress={() => open('time')} style={buttonStyle}>
           <Text style={{ color: colors.textPrimary }}>{timeLabel}</Text>
         </Pressable>
       </View>
@@ -105,8 +108,8 @@ export function DateTimeField({ label, value, onChange, errorMessage }: DateTime
                 onChange={handleIosDraftChange}
               />
               <View style={styles.modalActions}>
-                <PrimaryButton label="Vazgeç" onPress={cancelIos} variant="secondary" />
-                <PrimaryButton label="Tamam" onPress={confirmIos} />
+                <PrimaryButton label={t('mDateTimeField.cancel')} onPress={cancelIos} variant="secondary" />
+                <PrimaryButton label={t('mDateTimeField.confirm')} onPress={confirmIos} />
               </View>
             </View>
           </View>

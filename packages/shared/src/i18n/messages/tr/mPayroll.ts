@@ -1,0 +1,20 @@
+/** Mobile app: Hesabım > Bordro (owner/reception payroll runs). */
+export const trMPayroll = {
+  'mPayroll.status.draft': 'Taslak',
+  'mPayroll.status.approved': 'Onaylandı',
+  'mPayroll.status.paid': 'Ödendi',
+  'mPayroll.caption': 'Eğitmen hakediş bordro dönemleri.',
+  'mPayroll.noRunsYet': 'Henüz bir bordro dönemi oluşturulmadı.',
+  'mPayroll.approve': 'Onayla',
+  'mPayroll.markPaid': 'Ödendi olarak işaretle',
+  'mPayroll.errors.loadFailed': 'Bordro dönemleri yüklenemedi.',
+  'mPayroll.errors.approveFailed': 'Bordro onaylanamadı.',
+  'mPayroll.errors.markPaidFailed': 'Bordro ödendi olarak işaretlenemedi.',
+  'mPayroll.commissionCaption': 'Onaylanmış ve ödenmiş bordro dönemlerindeki hakedişiniz.',
+  'mPayroll.noCommissionRecordsYet': 'Henüz onaylanmış bir hakediş kaydınız yok.',
+  'mPayroll.metric.sessions': 'Seans',
+  'mPayroll.metric.attendees': 'Katılımcı',
+  'mPayroll.metric.gross': 'Brüt',
+  'mPayroll.metric.adjustment': 'Düzeltme',
+  'mPayroll.errors.commissionLoadFailed': 'Hakediş bilgisi yüklenemedi.',
+} as const satisfies Record<string, string>;

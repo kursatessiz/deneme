@@ -5,7 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import type { SessionScheduleSummaryDTO } from '@platform/shared';
 
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
-import { useLocale } from '../../../src/i18n';
+import { useLocale, useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../src/theme';
@@ -25,6 +25,7 @@ export default function SeanslarScreen() {
   const colors = useThemeColors();
   const fonts = useThemeFonts();
   const { locale } = useLocale();
+  const t = useT();
   const { activeMembership } = useSession();
   const studioId = activeMembership?.studioId;
 
@@ -40,7 +41,7 @@ export default function SeanslarScreen() {
       { studioId },
     )
       .then(setSchedules)
-      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Seanslar yüklenemedi.'));
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : t('mSessionBooking.errors.weekLoadFailed')));
   }, [studioId]);
 
   const openSchedule = (item: SessionScheduleSummaryDTO) => {
@@ -63,17 +64,17 @@ export default function SeanslarScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={[styles.lead, fonts.body, { color: colors.textSecondary }]}>Bu haftanın seansları</Text>
+      <Text style={[styles.lead, fonts.body, { color: colors.textSecondary }]}>{t('mSessionBooking.thisWeeksSessions')}</Text>
       {!schedules && !error ? <ActivityIndicator /> : null}
       {error ? <Text style={[styles.error, { color: palette.danger }]}>{error}</Text> : null}
       {schedules?.length === 0 ? (
-        <Text style={[styles.empty, fonts.body, { color: colors.textSecondary }]}>Bu hafta planlanmış seans yok.</Text>
+        <Text style={[styles.empty, fonts.body, { color: colors.textSecondary }]}>{t('mSessionBooking.noSessionsThisWeek')}</Text>
       ) : null}
       {schedules?.map((item) => (
         <Pressable
           key={item.id}
           accessibilityRole="button"
-          accessibilityLabel={`${item.serviceTypeName}, ${formatDayTime(item.startTime, item.endTime, locale)}`}
+          accessibilityLabel={t('mSessionBooking.a11y.sessionRow', { service: item.serviceTypeName, when: formatDayTime(item.startTime, item.endTime, locale) })}
           onPress={() => openSchedule(item)}
           style={[styles.row, { borderColor: colors.border, backgroundColor: colors.surface }]}
         >
@@ -87,7 +88,7 @@ export default function SeanslarScreen() {
             ) : null}
             {item.deliveryMode !== 'IN_PERSON' ? (
               <Text style={[styles.subtitle, fonts.bodyStrong, { color: colors.primary }]}>
-                {item.deliveryMode === 'ONLINE' ? 'Çevrimiçi' : 'Hibrit (yüz yüze + çevrimiçi)'}
+                {item.deliveryMode === 'ONLINE' ? t('mSessionBooking.deliveryMode.online') : t('mSessionBooking.deliveryMode.hybrid')}
               </Text>
             ) : null}
           </View>

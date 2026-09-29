@@ -2,6 +2,7 @@ import type { MemberHealthTrendDTO } from '@platform/shared';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
+import { useT } from '../i18n';
 import { ApiError, apiRequest } from '../lib/api';
 import { useSession } from '../lib/session';
 import { palette, radii, spacing, typography, useThemeColors } from '../theme';
@@ -18,6 +19,7 @@ interface MemberHealthTrendCardProps {
  */
 export function MemberHealthTrendCard({ memberId }: MemberHealthTrendCardProps) {
   const colors = useThemeColors();
+  const t = useT();
   const { activeMembership } = useSession();
   const canView = activeMembership?.permissions.includes('members.health.view') ?? false;
   const studioId = activeMembership?.studioId;
@@ -29,26 +31,24 @@ export function MemberHealthTrendCard({ memberId }: MemberHealthTrendCardProps) 
     if (!canView || !studioId) return;
     apiRequest<MemberHealthTrendDTO>(`/studios/${studioId}/members/${memberId}/health`, { studioId })
       .then(setTrend)
-      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Sağlık verisi yüklenemedi.'));
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : t('mHealth.errors.trendLoadFailed')));
   }, [canView, studioId, memberId]);
 
   if (!canView) return null;
 
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <Text style={[styles.title, { color: colors.textPrimary }]}>Sağlık eğilimi</Text>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mHealth.trend.title')}</Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {!trend && !error ? <ActivityIndicator color={colors.textPrimary} /> : null}
 
       {trend && !trend.shareWithStudio ? (
-        <Text style={[styles.notice, { color: colors.textMuted }]}>
-          Üye sağlık verilerini işletmeyle paylaşmayı seçmedi.
-        </Text>
+        <Text style={[styles.notice, { color: colors.textMuted }]}>{t('mHealth.trend.notShared')}</Text>
       ) : null}
 
       {trend && trend.shareWithStudio && trend.summaries.length === 0 ? (
-        <Text style={[styles.notice, { color: colors.textMuted }]}>Henüz veri yok.</Text>
+        <Text style={[styles.notice, { color: colors.textMuted }]}>{t('mHealth.trend.noDataYet')}</Text>
       ) : null}
 
       {trend && trend.shareWithStudio && trend.summaries.length > 0
@@ -60,12 +60,12 @@ export function MemberHealthTrendCard({ memberId }: MemberHealthTrendCardProps) 
               <View style={styles.row}>
                 <View style={styles.metric}>
                   <Text style={[styles.metricValue, { color: colors.textPrimary }]}>{avgSteps}</Text>
-                  <Text style={[styles.metricLabel, { color: colors.textMuted }]}>Ort. adım (7 gün)</Text>
+                  <Text style={[styles.metricLabel, { color: colors.textMuted }]}>{t('mHealth.trend.avgSteps7Days')}</Text>
                 </View>
                 {latestHr != null ? (
                   <View style={styles.metric}>
                     <Text style={[styles.metricValue, { color: colors.textPrimary }]}>{latestHr}</Text>
-                    <Text style={[styles.metricLabel, { color: colors.textMuted }]}>Son dinlenme nabzı</Text>
+                    <Text style={[styles.metricLabel, { color: colors.textMuted }]}>{t('mHealth.trend.lastRestingHeartRate')}</Text>
                   </View>
                 ) : null}
               </View>

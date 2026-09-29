@@ -5,30 +5,35 @@ import { EntitlementKind, onColor } from '@platform/shared';
 import type { MemberPackageDTO } from '@platform/shared';
 
 import { GradientSurface } from './GradientSurface';
-import { useLocale } from '../i18n';
+import { useLocale, useT } from '../i18n';
 import { spacing, typography, useTheme, useThemeFonts } from '../theme';
+import type { Translate } from '@platform/shared';
 
-function entitlementLabel(pkg: MemberPackageDTO): string {
-  if (pkg.entitlementKind === EntitlementKind.TIME_UNLIMITED) return 'Süre sınırsız';
+function entitlementLabel(pkg: MemberPackageDTO, t: Translate): string {
+  if (pkg.entitlementKind === EntitlementKind.TIME_UNLIMITED) return t('mPackageCard.unlimitedDuration');
   const remaining = pkg.remainingUnits ?? 0;
   const total = pkg.totalUnits ?? remaining;
   return pkg.entitlementKind === EntitlementKind.CREDIT
-    ? `${remaining}/${total} kredi kaldı`
-    : `${remaining}/${total} seans kaldı`;
+    ? t('mPackageCard.creditsRemaining', { remaining, total })
+    : t('mPackageCard.sessionsRemaining', { remaining, total });
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  ACTIVE: 'Aktif',
-  FROZEN: 'Donduruldu',
-  EXPIRED: 'Süresi doldu',
-  DEPLETED: 'Tükendi',
-};
+function statusLabels(t: Translate): Record<string, string> {
+  return {
+    ACTIVE: t('mPackageCard.status.active'),
+    FROZEN: t('mPackageCard.status.frozen'),
+    EXPIRED: t('mPackageCard.status.expired'),
+    DEPLETED: t('mPackageCard.status.depleted'),
+  };
+}
 
 /** Active-package card: the tenant gradient (CLAUDE.md design rule 10, packageCard slot). */
 export function PackageCard({ pkg }: { pkg: MemberPackageDTO }) {
   const { theme } = useTheme();
   const fonts = useThemeFonts();
   const { locale } = useLocale();
+  const t = useT();
+  const STATUS_LABEL = statusLabels(t);
   const textColor = onColor(theme.gradient.stops[0]);
 
   return (
@@ -36,16 +41,16 @@ export function PackageCard({ pkg }: { pkg: MemberPackageDTO }) {
       <Text style={[styles.name, fonts.bodyStrong, { color: textColor }]} numberOfLines={1}>
         {pkg.packageDefinitionName}
       </Text>
-      <Text style={[styles.entitlement, fonts.body, { color: textColor }]}>{entitlementLabel(pkg)}</Text>
+      <Text style={[styles.entitlement, fonts.body, { color: textColor }]}>{entitlementLabel(pkg, t)}</Text>
       <View style={styles.footer}>
         <Text style={[styles.status, fonts.body, { color: textColor }]}>{STATUS_LABEL[pkg.status] ?? pkg.status}</Text>
         <Text style={[styles.status, fonts.body, { color: textColor }]}>
-          Bitiş: {new Date(pkg.endDate).toLocaleDateString(locale)}
+          {t('mPackageCard.endDate', { date: new Date(pkg.endDate).toLocaleDateString(locale) })}
         </Text>
       </View>
       {pkg.frozenUntil ? (
         <Text style={[styles.status, fonts.body, { color: textColor }]}>
-          Dondurma bitiş: {new Date(pkg.frozenUntil).toLocaleDateString(locale)}
+          {t('mPackageCard.frozenUntil', { date: new Date(pkg.frozenUntil).toLocaleDateString(locale) })}
         </Text>
       ) : null}
     </GradientSurface>

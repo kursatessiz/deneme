@@ -1,0 +1,26 @@
+/** Mobile app: Hesabım > Entegrasyonlar (API keys and webhook endpoints). */
+export const trMIntegrations = {
+  'mIntegrations.title': 'Entegrasyonlar',
+  'mIntegrations.description':
+    "Herkese açık rezervasyon API'sini kullanacak entegrasyonlar için API anahtarı oluşturun ve webhook uç noktalarınızın durumunu görüntüleyin. Ayrıntılar için docs/PUBLIC_API.md dosyasına bakın.",
+  'mIntegrations.apiKeys': 'API anahtarları',
+  'mIntegrations.secretShownOnceNotice': 'Bu anahtar yalnızca şimdi gösterilir, tekrar görüntülenemez.',
+  'mIntegrations.copied': 'Kopyalandı',
+  'mIntegrations.copyKey': 'Anahtarı kopyala',
+  'mIntegrations.keyPrefixSuffix': 'pk_live_{prefix}_**** · {count} yetki alanı',
+  'mIntegrations.revoked': 'İptal edildi',
+  'mIntegrations.revoke': 'İptal et',
+  'mIntegrations.newKey': 'Yeni anahtar',
+  'mIntegrations.keyNamePlaceholder': "Anahtar adı (ör. Web sitesi widget'ı)",
+  'mIntegrations.createKey': 'Anahtar oluştur',
+  'mIntegrations.webhookEndpoints': 'Webhook uç noktaları',
+  'mIntegrations.noWebhooksYet': 'Henüz webhook uç noktası tanımlanmamış. Webhook eklemek için işletme panelini kullanın.',
+  'mIntegrations.eventsCount': '{count} olay',
+  'mIntegrations.active': 'Aktif',
+  'mIntegrations.inactive': 'Pasif',
+  'mIntegrations.consecutiveFailures': ' · {count} ardışık hata',
+  'mIntegrations.errors.loadFailed': 'Entegrasyonlar yüklenemedi.',
+  'mIntegrations.errors.nameAndScopeRequired': 'Anahtar adı ve en az bir yetki alanı gerekli.',
+  'mIntegrations.errors.keyCreateFailed': 'Anahtar oluşturulamadı.',
+  'mIntegrations.errors.keyRevokeFailed': 'Anahtar iptal edilemedi.',
+} as const satisfies Record<string, string>;

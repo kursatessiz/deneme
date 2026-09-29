@@ -27,4 +27,8 @@ export const enMAuth: Record<keyof typeof trMAuth, string> = {
   'mAuth.setPin.mismatch': 'The PINs you entered do not match',
   'mAuth.setPin.invalid': 'Enter a valid PIN',
   'mAuth.setPin.submit': 'Save PIN',
+  'mAuth.changePin.subtitle': 'Enter and confirm your new PIN.',
+  'mAuth.changePin.submit': 'Update PIN',
+  'mAuth.changePin.success': 'Your PIN has been updated.',
+  'mAuth.changePin.unexpectedError': 'An unexpected error occurred.',
 };

@@ -8,10 +8,12 @@ import { PermissionGate } from '../../../../src/components/PermissionGate';
 import { PrimaryButton } from '../../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../../src/components/ScreenContainer';
 import { TextField } from '../../../../src/components/TextField';
+import { useT } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { fieldErrorsFromZod } from '../../../../src/lib/formErrors';
 import { useSession } from '../../../../src/lib/session';
 import { palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../../src/theme';
+import type { Translate } from '@platform/shared';
 
 interface PackageDefinitionRow {
   id: string;
@@ -19,11 +21,13 @@ interface PackageDefinitionRow {
   price: number;
 }
 
-const METHOD_LABEL: Partial<Record<PaymentMethod, string>> = {
-  [PaymentMethod.CASH]: 'Nakit',
-  [PaymentMethod.CREDIT_CARD_POS]: 'Kart (POS)',
-  [PaymentMethod.BANK_TRANSFER]: 'Havale',
-};
+function methodLabels(t: Translate): Partial<Record<PaymentMethod, string>> {
+  return {
+    [PaymentMethod.CASH]: t('mMembersStaff.method.cash'),
+    [PaymentMethod.CREDIT_CARD_POS]: t('mMembersStaff.method.creditCardPos'),
+    [PaymentMethod.BANK_TRANSFER]: t('mMembersStaff.method.bankTransfer'),
+  };
+}
 
 function PaketSatContent() {
   const router = useRouter();
@@ -31,6 +35,8 @@ function PaketSatContent() {
   const fonts = useThemeFonts();
   const { memberId } = useLocalSearchParams<{ memberId: string }>();
   const { activeMembership } = useSession();
+  const t = useT();
+  const METHOD_LABEL = methodLabels(t);
   const studioId = activeMembership?.studioId;
 
   const [packages, setPackages] = useState<PackageDefinitionRow[]>([]);
@@ -73,7 +79,7 @@ function PaketSatContent() {
       await apiRequest('/payments/sell', { method: 'POST', studioId, body: parsed.data });
       setDone(true);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Paket satılamadı.');
+      setError(e instanceof ApiError ? e.message : t('mMembersStaff.errors.packageSaleFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -82,16 +88,16 @@ function PaketSatContent() {
   if (done) {
     return (
       <ScreenContainer>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Paket satıldı</Text>
-        <PrimaryButton label="Üye kartına dön" onPress={() => router.back()} />
+        <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mMembersStaff.packageSold')}</Text>
+        <PrimaryButton label={t('mMembersStaff.backToMemberCard')} onPress={() => router.back()} />
       </ScreenContainer>
     );
   }
 
   return (
     <ScreenContainer>
-      <Text style={[styles.title, { color: colors.textPrimary }]}>Paket sat</Text>
-      <Text style={[styles.label, fonts.body, { color: colors.textSecondary }]}>Paket</Text>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mMembersStaff.sellPackage')}</Text>
+      <Text style={[styles.label, fonts.body, { color: colors.textSecondary }]}>{t('mMembersStaff.package')}</Text>
       <View style={styles.chipRow}>
         {packages.map((p) => (
           <Pressable
@@ -115,7 +121,7 @@ function PaketSatContent() {
         <Text style={[styles.error, { color: palette.danger }]}>{fieldErrors.packageDefinitionId}</Text>
       ) : null}
 
-      <Text style={[styles.label, fonts.body, { color: colors.textSecondary }]}>Ödeme yöntemi</Text>
+      <Text style={[styles.label, fonts.body, { color: colors.textSecondary }]}>{t('mMembersStaff.paymentMethod')}</Text>
       <View style={styles.chipRow}>
         {(Object.keys(METHOD_LABEL) as PaymentMethod[]).map((m) => (
           <Pressable
@@ -133,7 +139,7 @@ function PaketSatContent() {
       </View>
 
       <TextField
-        label={`Tahsil edilen tutar (${activeMembership?.currency ?? ''})`}
+        label={t('mMembersStaff.amountCollectedLabel', { currency: activeMembership?.currency ?? '' })}
         value={paidAmount}
         onChangeText={setPaidAmount}
         keyboardType="decimal-pad"
@@ -141,7 +147,7 @@ function PaketSatContent() {
       />
 
       {error ? <Text style={[styles.error, { color: palette.danger }]}>{error}</Text> : null}
-      <PrimaryButton label="Satışı tamamla" onPress={handleSubmit} loading={isSubmitting} />
+      <PrimaryButton label={t('mMembersStaff.completeSale')} onPress={handleSubmit} loading={isSubmitting} />
     </ScreenContainer>
   );
 }

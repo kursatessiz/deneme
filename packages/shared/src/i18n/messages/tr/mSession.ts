@@ -1,0 +1,21 @@
+/** Mobile app: staff session detail (roster, check-in, substitution, cancel). */
+export const trMSession = {
+  'mSession.notFound': 'Seans bulunamadı.',
+  'mSession.session': 'Seans',
+  'mSession.trainerLabel': 'Eğitmen: {name}',
+  'mSession.substituteSuffix': ' (ikame)',
+  'mSession.resourceLabel': 'Kaynak: {name}',
+  'mSession.capacityLabel': 'Kontenjan: {booked}/{capacity}',
+  'mSession.cancelledNotice': 'Seans iptal edildi',
+  'mSession.cancelledReasonSuffix': ': {reason}',
+  'mSession.editSession': 'Seansı düzenle',
+  'mSession.cancelSession': 'Seansı iptal et',
+  'mSession.substituteRequest': 'İkame eğitmen isteği',
+  'mSession.changeTrainer': 'Eğitmeni değiştir',
+  'mSession.participants': 'Katılımcılar ({count})',
+  'mSession.noBookingsYet': 'Henüz rezervasyon yok.',
+  'mSession.checkIn': 'Giriş yap',
+  'mSession.noShow': 'Gelmedi',
+  'mSession.errors.loadFailed': 'Seans yüklenemedi.',
+  'mSession.errors.actionFailed': 'İşlem başarısız oldu.',
+} as const satisfies Record<string, string>;

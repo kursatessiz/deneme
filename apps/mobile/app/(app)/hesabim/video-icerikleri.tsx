@@ -6,15 +6,19 @@ import type { VideoContentDTO, VideoContentVisibility } from '@platform/shared';
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
+import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../src/theme';
+import type { Translate } from '@platform/shared';
 
-const VISIBILITY_LABELS: Record<VideoContentVisibility, string> = {
-  ALL_MEMBERS: 'Tüm üyeler',
-  MEMBERS_WITH_ACTIVE_PACKAGE: 'Aktif paketi olan üyeler',
-  SPECIFIC_PACKAGES: 'Belirli paketler',
-};
+function visibilityLabels(t: Translate): Record<VideoContentVisibility, string> {
+  return {
+    ALL_MEMBERS: t('mVideoContent.visibility.allMembers'),
+    MEMBERS_WITH_ACTIVE_PACKAGE: t('mVideoContent.visibility.activePackageMembers'),
+    SPECIFIC_PACKAGES: t('mVideoContent.visibility.specificPackages'),
+  };
+}
 
 const emptyForm = {
   title: '',
@@ -34,6 +38,8 @@ const emptyForm = {
 export default function VideoIcerikleriScreen() {
   const colors = useThemeColors();
   const fonts = useThemeFonts();
+  const t = useT();
+  const VISIBILITY_LABELS = visibilityLabels(t);
   const { activeMembership } = useSession();
   const studioId = activeMembership?.studioId;
   const canManage = activeMembership?.permissions.includes('content.manage') ?? false;
@@ -52,7 +58,7 @@ export default function VideoIcerikleriScreen() {
       const res = await apiRequest<VideoContentDTO[]>(`/video/content/studio/${studioId}`, { studioId });
       setItems(res);
     } catch (e) {
-      setLoadError(e instanceof ApiError ? e.message : 'İçerikler yüklenemedi.');
+      setLoadError(e instanceof ApiError ? e.message : t('mVideoContent.errors.loadFailed'));
     }
   }, [studioId]);
 
@@ -83,7 +89,7 @@ export default function VideoIcerikleriScreen() {
       setForm(emptyForm);
       await load();
     } catch (e) {
-      setSaveError(e instanceof ApiError ? e.message : 'İçerik kaydedilemedi.');
+      setSaveError(e instanceof ApiError ? e.message : t('mVideoContent.errors.saveFailed'));
     } finally {
       setIsSaving(false);
     }
@@ -99,7 +105,7 @@ export default function VideoIcerikleriScreen() {
       });
       await load();
     } catch (e) {
-      setSaveError(e instanceof ApiError ? e.message : 'İşlem tamamlanamadı.');
+      setSaveError(e instanceof ApiError ? e.message : t('mVideoContent.errors.actionFailed'));
     } finally {
       setBusyId(null);
     }
@@ -107,23 +113,23 @@ export default function VideoIcerikleriScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: colors.textSecondary }]}>Yeni içerik</Text>
+      <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: colors.textSecondary }]}>{t('mVideoContent.newContent')}</Text>
       <TextInput
-        placeholder="Başlık"
+        placeholder={t('mVideoContent.titlePlaceholder')}
         placeholderTextColor={colors.textMuted}
         value={form.title}
         onChangeText={(title) => setForm((f) => ({ ...f, title }))}
         style={[styles.input, { borderColor: colors.border, color: colors.textPrimary }]}
       />
       <TextInput
-        placeholder="Açıklama"
+        placeholder={t('mVideoContent.descriptionPlaceholder')}
         placeholderTextColor={colors.textMuted}
         value={form.description}
         onChangeText={(description) => setForm((f) => ({ ...f, description }))}
         style={[styles.input, { borderColor: colors.border, color: colors.textPrimary }]}
       />
       <TextInput
-        placeholder="Süre (dakika)"
+        placeholder={t('mVideoContent.durationPlaceholder')}
         placeholderTextColor={colors.textMuted}
         value={form.durationMinutes}
         onChangeText={(durationMinutes) => setForm((f) => ({ ...f, durationMinutes }))}
@@ -131,7 +137,7 @@ export default function VideoIcerikleriScreen() {
         style={[styles.input, { borderColor: colors.border, color: colors.textPrimary }]}
       />
       <TextInput
-        placeholder="Video bağlantısı (https://...)"
+        placeholder={t('mVideoContent.sourceUrlPlaceholder')}
         placeholderTextColor={colors.textMuted}
         value={form.sourceUrl}
         onChangeText={(sourceUrl) => setForm((f) => ({ ...f, sourceUrl }))}
@@ -139,7 +145,7 @@ export default function VideoIcerikleriScreen() {
         style={[styles.input, { borderColor: colors.border, color: colors.textPrimary }]}
       />
       <TextInput
-        placeholder="Kredi maliyeti (opsiyonel)"
+        placeholder={t('mVideoContent.creditCostPlaceholder')}
         placeholderTextColor={colors.textMuted}
         value={form.creditCost}
         onChangeText={(creditCost) => setForm((f) => ({ ...f, creditCost }))}
@@ -168,10 +174,10 @@ export default function VideoIcerikleriScreen() {
         ))}
       </View>
       {saveError ? <Text style={[styles.message, { color: palette.danger }]}>{saveError}</Text> : null}
-      <PrimaryButton label="İçeriği kaydet" onPress={handleCreate} loading={isSaving} disabled={!form.title || !form.sourceUrl} />
+      <PrimaryButton label={t('mVideoContent.saveContent')} onPress={handleCreate} loading={isSaving} disabled={!form.title || !form.sourceUrl} />
 
       <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: colors.textSecondary, marginTop: spacing[6] }]}>
-        Tüm içerikler
+        {t('mVideoContent.allContent')}
       </Text>
       {!items && !loadError ? <ActivityIndicator /> : null}
       {loadError ? <Text style={[styles.message, { color: palette.danger }]}>{loadError}</Text> : null}
@@ -181,27 +187,27 @@ export default function VideoIcerikleriScreen() {
             <Text style={[styles.itemTitle, fonts.bodyStrong, { color: colors.textPrimary }]}>{item.title}</Text>
             <Text style={[styles.itemSubtitle, fonts.body, { color: colors.textSecondary }]}>
               {VISIBILITY_LABELS[item.visibility]}
-              {item.creditCost ? ` · ${item.creditCost} kredi` : ''}
+              {item.creditCost ? t('mVideoContent.creditSuffix', { credit: item.creditCost }) : ''}
             </Text>
             <Text style={[styles.itemSubtitle, fonts.body, { color: item.isPublished ? palette.success : colors.textMuted }]}>
-              {item.isPublished ? 'Yayında' : 'Taslak'}
+              {item.isPublished ? t('mVideoContent.published') : t('mVideoContent.draft')}
             </Text>
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={item.isPublished ? 'Yayından kaldır' : 'Yayınla'}
+            accessibilityLabel={item.isPublished ? t('mVideoContent.a11y.unpublish') : t('mVideoContent.a11y.publish')}
             onPress={() => togglePublish(item)}
             disabled={busyId === item.id}
             style={[styles.publishButton, { borderColor: colors.primary }]}
           >
             <Text style={{ color: colors.primary, fontSize: typography.size.xs }}>
-              {busyId === item.id ? '...' : item.isPublished ? 'Kaldır' : 'Yayınla'}
+              {busyId === item.id ? '...' : item.isPublished ? t('mVideoContent.remove') : t('mVideoContent.publish')}
             </Text>
           </Pressable>
         </View>
       ))}
       {items?.length === 0 ? (
-        <Text style={[styles.message, fonts.body, { color: colors.textSecondary }]}>Henüz video içeriği eklenmedi.</Text>
+        <Text style={[styles.message, fonts.body, { color: colors.textSecondary }]}>{t('mVideoContent.noContentYet')}</Text>
       ) : null}
     </ScreenContainer>
   );

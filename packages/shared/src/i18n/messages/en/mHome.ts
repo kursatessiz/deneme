@@ -1,0 +1,25 @@
+import type { trMHome } from '../tr/mHome';
+
+export const enMHome: Record<keyof typeof trMHome, string> = {
+  'mHome.greeting': 'Hi, {name}',
+  'mHome.trainerLabel': 'Trainer: {name}',
+  'mHome.a11y.addToCalendar': 'Add to calendar',
+  'mHome.addedToCalendar': 'Added to calendar',
+  'mHome.addingToCalendar': 'Adding...',
+  'mHome.addToCalendar': 'Add to calendar',
+  'mHome.a11y.rateSession': 'Rate {service} session',
+  'mHome.howWasYourSession': 'How was your session?',
+  'mHome.rate': 'Rate',
+  'mHome.a11y.viewThisWeeksSessions': "View this week's sessions",
+  'mHome.thisWeeksSessions': "This week's sessions",
+  'mHome.pickSessionToBook': 'Pick a session and book your spot',
+  'mHome.a11y.viewMyAchievements': 'View my achievements',
+  'mHome.myAchievements': 'My achievements',
+  'mHome.achievementsSubtitle': 'Your streak, badges and monthly goal',
+  'mHome.upcomingBookings': 'My upcoming bookings',
+  'mHome.noUpcomingBookings': 'You have no upcoming bookings.',
+  'mHome.errors.calendarAddFailed': 'Could not add to calendar, try again.',
+  'mHome.errors.bookingsLoadFailed': 'Bookings could not be loaded.',
+  'mHome.errors.noWritableCalendar': 'No writable calendar found',
+  'mHome.errors.calendarPermissionDenied': 'Calendar permission was denied. Grant it in Settings and try again.',
+};

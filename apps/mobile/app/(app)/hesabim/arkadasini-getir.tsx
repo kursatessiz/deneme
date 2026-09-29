@@ -4,17 +4,20 @@ import { ActivityIndicator, RefreshControl, ScrollView, Share, StyleSheet, Text,
 import type { ReferralCodeDTO, ReferralDTO } from '@platform/shared';
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
-import { useLocale } from '../../../src/i18n';
+import { useLocale, useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import type { Translate } from '@platform/shared';
 
-const STATUS_LABELS: Record<ReferralDTO['status'], string> = {
-  PENDING: 'Beklemede',
-  QUALIFIED: 'Onaylandı',
-  REWARDED: 'Ödül verildi',
-  VOIDED: 'İptal edildi',
-};
+function statusLabels(t: Translate): Record<ReferralDTO['status'], string> {
+  return {
+    PENDING: t('mReferral.status.pending'),
+    QUALIFIED: t('mReferral.status.qualified'),
+    REWARDED: t('mReferral.status.rewarded'),
+    VOIDED: t('mReferral.status.voided'),
+  };
+}
 
 function statusColor(status: ReferralDTO['status']): string {
   switch (status) {
@@ -35,6 +38,8 @@ export default function ArkadasiniGetirScreen() {
   const { theme } = useTheme();
   const fonts = useThemeFonts();
   const { locale } = useLocale();
+  const t = useT();
+  const STATUS_LABELS = statusLabels(t);
   const c = theme.colors;
   const studioId = activeMembership?.studioId;
 
@@ -54,7 +59,7 @@ export default function ArkadasiniGetirScreen() {
       setCode(codeRes);
       setReferrals(referralsRes);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Tavsiye bilgisi yüklenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mReferral.errors.loadFailed'));
     }
   }, [studioId]);
 
@@ -88,25 +93,23 @@ export default function ArkadasiniGetirScreen() {
         />
       }
     >
-      <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>Arkadaşını getir</Text>
-      <Text style={[styles.subtitle, fonts.body, { color: c.textSecondary }]}>
-        Kodunu arkadaşlarınla paylaş; kaydolduklarında ikiniz de kazanırsınız.
-      </Text>
+      <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mReferral.title')}</Text>
+      <Text style={[styles.subtitle, fonts.body, { color: c.textSecondary }]}>{t('mReferral.subtitle')}</Text>
 
       {!code && !error ? <ActivityIndicator /> : null}
       {error ? <Text style={{ color: palette.danger }}>{error}</Text> : null}
 
       {code ? (
         <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
-          <Text style={[styles.codeLabel, fonts.body, { color: c.textSecondary }]}>Kodunuz</Text>
+          <Text style={[styles.codeLabel, fonts.body, { color: c.textSecondary }]}>{t('mReferral.yourCode')}</Text>
           <Text style={[styles.code, fonts.display, { color: c.textPrimary }]}>{code.code}</Text>
-          <PrimaryButton label="Paylaş" onPress={handleShare} />
+          <PrimaryButton label={t('mReferral.share')} onPress={handleShare} />
         </View>
       ) : null}
 
-      <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: c.textSecondary }]}>Tavsiyelerim</Text>
+      <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mReferral.myReferrals')}</Text>
       {referrals && referrals.length === 0 ? (
-        <Text style={[styles.empty, fonts.body, { color: c.textMuted }]}>Henüz bir tavsiyeniz yok.</Text>
+        <Text style={[styles.empty, fonts.body, { color: c.textMuted }]}>{t('mReferral.noReferralsYet')}</Text>
       ) : null}
       {referrals?.map((r) => (
         <View key={r.id} style={[styles.referralRow, card, theme.family.cardBorder && styles.bordered]}>

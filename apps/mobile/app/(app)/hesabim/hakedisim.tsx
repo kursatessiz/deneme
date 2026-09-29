@@ -5,7 +5,7 @@ import type { PayrollLineDTO } from '@platform/shared';
 
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { formatCurrency, useLocale } from '../../../src/i18n';
+import { formatCurrency, useLocale, useT } from '../../../src/i18n';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
 
 
@@ -13,6 +13,7 @@ import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../
 export default function HakedisimScreen() {
   const { activeMembership } = useSession();
   const { locale } = useLocale();
+  const t = useT();
   const currency = activeMembership?.currency ?? 'USD';
   const money = (v: string) => formatCurrency(Number(v), locale, currency, { maximumFractionDigits: 2 });
   const { theme } = useTheme();
@@ -31,7 +32,7 @@ export default function HakedisimScreen() {
       const rows = await apiRequest<PayrollLineDTO[]>(`/payroll/studio/${studioId}/me/lines`);
       setLines(rows);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Hakediş bilgisi yüklenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mPayroll.errors.commissionLoadFailed'));
     }
   }, [studioId]);
 
@@ -56,23 +57,21 @@ export default function HakedisimScreen() {
         />
       }
     >
-      <Text style={[styles.caption, fonts.body, { color: c.textSecondary }]}>
-        Onaylanmış ve ödenmiş bordro dönemlerindeki hakedişiniz.
-      </Text>
+      <Text style={[styles.caption, fonts.body, { color: c.textSecondary }]}>{t('mPayroll.commissionCaption')}</Text>
       {!lines && !error ? <ActivityIndicator /> : null}
       {error ? <Text style={{ color: palette.danger }}>{error}</Text> : null}
       {lines && lines.length === 0 ? (
-        <Text style={[styles.empty, fonts.body, { color: c.textMuted }]}>Henüz onaylanmış bir hakediş kaydınız yok.</Text>
+        <Text style={[styles.empty, fonts.body, { color: c.textMuted }]}>{t('mPayroll.noCommissionRecordsYet')}</Text>
       ) : null}
 
       {lines?.map((line) => (
         <View key={line.id} style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
           <Text style={[styles.net, fonts.display, { color: c.textPrimary }]}>{money(line.netAmount)}</Text>
           <View style={styles.metrics}>
-            <Metric label="Seans" value={String(line.sessions)} />
-            <Metric label="Katılımcı" value={String(line.attendees)} />
-            <Metric label="Brüt" value={money(line.grossAmount)} />
-            {line.adjustments !== '0.00' ? <Metric label="Düzeltme" value={money(line.adjustments)} /> : null}
+            <Metric label={t('mPayroll.metric.sessions')} value={String(line.sessions)} />
+            <Metric label={t('mPayroll.metric.attendees')} value={String(line.attendees)} />
+            <Metric label={t('mPayroll.metric.gross')} value={money(line.grossAmount)} />
+            {line.adjustments !== '0.00' ? <Metric label={t('mPayroll.metric.adjustment')} value={money(line.adjustments)} /> : null}
           </View>
           {line.note ? <Text style={[styles.note, fonts.body, { color: c.textMuted }]}>{line.note}</Text> : null}
         </View>
