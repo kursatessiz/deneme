@@ -7,3 +7,4 @@ export * from './dashboard';
 export * from './approvals';
 export * from './settings';
 export * from './consent';
+export * from './social';

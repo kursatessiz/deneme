@@ -2,14 +2,18 @@ import { Controller, Delete, Get, Headers, HttpCode, Param, ParseUUIDPipe, Patch
 import {
   CreateApiKeySchema,
   CreateEmailSenderDomainSchema,
+  CreateSocialConnectionSchema,
   HubUpdateAdConnectionSchema,
   HubUpdateWebhookSchema,
+  UpdateSocialConnectionSchema,
   INTEGRATION_ENTRY_HEADER,
   type CreateApiKeyInput,
   type CreateEmailSenderDomainInput,
+  type CreateSocialConnectionInput,
   type HubUpdateAdConnectionInput,
   type HubUpdateWebhookInput,
   type IntegrationEntryPoint,
+  type UpdateSocialConnectionInput,
 } from '@platform/shared';
 import { Platform, PlatformScoped, RequirePlatformPermission } from '../../auth/decorators/platform-scoped.decorator';
 import type { PlatformContext } from '../../auth/tenant-context';
@@ -34,6 +38,41 @@ export class PlatformIntegrationsController {
   @Get()
   summary(@Platform() platform: PlatformContext) {
     return this.hub.summary(platform);
+  }
+
+  @Get('social')
+  listSocial(@Platform() platform: PlatformContext) {
+    return this.hub.listSocialConnections(platform);
+  }
+
+  @Post('social')
+  createSocial(
+    @Platform() platform: PlatformContext,
+    @Headers(INTEGRATION_ENTRY_HEADER) via: string | undefined,
+    @ZodBody(CreateSocialConnectionSchema) body: CreateSocialConnectionInput,
+  ) {
+    return this.hub.createSocialConnection(platform, entryPoint(platform, via), body);
+  }
+
+  @Patch('social/:id')
+  updateSocial(
+    @Platform() platform: PlatformContext,
+    @Headers(INTEGRATION_ENTRY_HEADER) via: string | undefined,
+    @Param('id', ParseUUIDPipe) id: string,
+    @ZodBody(UpdateSocialConnectionSchema) body: UpdateSocialConnectionInput,
+  ) {
+    return this.hub.updateSocialConnection(platform, entryPoint(platform, via), id, body);
+  }
+
+  @Post('social/:id/test')
+  @HttpCode(200)
+  testSocial(@Platform() platform: PlatformContext, @Headers(INTEGRATION_ENTRY_HEADER) via: string | undefined, @Param('id', ParseUUIDPipe) id: string) {
+    return this.hub.testSocialConnection(platform, entryPoint(platform, via), id);
+  }
+
+  @Delete('social/:id')
+  removeSocial(@Platform() platform: PlatformContext, @Headers(INTEGRATION_ENTRY_HEADER) via: string | undefined, @Param('id', ParseUUIDPipe) id: string) {
+    return this.hub.removeSocialConnection(platform, entryPoint(platform, via), id);
   }
 
   @Patch('ads/:id')

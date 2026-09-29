@@ -22,6 +22,9 @@ export type MarketingCheckCode =
   | 'SMS_MULTI_SEGMENT'
   | 'PLACEHOLDER_EDGE';
 
+/** What a check run is about: a draft kind, or an organic social post (M4b; not an AI draft kind). */
+export type MarketingCheckKind = MarketingDraftKind | 'SOCIAL_POST';
+
 export type MarketingCheckSeverity = 'BLOCKING' | 'WARNING';
 
 export interface MarketingCheckIssue {
@@ -44,7 +47,7 @@ export interface MarketingCheckContext {
 }
 
 /** Character limit per text field (base name without indices), per kind. Ad limits follow the networks' own limits. */
-export const MARKETING_FIELD_LIMITS: Partial<Record<MarketingDraftKind, Readonly<Record<string, number>>>> = {
+export const MARKETING_FIELD_LIMITS: Partial<Record<MarketingCheckKind, Readonly<Record<string, number>>>> = {
   EMAIL: { subject: 70, preheader: 100, body: 2_000 },
   SMS: { text: 480 },
   WHATSAPP: { body: 1_024 },
@@ -58,25 +61,26 @@ export const MARKETING_FIELD_LIMITS: Partial<Record<MarketingDraftKind, Readonly
 };
 
 /** Allowed item counts of list fields. */
-export const MARKETING_COUNT_LIMITS: Partial<Record<MarketingDraftKind, Readonly<Record<string, { min: number; max: number }>>>> = {
+export const MARKETING_COUNT_LIMITS: Partial<Record<MarketingCheckKind, Readonly<Record<string, { min: number; max: number }>>>> = {
   AD_GOOGLE_RSA: { headlines: { min: 3, max: 15 }, descriptions: { min: 2, max: 4 } },
   LANDING_BLOCK: { bullets: { min: 0, max: 6 } },
 };
 
 /** Fields whose text is checked; kinds not listed check every string field. */
-const CHECKED_FIELDS: Partial<Record<MarketingDraftKind, readonly string[]>> = {
+const CHECKED_FIELDS: Partial<Record<MarketingCheckKind, readonly string[]>> = {
+  SOCIAL_POST: ['text'],
   WHATSAPP: ['body'],
   SEGMENT_SUGGESTION: ['name', 'rationale'],
   RESEARCH_NOTE: ['summary', 'points.claim'],
 };
 
 /** The field that must carry the channel's required disclaimer. */
-const DISCLAIMER_FIELD: Partial<Record<MarketingDraftKind, string>> = { EMAIL: 'body', SMS: 'text', WHATSAPP: 'body' };
+const DISCLAIMER_FIELD: Partial<Record<MarketingCheckKind, string>> = { EMAIL: 'body', SMS: 'text', WHATSAPP: 'body' };
 
 export type DisclaimerChannel = 'EMAIL' | 'SMS' | 'WHATSAPP';
 
 /** Channel whose required disclaimer applies to a kind, or null. */
-export function disclaimerChannelOf(kind: MarketingDraftKind): DisclaimerChannel | null {
+export function disclaimerChannelOf(kind: MarketingCheckKind): DisclaimerChannel | null {
   return kind === 'EMAIL' || kind === 'SMS' || kind === 'WHATSAPP' ? kind : null;
 }
 
@@ -167,7 +171,7 @@ export function smsSegmentInfo(text: string): SmsSegmentInfo {
  * Runs every deterministic check on one variant. Pure: the same input always
  * gives the same issues, in field order.
  */
-export function runMarketingChecks(kind: MarketingDraftKind, content: unknown, ctx: MarketingCheckContext): MarketingCheckIssue[] {
+export function runMarketingChecks(kind: MarketingCheckKind, content: unknown, ctx: MarketingCheckContext): MarketingCheckIssue[] {
   const issues: MarketingCheckIssue[] = [];
   const all: FieldText[] = [];
   collect(content, '', all);

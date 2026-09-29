@@ -81,6 +81,9 @@ export const APPROVAL_REASON_CODES = [
   'US_SMS_RECIPIENT',
   'EMAIL_DOMAIN_NOT_VERIFIED',
   'CHANNEL_REQUIRES_APPROVAL',
+  // M4b: organic social posts.
+  'SOCIAL_APPROVAL_REQUIRED_SETTING',
+  'SOCIAL_BRAND_CHECK_BLOCKING',
 ] as const;
 export type ApprovalReasonCode = (typeof APPROVAL_REASON_CODES)[number];
 
@@ -235,6 +238,8 @@ export interface ApprovalSummary {
   legalBases?: Partial<Record<ConsentLegalBasis, number>>;
   /** Set when a super admin approved their own request. */
   selfApprovedBySuperAdmin?: boolean;
+  /** M4b: what a SOCIAL_POST request is about (aggregate, no credentials). Absent on campaign requests. */
+  social?: { provider: string; connectionName: string; textPreview: string; mediaCount: number; link: string | null };
   /** Set on a request cancelled because the content changed after the decision. */
   invalidated?: { at: string; reason: 'CONTENT_CHANGED'; replacedByRequestId: string | null };
 }

@@ -21,6 +21,7 @@ import { EventsJobsService, EventsHeartbeatResult } from '../events/events-jobs.
 import { BillingJobsService, BillingHeartbeatResult } from '../billing/billing-jobs.service';
 import { PayoutsJobsService, PayoutsHeartbeatResult } from '../payouts/payouts-jobs.service';
 import { ErrorReportingJobsService, ErrorReportingHeartbeatResult } from '../error-reporting/error-reporting-jobs.service';
+import { SocialPublishingService, type SocialHeartbeatResult } from '../social/social-publishing.service';
 import { BackupsJobsService } from '../backups/backups.module';
 import type { BackupsHeartbeatResult } from '../backups/backups.module';
 
@@ -46,6 +47,8 @@ export interface SchedulerRunResult {
   payouts: PayoutsHeartbeatResult;
   errorReporting: ErrorReportingHeartbeatResult;
   backups: BackupsHeartbeatResult;
+  /** M4b: due organic social posts published, retried, deferred or failed. */
+  socialPublishing: SocialHeartbeatResult;
 }
 
 /**
@@ -92,6 +95,7 @@ export class JobsService {
     private readonly payouts: PayoutsJobsService,
     private readonly errorReporting: ErrorReportingJobsService,
     private readonly backups: BackupsJobsService,
+    private readonly socialPublishing: SocialPublishingService,
     @Optional() @InjectQueue(SCHEDULER_QUEUE) private readonly queue?: Queue,
   ) {}
 
@@ -120,6 +124,7 @@ export class JobsService {
     const events = await this.events.run(now);
     const billing = await this.billing.run(now);
     const payouts = await this.payouts.run(now);
+    const socialPublishing = await this.socialPublishing.processDue(now);
     const errorReporting = await this.errorReporting.run(now);
     // Only starts the daily backup in the background; the run itself does not block the heartbeat.
     const backups = await this.backups.run(now);
@@ -142,7 +147,8 @@ export class JobsService {
         `billing ${billing.restricted} trial(s) restricted/${billing.reminders} reminder(s), ` +
         `payouts ${payouts.synced} synced/${payouts.payouts} payout(s)/${payouts.failed} failed`,
         `errors ${errorReporting.purged} event(s) purged/digest ${errorReporting.digestSent ? 'sent' : 'not due'}, ` +
-        `backups ${backups.scheduled.reason.toLowerCase()}/status ${backups.status}${backups.staleAlertSent ? '/alert sent' : ''}`,
+        `backups ${backups.scheduled.reason.toLowerCase()}/status ${backups.status}${backups.staleAlertSent ? '/alert sent' : ''}, ` +
+        `social ${socialPublishing.published} published/${socialPublishing.retrying} retrying/${socialPublishing.deferred} deferred/${socialPublishing.failed} failed`,
     );
 
     this.lastRunAt = now;
@@ -168,6 +174,7 @@ export class JobsService {
       payouts,
       errorReporting,
       backups,
+      socialPublishing,
     };
   }
 }

@@ -56,8 +56,9 @@ export class ContentCalendarService {
       }),
     ]);
     const owners = await this.ownerNames(rows.map((r) => r.ownerUserId));
+    const posts = await this.socialPostIds(studioId, rows.map((r) => r.id));
     return {
-      items: rows.map((r) => this.toDto(r, owners)),
+      items: rows.map((r) => this.toDto(r, owners, posts.get(r.id) ?? null)),
       campaigns: campaigns.flatMap((c) =>
         c.scheduledAt ? [{ id: c.id, name: c.name, status: c.status, channel: c.channel, scheduledDate: toDateOnly(c.scheduledAt) }] : [],
       ),
@@ -96,7 +97,7 @@ export class ContentCalendarService {
       await this.audit(tx, platform, 'marketing.calendar.create', created.id, { channel: created.channel, date: input.scheduledDate });
       return created;
     });
-    return this.toDto(row, await this.ownerNames([row.ownerUserId]));
+    return this.toDto(row, await this.ownerNames([row.ownerUserId]), (await this.socialPostIds(studioId, [row.id])).get(row.id) ?? null);
   }
 
   async update(platform: PlatformContext, id: string, input: UpdateContentItemInput): Promise<ContentItemDTO> {
@@ -129,7 +130,7 @@ export class ContentCalendarService {
       });
       return updated;
     });
-    return this.toDto(row, await this.ownerNames([row.ownerUserId]));
+    return this.toDto(row, await this.ownerNames([row.ownerUserId]), (await this.socialPostIds(studioId, [row.id])).get(row.id) ?? null);
   }
 
   async remove(platform: PlatformContext, id: string): Promise<{ deleted: true }> {
@@ -169,7 +170,20 @@ export class ContentCalendarService {
     return new Map(users.map((u) => [u.id, fullName(u)]));
   }
 
-  private toDto(row: ContentCalendarItem, owners: Map<string, string>): ContentItemDTO {
+  /** The newest social post of each item (M4b); items without one are absent from the map. */
+  private async socialPostIds(studioId: string, itemIds: string[]): Promise<Map<string, string>> {
+    if (itemIds.length === 0) return new Map();
+    const posts = await this.prisma.socialPost.findMany({
+      where: { studioId, calendarItemId: { in: itemIds } },
+      select: { id: true, calendarItemId: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const map = new Map<string, string>();
+    for (const post of posts) if (post.calendarItemId) map.set(post.calendarItemId, post.id);
+    return map;
+  }
+
+  private toDto(row: ContentCalendarItem, owners: Map<string, string>, socialPostId: string | null): ContentItemDTO {
     return {
       id: row.id,
       title: row.title,
@@ -178,6 +192,7 @@ export class ContentCalendarService {
       status: row.status,
       draftId: row.draftId,
       campaignId: row.campaignId,
+      socialPostId,
       ownerUserId: row.ownerUserId,
       ownerName: row.ownerUserId ? (owners.get(row.ownerUserId) ?? null) : null,
       notes: row.notes,

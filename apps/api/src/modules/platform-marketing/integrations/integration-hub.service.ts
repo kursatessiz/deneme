@@ -7,6 +7,7 @@ import {
   resolvePlatformTenantPermissions,
   type CreateApiKeyInput,
   type CreateEmailSenderDomainInput,
+  type CreateSocialConnectionInput,
   type DnsRecordStatus,
   type EmailDomainPurpose,
   type EmailSenderDomainDTO,
@@ -16,17 +17,21 @@ import {
   type HubUpdateWebhookInput,
   type IntegrationEntryPoint,
   type IntegrationHubDTO,
+  type SocialConnectionDTO,
+  type SocialConnectionTestDTO,
+  type UpdateSocialConnectionInput,
 } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AdConnectionsService } from '../../ads/connections/ad-connections.service';
 import { ApiKeysService } from '../../api-keys/api-keys.service';
 import { WebhooksService } from '../../webhooks/webhooks.service';
+import { SocialConnectionsService } from '../../social/social-connections.service';
 import type { PlatformContext, TenantContext } from '../../auth/tenant-context';
 import { checkEmailDomainDns, expectedEmailDomainRecords, type DnsLookup } from './email-domain-dns';
 
 export const DNS_LOOKUP = Symbol('DNS_LOOKUP');
 
-type HubKind = 'ads' | 'api_key' | 'webhook' | 'email_domain';
+type HubKind = 'ads' | 'api_key' | 'webhook' | 'email_domain' | 'social';
 
 /**
  * Integrations hub (docs/PAZARLAMA_MODULU.md 5.1): one service behind
@@ -46,13 +51,15 @@ export class IntegrationHubService {
     private readonly adConnections: AdConnectionsService,
     private readonly apiKeys: ApiKeysService,
     private readonly webhooks: WebhooksService,
+    private readonly social: SocialConnectionsService,
     @Inject(DNS_LOOKUP) private readonly dns: DnsLookup,
   ) {}
 
   async summary(platform: PlatformContext): Promise<IntegrationHubDTO> {
     const tenant = this.tenantFor(platform);
-    const [ads, keys, hooks, studio, domains] = await Promise.all([
+    const [ads, socialConnections, keys, hooks, studio, domains] = await Promise.all([
       this.adConnections.list(tenant),
+      this.social.list(platform.platformStudioId),
       this.apiKeys.list(tenant),
       this.webhooks.list(tenant),
       this.prisma.studio.findUniqueOrThrow({ where: { id: platform.platformStudioId }, select: { messagingSettings: true } }),
@@ -70,6 +77,7 @@ export class IntegrationHubService {
         lastSyncAt: a.lastSyncAt,
         lastError: a.lastError,
       })),
+      socialConnections,
       apiKeys: keys.map((k) => ({
         id: k.id,
         name: k.name,
@@ -103,6 +111,36 @@ export class IntegrationHubService {
   async removeAdConnection(platform: PlatformContext, via: IntegrationEntryPoint, id: string) {
     const result = await this.adConnections.remove(this.tenantFor(platform), platform.userId, id);
     await this.audit(platform, via, 'ads', 'delete', id, {});
+    return result;
+  }
+
+  // -- Social connections (organic publishing, M4b) --
+
+  listSocialConnections(platform: PlatformContext): Promise<SocialConnectionDTO[]> {
+    return this.social.list(platform.platformStudioId);
+  }
+
+  async createSocialConnection(platform: PlatformContext, via: IntegrationEntryPoint, dto: CreateSocialConnectionInput): Promise<SocialConnectionDTO> {
+    const created = await this.social.create(platform.platformStudioId, platform.userId, dto);
+    await this.audit(platform, via, 'social', 'create', created.id, { provider: dto.provider, externalId: dto.externalId });
+    return created;
+  }
+
+  async updateSocialConnection(platform: PlatformContext, via: IntegrationEntryPoint, id: string, dto: UpdateSocialConnectionInput): Promise<SocialConnectionDTO> {
+    const updated = await this.social.update(platform.platformStudioId, id, dto);
+    await this.audit(platform, via, 'social', 'update', id, { fields: Object.keys(dto), credentialReplaced: dto.credentials !== undefined });
+    return updated;
+  }
+
+  async removeSocialConnection(platform: PlatformContext, via: IntegrationEntryPoint, id: string): Promise<{ id: string }> {
+    const removed = await this.social.remove(platform.platformStudioId, id);
+    await this.audit(platform, via, 'social', 'delete', id, { provider: removed.provider, externalId: removed.externalId });
+    return { id };
+  }
+
+  async testSocialConnection(platform: PlatformContext, via: IntegrationEntryPoint, id: string): Promise<SocialConnectionTestDTO> {
+    const result = await this.social.test(platform.platformStudioId, id);
+    await this.audit(platform, via, 'social', 'test', id, { ok: result.ok });
     return result;
   }
 

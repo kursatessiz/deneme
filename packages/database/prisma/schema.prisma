@@ -770,6 +770,8 @@ model Studio {
   contentCalendarItems  ContentCalendarItem[]
   approvalRequests      ApprovalRequest[]
   marketingSettings     MarketingSettings?
+  socialConnections     SocialConnection[]
+  socialPosts           SocialPost[]
 
   @@map("studios")
 }
@@ -5840,4 +5842,95 @@ model CampaignVariant {
   @@unique([campaignId, key])
   @@index([studioId])
   @@map("campaign_variants")
+}
+
+// ---------------------------------------------------------------------------
+// M4b organic social publishing (docs/PAZARLAMA_MODULU.md 5.2, 6.1, 7.2):
+// pasted-token connections to a Facebook Page, an Instagram business account
+// or a LinkedIn organization, and the posts published through them.
+// ---------------------------------------------------------------------------
+
+enum SocialProvider {
+  META_PAGE
+  INSTAGRAM
+  LINKEDIN_ORG
+}
+
+enum SocialConnectionStatus {
+  CONNECTED
+  ERROR
+}
+
+enum SocialPostStatus {
+  DRAFT
+  PENDING_APPROVAL
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  CANCELLED
+}
+
+/// A connected social account of a tenant (the platform tenant today). Credentials are pasted tokens for now (OAuth is M4a).
+model SocialConnection {
+  id                   String                 @id @default(uuid()) @db.Uuid
+  studioId             String                 @map("studio_id") @db.Uuid
+  provider             SocialProvider
+  /// Page id, Instagram business account id or LinkedIn organization id.
+  externalId           String                 @map("external_id") @db.VarChar(80)
+  displayName          String                 @map("display_name") @db.VarChar(160)
+  /// Base64 iv+authTag+ciphertext of the credential object (CredentialCipher).
+  encryptedCredentials String                 @map("encrypted_credentials") @db.Text
+  /// Last 4 characters of the token, kept in the clear for display only.
+  credentialLast4      String                 @map("credential_last4") @db.VarChar(4)
+  status               SocialConnectionStatus @default(CONNECTED)
+  lastError            String?                @map("last_error") @db.Text
+  connectedByUserId    String?                @map("connected_by_user_id") @db.Uuid
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime               @updatedAt @map("updated_at")
+
+  studio Studio       @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  posts  SocialPost[]
+
+  @@unique([studioId, provider, externalId])
+  @@index([studioId, status])
+  @@map("social_connections")
+}
+
+/// One organic post for one connection. Goes out only from SCHEDULED, bound to an ApprovalRequest whose contentHash still matches.
+model SocialPost {
+  id                String           @id @default(uuid()) @db.Uuid
+  studioId          String           @map("studio_id") @db.Uuid
+  connectionId      String           @map("connection_id") @db.Uuid
+  status            SocialPostStatus @default(DRAFT)
+  /// Language of the text (brand check uses the brand kit of this locale).
+  locale            String           @default("tr") @db.VarChar(10)
+  text              String           @db.Text
+  /// [url] public image or video URLs.
+  mediaUrls         Json             @default("[]") @map("media_urls")
+  link              String?          @db.VarChar(2000)
+  scheduledAt       DateTime?        @map("scheduled_at")
+  publishedAt       DateTime?        @map("published_at")
+  externalPostId    String?          @map("external_post_id") @db.VarChar(160)
+  lastError         String?          @map("last_error") @db.Text
+  /// Publish attempts made so far (retries with backoff on 5xx/429).
+  attemptCount      Int              @default(0) @map("attempt_count")
+  /// Earliest time of the next attempt after a retryable failure.
+  nextAttemptAt     DateTime?        @map("next_attempt_at")
+  aiDraftId         String?          @map("ai_draft_id") @db.Uuid
+  calendarItemId    String?          @map("calendar_item_id") @db.Uuid
+  approvalRequestId String?          @map("approval_request_id") @db.Uuid
+  createdByUserId   String           @map("created_by_user_id") @db.Uuid
+  /// Result of the deterministic brand check: { checkedAt, issues: MarketingCheckIssue[] }.
+  brandCheck        Json             @default("{}") @map("brand_check")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  studio     Studio           @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  connection SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([studioId, status, scheduledAt])
+  @@index([status, scheduledAt])
+  @@index([studioId, calendarItemId])
+  @@map("social_posts")
 }

@@ -27,4 +27,5 @@ export const trMarketing = {
   'marketing.ads.settings': 'Bağlantılar ve UTM',
 
   'marketing.placeholder.soon': 'Bu bölüm sonraki fazda eklenecek.',
+  'marketing.nav.social': 'Sosyal',
 } as const satisfies Record<string, string>;

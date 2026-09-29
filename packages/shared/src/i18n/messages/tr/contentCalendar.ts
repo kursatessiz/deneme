@@ -53,4 +53,6 @@ export const trContentCalendar = {
   'contentCalendar.delete': 'Öğeyi sil',
   'contentCalendar.confirmDelete': 'Bu takvim öğesi silinsin mi?',
   'contentCalendar.invalid': 'Öğe kaydedilemedi. Başlığı, kanalı ve tarihi kontrol edin.',
+  'contentCalendar.social.open': 'Sosyal gönderiyi aç',
+  'contentCalendar.social.create': 'Sosyal gönderi oluştur',
 } as const satisfies Record<string, string>;

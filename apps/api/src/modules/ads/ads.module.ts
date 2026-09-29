@@ -29,6 +29,6 @@ import { PublicAdsConfigController } from './public-ads-config.controller';
     ConversionDeliveryDispatcherService,
     AdSpendSyncService,
   ],
-  exports: [ConversionDeliveryDispatcherService, AdSpendSyncService, AdConnectionsService],
+  exports: [ConversionDeliveryDispatcherService, AdSpendSyncService, AdConnectionsService, AdsHttpClient],
 })
 export class AdsModule {}

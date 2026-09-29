@@ -50,6 +50,8 @@ describe('validateEnv', () => {
   it('refuses the fake AI provider in production and validates the optional Anthropic key', () => {
     const prod = { ...base, NODE_ENV: 'production', REDIS_URL: 'redis://r:6379', CORS_ORIGIN: 'https://panel.example.com' };
     expect(() => validateEnv({ ...prod, AI_FAKE_PROVIDER: '1' })).toThrow(/AI_FAKE_PROVIDER/);
+    expect(() => validateEnv({ ...prod, SOCIAL_FAKE_PROVIDER: '1' })).toThrow(/SOCIAL_FAKE_PROVIDER/);
+    expect(validateEnv({ ...base, NODE_ENV: 'test', SOCIAL_FAKE_PROVIDER: '1' }).SOCIAL_FAKE_PROVIDER).toBe('1');
     expect(validateEnv({ ...base, NODE_ENV: 'test', AI_FAKE_PROVIDER: '1' }).AI_FAKE_PROVIDER).toBe('1');
     expect(validateEnv({ ...prod }).ANTHROPIC_API_KEY).toBeUndefined();
     expect(() => validateEnv({ ...base, ANTHROPIC_API_KEY: 'short' })).toThrow(/ANTHROPIC_API_KEY/);

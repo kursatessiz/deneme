@@ -13,6 +13,7 @@ import { AdsModule } from '../ads/ads.module';
 import { AiModule } from '../ai/ai.module';
 import { LoyaltyModule } from '../loyalty/loyalty.module';
 import { EventsModule } from '../events/events.module';
+import { SocialModule } from '../social/social.module';
 import { JobsService } from './jobs.service';
 import { SchedulerController } from './scheduler.controller';
 import { SchedulerProcessor } from './scheduler.processor';
@@ -47,6 +48,7 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
     AiModule,
     LoyaltyModule,
     EventsModule,
+    SocialModule,
     BillingModule,
     PayoutsModule,
     BackupsModule,
