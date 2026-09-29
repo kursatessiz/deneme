@@ -75,9 +75,10 @@ export function trainerName(t: ScheduleRow['trainer']): string | null {
   return `${t.membership.user.firstName} ${t.membership.user.lastName}`.trim();
 }
 
-export function bookingMemberName(b: BookingRow): string {
+/** `fallbackLabel`: the active translator's `common.member` value, since this is a plain lib function without hook access. */
+export function bookingMemberName(b: BookingRow, fallbackLabel: string): string {
   const user = b.member?.membership?.user;
   if (user) return `${user.firstName} ${user.lastName}`.trim();
   if (b.partnerConnection) return b.partnerConnection.label || b.partnerConnection.provider;
-  return 'Üye';
+  return fallbackLabel;
 }

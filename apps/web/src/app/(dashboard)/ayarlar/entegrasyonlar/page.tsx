@@ -255,7 +255,7 @@ function WebhooksSection() {
   const create = async () => {
     setCreateError(null);
     setUrlError(null);
-    const check = validateWebhookUrl(url);
+    const check = validateWebhookUrl(url, { invalidAddress: t('common.invalidAddress') });
     if (!check.valid) {
       setUrlError(check.error);
       return;

@@ -1,0 +1,26 @@
+import type { trAdminPlans } from '../tr/admin-plans';
+
+export const enAdminPlans = {
+  'adminPlans.title': 'Plans',
+  'adminPlans.subtitle': 'Branch, member and staff limits are read from the tenant active subscription',
+  'adminPlans.form.title': 'Create / update plan',
+  'adminPlans.form.key': 'Key (e.g. enterprise)',
+  'adminPlans.form.name': 'Name',
+  'adminPlans.form.priceMonthly': 'Monthly price (TRY)',
+  'adminPlans.form.maxBranches': 'Max branches',
+  'adminPlans.form.maxActiveMembers': 'Max active members',
+  'adminPlans.form.maxStaff': 'Max staff',
+  'adminPlans.form.submit': 'Save',
+  'adminPlans.form.submitting': 'Saving...',
+  'adminPlans.form.saveFailed': 'Could not save the plan',
+  'adminPlans.accessDenied': 'No access',
+  'adminPlans.status.active': 'Active',
+  'adminPlans.status.inactive': 'Inactive',
+  'adminPlans.priceSummary': '{key} · {price} TRY/mo',
+  'adminPlans.limits.branches': 'Branches: {value}',
+  'adminPlans.limits.members': 'Active members: {value}',
+  'adminPlans.limits.staff': 'Staff: {value}',
+  'adminPlans.limits.unlimited': 'unlimited',
+  'adminPlans.deactivate': 'Deactivate',
+  'adminPlans.activate': 'Activate',
+} as const satisfies Record<keyof typeof trAdminPlans, string>;

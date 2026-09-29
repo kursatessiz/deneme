@@ -40,4 +40,11 @@ export const enCommon: Record<keyof typeof trCommon, string> = {
   'common.dateRange.thisYear': 'This year',
   'common.forbidden.title': 'You do not have permission to view this page',
   'common.forbidden.description': 'Ask your business owner to grant you this permission.',
+  'common.member': 'Member',
+  'common.invalidForm': 'The form is invalid',
+  'common.invalidTimeRange': 'Invalid time range',
+  'common.loadFailed': 'Could not load the data',
+  'common.invalidAddress': 'Invalid address',
+  'common.invalidOrigin': 'Invalid origin (e.g. https://example.com)',
+  'common.invalidLink': 'Invalid link',
 };

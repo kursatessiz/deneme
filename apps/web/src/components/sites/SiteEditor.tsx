@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { BLOCK_TYPES, TENANT_ONLY_BLOCK_TYPES, type BlockType, type PageKind } from '@platform/shared';
+import type { Translate } from '@platform/shared';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, ErrorState, EmptyState } from '@/components/common/DataState';
-import { useLocale } from '@/components/i18n/I18nProvider';
+import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { Badge, InlineMessage, PrimaryButton, SecondaryButton, Section, TextField } from '@/components/settings/ui';
 
 interface PageLocaleRow {
@@ -79,11 +80,12 @@ function fieldStyle(): React.CSSProperties {
  * the same `/sites/studio/:studioId/*` API scoped to `studioId`.
  */
 export function SiteEditor({ studioId, variant }: { studioId: string; variant: 'tenant' | 'platform' }) {
+  const t = useT();
   const [refreshKey, setRefreshKey] = useState(0);
   const refresh = () => setRefreshKey((k) => k + 1);
 
-  const { data: site, loading: siteLoading, error: siteError } = useSiteFetch<SiteRow>(`sites/studio/${studioId}`, studioId, refreshKey);
-  const { data: pages, loading: pagesLoading, error: pagesError } = useSiteFetch<{ items: PageRow[] }>(`sites/studio/${studioId}/pages`, studioId, refreshKey);
+  const { data: site, loading: siteLoading, error: siteError } = useSiteFetch<SiteRow>(`sites/studio/${studioId}`, studioId, refreshKey, t);
+  const { data: pages, loading: pagesLoading, error: pagesError } = useSiteFetch<{ items: PageRow[] }>(`sites/studio/${studioId}/pages`, studioId, refreshKey, t);
 
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
   const [createLabel, setCreateLabel] = useState('');
@@ -103,7 +105,7 @@ export function SiteEditor({ studioId, variant }: { studioId: string; variant: '
   const createPage = async () => {
     setCreateError(null);
     if (!createLabel.trim()) {
-      setCreateError('Sayfa için bir etiket girin');
+      setCreateError(t('sites.editor.pages.labelRequired'));
       return;
     }
     try {
@@ -116,14 +118,14 @@ export function SiteEditor({ studioId, variant }: { studioId: string; variant: '
       refresh();
       setSelectedPageId(page.id);
     } catch (err) {
-      setCreateError(err instanceof BffError ? err.message : 'Sayfa oluşturulamadı');
+      setCreateError(err instanceof BffError ? err.message : t('sites.editor.pages.createFailed'));
     }
   };
 
   const runWizard = async () => {
     setWizardError(null);
     if (!wizardSector.trim()) {
-      setWizardError('Sektör anahtarı girin (ör. pilates_studio)');
+      setWizardError(t('sites.editor.wizard.sectorRequired'));
       return;
     }
     try {
@@ -137,7 +139,7 @@ export function SiteEditor({ studioId, variant }: { studioId: string; variant: '
       refresh();
       setSelectedPageId(page.id);
     } catch (err) {
-      setWizardError(err instanceof BffError ? err.message : 'Landing sayfası oluşturulamadı');
+      setWizardError(err instanceof BffError ? err.message : t('sites.editor.wizard.createFailed'));
     }
   };
 
@@ -149,7 +151,7 @@ export function SiteEditor({ studioId, variant }: { studioId: string; variant: '
       setNewDomain('');
       refresh();
     } catch (err) {
-      setDomainError(err instanceof BffError ? err.message : 'Alan adı eklenemedi');
+      setDomainError(err instanceof BffError ? err.message : t('sites.editor.domains.addFailed'));
     }
   };
 
@@ -157,20 +159,29 @@ export function SiteEditor({ studioId, variant }: { studioId: string; variant: '
 
   return (
     <div className="space-y-8">
-      <Section title="Site ayarları" description={variant === 'platform' ? 'Platformun genel açılış sitesi' : 'İşletmenizin genel web sitesi'}>
+      <Section
+        title={t('sites.editor.settings.title')}
+        description={variant === 'platform' ? t('sites.editor.settings.platformDescription') : t('sites.editor.settings.tenantDescription')}
+      >
         <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          Varsayılan dil: <strong>{site.defaultLocale}</strong> · Etkin diller: {site.enabledLocales.join(', ')}
+          {t('sites.editor.settings.summary', { locale: site.defaultLocale, locales: site.enabledLocales.join(', ') })}
         </p>
         {variant === 'tenant' && (
           <div className="space-y-3">
             <h4 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-              Alan adları
+              {t('sites.editor.domains.title')}
             </h4>
             <ul className="text-sm space-y-1">
               {site.domains.map((d) => (
                 <li key={d.id} className="flex items-center gap-2">
                   <span>{d.domain}</span>
-                  <Badge tone={d.status === 'VERIFIED' ? 'primary' : 'neutral'}>{d.status === 'VERIFIED' ? 'Doğrulandı' : d.status === 'FAILED' ? 'Doğrulanamadı' : 'Bekliyor'}</Badge>
+                  <Badge tone={d.status === 'VERIFIED' ? 'primary' : 'neutral'}>
+                    {d.status === 'VERIFIED'
+                      ? t('sites.editor.domains.status.verified')
+                      : d.status === 'FAILED'
+                        ? t('sites.editor.domains.status.failed')
+                        : t('sites.editor.domains.status.pending')}
+                  </Badge>
                   {d.status !== 'VERIFIED' && (
                     <SecondaryButton
                       onClick={async () => {
@@ -178,51 +189,49 @@ export function SiteEditor({ studioId, variant }: { studioId: string; variant: '
                         refresh();
                       }}
                     >
-                      Doğrulamayı kontrol et
+                      {t('sites.editor.domains.verifyCheck')}
                     </SecondaryButton>
                   )}
                 </li>
               ))}
-              {site.domains.length === 0 && <li style={{ color: 'var(--color-text-muted)' }}>Henüz özel alan adı eklenmedi</li>}
+              {site.domains.length === 0 && <li style={{ color: 'var(--color-text-muted)' }}>{t('sites.editor.domains.empty')}</li>}
             </ul>
             <div className="flex gap-2 items-end">
-              <TextField label="Yeni alan adı" value={newDomain} onChange={setNewDomain} placeholder="site.ornek.com" />
-              <SecondaryButton onClick={addDomain}>Ekle</SecondaryButton>
+              <TextField label={t('sites.editor.domains.newDomainLabel')} value={newDomain} onChange={setNewDomain} placeholder="site.ornek.com" />
+              <SecondaryButton onClick={addDomain}>{t('sites.editor.domains.add')}</SecondaryButton>
             </div>
             {domainError && <InlineMessage text={domainError} tone="error" />}
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              Bir alan adı eklendikten sonra DNS sağlayıcınızda bir TXT ve bir CNAME kaydı oluşturup &quot;Doğrulamayı kontrol et&quot; ile onaylayın.
-            </p>
+            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{t('sites.editor.domains.hint')}</p>
           </div>
         )}
       </Section>
 
       {variant === 'platform' && (
-        <Section title="Landing sayfası oluştur" description="Sektör şablonundan (BusinessTypeTemplate) önceden doldurulmuş bir sayfa oluşturur; sonrasında düzenlenebilir">
+        <Section title={t('sites.editor.wizard.title')} description={t('sites.editor.wizard.description')}>
           <div className="grid grid-cols-2 gap-3">
-            <TextField label="Sektör anahtarı" value={wizardSector} onChange={setWizardSector} placeholder="pilates_studio" />
-            <TextField label="Kampanya teklifi (opsiyonel)" value={wizardOffer} onChange={setWizardOffer} placeholder="ucretsiz-deneme" />
+            <TextField label={t('sites.editor.wizard.sectorKey')} value={wizardSector} onChange={setWizardSector} placeholder="pilates_studio" />
+            <TextField label={t('sites.editor.wizard.offerKey')} value={wizardOffer} onChange={setWizardOffer} placeholder="ucretsiz-deneme" />
           </div>
           {wizardError && <InlineMessage text={wizardError} tone="error" />}
-          <PrimaryButton onClick={runWizard}>Landing sayfası oluştur</PrimaryButton>
+          <PrimaryButton onClick={runWizard}>{t('sites.editor.wizard.submit')}</PrimaryButton>
         </Section>
       )}
 
-      <Section title="Sayfalar">
+      <Section title={t('sites.editor.pages.title')}>
         <div className="flex gap-2 items-end flex-wrap">
-          <TextField label="Yeni sayfa etiketi" value={createLabel} onChange={setCreateLabel} placeholder="ör. Fiyatlandırma" />
+          <TextField label={t('sites.editor.pages.newLabel')} value={createLabel} onChange={setCreateLabel} placeholder={t('sites.editor.pages.newLabelPlaceholder')} />
           <select value={createKind} onChange={(e) => setCreateKind(e.target.value as PageKind)} className="border px-3 py-2 text-sm" style={fieldStyle()}>
-            <option value="HOME">Ana sayfa</option>
-            <option value="LANDING">Kampanya / iniş sayfası</option>
-            <option value="CORPORATE">Kurumsal</option>
-            <option value="LEGAL">Yasal</option>
-            <option value="CUSTOM">Diğer</option>
+            <option value="HOME">{t('sites.editor.pages.kind.HOME')}</option>
+            <option value="LANDING">{t('sites.editor.pages.kind.LANDING')}</option>
+            <option value="CORPORATE">{t('sites.editor.pages.kind.CORPORATE')}</option>
+            <option value="LEGAL">{t('sites.editor.pages.kind.LEGAL')}</option>
+            <option value="CUSTOM">{t('sites.editor.pages.kind.CUSTOM')}</option>
           </select>
-          <SecondaryButton onClick={createPage}>Sayfa oluştur</SecondaryButton>
+          <SecondaryButton onClick={createPage}>{t('sites.editor.pages.create')}</SecondaryButton>
         </div>
         {createError && <InlineMessage text={createError} tone="error" />}
 
-        {pages.items.length === 0 && <EmptyState title="Henüz sayfa yok" />}
+        {pages.items.length === 0 && <EmptyState title={t('sites.editor.pages.empty')} />}
         <ul className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
           {pages.items.map((p) => (
             <li key={p.id} className="py-2 flex items-center justify-between gap-3">
@@ -231,10 +240,10 @@ export function SiteEditor({ studioId, variant }: { studioId: string; variant: '
                   {p.internalLabel}
                 </span>
                 <span className="text-xs ml-2" style={{ color: 'var(--color-text-muted)' }}>
-                  {p.kind} · {p.locales.map((l) => l.locale).join(', ') || 'dil eklenmedi'}
+                  {p.kind} · {p.locales.map((l) => l.locale).join(', ') || t('sites.editor.pages.noLocales')}
                 </span>
               </button>
-              <Badge tone={p.status === 'PUBLISHED' ? 'primary' : 'neutral'}>{p.status === 'PUBLISHED' ? 'Yayında' : 'Taslak'}</Badge>
+              <Badge tone={p.status === 'PUBLISHED' ? 'primary' : 'neutral'}>{p.status === 'PUBLISHED' ? t('sites.editor.pages.published') : t('sites.editor.pages.draft')}</Badge>
             </li>
           ))}
         </ul>
@@ -254,7 +263,7 @@ export function SiteEditor({ studioId, variant }: { studioId: string; variant: '
   );
 }
 
-function useSiteFetch<T>(path: string, studioId: string, refreshKey: number) {
+function useSiteFetch<T>(path: string, studioId: string, refreshKey: number, t: Translate) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -267,7 +276,7 @@ function useSiteFetch<T>(path: string, studioId: string, refreshKey: number) {
         if (!cancelled) setData(res);
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof BffError ? err.message : 'Yüklenemedi');
+        if (!cancelled) setError(err instanceof BffError ? err.message : t('sites.editor.loadFailed'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -294,10 +303,11 @@ function PageDetailEditor({
   onClose: () => void;
 }) {
   const uiLocale = useLocale();
+  const t = useT();
   const [refreshKey, setRefreshKey] = useState(0);
   const refresh = () => setRefreshKey((k) => k + 1);
-  const { data: detail, loading, error } = useSiteFetch<PageRow & { blocks: BlockRow[] }>(`sites/studio/${studioId}/pages/${page.id}`, studioId, refreshKey);
-  const { data: versions } = useSiteFetch<{ items: VersionRow[] }>(`sites/studio/${studioId}/pages/${page.id}/versions`, studioId, refreshKey);
+  const { data: detail, loading, error } = useSiteFetch<PageRow & { blocks: BlockRow[] }>(`sites/studio/${studioId}/pages/${page.id}`, studioId, refreshKey, t);
+  const { data: versions } = useSiteFetch<{ items: VersionRow[] }>(`sites/studio/${studioId}/pages/${page.id}/versions`, studioId, refreshKey, t);
 
   const [activeLocale, setActiveLocale] = useState('tr');
   const [slug, setSlug] = useState('');
@@ -332,7 +342,7 @@ function PageDetailEditor({
   const saveLocale = async () => {
     setLocaleError(null);
     if (!slug.trim()) {
-      setLocaleError('Yol (slug) gereklidir');
+      setLocaleError(t('sites.editor.detail.localeRequired'));
       return;
     }
     try {
@@ -341,11 +351,11 @@ function PageDetailEditor({
         studioId,
         body: { slug: slug.trim(), seoTitle: seoTitle.trim() || undefined },
       });
-      setActionMessage('Dil bilgisi kaydedildi');
+      setActionMessage(t('sites.editor.detail.localeSaved'));
       refresh();
       onChanged();
     } catch (err) {
-      setLocaleError(err instanceof BffError ? err.message : 'Kaydedilemedi');
+      setLocaleError(err instanceof BffError ? err.message : t('sites.editor.detail.localeSaveFailed'));
     }
   };
 
@@ -358,10 +368,10 @@ function PageDetailEditor({
         studioId,
         body: parsed.map((b) => ({ type: b.type, position: b.position, abVariantKey: b.abVariantKey, data: b.data })),
       });
-      setActionMessage('Bloklar kaydedildi');
+      setActionMessage(t('sites.editor.blocks.saved'));
       refresh();
     } catch (err) {
-      setBlocksError(err instanceof BffError ? err.message : 'Bloklar kaydedilemedi (JSON geçerli mi kontrol edin)');
+      setBlocksError(err instanceof BffError ? err.message : t('sites.editor.blocks.saveFailed'));
     }
   };
 
@@ -381,19 +391,19 @@ function PageDetailEditor({
 
   const publish = async () => {
     await bffFetch(`sites/studio/${studioId}/pages/${page.id}/publish`, { method: 'POST', studioId });
-    setActionMessage('Sayfa yayınlandı');
+    setActionMessage(t('sites.editor.detail.published'));
     refresh();
     onChanged();
   };
   const unpublish = async () => {
     await bffFetch(`sites/studio/${studioId}/pages/${page.id}/unpublish`, { method: 'POST', studioId });
-    setActionMessage('Sayfa yayından kaldırıldı');
+    setActionMessage(t('sites.editor.detail.unpublished'));
     refresh();
     onChanged();
   };
   const rollback = async (versionId: string) => {
     await bffFetch(`sites/studio/${studioId}/pages/${page.id}/versions/${versionId}/rollback`, { method: 'POST', studioId });
-    setActionMessage('Önceki sürüme dönüldü ve yeniden yayınlandı');
+    setActionMessage(t('sites.editor.versions.rolledBack'));
     refresh();
     onChanged();
   };
@@ -409,19 +419,25 @@ function PageDetailEditor({
   const currentLocaleRow = detail.locales.find((l) => l.locale === activeLocale);
 
   return (
-    <Section title={`Sayfa: ${detail.internalLabel}`}>
+    <Section title={t('sites.editor.detail.title', { label: detail.internalLabel })}>
       <div className="flex items-center justify-between">
-        <Badge tone={detail.status === 'PUBLISHED' ? 'primary' : 'neutral'}>{detail.status === 'PUBLISHED' ? 'Yayında' : 'Taslak'}</Badge>
+        <Badge tone={detail.status === 'PUBLISHED' ? 'primary' : 'neutral'}>
+          {detail.status === 'PUBLISHED' ? t('sites.editor.pages.published') : t('sites.editor.pages.draft')}
+        </Badge>
         <div className="flex gap-2">
-          {detail.status === 'PUBLISHED' ? <SecondaryButton onClick={unpublish}>Yayından kaldır</SecondaryButton> : <PrimaryButton onClick={publish}>Yayınla</PrimaryButton>}
-          <SecondaryButton onClick={onClose}>Kapat</SecondaryButton>
+          {detail.status === 'PUBLISHED' ? (
+            <SecondaryButton onClick={unpublish}>{t('sites.editor.detail.unpublish')}</SecondaryButton>
+          ) : (
+            <PrimaryButton onClick={publish}>{t('sites.editor.detail.publish')}</PrimaryButton>
+          )}
+          <SecondaryButton onClick={onClose}>{t('sites.editor.detail.close')}</SecondaryButton>
         </div>
       </div>
       {actionMessage && <InlineMessage text={actionMessage} tone="success" />}
 
       <div className="space-y-3">
         <h4 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          Diller
+          {t('sites.editor.detail.localesTitle')}
         </h4>
         <div className="flex gap-2">
           {detail.locales.map((l) => (
@@ -429,23 +445,27 @@ function PageDetailEditor({
               {l.locale}
             </SecondaryButton>
           ))}
-          {!detail.locales.some((l) => l.locale === activeLocale) && <Badge>{activeLocale} (çevrilmedi)</Badge>}
+          {!detail.locales.some((l) => l.locale === activeLocale) && (
+            <Badge>
+              {activeLocale} {t('sites.editor.detail.notTranslated')}
+            </Badge>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <TextField label="Yol (slug)" value={slug} onChange={setSlug} placeholder="pilates" />
-          <TextField label="SEO başlığı" value={seoTitle} onChange={setSeoTitle} placeholder="" />
+          <TextField label={t('sites.editor.detail.slug')} value={slug} onChange={setSlug} placeholder="pilates" />
+          <TextField label={t('sites.editor.detail.seoTitle')} value={seoTitle} onChange={setSeoTitle} placeholder="" />
         </div>
         {localeError && <InlineMessage text={localeError} tone="error" />}
-        <SecondaryButton onClick={saveLocale}>{activeLocale} için kaydet</SecondaryButton>
+        <SecondaryButton onClick={saveLocale}>{t('sites.editor.detail.saveLocale', { locale: activeLocale })}</SecondaryButton>
         {detail.kind === 'LEGAL' && (
           <div className="flex items-center gap-2">
             <Badge tone={currentLocaleRow?.legalApproved ? 'primary' : 'danger'}>
-              {currentLocaleRow?.legalApproved ? 'Hukuki onay alındı' : 'Taslak, hukuki incelemeden geçmeli'}
+              {currentLocaleRow?.legalApproved ? t('sites.editor.detail.legalApproved') : t('sites.editor.detail.legalPending')}
             </Badge>
             {!currentLocaleRow?.legalApproved ? (
-              <SecondaryButton onClick={() => toggleLegalApproval(true)}>Hukuki onay alındı olarak işaretle</SecondaryButton>
+              <SecondaryButton onClick={() => toggleLegalApproval(true)}>{t('sites.editor.detail.markLegalApproved')}</SecondaryButton>
             ) : (
-              <SecondaryButton onClick={() => toggleLegalApproval(false)}>Onayı geri al</SecondaryButton>
+              <SecondaryButton onClick={() => toggleLegalApproval(false)}>{t('sites.editor.detail.revokeLegalApproval')}</SecondaryButton>
             )}
           </div>
         )}
@@ -453,17 +473,17 @@ function PageDetailEditor({
 
       <div className="space-y-3">
         <h4 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          Bloklar
+          {t('sites.editor.blocks.title')}
         </h4>
         {blocksDraft.map((b, i) => (
           <div key={b.id} className="p-3 border space-y-2" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)' }}>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">{b.type}</span>
               <div className="flex gap-1">
-                <SecondaryButton onClick={() => moveBlock(i, -1)}>Yukarı</SecondaryButton>
-                <SecondaryButton onClick={() => moveBlock(i, 1)}>Aşağı</SecondaryButton>
+                <SecondaryButton onClick={() => moveBlock(i, -1)}>{t('sites.editor.blocks.moveUp')}</SecondaryButton>
+                <SecondaryButton onClick={() => moveBlock(i, 1)}>{t('sites.editor.blocks.moveDown')}</SecondaryButton>
                 <SecondaryButton danger onClick={() => removeBlock(i)}>
-                  Sil
+                  {t('sites.editor.blocks.delete')}
                 </SecondaryButton>
               </div>
             </div>
@@ -482,14 +502,14 @@ function PageDetailEditor({
         ))}
         <div className="flex gap-2 items-center flex-wrap">
           <select onChange={(e) => e.target.value && addBlock(e.target.value as BlockType)} value="" className="border px-3 py-2 text-sm" style={fieldStyle()}>
-            <option value="">Blok ekle...</option>
-            {availableBlockTypes.map((t) => (
-              <option key={t} value={t}>
-                {t}
+            <option value="">{t('sites.editor.blocks.addPlaceholder')}</option>
+            {availableBlockTypes.map((blockType) => (
+              <option key={blockType} value={blockType}>
+                {blockType}
               </option>
             ))}
           </select>
-          <PrimaryButton onClick={saveBlocks}>Blokları kaydet</PrimaryButton>
+          <PrimaryButton onClick={saveBlocks}>{t('sites.editor.blocks.save')}</PrimaryButton>
         </div>
         {blocksError && <InlineMessage text={blocksError} tone="error" />}
       </div>
@@ -497,15 +517,19 @@ function PageDetailEditor({
       {versions && versions.items.length > 0 && (
         <div className="space-y-2">
           <h4 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-            Sürüm geçmişi
+            {t('sites.editor.versions.title')}
           </h4>
           <ul className="text-sm space-y-1">
             {versions.items.map((v) => (
               <li key={v.id} className="flex items-center gap-2">
                 <span>
-                  Sürüm {v.version} · {new Date(v.publishedAt).toLocaleString(uiLocale)} {v.publishedByName ? `· ${v.publishedByName}` : ''}
+                  {t('sites.editor.versions.entry', {
+                    version: v.version,
+                    date: new Date(v.publishedAt).toLocaleString(uiLocale),
+                    author: v.publishedByName ? t('sites.editor.versions.authorSuffix', { name: v.publishedByName }) : '',
+                  })}
                 </span>
-                <SecondaryButton onClick={() => rollback(v.id)}>Bu sürüme dön</SecondaryButton>
+                <SecondaryButton onClick={() => rollback(v.id)}>{t('sites.editor.versions.rollback')}</SecondaryButton>
               </li>
             ))}
           </ul>

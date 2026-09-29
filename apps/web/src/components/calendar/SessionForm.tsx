@@ -63,7 +63,7 @@ export function SessionForm({ studioId, branches, resources, trainers, serviceTy
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const result = validateScheduleForm(values);
+    const result = validateScheduleForm(values, t('common.invalidForm'));
     if (!result.success) {
       setError(result.message);
       return;

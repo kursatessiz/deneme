@@ -1,5 +1,15 @@
 import { trAdminI18n } from './tr/admin-i18n';
 import { trAdminAi } from './tr/admin-ai';
+import { trAdminNav } from './tr/admin-nav';
+import { trAdminTenants } from './tr/admin-tenants';
+import { trAdminPlans } from './tr/admin-plans';
+import { trAdminSmsPackages } from './tr/admin-sms-packages';
+import { trAdminContent } from './tr/admin-content';
+import { trAdminBusinessTypes } from './tr/admin-business-types';
+import { trAdminFeatureFlags } from './tr/admin-feature-flags';
+import { trAdminHealth } from './tr/admin-health';
+import { trAdminBenchmark } from './tr/admin-benchmark';
+import { trAdminWebSitesi } from './tr/admin-web-sitesi';
 import { trAi } from './tr/ai';
 import { trAds } from './tr/ads';
 import { trAuth } from './tr/auth';
@@ -34,6 +44,16 @@ import { trSettings } from './tr/settings';
 import { trSites } from './tr/sites';
 import { enAdminI18n } from './en/admin-i18n';
 import { enAdminAi } from './en/admin-ai';
+import { enAdminNav } from './en/admin-nav';
+import { enAdminTenants } from './en/admin-tenants';
+import { enAdminPlans } from './en/admin-plans';
+import { enAdminSmsPackages } from './en/admin-sms-packages';
+import { enAdminContent } from './en/admin-content';
+import { enAdminBusinessTypes } from './en/admin-business-types';
+import { enAdminFeatureFlags } from './en/admin-feature-flags';
+import { enAdminHealth } from './en/admin-health';
+import { enAdminBenchmark } from './en/admin-benchmark';
+import { enAdminWebSitesi } from './en/admin-web-sitesi';
 import { enAi } from './en/ai';
 import { enAds } from './en/ads';
 import { enAuth } from './en/auth';
@@ -82,6 +102,16 @@ import { enSites } from './en/sites';
 export const TR_NAMESPACES = [
   trAdminI18n,
   trAdminAi,
+  trAdminNav,
+  trAdminTenants,
+  trAdminPlans,
+  trAdminSmsPackages,
+  trAdminContent,
+  trAdminBusinessTypes,
+  trAdminFeatureFlags,
+  trAdminHealth,
+  trAdminBenchmark,
+  trAdminWebSitesi,
   trAi,
   trAds,
   trAuth,
@@ -119,6 +149,16 @@ export const TR_NAMESPACES = [
 export const EN_NAMESPACES = [
   enAdminI18n,
   enAdminAi,
+  enAdminNav,
+  enAdminTenants,
+  enAdminPlans,
+  enAdminSmsPackages,
+  enAdminContent,
+  enAdminBusinessTypes,
+  enAdminFeatureFlags,
+  enAdminHealth,
+  enAdminBenchmark,
+  enAdminWebSitesi,
   enAi,
   enAds,
   enAuth,

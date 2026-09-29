@@ -1,0 +1,27 @@
+import type { trAdminHealth } from '../tr/admin-health';
+
+export const enAdminHealth = {
+  'adminHealth.title': 'System Health',
+  'adminHealth.subtitle': 'Database, queue, scheduler and SMS provider status',
+  'adminHealth.database.title': 'Database',
+  'adminHealth.database.healthy': 'Healthy',
+  'adminHealth.database.error': 'Error',
+  'adminHealth.database.latency': 'Latency: {ms} ms',
+  'adminHealth.redis.title': 'Redis',
+  'adminHealth.redis.healthy': 'Healthy',
+  'adminHealth.redis.notConfigured': 'Not configured',
+  'adminHealth.redis.error': 'Error',
+  'adminHealth.redis.queueDepth': 'Queue depth: {value}',
+  'adminHealth.heartbeat.title': 'Scheduler (Heartbeat)',
+  'adminHealth.heartbeat.lastRun': 'Last run: {value}',
+  'adminHealth.heartbeat.neverRun': 'Never run yet',
+  'adminHealth.webhooks.title': 'Webhook Deliveries',
+  'adminHealth.webhooks.failed': '{count} failed',
+  'adminHealth.smsProvider.title': 'SMS Provider Balance',
+  'adminHealth.smsProvider.healthy': 'Healthy',
+  'adminHealth.smsProvider.lowBalance': 'Low balance',
+  'adminHealth.smsProvider.mock': 'MOCK provider',
+  'adminHealth.smsProvider.error': 'Error',
+  'adminHealth.smsProvider.summary': 'Provider: {provider} · Balance: {balance} · Threshold: {threshold} · Last check: {checkedAt}',
+  'adminHealth.smsProvider.neverChecked': 'Not checked yet (added when the scheduler first runs)',
+} as const satisfies Record<keyof typeof trAdminHealth, string>;
