@@ -12,6 +12,7 @@ import {
 import { Platform, PlatformScoped, RequirePlatformPermission } from '../../auth/decorators/platform-scoped.decorator';
 import type { PlatformContext } from '../../auth/tenant-context';
 import { ZodBody, ZodQuery } from '../../../common/zod-body.pipe';
+import { SocialConnectionsService } from '../../social/social-connections.service';
 import { SocialPostsService } from './social-posts.service';
 
 /**
@@ -24,7 +25,17 @@ import { SocialPostsService } from './social-posts.service';
 @Controller('platform/marketing/social-posts')
 @PlatformScoped()
 export class SocialPostsController {
-  constructor(private readonly posts: SocialPostsService) {}
+  constructor(
+    private readonly posts: SocialPostsService,
+    private readonly connections: SocialConnectionsService,
+  ) {}
+
+  /** The accounts the composer can pick from (masked); reading them here needs only the view permission, managing them is the integrations hub. */
+  @Get('connections')
+  @RequirePlatformPermission('platform.marketing.view')
+  listConnections(@Platform() platform: PlatformContext) {
+    return this.connections.list(platform.platformStudioId);
+  }
 
   @Get()
   @RequirePlatformPermission('platform.marketing.view')

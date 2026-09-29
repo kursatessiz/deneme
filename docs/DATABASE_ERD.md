@@ -590,6 +590,17 @@ Migration `20261023000000_campaign_variants` (yalnızca ekleme: yeni `CampaignSe
 | `campaigns` (M3c sütunları) | `ab_test` (JSON: `testShare` yüzde, `metric`, `waitMinutes`), `send_time_mode` (`FIXED` varsayılan, `RECIPIENT_LOCAL`, `BEST_TIME`), `send_time_local` ("SS:dd") | boş olabilir / varsayılanlı |
 | `campaign_recipients` (M3c sütunu) | `variant_key`: alıcının aldığı varyant; boşsa test yok ya da kazanan seçilene kadar bekletiliyor | boş olabilir |
 
+## Organik sosyal yayın (M4b)
+
+Migration `20261026000000_social_publishing` (yalnızca ekleme: `SocialProvider`, `SocialConnectionStatus`, `SocialPostStatus` enum'ları ve iki tablo). Şu an yalnızca platform kiracısı kullanır; her satır `studio_id` taşır. Ayrıntılar `docs/PAZARLAMA_MODULU.md` (M4b notları).
+
+| Tablo | Amaç | Kısıtlar |
+|---|---|---|
+| `social_connections` | Bağlı sosyal hesap: `provider` (`META_PAGE`, `INSTAGRAM`, `LINKEDIN_ORG`), `external_id` (sayfa, Instagram iş hesabı ya da LinkedIn kuruluş kimliği), `display_name`, `encrypted_credentials` (`CredentialCipher`, AES-256-GCM; yanıtlarda asla dönmez), `credential_last4` (yalnızca maskeli önizleme), `status` (`CONNECTED`, `ERROR`), `last_error`, `connected_by_user_id` (düz kimlik) | `(studio_id, provider, external_id)` benzersiz; `(studio_id, status)` index; studio -> cascade |
+| `social_posts` | Bir hesap için organik gönderi: `status` (`DRAFT`, `PENDING_APPROVAL`, `SCHEDULED`, `PUBLISHING`, `PUBLISHED`, `FAILED`, `CANCELLED`), `locale`, `text`, `media_urls` (JSON, https bağlantı listesi), `link`, `scheduled_at`, `published_at`, `external_post_id`, `last_error`, `attempt_count` ve `next_attempt_at` (geri çekilme ve kota bekletmesi), `ai_draft_id`, `calendar_item_id`, `approval_request_id` (düz kimlikler, FK yok), `created_by_user_id`, `brand_check` (JSON: `checkedAt`, `issues`) | `(studio_id, status, scheduled_at)`, `(status, scheduled_at)` ve `(studio_id, calendar_item_id)` index; studio ve connection -> cascade |
+
+Onay `approval_requests` satırıdır (`target_type = SOCIAL_POST`, `content_hash` = hesap + metin + medya + bağlantı + zaman); yeni tablo gerekmedi.
+
 ## Denetim (Audit)
 
 | Tablo | Amaç | Kısıtlar |

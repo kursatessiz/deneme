@@ -511,6 +511,11 @@ describe('Social publishing (M4b) e2e', () => {
       const connection = await newConnection('META_PAGE', 'access');
       const id = await newPost(connection);
       expect((await as(viewerToken).get('/platform/marketing/social-posts')).status).toBe(200);
+      const pickable = await as(viewerToken).get('/platform/marketing/social-posts/connections');
+      expect(pickable.status).toBe(200);
+      expect(pickable.body.find((c: { id: string }) => c.id === connection)).toMatchObject({ credentialPreview: '****7788' });
+      expect(JSON.stringify(pickable.body)).not.toContain(TOKEN);
+      expect((await as(ownerToken).get('/platform/marketing/social-posts/connections')).status).toBe(403);
       expect((await as(viewerToken).get(`/platform/marketing/social-posts/${id}`)).status).toBe(200);
       const filtered = await as(viewerToken).get(`/platform/marketing/social-posts?status=DRAFT&connectionId=${connection}`);
       expect(filtered.body.items.map((p: { id: string }) => p.id)).toEqual([id]);
