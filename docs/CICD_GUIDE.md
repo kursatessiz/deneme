@@ -140,6 +140,45 @@ Sunucunun GHCR'den image çekebilmesi gerekir. Ya:
 - sunucuda bir kez `read:packages` kapsamına sahip bir personal access token ile
   `docker login ghcr.io` çalıştırın.
 
+## 5a. Yedekler
+
+`deploy/scripts/backup.sh` her gün 02:30'da (`server-init.sh`'ın kurduğu `/etc/cron.d/app-backup`)
+ve her deploy'dan önce çalışır:
+
+1. `pg_dump` çıktısı gzip ile sıkıştırılıp `/opt/app/backups` altına yazılır; yerelde 14 gün tutulur.
+2. `/opt/app/.env` içinde `BACKUP_S3_BUCKET` doluysa dosya sunucuda AES-256 (PBKDF2) ile
+   şifrelenir ve S3 uyumlu nesne depolamaya (AWS S3, Cloudflare R2, Backblaze B2, Wasabi vb.)
+   yüklenir, yanında bir SHA-256 dosyasıyla. Ek araç kurulmaz; yükleme curl'ün SigV4 imzasıyla yapılır.
+   Uzak taraftaki saklama süresi bucket'ın yaşam döngüsü (lifecycle) kuralıyla belirlenir
+   (öneri: 35 gün).
+3. Günlük çalıştırmada yükleme başarısız olursa betik hata kodu döndürür ve durum
+   `/opt/app/deploy.log`'a yazılır. Deploy öncesi çalıştırmada yükleme hatası yalnızca uyarıdır:
+   geri dönüş için gereken yerel kopyadır ve depolama kesintisi bir sürümü engellememelidir.
+
+Gerekli ortam değişkenleri `.env.example` içindedir. `BACKUP_ENCRYPTION_KEY` (`openssl rand -hex 32`)
+sunucu dışında da (parola yöneticisi) saklanmalıdır; bu anahtar olmadan uzak yedekler açılamaz.
+
+**Geri yükleme** (önce boş bir veritabanında veya ayrı bir sunucuda deneyin):
+
+```bash
+# 1. Uzak kopyayı indirin (sağlayıcının arayüzü veya CLI'ı ile) ve bütünlüğünü doğrulayın
+sha256sum db_YYYYMMDD_HHMMSS.sql.gz.enc   # .sha256 dosyasındaki değerle aynı olmalı
+
+# 2. Şifreyi çözün (anahtar ortamdan okunur, komut satırında görünmez)
+export BACKUP_ENCRYPTION_KEY=...
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:BACKUP_ENCRYPTION_KEY \
+  -in db_YYYYMMDD_HHMMSS.sql.gz.enc -out db.sql.gz
+
+# 3. API ve web'i durdurup veritabanına yükleyin
+docker compose -f /opt/app/docker-compose.prod.yml stop api web
+gunzip -c db.sql.gz | docker compose -f /opt/app/docker-compose.prod.yml exec -T postgres \
+  sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+docker compose -f /opt/app/docker-compose.prod.yml start api web
+```
+
+Yerel kopyalar şifresizdir (sunucu diskindedir); geri yüklemede 2. adım atlanır.
+Geri yükleme en az üç ayda bir ayrı bir makinede denenmelidir.
+
 ## 6. Güvenlik workflow'ları
 
 - **`codeql.yml`**: `javascript-typescript` ve `actions` için `security-extended` sorgu paketiyle
