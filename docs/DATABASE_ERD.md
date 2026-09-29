@@ -151,6 +151,12 @@ erDiagram
     GiftCard ||--o{ GiftCardTransaction : logs
     Payment ||--o{ GiftCardTransaction : records
     Payment ||--o{ GiftCard : paid_with
+
+    Studio ||--o{ Payout : has
+    Studio ||--o{ PayoutItem : has
+    Studio ||--o{ PayoutConnection : configures
+    Payout ||--o{ PayoutItem : contains
+    Payment ||--o{ PayoutItem : matched_by
 ```
 
 ## Platform Seviyesi
@@ -480,6 +486,16 @@ Sahip kararı: partner misafiri kendisi stüdyoya katılana kadar mesajlaşma/et
 | `event_registrations` | Kayıt: üye (`member_id`) veya CRM kişisi (`contact_id`), bilet, `status` (PENDING_PAYMENT/CONFIRMED/WAITLIST/CANCELLED/ATTENDED/NO_SHOW), `source` (STAFF/MEMBER/PUBLIC), `dedupe_key`, bekleme sırası, ödenecek/ödenen/iade tutarı + `currency`, `payment_id`, ödeme yöntemi/bağlantısı/son zamanı, paket ve düşülen/iade hak, giriş ve iptal zamanı | (event_id, dedupe_key) benzersiz (kişi başına tek canlı kayıt; iptalde anahtar silinir); `payment_id` benzersiz (payments -> set null); üye veya kişiden biri zorunlu (CHECK); member ve contact -> cascade; (studio_id, event_id, status), (event_id, status, waitlist_position), (studio_id, status, payment_due_at) index |
 
 Oturumlar bilerek `session_schedules` tablosunda değildir: kapasite, bilet ve kayıt etkinlik başınadır (gerekçe `docs/ETKINLIKLER.md`). Ayrıntılar: `docs/ETKINLIKLER.md`.
+
+## Banka ödemeleri ve mutabakat (G5d-2)
+
+| Tablo | Amaç | Kısıtlar |
+|---|---|---|
+| `payouts` | Sağlayıcının banka hesabına yolladığı toplu ödeme: `provider`, `provider_payout_id`, normalize `status` (PENDING/IN_TRANSIT/PAID/FAILED/CANCELED), `arrival_date`, `gross_amount`, `fee_amount`, `refund_amount`, `net_amount`, `currency` (varsayılansız; sabit para birimi yok), satır sayıları ve `reconciliation_status` (MATCHED/PARTIAL/UNMATCHED; satırlardan hesaplanır), `synced_at` | (studio_id, provider, provider_payout_id) benzersiz; (studio_id, arrival_date) ve (studio_id, reconciliation_status) index; studio -> cascade |
+| `payout_items` | Ödemenin içindeki satır: `type` (CHARGE/REFUND/FEE/ADJUSTMENT), `provider_reference` ve `related_reference` (eşleştirme referansları), işaretli `amount`, `fee`, `net`, `currency`, `occurred_at`, eşleşen `payment_id` ve `match_source` (AUTO/MANUAL/UNMATCHED_MANUAL) | (payout_id, provider_item_id) benzersiz; (studio_id, payment_id) ve (studio_id, provider_reference) index; payout -> cascade; payment -> set null |
+| `payout_connections` | İşletme ve sağlayıcı başına eşitleme ayarı ve durumu: `provider_account_id` (Stripe bağlı hesabı), `last_synced_at`, `last_error` | (studio_id, provider) benzersiz; studio -> cascade |
+
+Ayrıntılar: `docs/BANKA_ODEMELERI.md`.
 
 ## Denetim (Audit)
 

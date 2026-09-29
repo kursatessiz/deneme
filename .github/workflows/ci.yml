@@ -15,7 +15,7 @@ concurrency:
 
 env:
   # Placeholders so Prisma can validate/generate; no database is contacted.
-  DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+  DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public # trufflehog:ignore (throwaway CI service credentials)
   TURBO_TELEMETRY_DISABLED: 1
   NEXT_TELEMETRY_DISABLED: 1
 
@@ -73,7 +73,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_e2e?schema=public
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_e2e?schema=public # trufflehog:ignore (throwaway CI service credentials)
       # Throwaway value used only for this job's ephemeral Postgres container.
       JWT_SECRET: ci-e2e-throwaway-secret-0123456789abcdef
       OTP_TEST_CODE: '482915'
@@ -123,7 +123,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_web_e2e?schema=public
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_web_e2e?schema=public # trufflehog:ignore (throwaway CI service credentials)
       # Throwaway value used only for this job's ephemeral Postgres container.
       JWT_SECRET: ci-e2e-throwaway-secret-0123456789abcdef
       OTP_TEST_CODE: '482915'

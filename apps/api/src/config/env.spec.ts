@@ -1,7 +1,7 @@
 import { validateEnv } from './env';
 
 const base = {
-  DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
+  DATABASE_URL: 'postgresql://u:p@localhost:5432/db', // trufflehog:ignore (test fixture)
   JWT_SECRET: 'x'.repeat(32),
 };
 

@@ -3,6 +3,7 @@ export const trFinance = {
   'finance.title': 'Finans',
   'finance.subtitle': 'Ödemeler, giderler, faturalar, promosyon kodları ve hediye kartları',
   'finance.payrollLink': 'Hakediş ve bordro',
+  'finance.payoutsLink': 'Banka ödemeleri ve mutabakat',
   'finance.tabs.payments': 'Ödemeler',
   'finance.tabs.expenses': 'Giderler',
   'finance.tabs.invoices': 'Faturalar',
