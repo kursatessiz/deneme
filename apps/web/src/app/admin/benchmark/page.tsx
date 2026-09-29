@@ -1,7 +1,7 @@
 'use client';
 
 import { useBff } from '@/lib/session/use-bff';
-import { useLocale } from '@/components/i18n/I18nProvider';
+import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { LoadingState, ErrorState, EmptyState } from '@/components/common/DataState';
 
 interface Bucket {
@@ -21,16 +21,17 @@ function pct(v: number | null) {
 
 export default function BenchmarkPage() {
   const locale = useLocale();
+  const t = useT();
   const { data, loading, error, forbidden } = useBff<{ buckets: Bucket[] }>('admin/benchmark', null);
 
-  if (forbidden) return <EmptyState title="Erişim yok" />;
+  if (forbidden) return <EmptyState title={t('adminBenchmark.accessDenied')} />;
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold">Karşılaştırma (Benchmark)</h2>
+        <h2 className="text-xl font-bold">{t('adminBenchmark.title')}</h2>
         <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          İşletme türüne göre anonimleştirilmiş ortalamalar. En az 5 işletmesi olmayan gruplar gizlenir.
+          {t('adminBenchmark.subtitle')}
         </p>
       </div>
 
@@ -41,17 +42,22 @@ export default function BenchmarkPage() {
           {data.buckets.map((b) => (
             <div key={b.businessTypeTemplateKey} className="p-5 border" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
               <h3 className="text-sm font-semibold">{b.businessTypeTemplateName}</h3>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>{b.studioCount} işletme</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>{t('adminBenchmark.studioCount', { count: b.studioCount })}</p>
               {b.suppressed ? (
-                <p className="text-xs mt-3" style={{ color: 'var(--color-text-muted)' }}>
-                  Yeterli işletme sayısı yok (en az 5 gerekli) - veriler gizlendi
-                </p>
+                <p className="text-xs mt-3" style={{ color: 'var(--color-text-muted)' }}>{t('adminBenchmark.suppressed')}</p>
               ) : (
                 <ul className="text-xs mt-3 space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
-                  <li>Doluluk oranı: {pct(b.avgOccupancyRate)}</li>
-                  <li>İptal oranı: {pct(b.avgCancellationRate)}</li>
-                  <li>Üye başına gelir: {b.avgRevenuePerMember === null ? '-' : `${Math.round(b.avgRevenuePerMember).toLocaleString(locale)} TL`}</li>
-                  <li>Yenileme oranı: {pct(b.avgRenewalRate)}</li>
+                  <li>{t('adminBenchmark.occupancy', { value: pct(b.avgOccupancyRate) })}</li>
+                  <li>{t('adminBenchmark.cancellation', { value: pct(b.avgCancellationRate) })}</li>
+                  <li>
+                    {t('adminBenchmark.revenuePerMember', {
+                      value:
+                        b.avgRevenuePerMember === null
+                          ? '-'
+                          : t('adminBenchmark.revenuePerMemberValue', { amount: Math.round(b.avgRevenuePerMember).toLocaleString(locale) }),
+                    })}
+                  </li>
+                  <li>{t('adminBenchmark.renewal', { value: pct(b.avgRenewalRate) })}</li>
                 </ul>
               )}
             </div>

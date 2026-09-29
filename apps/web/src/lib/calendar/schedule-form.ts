@@ -25,8 +25,14 @@ function toIsoDateTime(date: string, time: string): string {
   return local.toISOString();
 }
 
-/** Turns the create-session form's raw string fields into CreateScheduleSchema's shape and validates it. */
-export function validateScheduleForm(values: ScheduleFormValues): { success: true; data: CreateScheduleInput } | { success: false; message: string } {
+/**
+ * Turns the create-session form's raw string fields into CreateScheduleSchema's shape and validates it.
+ * `invalidMessage`: the active translator's `common.invalidForm` value, since this is a plain lib function without hook access.
+ */
+export function validateScheduleForm(
+  values: ScheduleFormValues,
+  invalidMessage: string,
+): { success: true; data: CreateScheduleInput } | { success: false; message: string } {
   const payload = {
     studioId: values.studioId,
     branchId: values.branchId || undefined,
@@ -45,12 +51,19 @@ export function validateScheduleForm(values: ScheduleFormValues): { success: tru
   };
   const result = CreateScheduleSchema.safeParse(payload);
   if (result.success) return { success: true, data: result.data };
-  return { success: false, message: result.error.issues[0]?.message ?? 'Form geçersiz' };
+  return { success: false, message: result.error.issues[0]?.message ?? invalidMessage };
 }
 
-/** A drag-drop move: only the new start/end, validated against UpdateScheduleSchema. */
-export function validateScheduleMove(startTime: Date, endTime: Date): { success: true; data: UpdateScheduleInput } | { success: false; message: string } {
+/**
+ * A drag-drop move: only the new start/end, validated against UpdateScheduleSchema.
+ * `invalidMessage`: the active translator's `common.invalidTimeRange` value, since this is a plain lib function without hook access.
+ */
+export function validateScheduleMove(
+  startTime: Date,
+  endTime: Date,
+  invalidMessage: string,
+): { success: true; data: UpdateScheduleInput } | { success: false; message: string } {
   const result = UpdateScheduleSchema.safeParse({ startTime: startTime.toISOString(), endTime: endTime.toISOString() });
   if (result.success) return { success: true, data: result.data };
-  return { success: false, message: result.error.issues[0]?.message ?? 'Geçersiz zaman aralığı' };
+  return { success: false, message: result.error.issues[0]?.message ?? invalidMessage };
 }

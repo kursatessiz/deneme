@@ -200,7 +200,7 @@ export function SessionDetailPanel({
               >
                 <div className="min-w-0">
                   <Link href={`/members/${b.memberId}`} className="text-xs font-medium truncate hover:underline" style={{ color: 'var(--color-text-primary)' }}>
-                    {bookingMemberName(b)}
+                    {bookingMemberName(b, t('common.member'))}
                   </Link>
                   <div className="mt-0.5">
                     <Badge tone={STATUS_TONE[b.status] ?? 'neutral'}>{statusLabel(b.status)}</Badge>

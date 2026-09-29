@@ -9,22 +9,23 @@ export interface ValidationResult {
  * Client-side webhook URL check, reusing the exact schema the API validates
  * with (`CreateWebhookEndpointSchema.shape.url`) so the form's error message
  * never drifts from what the server will actually reject.
+ * `messages`: the active translator's fallback strings, since this is a plain lib function without hook access.
  */
-export function validateWebhookUrl(value: string): ValidationResult {
+export function validateWebhookUrl(value: string, messages: { invalidAddress: string }): ValidationResult {
   const result = CreateWebhookEndpointSchema.shape.url.safeParse(value);
-  return result.success ? { valid: true, error: null } : { valid: false, error: result.error.issues[0]?.message ?? 'Geçersiz adres' };
+  return result.success ? { valid: true, error: null } : { valid: false, error: result.error.issues[0]?.message ?? messages.invalidAddress };
 }
 
 /** Client-side embed allowed-origin check (https scheme + host only, no path). */
-export function validateEmbedOrigin(value: string): ValidationResult {
+export function validateEmbedOrigin(value: string, messages: { invalidOrigin: string }): ValidationResult {
   if (!EMBED_ORIGIN_PATTERN.test(value)) {
-    return { valid: false, error: 'Geçersiz origin (ör. https://ornek.com)' };
+    return { valid: false, error: messages.invalidOrigin };
   }
   return { valid: true, error: null };
 }
 
 /** Client-side Google review link check (CLAUDE.md: only g.page/search.google.com/local/writereview/maps https links). */
-export function validateGoogleReviewUrl(value: string): ValidationResult {
+export function validateGoogleReviewUrl(value: string, messages: { invalidLink: string }): ValidationResult {
   const result = GoogleReviewUrlSchema.safeParse(value);
-  return result.success ? { valid: true, error: null } : { valid: false, error: result.error.issues[0]?.message ?? 'Geçersiz bağlantı' };
+  return result.success ? { valid: true, error: null } : { valid: false, error: result.error.issues[0]?.message ?? messages.invalidLink };
 }

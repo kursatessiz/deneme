@@ -1,0 +1,23 @@
+/** Super-admin SMS Packages (SMS Paketleri) screen. */
+export const trAdminSmsPackages = {
+  'adminSmsPackages.title': 'SMS Paketleri',
+  'adminSmsPackages.subtitle': 'Satılan SMS kredi paketleri ve manuel kredi yükleme',
+  'adminSmsPackages.topUp.title': 'Manuel kredi yükleme',
+  'adminSmsPackages.topUp.studioId': 'İşletme (studio) ID',
+  'adminSmsPackages.topUp.credits': 'Kredi (negatif = düşür)',
+  'adminSmsPackages.topUp.note': 'Not (opsiyonel)',
+  'adminSmsPackages.topUp.submit': 'Kredi Yükle',
+  'adminSmsPackages.topUp.submitting': 'Yükleniyor...',
+  'adminSmsPackages.topUp.newBalance': 'Yeni bakiye: {balance} kredi',
+  'adminSmsPackages.topUp.failed': 'Yükleme başarısız oldu',
+  'adminSmsPackages.form.title': 'Paket oluştur / güncelle',
+  'adminSmsPackages.form.key': 'Anahtar',
+  'adminSmsPackages.form.name': 'Ad',
+  'adminSmsPackages.form.credits': 'Kredi',
+  'adminSmsPackages.form.price': 'Fiyat (TL)',
+  'adminSmsPackages.form.submit': 'Kaydet',
+  'adminSmsPackages.form.submitting': 'Kaydediliyor...',
+  'adminSmsPackages.form.saveFailed': 'Kaydedilemedi',
+  'adminSmsPackages.accessDenied': 'Erişim yok',
+  'adminSmsPackages.cardSummary': '{credits} kredi · {price} TL',
+} as const satisfies Record<string, string>;

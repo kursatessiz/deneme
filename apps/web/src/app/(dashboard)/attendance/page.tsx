@@ -93,7 +93,7 @@ function AttendanceList() {
                   {roster.map((b) => (
                     <div key={b.id} className="px-4 py-2.5 flex items-center justify-between" style={{ borderColor: 'var(--color-border)' }}>
                       <Link href={`/members/${b.memberId}`} className="text-sm hover:underline" style={{ color: 'var(--color-text-primary)' }}>
-                        {bookingMemberName(b)}
+                        {bookingMemberName(b, t('common.member'))}
                       </Link>
                       {b.status === 'CONFIRMED' ? (
                         <PermissionButton required={['attendance.manage']} variant="primary" disabled={busyId === b.id} onClick={() => checkIn(b.id)}>

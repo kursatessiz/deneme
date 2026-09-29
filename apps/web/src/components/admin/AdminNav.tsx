@@ -4,19 +4,18 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useT } from '@/components/i18n/I18nProvider';
 
-// Older entries still carry fixed Turkish labels; new ones use i18n keys (labelKey).
-const LINKS: ReadonlyArray<{ href: string; label?: string; labelKey?: string }> = [
-  { href: '/admin/tenants', label: 'İşletmeler' },
-  { href: '/admin/plans', label: 'Planlar' },
-  { href: '/admin/business-types', label: 'İşletme Türleri' },
-  { href: '/admin/feature-flags', label: 'Özellik Bayrakları' },
-  { href: '/admin/sms-packages', label: 'SMS Paketleri' },
-  { href: '/admin/content', label: 'Şablon ve Belgeler' },
-  { href: '/admin/web-sitesi', label: 'Web Sitesi' },
-  { href: '/admin/i18n', label: 'Diller' },
+const LINKS: ReadonlyArray<{ href: string; labelKey: string }> = [
+  { href: '/admin/tenants', labelKey: 'adminNav.tenants' },
+  { href: '/admin/plans', labelKey: 'adminNav.plans' },
+  { href: '/admin/business-types', labelKey: 'adminNav.businessTypes' },
+  { href: '/admin/feature-flags', labelKey: 'adminNav.featureFlags' },
+  { href: '/admin/sms-packages', labelKey: 'adminNav.smsPackages' },
+  { href: '/admin/content', labelKey: 'adminNav.content' },
+  { href: '/admin/web-sitesi', labelKey: 'adminNav.webSitesi' },
+  { href: '/admin/i18n', labelKey: 'adminNav.languages' },
   { href: '/admin/ai', labelKey: 'adminAi.nav' },
-  { href: '/admin/benchmark', label: 'Karşılaştırma' },
-  { href: '/admin/health', label: 'Sistem Sağlığı' },
+  { href: '/admin/benchmark', labelKey: 'adminNav.benchmark' },
+  { href: '/admin/health', labelKey: 'adminNav.health' },
 ];
 
 export function AdminNav() {
@@ -37,7 +36,7 @@ export function AdminNav() {
               backgroundColor: active ? 'var(--color-primary)' : 'transparent',
             }}
           >
-            {link.labelKey ? t(link.labelKey) : link.label}
+            {t(link.labelKey)}
           </Link>
         );
       })}

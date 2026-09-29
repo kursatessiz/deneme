@@ -21,22 +21,22 @@ const base: ScheduleFormValues = {
 
 describe('validateScheduleForm', () => {
   it('accepts a minimal in-person session', () => {
-    const result = validateScheduleForm(base);
+    const result = validateScheduleForm(base, 'invalid');
     expect(result.success).toBe(true);
   });
 
   it('rejects an end time before the start time', () => {
-    const result = validateScheduleForm({ ...base, startTime: '10:00', endTime: '09:00' });
+    const result = validateScheduleForm({ ...base, startTime: '10:00', endTime: '09:00' }, 'invalid');
     expect(result.success).toBe(false);
   });
 
   it('rejects a title shorter than 3 characters', () => {
-    const result = validateScheduleForm({ ...base, title: 'Ab' });
+    const result = validateScheduleForm({ ...base, title: 'Ab' }, 'invalid');
     expect(result.success).toBe(false);
   });
 
   it('requires a meeting provider for an online session', () => {
-    const result = validateScheduleForm({ ...base, deliveryMode: SessionDeliveryMode.ONLINE });
+    const result = validateScheduleForm({ ...base, deliveryMode: SessionDeliveryMode.ONLINE }, 'invalid');
     expect(result.success).toBe(false);
   });
 
@@ -46,7 +46,7 @@ describe('validateScheduleForm', () => {
       deliveryMode: SessionDeliveryMode.ONLINE,
       meetingProvider: VideoMeetingProviderKind.MANUAL,
       manualMeetingUrl: 'https://meet.example.com/abc',
-    });
+    }, 'invalid');
     expect(result.success).toBe(true);
   });
 
@@ -56,12 +56,12 @@ describe('validateScheduleForm', () => {
       deliveryMode: SessionDeliveryMode.ONLINE,
       meetingProvider: VideoMeetingProviderKind.MANUAL,
       manualMeetingUrl: 'http://meet.example.com/abc',
-    });
+    }, 'invalid');
     expect(result.success).toBe(false);
   });
 
   it('carries recurrence fields through when isRecurring is set', () => {
-    const result = validateScheduleForm({ ...base, isRecurring: true, recurringWeeks: '4' });
+    const result = validateScheduleForm({ ...base, isRecurring: true, recurringWeeks: '4' }, 'invalid');
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.isRecurring).toBe(true);
@@ -74,12 +74,12 @@ describe('validateScheduleMove', () => {
   it('accepts a valid new time range', () => {
     const start = new Date(2026, 2, 17, 9, 0);
     const end = new Date(2026, 2, 17, 10, 0);
-    expect(validateScheduleMove(start, end).success).toBe(true);
+    expect(validateScheduleMove(start, end, 'invalid').success).toBe(true);
   });
 
   it('rejects a range where end is before start', () => {
     const start = new Date(2026, 2, 17, 10, 0);
     const end = new Date(2026, 2, 17, 9, 0);
-    expect(validateScheduleMove(start, end).success).toBe(false);
+    expect(validateScheduleMove(start, end, 'invalid').success).toBe(false);
   });
 });

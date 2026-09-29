@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
+import { useT } from '@/components/i18n/I18nProvider';
 
 interface BusinessType {
   id: string;
@@ -21,6 +22,7 @@ const inputStyle: React.CSSProperties = {
 };
 
 export default function BusinessTypesPage() {
+  const t = useT();
   const [refreshKey, setRefreshKey] = useState(0);
   const { data, loading, error, forbidden } = useBff<{ items: BusinessType[] }>('admin/business-type-templates', null, refreshKey);
   const [form, setForm] = useState({ key: '', name: '', serviceTypeNames: '', resourceTypeNames: '', enabledModules: '' });
@@ -51,35 +53,35 @@ export default function BusinessTypesPage() {
       setForm({ key: '', name: '', serviceTypeNames: '', resourceTypeNames: '', enabledModules: '' });
       refresh();
     } catch (err) {
-      setFormError(err instanceof BffError ? err.message : 'Kaydedilemedi');
+      setFormError(err instanceof BffError ? err.message : t('adminBusinessTypes.form.saveFailed'));
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (forbidden) return <EmptyState title="Erişim yok" />;
+  if (forbidden) return <EmptyState title={t('adminBusinessTypes.accessDenied')} />;
 
   return (
     <div className="space-y-6" key={refreshKey}>
       <div>
-        <h2 className="text-xl font-bold">İşletme Türü Şablonları</h2>
+        <h2 className="text-xl font-bold">{t('adminBusinessTypes.title')}</h2>
         <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          Varsayılan hizmet/kaynak türleri, kelime dağarcığı ve etkin modüller. Yeni bir kiracıya "Uygula" ile aktarılır.
+          {t('adminBusinessTypes.subtitle')}
         </p>
       </div>
 
       <form onSubmit={submit} className="p-5 border space-y-3" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-        <h3 className="text-sm font-semibold">Şablon oluştur / güncelle</h3>
+        <h3 className="text-sm font-semibold">{t('adminBusinessTypes.form.title')}</h3>
         <div className="grid grid-cols-2 gap-3">
-          <input required placeholder="Anahtar (ör: yoga_studio)" value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
-          <input required placeholder="Ad" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
-          <input placeholder="Hizmet türleri (virgülle)" value={form.serviceTypeNames} onChange={(e) => setForm({ ...form, serviceTypeNames: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
-          <input placeholder="Kaynak türleri (virgülle)" value={form.resourceTypeNames} onChange={(e) => setForm({ ...form, resourceTypeNames: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
-          <input placeholder="Etkin modüller (virgülle)" value={form.enabledModules} onChange={(e) => setForm({ ...form, enabledModules: e.target.value })} className="border px-3 py-2 text-sm col-span-2" style={inputStyle} />
+          <input required placeholder={t('adminBusinessTypes.form.key')} value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
+          <input required placeholder={t('adminBusinessTypes.form.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
+          <input placeholder={t('adminBusinessTypes.form.serviceTypes')} value={form.serviceTypeNames} onChange={(e) => setForm({ ...form, serviceTypeNames: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
+          <input placeholder={t('adminBusinessTypes.form.resourceTypes')} value={form.resourceTypeNames} onChange={(e) => setForm({ ...form, resourceTypeNames: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
+          <input placeholder={t('adminBusinessTypes.form.enabledModules')} value={form.enabledModules} onChange={(e) => setForm({ ...form, enabledModules: e.target.value })} className="border px-3 py-2 text-sm col-span-2" style={inputStyle} />
         </div>
         {formError && <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{formError}</p>}
         <button type="submit" disabled={submitting} className="px-4 py-2 text-sm font-medium" style={{ borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
-          {submitting ? 'Kaydediliyor...' : 'Kaydet'}
+          {submitting ? t('adminBusinessTypes.form.submitting') : t('adminBusinessTypes.form.submit')}
         </button>
       </form>
 
@@ -91,7 +93,7 @@ export default function BusinessTypesPage() {
             <div key={bt.id} className="p-5 border" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
               <h3 className="text-sm font-semibold">{bt.name}</h3>
               <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>{bt.key}</p>
-              <p className="text-xs mt-2" style={{ color: 'var(--color-text-secondary)' }}>Modüller: {bt.enabledModules.join(', ') || '-'}</p>
+              <p className="text-xs mt-2" style={{ color: 'var(--color-text-secondary)' }}>{t('adminBusinessTypes.modules', { modules: bt.enabledModules.join(', ') || '-' })}</p>
             </div>
           ))}
         </div>
