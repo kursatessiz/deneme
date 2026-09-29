@@ -125,6 +125,8 @@ services:
       BACKUP_STALE_HOURS: ${BACKUP_STALE_HOURS:-26}
       BACKUP_DOWNLOAD_URL_TTL_SECONDS: ${BACKUP_DOWNLOAD_URL_TTL_SECONDS:-}
       BACKUP_PG_DUMP_PATH: ${BACKUP_PG_DUMP_PATH:-}
+      # M1 platform two-step verification: issuer name authenticator apps show.
+      MFA_ISSUER: ${MFA_ISSUER:-}
       BACKUP_LOCAL_DIR: /var/backups/app
     volumes:
       - ./backups:/var/backups/app:ro
