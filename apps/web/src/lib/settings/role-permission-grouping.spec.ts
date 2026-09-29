@@ -1,12 +1,17 @@
-import { ALL_PERMISSIONS } from '@platform/shared';
+import { ALL_PERMISSIONS, isOwnerOnlyPermission } from '@platform/shared';
 import { diffRolePermissions, groupPermissionsByArea } from './role-permission-grouping';
 
 describe('groupPermissionsByArea', () => {
-  it('covers every catalogue permission exactly once', () => {
+  it('covers every grantable catalogue permission exactly once', () => {
     const groups = groupPermissionsByArea();
     const flattened = groups.flatMap((g) => g.permissions.map((p) => p.key));
-    expect(flattened.sort()).toEqual([...ALL_PERMISSIONS].sort());
+    expect(flattened.sort()).toEqual(ALL_PERMISSIONS.filter((key) => !isOwnerOnlyPermission(key)).sort());
     expect(new Set(flattened).size).toBe(flattened.length);
+  });
+
+  it('never offers owner-only permissions', () => {
+    const flattened = groupPermissionsByArea().flatMap((g) => g.permissions.map((p) => p.key));
+    expect(flattened).not.toContain('billing.manage');
   });
 
   it('every permission has a non-empty Turkish label', () => {

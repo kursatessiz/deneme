@@ -5,12 +5,15 @@ import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
+import { formatMoney } from '@/lib/money';
 
 interface Plan {
   id: string;
   key: string;
   name: string;
   priceMonthly: string;
+  currency: string;
+  trialDays: number;
   limits: { maxBranches?: number; maxActiveMembers?: number; maxStaff?: number; maxSmsPerMonth?: number; aiMonthlyBudgetCents?: number };
   isActive: boolean;
 }
@@ -27,7 +30,8 @@ export default function PlansPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const { data, loading, error, forbidden } = useBff<{ items: Plan[] }>('admin/plans', null, refreshKey);
   const t = useT();
-  const [form, setForm] = useState({ key: '', name: '', priceMonthly: '', maxBranches: '', maxActiveMembers: '', maxStaff: '', aiBudget: '' });
+  const emptyForm = { key: '', name: '', priceMonthly: '', currency: '', trialDays: '', maxBranches: '', maxActiveMembers: '', maxStaff: '', aiBudget: '' };
+  const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -44,6 +48,8 @@ export default function PlansPage() {
           key: form.key,
           name: form.name,
           priceMonthly: Number(form.priceMonthly),
+          ...(form.currency.trim() ? { currency: form.currency.trim().toUpperCase() } : {}),
+          ...(form.trialDays !== '' ? { trialDays: Number(form.trialDays) } : {}),
           limits: {
             ...(form.maxBranches ? { maxBranches: Number(form.maxBranches) } : {}),
             ...(form.maxActiveMembers ? { maxActiveMembers: Number(form.maxActiveMembers) } : {}),
@@ -53,7 +59,7 @@ export default function PlansPage() {
           isActive: true,
         },
       });
-      setForm({ key: '', name: '', priceMonthly: '', maxBranches: '', maxActiveMembers: '', maxStaff: '', aiBudget: '' });
+      setForm(emptyForm);
       refresh();
     } catch (err) {
       setFormError(err instanceof BffError ? err.message : t('adminPlans.form.saveFailed'));
@@ -84,6 +90,8 @@ export default function PlansPage() {
           <input required placeholder={t('adminPlans.form.key')} value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
           <input required placeholder={t('adminPlans.form.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
           <input required type="number" placeholder={t('adminPlans.form.priceMonthly')} value={form.priceMonthly} onChange={(e) => setForm({ ...form, priceMonthly: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
+          <input maxLength={3} placeholder={t('adminPlans.form.currency')} aria-label={t('adminPlans.form.currency')} value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
+          <input type="number" min={0} max={365} placeholder={t('adminPlans.form.trialDays')} aria-label={t('adminPlans.form.trialDays')} value={form.trialDays} onChange={(e) => setForm({ ...form, trialDays: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
           <input type="number" placeholder={t('adminPlans.form.maxBranches')} value={form.maxBranches} onChange={(e) => setForm({ ...form, maxBranches: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
           <input type="number" placeholder={t('adminPlans.form.maxActiveMembers')} value={form.maxActiveMembers} onChange={(e) => setForm({ ...form, maxActiveMembers: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
           <input type="number" placeholder={t('adminPlans.form.maxStaff')} value={form.maxStaff} onChange={(e) => setForm({ ...form, maxStaff: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
@@ -121,7 +129,10 @@ export default function PlansPage() {
                 </span>
               </div>
               <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                {t('adminPlans.priceSummary', { key: p.key, price: Number(p.priceMonthly).toLocaleString(locale) })}
+                {t('adminPlans.priceSummary', { key: p.key, price: formatMoney(p.priceMonthly, p.currency, locale) })}
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                {t('adminPlans.trialSummary', { days: p.trialDays })}
               </p>
               <ul className="text-xs mt-3 space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
                 <li>{t('adminPlans.limits.branches', { value: p.limits.maxBranches ?? t('adminPlans.limits.unlimited') })}</li>

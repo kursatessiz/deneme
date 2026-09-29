@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OtpService } from '../otp/otp.service';
 import { toAppearance, toTenantTheme } from '../appearance/theme-mapping';
 import { LoginThrottleService } from './login-throttle.service';
+import { isStudioBillingStatus } from '@platform/shared';
 
 export const PIN_MAX_FAILURES = 5;
 export const PIN_LOCK_MS = 15 * 60 * 1000;
@@ -182,6 +183,8 @@ export class AuthService {
                 gradientPresetKey: true,
                 defaultLocale: true,
                 currency: true,
+                billingStatus: true,
+                trialEndsAt: true,
               },
             },
             roleTemplate: { include: { permissions: true } },
@@ -212,6 +215,10 @@ export class AuthService {
       theme: toTenantTheme(m.studio),
       defaultLocale: m.studio.defaultLocale,
       currency: m.studio.currency,
+      billing: {
+        status: isStudioBillingStatus(m.studio.billingStatus) ? m.studio.billingStatus : 'ACTIVE',
+        trialEndsAt: m.studio.trialEndsAt?.toISOString() ?? null,
+      },
     }));
 
     return {

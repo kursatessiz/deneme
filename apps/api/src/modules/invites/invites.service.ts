@@ -20,6 +20,8 @@ import { AuthService } from '../auth/auth.service';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import { PlanLimitsService } from '../admin/plan-limits.service';
 import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
+import { isWriteRestricted } from '@platform/shared';
+import { billingRestrictedError } from '../auth/guards/billing-write.guard';
 
 export const INVITE_TTL_MS = 72 * 60 * 60 * 1000;
 /** Documents a person must accept to join a studio (latest published version). */
@@ -53,6 +55,11 @@ export class InvitesService {
     const required = dto.roleKey === 'member' ? 'members.manage' : 'staff.manage';
     if (!tenant.permissions.has(required)) {
       throw new ForbiddenException('Bu rol için davet oluşturma yetkiniz yok');
+    }
+    // Restricted mode (G5c-1): staff invites stay available (staff.manage is
+    // on the allow-list), new members do not.
+    if (dto.roleKey === 'member' && !tenant.isSuperAdmin && isWriteRestricted(tenant.billingStatus)) {
+      throw billingRestrictedError();
     }
     await this.planLimits.assertWithinLimit(tenant.studioId, dto.roleKey === 'member' ? 'maxActiveMembers' : 'maxStaff');
 

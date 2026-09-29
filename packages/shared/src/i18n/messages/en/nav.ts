@@ -21,4 +21,6 @@ export const enNav = {
   'nav.events': 'Events',
   'nav.inbox': 'Inbox',
   'nav.settings': 'Settings',
+  'nav.billing': 'Subscription',
+  'nav.businessReferral': 'Refer a business',
 } as const satisfies Record<keyof typeof trNav, string>;

@@ -5,14 +5,20 @@ import type { CreateTenantInput, TenantDetailDTO, TenantListItemDTO } from '@pla
 import { PrismaService } from '../prisma/prisma.service';
 import { InvitesService } from '../invites/invites.service';
 import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
+import { PlatformBillingService } from '../billing/platform-billing.service';
+import { StudioReferralsService } from '../billing/studio-referrals.service';
+import { isStudioBillingStatus } from '@platform/shared';
 
-const TRIAL_PERIOD_DAYS = 30;
+/** Period of a plan the super admin assigns by hand (not a trial; trials use Plan.trialDays). */
+const ASSIGNED_PERIOD_DAYS = 30;
 
 @Injectable()
 export class AdminTenantsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly invites: InvitesService,
+    private readonly billing: PlatformBillingService,
+    private readonly referrals: StudioReferralsService,
     @Optional() private readonly crm?: CrmHooksService,
   ) {}
 
@@ -52,6 +58,9 @@ export class AdminTenantsService {
       activeMemberCount: memberCountByStudio.get(s.id) ?? 0,
       staffCount: staffCountByStudio.get(s.id) ?? 0,
       createdAt: s.createdAt.toISOString(),
+      billingStatus: isStudioBillingStatus(s.billingStatus) ? s.billingStatus : 'ACTIVE',
+      trialEndsAt: s.trialEndsAt?.toISOString() ?? null,
+      activatedAt: s.activatedAt?.toISOString() ?? null,
     }));
   }
 
@@ -86,6 +95,9 @@ export class AdminTenantsService {
       activeMemberCount,
       staffCount,
       createdAt: studio.createdAt.toISOString(),
+      billingStatus: isStudioBillingStatus(studio.billingStatus) ? studio.billingStatus : 'ACTIVE',
+      trialEndsAt: studio.trialEndsAt?.toISOString() ?? null,
+      activatedAt: studio.activatedAt?.toISOString() ?? null,
       phone: studio.phone,
       email: studio.email,
       timezone: studio.timezone,
@@ -110,7 +122,6 @@ export class AdminTenantsService {
     if (slugTaken) throw new ConflictException('Bu slug zaten kullanılıyor');
 
     const now = new Date();
-    const periodEnd = new Date(now.getTime() + TRIAL_PERIOD_DAYS * 24 * 60 * 60 * 1000);
 
     const regionDefaults = countryDefaultsOf(dto.countryCode);
 
@@ -145,13 +156,15 @@ export class AdminTenantsService {
         ),
       );
 
+      // G5c-1: every new business starts on the plan's trial (Plan.trialDays).
+      const trialEndsAt = await this.billing.startTrial(tx, studio.id, plan, now);
       await tx.subscription.create({
         data: {
           studioId: studio.id,
           planId: plan.id,
           status: SubscriptionStatus.TRIALING,
           currentPeriodStart: now,
-          currentPeriodEnd: periodEnd,
+          currentPeriodEnd: trialEndsAt,
         },
       });
 
@@ -183,6 +196,8 @@ export class AdminTenantsService {
     // Default pipeline stages, and studio_signup on the platform tenant when
     // its CRM already knows the owner (e.g. from a landing page form).
     await this.crm?.onStudioCreated(studioId, dto.ownerPhone);
+    // G5c-1: the referring business, from the code given or the owner's pw_ref visit.
+    await this.referrals.recordSignup(studioId, dto.ownerPhone, dto.referralCode ?? null);
 
     return { studioId, ownerInvite: invite };
   }
@@ -214,7 +229,7 @@ export class AdminTenantsService {
     if (!plan) throw new BadRequestException('Plan bulunamadı');
 
     const now = new Date();
-    const periodEnd = new Date(now.getTime() + TRIAL_PERIOD_DAYS * 24 * 60 * 60 * 1000);
+    const periodEnd = new Date(now.getTime() + ASSIGNED_PERIOD_DAYS * 24 * 60 * 60 * 1000);
 
     const subscription = await this.prisma.$transaction(async (tx) => {
       await tx.subscription.updateMany({

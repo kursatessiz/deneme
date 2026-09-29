@@ -80,5 +80,14 @@ describe('touchpoint payload', () => {
     expect(noAds.utm.utm_source).toBe('facebook');
     expect(noAds.adIds).toEqual({ pw_cid: '1', pw_asid: '2' });
     expect(noAds.consent).toEqual({ analytics: true, advertising: false });
+    expect(noAds.ref).toBeUndefined();
+  });
+
+  it('carries a well-formed business referral code without advertising consent', () => {
+    expect(shouldSendTouchpoint(false, 'https://site.example/tr?pw_ref=K3F7QANB')).toBe(true);
+    const tp = buildTouchpoint({ ...base, url: 'https://site.example/tr?pw_ref=k3f7qanb', consent: { analytics: true, advertising: false } });
+    expect(tp.ref).toBe('K3F7QANB');
+    const bad = buildTouchpoint({ ...base, url: 'https://site.example/tr?pw_ref=<x>', consent: { analytics: true, advertising: false } });
+    expect(bad.ref).toBeUndefined();
   });
 });

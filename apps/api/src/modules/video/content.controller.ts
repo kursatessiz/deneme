@@ -13,7 +13,7 @@ import {
   StartWatchingInput,
 } from '@platform/shared';
 import { toCsv } from '../../common/csv';
-import { StudioScoped, RequirePermission, SelfService } from '../auth/decorators/require-permission.decorator';
+import { StudioScoped, RequirePermission, SelfService, AllowWhenRestricted } from '../auth/decorators/require-permission.decorator';
 import { Tenant } from '../auth/decorators/current-user.decorator';
 import { ZodBody, ZodQuery } from '../../common/zod-body.pipe';
 import type { TenantContext } from '../auth/tenant-context';
@@ -81,6 +81,7 @@ export class ContentController {
   }
 
   @Post('self/:contentId/start')
+  @AllowWhenRestricted()
   @SelfService()
   async start(
     @Tenant() tenant: TenantContext,
@@ -91,6 +92,7 @@ export class ContentController {
   }
 
   @Post('self/:contentId/progress')
+  @AllowWhenRestricted()
   @SelfService()
   async progress(
     @Tenant() tenant: TenantContext,

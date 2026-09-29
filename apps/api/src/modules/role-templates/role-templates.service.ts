@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@platform/database';
-import { ALL_PERMISSIONS, resolvePermissions } from '@platform/shared';
+import { ALL_PERMISSIONS, isOwnerOnlyPermission, resolvePermissions } from '@platform/shared';
 import type { AssignRoleTemplateInput, CreateRoleTemplateInput, PermissionKey, RoleTemplateDTO, StaffMembershipDTO, UpdateRoleTemplateInput } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
@@ -269,6 +269,10 @@ function isOwnerLike(tenant: TenantContext): boolean {
 }
 
 function assertCanGrant(tenant: TenantContext, keys: readonly string[]): void {
+  // Owner-only keys (billing.manage) are never part of a role template.
+  if (keys.some(isOwnerOnlyPermission)) {
+    throw new BadRequestException('Bu izin yalnızca işletme sahibine aittir ve bir role verilemez');
+  }
   if (isOwnerLike(tenant)) return;
   const missing = keys.filter((k) => !tenant.permissions.has(k as PermissionKey));
   if (missing.length > 0) {

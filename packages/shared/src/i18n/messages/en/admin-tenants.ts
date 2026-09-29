@@ -22,6 +22,7 @@ export const enAdminTenants = {
   'adminTenants.form.ownerFirstName': "Owner's first name",
   'adminTenants.form.ownerLastName': "Owner's last name",
   'adminTenants.form.ownerPhone': "Owner's phone (05XX...)",
+  'adminTenants.form.referralCode': 'Referral code (optional)',
   'adminTenants.form.submit': 'Create and Send Invite',
   'adminTenants.form.submitting': 'Creating...',
   'adminTenants.form.cancel': 'Cancel',

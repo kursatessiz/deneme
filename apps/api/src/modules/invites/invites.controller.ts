@@ -2,7 +2,7 @@ import { Controller, Get, HttpCode, Param, Post, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { AcceptInviteSchema, CreateInviteSchema } from '@platform/shared';
 import { InvitesService } from './invites.service';
-import { StudioScoped, SelfService } from '../auth/decorators/require-permission.decorator';
+import { StudioScoped, SelfService, AllowWhenRestricted } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import { ZodBody } from '../../common/zod-body.pipe';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
@@ -18,6 +18,7 @@ export class InvitesController {
    */
   @Post()
   @StudioScoped()
+  @AllowWhenRestricted()
   @SelfService()
   async create(
     @Tenant() tenant: TenantContext,

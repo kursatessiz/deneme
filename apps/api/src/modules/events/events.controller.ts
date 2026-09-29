@@ -32,7 +32,7 @@ import type {
   UpdateEventInput,
   UpdateTicketTypeInput,
 } from '@platform/shared';
-import { RequirePermission, SelfService, StudioScoped } from '../auth/decorators/require-permission.decorator';
+import { RequirePermission, SelfService, StudioScoped, AllowWhenRestricted } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import { ZodBody, ZodQuery } from '../../common/zod-body.pipe';
@@ -76,6 +76,7 @@ export class EventsSelfController {
   @Post('registrations/:registrationId/cancel')
   @HttpCode(200)
   @SelfService()
+  @AllowWhenRestricted()
   cancel(
     @Tenant() tenant: TenantContext,
     @CurrentUser() user: AuthUser,

@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { DocumentType, FeatureFlagScope, InviteChannel, NotificationChannel } from './enums';
 import { PhoneSchema } from './validators';
-import { CountryCodeSchema } from './growth/regions';
+import { CountryCodeSchema, CurrencyCodeSchema } from './growth/regions';
+import { StudioReferralCodeSchema } from './billing';
+import type { StudioBillingStatus } from './billing';
 import { EmailBlocksSchema } from './email-blocks';
 import { WHATSAPP_TEMPLATE_STATUSES } from './message-templates';
 
@@ -48,6 +50,8 @@ export const CreateTenantSchema = z.object({
   ownerLastName: z.string().trim().min(1, 'Sahibin soyadı zorunludur').max(60),
   ownerPhone: PhoneSchema,
   ownerChannel: z.nativeEnum(InviteChannel).default(InviteChannel.SHOWN),
+  /** Business referral code the new owner was given (G5c-1); optional, validated against existing studios. */
+  referralCode: z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? undefined : v), StudioReferralCodeSchema.optional()),
 });
 export type CreateTenantInput = z.infer<typeof CreateTenantSchema>;
 
@@ -74,6 +78,10 @@ export const UpsertPlanSchema = z.object({
   key: z.string().trim().min(1).max(60),
   name: z.string().trim().min(1).max(100),
   priceMonthly: z.number().nonnegative(),
+  /** ISO 4217 currency of priceMonthly (G5c-1); omitted keeps the stored value. */
+  currency: CurrencyCodeSchema.optional(),
+  /** Free trial length for new businesses on this plan (G5c-1); omitted keeps the stored value. */
+  trialDays: z.number().int().min(0).max(365).optional(),
   limits: PlanLimitsSchema.default({}),
   isActive: z.boolean().default(true),
 });
@@ -226,6 +234,10 @@ export interface TenantListItemDTO {
   activeMemberCount: number;
   staffCount: number;
   createdAt: string;
+  /** Platform billing (G5c-1). */
+  billingStatus: StudioBillingStatus;
+  trialEndsAt: string | null;
+  activatedAt: string | null;
 }
 
 export interface TenantDetailDTO extends TenantListItemDTO {

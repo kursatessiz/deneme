@@ -15,6 +15,7 @@ import { IyzicoPaymentProvider } from './providers/iyzico-payment.provider';
 import { PaytrPaymentProvider } from './providers/paytr-payment.provider';
 import { StripePaymentProvider } from './providers/stripe-payment.provider';
 import { PaymentProviderRegistry } from './providers/payment-provider.registry';
+import { PaymentWebhookRouter } from './payment-webhook-router';
 
 @Module({
   imports: [AuthModule, InvoicingModule, PromotionsModule, WebhooksModule, CrmCoreModule, EventsCoreModule],
@@ -27,7 +28,8 @@ import { PaymentProviderRegistry } from './providers/payment-provider.registry';
     PaytrPaymentProvider,
     StripePaymentProvider,
     PaymentProviderRegistry,
+    PaymentWebhookRouter,
   ],
-  exports: [PaymentsService, DunningService, PaymentProviderRegistry],
+  exports: [PaymentsService, DunningService, PaymentProviderRegistry, PaymentWebhookRouter],
 })
 export class PaymentsModule {}

@@ -164,7 +164,7 @@ export function resolvePageLocale(requested: string, availableLocales: readonly 
 }
 
 export interface PublicPageContext {
-  plans?: Array<{ key: string; name: string; priceMonthly: string; limits: unknown }>;
+  plans?: Array<{ key: string; name: string; priceMonthly: string; currency: string; limits: unknown }>;
   packages?: Array<{ id: string; name: string; price: string; currency: string }>;
   businessTypes?: Array<{ key: string; name: string; vocabulary: Record<string, string> }>;
   companyInfo?: { legalName: string; address: string | null; email: string | null; phone: string | null; socialLinks: Record<string, string> };

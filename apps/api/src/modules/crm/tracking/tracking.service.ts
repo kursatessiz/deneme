@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { detectAdPlatform, isUntaggedPaidTraffic, parseTrackingParams } from '@platform/shared';
+import { STUDIO_REFERRAL_CODE_PATTERN, detectAdPlatform, isUntaggedPaidTraffic, parseReferralParam, parseTrackingParams } from '@platform/shared';
 import type { TouchpointInput } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AttributionService } from '../attribution/attribution.service';
@@ -45,6 +45,9 @@ export class TrackingService {
     };
     const advertising = input.consent.advertising;
     const click = advertising ? params.clickIds : {};
+    // Business referral code (G5c-1): a malformed code is dropped, never an error.
+    const bodyRef = input.ref?.trim().toUpperCase();
+    const refCode = bodyRef && STUDIO_REFERRAL_CODE_PATTERN.test(bodyRef) ? bodyRef : parseReferralParam(input.landingUrl);
 
     const visitor = await this.prisma.visitor.upsert({
       where: { studioId_id: { studioId: studio.id, id: input.visitorId } },
@@ -86,6 +89,7 @@ export class TrackingService {
         deviceType: deviceTypeOf(meta.userAgent),
         pageVariant: input.pageVariant ?? null,
         isPaidUntagged: isUntaggedPaidTraffic(params),
+        refCode,
         contactId: visitor.contactId,
       },
     });

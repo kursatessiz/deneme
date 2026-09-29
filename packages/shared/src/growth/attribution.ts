@@ -47,6 +47,13 @@ export const TouchpointInputSchema = z
     locale: z.string().max(10).optional(),
     /** A/B page variant the visitor was assigned, if any. */
     pageVariant: z.string().max(40).optional(),
+    /**
+     * Business-to-business referral code from the pw_ref parameter
+     * (REFERRAL_TRACKING_PARAM, G5c-1). Not an ad identifier: stored with
+     * analytics consent like the UTM parameters. Malformed codes are
+     * dropped by the API, never rejected.
+     */
+    ref: z.string().trim().max(16).optional(),
     consent: z
       .object({
         analytics: z.boolean(),

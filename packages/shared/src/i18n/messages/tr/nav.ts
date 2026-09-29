@@ -20,4 +20,6 @@ export const trNav = {
   'nav.events': 'Etkinlikler',
   'nav.inbox': 'Gelen Kutusu',
   'nav.settings': 'Ayarlar',
+  'nav.billing': 'Abonelik',
+  'nav.businessReferral': 'Tavsiye et',
 } as const satisfies Record<string, string>;

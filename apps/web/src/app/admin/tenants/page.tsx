@@ -5,6 +5,8 @@ import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { useT } from '@/components/i18n/I18nProvider';
+import { TenantBillingActions } from '@/components/admin/TenantBillingActions';
+import type { StudioBillingStatus } from '@platform/shared';
 
 interface TenantListItem {
   id: string;
@@ -17,6 +19,8 @@ interface TenantListItem {
   branchCount: number;
   activeMemberCount: number;
   staffCount: number;
+  billingStatus: StudioBillingStatus;
+  trialEndsAt: string | null;
 }
 
 const inputStyle: React.CSSProperties = {
@@ -44,6 +48,7 @@ function CreateTenantForm({ onCreated }: { onCreated: () => void }) {
     ownerFirstName: '',
     ownerLastName: '',
     ownerPhone: '',
+    referralCode: '',
   });
 
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -56,7 +61,7 @@ function CreateTenantForm({ onCreated }: { onCreated: () => void }) {
     try {
       await bffFetch('admin/tenants', { method: 'POST', body: { ...form, ownerChannel: 'SHOWN' } });
       setOpen(false);
-      setForm({ name: '', slug: '', businessTypeTemplateKey: '', planKey: '', countryCode: 'TR', ownerFirstName: '', ownerLastName: '', ownerPhone: '' });
+      setForm({ name: '', slug: '', businessTypeTemplateKey: '', planKey: '', countryCode: 'TR', ownerFirstName: '', ownerLastName: '', ownerPhone: '', referralCode: '' });
       onCreated();
     } catch (err) {
       setError(err instanceof BffError ? err.message : t('adminTenants.form.createFailed'));
@@ -106,6 +111,7 @@ function CreateTenantForm({ onCreated }: { onCreated: () => void }) {
         <input required placeholder={t('adminTenants.form.ownerFirstName')} value={form.ownerFirstName} onChange={set('ownerFirstName')} className="border px-3 py-2 text-sm" style={inputStyle} />
         <input required placeholder={t('adminTenants.form.ownerLastName')} value={form.ownerLastName} onChange={set('ownerLastName')} className="border px-3 py-2 text-sm" style={inputStyle} />
         <input required placeholder={t('adminTenants.form.ownerPhone')} value={form.ownerPhone} onChange={set('ownerPhone')} className="border px-3 py-2 text-sm" style={inputStyle} />
+        <input placeholder={t('adminTenants.form.referralCode')} value={form.referralCode} onChange={set('referralCode')} className="border px-3 py-2 text-sm" style={inputStyle} />
       </div>
       {error && <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{error}</p>}
       <div className="flex gap-2">
@@ -154,6 +160,7 @@ export default function TenantsPage() {
     t('adminTenants.table.members'),
     t('adminTenants.table.staff'),
     t('adminTenants.table.status'),
+    t('adminBilling.tenants.billing'),
     '',
   ];
 
@@ -205,6 +212,9 @@ export default function TenantsPage() {
                     >
                       {tenant.isActive ? t('adminTenants.status.active') : t('adminTenants.status.suspended')}
                     </span>
+                  </td>
+                  <td className="px-3 py-2 align-top">
+                    <TenantBillingActions studioId={tenant.id} status={tenant.billingStatus} trialEndsAt={tenant.trialEndsAt} onChanged={refresh} />
                   </td>
                   <td className="px-3 py-2">
                     <button onClick={() => toggleActive(tenant)} className="text-xs font-medium underline" style={{ color: 'var(--color-text-secondary)' }}>

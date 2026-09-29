@@ -45,6 +45,10 @@ export const trMsgTpl = {
   'msgTpl.EVENT_WAITLIST_PROMOTED.text': 'Merhaba {firstName}, bekleme listesinde olduğunuz {eventTitle} etkinliğinde yer açıldı, kaydınız onaylandı. Başlangıç: {startTime}.',
   'msgTpl.EVENT_PAYMENT_DUE.subject': 'Kaydınız için ödeme bekleniyor',
   'msgTpl.EVENT_PAYMENT_DUE.text': 'Merhaba {firstName}, {eventTitle} etkinliğinde sizin için bir yer ayrıldı. Yerinizi korumak için ödemeyi {paymentDueAt} tarihine kadar tamamlayın.',
+  'msgTpl.TRIAL_ENDING.subject': 'Deneme süreniz bitiyor',
+  'msgTpl.TRIAL_ENDING.text': 'Merhaba {firstName}, {studioName} hesabınızın deneme süresinin bitmesine {daysLeft} gün kaldı ({trialEndDate}). Kesintisiz devam etmek için yönetim panelinden hesabınızı etkinleştirin.',
+  'msgTpl.TRIAL_RESTRICTED.subject': 'Hesabınız kısıtlı moda geçti',
+  'msgTpl.TRIAL_RESTRICTED.text': 'Merhaba {firstName}, {studioName} hesabınızın deneme süresi doldu. Verileriniz güvende; görüntüleyebilir ve dışa aktarabilirsiniz. Yeni randevu ve satış için yönetim panelinden hesabınızı etkinleştirin.',
 
   'msgTpl.email.reasonCommercial': 'Bu e-postayı {studioName} ile iletişim izniniz olduğu için aldınız.',
   'msgTpl.email.reasonTransactional': 'Bu e-posta {studioName} hesabınızla ilgili bir bilgilendirmedir.',

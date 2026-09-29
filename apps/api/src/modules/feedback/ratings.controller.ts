@@ -1,7 +1,7 @@
 import { Controller, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { ListRatingsQuerySchema, RateBookingSchema } from '@platform/shared';
 import type { ListRatingsQueryInput, RateBookingInput } from '@platform/shared';
-import { RequirePermission, SelfService, StudioScoped } from '../auth/decorators/require-permission.decorator';
+import { RequirePermission, SelfService, StudioScoped, AllowWhenRestricted } from '../auth/decorators/require-permission.decorator';
 import { Tenant } from '../auth/decorators/current-user.decorator';
 import { ZodBody, ZodQuery } from '../../common/zod-body.pipe';
 import type { TenantContext } from '../auth/tenant-context';
@@ -13,12 +13,14 @@ export class RatingsController {
   constructor(private readonly ratings: RatingsService) {}
 
   @Post('bookings/:bookingId')
+  @AllowWhenRestricted()
   @SelfService()
   async rate(@Tenant() tenant: TenantContext, @Param('bookingId', ParseUUIDPipe) bookingId: string, @ZodBody(RateBookingSchema) body: RateBookingInput) {
     return this.ratings.rate(tenant, bookingId, body);
   }
 
   @Patch('bookings/:bookingId')
+  @AllowWhenRestricted()
   @SelfService()
   async edit(@Tenant() tenant: TenantContext, @Param('bookingId', ParseUUIDPipe) bookingId: string, @ZodBody(RateBookingSchema) body: RateBookingInput) {
     return this.ratings.edit(tenant, bookingId, body);

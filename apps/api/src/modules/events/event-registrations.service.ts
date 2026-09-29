@@ -48,6 +48,7 @@ import { EventSeatsService } from './event-seats.service';
 import { EventsService } from './events.service';
 import { eventError } from './events.errors';
 import { EVENT_INCLUDE, REGISTRATION_INCLUDE, RegistrationWithPerson, toEventDTO, toPublicEventDTO, toRegistrationDTO } from './events.mapper';
+import { assertStudioWritable } from '../auth/guards/billing-write.guard';
 
 const HOUR_MS = 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;
@@ -714,6 +715,7 @@ export class EventRegistrationsService {
     const studio = await this.studioBySlug(slug);
     // Honeypot filled: same shape as success, nothing stored.
     if (dto.website) return { received: true };
+    await assertStudioWritable(this.prisma, studio.id);
     const now = new Date();
     const event = await this.prisma.event.findFirst({ where: { id: eventId, ...this.publicWhere(studio.id, now) } });
     if (!event) throw eventError('EVENT_NOT_FOUND');
