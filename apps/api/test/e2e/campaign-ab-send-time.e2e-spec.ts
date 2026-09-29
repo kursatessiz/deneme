@@ -4,6 +4,7 @@ import * as request from 'supertest';
 import { Prisma, PrismaClient } from '@platform/database';
 import { nextLocalTime } from '@platform/shared';
 import { AppModule } from '../../src/app.module';
+import { CampaignsService } from '../../src/modules/growth/campaigns/campaigns.service';
 
 /**
  * M3c campaign A/B test and send time modes (docs/PAZARLAMA_MODULU.md 4.3,
@@ -14,7 +15,10 @@ import { AppModule } from '../../src/app.module';
  * whose local clock is around noon *now* (the messaging engine judges quiet
  * hours on the real clock). Planning tests use a fixed instant in 2030 and
  * fixed zones and never let a message come due, so only the due times are
- * asserted. Everything created here is removed in afterAll.
+ * asserted. Those runs call the campaign service directly instead of the
+ * whole scheduler heartbeat, so a far-future clock never touches the other
+ * tenants' lifecycle or journey state. Everything created here is removed in
+ * afterAll.
  */
 
 const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? 'Demo1234!';
@@ -42,6 +46,7 @@ describe('Campaign A/B test and send time (M3c) e2e', () => {
   let app: INestApplication;
   let prisma: PrismaClient;
   let server: ReturnType<INestApplication['getHttpServer']>;
+  let campaigns: CampaignsService;
   const runId = Date.now().toString().slice(-7);
   const startedAt = new Date();
 
@@ -143,6 +148,7 @@ describe('Campaign A/B test and send time (M3c) e2e', () => {
     app = moduleRef.createNestApplication();
     await app.init();
     server = app.getHttpServer();
+    campaigns = app.get(CampaignsService);
     prisma = new PrismaClient();
 
     const zen = await prisma.studio.findUniqueOrThrow({ where: { slug: 'zen-reformer-pilates' } });
@@ -400,9 +406,10 @@ describe('Campaign A/B test and send time (M3c) e2e', () => {
   // ---------------------------------------------------------------------------
 
   describe('send time modes', () => {
+    /** Schedules "now" and runs only this campaign's send job at the injected clock. */
     async function startAt(id: string, now: Date) {
       expect((await as(ownerToken, ZEN).post(`/studios/${ZEN}/campaigns/${id}/schedule`).send({})).status).toBe(201);
-      expect((await runScheduler(now)).status).toBe(201);
+      await campaigns.processCampaign(id, now, 5);
     }
     const dueOf = async (id: string) => Object.fromEntries((await recipientsOf(id)).map((r) => [r.contactId, r.nextAttemptAt?.toISOString() ?? null]));
 
@@ -458,7 +465,7 @@ describe('Campaign A/B test and send time (M3c) e2e', () => {
       expect(first.nextAttemptAt!.getTime() - now.getTime()).toBeLessThan(24 * 60 * MINUTE);
 
       const due = new Date(first.nextAttemptAt!.getTime() + MINUTE);
-      await runScheduler(due);
+      await campaigns.processCampaign(id, due, 5);
       const after = (await recipientsOf(id))[0];
       expect(after.status).toBe('PENDING');
       expect(after.attempts).toBe(1);
