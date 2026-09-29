@@ -83,4 +83,9 @@ export const trMsgTpl = {
   'msgTpl.email.reasonCommercial': 'Bu e-postayı {studioName} ile iletişim izniniz olduğu için aldınız.',
   'msgTpl.email.reasonTransactional': 'Bu e-posta {studioName} hesabınızla ilgili bir bilgilendirmedir.',
   'msgTpl.email.unsubscribe': 'Abonelikten çık',
+  'msgTpl.ERROR_SPIKE.subject': 'Hata artışı: {title}',
+  'msgTpl.ERROR_SPIKE.text': 'Merhaba {firstName}, bir hata grubunda ani artış görüldü. Son 15 dakikada {windowCount} kayıt (15 dakikalık taban ortalaması {baselineMean}, eşik {threshold}). Kaynak: {source}, sürüm: {release}, hata kodu: {code}. Özet: {title}',
+  'msgTpl.ERROR_OWNER_NOTICE.subject': 'İşletmenizde bir hata görüldü',
+  'msgTpl.ERROR_OWNER_NOTICE.text': 'Merhaba {firstName}, {studioName} kullanıcılarını etkileyen bir hata görüldü ve ekibimize iletildi. Destekle iletişime geçerseniz şu hata kodunu paylaşabilirsiniz: {code}. Ayrıntıları Ayarlar bölümündeki Hata raporları sayfasında görebilirsiniz.',
+  'msgTpl.ERROR_OWNER_NOTICE.cta': 'Hata raporlarını aç',
 } as const satisfies Record<string, string>;

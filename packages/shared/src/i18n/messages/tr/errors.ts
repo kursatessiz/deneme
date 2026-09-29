@@ -30,4 +30,16 @@ export const trErrors = {
   'errors.status.OPEN': 'Açık',
   'errors.status.RESOLVED': 'Çözüldü',
   'errors.status.IGNORED': 'Yok sayıldı',
+
+  'errors.feedback.label': 'Ne yapıyordunuz? (isteğe bağlı)',
+  'errors.feedback.placeholder': 'Hatayı görmeden önce ne yaptığınızı kısaca yazın. E-posta veya telefon yazmayın.',
+  'errors.feedback.counter': '{count} / {max}',
+  'errors.feedback.submit': 'Gönder',
+  'errors.feedback.sent': 'Teşekkürler, notunuz iletildi.',
+  'errors.feedback.failed': 'Notunuz iletilemedi. Biraz sonra tekrar deneyebilirsiniz.',
+  'errors.owner.notify.title': 'E-posta bildirimi',
+  'errors.owner.notify.description': 'Kullanıcılarınızı etkileyen yeni bir hata grubu veya ani hata artışı görüldüğünde size e-posta gönderilir. Aynı hata için günde en fazla bir e-posta alırsınız.',
+  'errors.owner.notify.toggle': 'Hata bildirimlerini e-postayla al',
+  'errors.owner.notify.saved': 'Bildirim tercihiniz kaydedildi.',
+  'errors.owner.notify.failed': 'Tercih kaydedilemedi.',
 };
