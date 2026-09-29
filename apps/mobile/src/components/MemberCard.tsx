@@ -2,9 +2,9 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import type { ChurnMemberSummaryDTO, MemberDetailDTO, MemberPackageDTO } from '@platform/shared';
+import type { ChurnMemberSummaryDTO, LoyaltyMemberSummaryDTO, MemberDetailDTO, MemberPackageDTO } from '@platform/shared';
 
-import { useLocale } from '../i18n';
+import { useLocale, useT } from '../i18n';
 import { ApiError, apiRequest } from '../lib/api';
 import { useSession } from '../lib/session';
 import { palette, radii, spacing, typography, useTheme, useThemeColors, useThemeFonts } from '../theme';
@@ -49,14 +49,17 @@ export function MemberCard({ memberId, onChanged }: MemberCardProps) {
   const colors = useThemeColors();
   const fonts = useThemeFonts();
   const { locale } = useLocale();
+  const t = useT();
   const { activeMembership } = useSession();
   const studioId = activeMembership?.studioId;
   const canViewHealth = activeMembership?.permissions.includes('members.health.view') ?? false;
   const canSellPackages = activeMembership?.permissions.includes('packages.sell') ?? false;
   const canBookWalkIn = activeMembership?.permissions.includes('bookings.manage') ?? false;
+  const canViewLoyalty = activeMembership?.permissions.includes('loyalty.view') ?? false;
 
   const [detail, setDetail] = useState<MemberDetailDTO | null>(null);
   const [risk, setRisk] = useState<ChurnMemberSummaryDTO | null>(null);
+  const [loyalty, setLoyalty] = useState<LoyaltyMemberSummaryDTO | null>(null);
   const [error, setError] = useState<string | undefined>();
   const [busyPackageId, setBusyPackageId] = useState<string | null>(null);
   const [freezeDays, setFreezeDays] = useState('7');
@@ -74,7 +77,13 @@ export function MemberCard({ memberId, onChanged }: MemberCardProps) {
     apiRequest<ChurnMemberSummaryDTO>(`/churn/studio/${studioId}/members/${memberId}`, { studioId })
       .then(setRisk)
       .catch(() => setRisk(null));
-  }, [memberId, studioId]);
+    // G3a: the loyalty balance line; quietly absent without loyalty.view or when the program is off.
+    if (canViewLoyalty) {
+      apiRequest<LoyaltyMemberSummaryDTO>(`/studios/${studioId}/loyalty/members/${memberId}`, { studioId })
+        .then(setLoyalty)
+        .catch(() => setLoyalty(null));
+    }
+  }, [memberId, studioId, canViewLoyalty]);
 
   useEffect(() => {
     load();
@@ -141,6 +150,11 @@ export function MemberCard({ memberId, onChanged }: MemberCardProps) {
           {detail.phone ?? 'Telefon: iletişim izniniz yok'}
         </Text>
         {detail.email ? <Text style={[styles.contact, fonts.body, { color: 'rgba(255,255,255,0.85)' }]}>{detail.email}</Text> : null}
+        {loyalty && loyalty.enabled ? (
+          <Text style={[styles.contact, fonts.bodyStrong, { color: '#FFFFFF' }]}>
+            {t('mLoyalty.cardLine', { points: t('mLoyalty.points', { count: loyalty.balance }) })}
+          </Text>
+        ) : null}
       </GradientSurface>
 
       <View style={styles.quickActions}>
