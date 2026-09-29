@@ -5,6 +5,7 @@ export const enFinance = {
   'finance.title': 'Finance',
   'finance.subtitle': 'Payments, expenses, invoices, promo codes and gift cards',
   'finance.payrollLink': 'Commissions and payroll',
+  'finance.payoutsLink': 'Bank payouts and reconciliation',
   'finance.tabs.payments': 'Payments',
   'finance.tabs.expenses': 'Expenses',
   'finance.tabs.invoices': 'Invoices',

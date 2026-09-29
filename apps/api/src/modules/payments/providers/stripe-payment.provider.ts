@@ -3,15 +3,55 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import Stripe from 'stripe';
 import { PaymentProvider } from '@platform/database';
-import { toMinorUnits } from '@platform/shared';
+import { amountToMinor, currencyMinorUnitDigits, minorToAmount, toMinorUnits } from '@platform/shared';
 import type { ProviderChargeResult, ProviderCheckoutResult } from '@platform/shared';
 import type {
   ChargeStoredCardParams,
   CreateCheckoutParams,
+  ListPayoutItemsParams,
+  ListPayoutsParams,
   PaymentProviderAdapter,
+  ProviderPayout,
+  ProviderPayoutItem,
+  ProviderPayoutItemType,
+  ProviderPayoutStatus,
   RefundParams,
   WebhookVerificationResult,
 } from './payment-provider.interface';
+import { PayoutNotConfiguredError } from './payment-provider.interface';
+
+/** Stripe integer minor units to a decimal string in the currency's own digits (0, 2 or 3). */
+export function stripeMinorToDecimal(minor: number, currency: string): string {
+  const digits = currencyMinorUnitDigits(currency);
+  const negative = minor < 0;
+  const abs = Math.abs(Math.trunc(minor));
+  const text = abs.toString().padStart(digits + 1, '0');
+  const value = digits === 0 ? text : `${text.slice(0, text.length - digits)}.${text.slice(text.length - digits)}`;
+  // Stored amounts have at most two decimals; normalise through the shared money helpers.
+  const minorUnits = amountToMinor(value, currency);
+  return minorToAmount(negative ? -minorUnits : minorUnits, currency);
+}
+
+const STRIPE_PAYOUT_STATUS: Record<string, ProviderPayoutStatus> = {
+  pending: 'PENDING',
+  in_transit: 'IN_TRANSIT',
+  paid: 'PAID',
+  failed: 'FAILED',
+  canceled: 'CANCELED',
+};
+
+const STRIPE_CHARGE_TYPES = new Set(['charge', 'payment']);
+const STRIPE_REFUND_TYPES = new Set(['refund', 'payment_refund']);
+const STRIPE_FEE_TYPES = new Set(['stripe_fee', 'network_cost', 'application_fee']);
+/** Balance transactions that are the payout itself, not something inside it. */
+const STRIPE_PAYOUT_TYPES = new Set(['payout', 'payout_cancel', 'payout_failure']);
+
+function stripeItemType(type: string): ProviderPayoutItemType {
+  if (STRIPE_CHARGE_TYPES.has(type)) return 'CHARGE';
+  if (STRIPE_REFUND_TYPES.has(type)) return 'REFUND';
+  if (STRIPE_FEE_TYPES.has(type)) return 'FEE';
+  return 'ADJUSTMENT';
+}
 
 /**
  * Stripe adapter: the platform's global default payment provider (see
@@ -35,6 +75,11 @@ export class StripePaymentProvider implements PaymentProviderAdapter {
   private client: Stripe | null = null;
 
   constructor(private readonly config: ConfigService) {}
+
+  /** A real sync must name the studio's connected account: the platform key would otherwise read the platform's own payouts. */
+  get payoutsNeedAccountId(): boolean {
+    return this.isConfigured;
+  }
 
   private get isConfigured(): boolean {
     return !!this.config.get<string>('STRIPE_SECRET_KEY');
@@ -145,6 +190,107 @@ export class StripePaymentProvider implements PaymentProviderAdapter {
       const stripeErr = err as Stripe.errors.StripeError;
       return { success: false, providerReference: `stripe_rfnd_${randomUUID()}`, failureMessage: stripeErr.message };
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Payouts (G5d-2): Stripe payouts and the balance transactions inside them,
+  // read from the studio's connected account.
+  // ---------------------------------------------------------------------------
+
+  async listPayouts(params: ListPayoutsParams): Promise<ProviderPayout[]> {
+    if (!this.isConfigured) {
+      this.assertMockAllowed();
+      return [];
+    }
+    const options = this.accountOptions(params.accountId);
+    const out: ProviderPayout[] = [];
+    const list = this.stripe.payouts.list({ arrival_date: { gte: Math.floor(params.since.getTime() / 1000) }, limit: 100 }, options);
+    for await (const payout of list) {
+      const currency = payout.currency.toUpperCase();
+      out.push({
+        providerPayoutId: payout.id,
+        status: STRIPE_PAYOUT_STATUS[payout.status] ?? 'PENDING',
+        arrivalDate: new Date(payout.arrival_date * 1000),
+        netAmount: stripeMinorToDecimal(payout.amount, currency),
+        currency,
+      });
+    }
+    return out;
+  }
+
+  async listPayoutItems(params: ListPayoutItemsParams): Promise<ProviderPayoutItem[]> {
+    if (!this.isConfigured) {
+      this.assertMockAllowed();
+      return [];
+    }
+    const options = this.accountOptions(params.accountId);
+    const items: ProviderPayoutItem[] = [];
+    const list = this.stripe.balanceTransactions.list({ payout: params.providerPayoutId, expand: ['data.source'], limit: 100 }, options);
+    for await (const txn of list) {
+      if (STRIPE_PAYOUT_TYPES.has(txn.type)) continue;
+      const currency = txn.currency.toUpperCase();
+      const type = stripeItemType(txn.type);
+      const { providerReference, relatedReference } = await this.itemReferences(txn, type, options);
+      items.push({
+        providerItemId: txn.id,
+        type,
+        providerReference,
+        relatedReference,
+        amount: stripeMinorToDecimal(txn.amount, currency),
+        fee: stripeMinorToDecimal(txn.fee, currency),
+        net: stripeMinorToDecimal(txn.net, currency),
+        currency,
+        occurredAt: new Date(txn.created * 1000),
+        description: txn.description ? txn.description.slice(0, 200) : null,
+      });
+    }
+    return items;
+  }
+
+  private accountOptions(accountId: string | null | undefined): Stripe.RequestOptions {
+    if (!accountId) {
+      throw new PayoutNotConfiguredError('Stripe bağlı hesap kimliği (providerAccountId) tanımlı değil');
+    }
+    return { stripeAccount: accountId };
+  }
+
+  /**
+   * The references our Payment can carry: a charge is matched by its
+   * PaymentIntent id (card sales) or the Checkout Session that created it
+   * (online checkout stores the session id); a refund by the original
+   * payment intent. The session lookup is best effort: without it the item
+   * simply stays unmatched.
+   */
+  private async itemReferences(
+    txn: Stripe.BalanceTransaction,
+    type: ProviderPayoutItemType,
+    options: Stripe.RequestOptions,
+  ): Promise<{ providerReference: string | null; relatedReference: string | null }> {
+    const source = txn.source;
+    if (!source) return { providerReference: null, relatedReference: null };
+    if (typeof source === 'string') return { providerReference: source, relatedReference: null };
+
+    if (type === 'CHARGE' && 'payment_intent' in source) {
+      const charge = source as Stripe.Charge;
+      const intentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : (charge.payment_intent?.id ?? null);
+      let sessionId: string | null = null;
+      if (intentId) {
+        try {
+          const sessions = await this.stripe.checkout.sessions.list({ payment_intent: intentId, limit: 1 }, options);
+          sessionId = sessions.data[0]?.id ?? null;
+        } catch (err) {
+          this.logger.warn(`Stripe checkout session lookup failed for ${intentId}: ${(err as Error).message}`);
+        }
+      }
+      return { providerReference: intentId ?? charge.id, relatedReference: sessionId ?? (intentId ? charge.id : null) };
+    }
+    if (type === 'REFUND' && 'payment_intent' in source) {
+      const refund = source as Stripe.Refund;
+      const intentId = typeof refund.payment_intent === 'string' ? refund.payment_intent : (refund.payment_intent?.id ?? null);
+      const chargeId = typeof refund.charge === 'string' ? refund.charge : (refund.charge?.id ?? null);
+      return { providerReference: refund.id, relatedReference: intentId ?? chargeId };
+    }
+    return { providerReference: source.id ?? null, relatedReference: null };
   }
 
   /** Verifies Stripe's signature against the exact raw request body (see common/body-parsers.ts). */

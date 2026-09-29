@@ -269,6 +269,7 @@ async function main() {
   await seedLoyalty(zen.studioId);
   await seedEvents(zen.studioId);
   await seedRetail(zen.studioId);
+  await seedPayouts(zen.studioId);
   await seedSites(platformStudioId);
   await seedPlatformBilling(zen.studioId, businessTypeTemplates.personal_training, plans.starter, kvkkDoc.id, passwordHash);
 
@@ -3143,4 +3144,176 @@ async function seedPlatformBilling(
     data: { referrerStudioId: zenStudioId, referredStudioId: studio.id, code: SEED_ZEN_REFERRAL_CODE, source: 'MANUAL', status: 'SIGNED_UP' },
   });
   count('studio_referrals');
+}
+
+/**
+ * Demo bank payouts for Zen (G5d-2, docs/BANKA_ODEMELERI.md), as the MOCK
+ * provider would deliver them, in the studio's own currency: a fully
+ * matched payout, a partially matched one (one charge has no payment of
+ * ours) and a pending one that has not been reconciled. Payment rows carry
+ * provider MOCK and the provider reference the payout items are matched on.
+ */
+async function seedPayouts(zenStudioId: string) {
+  const studio = await prisma.studio.findUniqueOrThrow({ where: { id: zenStudioId }, select: { currency: true } });
+  const currency = studio.currency;
+  const member = await prisma.memberProfile.findFirstOrThrow({ where: { studioId: zenStudioId }, orderBy: { createdAt: 'asc' }, select: { id: true } });
+  const dayMs = 24 * 60 * 60 * 1000;
+  const daysAgo = (n: number, hour = 10) => {
+    const d = new Date(Date.now() - n * dayMs);
+    d.setUTCHours(hour, 0, 0, 0);
+    return d;
+  };
+
+  const charges = [
+    { ref: 'mock_chg_seed_a1', amount: '1200.00', fee: '34.80', daysAgo: 12 },
+    { ref: 'mock_chg_seed_a2', amount: '800.00', fee: '23.20', daysAgo: 12 },
+    { ref: 'mock_chg_seed_b1', amount: '950.00', fee: '27.55', daysAgo: 5 },
+    { ref: 'mock_chg_seed_c1', amount: '600.00', fee: '17.40', daysAgo: 0 },
+  ];
+  const paymentIds = new Map<string, string>();
+  for (const c of charges) {
+    // One charge of the partial payout and the pending payout's charge have no payment of ours on purpose.
+    if (c.ref === 'mock_chg_seed_b1' || c.ref === 'mock_chg_seed_c1') continue;
+    const payment = await prisma.payment.create({
+      data: {
+        studioId: zenStudioId,
+        memberId: member.id,
+        amount: c.amount,
+        refundedAmount: c.ref === 'mock_chg_seed_a2' ? '150.00' : '0',
+        currency,
+        paymentMethod: PaymentMethod.ONLINE_STRIPE,
+        paymentStatus: PaymentStatus.COMPLETED,
+        provider: 'MOCK',
+        providerReference: c.ref,
+        receiptNumber: `MOCK-${c.ref.slice(-2).toUpperCase()}`,
+        paidAt: daysAgo(c.daysAgo),
+      },
+    });
+    paymentIds.set(c.ref, payment.id);
+    count('payments');
+  }
+  const b2 = await prisma.payment.create({
+    data: {
+      studioId: zenStudioId,
+      memberId: member.id,
+      amount: '450.00',
+      currency,
+      paymentMethod: PaymentMethod.ONLINE_STRIPE,
+      paymentStatus: PaymentStatus.COMPLETED,
+      provider: 'MOCK',
+      providerReference: 'mock_chg_seed_b2',
+      receiptNumber: 'MOCK-B2',
+      paidAt: daysAgo(5),
+    },
+  });
+  paymentIds.set('mock_chg_seed_b2', b2.id);
+  count('payments');
+
+  const money = (minor: bigint) => {
+    const negative = minor < 0n;
+    const abs = negative ? -minor : minor;
+    return `${negative ? '-' : ''}${abs / 100n}.${(abs % 100n).toString().padStart(2, '0')}`;
+  };
+  const minorOf = (amount: string) => {
+    const [whole, fraction = ''] = amount.replace('-', '').split('.');
+    const value = BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0').slice(0, 2));
+    return amount.startsWith('-') ? -value : value;
+  };
+
+  interface SeedItem {
+    type: 'CHARGE' | 'REFUND';
+    ref: string;
+    related?: string;
+    amount: string;
+    fee: string;
+    at: Date;
+  }
+  const payouts: { id: string; status: 'PAID' | 'PENDING'; arrivalDaysAgo: number; items: SeedItem[] }[] = [
+    {
+      id: 'mock_po_seed_a',
+      status: 'PAID',
+      arrivalDaysAgo: 11,
+      items: [
+        { type: 'CHARGE', ref: 'mock_chg_seed_a1', amount: '1200.00', fee: '34.80', at: daysAgo(12) },
+        { type: 'CHARGE', ref: 'mock_chg_seed_a2', amount: '800.00', fee: '23.20', at: daysAgo(12, 11) },
+        { type: 'REFUND', ref: 'mock_rfnd_seed_a2', related: 'mock_chg_seed_a2', amount: '-150.00', fee: '0.00', at: daysAgo(12, 15) },
+      ],
+    },
+    {
+      id: 'mock_po_seed_b',
+      status: 'PAID',
+      arrivalDaysAgo: 4,
+      items: [
+        { type: 'CHARGE', ref: 'mock_chg_seed_b1', amount: '950.00', fee: '27.55', at: daysAgo(5) },
+        { type: 'CHARGE', ref: 'mock_chg_seed_b2', amount: '450.00', fee: '13.05', at: daysAgo(5, 12) },
+      ],
+    },
+    {
+      id: 'mock_po_seed_c',
+      status: 'PENDING',
+      arrivalDaysAgo: -1,
+      items: [{ type: 'CHARGE', ref: 'mock_chg_seed_c1', amount: '600.00', fee: '17.40', at: daysAgo(0) }],
+    },
+  ];
+
+  for (const p of payouts) {
+    let gross = 0n;
+    let fees = 0n;
+    let refunds = 0n;
+    let net = 0n;
+    let matched = 0;
+    for (const item of p.items) {
+      const amount = minorOf(item.amount);
+      const fee = minorOf(item.fee);
+      net += amount - fee;
+      fees += fee;
+      if (item.type === 'CHARGE') gross += amount;
+      else refunds += -amount;
+      if (paymentIds.has(item.related ?? item.ref)) matched += 1;
+    }
+    const total = p.items.length;
+    const payout = await prisma.payout.create({
+      data: {
+        studioId: zenStudioId,
+        provider: 'MOCK',
+        providerPayoutId: p.id,
+        status: p.status,
+        arrivalDate: daysAgo(p.arrivalDaysAgo, 0),
+        grossAmount: money(gross),
+        feeAmount: money(fees),
+        refundAmount: money(refunds),
+        netAmount: money(net),
+        currency,
+        itemCount: total,
+        matchableItemCount: total,
+        matchedItemCount: matched,
+        reconciliationStatus: matched === total ? 'MATCHED' : matched === 0 ? 'UNMATCHED' : 'PARTIAL',
+      },
+    });
+    count('payouts');
+    for (const item of p.items) {
+      const amount = minorOf(item.amount);
+      const fee = minorOf(item.fee);
+      const paymentId = paymentIds.get(item.related ?? item.ref) ?? null;
+      await prisma.payoutItem.create({
+        data: {
+          studioId: zenStudioId,
+          payoutId: payout.id,
+          providerItemId: `mock_txn_${item.ref}`,
+          type: item.type,
+          providerReference: item.ref,
+          relatedReference: item.related ?? null,
+          amount: money(amount),
+          fee: money(fee),
+          net: money(amount - fee),
+          currency,
+          occurredAt: item.at,
+          description: item.type === 'CHARGE' ? 'Mock charge' : 'Mock refund',
+          paymentId,
+          matchSource: paymentId ? 'AUTO' : null,
+        },
+      });
+      count('payout_items');
+    }
+  }
 }

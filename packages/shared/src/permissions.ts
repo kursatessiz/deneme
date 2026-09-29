@@ -111,6 +111,11 @@ export const PERMISSIONS = {
   // G5d-1: viewing funnels reuses reports.view; only creating and editing
   // tenant funnels needs this. Owner only by default.
   'funnels.manage': 'Dönüşüm hunisi oluşturma, düzenleme ve silme',
+  // G5d-2: bank payouts and reconciliation. Owner only by default: they carry
+  // the studio's provider settlements. Viewing, exporting and reading the
+  // items is `payouts.view`; sync, manual match and account settings are `payouts.manage`.
+  'payouts.view': 'Banka ödemelerini (sağlayıcı hakedişleri) ve mutabakat durumunu görüntüleme, dışa aktarma',
+  'payouts.manage': 'Banka ödemelerini eşitleme, tahsilatlarla elle eşleştirme ve sağlayıcı hesabı ayarı',
   // G5c-1: the platform subscription itself (activation, plan choice, the
   // business referral page). Owner only: see OWNER_ONLY_PERMISSIONS.
   'billing.manage': 'Platform aboneliğini etkinleştirme, plan seçimi ve işletme tavsiye programı',
@@ -137,7 +142,7 @@ export const PERMISSION_AREAS = {
   Rezervasyon: ['bookings.view', 'bookings.manage', 'attendance.manage'],
   Satış: ['packages.sell', 'promotions.manage'],
   Ölçümler: ['measurements.view', 'measurements.manage'],
-  Finans: ['finance.view', 'finance.manage', 'commissions.view.own', 'commissions.view.all', 'payroll.manage', 'accounting.export'],
+  Finans: ['finance.view', 'finance.manage', 'commissions.view.own', 'commissions.view.all', 'payroll.manage', 'accounting.export', 'payouts.view', 'payouts.manage'],
   Bildirim: ['notifications.manage', 'reports.view', 'funnels.manage'],
   'Potansiyel üyeler': ['leads.view', 'leads.manage'],
   'Kişiler (CRM)': ['crm.view', 'crm.manage', 'crm.export'],

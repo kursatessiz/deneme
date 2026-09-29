@@ -747,6 +747,9 @@ model Studio {
   referralsMade         StudioReferral[]     @relation("StudioReferralReferrer")
   referredBy            StudioReferral?      @relation("StudioReferralReferred")
   funnels               Funnel[]
+  payouts               Payout[]
+  payoutItems           PayoutItem[]
+  payoutConnections     PayoutConnection[]
 
   @@map("studios")
 }
@@ -1737,6 +1740,7 @@ model Payment {
   giftCardTxs        GiftCardTransaction[]
   retailSale         Sale?
   eventRegistration  EventRegistration?
+  payoutItems        PayoutItem[]
 
   @@index([studioId, paidAt])
   @@index([branchId, paidAt])
@@ -4905,4 +4909,127 @@ model PlatformBillingSettings {
   updatedAt              DateTime @updatedAt @map("updated_at")
 
   @@map("platform_billing_settings")
+}
+
+// ---------------------------------------------------------------------------
+// Bank payouts and reconciliation (G5d-2, docs/BANKA_ODEMELERI.md)
+// ---------------------------------------------------------------------------
+
+enum PayoutStatus {
+  PENDING
+  IN_TRANSIT
+  PAID
+  FAILED
+  CANCELED
+}
+
+enum PayoutItemType {
+  CHARGE
+  REFUND
+  FEE
+  ADJUSTMENT
+}
+
+enum PayoutReconciliationStatus {
+  MATCHED
+  PARTIAL
+  UNMATCHED
+}
+
+/// How a payout item got its payment link. UNMATCHED_MANUAL: a person removed
+/// the link, so later syncs must not re-link it automatically.
+enum PayoutMatchSource {
+  AUTO
+  MANUAL
+  UNMATCHED_MANUAL
+}
+
+/// A batch transfer from a payment provider to the studio's bank account
+/// (Stripe payout, iyzico/PayTR settlement). Amounts are decimals in the
+/// payout's own currency, never a hard-coded one.
+model Payout {
+  id                   String                     @id @default(uuid()) @db.Uuid
+  studioId             String                     @map("studio_id") @db.Uuid
+  provider             PaymentProvider
+  providerPayoutId     String                     @map("provider_payout_id") @db.VarChar(120)
+  status               PayoutStatus
+  arrivalDate          DateTime                   @map("arrival_date")
+  /// Sum of CHARGE items.
+  grossAmount          Decimal                    @map("gross_amount") @db.Decimal(12, 2)
+  /// Item fees plus FEE items, as a positive amount.
+  feeAmount            Decimal                    @map("fee_amount") @db.Decimal(12, 2)
+  /// Sum of REFUND items, as a positive amount.
+  refundAmount         Decimal                    @map("refund_amount") @db.Decimal(12, 2)
+  /// The amount the provider actually transferred to the bank.
+  netAmount            Decimal                    @map("net_amount") @db.Decimal(12, 2)
+  currency             String                     @db.VarChar(3)
+  itemCount            Int                        @default(0) @map("item_count")
+  /// Charge and refund items linked to a payment.
+  matchedItemCount     Int                        @default(0) @map("matched_item_count")
+  /// Charge and refund items, the ones that can be matched.
+  matchableItemCount   Int                        @default(0) @map("matchable_item_count")
+  reconciliationStatus PayoutReconciliationStatus @default(UNMATCHED) @map("reconciliation_status")
+  syncedAt             DateTime                   @default(now()) @map("synced_at")
+  createdAt            DateTime                   @default(now()) @map("created_at")
+  updatedAt            DateTime                   @updatedAt @map("updated_at")
+
+  studio Studio       @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  items  PayoutItem[]
+
+  @@unique([studioId, provider, providerPayoutId])
+  @@index([studioId, arrivalDate])
+  @@index([studioId, reconciliationStatus])
+  @@map("payouts")
+}
+
+/// One line inside a payout: a charge, refund, fee or adjustment.
+model PayoutItem {
+  id                String             @id @default(uuid()) @db.Uuid
+  studioId          String             @map("studio_id") @db.Uuid
+  payoutId          String             @map("payout_id") @db.Uuid
+  providerItemId    String             @map("provider_item_id") @db.VarChar(120)
+  type              PayoutItemType
+  /// The charge or refund id at the provider; matched against Payment.providerReference.
+  providerReference String?            @map("provider_reference") @db.VarChar(120)
+  /// A second reference to match on (the original charge of a refund, a checkout session).
+  relatedReference  String?            @map("related_reference") @db.VarChar(120)
+  /// Signed gross amount: charges positive, refunds and fees negative.
+  amount            Decimal            @db.Decimal(12, 2)
+  /// Provider fee of this line, positive.
+  fee               Decimal            @default(0) @db.Decimal(12, 2)
+  net               Decimal            @db.Decimal(12, 2)
+  currency          String             @db.VarChar(3)
+  occurredAt        DateTime           @map("occurred_at")
+  description       String?            @db.VarChar(200)
+  paymentId         String?            @map("payment_id") @db.Uuid
+  matchSource       PayoutMatchSource? @map("match_source")
+
+  studio  Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  payout  Payout   @relation(fields: [payoutId], references: [id], onDelete: Cascade)
+  payment Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@unique([payoutId, providerItemId])
+  @@index([studioId, paymentId])
+  @@index([studioId, providerReference])
+  @@map("payout_items")
+}
+
+/// Per studio and provider: the provider account payouts are read from and
+/// the state of the last sync. A real Stripe sync needs providerAccountId
+/// (the studio's connected account), otherwise it would read the platform's own payouts.
+model PayoutConnection {
+  id                String          @id @default(uuid()) @db.Uuid
+  studioId          String          @map("studio_id") @db.Uuid
+  provider          PaymentProvider
+  providerAccountId String?         @map("provider_account_id") @db.VarChar(120)
+  lastSyncedAt      DateTime?       @map("last_synced_at")
+  /// Short error code of the last failed sync; null after a successful one.
+  lastError         String?         @map("last_error") @db.VarChar(200)
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@unique([studioId, provider])
+  @@map("payout_connections")
 }

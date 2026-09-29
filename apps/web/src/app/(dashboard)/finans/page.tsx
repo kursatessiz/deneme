@@ -10,6 +10,20 @@ import { ExpensesTab } from '@/components/finance/ExpensesTab';
 import { InvoicesTab } from '@/components/finance/InvoicesTab';
 import { PromotionsTab } from '@/components/finance/PromotionsTab';
 import { AccountingExportCard } from '@/components/finance/AccountingExportCard';
+import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { hasAnyPermission } from '@/lib/nav';
+import type { PermissionKey } from '@platform/shared';
+
+/** A link shown only to members holding one of the permissions (owners always). */
+function PermissionLink({ permissions, href, children }: { permissions: readonly PermissionKey[]; href: string; children: React.ReactNode }) {
+  const { permissions: held, isOwner } = useDashboardSession();
+  if (!hasAnyPermission(permissions, held, isOwner)) return null;
+  return (
+    <Link href={href} className="text-sm font-medium hover:underline" style={{ color: 'var(--color-text-secondary)' }}>
+      {children}
+    </Link>
+  );
+}
 
 const TAB_KEYS = ['payments', 'expenses', 'invoices', 'promotions'] as const;
 
@@ -29,9 +43,14 @@ function FinancePage() {
             {t('finance.subtitle')}
           </p>
         </div>
-        <Link href="/finans/bordro" className="text-sm font-medium hover:underline" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('finance.payrollLink')}
-        </Link>
+        <div className="flex flex-wrap items-center gap-4">
+          <PermissionLink permissions={['payouts.view']} href="/finans/odemeler">
+            {t('finance.payoutsLink')}
+          </PermissionLink>
+          <Link href="/finans/bordro" className="text-sm font-medium hover:underline" style={{ color: 'var(--color-text-secondary)' }}>
+            {t('finance.payrollLink')}
+          </Link>
+        </div>
       </div>
 
       <AccountingExportCard />

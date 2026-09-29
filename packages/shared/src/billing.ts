@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PAYOUT_ERROR_CODES } from './payouts';
 import { CurrencyCodeSchema } from './growth/regions';
 import type { PermissionKey } from './permissions';
 import type { MessageKey } from './i18n/messages';
@@ -409,4 +410,11 @@ export interface AdminReferralOverviewDTO {
 /** API error codes the web BFF and the mobile client translate into the viewer's language. */
 export const TRANSLATED_API_ERROR_CODES: Readonly<Record<string, MessageKey>> = {
   [BILLING_RESTRICTED_ERROR_CODE]: 'billing.error.BILLING_RESTRICTED',
+  [PAYOUT_ERROR_CODES.notFound]: 'payouts.error.PAYOUT_NOT_FOUND',
+  [PAYOUT_ERROR_CODES.itemNotFound]: 'payouts.error.PAYOUT_ITEM_NOT_FOUND',
+  [PAYOUT_ERROR_CODES.itemNotMatchable]: 'payouts.error.PAYOUT_ITEM_NOT_MATCHABLE',
+  [PAYOUT_ERROR_CODES.paymentNotFound]: 'payouts.error.PAYOUT_PAYMENT_NOT_FOUND',
+  [PAYOUT_ERROR_CODES.currencyMismatch]: 'payouts.error.PAYOUT_CURRENCY_MISMATCH',
+  [PAYOUT_ERROR_CODES.tooManyRows]: 'payouts.error.PAYOUT_TOO_MANY_ROWS',
+  [PAYOUT_ERROR_CODES.unknownProvider]: 'payouts.error.PAYOUT_UNKNOWN_PROVIDER',
 };
