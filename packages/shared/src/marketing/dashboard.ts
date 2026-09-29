@@ -299,9 +299,8 @@ const BEARER_RE = /\bbearer\s+[A-Za-z0-9._~+/=-]{8,}/gi;
 
 /** A stored connection error made safe for the dashboard: contact details and token-like values masked, then cut to DASHBOARD_ERROR_TEXT_MAX characters. */
 export function sanitizeConnectionError(text: string): string {
-  const masked = redactPii(text)
-    .replace(BEARER_RE, 'Bearer [hidden]')
-    .replace(SECRET_PARAM_RE, (_m, name: string) => `${name}=[hidden]`)
+  // Secrets first: redactPii would otherwise cut a token at its digit run and leave the rest visible.
+  const masked = redactPii(text.replace(BEARER_RE, 'Bearer [hidden]').replace(SECRET_PARAM_RE, (_m, name: string) => `${name}=[hidden]`))
     .replace(/\s+/g, ' ')
     .trim();
   return masked.length > DASHBOARD_ERROR_TEXT_MAX ? `${masked.slice(0, DASHBOARD_ERROR_TEXT_MAX - 1)}\u2026` : masked;

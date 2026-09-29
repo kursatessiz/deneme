@@ -219,6 +219,9 @@ describe('sanitizeConnectionError', () => {
     expect(text).toContain('OAuth token expired');
     expect(text).not.toContain('ops@example.com');
     expect(text).not.toContain('EAAB1234567890abcdefXYZ');
+    // No fragment of the token may survive (the phone masking must not cut it in the middle).
+    expect(text).not.toContain('abcdefXYZ');
+    expect(text).toContain('access_token=[hidden]');
     expect(text).not.toContain('abcdef123456');
   });
 

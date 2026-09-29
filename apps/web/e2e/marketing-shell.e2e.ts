@@ -30,7 +30,7 @@ test('super admin opens the marketing panel and the reused screens stay under /p
   for (const label of ['Pano', 'Kişiler', 'Segmentler', 'Kampanyalar', 'Akışlar', 'Gelen kutusu', 'Reklam', 'Entegrasyonlar', 'Marka kiti']) {
     await expect(nav.getByRole('link', { name: label, exact: true })).toBeVisible();
   }
-  await expect(page.getByRole('main').getByText('Bu bölüm sonraki fazda eklenecek.')).toBeVisible();
+  await expect(page.getByRole('main').getByRole('heading', { name: 'Pazarlama panosu', exact: true })).toBeVisible();
 
   await nav.getByRole('link', { name: 'Kişiler', exact: true }).click();
   await page.waitForURL('**/pazarlama/kisiler');
