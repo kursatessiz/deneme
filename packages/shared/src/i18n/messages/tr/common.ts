@@ -20,6 +20,7 @@ export const trCommon = {
   'common.none': 'Yok',
   'common.loading': 'Yükleniyor...',
   'common.saved': 'Kaydedildi.',
+  'common.saving': 'Kaydediliyor...',
   'common.retry': 'Tekrar dene',
   'common.required': 'Bu alan zorunlu.',
   'common.error.generic': 'Bir hata oluştu. Lütfen tekrar deneyin.',
