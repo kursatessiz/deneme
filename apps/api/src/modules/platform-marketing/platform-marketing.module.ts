@@ -21,10 +21,11 @@ import { MarketingDraftsService } from './studio/marketing-drafts.service';
 import { BrandKitController, ContentCalendarController, MarketingStudioController } from './studio/marketing-studio.controllers';
 import { SegmentInsightService } from './studio/segment-insight.service';
 import { AdminMarketingSettingsController, MarketingApprovalsController, PlatformCampaignsController } from './approvals/marketing-approvals.controllers';
+import { PlatformMarketingContactsController } from './consent/marketing-consent.controller';
 
 const systemDns: DnsLookup = { resolveTxt, resolveCname, resolveMx };
 
-/** Platform marketing (docs/PAZARLAMA_MODULU.md): M1 the integrations hub, M2 the brand kit, AI studio and content calendar, M3a the KPI dashboard, M3b the approval queue, platform campaign actions and marketing settings (services in GrowthModule, next to the send path). */
+/** Platform marketing (docs/PAZARLAMA_MODULU.md): M1 the integrations hub, M2 the brand kit, AI studio and content calendar, M3a the KPI dashboard, M3b the approval queue, platform campaign actions and marketing settings (services in GrowthModule, next to the send path), M3e the double opt-in resend. */
 @Module({
   imports: [AuthModule, AdsModule, AiModule, ApiKeysModule, CrmCoreModule, FunnelsModule, GrowthModule, WebhooksModule],
   controllers: [
@@ -36,6 +37,7 @@ const systemDns: DnsLookup = { resolveTxt, resolveCname, resolveMx };
     MarketingApprovalsController,
     PlatformCampaignsController,
     AdminMarketingSettingsController,
+    PlatformMarketingContactsController,
   ],
   providers: [
     IntegrationHubService,

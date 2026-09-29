@@ -299,7 +299,7 @@ export const PLATFORM_HOME_PAGE_DEFAULT: PageDefault = {
       },
     },
     { type: 'cta', data: { config: {}, text: { tr: { title: 'Isletmenizi kaydedin', buttonLabel: 'Iletisime gecin', buttonHref: '#iletisim' }, en: { title: 'Register your business', buttonLabel: 'Contact us', buttonHref: '#contact' } } } },
-    { type: 'lead_form', data: { config: { fields: ['fullName', 'phone', 'email'] }, text: { tr: { title: 'Iletisim', submitLabel: 'Gonder' }, en: { title: 'Contact', submitLabel: 'Send' } } } },
+    { type: 'lead_form', data: { config: { fields: ['fullName', 'phone', 'email'], marketingConsent: true }, text: { tr: { title: 'Iletisim', submitLabel: 'Gonder' }, en: { title: 'Contact', submitLabel: 'Send' } } } },
   ],
 };
 

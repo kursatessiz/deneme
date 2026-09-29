@@ -75,4 +75,7 @@ export const trCampaigns = {
   'campaigns.reason.NOT_CONFIGURED': 'Kanal yapılandırılmamış',
   'campaigns.reason.RECIPIENT_NOT_FOUND': 'Alıcı bulunamadı',
   'campaigns.reason.UNKNOWN': 'Bilinmeyen neden',
+  'campaigns.reason.DOUBLE_OPT_IN_PENDING': 'Çift onay bekleniyor',
+  'campaigns.reason.NO_LEGAL_BASIS': 'Bu bölgede geçerli izin dayanağı yok',
+  'campaigns.reason.TR_EXEMPTION_DISABLED': 'Tacir muafiyeti kapalı',
 } as const satisfies Record<string, string>;

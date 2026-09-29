@@ -350,7 +350,7 @@ Atıf raporu (`GET /crm/studios/:studioId/attribution`), `groupBy` seviyesine ka
 |-------|---------|-------------|
 | `segments` | Kayıtlı kitle: `DYNAMIC` (kurallar arka planda yeniden hesaplanır) veya `STATIC` (elle); `rules` JSON (`SegmentGroupSchema` ile doğrulanır), `cached_count`, `refreshed_at`, `archived_at` | (studio_id, archived_at) index |
 | `segment_members` | Segmentin güncel üyeleri; `entered_at` `segment_entered` tetikleyicisini besler | PK (segment_id, contact_id); (studio_id, contact_id), (segment_id, entered_at) index |
-| `contact_consents` | Kişi düzeyinde ticari izin (SMS/WhatsApp/e-posta), kaynak ve kanıt notu, İYS senkron zamanı | (contact_id, channel) benzersiz; (studio_id, status), (iys_synced_at) index |
+| `contact_consents` | Kişi düzeyinde ticari izin (SMS/WhatsApp/e-posta), kaynak ve kanıt notu, İYS senkron zamanı; M3e ile izin dayanağı, çift onay durumu ve form sürümü (aşağıda) | (contact_id, channel) benzersiz; (studio_id, status), (iys_synced_at) index |
 | `campaigns` | Bir segmente tek seferlik ticari gönderim: kanal (boşsa işletme sırası), şablon anahtarı, durum (DRAFT/SCHEDULED/SENDING/SENT/CANCELLED; M3b ile yalnızca platform kiracısında PENDING_APPROVAL ve PAUSED), zamanlar, kitle sayısı | segment_id -> segments (RESTRICT); (studio_id, status), (status, scheduled_at) index |
 | `campaign_recipients` | Kampanyanın alıcı anlık görüntüsü ve kişi başına sonuç (durum, neden kodu, kanal, `notification_log_id`, deneme, sonraki deneme) | (campaign_id, contact_id) benzersiz; (campaign_id, status, next_attempt_at) index |
 | `journeys` | Çok adımlı akış: `definition` JSON (`JourneyDefinitionSchema` + `validateJourneyGraph`), durum, şablon anahtarı, taşınan eski kural (`legacy_rule_id` benzersiz, `legacy_rule_type`), `activated_at` | (studio_id, status), (status) index |
@@ -563,6 +563,21 @@ Migration `20261022000000_marketing_approvals` (yalnızca ekleme: `CampaignStatu
 | `campaigns` (M3b sütunları) | `created_by_user_id` (üyeliği olmayan süper admin dahil oluşturan kullanıcı), `approval_request_id` (kampanyanın bağlı olduğu güncel talep; düz kimlik, FK yok) | boş olabilir |
 
 M3b'de yalnızca onayla ilgili alanlar (eşikler ve TTL) davranışa sahiptir; tavanlar, otomatik duraklatma, MQL/SQL ve haftalık özet saklanır ve M3a/M3d'de kullanılır. `marketing_insights` ve `contact_consents` değişiklikleri M3d/M3e'dedir.
+
+## İzin dayanağı ve çift onay (M3e)
+
+Migration `20261024000000_consent_legal_basis` (yalnızca ekleme: bir enum, `contact_consents` üzerinde dört boş olabilir sütun, `contacts.is_business`, `marketing_settings` üzerinde iki varsayılanlı sütun ve bir tablo). Mevcut izin satırlarında yeni sütunlar boştur ve `CONSENT` (onaylanmış) sayılır. Kurallar ayarı olan kiracıda (pratikte platform kiracısı; satırı yoksa varsayılanlar) uygulanır; diğer kiracılarda davranış değişmez. Ayrıntılar `docs/PAZARLAMA_MODULU.md` bölüm 6.4 ve M3e notları.
+
+| Tablo / sütun | Amaç | Kısıtlar |
+|---|---|---|
+| `contact_consents.legal_basis` | Ticari iletinin dayanağı (`ConsentLegalBasis`: `CONSENT`, `TR_MERCHANT_EXEMPTION`, `EXISTING_CUSTOMER`); boşsa `CONSENT` | boş olabilir |
+| `contact_consents.confirmation_requested_at` | Yakalama anında çift onay gerekti ve onay e-postası istendi; `confirmed_at` dolana kadar izin sayılmaz | boş olabilir |
+| `contact_consents.confirmed_at` | Onay bağlantısına tıklanma zamanı (IP ve cihaz saklanmaz) | boş olabilir |
+| `contact_consents.form_version` | Kişinin gördüğü izin metninin sürümü (form: dil + metin özeti) | `VARCHAR(60)`, boş olabilir |
+| `contacts.is_business` | Kişi bir işletme (tacir/esnaf); TR tacir muafiyeti yalnızca bunlara uygulanabilir | varsayılan `false` |
+| `contact_consent_confirmations` | Çift onay bağlantısı: `token_hash` (belirtecin SHA-256'sı; belirtecin kendisi saklanmaz), `contact_consent_id`, `expires_at` (7 gün), `confirmed_at` (tek kullanım), `studio_id`, `created_at` (yeniden gönderim sınırı: kişi başına 24 saatte 3) | `token_hash` benzersiz; (contact_consent_id, created_at), (studio_id, created_at) index; studio ve contact_consents -> cascade |
+| `marketing_settings.double_opt_in_regions` | Form izinlerinde çift onay gereken uyum bölgeleri veya ISO ülkeleri (JSON liste, veri) | varsayılan `["EU", "UK"]` |
+| `marketing_settings.tr_merchant_exemption_enabled` | TR tacir muafiyeti anahtarı | varsayılan `false` |
 
 ## Denetim (Audit)
 

@@ -135,7 +135,8 @@ export class SegmentEvaluatorService {
       case 'consent.commercialAllowed': {
         const granted: Where = {
           OR: [
-            { consents: { some: { status: 'GRANTED' } } },
+            // M3e: a form consent waiting for its double opt-in confirmation does not count yet.
+            { consents: { some: { status: 'GRANTED', OR: [{ confirmationRequestedAt: null }, { confirmedAt: { not: null } }] } } },
             { membership: { is: { user: { communicationConsents: { some: { studioId, status: 'GRANTED' } } } } } },
           ],
         };

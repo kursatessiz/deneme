@@ -16,6 +16,9 @@ import type {
   ApprovalChannel,
   ApprovalSummary,
   ComplianceRegion,
+  ConsentIneligibilityReason,
+  ConsentLegalBasis,
+  ContactConsentChannel,
   MarketingSettingsDTO,
   PrecheckFinding,
   PrecheckFindingCode,
@@ -23,7 +26,7 @@ import type {
 } from '@platform/shared';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ComplianceService } from '../../../compliance/compliance.service';
-import { effectiveConsent } from '../../../notifications/consent/contact-consent.service';
+import { ContactConsentService, ELIGIBILITY_CONTACT_SELECT } from '../../../notifications/consent/contact-consent.service';
 import { normalizeAddress } from '../../../messaging/engine/opt-out.service';
 import { localeChain, pickTemplate } from '../../../messaging/engine/template-resolver.service';
 import { SegmentsService } from '../../segments/segments.service';
@@ -34,7 +37,9 @@ const CHUNK = 500;
 /** Channels whose consent, opt-out and address the precheck evaluates per recipient. */
 const ADDRESSED: readonly ApprovalChannel[] = ['EMAIL', 'SMS', 'WHATSAPP'];
 
-type BlockReason = 'CONSENT_MISSING' | 'OPTED_OUT' | 'NO_ADDRESS';
+/** Why a recipient cannot be reached on a channel; the M3e legal-basis reasons are counted separately. */
+type BlockReason = 'CONSENT_MISSING' | 'OPTED_OUT' | 'NO_ADDRESS' | ConsentIneligibilityReason;
+const BLOCK_REASONS: readonly BlockReason[] = ['CONSENT_MISSING', 'OPTED_OUT', 'NO_ADDRESS', 'DOUBLE_OPT_IN_PENDING', 'NO_LEGAL_BASIS', 'TR_EXEMPTION_DISABLED'];
 
 export interface CampaignFingerprint {
   contentHash: string;
@@ -65,6 +70,7 @@ export class CampaignPrecheckService {
     private readonly prisma: PrismaService,
     private readonly segments: SegmentsService,
     private readonly compliance: ComplianceService,
+    private readonly consents: ContactConsentService,
   ) {}
 
   /** The hash only (templates, audience count, schedule, channel): used on the send path and after edits. */
@@ -99,7 +105,9 @@ export class CampaignPrecheckService {
     const regions: Partial<Record<ComplianceRegion, number>> = {};
     const messages: Partial<Record<ApprovalChannel, number>> = {};
     const reachable: Partial<Record<ApprovalChannel, number>> = {};
-    const blocked: Record<BlockReason, number> = { CONSENT_MISSING: 0, OPTED_OUT: 0, NO_ADDRESS: 0 };
+    const blocked = Object.fromEntries(BLOCK_REASONS.map((r) => [r, 0])) as Record<BlockReason, number>;
+    const legalBases: Partial<Record<ConsentLegalBasis, number>> = {};
+    const policy = await this.consents.policyFor(campaign.studioId);
     let quietHours = 0;
     let frequencyCapped = 0;
     let usSms = 0;
@@ -109,21 +117,10 @@ export class CampaignPrecheckService {
       const ids = contactIds.slice(i, i + CHUNK);
       const contacts = await this.prisma.contact.findMany({
         where: { id: { in: ids }, studioId: campaign.studioId },
-        select: {
-          id: true,
-          phone: true,
-          email: true,
-          countryCode: true,
-          timezone: true,
-          membership: { select: { user: { select: { id: true, phone: true, email: true } } } },
-        },
+        select: { ...ELIGIBILITY_CONTACT_SELECT, countryCode: true, timezone: true },
       });
-      const userIds = contacts.map((c) => c.membership?.user.id).filter((v): v is string => Boolean(v));
-      const [contactConsents, memberConsents, frequency] = await Promise.all([
-        this.prisma.contactConsent.findMany({ where: { studioId: campaign.studioId, contactId: { in: ids } } }),
-        this.prisma.communicationConsent.findMany({ where: { studioId: campaign.studioId, userId: { in: userIds } } }),
-        this.frequency(campaign.studioId, ids, now),
-      ]);
+      // Same facts and rules as the send path (ContactConsentService + ComplianceService, M3e).
+      const [batch, frequency] = await Promise.all([this.consents.batch(campaign.studioId, contacts, policy), this.frequency(campaign.studioId, ids, now)]);
       const addressesByChannel = new Map<ApprovalChannel, string[]>();
       const addressOf = (c: (typeof contacts)[number], channel: ApprovalChannel): string | null => {
         const user = c.membership?.user ?? null;
@@ -157,30 +154,55 @@ export class CampaignPrecheckService {
 
         // First channel in order that passes address, consent and opt-out (the engine's fallback).
         let chosen: ApprovalChannel | null = null;
+        let chosenBasis: ConsentLegalBasis | null = null;
         let firstBlock: BlockReason | null = null;
         for (const channel of addressed) {
           const address = addressOf(c, channel);
           let reason: BlockReason | null = null;
+          let basis: ConsentLegalBasis | null = null;
           if (!address) reason = 'NO_ADDRESS';
           else if (suppressed.has(`${channel}:${normalizeAddress(channel as NotificationChannel, address)}`)) reason = 'OPTED_OUT';
           else {
-            const contactRow = contactConsents.find((r) => r.contactId === c.id && r.channel === channel) ?? null;
-            const userId = c.membership?.user.id ?? null;
-            const memberRow = userId ? (memberConsents.find((r) => r.userId === userId && r.channel === channel) ?? null) : null;
-            if (!effectiveConsent(contactRow, memberRow).granted) reason = 'CONSENT_MISSING';
+            const decision = this.compliance.canSend({
+              recipient: {
+                countryCode: country,
+                timezone: c.timezone,
+                consentGranted: false,
+                optedOut: false,
+                legalBasis: {
+                  policy,
+                  consent: batch.facts(c.id, c.membership?.user.id ?? null, channel as ContactConsentChannel),
+                  isBusiness: batch.isBusiness(c.id),
+                  isExistingCustomer: batch.isExistingCustomer(c.id),
+                },
+              },
+              channel,
+              purpose: 'COMMERCIAL',
+              skipQuietHours: true,
+            });
+            if (!decision.allow) {
+              const code = decision.reasonCode;
+              reason = code === 'DOUBLE_OPT_IN_PENDING' || code === 'NO_LEGAL_BASIS' || code === 'TR_EXEMPTION_DISABLED' ? code : code === 'OPTED_OUT' ? 'OPTED_OUT' : 'CONSENT_MISSING';
+            } else {
+              basis = decision.legalBasis ?? 'CONSENT';
+            }
           }
           if (reason) {
             firstBlock ??= reason;
             continue;
           }
           reachable[channel] = (reachable[channel] ?? 0) + 1;
-          chosen ??= channel;
+          if (!chosen) {
+            chosen = channel;
+            chosenBasis = basis;
+          }
         }
         if (!chosen) {
           if (firstBlock) blocked[firstBlock] += 1;
           continue;
         }
         messages[chosen] = (messages[chosen] ?? 0) + 1;
+        if (chosenBasis) legalBases[chosenBasis] = (legalBases[chosenBasis] ?? 0) + 1;
         const window = this.compliance.canSend({
           recipient: { countryCode: country, timezone: c.timezone, consentGranted: true, optedOut: false },
           channel: chosen,
@@ -245,6 +267,9 @@ export class CampaignPrecheckService {
     if (blocked.CONSENT_MISSING) add('CONSENT_MISSING', 'info', null, blocked.CONSENT_MISSING);
     if (blocked.OPTED_OUT) add('OPTED_OUT', 'info', null, blocked.OPTED_OUT);
     if (blocked.NO_ADDRESS) add('NO_ADDRESS', 'info', null, blocked.NO_ADDRESS);
+    if (blocked.DOUBLE_OPT_IN_PENDING) add('DOUBLE_OPT_IN_PENDING', 'info', null, blocked.DOUBLE_OPT_IN_PENDING);
+    if (blocked.NO_LEGAL_BASIS) add('NO_LEGAL_BASIS', 'info', null, blocked.NO_LEGAL_BASIS);
+    if (blocked.TR_EXEMPTION_DISABLED) add('TR_EXEMPTION_DISABLED', 'info', null, blocked.TR_EXEMPTION_DISABLED);
     if (quietHours) add('QUIET_HOURS', 'info', null, quietHours);
     if (frequencyCapped) add('FREQUENCY_CAP', 'info', null, frequencyCapped);
 
@@ -294,6 +319,7 @@ export class CampaignPrecheckService {
       emailDomainVerified,
       thresholds,
       evaluatedAt: now.toISOString(),
+      legalBases,
     };
     return { ...print, summary };
   }

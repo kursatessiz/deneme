@@ -163,6 +163,18 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplateDefinition[] = [
     whatsappName: 'marketing_approval_rejected',
     emailButton: { labelKey: 'msgTpl.MARKETING_APPROVAL.cta', urlVariable: 'link' },
   },
+  /**
+   * M3e double opt-in (docs/PAZARLAMA_MODULU.md 6.4): the confirmation link
+   * after a form consent in a double opt-in region. Sent by e-mail only;
+   * transactional because it asks for consent rather than using one.
+   */
+  {
+    key: 'CONSENT_CONFIRMATION',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'studioName', 'formVersion', 'days', 'link'],
+    whatsappName: 'consent_confirmation',
+    emailButton: { labelKey: 'msgTpl.CONSENT_CONFIRMATION.cta', urlVariable: 'link' },
+  },
 ];
 
 export function builtinTemplate(key: string): BuiltinTemplateDefinition | null {

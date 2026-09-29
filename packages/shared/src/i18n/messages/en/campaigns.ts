@@ -76,4 +76,7 @@ export const enCampaigns: Record<keyof typeof trCampaigns, string> = {
   'campaigns.reason.NOT_CONFIGURED': 'Channel not configured',
   'campaigns.reason.RECIPIENT_NOT_FOUND': 'Recipient not found',
   'campaigns.reason.UNKNOWN': 'Unknown reason',
+  'campaigns.reason.DOUBLE_OPT_IN_PENDING': 'Waiting for double opt-in',
+  'campaigns.reason.NO_LEGAL_BASIS': 'No valid legal basis in this region',
+  'campaigns.reason.TR_EXEMPTION_DISABLED': 'Merchant exemption is off',
 };

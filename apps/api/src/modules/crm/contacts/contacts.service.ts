@@ -348,7 +348,12 @@ export class ContactsService {
       tags: dedupeTags(dto.tags ?? []),
       customFields,
     });
-    if (dto.timezone) await this.prisma.contact.update({ where: { id: contact.id }, data: { timezone: dto.timezone } });
+    if (dto.timezone || dto.isBusiness !== undefined) {
+      await this.prisma.contact.update({
+        where: { id: contact.id },
+        data: { ...(dto.timezone ? { timezone: dto.timezone } : {}), ...(dto.isBusiness !== undefined ? { isBusiness: dto.isBusiness } : {}) },
+      });
+    }
     return this.getDto(studioId, contact.id, canSeeMemberContact(tenant));
   }
 
@@ -381,6 +386,7 @@ export class ContactsService {
           ...(dto.sourceDetail !== undefined ? { sourceDetail: dto.sourceDetail } : {}),
           ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
           ...(dto.isTest !== undefined ? { isTest: dto.isTest } : {}),
+          ...(dto.isBusiness !== undefined ? { isBusiness: dto.isBusiness } : {}),
           ...(dto.nextFollowUpAt !== undefined ? { nextFollowUpAt: dto.nextFollowUpAt ? new Date(dto.nextFollowUpAt) : null } : {}),
         },
       });
@@ -754,6 +760,7 @@ export function toContactDto(c: ContactWithRelations, showMemberContact = true):
     nextFollowUpAt: c.nextFollowUpAt?.toISOString() ?? null,
     notes: c.notes,
     isTest: c.isTest,
+    isBusiness: c.isBusiness,
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
   };

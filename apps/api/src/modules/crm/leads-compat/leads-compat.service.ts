@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { Prisma } from '@platform/database';
-import { LeadSource, LeadStage, canTransitionLeadStage, contactDisplayName, splitContactName } from '@platform/shared';
+import { LeadSource, LeadStage, canTransitionLeadStage, contactDisplayName, countryOfPhone, splitContactName } from '@platform/shared';
 import type {
   AddLeadActivityInput,
   AssignLeadOwnerInput,
@@ -27,6 +27,7 @@ import { ConversionService } from '../conversions/conversion.service';
 import { AttributionService } from '../attribution/attribution.service';
 import { CrmHooksService } from '../hooks/crm-hooks.service';
 import { WebhooksService } from '../../webhooks/webhooks.service';
+import { ConsentConfirmationService } from '../../notifications/consent/consent-confirmation.service';
 
 const LEAD_INCLUDE = {
   pipelineStage: true,
@@ -62,6 +63,7 @@ export class LeadsCompatService {
     private readonly members: MembersService,
     private readonly schedules: SchedulesService,
     @Optional() private readonly webhooks?: WebhooksService,
+    @Optional() private readonly consentConfirmations?: ConsentConfirmationService,
   ) {}
 
   async findAll(tenant: TenantContext, query: LeadListQuery): Promise<LeadListResponseDTO> {
@@ -166,7 +168,7 @@ export class LeadsCompatService {
    * Public web form (POST /public/studios/:slug/leads). Always resolves
    * normally so the controller answers a flat 202 whatever happens.
    */
-  async submitPublicForm(slug: string, dto: PublicLeadFormInput, visitorId: string | null): Promise<void> {
+  async submitPublicForm(slug: string, dto: PublicLeadFormInput, visitorId: string | null, edgeCountry: string | null = null): Promise<void> {
     // Honeypot: a real visitor never fills this hidden field.
     if (dto.website) return;
 
@@ -188,6 +190,7 @@ export class LeadsCompatService {
         },
       });
       await this.attribution.identify(studioId, visitorId, existing.id);
+      await this.recordMarketingConsent(studioId, existing.id, dto, edgeCountry);
       return;
     }
 
@@ -217,8 +220,27 @@ export class LeadsCompatService {
       data: { studioId, contactId, type: 'FORM', body: 'İletişim izni web formu üzerinden onaylandı' },
     });
     await this.attribution.identify(studioId, visitorId, contactId);
+    await this.recordMarketingConsent(studioId, contactId, dto, edgeCountry);
     await this.recordLead(studioId, contactId);
     await this.emitLeadCreated(studioId, leadContact, dto.referralCode ? LeadSource.REFERRAL : LeadSource.WEB_FORM);
+  }
+
+  /**
+   * M3e: the form's separate marketing consent box. Recorded as CONSENT on
+   * e-mail (when given) and SMS; in a double opt-in region (by the
+   * contact's country, else the edge country of this request, else the
+   * phone's) it waits for the confirmation e-mail's link.
+   */
+  private async recordMarketingConsent(studioId: string, contactId: string, dto: PublicLeadFormInput, edgeCountry: string | null): Promise<void> {
+    if (!dto.marketingConsent || !this.consentConfirmations) return;
+    const contact = await this.prisma.contact.findFirst({ where: { id: contactId, studioId }, select: { countryCode: true, email: true, locale: true } });
+    if (!contact) return;
+    await this.consentConfirmations.afterFormConsent(studioId, contactId, {
+      channels: contact.email ? ['EMAIL', 'SMS'] : ['SMS'],
+      formVersion: dto.formVersion ?? null,
+      countryCode: contact.countryCode ?? edgeCountry ?? countryOfPhone(dto.phone),
+      locale: dto.locale ?? contact.locale ?? null,
+    });
   }
 
   /** Automation hook (G3c-3): a new pipeline entry from a form or from staff. The outbox never throws. */

@@ -21,10 +21,18 @@ export type TaxRegime = (typeof TAX_REGIMES)[number];
 export const COMPLIANCE_REGIONS = ['TR', 'EU', 'UK', 'US', 'CA', 'DEFAULT'] as const;
 export type ComplianceRegion = (typeof COMPLIANCE_REGIONS)[number];
 
-const EU_EEA = new Set([
+/**
+ * Countries that fall under the EU compliance region: the 27 EU member
+ * states, the EEA members Iceland, Liechtenstein and Norway, and
+ * Switzerland (same consent practice). Data, not logic: the double opt-in
+ * region list (MarketingSettings.doubleOptInRegions) refers to it through
+ * the region code `EU`.
+ */
+export const EU_EEA_COUNTRIES: readonly string[] = [
   'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV',
   'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE', 'IS', 'LI', 'NO', 'CH',
-]);
+];
+const EU_EEA = new Set(EU_EEA_COUNTRIES);
 
 export function complianceRegionOf(countryCode: string | null | undefined): ComplianceRegion {
   if (!countryCode) return 'DEFAULT';

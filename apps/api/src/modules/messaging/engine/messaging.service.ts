@@ -20,7 +20,7 @@ import {
   renderMessageText,
 } from '@platform/shared';
 import type {
-  ConsentChannelName,
+  ContactConsentChannel,
   EmailBlock,
   EngineChannel,
   FrequencyCounts,
@@ -31,6 +31,7 @@ import type {
 import { PrismaService } from '../../prisma/prisma.service';
 import { ComplianceService } from '../../compliance/compliance.service';
 import { ContactConsentService } from '../../notifications/consent/contact-consent.service';
+import type { CommercialConsentFacts } from '../../notifications/consent/contact-consent.service';
 import { NotificationPreferencesService } from '../../notifications/notification-preferences.service';
 import { PushService } from '../../notifications/push.service';
 import { MessagingChannelRegistry } from '../channels/channel-registry.service';
@@ -201,12 +202,18 @@ export class MessagingService {
     // 3. Compliance: consent, opt-out and (commercial only) quiet hours.
     if (purpose === 'COMMERCIAL') {
       if (!input.studioId || !studio) return { kind: 'skipped', reason: 'Ticari mesaj bir işletme adına gönderilmelidir', code: 'CONSENT_REQUIRED' };
-      const [consentGranted, suppressed] = await Promise.all([
+      const [consent, suppressed] = await Promise.all([
         this.consentFor(input.studioId, recipient, channel),
         channel === 'PUSH' || channel === 'IN_APP' ? Promise.resolve(false) : this.optOut.isSuppressed(input.studioId, channel, address),
       ]);
       const decision = this.compliance.canSend({
-        recipient: { countryCode: ctx.regionCountry, timezone: recipient.timezone, consentGranted, optedOut: suppressed },
+        recipient: {
+          countryCode: ctx.regionCountry,
+          timezone: recipient.timezone,
+          consentGranted: consent.granted,
+          legalBasis: consent.legalBasis,
+          optedOut: suppressed,
+        },
         channel,
         purpose,
         now: ctx.now,
@@ -214,6 +221,10 @@ export class MessagingService {
       });
       if (!decision.allow) {
         return { kind: 'skipped', reason: decision.reason ?? `${channel} için gönderim engellendi`, code: decision.reasonCode ?? 'CONSENT_REQUIRED' };
+      }
+      if (decision.legalBasis === 'TR_MERCHANT_EXEMPTION' && decision.legalBasisRecorded === false && recipient.contactId) {
+        // M3e: a merchant-exemption send is recorded (and registered with the TR registry) before it goes out.
+        await this.consents.applyMerchantExemption(input.studioId, recipient.contactId);
       }
 
       // 4. Frequency cap per contact, all channels together.
@@ -528,14 +539,21 @@ export class MessagingService {
   /**
    * Recorded opt-in for a commercial message on this channel: the
    * contact's own consent row and the member's consent (when there is an
-   * account), the most recent decision winning (G2a). A raw address with
+   * account), the most recent decision winning (G2a), plus the M3e legal
+   * basis facts (double opt-in, business, existing customer, the tenant's
+   * policy) that ComplianceService.canSend decides on. A raw address with
    * neither has no consent.
    */
-  private async consentFor(studioId: string, recipient: ResolvedRecipient, channel: EngineChannel): Promise<boolean> {
-    if (channel === 'IN_APP') return true;
-    if (channel === 'PUSH') return recipient.userId ? (await this.preferences.channelsFor(recipient.userId, 'MARKETING')).push : false;
-    if (!recipient.userId && !recipient.contactId) return false;
-    return this.consents.isGranted(studioId, recipient.contactId, recipient.userId, channel as ConsentChannelName);
+  private async consentFor(
+    studioId: string,
+    recipient: ResolvedRecipient,
+    channel: EngineChannel,
+  ): Promise<{ granted: boolean; legalBasis?: CommercialConsentFacts }> {
+    if (channel === 'IN_APP') return { granted: true };
+    if (channel === 'PUSH') return { granted: recipient.userId ? (await this.preferences.channelsFor(recipient.userId, 'MARKETING')).push : false };
+    if (!recipient.userId && !recipient.contactId) return { granted: false };
+    const facts = await this.consents.commercialFacts(studioId, recipient.contactId, recipient.userId, channel as ContactConsentChannel);
+    return { granted: facts.consent.decision === 'GRANTED', legalBasis: facts };
   }
 
   private async frequencyCounts(studioId: string, recipient: ResolvedRecipient, now: Date): Promise<FrequencyCounts> {

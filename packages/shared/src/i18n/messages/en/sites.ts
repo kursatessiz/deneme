@@ -10,6 +10,7 @@ export const enSites: Record<keyof typeof trSites, string> = {
   'sites.leadForm.submit': 'Send',
   'sites.leadForm.sent': 'Thanks, we will get back to you shortly.',
   'sites.leadForm.error': 'Could not send, please try again.',
+  'sites.leadForm.marketingConsent': 'I would like to receive news, campaigns and offers by e-mail and SMS (optional, I can unsubscribe at any time).',
   'sites.bookingWidget.defaultButton': 'Book now',
   'sites.footer.cookiePreferences': 'Cookie preferences',
 

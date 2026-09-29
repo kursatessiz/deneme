@@ -86,7 +86,17 @@ function setup(opts: { consent?: boolean; suppressed?: boolean; counts?: [number
   };
   const email = { key: 'SES', isConfigured: () => false, send: jest.fn() };
   const registry = { resolveSms: jest.fn(() => smsAdapter), resolveWhatsApp: () => whatsapp, resolveEmail: () => email, whatsapp, email };
-  const consents = { isGranted: jest.fn(async () => opts.consent ?? false) };
+  const consents = {
+    commercialFacts: jest.fn(async () => ({
+      policy: null,
+      consent: opts.consent
+        ? { decision: 'GRANTED', decidedBy: 'contact', legalBasis: null, confirmationRequested: false, confirmed: false }
+        : { decision: 'NONE', decidedBy: 'default', legalBasis: null, confirmationRequested: false, confirmed: false },
+      isBusiness: false,
+      isExistingCustomer: false,
+    })),
+    applyMerchantExemption: jest.fn(async () => 0),
+  };
   const optOut = { isSuppressed: jest.fn(async () => opts.suppressed ?? false) };
   const config = { get: jest.fn((key: string, fallback?: string) => ({ JWT_SECRET: 'x'.repeat(40), NODE_ENV: 'test' })[key] ?? fallback) };
   const service = new MessagingService(

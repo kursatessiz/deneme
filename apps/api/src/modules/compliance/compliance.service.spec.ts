@@ -180,4 +180,80 @@ describe('ComplianceService.canSend', () => {
       expect(result.allow).toBe(true);
     });
   });
+
+  describe('M3e legal basis facts', () => {
+    const policy = { doubleOptInRegions: ['EU', 'UK'], trMerchantExemptionEnabled: false };
+    const facts = (over: Record<string, unknown> = {}) => ({
+      policy,
+      consent: { decision: 'GRANTED' as const, decidedBy: 'contact' as const, legalBasis: 'CONSENT' as const, confirmationRequested: true, confirmed: false },
+      isBusiness: false,
+      isExistingCustomer: false,
+      ...over,
+    });
+
+    it('holds an EU form consent until the double opt-in is confirmed, whatever consentGranted says', () => {
+      const pending = service.canSend({
+        recipient: { countryCode: 'DE', timezone: 'Europe/Berlin', consentGranted: true, legalBasis: facts() },
+        channel: 'EMAIL',
+        purpose: 'COMMERCIAL',
+        now: NOON_UTC,
+      });
+      expect(pending).toMatchObject({ allow: false, reasonCode: 'DOUBLE_OPT_IN_PENDING', region: 'EU' });
+      const confirmed = service.canSend({
+        recipient: {
+          countryCode: 'DE',
+          timezone: 'Europe/Berlin',
+          consentGranted: true,
+          legalBasis: facts({ consent: { decision: 'GRANTED', decidedBy: 'contact', legalBasis: 'CONSENT', confirmationRequested: true, confirmed: true } }),
+        },
+        channel: 'EMAIL',
+        purpose: 'COMMERCIAL',
+        now: NOON_UTC,
+      });
+      expect(confirmed).toMatchObject({ allow: true, legalBasis: 'CONSENT', legalBasisRecorded: true });
+    });
+
+    it('lets a US existing customer receive commercial e-mail under EXISTING_CUSTOMER, not a TR one', () => {
+      const none = { decision: 'NONE' as const, decidedBy: 'default' as const, legalBasis: null, confirmationRequested: false, confirmed: false };
+      const us = service.canSend({
+        recipient: { countryCode: 'US', timezone: 'America/New_York', consentGranted: false, legalBasis: facts({ consent: none, isExistingCustomer: true }) },
+        channel: 'EMAIL',
+        purpose: 'COMMERCIAL',
+        now: NOON_UTC,
+      });
+      expect(us).toMatchObject({ allow: true, legalBasis: 'EXISTING_CUSTOMER', legalBasisRecorded: false });
+      const tr = service.canSend({
+        recipient: { countryCode: 'TR', timezone: 'Europe/Istanbul', consentGranted: false, legalBasis: facts({ consent: none, isExistingCustomer: true }) },
+        channel: 'EMAIL',
+        purpose: 'COMMERCIAL',
+        now: NOON_UTC,
+      });
+      expect(tr).toMatchObject({ allow: false, reasonCode: 'NO_LEGAL_BASIS' });
+    });
+
+    it('an opt-out beats every basis and the TR exemption follows the setting', () => {
+      const none = { decision: 'NONE' as const, decidedBy: 'default' as const, legalBasis: null, confirmationRequested: false, confirmed: false };
+      const optedOut = service.canSend({
+        recipient: { countryCode: 'TR', timezone: 'Europe/Istanbul', consentGranted: true, optedOut: true, legalBasis: facts({ consent: none, isBusiness: true, policy: { ...policy, trMerchantExemptionEnabled: true } }) },
+        channel: 'SMS',
+        purpose: 'COMMERCIAL',
+        now: NOON_UTC,
+      });
+      expect(optedOut.reasonCode).toBe('OPTED_OUT');
+      const off = service.canSend({
+        recipient: { countryCode: 'TR', timezone: 'Europe/Istanbul', consentGranted: false, legalBasis: facts({ consent: none, isBusiness: true }) },
+        channel: 'SMS',
+        purpose: 'COMMERCIAL',
+        now: NOON_UTC,
+      });
+      expect(off.reasonCode).toBe('TR_EXEMPTION_DISABLED');
+      const on = service.canSend({
+        recipient: { countryCode: 'TR', timezone: 'Europe/Istanbul', consentGranted: false, legalBasis: facts({ consent: none, isBusiness: true, policy: { ...policy, trMerchantExemptionEnabled: true } }) },
+        channel: 'SMS',
+        purpose: 'COMMERCIAL',
+        now: NOON_UTC,
+      });
+      expect(on).toMatchObject({ allow: true, legalBasis: 'TR_MERCHANT_EXEMPTION' });
+    });
+  });
 });
