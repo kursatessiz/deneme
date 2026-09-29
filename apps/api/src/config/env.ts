@@ -39,7 +39,7 @@ export const EnvSchema = z
     /** Public origin of this API, used in links it serves itself (calendar feeds). */
     PUBLIC_API_URL: z.string().url().default('http://localhost:4000'),
     /** Issuer name shown in authenticator apps for platform 2FA (M1); defaults to "Platform". */
-    MFA_ISSUER: z.string().trim().min(1).max(40).optional(),
+    MFA_ISSUER: z.preprocess((v) => (v === '' ? undefined : v), z.string().trim().min(1).max(40).optional()),
     /** Fixed OTP for automated tests. Rejected outside NODE_ENV=test. */
     OTP_TEST_CODE: z
       .string()

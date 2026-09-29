@@ -18,6 +18,10 @@ const LINKS: ReadonlyArray<{ href: string; labelKey: string }> = [
   { href: '/admin/benchmark', labelKey: 'adminNav.benchmark' },
   { href: '/admin/health', labelKey: 'adminNav.health' },
   { href: '/admin/hatalar', labelKey: 'adminErrors.nav' },
+  // M1: platform users, the shared integrations hub and the marketing panel (one console for the owner).
+  { href: '/admin/platform-kullanicilari', labelKey: 'adminPlatformUsers.nav' },
+  { href: '/admin/entegrasyonlar', labelKey: 'adminPlatformUsers.navIntegrations' },
+  { href: '/pazarlama', labelKey: 'adminPlatformUsers.navMarketing' },
 ];
 
 export function AdminNav() {

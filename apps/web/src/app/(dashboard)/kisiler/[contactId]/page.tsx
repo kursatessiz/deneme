@@ -15,6 +15,7 @@ import { bffFetch } from '@/lib/session/client';
 import { hasAnyPermission } from '@/lib/nav';
 import { Muted, Notice, Panel, inputClass, inputStyle, errorMessage, useDateFormat } from '@/components/growth/ui';
 import { stageLabel } from '@/components/growth/crm-labels';
+import { useAreaHref } from '@/components/session/AreaBase';
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -91,6 +92,7 @@ function ConsentRow({
 function ContactCard({ contactId }: { contactId: string }) {
   const { activeStudioId, permissions, isOwner } = useDashboardSession();
   const t = useT();
+  const areaHref = useAreaHref();
   const locale = useLocale();
   const fmt = useDateFormat();
   const canManage = hasAnyPermission(['crm.manage'], permissions, isOwner);
@@ -150,7 +152,7 @@ function ContactCard({ contactId }: { contactId: string }) {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <Link href="/kisiler" className="text-xs hover:underline" style={{ color: 'var(--color-text-secondary)' }}>
+        <Link href={areaHref('/kisiler')} className="text-xs hover:underline" style={{ color: 'var(--color-text-secondary)' }}>
           {t('crm.card.back')}
         </Link>
         <div className="flex flex-wrap items-center gap-3">

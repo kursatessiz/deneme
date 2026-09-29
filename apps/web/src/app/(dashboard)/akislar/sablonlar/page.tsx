@@ -12,10 +12,12 @@ import { ErrorState, LoadingState } from '@/components/common/DataState';
 import { bffFetch } from '@/lib/session/client';
 import { useBff } from '@/lib/session/use-bff';
 import { Muted, Notice, PageHeader, errorMessage } from '@/components/growth/ui';
+import { useAreaHref } from '@/components/session/AreaBase';
 
 function TemplateGallery() {
   const { activeStudioId } = useDashboardSession();
   const t = useT();
+  const areaHref = useAreaHref();
   const router = useRouter();
   const { data, loading, error } = useBff<{ items: JourneyTemplateDTO[] }>(activeStudioId ? `studios/${activeStudioId}/journeys/templates` : null, activeStudioId);
   const [busy, setBusy] = useState<string | null>(null);
@@ -26,7 +28,7 @@ function TemplateGallery() {
     setNotice(null);
     try {
       const created = await bffFetch<JourneyDTO>(`studios/${activeStudioId}/journeys/from-template`, { method: 'POST', studioId: activeStudioId, body: { templateKey: key } });
-      router.push(`/akislar/${created.id}`);
+      router.push(areaHref(`/akislar/${created.id}`));
     } catch (err) {
       setNotice(errorMessage(err, t('common.error.generic')));
       setBusy(null);

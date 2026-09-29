@@ -10,10 +10,12 @@ import { EmptyState, ErrorState, LoadingState } from '@/components/common/DataSt
 import { hasAnyPermission } from '@/lib/nav';
 import { useBff } from '@/lib/session/use-bff';
 import { PageHeader, useDateFormat } from '@/components/growth/ui';
+import { useAreaHref } from '@/components/session/AreaBase';
 
 function SegmentList() {
   const { activeStudioId, permissions, isOwner } = useDashboardSession();
   const t = useT();
+  const areaHref = useAreaHref();
   const fmt = useDateFormat();
   const { data, loading, error } = useBff<{ items: SegmentDTO[] }>(activeStudioId ? `studios/${activeStudioId}/segments` : null, activeStudioId);
   const canManage = hasAnyPermission(['segments.manage'], permissions, isOwner);
@@ -25,7 +27,7 @@ function SegmentList() {
         subtitle={t('segments.subtitle')}
         actions={
           canManage ? (
-            <Link href="/segmentler/yeni" className="text-xs font-medium px-3 py-1.5" style={{ background: 'var(--gradient-brand)', color: 'var(--color-on-primary)', borderRadius: 'var(--radius-button)' }}>
+            <Link href={areaHref('/segmentler/yeni')} className="text-xs font-medium px-3 py-1.5" style={{ background: 'var(--gradient-brand)', color: 'var(--color-on-primary)', borderRadius: 'var(--radius-button)' }}>
               {t('segments.new')}
             </Link>
           ) : undefined
@@ -55,7 +57,7 @@ function SegmentList() {
               {data.items.map((s) => (
                 <tr key={s.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
                   <td className="px-4 py-2.5">
-                    <Link href={`/segmentler/${encodeURIComponent(s.id)}`} className="font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                    <Link href={areaHref(`/segmentler/${encodeURIComponent(s.id)}`)} className="font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
                       {s.name}
                     </Link>
                   </td>

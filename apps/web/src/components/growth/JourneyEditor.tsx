@@ -35,6 +35,7 @@ import { bffFetch } from '@/lib/session/client';
 import { hasAnyPermission } from '@/lib/nav';
 import { EMPTY_RULES, SegmentBuilder } from './SegmentBuilder';
 import { Field, Muted, Notice, PageHeader, Panel, inputClass, inputStyle, errorMessage, useDateFormat } from './ui';
+import { useAreaHref } from '@/components/session/AreaBase';
 
 type StepType = JourneyStep['type'];
 const STEP_TYPES: StepType[] = ['wait', 'send', 'branch', 'update_contact', 'create_task', 'award_points'];
@@ -309,6 +310,7 @@ function StepEditor({
 export function JourneyEditor({ journeyId }: { journeyId?: string }) {
   const { activeStudioId, permissions, isOwner } = useDashboardSession();
   const t = useT();
+  const areaHref = useAreaHref();
   const fmt = useDateFormat();
   const router = useRouter();
   const canManage = hasAnyPermission(['journeys.manage'], permissions, isOwner);
@@ -399,7 +401,7 @@ export function JourneyEditor({ journeyId }: { journeyId?: string }) {
         setNotice({ tone: 'success', text: t('journeys.saved') });
       } else {
         const created = await bffFetch<JourneyDetailDTO>(base, { method: 'POST', studioId: activeStudioId, body: { name, ...(description ? { description } : {}), definition } });
-        router.push(`/akislar/${created.id}`);
+        router.push(areaHref(`/akislar/${created.id}`));
       }
     } catch (err) {
       setNotice({ tone: 'error', text: errorMessage(err, t('common.error.generic')) });
@@ -447,7 +449,7 @@ export function JourneyEditor({ journeyId }: { journeyId?: string }) {
                 {t('journeys.action.archive')}
               </PermissionButton>
             )}
-            <Link href="/akislar" className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
+            <Link href={areaHref('/akislar')} className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
               {t('journeys.title')}
             </Link>
           </>
@@ -683,7 +685,7 @@ export function JourneyEditor({ journeyId }: { journeyId?: string }) {
               <ul className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
                 {enrollments.map((e) => (
                   <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5 text-sm">
-                    <Link href={`/kisiler/${encodeURIComponent(e.contactId)}`} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                    <Link href={areaHref(`/kisiler/${encodeURIComponent(e.contactId)}`)} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
                       {e.fullName}
                     </Link>
                     <span className="flex items-center gap-2">

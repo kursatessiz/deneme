@@ -22,10 +22,10 @@ export class BffError extends Error {
  */
 export async function bffFetch<T>(
   path: string,
-  options: { method?: string; body?: unknown; studioId?: string | null } = {},
+  options: { method?: string; body?: unknown; studioId?: string | null; headers?: Record<string, string> } = {},
 ): Promise<T> {
   const method = options.method ?? 'GET';
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...options.headers };
   if (method !== 'GET' && method !== 'HEAD') {
     headers[CSRF_HEADER_NAME] = CSRF_HEADER_VALUE;
   }

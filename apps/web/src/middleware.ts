@@ -173,7 +173,8 @@ export async function middleware(request: NextRequest) {
   }
 
   const isProtected = isProtectedPath(request.nextUrl.pathname);
-  const isLogin = request.nextUrl.pathname === LOGIN_PATH;
+  // The web invite landing (/j/<token>, M1) asks for a code and a PIN: same strict CSP as the login page, never ad pixels.
+  const isLogin = request.nextUrl.pathname === LOGIN_PATH || request.nextUrl.pathname.startsWith('/j/');
   if (isProtected && !request.cookies.get(ACCESS_TOKEN_COOKIE)?.value) {
     // The access cookie expires with the token (1h); a valid refresh cookie
     // silently renews the session instead of sending the user to /giris.

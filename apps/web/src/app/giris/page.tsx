@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { useT } from '@/components/i18n/I18nProvider';
 import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
+import type { SessionUserDTO } from '@platform/shared';
+import { postLoginPath } from '@/lib/session/post-login';
 
 type Mode = 'password' | 'otp-request' | 'otp-verify';
 
@@ -29,8 +31,8 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      await bffFetch('auth/login', { method: 'POST', body: { emailOrPhone, password } });
-      router.push('/dashboard');
+      const res = await bffFetch<{ user: SessionUserDTO }>('auth/login', { method: 'POST', body: { emailOrPhone, password } });
+      router.push(postLoginPath(res.user));
       router.refresh();
     } catch (err) {
       setError(err instanceof BffError ? err.message : t('auth.login.error.password'));
@@ -58,8 +60,8 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      await bffFetch('auth/otp/verify', { method: 'POST', body: { phone, code } });
-      router.push('/dashboard');
+      const res = await bffFetch<{ user: SessionUserDTO }>('auth/otp/verify', { method: 'POST', body: { phone, code } });
+      router.push(postLoginPath(res.user));
       router.refresh();
     } catch (err) {
       setError(err instanceof BffError ? err.message : t('auth.login.error.otpVerify'));

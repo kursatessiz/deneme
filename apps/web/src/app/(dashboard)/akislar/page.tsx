@@ -10,6 +10,7 @@ import { EmptyState, ErrorState, LoadingState } from '@/components/common/DataSt
 import { hasAnyPermission } from '@/lib/nav';
 import { useBff } from '@/lib/session/use-bff';
 import { PageHeader, inputStyle } from '@/components/growth/ui';
+import { useAreaHref } from '@/components/session/AreaBase';
 
 function triggerLabel(j: JourneyDTO, t: (key: string) => string): string {
   const trigger = j.definition.trigger;
@@ -19,6 +20,7 @@ function triggerLabel(j: JourneyDTO, t: (key: string) => string): string {
 function JourneyList() {
   const { activeStudioId, permissions, isOwner } = useDashboardSession();
   const t = useT();
+  const areaHref = useAreaHref();
   const { data, loading, error } = useBff<{ items: JourneyDTO[] }>(activeStudioId ? `studios/${activeStudioId}/journeys` : null, activeStudioId);
   const canManage = hasAnyPermission(['journeys.manage'], permissions, isOwner);
 
@@ -30,10 +32,10 @@ function JourneyList() {
         actions={
           canManage ? (
             <>
-              <Link href="/akislar/sablonlar" className="text-xs font-medium px-3 py-1.5" style={{ ...inputStyle, borderRadius: 'var(--radius-button)' }}>
+              <Link href={areaHref('/akislar/sablonlar')} className="text-xs font-medium px-3 py-1.5" style={{ ...inputStyle, borderRadius: 'var(--radius-button)' }}>
                 {t('journeys.fromTemplate')}
               </Link>
-              <Link href="/akislar/yeni" className="text-xs font-medium px-3 py-1.5" style={{ background: 'var(--gradient-brand)', color: 'var(--color-on-primary)', borderRadius: 'var(--radius-button)' }}>
+              <Link href={areaHref('/akislar/yeni')} className="text-xs font-medium px-3 py-1.5" style={{ background: 'var(--gradient-brand)', color: 'var(--color-on-primary)', borderRadius: 'var(--radius-button)' }}>
                 {t('journeys.new')}
               </Link>
             </>
@@ -63,7 +65,7 @@ function JourneyList() {
               {data.items.map((j) => (
                 <tr key={j.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
                   <td className="px-4 py-2.5">
-                    <Link href={`/akislar/${encodeURIComponent(j.id)}`} className="font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                    <Link href={areaHref(`/akislar/${encodeURIComponent(j.id)}`)} className="font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
                       {j.name}
                     </Link>
                     {j.legacyRuleType && (
