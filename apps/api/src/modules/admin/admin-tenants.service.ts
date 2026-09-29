@@ -7,7 +7,7 @@ import { InvitesService } from '../invites/invites.service';
 import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 import { PlatformBillingService } from '../billing/platform-billing.service';
 import { StudioReferralsService } from '../billing/studio-referrals.service';
-import { isStudioBillingStatus } from '@platform/shared';
+import { isPlatformBillingCurrency, isStudioBillingStatus, studioBillingCurrency } from '@platform/shared';
 
 /** Period of a plan the super admin assigns by hand (not a trial; trials use Plan.trialDays). */
 const ASSIGNED_PERIOD_DAYS = 30;
@@ -61,6 +61,9 @@ export class AdminTenantsService {
       billingStatus: isStudioBillingStatus(s.billingStatus) ? s.billingStatus : 'ACTIVE',
       trialEndsAt: s.trialEndsAt?.toISOString() ?? null,
       activatedAt: s.activatedAt?.toISOString() ?? null,
+      countryCode: s.countryCode,
+      billingCurrency: studioBillingCurrency(s),
+      billingCurrencyOverride: isPlatformBillingCurrency(s.billingCurrency) ? s.billingCurrency : null,
     }));
   }
 
@@ -98,6 +101,9 @@ export class AdminTenantsService {
       billingStatus: isStudioBillingStatus(studio.billingStatus) ? studio.billingStatus : 'ACTIVE',
       trialEndsAt: studio.trialEndsAt?.toISOString() ?? null,
       activatedAt: studio.activatedAt?.toISOString() ?? null,
+      countryCode: studio.countryCode,
+      billingCurrency: studioBillingCurrency(studio),
+      billingCurrencyOverride: isPlatformBillingCurrency(studio.billingCurrency) ? studio.billingCurrency : null,
       phone: studio.phone,
       email: studio.email,
       timezone: studio.timezone,

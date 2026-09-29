@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { CurrencyCodeSchema } from './growth/regions';
 import type { PermissionKey } from './permissions';
 import type { MessageKey } from './i18n/messages';
 
@@ -79,6 +78,80 @@ export function isAllowedWhenRestricted(required: readonly string[]): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Platform billing currency (G5c-1b)
+// ---------------------------------------------------------------------------
+
+/**
+ * Currencies the platform bills its tenants in. A plan has one price per
+ * currency (plan_prices); a studio pays in exactly one of these. Adding a
+ * currency is one entry here, the countries that use it in
+ * PLATFORM_BILLING_CURRENCY_BY_COUNTRY and a price per plan entered by the
+ * super admin (no migration).
+ */
+export const PLATFORM_BILLING_CURRENCIES = ['TRY', 'USD', 'EUR', 'GBP'] as const;
+export type PlatformBillingCurrency = (typeof PLATFORM_BILLING_CURRENCIES)[number];
+export const PlatformBillingCurrencySchema = z.enum(PLATFORM_BILLING_CURRENCIES);
+
+/** Billing currency of every country not listed below. */
+export const FALLBACK_PLATFORM_BILLING_CURRENCY: PlatformBillingCurrency = 'USD';
+
+/** Euro area member states (Bulgaria since 2026-01-01). */
+const EURO_AREA = ['AT', 'BE', 'BG', 'CY', 'DE', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PT', 'SI', 'SK'] as const;
+
+/** United Kingdom and the Crown dependencies (Guernsey, Jersey, Isle of Man). */
+const POUND_AREA = ['GB', 'GG', 'JE', 'IM'] as const;
+
+/** Country (ISO 3166-1 alpha-2) -> platform billing currency, as data. */
+export const PLATFORM_BILLING_CURRENCY_BY_COUNTRY: Readonly<Record<string, PlatformBillingCurrency>> = {
+  TR: 'TRY',
+  ...Object.fromEntries(POUND_AREA.map((code) => [code, 'GBP' as const])),
+  ...Object.fromEntries(EURO_AREA.map((code) => [code, 'EUR' as const])),
+};
+
+export function isPlatformBillingCurrency(value: string | null | undefined): value is PlatformBillingCurrency {
+  return typeof value === 'string' && (PLATFORM_BILLING_CURRENCIES as readonly string[]).includes(value);
+}
+
+/** The currency a business in this country pays the platform in (TR -> TRY, euro area -> EUR, UK -> GBP, else USD). */
+export function platformBillingCurrencyOf(countryCode: string | null | undefined): PlatformBillingCurrency {
+  if (!countryCode) return FALLBACK_PLATFORM_BILLING_CURRENCY;
+  return PLATFORM_BILLING_CURRENCY_BY_COUNTRY[countryCode.trim().toUpperCase()] ?? FALLBACK_PLATFORM_BILLING_CURRENCY;
+}
+
+/**
+ * The studio's effective billing currency: the super admin's override
+ * (Studio.billingCurrency) when set and still offered, otherwise the one
+ * derived from the studio's country.
+ */
+export function studioBillingCurrency(studio: { billingCurrency?: string | null; countryCode: string | null | undefined }): PlatformBillingCurrency {
+  return isPlatformBillingCurrency(studio.billingCurrency) ? studio.billingCurrency : platformBillingCurrencyOf(studio.countryCode);
+}
+
+/** One monthly price of a plan. `priceMonthly` is a decimal string. */
+export interface PlanPriceDTO {
+  currency: PlatformBillingCurrency;
+  priceMonthly: string;
+}
+
+/** The plan's price in `currency`, or null when the plan is not offered in it. */
+export function planPriceIn<T extends { currency: string }>(prices: readonly T[], currency: string): T | null {
+  return prices.find((p) => p.currency === currency) ?? null;
+}
+
+/** Stable error codes of the billing currency rules; clients translate `billing.error.<code>`. */
+export const BILLING_CURRENCY_LOCKED_ERROR_CODE = 'BILLING_CURRENCY_LOCKED';
+export const PLAN_PRICE_UNAVAILABLE_ERROR_CODE = 'PLAN_PRICE_UNAVAILABLE';
+
+/** Super admin: pin a studio's billing currency, or null to derive it from the country again. */
+export const AdminSetBillingCurrencySchema = z
+  .object({
+    currency: PlatformBillingCurrencySchema.nullable(),
+    reason: z.string().trim().max(300).optional(),
+  })
+  .strict();
+export type AdminSetBillingCurrencyInput = z.infer<typeof AdminSetBillingCurrencySchema>;
+
+// ---------------------------------------------------------------------------
 // Trial
 // ---------------------------------------------------------------------------
 
@@ -147,13 +220,35 @@ export type ReferralRewardKind = (typeof REFERRAL_REWARD_KINDS)[number];
 
 const DecimalAmount = z.string().regex(/^\d{1,8}(\.\d{1,2})?$/, 'Geçersiz tutar');
 
-/** Super-admin setting: what a referrer earns when a referred business pays. */
-export const ReferralRewardSettingSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('AMOUNT'), amount: DecimalAmount, currency: CurrencyCodeSchema }).strict(),
-  z.object({ kind: z.literal('FREE_MONTHS'), months: z.number().int().min(1).max(12) }).strict(),
-]);
+/**
+ * Super-admin setting: what a referrer earns when a referred business pays.
+ * AMOUNT holds one amount per platform billing currency (G5c-1b); the
+ * referrer is credited in its own billing currency. A currency without an
+ * amount falls back to DEFAULT_REFERRAL_REWARD for that referrer.
+ */
+export const ReferralRewardSettingSchema = z
+  .discriminatedUnion('kind', [
+    z
+      .object({
+        kind: z.literal('AMOUNT'),
+        amounts: z
+          .array(z.object({ currency: PlatformBillingCurrencySchema, amount: DecimalAmount }).strict())
+          .min(1)
+          .max(PLATFORM_BILLING_CURRENCIES.length),
+      })
+      .strict(),
+    z.object({ kind: z.literal('FREE_MONTHS'), months: z.number().int().min(1).max(12) }).strict(),
+  ])
+  .superRefine((value, ctx) => {
+    if (value.kind !== 'AMOUNT') return;
+    const currencies = value.amounts.map((a) => a.currency);
+    if (new Set(currencies).size !== currencies.length) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['amounts'], message: 'Her para birimi bir kez girilebilir' });
+    }
+  });
 export type ReferralRewardSetting = z.infer<typeof ReferralRewardSettingSchema>;
 
+/** Owner decision (G5c-1b): one free month unless the super admin sets otherwise. */
 export const DEFAULT_REFERRAL_REWARD: ReferralRewardSetting = { kind: 'FREE_MONTHS', months: 1 };
 
 export const UpdatePlatformBillingSettingsSchema = z.object({ referralReward: ReferralRewardSettingSchema }).strict();
@@ -166,10 +261,17 @@ export interface ReferralRewardEntry {
   months: number | null;
 }
 
-export function referralRewardEntry(setting: ReferralRewardSetting): ReferralRewardEntry {
-  return setting.kind === 'AMOUNT'
-    ? { amount: setting.amount, currency: setting.currency, months: null }
-    : { amount: null, currency: null, months: setting.months };
+/**
+ * The ledger entry for a referrer billed in `currency`: the AMOUNT in that
+ * currency, or the free months. An AMOUNT setting with no amount in that
+ * currency falls back to DEFAULT_REFERRAL_REWARD (money is never converted).
+ */
+export function referralRewardEntry(setting: ReferralRewardSetting, currency: string): ReferralRewardEntry {
+  if (setting.kind === 'FREE_MONTHS') return { amount: null, currency: null, months: setting.months };
+  const match = setting.amounts.find((a) => a.currency === currency);
+  if (match) return { amount: match.amount, currency: match.currency, months: null };
+  // DEFAULT_REFERRAL_REWARD is FREE_MONTHS, so this never recurses twice.
+  return referralRewardEntry(DEFAULT_REFERRAL_REWARD, currency);
 }
 
 /** Signed ledger rows reduced to a balance: money per currency and free months. */
@@ -315,6 +417,13 @@ export const AdminForceBillingStatusSchema = z
     /** Plan to activate on (ACTIVE only); defaults to the studio's current plan. */
     planKey: z.string().trim().min(1).max(60).optional(),
     reason: z.string().trim().max(300).optional(),
+    /**
+     * ACTIVE only (G5c-1b): count the forced activation as a paying
+     * customer, i.e. record studio_paid at the plan's list price in the
+     * studio's billing currency and reward the referrer, exactly as a paid
+     * activation does (both once per studio). Default false.
+     */
+    recordAsPaid: z.boolean().default(false),
   })
   .strict();
 export type AdminForceBillingStatusInput = z.infer<typeof AdminForceBillingStatusSchema>;
@@ -327,16 +436,25 @@ export interface BillingPlanDTO {
   trialDays: number;
 }
 
+/** The studio's current plan; its price is null when the plan has no price in the studio's billing currency. */
+export interface CurrentBillingPlanDTO extends Omit<BillingPlanDTO, 'priceMonthly'> {
+  priceMonthly: string | null;
+}
+
 export interface StudioBillingDTO {
   status: StudioBillingStatus;
+  /** Currency the studio pays the platform in (override or derived from its country). */
+  billingCurrency: PlatformBillingCurrency;
+  /** True once a platform payment has completed: the billing currency is then fixed. */
+  billingCurrencyLocked: boolean;
   trialStartedAt: string | null;
   trialEndsAt: string | null;
   trialDaysLeft: number | null;
   activatedAt: string | null;
-  plan: BillingPlanDTO | null;
+  plan: CurrentBillingPlanDTO | null;
   currentPeriodEnd: string | null;
   credit: CreditBalance;
-  /** Active plans the owner can choose from when activating. */
+  /** Active plans with a price in the billing currency: the ones the owner can activate. */
   plans: BillingPlanDTO[];
 }
 
@@ -383,7 +501,8 @@ export interface StudioReferralOverviewDTO {
   query: string;
   referrals: StudioReferralItemDTO[];
   credit: CreditBalance;
-  reward: ReferralRewardSetting;
+  /** What this studio earns per paying referral, in its own billing currency. */
+  reward: ReferralRewardEntry;
 }
 
 export interface AdminStudioReferralDTO {
@@ -409,4 +528,6 @@ export interface AdminReferralOverviewDTO {
 /** API error codes the web BFF and the mobile client translate into the viewer's language. */
 export const TRANSLATED_API_ERROR_CODES: Readonly<Record<string, MessageKey>> = {
   [BILLING_RESTRICTED_ERROR_CODE]: 'billing.error.BILLING_RESTRICTED',
+  [BILLING_CURRENCY_LOCKED_ERROR_CODE]: 'billing.error.BILLING_CURRENCY_LOCKED',
+  [PLAN_PRICE_UNAVAILABLE_ERROR_CODE]: 'billing.error.PLAN_PRICE_UNAVAILABLE',
 };

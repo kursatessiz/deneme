@@ -1,6 +1,6 @@
 import { Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Put } from '@nestjs/common';
-import { AdminForceBillingStatusSchema, ExtendTrialSchema, UpdatePlatformBillingSettingsSchema } from '@platform/shared';
-import type { AdminForceBillingStatusInput, ExtendTrialInput, UpdatePlatformBillingSettingsInput } from '@platform/shared';
+import { AdminForceBillingStatusSchema, AdminSetBillingCurrencySchema, ExtendTrialSchema, UpdatePlatformBillingSettingsSchema } from '@platform/shared';
+import type { AdminForceBillingStatusInput, AdminSetBillingCurrencyInput, ExtendTrialInput, UpdatePlatformBillingSettingsInput } from '@platform/shared';
 import { SuperAdminOnly } from '../auth/decorators/super-admin-only.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/tenant-context';
@@ -10,8 +10,9 @@ import { StudioReferralsService } from './studio-referrals.service';
 
 /**
  * Super-admin side of platform billing (G5c-1): extend a trial, force a
- * studio ACTIVE or RESTRICTED (both audit logged), the referral reward
- * setting and the referral overview.
+ * studio ACTIVE (optionally counted as paid) or RESTRICTED, override the
+ * billing currency (all audit logged), the referral reward setting and the
+ * referral overview.
  */
 @Controller('admin')
 @SuperAdminOnly()
@@ -35,6 +36,15 @@ export class AdminBillingController {
     @ZodBody(AdminForceBillingStatusSchema) body: AdminForceBillingStatusInput,
   ) {
     return this.billing.forceStatus(user.id, studioId, body);
+  }
+
+  @Put('tenants/:studioId/billing-currency')
+  setBillingCurrency(
+    @CurrentUser() user: AuthUser,
+    @Param('studioId', ParseUUIDPipe) studioId: string,
+    @ZodBody(AdminSetBillingCurrencySchema) body: AdminSetBillingCurrencyInput,
+  ) {
+    return this.billing.setBillingCurrency(user.id, studioId, body);
   }
 
   @Get('tenants/:studioId/billing')

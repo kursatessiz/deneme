@@ -62,9 +62,9 @@ function ReferralPage() {
     }
   };
   const rewardText =
-    data.reward.kind === 'AMOUNT'
+    data.reward.amount && data.reward.currency
       ? t('billing.referral.rewardAmount', { amount: formatMoney(data.reward.amount, data.reward.currency, locale) })
-      : t('billing.referral.rewardMonths', { count: data.reward.months });
+      : t('billing.referral.rewardMonths', { count: data.reward.months ?? 1 });
 
   return (
     <div className="space-y-6">

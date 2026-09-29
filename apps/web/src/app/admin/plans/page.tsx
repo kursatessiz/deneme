@@ -1,22 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import { PLATFORM_BILLING_CURRENCIES } from '@platform/shared';
+import type { AdminPlanDTO, PlatformBillingCurrency } from '@platform/shared';
 import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { formatMoney } from '@/lib/money';
 
-interface Plan {
-  id: string;
-  key: string;
-  name: string;
-  priceMonthly: string;
-  currency: string;
-  trialDays: number;
-  limits: { maxBranches?: number; maxActiveMembers?: number; maxStaff?: number; maxSmsPerMonth?: number; aiMonthlyBudgetCents?: number };
-  isActive: boolean;
-}
+type Plan = AdminPlanDTO;
+type PriceForm = Record<PlatformBillingCurrency, string>;
+const emptyPrices = (): PriceForm => Object.fromEntries(PLATFORM_BILLING_CURRENCIES.map((c) => [c, ''])) as PriceForm;
 
 const inputStyle: React.CSSProperties = {
   borderRadius: 'var(--radius-input)',
@@ -30,8 +25,9 @@ export default function PlansPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const { data, loading, error, forbidden } = useBff<{ items: Plan[] }>('admin/plans', null, refreshKey);
   const t = useT();
-  const emptyForm = { key: '', name: '', priceMonthly: '', currency: '', trialDays: '', maxBranches: '', maxActiveMembers: '', maxStaff: '', aiBudget: '' };
+  const emptyForm = { key: '', name: '', trialDays: '', maxBranches: '', maxActiveMembers: '', maxStaff: '', aiBudget: '' };
   const [form, setForm] = useState(emptyForm);
+  const [prices, setPrices] = useState<PriceForm>(emptyPrices);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -39,6 +35,12 @@ export default function PlansPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // One price per billing currency; an empty input means "not offered" in it.
+    const priceList = PLATFORM_BILLING_CURRENCIES.filter((c) => prices[c].trim() !== '').map((c) => ({ currency: c, priceMonthly: Number(prices[c]) }));
+    if (priceList.length === 0) {
+      setFormError(t('adminPlans.form.priceRequired'));
+      return;
+    }
     setSubmitting(true);
     setFormError(null);
     try {
@@ -47,8 +49,7 @@ export default function PlansPage() {
         body: {
           key: form.key,
           name: form.name,
-          priceMonthly: Number(form.priceMonthly),
-          ...(form.currency.trim() ? { currency: form.currency.trim().toUpperCase() } : {}),
+          prices: priceList,
           ...(form.trialDays !== '' ? { trialDays: Number(form.trialDays) } : {}),
           limits: {
             ...(form.maxBranches ? { maxBranches: Number(form.maxBranches) } : {}),
@@ -60,6 +61,7 @@ export default function PlansPage() {
         },
       });
       setForm(emptyForm);
+      setPrices(emptyPrices());
       refresh();
     } catch (err) {
       setFormError(err instanceof BffError ? err.message : t('adminPlans.form.saveFailed'));
@@ -89,8 +91,20 @@ export default function PlansPage() {
         <div className="grid grid-cols-3 gap-3">
           <input required placeholder={t('adminPlans.form.key')} value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
           <input required placeholder={t('adminPlans.form.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
-          <input required type="number" placeholder={t('adminPlans.form.priceMonthly')} value={form.priceMonthly} onChange={(e) => setForm({ ...form, priceMonthly: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
-          <input maxLength={3} placeholder={t('adminPlans.form.currency')} aria-label={t('adminPlans.form.currency')} value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
+          {PLATFORM_BILLING_CURRENCIES.map((currency) => (
+            <input
+              key={currency}
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder={t('adminPlans.form.priceIn', { currency })}
+              aria-label={t('adminPlans.form.priceIn', { currency })}
+              value={prices[currency]}
+              onChange={(e) => setPrices({ ...prices, [currency]: e.target.value })}
+              className="border px-3 py-2 text-sm"
+              style={inputStyle}
+            />
+          ))}
           <input type="number" min={0} max={365} placeholder={t('adminPlans.form.trialDays')} aria-label={t('adminPlans.form.trialDays')} value={form.trialDays} onChange={(e) => setForm({ ...form, trialDays: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
           <input type="number" placeholder={t('adminPlans.form.maxBranches')} value={form.maxBranches} onChange={(e) => setForm({ ...form, maxBranches: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
           <input type="number" placeholder={t('adminPlans.form.maxActiveMembers')} value={form.maxActiveMembers} onChange={(e) => setForm({ ...form, maxActiveMembers: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
@@ -107,6 +121,9 @@ export default function PlansPage() {
             style={inputStyle}
           />
         </div>
+        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          {t('adminPlans.form.pricesHint')}
+        </p>
         {formError && <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{formError}</p>}
         <button type="submit" disabled={submitting} className="px-4 py-2 text-sm font-medium" style={{ borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
           {submitting ? t('adminPlans.form.submitting') : t('adminPlans.form.submit')}
@@ -128,9 +145,19 @@ export default function PlansPage() {
                   {p.isActive ? t('adminPlans.status.active') : t('adminPlans.status.inactive')}
                 </span>
               </div>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                {t('adminPlans.priceSummary', { key: p.key, price: formatMoney(p.priceMonthly, p.currency, locale) })}
+              <p className="text-xs mt-1 font-mono" style={{ color: 'var(--color-text-muted)' }}>
+                {p.key}
               </p>
+              <ul className="text-xs mt-1 space-y-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+                {PLATFORM_BILLING_CURRENCIES.map((currency) => {
+                  const price = p.prices.find((x) => x.currency === currency);
+                  return (
+                    <li key={currency}>
+                      {price ? t('adminPlans.priceLine', { price: formatMoney(price.priceMonthly, currency, locale) }) : t('adminPlans.noPrice', { currency })}
+                    </li>
+                  );
+                })}
+              </ul>
               <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
                 {t('adminPlans.trialSummary', { days: p.trialDays })}
               </p>

@@ -103,6 +103,7 @@ export class SchedulesController {
   }
 
   @Post('cancel')
+  @AllowWhenRestricted()
   @RequirePermission('bookings.manage')
   async cancelBooking(@Tenant() tenant: TenantContext, @ZodBody(CancelBookingSchema) body: CancelBookingInput) {
     return this.schedulesService.cancelBooking(tenant, body);
@@ -142,6 +143,7 @@ export class SchedulesController {
   }
 
   @Patch('check-in/:bookingId')
+  @AllowWhenRestricted()
   @RequirePermission('attendance.manage')
   async checkIn(@Param('bookingId', ParseUUIDPipe) bookingId: string, @Tenant() tenant: TenantContext) {
     return this.schedulesService.checkIn(tenant, bookingId);
@@ -170,6 +172,7 @@ export class SchedulesController {
   }
 
   @Patch('no-show/:bookingId')
+  @AllowWhenRestricted()
   @RequirePermission('attendance.manage')
   async markNoShow(
     @Param('bookingId', ParseUUIDPipe) bookingId: string,
@@ -198,6 +201,7 @@ export class SchedulesController {
   }
 
   @Post('waitlist/leave')
+  @AllowWhenRestricted()
   @RequirePermission('bookings.manage')
   async leaveWaitlist(@Tenant() tenant: TenantContext, @ZodBody(LeaveWaitlistSchema) body: LeaveWaitlistInput) {
     return this.schedulesService.leaveWaitlist(tenant, body);
@@ -222,6 +226,7 @@ export class SchedulesController {
   }
 
   @Post(':scheduleId/cancel-session')
+  @AllowWhenRestricted()
   @RequirePermission('schedule.manage')
   async cancelSession(
     @Param('scheduleId', ParseUUIDPipe) scheduleId: string,

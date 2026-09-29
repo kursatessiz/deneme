@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { DocumentType, FeatureFlagScope, InviteChannel, NotificationChannel } from './enums';
 import { PhoneSchema } from './validators';
-import { CountryCodeSchema, CurrencyCodeSchema } from './growth/regions';
-import { StudioReferralCodeSchema } from './billing';
-import type { StudioBillingStatus } from './billing';
+import { CountryCodeSchema } from './growth/regions';
+import { PLATFORM_BILLING_CURRENCIES, PlatformBillingCurrencySchema, StudioReferralCodeSchema } from './billing';
+import type { PlanPriceDTO, PlatformBillingCurrency, StudioBillingStatus } from './billing';
 import { EmailBlocksSchema } from './email-blocks';
 import { WHATSAPP_TEMPLATE_STATUSES } from './message-templates';
 
@@ -74,17 +74,44 @@ export const PlanLimitsSchema = z
   .partial();
 export type PlanLimits = z.infer<typeof PlanLimitsSchema>;
 
-export const UpsertPlanSchema = z.object({
-  key: z.string().trim().min(1).max(60),
-  name: z.string().trim().min(1).max(100),
-  priceMonthly: z.number().nonnegative(),
-  /** ISO 4217 currency of priceMonthly (G5c-1); omitted keeps the stored value. */
-  currency: CurrencyCodeSchema.optional(),
-  /** Free trial length for new businesses on this plan (G5c-1); omitted keeps the stored value. */
-  trialDays: z.number().int().min(0).max(365).optional(),
-  limits: PlanLimitsSchema.default({}),
-  isActive: z.boolean().default(true),
-});
+/** One monthly price of a plan in a platform billing currency (G5c-1b). */
+export const PlanPriceInputSchema = z
+  .object({
+    currency: PlatformBillingCurrencySchema,
+    priceMonthly: z.number().nonnegative().max(99_999_999),
+  })
+  .strict();
+export type PlanPriceInput = z.infer<typeof PlanPriceInputSchema>;
+
+export const UpsertPlanSchema = z
+  .object({
+    key: z.string().trim().min(1).max(60),
+    name: z.string().trim().min(1).max(100),
+    /**
+     * Monthly price per platform billing currency (G5c-1b). When given it is
+     * the full set: a currency left out is no longer offered. Omitted keeps
+     * the stored prices. A new plan needs at least one price.
+     */
+    prices: z.array(PlanPriceInputSchema).min(1).max(PLATFORM_BILLING_CURRENCIES.length).optional(),
+    /** Deprecated single price (G5c-1): same as adding { currency, priceMonthly } to the stored prices. */
+    priceMonthly: z.number().nonnegative().max(99_999_999).optional(),
+    currency: PlatformBillingCurrencySchema.optional(),
+    /** Free trial length for new businesses on this plan (G5c-1); omitted keeps the stored value. */
+    trialDays: z.number().int().min(0).max(365).optional(),
+    limits: PlanLimitsSchema.default({}),
+    isActive: z.boolean().default(true),
+  })
+  .superRefine((value, ctx) => {
+    if (value.prices) {
+      const currencies = value.prices.map((p) => p.currency);
+      if (new Set(currencies).size !== currencies.length) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['prices'], message: 'Her para birimi bir kez girilebilir' });
+      }
+    }
+    if (value.priceMonthly !== undefined && !value.currency) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['currency'], message: 'Fiyatın para birimi seçilmelidir' });
+    }
+  });
 export type UpsertPlanInput = z.infer<typeof UpsertPlanSchema>;
 
 // -- Business type templates ----------------------------------------------
@@ -238,6 +265,24 @@ export interface TenantListItemDTO {
   billingStatus: StudioBillingStatus;
   trialEndsAt: string | null;
   activatedAt: string | null;
+  /** ISO 3166-1 alpha-2 country of the business. */
+  countryCode: string;
+  /** Effective platform billing currency (G5c-1b): the override, else derived from the country. */
+  billingCurrency: PlatformBillingCurrency;
+  /** Super-admin override; null when the currency follows the country. */
+  billingCurrencyOverride: PlatformBillingCurrency | null;
+}
+
+/** GET /admin/plans item (G5c-1b): prices per billing currency. */
+export interface AdminPlanDTO {
+  id: string;
+  key: string;
+  name: string;
+  prices: PlanPriceDTO[];
+  trialDays: number;
+  limits: PlanLimits;
+  isActive: boolean;
+  createdAt: string;
 }
 
 export interface TenantDetailDTO extends TenantListItemDTO {

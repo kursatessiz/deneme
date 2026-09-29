@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { DashboardMetricsDTO, StudioRegion } from '@platform/shared';
+import { BILLING_CURRENCY_LOCKED_ERROR_CODE, DashboardMetricsDTO, StudioRegion, studioBillingCurrency } from '@platform/shared';
 
 @Injectable()
 export class StudiosService {
@@ -84,7 +84,22 @@ export class StudiosService {
   }
 
   async updateRegion(studioId: string, userId: string, region: StudioRegion): Promise<StudioRegion> {
-    const studio = await this.prisma.studio.findUniqueOrThrow({ where: { id: studioId }, select: { currency: true } });
+    const studio = await this.prisma.studio.findUniqueOrThrow({ where: { id: studioId }, select: { currency: true, countryCode: true, billingCurrency: true } });
+    // G5c-1b: the platform billing currency follows the country unless the
+    // super admin pinned it; once a platform payment has completed a country
+    // change may not move it (only the super admin can override it).
+    const billingBefore = studioBillingCurrency(studio);
+    const billingAfter = studioBillingCurrency({ countryCode: region.countryCode, billingCurrency: studio.billingCurrency });
+    if (billingBefore !== billingAfter) {
+      const paid = await this.prisma.platformBillingPayment.findFirst({ where: { studioId, status: { in: ['COMPLETED', 'PENDING'] } }, select: { id: true } });
+      if (paid) {
+        throw new ConflictException({
+          statusCode: 409,
+          code: BILLING_CURRENCY_LOCKED_ERROR_CODE,
+          message: 'Tamamlanmış bir abonelik ödemesi olduğu için faturalama para birimi değiştirilemez; değişikliği platform yöneticisi yapabilir.',
+        });
+      }
+    }
     if (region.currency !== studio.currency) {
       const hasPayments = await this.prisma.payment.findFirst({ where: { studioId }, select: { id: true } });
       if (hasPayments) {

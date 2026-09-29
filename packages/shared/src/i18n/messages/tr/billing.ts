@@ -24,6 +24,7 @@ export const trBilling = {
   'billing.summary.activatedAt': 'Etkinleştirme tarihi',
   'billing.summary.plan': 'Plan',
   'billing.summary.periodEnd': 'Dönem bitişi',
+  'billing.summary.billingCurrency': 'Faturalama para birimi',
   'billing.summary.credit': 'Abonelik kredisi',
   'billing.summary.noCredit': 'Kredi yok',
   'billing.summary.creditMonths.one': '{count} ay ücretsiz',
@@ -42,6 +43,7 @@ export const trBilling = {
   'billing.activate.alreadyActive': 'Hesabınız etkin. Teşekkür ederiz.',
   'billing.activate.failed': 'Etkinleştirme tamamlanamadı.',
   'billing.activate.noPlans': 'Şu anda seçilebilecek bir plan yok.',
+  'billing.activate.currencyNote': 'Fiyatlar işletmenizin faturalama para birimi olan {currency} cinsindendir.',
 
   'billing.payments.title': 'Ödemeler',
   'billing.payments.empty': 'Henüz abonelik ödemesi yok.',
@@ -54,6 +56,8 @@ export const trBilling = {
   'billing.payments.status.COMPLETED': 'Ödendi',
   'billing.payments.status.FAILED': 'Başarısız',
 
+  'billing.error.BILLING_CURRENCY_LOCKED': 'Tamamlanmış bir abonelik ödemesi olduğu için faturalama para birimi değiştirilemez. Değişiklik için platform desteğine başvurun.',
+  'billing.error.PLAN_PRICE_UNAVAILABLE': 'Bu plan işletmenizin faturalama para biriminde sunulmuyor.',
   'billing.error.BILLING_RESTRICTED': 'Hesabınız kısıtlı modda. Yeni kayıt oluşturmak için işletme sahibinin hesabı etkinleştirmesi gerekiyor.',
 
   'billing.referral.title': 'Tavsiye et',

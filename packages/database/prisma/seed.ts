@@ -135,6 +135,8 @@ const ALL_TABLES = [
   'subscriptions',
   'studios',
   'sms_packages',
+  'plan_prices',
+  'platform_referral_reward_amounts',
   'plans',
   'business_type_templates',
   'company_info',
@@ -710,31 +712,41 @@ async function createBusinessTypeTemplates() {
 }
 
 async function createPlans() {
-  const starter = await prisma.plan.create({
-    data: {
+  // G5c-1b: one monthly price per platform billing currency (plan_prices).
+  // plans.price_monthly/currency are the deprecated mirror of the TRY price
+  // kept for one release; nothing reads them to choose a price.
+  const plans = [
+    {
       key: 'starter',
       name: 'Starter',
-      priceMonthly: 1490,
-      currency: 'TRY',
-      trialDays: 14,
+      prices: { TRY: 1490, USD: 49, EUR: 45, GBP: 39 },
       limits: { maxBranches: 1, maxActiveMembers: 150, maxStaff: 5, aiMonthlyBudgetCents: 500 },
     },
-  });
-  count('plans');
-
-  const pro = await prisma.plan.create({
-    data: {
+    {
       key: 'pro',
       name: 'Pro',
-      priceMonthly: 3490,
-      currency: 'TRY',
-      trialDays: 14,
+      prices: { TRY: 3490, USD: 119, EUR: 109, GBP: 95 },
       limits: { maxBranches: 3, maxActiveMembers: 800, maxStaff: 25, aiMonthlyBudgetCents: 2000 },
     },
-  });
-  count('plans');
-
-  return { starter: starter.id, pro: pro.id };
+  ];
+  const ids: Record<string, string> = {};
+  for (const plan of plans) {
+    const created = await prisma.plan.create({
+      data: {
+        key: plan.key,
+        name: plan.name,
+        priceMonthly: plan.prices.TRY,
+        currency: 'TRY',
+        trialDays: 14,
+        limits: plan.limits,
+        prices: { create: Object.entries(plan.prices).map(([currency, priceMonthly]) => ({ currency, priceMonthly })) },
+      },
+    });
+    ids[plan.key] = created.id;
+    count('plans');
+    count('plan_prices', Object.keys(plan.prices).length);
+  }
+  return { starter: ids.starter, pro: ids.pro };
 }
 
 async function createSmsPackages() {

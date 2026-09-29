@@ -134,6 +134,7 @@ export class EventsController {
   }
 
   @Post('registrations/:registrationId/cancel')
+  @AllowWhenRestricted()
   @HttpCode(200)
   @RequirePermission('events.manage')
   cancelRegistration(
@@ -146,6 +147,7 @@ export class EventsController {
   }
 
   @Post('registrations/:registrationId/check-in')
+  @AllowWhenRestricted()
   @HttpCode(200)
   @RequirePermission('events.checkin')
   checkIn(@Tenant() tenant: TenantContext, @Param('registrationId', ParseUUIDPipe) registrationId: string) {
@@ -153,6 +155,7 @@ export class EventsController {
   }
 
   @Post('registrations/:registrationId/no-show')
+  @AllowWhenRestricted()
   @HttpCode(200)
   @RequirePermission('events.checkin')
   noShow(@Tenant() tenant: TenantContext, @Param('registrationId', ParseUUIDPipe) registrationId: string) {
@@ -191,6 +194,7 @@ export class EventsController {
   }
 
   @Post(':eventId/cancel')
+  @AllowWhenRestricted()
   @HttpCode(200)
   @RequirePermission('events.manage')
   cancel(

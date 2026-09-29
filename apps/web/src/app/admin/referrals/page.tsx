@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { AdminReferralOverviewDTO, ReferralRewardKind, ReferralRewardSetting } from '@platform/shared';
+import { PLATFORM_BILLING_CURRENCIES } from '@platform/shared';
+import type { AdminReferralOverviewDTO, PlatformBillingCurrency, ReferralRewardKind, ReferralRewardSetting } from '@platform/shared';
 import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { EmptyState, ErrorState, LoadingState } from '@/components/common/DataState';
@@ -18,8 +19,13 @@ const card: React.CSSProperties = { borderRadius: 'var(--radius-card)', borderCo
 function RewardSettingForm({ current, onSaved }: { current: ReferralRewardSetting; onSaved: () => void }) {
   const t = useT();
   const [kind, setKind] = useState<ReferralRewardKind>(current.kind);
-  const [amount, setAmount] = useState(current.kind === 'AMOUNT' ? current.amount : '');
-  const [currency, setCurrency] = useState(current.kind === 'AMOUNT' ? current.currency : '');
+  // One amount per billing currency; the referrer earns it in its own currency.
+  const [amounts, setAmounts] = useState<Record<PlatformBillingCurrency, string>>(
+    () =>
+      Object.fromEntries(
+        PLATFORM_BILLING_CURRENCIES.map((c) => [c, current.kind === 'AMOUNT' ? (current.amounts.find((a) => a.currency === c)?.amount ?? '') : '']),
+      ) as Record<PlatformBillingCurrency, string>,
+  );
   const [months, setMonths] = useState(current.kind === 'FREE_MONTHS' ? String(current.months) : '1');
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -34,7 +40,12 @@ function RewardSettingForm({ current, onSaved }: { current: ReferralRewardSettin
     setMessage(null);
     try {
       const referralReward =
-        kind === 'AMOUNT' ? { kind, amount: amount.trim(), currency: currency.trim().toUpperCase() } : { kind, months: Number(months) };
+        kind === 'AMOUNT'
+          ? {
+              kind,
+              amounts: PLATFORM_BILLING_CURRENCIES.filter((c) => amounts[c].trim() !== '').map((c) => ({ currency: c, amount: amounts[c].trim() })),
+            }
+          : { kind, months: Number(months) };
       await bffFetch('admin/billing/settings', { method: 'PUT', body: { referralReward } });
       setMessage(t('adminBilling.settings.saved'));
       onSaved();
@@ -60,8 +71,18 @@ function RewardSettingForm({ current, onSaved }: { current: ReferralRewardSettin
         </select>
         {kind === 'AMOUNT' ? (
           <>
-            <input required aria-label={t('adminBilling.settings.amount')} placeholder={t('adminBilling.settings.amount')} value={amount} onChange={(e) => setAmount(e.target.value)} className="border px-3 py-2 text-sm w-32" style={inputStyle} />
-            <input required maxLength={3} aria-label={t('adminBilling.settings.currency')} placeholder={t('adminBilling.settings.currency')} value={currency} onChange={(e) => setCurrency(e.target.value)} className="border px-3 py-2 text-sm w-40" style={inputStyle} />
+            {PLATFORM_BILLING_CURRENCIES.map((c) => (
+              <input
+                key={c}
+                inputMode="decimal"
+                aria-label={t('adminBilling.settings.amountIn', { currency: c })}
+                placeholder={t('adminBilling.settings.amountIn', { currency: c })}
+                value={amounts[c]}
+                onChange={(e) => setAmounts({ ...amounts, [c]: e.target.value })}
+                className="border px-3 py-2 text-sm w-36"
+                style={inputStyle}
+              />
+            ))}
           </>
         ) : (
           <input required type="number" min={1} max={12} aria-label={t('adminBilling.settings.months')} placeholder={t('adminBilling.settings.months')} value={months} onChange={(e) => setMonths(e.target.value)} className="border px-3 py-2 text-sm w-24" style={inputStyle} />
@@ -70,6 +91,11 @@ function RewardSettingForm({ current, onSaved }: { current: ReferralRewardSettin
           {t('adminBilling.settings.save')}
         </button>
       </div>
+      {kind === 'AMOUNT' && (
+        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          {t('adminBilling.settings.amountsHint')}
+        </p>
+      )}
       {message && <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>{message}</p>}
     </form>
   );
