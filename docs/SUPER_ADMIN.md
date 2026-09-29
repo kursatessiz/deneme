@@ -255,6 +255,10 @@ platform davetinde yalnızca KVKK aydınlatma metni istenir. Kabulde
   vb.) ve doğrulanmamış alan adıyla ticari e-posta engeli M1d/M3 kapsamında
   sonraki PR'lara bırakıldı; gönderen alan adı kaydı ve DNS durumu hazır.
 
+### M2 notları: yapay zeka ayarları
+
+`/admin/ai` sayfasındaki **Görev başına model** bölümüne üç yeni görev (`MARKETING_DRAFT`, `MARKETING_ANALYSIS`, `MARKETING_RESEARCH`) ve **Pazarlama stüdyosu aylık limiti** alanı eklendi (`PATCH /admin/ai/settings` içinde `marketingAiMonthlyBudgetCents`, varsayılan 5000 = 50 USD, 0 stüdyoyu kapatır). Limit yalnızca süper admin tarafından değiştirilir; pazarlama yöneticisi bu ucu çağıramaz (403). Marka kiti, yapay zeka stüdyosu ve içerik takvimi `/pazarlama/marka`, `/pazarlama/yapay-zeka`, `/pazarlama/takvim` altındadır; süper admin hepsini pazarlama yöneticisiyle aynı uçlardan kullanır (`/platform/marketing/*`) ve her yazma platform kiracısında `AuditLog` satırıdır (`marketing.brand_kit.*`, `marketing.product_fact.*`, `marketing.draft.*`, `marketing.calendar.*`). Ayrıntılar: `docs/PAZARLAMA_MODULU.md` (M2 notları), `docs/YAPAY_ZEKA.md`.
+
 ## Kapsam dışı / takip maddeleri
 
 - Süper admin taklit etme (impersonation): görevin kendisi kapsam dışı
