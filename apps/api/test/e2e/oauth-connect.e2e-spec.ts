@@ -1,3 +1,4 @@
+import { hashOAuthState } from '../../src/modules/platform-marketing/oauth/oauth-crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
@@ -351,7 +352,7 @@ describe('OAuth connect (M4a) e2e', () => {
       expect(authorize.searchParams.get('redirect_uri')).toMatch(/\/platform\/integrations\/oauth\/google\/callback$/);
       expect(authorize.toString()).not.toContain(GOOGLE_SECRET);
 
-      const row = await prisma.oauthState.findUniqueOrThrow({ where: { stateHash: createHash('sha256').update(state).digest('hex') } });
+      const row = await prisma.oauthState.findUniqueOrThrow({ where: { stateHash: hashOAuthState(state) } });
       expect(row).toMatchObject({ studioId: PLATFORM, userId: marketingUserId, provider: 'GOOGLE', targetKind: 'NEW_AD_CONNECTION', returnTo: 'marketing', usedAt: null });
       expect(row.expiresAt.getTime() - row.createdAt.getTime()).toBeGreaterThan(9 * MINUTE);
       expect(row.expiresAt.getTime() - row.createdAt.getTime()).toBeLessThanOrEqual(10 * MINUTE + 1000);
@@ -391,7 +392,7 @@ describe('OAuth connect (M4a) e2e', () => {
       const target = { target: { kind: 'RECONNECT_AD_CONNECTION', connectionId: googleConnectionId } };
       const failedBefore = await prisma.auditLog.count({ where: { action: 'integration.oauth.failed', createdAt: { gte: startedAt } } });
       const expired = await startOk(marketingToken, 'google', target);
-      await prisma.oauthState.update({ where: { stateHash: createHash('sha256').update(expired.state).digest('hex') }, data: { expiresAt: new Date(Date.now() - 1000) } });
+      await prisma.oauthState.update({ where: { stateHash: hashOAuthState(expired.state) }, data: { expiresAt: new Date(Date.now() - 1000) } });
       const before = fake.calls.length;
       const res = await callback('google', { code: 'google-good-code', state: expired.state });
       expect(res.status).toBe(400);

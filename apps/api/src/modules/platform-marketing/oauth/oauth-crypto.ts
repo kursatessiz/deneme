@@ -1,4 +1,4 @@
-import { createHash, randomBytes, timingSafeEqual } from 'crypto';
+import { createHash, pbkdf2Sync, randomBytes, timingSafeEqual } from 'crypto';
 
 /**
  * Small, pure building blocks of the OAuth connect flow (M4a). Nothing here
@@ -11,10 +11,19 @@ export function generateOAuthState(): string {
   return randomBytes(32).toString('base64url');
 }
 
-/** What is stored for a state: its SHA-256, hex. The raw value only travels in the browser redirect. */
+/**
+ * What is stored for a state, hex. The raw value only travels in the browser
+ * redirect. The state is a 256-bit random token, so a plain digest would be
+ * enough; the key-stretched form (PBKDF2, fixed application salt) is used so
+ * the stored value is never a fast hash of a credential, as a defence in
+ * depth. Deterministic, so the callback can look the row up by it.
+ */
 export function hashOAuthState(state: string): string {
-  return createHash('sha256').update(state, 'utf8').digest('hex');
+  return pbkdf2Sync(state, 'platform-oauth-state-v1', OAUTH_STATE_HASH_ITERATIONS, 32, 'sha256').toString('hex');
 }
+
+/** Iterations of the state hash: cheap enough for one call per start and per callback. */
+const OAUTH_STATE_HASH_ITERATIONS = 10_000;
 
 /** PKCE code verifier (RFC 7636 4.1): 32 random bytes, base64url, 43 characters from the unreserved set. */
 export function generateCodeVerifier(): string {
