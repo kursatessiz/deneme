@@ -176,6 +176,8 @@ export class IntegrationHubService {
           dmarcPolicy: result.dmarcPolicy,
           lastCheckedAt: new Date(),
           lastError: result.error,
+          // M3d: the first time SPF, DKIM and DMARC are all valid starts the warm-up plan (marketing_settings.email_warmup_plan).
+          ...(!domain.warmupStartedAt && result.spfStatus === 'VALID' && result.dkimStatus === 'VALID' && result.dmarcStatus === 'VALID' ? { warmupStartedAt: new Date() } : {}),
         },
       });
       await this.auditTx(tx, platform, via, 'email_domain', 'check', domain.id, {

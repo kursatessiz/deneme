@@ -37,6 +37,7 @@ import type { PlatformContext } from '../../auth/tenant-context';
 import { AttributionService } from '../../crm/attribution/attribution.service';
 import { FunnelsService } from '../../funnels/funnels.service';
 import { AiUsageService } from '../../ai/ai-usage.service';
+import { MarketingGuardsService } from '../../growth/campaigns/marketing-guards.service';
 
 const DAY_MS = 86_400_000;
 const PLATFORM_B2B_FUNNEL_ID = `${READY_MADE_FUNNEL_PREFIX}${PLATFORM_B2B_FUNNEL_SLUG}`;
@@ -72,6 +73,7 @@ export class MarketingDashboardService {
     private readonly funnels: FunnelsService,
     private readonly attribution: AttributionService,
     private readonly aiUsage: AiUsageService,
+    private readonly guards: MarketingGuardsService,
   ) {}
 
   async dashboard(platform: PlatformContext, query: DashboardQuery, now = new Date()): Promise<MarketingDashboardDTO> {
@@ -90,6 +92,11 @@ export class MarketingDashboardService {
       ...(canSeeRevenue ? { mrr: await this.mrr(range) } : {}),
       health: await this.health(studioId, range, now),
     };
+  }
+
+  /** The aggregate numbers of a period (also the input of the weekly summary, M3d). */
+  async blockFor(studioId: string, range: Range): Promise<DashboardBlock> {
+    return this.block(studioId, range);
   }
 
   private async block(studioId: string, range: Range): Promise<DashboardBlock> {
@@ -248,6 +255,13 @@ export class MarketingDashboardService {
     }
 
     const ai = await this.aiUsage.marketingStatus(studioId, true, now);
+    const [pendingApprovals, caps, autoPause, adSpendCaps] = await Promise.all([
+      // A request past its TTL is not waiting any more, even before the heartbeat marks it EXPIRED.
+      this.prisma.approvalRequest.count({ where: { studioId, status: 'PENDING', expiresAt: { gt: now } } }),
+      this.guards.capsHealth(studioId, now),
+      this.guards.autoPauseState(studioId),
+      this.guards.adSpendCaps(studioId, now),
+    ]);
     const [errorCount, connections, failedDeliveries] = await Promise.all([
       this.prisma.adConnection.count({ where: { studioId, lastError: { not: null } } }),
       this.prisma.adConnection.findMany({
@@ -263,8 +277,10 @@ export class MarketingDashboardService {
       email,
       sms,
       ai: aiBudgetOf(ai.budgetCents, ai.usedMicroUsd),
-      // The approval model arrives with M3b; until then the tile reports "not available" instead of a misleading zero.
-      approvals: { available: false, pending: 0 },
+      approvals: { available: true, pending: pendingApprovals },
+      caps,
+      autoPause,
+      adSpendCaps,
       connections: {
         errorCount,
         items: connections.map((c) => ({
