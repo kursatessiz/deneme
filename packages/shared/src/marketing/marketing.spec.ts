@@ -31,6 +31,20 @@ describe('redactPii', () => {
     expect(redactPii('14 gun, 3 kisi, 2026-10-20, 250 TL')).toBe('14 gun, 3 kisi, 2026-10-20, 250 TL');
     expect(redactPii('0532-111-2233')).toBe('[phone]');
   });
+
+  it('matches e-mail boundaries like the greedy pattern and ignores incomplete addresses', () => {
+    expect(redactPii('(ali.veli+x@mail.example.co.uk)')).toBe('([email])');
+    expect(redactPii('bitir: ayse@example.com.')).toBe('bitir: [email].');
+    expect(redactPii('a@b ve @example.com ve c@d.')).toBe('a@b ve @example.com ve c@d.');
+    expect(redactPii('x@y.z, w@v.u')).toBe('[email], [email]');
+  });
+
+  it('stays linear on long runs of local-part characters without an at sign', () => {
+    const input = '%'.repeat(200_000);
+    const started = Date.now();
+    expect(redactPii(input)).toBe(input);
+    expect(Date.now() - started).toBeLessThan(2_000);
+  });
 });
 
 describe('k-anonymity helpers', () => {

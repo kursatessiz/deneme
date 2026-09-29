@@ -7,12 +7,55 @@
 /** A cell of an aggregate is only shown when at least this many contacts fall into it. */
 export const MARKETING_MIN_CELL = 5;
 
-const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/g;
 const PHONE_RE = /\+?\d[\d\s().-]{5,}\d/g;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const EMAIL_LOCAL_CHAR = /[A-Za-z0-9._%+-]/;
+const EMAIL_LABEL_CHAR = /[A-Za-z0-9-]/;
 
 export const REDACTED_EMAIL = '[email]';
 export const REDACTED_PHONE = '[phone]';
+
+/**
+ * Masks `local@label(.label)+` addresses with a single left-to-right scan
+ * around each `@`. Equivalent to the greedy regex
+ * `[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+`, but linear in the
+ * input length: an unanchored regex of that shape backtracks quadratically
+ * on long runs of local-part characters without an `@`.
+ */
+function redactEmails(text: string): string {
+  let out = '';
+  let last = 0;
+  let at = text.indexOf('@');
+  while (at !== -1) {
+    let start = at;
+    while (start > last && EMAIL_LOCAL_CHAR.test(text[start - 1] ?? '')) start--;
+    let end = at + 1;
+    let labels = 0;
+    for (;;) {
+      const labelStart = end;
+      while (end < text.length && EMAIL_LABEL_CHAR.test(text[end] ?? '')) end++;
+      if (end === labelStart) {
+        // No label after the `@` or after a dot: the dot is not part of the address.
+        end = labelStart - 1;
+        break;
+      }
+      labels++;
+      if (text[end] === '.') {
+        end++;
+        continue;
+      }
+      break;
+    }
+    if (start < at && labels >= 2) {
+      out += text.slice(last, start) + REDACTED_EMAIL;
+      last = end;
+      at = text.indexOf('@', end);
+    } else {
+      at = text.indexOf('@', at + 1);
+    }
+  }
+  return out + text.slice(last);
+}
 
 /**
  * Replaces e-mail addresses and phone-like digit runs (7 or more digits)
@@ -21,7 +64,7 @@ export const REDACTED_PHONE = '[phone]';
  * contact details never reach the model even if someone types them in.
  */
 export function redactPii(text: string): string {
-  return text.replace(EMAIL_RE, REDACTED_EMAIL).replace(PHONE_RE, (match) => {
+  return redactEmails(text).replace(PHONE_RE, (match) => {
     if (ISO_DATE_RE.test(match)) return match;
     return match.replace(/\D/g, '').length >= 7 ? REDACTED_PHONE : match;
   });
