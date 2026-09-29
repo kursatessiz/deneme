@@ -31,9 +31,10 @@ const AB_KINDS: readonly string[] = ['EMAIL', 'SMS', 'WHATSAPP', 'SUBJECT_LINES'
 
 /**
  * One AI studio draft: its status, the editable variants with their brand
- * check issues, more variants, the A/B setup stub, the calendar shortcut and
- * "Kampanyaya aktar". Everything here only changes the draft; the studio
- * never sends or publishes, and an export stops at a DRAFT campaign.
+ * check issues, more variants, the A/B setup, the calendar shortcut and
+ * "Kampanyaya aktar" (which carries the A/B setup into the campaign). Everything
+ * here only changes the draft; the studio never sends or publishes, and an
+ * export stops at a DRAFT campaign.
  */
 export function DraftCard({ draft, onChange }: { draft: MarketingDraftDTO; onChange: (next: MarketingDraftDTO) => void }) {
   const t = useT();
@@ -260,6 +261,8 @@ function ExportPanel({
   const [variantId, setVariantId] = useState(draft.variants[0]?.id ?? '');
   const [name, setName] = useState('');
   const [result, setResult] = useState<ExportToCampaignResultDTO | null>(null);
+  const abStored = draft.abTest?.enabled === true;
+  const [withAb, setWithAb] = useState(true);
 
   useEffect(() => {
     bffFetch<{ items: SegmentDTO[] }>(`studios/${platformStudioId}/segments`, { studioId: platformStudioId })
@@ -296,6 +299,7 @@ function ExportPanel({
         />
         <InputField label={t('marketingStudio.export.name')} value={name} onChange={setName} placeholder={draft.title.slice(0, 60)} />
       </div>
+      {abStored && <CheckField label={t('marketingStudio.export.withAb')} checked={withAb} onChange={setWithAb} />}
       {blocked && <InlineMessage text={t('marketingStudio.export.blocked')} tone="error" />}
       {variant && !blocked && <IssueList issues={variant.issues} />}
       <PrimaryButton
@@ -305,7 +309,7 @@ function ExportPanel({
             async () => {
               const res = await bffFetch<ExportToCampaignResultDTO>(`platform/marketing/studio/drafts/${draft.id}/export-campaign`, {
                 method: 'POST',
-                body: { variantId, segmentId, ...(name.trim() ? { name: name.trim() } : {}) },
+                body: { variantId, segmentId, ...(name.trim() ? { name: name.trim() } : {}), ...(abStored ? { withAbTest: withAb } : {}) },
               });
               onChange(await bffFetch<MarketingDraftDTO>(`platform/marketing/studio/drafts/${draft.id}`));
               return res;
@@ -318,7 +322,7 @@ function ExportPanel({
       </PrimaryButton>
       {(result || draft.exportedCampaignId) && (
         <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('marketingStudio.export.done')}{' '}
+          {t('marketingStudio.export.done')} {result?.abTest ? `${t('marketingStudio.export.doneAb')} ` : ''}
           <Link href={`/pazarlama/kampanyalar/${result?.campaignId ?? draft.exportedCampaignId}`} className="underline">
             {t('marketingStudio.export.open')}
           </Link>
