@@ -3,11 +3,14 @@
 # to be published on the host. The API endpoint returns 200 only when both
 # PostgreSQL and Redis respond.
 # Exit 0 when healthy within MAX_ATTEMPTS, 1 otherwise.
+# Also safe to run by hand: bash /opt/app/scripts/healthcheck.sh
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=SCRIPTDIR/lib.sh
 . "${SCRIPT_DIR}/lib.sh"
+# compose needs IMAGE_REPO and the other .env values to parse the file.
+load_env
 
 MAX_ATTEMPTS="${MAX_ATTEMPTS:-3}"
 RETRY_DELAY="${RETRY_DELAY:-10}"
