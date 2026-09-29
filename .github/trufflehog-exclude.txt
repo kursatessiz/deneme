@@ -1,1 +1,4 @@
 (^|/)\.env\.example$
+# Test fixture with a made-up localhost-style database URL; earlier commits in
+# a PR range keep the unannotated line, so the inline marker alone is not enough.
+^apps/api/src/modules/backups/backups\.spec\.ts$
