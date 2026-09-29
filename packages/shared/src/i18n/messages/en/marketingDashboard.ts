@@ -99,6 +99,24 @@ export const enMarketingDashboard = {
   'marketingDashboard.approvals.pending.one': '{count} pending request',
   'marketingDashboard.approvals.pending.other': '{count} pending requests',
 
+  'marketingDashboard.caps.title': 'Daily caps',
+  'marketingDashboard.caps.email': '{sent} of {cap} commercial e-mails today',
+  'marketingDashboard.caps.emailNoCap': '{sent} commercial e-mails today (no cap)',
+  'marketingDashboard.caps.warmup': 'Warm-up plan: day {day}, the cap follows the plan.',
+  'marketingDashboard.caps.sms': '{credits} of {cap} SMS credits today',
+  'marketingDashboard.caps.smsNoCap': '{credits} SMS credits today (no cap)',
+  'marketingDashboard.caps.deferred.one': '{count} recipient was held until tomorrow because of a cap.',
+  'marketingDashboard.caps.deferred.other': '{count} recipients were held until tomorrow because of a cap.',
+
+  'marketingDashboard.autoPause.title': 'Automatic pause',
+  'marketingDashboard.autoPause.none': 'No campaign is paused by the system.',
+  'marketingDashboard.autoPause.active.one': '{count} e-mail campaign was paused automatically ({reasons}). Resume it from the campaign once the cause is fixed.',
+  'marketingDashboard.autoPause.active.other': '{count} e-mail campaigns were paused automatically ({reasons}). Resume them from the campaigns once the cause is fixed.',
+
+  'marketingDashboard.adCap.title': 'Monthly ad spend cap',
+  'marketingDashboard.adCap.line': 'This month {spent} of {cap}',
+  'marketingDashboard.adCap.exceeded': 'Cap exceeded',
+
   'marketingDashboard.connections.title': 'Connection errors',
   'marketingDashboard.connections.none': 'No connection errors.',
   'marketingDashboard.connections.count.one': '{count} connection has an error',

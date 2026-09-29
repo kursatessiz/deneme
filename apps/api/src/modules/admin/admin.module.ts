@@ -17,6 +17,7 @@ import { AdminContentService } from './admin-content.service';
 import { AdminBenchmarkController } from './admin-benchmark.controller';
 import { AdminBenchmarkService } from './admin-benchmark.service';
 import { AdminHealthController } from './admin-health.controller';
+import { AdminAuditController } from './admin-audit.controller';
 import { AdminHealthService } from './admin-health.service';
 import { BillingModule } from '../billing/billing.module';
 import { BackupsModule } from '../backups/backups.module';
@@ -40,6 +41,7 @@ import { BackupsModule } from '../backups/backups.module';
     AdminContentController,
     AdminBenchmarkController,
     AdminHealthController,
+    AdminAuditController,
   ],
   providers: [
     AdminTenantsService,

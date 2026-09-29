@@ -100,6 +100,10 @@ export interface CampaignStatsDTO {
   revenue: Record<string, string>;
   /** Skip reasons (messaging engine reason codes) with counts. */
   skippedByReason: Record<string, number>;
+  /** M3d: recipients held back until the next UTC day because a daily send cap was reached. */
+  deferredByCap: number;
+  /** M3d: when the earliest of them is due again. */
+  deferredUntil: string | null;
 }
 
 export interface CampaignDTO {
@@ -123,6 +127,8 @@ export interface CampaignDTO {
   winnerKey: string | null;
   sendTimeMode: CampaignSendTimeMode;
   sendTimeLocal: string | null;
+  /** M3d: why a PAUSED campaign was paused by the system (AUTO_BOUNCE, AUTO_COMPLAINT); null for a manual pause. */
+  pauseReason: string | null;
   createdAt: string;
   updatedAt: string;
   stats: CampaignStatsDTO;

@@ -164,6 +164,32 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplateDefinition[] = [
     emailButton: { labelKey: 'msgTpl.MARKETING_APPROVAL.cta', urlVariable: 'link' },
   },
   /**
+   * M3d marketing guards (docs/PAZARLAMA_MODULU.md 3.3, 6.2): the weekly
+   * summary to the configured recipients and the operational alerts to super
+   * admins (deliverability fuse, ad spend cap). All TRANSACTIONAL.
+   */
+  {
+    key: 'MARKETING_WEEKLY_SUMMARY',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'period', 'summary', 'metrics', 'actions', 'link'],
+    whatsappName: 'marketing_weekly_summary',
+    emailButton: { labelKey: 'msgTpl.MARKETING_GUARD.cta', urlVariable: 'link' },
+  },
+  {
+    key: 'MARKETING_EMAIL_FUSE_TRIPPED',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'reason', 'rate', 'threshold', 'campaigns', 'link'],
+    whatsappName: 'marketing_email_fuse_tripped',
+    emailButton: { labelKey: 'msgTpl.MARKETING_GUARD.cta', urlVariable: 'link' },
+  },
+  {
+    key: 'MARKETING_AD_CAP_EXCEEDED',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'currency', 'spent', 'cap', 'month', 'link'],
+    whatsappName: 'marketing_ad_cap_exceeded',
+    emailButton: { labelKey: 'msgTpl.MARKETING_GUARD.cta', urlVariable: 'link' },
+  },
+  /**
    * M3e double opt-in (docs/PAZARLAMA_MODULU.md 6.4): the confirmation link
    * after a form consent in a double opt-in region. Sent by e-mail only;
    * transactional because it asks for consent rather than using one.

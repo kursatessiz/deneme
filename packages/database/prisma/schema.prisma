@@ -770,6 +770,7 @@ model Studio {
   contentCalendarItems  ContentCalendarItem[]
   approvalRequests      ApprovalRequest[]
   marketingSettings     MarketingSettings?
+  marketingInsights     MarketingInsight[]
 
   @@map("studios")
 }
@@ -3150,6 +3151,8 @@ model Campaign {
   sendTimeMode          CampaignSendTimeMode @default(FIXED) @map("send_time_mode")
   /// M3c: "HH:mm" in the recipient's zone (RECIPIENT_LOCAL) or the fallback hour of BEST_TIME.
   sendTimeLocal         String?              @map("send_time_local") @db.VarChar(5)
+  /// M3d: why the campaign is PAUSED when the system paused it (AUTO_BOUNCE, AUTO_COMPLAINT); null for a manual pause.
+  pauseReason           String?              @map("pause_reason") @db.VarChar(40)
   createdAt             DateTime             @default(now()) @map("created_at")
   updatedAt             DateTime             @updatedAt @map("updated_at")
 
@@ -4165,6 +4168,8 @@ enum AiTask {
   MARKETING_DRAFT
   MARKETING_ANALYSIS
   MARKETING_RESEARCH
+  /// M3d: the weekly marketing summary (counts against the marketing AI budget).
+  MARKETING_WEEKLY_SUMMARY
 }
 
 enum AiTranslationJobStatus {
@@ -5801,6 +5806,9 @@ model MarketingSettings {
   /// TR merchant exemption: business contacts in TR may receive commercial
   /// messages without prior consent (registered with İYS, opt-out honoured).
   trMerchantExemptionEnabled Boolean @default(false) @map("tr_merchant_exemption_enabled")
+  /// M3d: optional warm-up plan for the daily e-mail cap: [cap of day 1, cap of day 2, ...] counted from the
+  /// day the sender domain was verified; null: no warm-up.
+  emailWarmupPlan          Json?    @map("email_warmup_plan")
   updatedByUserId          String?  @map("updated_by_user_id") @db.Uuid
   updatedAt                DateTime @updatedAt @map("updated_at")
 
@@ -5840,4 +5848,30 @@ model CampaignVariant {
   @@unique([campaignId, key])
   @@index([studioId])
   @@map("campaign_variants")
+}
+
+/// M3d: the weekly marketing summary of a tenant (the platform tenant today):
+/// aggregate KPIs of one ISO week against the week before, the model's short
+/// summary and suggested actions. One row per studio and week (the unique key
+/// makes the heartbeat idempotent). `ai_usage_id` is a plain id (no FK).
+model MarketingInsight {
+  id          String   @id @default(uuid()) @db.Uuid
+  studioId    String   @map("studio_id") @db.Uuid
+  /// Monday (UTC) of the summarised week.
+  periodStart DateTime @map("period_start") @db.Date
+  /// Sunday (UTC) of the summarised week, inclusive.
+  periodEnd   DateTime @map("period_end") @db.Date
+  /// Aggregate figures only (shared InsightKpis), never a person.
+  kpis        Json
+  summary     String   @db.Text
+  /// [{ title, detail, kpiKey }]
+  actions     Json     @default("[]")
+  aiUsageId   String?  @map("ai_usage_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@unique([studioId, periodStart])
+  @@index([studioId, createdAt])
+  @@map("marketing_insights")
 }

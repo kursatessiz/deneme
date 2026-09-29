@@ -21,6 +21,8 @@ import { GrowthHeartbeatService } from './growth-heartbeat.service';
 import { CampaignApprovalService } from './campaigns/approval/campaign-approval.service';
 import { CampaignPrecheckService } from './campaigns/approval/campaign-precheck.service';
 import { MarketingSettingsService } from './campaigns/approval/marketing-settings.service';
+import { MarketingNoticeService } from './campaigns/approval/marketing-notice.service';
+import { MarketingGuardsService } from './campaigns/marketing-guards.service';
 
 /** Same rule as JobsModule: BullMQ only when REDIS_URL is a real process env var (see jobs.module.ts). */
 const redisConfigured = Boolean(process.env.REDIS_URL);
@@ -43,6 +45,8 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
     CampaignPrecheckService,
     CampaignApprovalService,
     MarketingSettingsService,
+    MarketingNoticeService,
+    MarketingGuardsService,
     JourneyScannersService,
     JourneyEngineService,
     JourneysService,
@@ -57,6 +61,8 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
     CampaignsService,
     CampaignApprovalService,
     MarketingSettingsService,
+    MarketingNoticeService,
+    MarketingGuardsService,
     JourneyScannersService,
     JourneyEngineService,
     JourneysService,

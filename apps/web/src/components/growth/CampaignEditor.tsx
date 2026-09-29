@@ -285,7 +285,11 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
           )}
         </Notice>
       )}
-      {platform && campaign?.status === 'PAUSED' && <Notice tone="info">{t('marketingApprovals.campaign.paused')}</Notice>}
+      {platform && campaign?.status === 'PAUSED' && (
+        <Notice tone={campaign.pauseReason ? 'error' : 'info'}>
+          {campaign.pauseReason ? t(`campaigns.pauseReason.${campaign.pauseReason}`) : t('marketingApprovals.campaign.paused')}
+        </Notice>
+      )}
 
       <Panel>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -454,6 +458,11 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
               value={Object.entries(stats.revenue).map(([cur, amount]) => money(cur, amount)).join(', ') || fmt.number(0)}
             />
           </dl>
+          {stats.deferredByCap > 0 && (
+            <p role="status" className="text-sm" style={{ color: 'var(--color-warning)' }}>
+              {t('campaigns.capDeferred', { count: stats.deferredByCap, date: fmt.dateTime(stats.deferredUntil) })}
+            </p>
+          )}
           {Object.keys(stats.skippedByReason).length > 0 && (
             <div className="space-y-1">
               <p className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>

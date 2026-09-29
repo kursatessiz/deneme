@@ -16,6 +16,7 @@ import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 import { ConversionDeliveryDispatcherService, DispatchOutcome as ConversionDispatchOutcome } from '../ads/delivery/conversion-delivery-dispatcher.service';
 import { AdSpendSyncService, SpendSyncOutcome } from '../ads/spend-sync/ad-spend-sync.service';
 import { TranslationEngineService } from '../ai/translation/translation-engine.service';
+import { MarketingInsightsService, type WeeklyRunResult } from '../platform-marketing/insights/marketing-insights.service';
 import { LoyaltyJobsService, LoyaltyHeartbeatResult } from '../loyalty/loyalty-jobs.service';
 import { EventsJobsService, EventsHeartbeatResult } from '../events/events-jobs.service';
 import { BillingJobsService, BillingHeartbeatResult } from '../billing/billing-jobs.service';
@@ -40,6 +41,8 @@ export interface SchedulerRunResult {
   conversionDelivery: ConversionDispatchOutcome;
   adSpendSync: SpendSyncOutcome | null;
   aiTranslation: { jobs: number; paused: number };
+  /** M3d: the weekly marketing summary of the platform tenant. */
+  marketingInsights: WeeklyRunResult;
   loyalty: LoyaltyHeartbeatResult;
   events: EventsHeartbeatResult;
   billing: BillingHeartbeatResult;
@@ -86,6 +89,7 @@ export class JobsService {
     private readonly conversionDelivery: ConversionDeliveryDispatcherService,
     private readonly adSpendSync: AdSpendSyncService,
     private readonly aiTranslation: TranslationEngineService,
+    private readonly marketingInsights: MarketingInsightsService,
     private readonly loyalty: LoyaltyJobsService,
     private readonly events: EventsJobsService,
     private readonly billing: BillingJobsService,
@@ -116,6 +120,8 @@ export class JobsService {
     const crmLifecycle = await this.crm.sweepLapsed(now);
     const conversionDelivery = await this.conversionDelivery.dispatchDue(now);
     const adSpendSync = await this.adSpendSync.syncAllDueIfStale(now);
+    // M3d: after the spend sync, so the week's ad spend is in when the summary is written.
+    const marketingInsights = await this.marketingInsights.runWeekly(now);
     const loyalty = await this.loyalty.run(now);
     const events = await this.events.run(now);
     const billing = await this.billing.run(now);
@@ -162,6 +168,7 @@ export class JobsService {
       conversionDelivery,
       adSpendSync,
       aiTranslation,
+      marketingInsights,
       loyalty,
       events,
       billing,

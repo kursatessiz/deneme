@@ -11,7 +11,9 @@ import {
   parseAnalysisOutput,
   parseDraftOutput,
   parseResearchOutput,
+  parseWeeklySummaryOutput,
   researchUserMessage,
+  weeklySummaryUserMessage,
   sanitizeModelValue,
   type BrandPromptInput,
 } from './marketing-prompts';
@@ -200,5 +202,56 @@ describe('cited research notes', () => {
     const text = JSON.stringify({ summary: 'Ozet', points: [{ claim: 'x', sourceId: 'S1', quote: 'yok boyle bir cumle' }] });
     expect(() => parseResearchOutput(text, sources)).toThrow(AiProviderError);
     expect(() => parseResearchOutput(JSON.stringify({ summary: 'Ozet', points: [] }), sources)).toThrow(AiProviderError);
+  });
+});
+
+describe('weekly summary prompt and parser (M3d)', () => {
+  const keys = ['leads', 'studioPaid', 'spend:USD', 'funnel.visit'];
+  const kpis = {
+    period: { from: '2026-10-05', to: '2026-10-11' },
+    previousPeriod: { from: '2026-09-28', to: '2026-10-04' },
+    minCell: 5,
+    metrics: [{ key: 'leads', unit: 'count' as const, currency: null, current: 40, previous: 20, changeRatio: 1 }],
+  };
+  const answer = (actions: Array<Record<string, string>>, summary = 'Adaylar iki katina cikti.') => JSON.stringify({ summary, actions });
+  const action = (kpiKey: string, title = 'Baslik') => ({ title, detail: 'Ayrinti', kpiKey });
+
+  it('sends only the aggregate figures as a data frame', () => {
+    const message = weeklySummaryUserMessage({ locale: 'tr', kpis });
+    expect(message).toContain(MARKETING_REQUEST_OPEN);
+    expect(message).toContain('"task":"MARKETING_WEEKLY_SUMMARY"');
+    expect(message).toContain('"key":"leads"');
+    expect(message).not.toMatch(/@/);
+  });
+
+  it('keeps three to five actions that rest on a supplied metric key and drops the rest', () => {
+    const parsed = parseWeeklySummaryOutput(answer([action('leads'), action('made.up'), action('studioPaid'), action('spend:USD'), action('funnel.visit'), action('leads', 'Bir daha')]), keys);
+    expect(parsed.actions.map((a) => a.kpiKey)).toEqual(['leads', 'studioPaid', 'spend:USD', 'funnel.visit', 'leads']);
+    expect(parsed.summary).toBe('Adaylar iki katina cikti.');
+  });
+
+  it('refuses an answer with fewer than three grounded actions', () => {
+    expect(() => parseWeeklySummaryOutput(answer([action('leads'), action('made.up'), action('unknown')]), keys)).toThrow(AiProviderError);
+    expect(() => parseWeeklySummaryOutput(answer([]), keys)).toThrow(AiProviderError);
+    expect(() => parseWeeklySummaryOutput('not json', keys)).toThrow(AiProviderError);
+  });
+
+  it('strips markup, emoji and contact details from every string', () => {
+    const parsed = parseWeeklySummaryOutput(
+      answer([action('leads', '<b>Yaz</b> ada@example.com'), action('studioPaid'), action('spend:USD')], 'Ozet <i>metin</i> +905321112233'),
+      keys,
+    );
+    expect(parsed.summary).not.toContain('<');
+    expect(parsed.summary).not.toContain('905321112233');
+    expect(parsed.actions[0]?.title).not.toContain('ada@example.com');
+    expect(parsed.actions[0]?.title).not.toContain('<b>');
+  });
+
+  it('cuts overlong strings to the limits of the stored shape', () => {
+    const long = 'x'.repeat(5000);
+    const parsed = parseWeeklySummaryOutput(answer([{ title: long, detail: long, kpiKey: 'leads' }, action('studioPaid'), action('spend:USD')], long), keys);
+    expect(parsed.summary.length).toBeLessThanOrEqual(1200);
+    expect(parsed.actions[0]?.title.length).toBeLessThanOrEqual(120);
+    expect(parsed.actions[0]?.detail.length).toBeLessThanOrEqual(400);
   });
 });
