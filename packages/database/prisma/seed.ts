@@ -18,6 +18,7 @@ import {
   DEFAULT_ROLE_TEMPLATES,
   ALL_PERMISSIONS,
   normalizePhone,
+  DEFAULT_PIPELINE_STAGES,
   THEME_FAMILIES,
   BadgeKind,
   BUILTIN_TEMPLATES,
@@ -47,6 +48,10 @@ const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? 'Demo1234!';
 // Tables in no particular order: TRUNCATE ... CASCADE handles FK order for us.
 const ALL_TABLES = [
   'audit_logs',
+  'platform_credit_ledger',
+  'studio_referrals',
+  'platform_billing_payments',
+  'platform_billing_settings',
   'sale_refund_lines',
   'sale_refunds',
   'sale_lines',
@@ -265,6 +270,7 @@ async function main() {
   await seedEvents(zen.studioId);
   await seedRetail(zen.studioId);
   await seedSites(platformStudioId);
+  await seedPlatformBilling(zen.studioId, businessTypeTemplates.personal_training, plans.starter, kvkkDoc.id, passwordHash);
 
   printSummary();
 }
@@ -709,6 +715,8 @@ async function createPlans() {
       key: 'starter',
       name: 'Starter',
       priceMonthly: 1490,
+      currency: 'TRY',
+      trialDays: 14,
       limits: { maxBranches: 1, maxActiveMembers: 150, maxStaff: 5, aiMonthlyBudgetCents: 500 },
     },
   });
@@ -719,6 +727,8 @@ async function createPlans() {
       key: 'pro',
       name: 'Pro',
       priceMonthly: 3490,
+      currency: 'TRY',
+      trialDays: 14,
       limits: { maxBranches: 3, maxActiveMembers: 800, maxStaff: 25, aiMonthlyBudgetCents: 2000 },
     },
   });
@@ -3038,4 +3048,99 @@ async function seedRetail(zenStudioId: string) {
   });
   count('stock_movements');
   await prisma.retailSettings.update({ where: { studioId: zenStudioId }, data: { lastReceiptSeq: 1 } });
+}
+
+// ---------------------------------------------------------------------------
+// G5c-1: platform billing - demo tenants ACTIVE, one extra tenant TRIALING
+// (docs/DENEME_VE_ETKINLESTIRME.md)
+// ---------------------------------------------------------------------------
+
+/** Fixed so the Playwright trial spec can log in as this owner. */
+const SEED_TRIAL_OWNER_PHONE = '+905329900001';
+/** Zen's business referral code; the trial tenant below was referred with it. */
+const SEED_ZEN_REFERRAL_CODE = 'ZENREF23';
+
+async function seedPlatformBilling(
+  zenStudioId: string,
+  businessTypeTemplateId: string,
+  planId: string,
+  kvkkDocId: string,
+  passwordHash: string,
+) {
+  // Every demo tenant created above is a paying (ACTIVE) customer.
+  await prisma.studio.updateMany({
+    where: { isPlatform: false },
+    data: { billingStatus: 'ACTIVE', activatedAt: daysFromNow(-60, 9), billingStatusChangedAt: daysFromNow(-60, 9) },
+  });
+  await prisma.studio.update({ where: { id: zenStudioId }, data: { platformReferralCode: SEED_ZEN_REFERRAL_CODE } });
+
+  await prisma.platformBillingSettings.create({ data: { id: 'platform', referralRewardKind: 'FREE_MONTHS', referralRewardMonths: 1 } });
+  count('platform_billing_settings');
+
+  // One extra business in its free trial, 10 days left.
+  const trialStart = daysFromNow(-4, 9);
+  const trialEnd = daysFromNow(10, 9);
+  const studio = await prisma.studio.create({
+    data: {
+      businessTypeTemplateId,
+      name: 'Nova Hareket Merkezi',
+      slug: 'nova-hareket-merkezi',
+      phone: '+905321110005',
+      email: 'merhaba@novahareket.example',
+      themeFamily: THEME_FAMILIES.saha.key,
+      themePrimary: '#1F5A7A',
+      gradientPresetKey: THEME_FAMILIES.saha.gradients[0].key,
+      billingStatus: 'TRIALING',
+      trialStartedAt: trialStart,
+      trialEndsAt: trialEnd,
+      billingStatusChangedAt: trialStart,
+    },
+  });
+  count('studios');
+
+  const scaffold = await scaffoldTenant(studio.id, planId, 100);
+  // scaffoldTenant writes an ACTIVE subscription; a trial tenant's is TRIALING until the trial end.
+  await prisma.subscription.updateMany({
+    where: { studioId: studio.id },
+    data: { status: SubscriptionStatus.TRIALING, currentPeriodStart: trialStart, currentPeriodEnd: trialEnd },
+  });
+
+  await prisma.branch.create({ data: { studioId: studio.id, name: 'Merkez', phone: studio.phone } });
+  count('branches');
+  // Default CRM pipeline stages, as every tenant has (seedCrm ran before this tenant existed).
+  await prisma.pipelineStage.createMany({
+    data: DEFAULT_PIPELINE_STAGES.map((s) => ({ studioId: studio.id, key: s.key, kind: s.kind, sortOrder: s.sortOrder, isSystem: true })),
+    skipDuplicates: true,
+  });
+  count('pipeline_stages', DEFAULT_PIPELINE_STAGES.length);
+
+  const user = await prisma.user.create({
+    data: {
+      phone: SEED_TRIAL_OWNER_PHONE,
+      email: null,
+      firstName: 'Deniz',
+      lastName: 'Kaya',
+      passwordHash,
+      phoneVerifiedAt: new Date(),
+    },
+  });
+  count('users');
+  const membership = await prisma.membership.create({
+    data: {
+      userId: user.id,
+      studioId: studio.id,
+      roleTemplateId: scaffold.roleTemplateIds.owner,
+      status: MembershipStatus.ACTIVE,
+      joinedAt: trialStart,
+    },
+  });
+  count('memberships');
+  await grantKvkkConsent(membership.id, kvkkDocId);
+  demoLogins.push({ label: 'Nova Hareket Merkezi - Sahip, deneme surumunde (Deniz Kaya)', phone: SEED_TRIAL_OWNER_PHONE });
+
+  // Nova signed up through Zen's referral code: Zen is rewarded when Nova pays.
+  await prisma.studioReferral.create({
+    data: { referrerStudioId: zenStudioId, referredStudioId: studio.id, code: SEED_ZEN_REFERRAL_CODE, source: 'MANUAL', status: 'SIGNED_UP' },
+  });
+  count('studio_referrals');
 }

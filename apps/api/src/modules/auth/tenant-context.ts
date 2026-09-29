@@ -24,6 +24,11 @@ export interface TenantContext {
    * super-admins and staff without explicit grants).
    */
   branchIds: ReadonlySet<string> | null;
+  /**
+   * Studio.billingStatus (G5c-1). Read by BillingWriteGuard to enforce
+   * restricted mode; absent where a tenant context is built by hand.
+   */
+  billingStatus?: string;
 }
 
 export interface AuthenticatedRequest {
@@ -33,4 +38,5 @@ export interface AuthenticatedRequest {
   query: Record<string, unknown>;
   body?: unknown;
   headers: Record<string, string | string[] | undefined>;
+  method?: string;
 }

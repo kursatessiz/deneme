@@ -13,8 +13,24 @@ export class AdminPlansService {
   async upsert(actorUserId: string, input: UpsertPlanInput) {
     const plan = await this.prisma.plan.upsert({
       where: { key: input.key },
-      create: { key: input.key, name: input.name, priceMonthly: input.priceMonthly, limits: input.limits, isActive: input.isActive },
-      update: { name: input.name, priceMonthly: input.priceMonthly, limits: input.limits, isActive: input.isActive },
+      create: {
+        key: input.key,
+        name: input.name,
+        priceMonthly: input.priceMonthly,
+        limits: input.limits,
+        isActive: input.isActive,
+        // Omitted: the column defaults (backfill currency, 14-day trial) apply.
+        ...(input.currency ? { currency: input.currency } : {}),
+        ...(input.trialDays !== undefined ? { trialDays: input.trialDays } : {}),
+      },
+      update: {
+        name: input.name,
+        priceMonthly: input.priceMonthly,
+        limits: input.limits,
+        isActive: input.isActive,
+        ...(input.currency ? { currency: input.currency } : {}),
+        ...(input.trialDays !== undefined ? { trialDays: input.trialDays } : {}),
+      },
     });
     await this.prisma.auditLog.create({
       data: {
@@ -23,7 +39,7 @@ export class AdminPlansService {
         action: 'plan.upsert',
         entityType: 'Plan',
         entityId: plan.id,
-        metadata: { key: input.key, limits: input.limits, priceMonthly: input.priceMonthly },
+        metadata: { key: input.key, limits: input.limits, priceMonthly: input.priceMonthly, currency: plan.currency, trialDays: plan.trialDays },
       },
     });
     return plan;

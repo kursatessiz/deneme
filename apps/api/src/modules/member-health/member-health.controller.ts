@@ -10,7 +10,7 @@ import {
   type UpdateHealthSettingsInput,
   type UpsertHealthSummariesInput,
 } from '@platform/shared';
-import { SelfService, StudioScoped } from '../auth/decorators/require-permission.decorator';
+import { SelfService, StudioScoped, AllowWhenRestricted } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import { ZodBody } from '../../common/zod-body.pipe';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
@@ -33,6 +33,7 @@ export class MemberHealthController {
   }
 
   @Put('settings')
+  @AllowWhenRestricted()
   @SelfService()
   async updateSettings(@Tenant() tenant: TenantContext, @ZodBody(UpdateHealthSettingsSchema) body: UpdateHealthSettingsInput) {
     return this.health.updateSettings(tenant, body);
@@ -45,6 +46,7 @@ export class MemberHealthController {
   }
 
   @Post('consent')
+  @AllowWhenRestricted()
   @SelfService()
   async acceptConsent(
     @Tenant() tenant: TenantContext,
@@ -55,6 +57,7 @@ export class MemberHealthController {
   }
 
   @Post('summaries')
+  @AllowWhenRestricted()
   @SelfService()
   async upsertSummaries(@Tenant() tenant: TenantContext, @ZodBody(UpsertHealthSummariesSchema) body: UpsertHealthSummariesInput) {
     return this.health.upsertSummaries(tenant, body);
@@ -67,6 +70,7 @@ export class MemberHealthController {
   }
 
   @Delete('data')
+  @AllowWhenRestricted()
   @SelfService()
   @HttpCode(200)
   async deleteData(@Tenant() tenant: TenantContext, @CurrentUser() user: AuthUser) {
@@ -86,6 +90,7 @@ export class MemberHealthController {
   }
 
   @Post('sync-records')
+  @AllowWhenRestricted()
   @SelfService()
   async createSyncRecord(@Tenant() tenant: TenantContext, @ZodBody(CreateHealthSyncRecordSchema) body: CreateHealthSyncRecordInput) {
     return this.health.createSyncRecord(tenant, body);

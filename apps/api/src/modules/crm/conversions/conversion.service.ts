@@ -20,6 +20,12 @@ export interface RecordConversionInput {
   isTest?: boolean;
   /** Browser pixel event id, when the page fired one; derived from the source otherwise. */
   eventId?: string;
+  /**
+   * Touchpoint to credit when no touch falls inside the attribution window
+   * before the event (G5c-1: studio_paid falls back to the touchpoint the
+   * studio's signup was attributed to).
+   */
+  fallbackTouchpointId?: string | null;
 }
 
 export interface RecordConversionResult {
@@ -102,7 +108,7 @@ export class ConversionService {
           sourceKind: input.source.kind,
           sourceId: input.source.id,
           isTest,
-          attributedTouchpointId: lastTouch?.id ?? null,
+          attributedTouchpointId: lastTouch?.id ?? input.fallbackTouchpointId ?? null,
         },
       });
     } catch (err) {
@@ -159,9 +165,13 @@ export class ConversionService {
   }
 
   /**
-   * Platform tenant: a studio paid a platform invoice. Wired to platform
-   * billing in a later phase; the owner is looked up through the studio's
-   * owner membership.
+   * Platform tenant: a studio paid a platform invoice (G5c-1 activation).
+   * The owner is looked up through the studio's owner membership. The
+   * event is attributed like any other (last touch inside the window before
+   * the payment); when there is none, for example a long trial, it falls
+   * back to the touchpoint the studio_signup event was attributed to, so
+   * the ad that brought the business in gets the paid conversion. Callers
+   * pass a reference keyed on the studio to record it once per studio.
    */
   async recordStudioPaid(
     paidStudioId: string,
@@ -182,6 +192,7 @@ export class ConversionService {
       select: { id: true },
     });
     if (!contact) return null;
+    const signup = await this.findBySource(platform.id, 'studio', paidStudioId);
     const result = await this.recordSafely({
       studioId: platform.id,
       type: 'studio_paid',
@@ -189,6 +200,7 @@ export class ConversionService {
       occurredAt,
       value,
       source: reference,
+      fallbackTouchpointId: signup?.attributedTouchpointId ?? null,
     });
     if (result?.created) {
       await this.prisma.contact.update({ where: { id: contact.id }, data: { lifecycleStage: 'MEMBER' } });

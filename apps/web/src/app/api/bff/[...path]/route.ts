@@ -13,6 +13,8 @@ import {
   refreshTokenCookieOptions,
 } from '@/lib/bff/cookies';
 import { isLogoutPath, isTokenIssuingPath } from '@/lib/bff/auth-paths';
+import { translateApiError } from '@/lib/bff/translate-error';
+import { PW_LOCALE_COOKIE } from '@/lib/i18n/constants';
 
 /**
  * Backend-for-frontend proxy. Every `/api/bff/<path>` call from the browser
@@ -80,7 +82,11 @@ function clearSessionCookies(res: NextResponse) {
   res.cookies.set(REFRESH_TOKEN_COOKIE, '', expiredCookieOptions(process.env.NODE_ENV));
 }
 
-async function toNextResponse(apiRes: Response, dropKeys: readonly string[] = []): Promise<{ body: unknown; res: NextResponse }> {
+async function toNextResponse(
+  apiRes: Response,
+  dropKeys: readonly string[] = [],
+  req?: NextRequest,
+): Promise<{ body: unknown; res: NextResponse }> {
   if (!isJsonResponse(apiRes)) {
     const { status, headers } = buildPassthroughResponseInit(apiRes);
     // A 204 (e.g. a delete) has no body; passing even an empty buffer throws.
@@ -90,7 +96,10 @@ async function toNextResponse(apiRes: Response, dropKeys: readonly string[] = []
     return { body: null, res };
   }
   const json = (await apiRes.json().catch(() => null)) as Record<string, unknown> | null;
-  const filtered = json && dropKeys.length > 0 ? Object.fromEntries(Object.entries(json).filter(([k]) => !dropKeys.includes(k))) : json;
+  const kept = json && dropKeys.length > 0 ? Object.fromEntries(Object.entries(json).filter(([k]) => !dropKeys.includes(k))) : json;
+  // Error codes with a shared translation (e.g. BILLING_RESTRICTED) reach the browser in the viewer's language.
+  const filtered =
+    !apiRes.ok && req ? translateApiError(kept, req.cookies.get(PW_LOCALE_COOKIE)?.value, req.headers.get('accept-language')) : kept;
   const res = NextResponse.json(filtered, { status: apiRes.status });
   return { body: filtered, res };
 }
@@ -152,7 +161,7 @@ async function handle(req: NextRequest, context: { params: Promise<{ path: strin
     return res;
   }
 
-  const { res } = await toNextResponse(apiRes);
+  const { res } = await toNextResponse(apiRes, [], req);
   return res;
 }
 

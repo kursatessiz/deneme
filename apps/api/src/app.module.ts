@@ -50,6 +50,7 @@ import { EventsModule } from './modules/events/events.module';
 import { RetailModule } from './modules/retail/retail.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { validateEnv } from './config/env';
+import { BillingModule } from './modules/billing/billing.module';
 
 @Module({
   imports: [
@@ -107,6 +108,7 @@ import { validateEnv } from './config/env';
     EventsModule,
     RetailModule,
     AccountingModule,
+    BillingModule,
   ],
 })
 export class AppModule {}

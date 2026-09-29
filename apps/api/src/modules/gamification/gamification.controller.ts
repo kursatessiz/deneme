@@ -13,7 +13,7 @@ import {
   type UpdateBadgeDefinitionInput,
   type UpdateGamificationSettingsInput,
 } from '@platform/shared';
-import { RequirePermission, SelfService, StudioScoped } from '../auth/decorators/require-permission.decorator';
+import { RequirePermission, SelfService, StudioScoped, AllowWhenRestricted } from '../auth/decorators/require-permission.decorator';
 import { Tenant } from '../auth/decorators/current-user.decorator';
 import { ZodBody, ZodQuery } from '../../common/zod-body.pipe';
 import type { TenantContext } from '../auth/tenant-context';
@@ -92,12 +92,14 @@ export class GamificationController {
   }
 
   @Put('me/goal')
+  @AllowWhenRestricted()
   @SelfService()
   async setGoal(@Tenant() tenant: TenantContext, @ZodBody(SetMonthlyGoalSchema) body: SetMonthlyGoalInput) {
     return this.gamification.setMonthlyGoal(tenant, body);
   }
 
   @Put('me/leaderboard-opt-in')
+  @AllowWhenRestricted()
   @SelfService()
   async setLeaderboardOptIn(@Tenant() tenant: TenantContext, @ZodBody(LeaderboardOptInSchema) body: LeaderboardOptInInput) {
     return this.gamification.setLeaderboardOptIn(tenant, body.optedIn);

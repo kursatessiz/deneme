@@ -121,6 +121,8 @@ const PROTECTED_PATHS = [
   '/riskli-uyeler',
   '/gelen-kutusu',
   '/etkinlikler',
+  '/abonelik',
+  '/tavsiye',
   '/admin',
 ];
 

@@ -493,6 +493,12 @@ Oturumlar bilerek `session_schedules` tablosunda değildir: kapasite, bilet ve k
 |-------|---------|-------------|
 | `subscriptions` | SaaS aboneliği: durum (deneme, aktif, gecikmiş, iptal edildi), dönem tarihleri | (studio_id, status) index; stüdyo başına bir canlı abonelik (status IN trialing/active/past_due) |
 | `feature_flags` | Özellik bayrakları: kapsam (global, iş türü, stüdyo); çözümleme sırası: kiracı > iş türü > global | (studio_id) index; (key, scope, business_type_template_id, studio_id) NULLS NOT DISTINCT ile benzersiz |
+| `studios` (G5c-1 sütunları) | Platform faturalama kapısı: `billing_status` (TRIALING/ACTIVE/PAST_DUE/RESTRICTED/CANCELLED), deneme başlangıç/bitiş, `activated_at`, hatırlatma eşiği, platform tavsiye kodu | `billing_status` CHECK; `platform_referral_code` benzersiz |
+| `plans` (G5c-1 sütunları) | `currency` (fiyatın para birimi), `trial_days` (plan başına deneme süresi) | `trial_days` 0-365 CHECK |
+| `platform_billing_payments` | İşletmenin platforma ödemesi: liste tutarı, kullanılan kredi (tutar/ay), çekilen tutar, para birimi, sağlayıcı ve referansı, durum | (provider, provider_reference) benzersiz; (studio_id, created_at) index; plan -> restrict |
+| `studio_referrals` | İşletmeden işletmeye tavsiye: tavsiye eden/edilen işletme, kod, kaynak, temas noktası, durum ve ret nedeni | referred_studio_id benzersiz (işletme başına bir tavsiye); touchpoint -> set null |
+| `platform_credit_ledger` | Yalnızca ekleme yapılan abonelik kredisi defteri (ödül +, kullanım -, ters kayıt) | idempotency_key benzersiz; tutar veya ay dolu olmalı (CHECK) |
+| `platform_billing_settings` | Tek satırlık platform ayarı (`id = 'platform'`): tavsiye ödülü türü ve değeri | - |
 
 ## Veritabanı Tarafından Zorunlu Kılınan Kurallar
 

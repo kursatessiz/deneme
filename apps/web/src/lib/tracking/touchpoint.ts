@@ -1,4 +1,4 @@
-import { parseTrackingParams } from '@platform/shared';
+import { parseReferralParam, parseTrackingParams } from '@platform/shared';
 import type { TouchpointInput } from '@platform/shared';
 import type { ConsentChoice } from './consent';
 
@@ -6,6 +6,7 @@ import type { ConsentChoice } from './consent';
 
 export function hasTrackingParams(url: string): boolean {
   const p = parseTrackingParams(url);
+  if (parseReferralParam(url)) return true;
   return [p.utm, p.adIds, p.clickIds].some((group) => Object.values(group).some(Boolean));
 }
 
@@ -37,6 +38,7 @@ export function buildTouchpoint(ctx: TouchpointContext): TouchpointInput {
   const params = parseTrackingParams(ctx.url);
   const advertising = ctx.consent.analytics && ctx.consent.advertising;
   const fbc = advertising ? ctx.fbcCookie ?? fbcFromFbclid(params.clickIds.fbclid, ctx.now) : undefined;
+  const ref = parseReferralParam(ctx.url);
   return {
     visitorId: ctx.visitorId,
     sessionId: ctx.sessionId,
@@ -49,6 +51,7 @@ export function buildTouchpoint(ctx: TouchpointContext): TouchpointInput {
     ...(fbc ? { fbc: fbc.slice(0, 250) } : {}),
     locale: ctx.locale.slice(0, 10),
     ...(ctx.pageVariant ? { pageVariant: ctx.pageVariant } : {}),
+    ...(ref ? { ref } : {}),
     consent: { analytics: ctx.consent.analytics, advertising },
   };
 }

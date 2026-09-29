@@ -30,6 +30,7 @@ import type {
 import { maskLeaderboardName } from '@platform/shared';
 import { Prisma, PaymentMethod, PaymentProvider, PaymentStatus, PackageDefinition } from '@platform/database';
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
+import { PaymentWebhookRouter } from './payment-webhook-router';
 
 type Tx = Prisma.TransactionClient;
 
@@ -46,6 +47,7 @@ export class PaymentsService {
     private webhooks: WebhooksService,
     @Optional() private crm?: CrmHooksService,
     @Optional() private eventSeats?: EventSeatsService,
+    @Optional() private webhookRouter?: PaymentWebhookRouter,
   ) {}
 
   /**
@@ -794,6 +796,9 @@ export class PaymentsService {
       where: { provider: adapter.name, providerReference: verification.providerReference },
     });
     if (!payment) {
+      // Not a tenant payment: platform billing (G5c-1) may own the reference.
+      const routed = await this.webhookRouter?.route(adapter.name, verification);
+      if (routed) return routed;
       // Unknown reference: nothing to reconcile. Acknowledged so the
       // provider does not keep retrying a webhook we will never match.
       return { handled: false };

@@ -1,3 +1,4 @@
+import type { MembershipBillingSummary } from './billing';
 import {
   BookingStatus,
   CommissionType,
@@ -68,6 +69,8 @@ export interface MembershipDTO {
   defaultLocale: string;
   /** The studio's currency (ISO 4217). Never hard-code 'TRY'; use this. */
   currency: string;
+  /** Platform billing state of the studio (G5c-1): trial banner and restricted mode. */
+  billing?: MembershipBillingSummary;
 }
 
 export interface SessionUserDTO extends UserDTO {

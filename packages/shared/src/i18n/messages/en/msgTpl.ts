@@ -41,6 +41,10 @@ export const enMsgTpl = {
   'msgTpl.EVENT_WAITLIST_PROMOTED.text': 'Hi {firstName}, a spot opened up for {eventTitle} and your registration is confirmed. It starts on {startTime}.',
   'msgTpl.EVENT_PAYMENT_DUE.subject': 'Payment needed for your registration',
   'msgTpl.EVENT_PAYMENT_DUE.text': 'Hi {firstName}, a spot for {eventTitle} is being held for you. Complete the payment by {paymentDueAt} to keep it.',
+  'msgTpl.TRIAL_ENDING.subject': 'Your trial is ending',
+  'msgTpl.TRIAL_ENDING.text': 'Hi {firstName}, the trial of your {studioName} account ends in {daysLeft} days ({trialEndDate}). Activate your account in the admin panel to continue without interruption.',
+  'msgTpl.TRIAL_RESTRICTED.subject': 'Your account is now restricted',
+  'msgTpl.TRIAL_RESTRICTED.text': 'Hi {firstName}, the trial of your {studioName} account has ended. Your data is safe and you can still view and export it. Activate your account in the admin panel to take new bookings and sales again.',
 
   'msgTpl.email.reasonCommercial': 'You are receiving this email because you agreed to hear from {studioName}.',
   'msgTpl.email.reasonTransactional': 'This email is about your account with {studioName}.',

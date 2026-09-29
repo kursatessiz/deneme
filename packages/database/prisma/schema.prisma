@@ -478,8 +478,16 @@ model Plan {
   limits       Json     @default("{}")
   isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at")
+  /// ISO 4217 currency of priceMonthly (G5c-1). The column default only
+  /// backfills plans created before this field existed; the super admin
+  /// sets it per plan.
+  currency     String   @default("TRY") @db.VarChar(3)
+  /// Free trial length in days for a new business on this plan (G5c-1).
+  /// Platform data set by the super admin, never a constant in code.
+  trialDays    Int      @default(14) @map("trial_days")
 
-  subscriptions Subscription[]
+  subscriptions   Subscription[]
+  billingPayments PlatformBillingPayment[]
 
   @@map("plans")
 }
@@ -600,6 +608,22 @@ model Studio {
   /// Super-admin override of the monthly AI budget in US cents (G3b). Null
   /// falls back to the plan's aiMonthlyBudgetCents, then the platform default.
   aiMonthlyBudgetCents   Int?     @map("ai_monthly_budget_cents")
+  /// Platform billing state (G5c-1, docs/DENEME_VE_ETKINLESTIRME.md): one of
+  /// STUDIO_BILLING_STATUSES in @platform/shared. Lives on Studio (not on
+  /// Subscription) because StudioTenantGuard already loads this row on
+  /// every request; RESTRICTED and CANCELLED block writes on core modules.
+  billingStatus          String    @default("ACTIVE") @map("billing_status") @db.VarChar(20)
+  trialStartedAt         DateTime? @map("trial_started_at")
+  trialEndsAt            DateTime? @map("trial_ends_at")
+  /// First successful activation (first paid platform invoice).
+  activatedAt            DateTime? @map("activated_at")
+  billingStatusChangedAt DateTime? @map("billing_status_changed_at")
+  /// Smallest TRIAL_REMINDER_DAYS threshold already sent for the current
+  /// trial end; cleared when the trial is extended.
+  trialReminderSentDays  Int?      @map("trial_reminder_sent_days")
+  /// Business-to-business referral code (platform level), created on the
+  /// owner's first visit to the referral page.
+  platformReferralCode   String?   @unique @map("platform_referral_code") @db.VarChar(16)
   isActive               Boolean  @default(true) @map("is_active")
   createdAt              DateTime @default(now()) @map("created_at")
   updatedAt              DateTime @updatedAt @map("updated_at")
@@ -718,6 +742,10 @@ model Studio {
   eventOccurrences      EventOccurrence[]
   eventTicketTypes      EventTicketType[]
   eventRegistrations    EventRegistration[]
+  billingPayments       PlatformBillingPayment[]
+  platformCredits       PlatformCreditLedger[]
+  referralsMade         StudioReferral[]     @relation("StudioReferralReferrer")
+  referredBy            StudioReferral?      @relation("StudioReferralReferred")
 
   @@map("studios")
 }
@@ -2658,6 +2686,9 @@ model Touchpoint {
   /// Meta/Google/TikTok may use this touchpoint's identifiers at all; click
   /// ids and fbp/fbc are only ever populated when this is true.
   advertisingConsent Boolean @default(false) @map("advertising_consent")
+  /// Business-to-business referral code from the pw_ref parameter (G5c-1);
+  /// only meaningful on the platform tenant.
+  refCode        String?  @map("ref_code") @db.VarChar(16)
   contactId      String?  @map("contact_id") @db.Uuid
   createdAt      DateTime @default(now()) @map("created_at")
 
@@ -2667,6 +2698,7 @@ model Touchpoint {
   firstTouchOf     Contact[]         @relation("ContactFirstTouch")
   lastTouchOf      Contact[]         @relation("ContactLastTouch")
   attributedEvents ConversionEvent[]
+  studioReferrals  StudioReferral[]
 
   @@index([studioId, visitorId, occurredAt])
   @@index([studioId, contactId, occurredAt])
@@ -4742,4 +4774,111 @@ model SaleRefundLine {
   @@index([refundId])
   @@index([saleLineId])
   @@map("sale_refund_lines")
+}
+
+// ---------------------------------------------------------------------------
+// G5c-1: trial, activation and business-to-business referrals
+// (docs/DENEME_VE_ETKINLESTIRME.md)
+// ---------------------------------------------------------------------------
+
+/// One platform invoice payment by a tenant (activation or a later period).
+/// The tenant pays the platform, so this is not a tenant Payment row.
+model PlatformBillingPayment {
+  id                String           @id @default(uuid()) @db.Uuid
+  studioId          String           @map("studio_id") @db.Uuid
+  planId            String           @map("plan_id") @db.Uuid
+  /// Plan price for the period before credits.
+  listAmount        Decimal          @map("list_amount") @db.Decimal(10, 2)
+  /// Referral credit applied to this charge (same currency).
+  creditAmount      Decimal          @default(0) @map("credit_amount") @db.Decimal(10, 2)
+  /// Free months of credit applied to this charge.
+  creditMonths      Int              @default(0) @map("credit_months")
+  /// Charged through the provider: listAmount minus credits, never negative.
+  amount            Decimal          @db.Decimal(10, 2)
+  currency          String           @db.VarChar(3)
+  periodMonths      Int              @default(1) @map("period_months")
+  /// Null when credits covered the whole charge and no provider was called.
+  provider          PaymentProvider?
+  providerReference String?          @map("provider_reference") @db.VarChar(200)
+  /// PENDING | COMPLETED | FAILED (PLATFORM_PAYMENT_STATUSES in @platform/shared).
+  status            String           @default("PENDING") @db.VarChar(20)
+  paidAt            DateTime?        @map("paid_at")
+  createdByUserId   String?          @map("created_by_user_id") @db.Uuid
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  studio        Studio                 @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  plan          Plan                   @relation(fields: [planId], references: [id])
+  creditEntries PlatformCreditLedger[]
+
+  @@unique([provider, providerReference])
+  @@index([studioId, createdAt])
+  @@map("platform_billing_payments")
+}
+
+/// A business referred by another business. One row per referred studio
+/// (unique), so a studio can only ever be referred, and rewarded, once.
+model StudioReferral {
+  id               String    @id @default(uuid()) @db.Uuid
+  referrerStudioId String    @map("referrer_studio_id") @db.Uuid
+  referredStudioId String    @unique @map("referred_studio_id") @db.Uuid
+  code             String    @db.VarChar(16)
+  /// TOUCHPOINT (pw_ref on a platform site visit) or MANUAL (code entered by the super admin).
+  source           String    @db.VarChar(20)
+  touchpointId     String?   @map("touchpoint_id") @db.Uuid
+  /// SIGNED_UP | REWARDED | REJECTED (STUDIO_REFERRAL_STATUSES).
+  status           String    @default("SIGNED_UP") @db.VarChar(20)
+  rejectReason     String?   @map("reject_reason") @db.VarChar(40)
+  rewardedAt       DateTime? @map("rewarded_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  referrer      Studio                 @relation("StudioReferralReferrer", fields: [referrerStudioId], references: [id], onDelete: Cascade)
+  referred      Studio                 @relation("StudioReferralReferred", fields: [referredStudioId], references: [id], onDelete: Cascade)
+  touchpoint    Touchpoint?            @relation(fields: [touchpointId], references: [id], onDelete: SetNull)
+  creditEntries PlatformCreditLedger[]
+
+  @@index([referrerStudioId, createdAt])
+  @@map("studio_referrals")
+}
+
+/// Append-only subscription credit ledger per tenant. Rows are never
+/// updated or deleted by the application; the balance is the sum.
+/// idempotencyKey makes every write safe to retry (e.g. one reward per
+/// referred studio: referral-reward:<referredStudioId>).
+model PlatformCreditLedger {
+  id               String   @id @default(uuid()) @db.Uuid
+  studioId         String   @map("studio_id") @db.Uuid
+  /// REFERRAL_REWARD | APPLIED | ADJUSTMENT (PLATFORM_CREDIT_KINDS).
+  kind             String   @db.VarChar(20)
+  /// Signed money credit; null for a months-only entry.
+  amount           Decimal? @db.Decimal(10, 2)
+  currency         String?  @db.VarChar(3)
+  /// Signed free months; null for a money-only entry.
+  months           Int?
+  referralId       String?  @map("referral_id") @db.Uuid
+  billingPaymentId String?  @map("billing_payment_id") @db.Uuid
+  idempotencyKey   String   @unique @map("idempotency_key") @db.VarChar(120)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  studio         Studio                  @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  referral       StudioReferral?         @relation(fields: [referralId], references: [id], onDelete: SetNull)
+  billingPayment PlatformBillingPayment? @relation(fields: [billingPaymentId], references: [id], onDelete: SetNull)
+
+  @@index([studioId, createdAt])
+  @@map("platform_credit_ledger")
+}
+
+/// Platform-wide billing settings (single row, id "platform").
+model PlatformBillingSettings {
+  id                     String   @id @default("platform") @db.VarChar(20)
+  /// AMOUNT or FREE_MONTHS (REFERRAL_REWARD_KINDS).
+  referralRewardKind     String   @default("FREE_MONTHS") @map("referral_reward_kind") @db.VarChar(20)
+  referralRewardAmount   Decimal? @map("referral_reward_amount") @db.Decimal(10, 2)
+  referralRewardCurrency String?  @map("referral_reward_currency") @db.VarChar(3)
+  referralRewardMonths   Int?     @default(1) @map("referral_reward_months")
+  updatedByUserId        String?  @map("updated_by_user_id") @db.Uuid
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_billing_settings")
 }

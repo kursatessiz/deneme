@@ -180,7 +180,7 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
             {plans.map((p) => (
               <div key={p.key} style={card}>
                 <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{p.name}</h3>
-                <p style={{ ...body, fontSize: 20, fontWeight: 800, color: 'var(--color-text-primary)' }}>{formatMoney(p.priceMonthly, 'USD', ctx.locale)}</p>
+                <p style={{ ...body, fontSize: 20, fontWeight: 800, color: 'var(--color-text-primary)' }}>{formatMoney(p.priceMonthly, p.currency, ctx.locale)}</p>
               </div>
             ))}
             {packages.map((p) => (

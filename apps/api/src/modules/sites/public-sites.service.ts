@@ -108,7 +108,7 @@ export class PublicSitesService {
     if (needs.has('pricing')) {
       if (studio.site?.kind === 'PLATFORM') {
         const plans = await this.prisma.plan.findMany({ where: { isActive: true }, orderBy: { priceMonthly: 'asc' } });
-        context.plans = plans.map((p) => ({ key: p.key, name: p.name, priceMonthly: p.priceMonthly.toString(), limits: p.limits }));
+        context.plans = plans.map((p) => ({ key: p.key, name: p.name, priceMonthly: p.priceMonthly.toString(), currency: p.currency, limits: p.limits }));
       } else {
         const packages = await this.prisma.packageDefinition.findMany({ where: { studioId: studio.id, isActive: true }, orderBy: { price: 'asc' } });
         context.packages = packages.map((p) => ({ id: p.id, name: p.name, price: p.price.toString(), currency: studio.currency }));

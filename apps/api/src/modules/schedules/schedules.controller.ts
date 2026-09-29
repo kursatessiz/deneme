@@ -2,7 +2,7 @@ import { BadRequestException, Controller, Get, Post, Param, Query, Patch, ParseU
 import type { UpdateScheduleInput } from '@platform/shared';
 import { UpdateScheduleSchema } from '@platform/shared';
 import { SchedulesService } from './schedules.service';
-import { StudioScoped, RequirePermission, SelfService } from '../auth/decorators/require-permission.decorator';
+import { StudioScoped, RequirePermission, SelfService, AllowWhenRestricted } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import { ZodBody } from '../../common/zod-body.pipe';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
@@ -109,6 +109,7 @@ export class SchedulesController {
   }
 
   @Post('cancel/self')
+  @AllowWhenRestricted()
   @SelfService()
   async cancelBookingSelf(@Tenant() tenant: TenantContext, @ZodBody(CancelBookingSchema) body: CancelBookingInput) {
     return this.schedulesService.cancelBookingSelf(tenant, body);
@@ -162,6 +163,7 @@ export class SchedulesController {
    * appears in the calendar listing or spot map responses.
    */
   @Post('sessions/:scheduleId/join')
+  @AllowWhenRestricted()
   @SelfService()
   async joinSession(@Param('scheduleId', ParseUUIDPipe) scheduleId: string, @Tenant() tenant: TenantContext) {
     return this.schedulesService.joinSession(tenant, scheduleId);
@@ -202,6 +204,7 @@ export class SchedulesController {
   }
 
   @Post('waitlist/leave/self')
+  @AllowWhenRestricted()
   @SelfService()
   async leaveWaitlistSelf(@Tenant() tenant: TenantContext, @ZodBody(LeaveWaitlistSchema) body: LeaveWaitlistInput) {
     return this.schedulesService.leaveWaitlistSelf(tenant, body);

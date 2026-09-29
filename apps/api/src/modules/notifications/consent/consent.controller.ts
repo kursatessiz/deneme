@@ -3,7 +3,7 @@ import { UpdateConsentSchema } from '@platform/shared';
 import type { UpdateConsentInput } from '@platform/shared';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser, Tenant } from '../../auth/decorators/current-user.decorator';
-import { RequirePermission, SelfService, StudioScoped } from '../../auth/decorators/require-permission.decorator';
+import { RequirePermission, SelfService, StudioScoped, AllowWhenRestricted } from '../../auth/decorators/require-permission.decorator';
 import { toCsv } from '../../../common/csv';
 import { ZodBody } from '../../../common/zod-body.pipe';
 import type { AuthUser, TenantContext } from '../../auth/tenant-context';
@@ -25,6 +25,7 @@ export class ConsentController {
   }
 
   @Put('self')
+  @AllowWhenRestricted()
   @SelfService()
   async setOwn(
     @Tenant() tenant: TenantContext,

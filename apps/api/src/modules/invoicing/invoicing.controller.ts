@@ -11,7 +11,7 @@ import {
   ListInvoicesQuerySchema,
 } from '@platform/shared';
 import { InvoicingService } from './invoicing.service';
-import { StudioScoped, RequirePermission, SelfService } from '../auth/decorators/require-permission.decorator';
+import { StudioScoped, RequirePermission, SelfService, AllowWhenRestricted } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import { ZodBody, ZodQuery } from '../../common/zod-body.pipe';
 import { toCsv } from '../../common/csv';
@@ -51,6 +51,7 @@ export class BillingProfilesController {
   }
 
   @Put('self')
+  @AllowWhenRestricted()
   @SelfService()
   async updateSelf(@Tenant() tenant: TenantContext, @ZodBody(BillingProfileSchema) body: BillingProfileInput) {
     return this.invoicing.upsertMyBillingProfile(tenant, body);

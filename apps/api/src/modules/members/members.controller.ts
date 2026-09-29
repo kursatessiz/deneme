@@ -1,6 +1,6 @@
 import { Controller, ForbiddenException, Get, Post, Param, ParseUUIDPipe, Put, Query } from '@nestjs/common';
 import { MembersService } from './members.service';
-import { StudioScoped, RequirePermission, SelfService } from '../auth/decorators/require-permission.decorator';
+import { StudioScoped, RequirePermission, SelfService, AllowWhenRestricted } from '../auth/decorators/require-permission.decorator';
 import { Tenant } from '../auth/decorators/current-user.decorator';
 import { ZodBody } from '../../common/zod-body.pipe';
 import type { TenantContext } from '../auth/tenant-context';
@@ -33,6 +33,7 @@ export class MembersController {
   }
 
   @Put('self/home-branch')
+  @AllowWhenRestricted()
   @SelfService()
   async setOwnHomeBranch(@Tenant() tenant: TenantContext, @ZodBody(SetHomeBranchSchema) body: SetHomeBranchInput) {
     if (!tenant.memberProfileId) throw new ForbiddenException('Bu işletmede üye profiliniz yok');

@@ -9,6 +9,8 @@ export const LOGINS = {
   reception: '+905321000003',
   trainer: '+905321000004',
   member: '+905321000016',
+  /** Owner of the seeded "Nova Hareket Merkezi", a business still in its free trial (G5c-1). */
+  trialOwner: '+905329900001',
 } as const;
 
 export const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? 'Demo1234!';
