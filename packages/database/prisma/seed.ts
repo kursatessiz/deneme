@@ -11,7 +11,6 @@ import {
   SubscriptionStatus,
   DocumentType,
   MembershipStatus,
-  BadgeKind as PrismaBadgeKind,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import {
@@ -20,10 +19,6 @@ import {
   normalizePhone,
   DEFAULT_PIPELINE_STAGES,
   THEME_FAMILIES,
-  BadgeKind,
-  BUILTIN_TEMPLATES,
-  BUILTIN_TEMPLATE_LOCALES,
-  builtinTemplateContent,
   AUTOMATION_RULE_TYPES,
   LEGACY_RULE_TEMPLATE_KEY,
   legacyRuleToJourney,
@@ -33,7 +28,8 @@ import {
   defaultRetailTaxRate,
   formatReceiptNumber,
 } from '@platform/shared';
-import type { BadgeThresholdParams } from '@platform/shared';
+import { createPublishedPage as writePublishedPage } from '../src/platform-defaults';
+import { ensureCatalogDefaults, ensurePlatformTenant } from '../src/ensure-platform-defaults';
 
 // Seed is a development-only tool: it truncates every table before writing,
 // so it must never run against a production database (see CLAUDE.md).
@@ -193,56 +189,13 @@ async function main() {
 
   // -- Platform level -------------------------------------------------------
 
-  const businessTypeTemplates = await createBusinessTypeTemplates();
-  const plans = await createPlans();
-  await createSmsPackages();
-  await createGamificationDefaults();
-  const kvkkDoc = await prisma.documentVersion.create({
-    data: {
-      studioId: null,
-      type: DocumentType.KVKK_NOTICE,
-      version: 1,
-      title: 'KVKK Aydinlatma Metni',
-      body:
-        'Bu metin, 6698 sayili Kisisel Verilerin Korunmasi Kanunu kapsaminda uyelerimizin ' +
-        'kisisel verilerinin hangi amacla islendigini aciklayan ornek bir taslaktir. Gercek ' +
-        'kullanimdan once hukuk danismani tarafindan gozden gecirilmelidir.',
-      publishedAt: new Date(),
-    },
-  });
-  count('document_versions');
-  await prisma.documentVersion.create({
-    data: {
-      studioId: null,
-      type: DocumentType.MEMBERSHIP_CONTRACT,
-      version: 1,
-      title: 'Uyelik Sozlesmesi',
-      body:
-        'Bu sozlesme, uye ile isletme arasindaki paket satin alma, iptal ve devir sartlarini ' +
-        'duzenleyen ornek bir taslak metindir. Gercek kullanimdan once hukuk danismani ' +
-        'tarafindan gozden gecirilmelidir.',
-      publishedAt: new Date(),
-    },
-  });
-  count('document_versions');
-  // Separate, optional consent for the health integration (W21): never part
-  // of onboarding's required documents, only shown when the member opts in.
-  await prisma.documentVersion.create({
-    data: {
-      studioId: null,
-      type: DocumentType.HEALTH_DATA,
-      version: 1,
-      title: 'Saglik Verisi Paylasimi Acik Riza Metni',
-      body:
-        'Bu metin, Apple Health / Health Connect entegrasyonu ile adim, aktif enerji ve ' +
-        'dinlenme nabzi gunluk ozetlerinizin isletmeyle paylasilmasina iliskin acik riza ' +
-        'metninin ornek bir taslagidir. Ozel nitelikli kisisel veri oldugundan onay her zaman ' +
-        'geri alinabilir ve veri her zaman silinebilir. Gercek kullanimdan once hukuk ' +
-        'danismani tarafindan gozden gecirilmelidir.',
-      publishedAt: new Date(),
-    },
-  });
-  count('document_versions');
+  // Business type templates, plans, SMS packages, badges, global documents
+  // and message templates: the same definitions the production bootstrap
+  // command uses (packages/database/src/platform-defaults.ts).
+  const catalog = await ensureCatalogDefaults(prisma, count);
+  const businessTypeTemplates = pick(catalog.businessTypeTemplateIds, ['pilates_studio', 'personal_training', 'physiotherapy']);
+  const plans = pick(catalog.planIds, ['starter', 'pro']);
+  const kvkkDoc = { id: pick(catalog.documentIds, [DocumentType.KVKK_NOTICE])[DocumentType.KVKK_NOTICE] };
 
   const superAdminPhone = nextPhone();
   await prisma.user.create({
@@ -296,8 +249,6 @@ async function seedMessaging(studioIds: { zen: string; flow: string; guc: string
     where: { studioId: { in: Object.values(studioIds) } },
     data: { balance: 1000 },
   });
-
-  await createGlobalMessageTemplates();
 
   for (const studioId of Object.values(studioIds)) {
     await createDefaultJourneys(studioId);
@@ -740,203 +691,15 @@ async function seedGrowth(zenStudioId: string) {
   count('campaigns');
 }
 
-// Global default templates: every built-in template (packages/shared
-// message-templates.ts) in every bundled language (tr, en) for SMS, WhatsApp
-// and email. Texts come from the i18n catalogue (namespace msgTpl), so the
-// seed and the engine's built-in fallback can never disagree. Win-back and
-// birthday are marketing (isTransactional: false, İYS consent required).
-async function createGlobalMessageTemplates() {
-  for (const t of BUILTIN_TEMPLATES) {
-    for (const locale of BUILTIN_TEMPLATE_LOCALES) {
-      for (const channel of ['SMS', 'WHATSAPP', 'EMAIL'] as const) {
-        const content = builtinTemplateContent(t.key, channel, locale);
-        if (!content) continue;
-        await prisma.messageTemplate.create({
-          data: {
-            studioId: null,
-            key: t.key,
-            channel,
-            locale,
-            body: content.body,
-            subject: content.subject,
-            blocks: content.blocks ? (content.blocks as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
-            whatsappTemplateName: content.whatsappTemplateName,
-            whatsappStatus: 'APPROVED',
-            isTransactional: content.isTransactional,
-          },
-        });
-        count('message_templates');
-      }
-    }
+/** Values of `keys` in a defaults id map; throws if one is missing, which a truncated database never is. */
+function pick<K extends string>(ids: Partial<Record<K, string>>, keys: readonly K[]): Record<K, string> {
+  const out = {} as Record<K, string>;
+  for (const key of keys) {
+    const id = ids[key];
+    if (!id) throw new Error(`Platform default ${key} is missing`);
+    out[key] = id;
   }
-}
-
-// ---------------------------------------------------------------------------
-// Platform level seed data
-// ---------------------------------------------------------------------------
-
-async function createBusinessTypeTemplates() {
-  const pilates = await prisma.businessTypeTemplate.create({
-    data: {
-      key: 'pilates_studio',
-      name: 'Pilates Studyosu',
-      vocabulary: { member: 'Uye', trainer: 'Egitmen', client: 'Uye' },
-      defaults: {
-        serviceTypeNames: ['Birebir Reformer', 'Grup Reformer', 'Mat Pilates'],
-        resourceTypeNames: ['Salon', 'Reformer'],
-      },
-      enabledModules: ['scheduling', 'packages', 'payments', 'waitlist', 'commissions'],
-    },
-  });
-  count('business_type_templates');
-
-  const personalTraining = await prisma.businessTypeTemplate.create({
-    data: {
-      key: 'personal_training',
-      name: 'Personal Training',
-      vocabulary: { member: 'Danisan', trainer: 'Antrenor', client: 'Danisan' },
-      defaults: {
-        serviceTypeNames: ['Birebir PT', 'Duet PT'],
-        resourceTypeNames: ['Antrenman Alani'],
-      },
-      enabledModules: ['scheduling', 'packages', 'payments', 'commissions'],
-    },
-  });
-  count('business_type_templates');
-
-  const physiotherapy = await prisma.businessTypeTemplate.create({
-    data: {
-      key: 'physiotherapy',
-      name: 'Fizyoterapi',
-      vocabulary: { member: 'Danisan', trainer: 'Fizyoterapist', client: 'Danisan' },
-      defaults: {
-        serviceTypeNames: ['Degerlendirme', 'Seans'],
-        resourceTypeNames: ['Tedavi Odasi'],
-      },
-      enabledModules: ['scheduling', 'packages', 'payments', 'measurements'],
-    },
-  });
-  count('business_type_templates');
-
-  return { pilates_studio: pilates.id, personal_training: personalTraining.id, physiotherapy: physiotherapy.id };
-}
-
-async function createPlans() {
-  // G5c-1b: one monthly price per platform billing currency (plan_prices).
-  // plans.price_monthly/currency are the deprecated mirror of the TRY price
-  // kept for one release; nothing reads them to choose a price.
-  const plans = [
-    {
-      key: 'starter',
-      name: 'Starter',
-      prices: { TRY: 1490, USD: 49, EUR: 45, GBP: 39 },
-      limits: { maxBranches: 1, maxActiveMembers: 150, maxStaff: 5, aiMonthlyBudgetCents: 500 },
-    },
-    {
-      key: 'pro',
-      name: 'Pro',
-      prices: { TRY: 3490, USD: 119, EUR: 109, GBP: 95 },
-      limits: { maxBranches: 3, maxActiveMembers: 800, maxStaff: 25, aiMonthlyBudgetCents: 2000 },
-    },
-  ];
-  const ids: Record<string, string> = {};
-  for (const plan of plans) {
-    const created = await prisma.plan.create({
-      data: {
-        key: plan.key,
-        name: plan.name,
-        priceMonthly: plan.prices.TRY,
-        currency: 'TRY',
-        trialDays: 14,
-        limits: plan.limits,
-        prices: { create: Object.entries(plan.prices).map(([currency, priceMonthly]) => ({ currency, priceMonthly })) },
-      },
-    });
-    ids[plan.key] = created.id;
-    count('plans');
-    count('plan_prices', Object.keys(plan.prices).length);
-  }
-  return { starter: ids.starter, pro: ids.pro };
-}
-
-async function createSmsPackages() {
-  const packages = [
-    { key: 'sms_1000', name: '1.000 SMS Kredisi', credits: 1000, price: 350 },
-    { key: 'sms_5000', name: '5.000 SMS Kredisi', credits: 5000, price: 1500 },
-    { key: 'sms_10000', name: '10.000 SMS Kredisi', credits: 10000, price: 2750 },
-  ];
-  for (const p of packages) {
-    await prisma.smsPackage.create({ data: p });
-    count('sms_packages');
-  }
-}
-
-// ---------------------------------------------------------------------------
-// W16: gamification global badge defaults (studioId null, offered to every tenant)
-// ---------------------------------------------------------------------------
-
-async function createGamificationDefaults() {
-  const badges: { key: string; name: string; description: string; kind: BadgeKind; threshold: BadgeThresholdParams }[] = [
-    {
-      key: 'first-session',
-      name: 'İlk adım',
-      description: 'İlk seansına katıldın.',
-      kind: BadgeKind.FIRST_SESSION,
-      threshold: { kind: BadgeKind.FIRST_SESSION },
-    },
-    ...[1, 10, 25, 50, 100, 250].map((sessions) => ({
-      key: `milestone-${sessions}`,
-      name: `${sessions}. seans`,
-      description: `Toplam ${sessions} seansa katıldın.`,
-      kind: BadgeKind.MILESTONE_SESSIONS,
-      threshold: { kind: BadgeKind.MILESTONE_SESSIONS, sessions } as BadgeThresholdParams,
-    })),
-    ...[4, 8, 12].map((weeks) => ({
-      key: `streak-${weeks}-weeks`,
-      name: `${weeks} haftalık seri`,
-      description: `${weeks} hafta üst üste en az bir seansa katıldın.`,
-      kind: BadgeKind.STREAK_WEEKS,
-      threshold: { kind: BadgeKind.STREAK_WEEKS, weeks, minSessionsPerWeek: 1 } as BadgeThresholdParams,
-    })),
-    {
-      key: 'variety-3',
-      name: 'Çok yönlü',
-      description: '3 farklı hizmet türünde seansa katıldın.',
-      kind: BadgeKind.VARIETY,
-      threshold: { kind: BadgeKind.VARIETY, distinctServiceTypes: 3 },
-    },
-    {
-      key: 'early-bird',
-      name: 'Erken kuş',
-      description: 'Saat 08:00\'den önce başlayan bir seansa katıldın.',
-      kind: BadgeKind.EARLY_BIRD,
-      threshold: { kind: BadgeKind.EARLY_BIRD, beforeHour: 8 },
-    },
-    {
-      key: 'monthly-goal-met',
-      name: 'Hedefini tuttur',
-      description: 'Bir ayın hedefini tamamladın.',
-      kind: BadgeKind.MONTHLY_GOAL_MET,
-      threshold: { kind: BadgeKind.MONTHLY_GOAL_MET },
-    },
-  ];
-
-  for (const badge of badges) {
-    await prisma.badgeDefinition.create({
-      data: {
-        studioId: null,
-        key: badge.key,
-        name: badge.name,
-        description: badge.description,
-        // Prisma's generated BadgeKind is structurally identical to the shared
-        // one but a distinct nominal type; cast once at this boundary.
-        kind: badge.kind as unknown as PrismaBadgeKind,
-        threshold: badge.threshold,
-        isActive: true,
-      },
-    });
-    count('badge_definitions');
-  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -2616,10 +2379,8 @@ const SEED_LEAD_PHONES = {
 } as const;
 
 async function seedCrm(zenStudioId: string, flowStudioId: string): Promise<string> {
-  const platform = await prisma.studio.create({
-    data: { name: 'Platform', slug: 'platform', isPlatform: true },
-  });
-  count('studios');
+  // Pipeline stages are counted once, in total, after the backfill below.
+  const platform = { id: (await ensurePlatformTenant(prisma, (table, n) => table !== 'pipeline_stages' && count(table, n))).platformStudioId };
 
   const zenMembers = await prisma.membership.findMany({
     where: { studioId: zenStudioId, memberProfile: { isNot: null } },
@@ -2758,61 +2519,16 @@ async function createPublishedPage(
   // blocksByLocaleKey returns the same ordered block list for every locale
   // (blocks carry all locales' text at once); called once to build it.
   const blocks = blocksByLocaleKey(locales[0].locale) ?? [];
-
-  const page = await prisma.page.create({
-    data: { siteId, kind, sectorKey, internalLabel, status: 'PUBLISHED', publishedAt: new Date() },
-  });
+  await writePublishedPage(prisma, siteId, { kind, internalLabel, sectorKey, locales, blocks });
   count('pages');
-
-  const localeRows = await Promise.all(
-    locales.map((l) =>
-      prisma.pageLocale.create({
-        data: {
-          pageId: page.id,
-          siteId,
-          locale: l.locale,
-          slug: l.slug,
-          seoTitle: l.seoTitle,
-          seoDescription: l.seoDescription ?? null,
-          legalApproved: l.legalApproved ?? false,
-          legalApprovedAt: l.legalApproved ? new Date() : null,
-        },
-      }),
-    ),
-  );
   count('page_locales', locales.length);
-
-  const blockRows = await Promise.all(
-    blocks.map((b, i) => prisma.block.create({ data: { pageId: page.id, type: b.type, position: i, data: b.data as Prisma.InputJsonValue } })),
-  );
   count('blocks', blocks.length);
-
-  await prisma.pageVersion.create({
-    data: {
-      pageId: page.id,
-      version: 1,
-      snapshot: {
-        locales: localeRows.map((l) => ({
-          locale: l.locale,
-          slug: l.slug,
-          seoTitle: l.seoTitle,
-          seoDescription: l.seoDescription,
-          ogImageUrl: l.ogImageUrl,
-          legalApproved: l.legalApproved,
-          legalApprovedAt: l.legalApprovedAt?.toISOString() ?? null,
-        })),
-        blocks: blockRows.map((b) => ({ id: b.id, type: b.type, position: b.position, abVariantKey: b.abVariantKey, data: b.data })),
-      } as unknown as Prisma.InputJsonValue,
-    },
-  });
   count('page_versions');
 }
 
 async function seedSites(platformStudioId: string): Promise<void> {
-  const site = await prisma.site.create({
-    data: { studioId: platformStudioId, kind: 'PLATFORM', defaultLocale: 'tr', enabledLocales: ['tr', 'en'] },
-  });
-  count('sites');
+  // Created together with its home page by ensurePlatformTenant (seedCrm).
+  const site = await prisma.site.findUniqueOrThrow({ where: { studioId: platformStudioId } });
 
   await prisma.companyInfo.create({
     data: {
@@ -2829,53 +2545,6 @@ async function seedSites(platformStudioId: string): Promise<void> {
     },
   });
   count('company_info');
-
-  // Home
-  await createPublishedPage(site.id, 'HOME', 'Ana sayfa', [
-    { locale: 'tr', slug: '', seoTitle: 'Platform | Uyelik ve randevu yonetimi', seoDescription: 'Studyolar, kisisel antrenorluk, fizyoterapi ve benzeri isletmeler icin tek platform.' },
-    { locale: 'en', slug: '', seoTitle: 'Platform | Membership and booking management', seoDescription: 'One platform for studios, personal training, physiotherapy and similar businesses.' },
-  ], () => [
-    {
-      type: 'hero',
-      data: {
-        config: {},
-        text: {
-          tr: { title: 'Uyelik ve randevu tabanli isletmeniz icin tek platform', subtitle: 'Takvim, paket/kredi yonetimi, odeme ve raporlama; kod degisikligi gerektirmeden isletmenize gore yapilandirilir.', primaryCtaLabel: 'Ucretsiz deneyin', primaryCtaHref: '#iletisim' },
-          en: { title: 'The all-in-one platform for membership and booking businesses', subtitle: 'Scheduling, packages, payments and reporting, configured for your business without code changes.', primaryCtaLabel: 'Start free trial', primaryCtaHref: '#contact' },
-        },
-      },
-    },
-    {
-      type: 'sector_cards',
-      data: { config: { sectorKeys: [] }, text: { tr: { title: 'Isletme turunuzu secin' }, en: { title: 'Choose your business type' } } },
-    },
-    {
-      type: 'feature_grid',
-      data: {
-        config: {},
-        text: {
-          tr: {
-            title: 'Ozellikler',
-            items: [
-              { title: 'Online rezervasyon', description: 'Uyeler seans ve randevularini kendi telefonlarindan planlar.' },
-              { title: 'Paket ve kredi takibi', description: 'Seans sayisi, sinirsiz sure veya kredi tabanli paketler.' },
-              { title: 'Odeme ve raporlama', description: 'Tahsilat, iade ve gelir raporlari tek ekrandan.' },
-            ],
-          },
-          en: {
-            title: 'Features',
-            items: [
-              { title: 'Online booking', description: 'Members schedule sessions and appointments from their phone.' },
-              { title: 'Packages and credits', description: 'Session count, unlimited time or credit based packages.' },
-              { title: 'Payments and reporting', description: 'Collections, refunds and revenue reports in one place.' },
-            ],
-          },
-        },
-      },
-    },
-    { type: 'cta', data: { config: {}, text: { tr: { title: 'Isletmenizi kaydedin', buttonLabel: 'Iletisime gecin', buttonHref: '#iletisim' }, en: { title: 'Register your business', buttonLabel: 'Contact us', buttonHref: '#contact' } } } },
-    { type: 'lead_form', data: { config: { fields: ['fullName', 'phone', 'email'] }, text: { tr: { title: 'Iletisim', submitLabel: 'Gonder' }, en: { title: 'Contact', submitLabel: 'Send' } } } },
-  ]);
 
   // Corporate pages
   await createPublishedPage(site.id, 'CORPORATE', 'Ozellikler', [
