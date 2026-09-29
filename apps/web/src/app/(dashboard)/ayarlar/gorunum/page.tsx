@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { THEME_FAMILY_KEYS } from '@platform/shared';
 import type { AppearancePreference, ColorSchemePreference, TenantTheme, ThemeFamilyKey } from '@platform/shared';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useT } from '@/components/i18n/I18nProvider';
 import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, ErrorState } from '@/components/common/DataState';
@@ -12,6 +13,12 @@ import { hasAnyPermission } from '@/lib/nav';
 import { InlineMessage, PrimaryButton, Section, SettingsHeader, TextField } from '@/components/settings/ui';
 import { defaultGradientForFamily, gradientPresetsForFamily, previewCssVariables, previewThemeFromForm } from '@/lib/settings/theme-preview';
 
+/**
+ * Theme family names (Stüdyo Noir, Nefes, Saha, Atölye) are fixed design
+ * identities defined once in packages/shared/src/design/themes.ts (rule 3's
+ * single source of truth); they are brand-style proper names, not
+ * translated UI copy, and are shown the same across locales.
+ */
 const FAMILY_LABELS: Record<ThemeFamilyKey, string> = {
   noir: 'Stüdyo Noir',
   nefes: 'Nefes',
@@ -19,13 +26,8 @@ const FAMILY_LABELS: Record<ThemeFamilyKey, string> = {
   atolye: 'Atölye',
 };
 
-const COLOR_SCHEME_LABELS: Record<ColorSchemePreference, string> = {
-  SYSTEM: 'Cihaz ile aynı',
-  LIGHT: 'Açık',
-  DARK: 'Koyu',
-};
-
 function ThemePreview({ form }: { form: TenantTheme }) {
+  const t = useT();
   const resolved = previewThemeFromForm(form);
   const vars = previewCssVariables(form);
   return (
@@ -34,7 +36,7 @@ function ThemePreview({ form }: { form: TenantTheme }) {
       style={{ ...(vars as React.CSSProperties), backgroundColor: 'var(--color-background)', borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)' }}
     >
       <div className="p-4" style={{ background: 'var(--gradient-brand)', color: 'var(--color-on-primary)', borderRadius: 'var(--radius-card)' }}>
-        <p className="text-xs opacity-80">Uygulama başlık bandı</p>
+        <p className="text-xs opacity-80">{t('settings.appearance.preview.headerBand')}</p>
         <p className="font-bold mt-1" style={{ fontFamily: 'var(--font-display)' }}>
           {resolved.family.label}
         </p>
@@ -44,16 +46,17 @@ function ThemePreview({ form }: { form: TenantTheme }) {
         className="px-4 py-2 text-sm font-semibold"
         style={{ background: 'var(--gradient-brand)', color: 'var(--color-on-primary)', borderRadius: 'var(--radius-button)' }}
       >
-        Birincil buton
+        {t('settings.appearance.preview.primaryButton')}
       </button>
       <p className="text-sm" style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)' }}>
-        Önizleme metni -- gövde yazı tipi ve metin renkleri
+        {t('settings.appearance.preview.bodyText')}
       </p>
     </div>
   );
 }
 
 function StudioThemeForm() {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const { data, loading, error } = useBff<TenantTheme>(`studios/${activeStudioId}/theme`, activeStudioId);
   const [form, setForm] = useState<TenantTheme | null>(null);
@@ -79,7 +82,7 @@ function StudioThemeForm() {
     setSaveError(null);
     setSaved(false);
     if (!/^#[0-9a-fA-F]{6}$/.test(form.themePrimary)) {
-      setSaveError('Renk #RRGGBB formatında olmalı');
+      setSaveError(t('settings.appearance.colorFormatError'));
       return;
     }
     setSaving(true);
@@ -88,19 +91,19 @@ function StudioThemeForm() {
       setForm(updated);
       setSaved(true);
     } catch (err) {
-      setSaveError(err instanceof BffError ? err.message : 'Tema kaydedilemedi');
+      setSaveError(err instanceof BffError ? err.message : t('settings.appearance.errors.themeSaveFailed'));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Section title="İşletme teması" description="Bütün üyelerin ve personelin gördüğü varsayılan marka: tema ailesi, logo, birincil renk ve gradyan">
+    <Section title={t('settings.appearance.studioTheme.title')} description={t('settings.appearance.studioTheme.description')}>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-4">
           <div>
             <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-              Tema ailesi
+              {t('settings.appearance.themeFamily')}
             </span>
             <div className="grid grid-cols-2 gap-2 mt-1">
               {THEME_FAMILY_KEYS.map((key) => (
@@ -122,12 +125,17 @@ function StudioThemeForm() {
             </div>
           </div>
 
-          <TextField label="Logo URL" value={form.logoUrl ?? ''} onChange={(v) => setForm({ ...form, logoUrl: v || null })} placeholder="https://..." />
-          <TextField label="Birincil renk (#RRGGBB)" value={form.themePrimary} onChange={(v) => setForm({ ...form, themePrimary: v })} placeholder="#2F6F5E" />
+          <TextField label={t('settings.appearance.logoUrl')} value={form.logoUrl ?? ''} onChange={(v) => setForm({ ...form, logoUrl: v || null })} placeholder="https://..." />
+          <TextField
+            label={t('settings.appearance.primaryColor')}
+            value={form.themePrimary}
+            onChange={(v) => setForm({ ...form, themePrimary: v })}
+            placeholder="#2F6F5E"
+          />
 
           <div>
             <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-              Gradyan
+              {t('settings.appearance.gradient')}
             </span>
             <div className="grid grid-cols-1 gap-2 mt-1">
               {gradients.map((g) => (
@@ -154,9 +162,9 @@ function StudioThemeForm() {
           </div>
 
           {saveError && <InlineMessage text={saveError} tone="error" />}
-          {saved && <InlineMessage text="Kaydedildi" tone="success" />}
+          {saved && <InlineMessage text={t('settings.appearance.saved')} tone="success" />}
           <PrimaryButton onClick={save} disabled={saving}>
-            {saving ? 'Kaydediliyor...' : 'Temayı kaydet'}
+            {saving ? t('common.saving') : t('settings.appearance.saveTheme')}
           </PrimaryButton>
         </div>
         <ThemePreview form={form} />
@@ -166,6 +174,7 @@ function StudioThemeForm() {
 }
 
 function PersonalAppearanceForm() {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const { data, loading, error } = useBff<AppearancePreference>('me/appearance', activeStudioId);
   const [form, setForm] = useState<AppearancePreference | null>(null);
@@ -190,18 +199,18 @@ function PersonalAppearanceForm() {
       setForm(updated);
       setSaved(true);
     } catch (err) {
-      setSaveError(err instanceof BffError ? err.message : 'Görünüm tercihi kaydedilemedi');
+      setSaveError(err instanceof BffError ? err.message : t('settings.appearance.errors.personalSaveFailed'));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Section title="Kişisel görünüm" description="Yalnızca bu cihazda: tema ailesi ve açık/koyu mod. İşletmenin logosu, rengi ve gradyanı değişmez.">
+    <Section title={t('settings.appearance.personal.title')} description={t('settings.appearance.personal.description')}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
         <div>
           <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            Tema ailesi
+            {t('settings.appearance.themeFamily')}
           </span>
           <select
             value={form.themeFamily ?? ''}
@@ -209,7 +218,7 @@ function PersonalAppearanceForm() {
             className="w-full mt-1 px-3 py-2 text-sm border"
             style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)', backgroundColor: 'var(--color-background)', color: 'var(--color-text-primary)' }}
           >
-            <option value="">İşletme varsayılanı</option>
+            <option value="">{t('settings.appearance.personal.studioDefault')}</option>
             {THEME_FAMILY_KEYS.map((key) => (
               <option key={key} value={key}>
                 {FAMILY_LABELS[key]}
@@ -219,7 +228,7 @@ function PersonalAppearanceForm() {
         </div>
         <div>
           <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            Açık / koyu mod
+            {t('settings.appearance.personal.colorSchemeLabel')}
           </span>
           <select
             value={form.colorScheme}
@@ -229,28 +238,29 @@ function PersonalAppearanceForm() {
           >
             {(['SYSTEM', 'LIGHT', 'DARK'] as const).map((key) => (
               <option key={key} value={key}>
-                {COLOR_SCHEME_LABELS[key]}
+                {t(`settings.appearance.colorScheme.${key}`)}
               </option>
             ))}
           </select>
         </div>
       </div>
       {saveError && <InlineMessage text={saveError} tone="error" />}
-      {saved && <InlineMessage text="Kaydedildi" tone="success" />}
+      {saved && <InlineMessage text={t('settings.appearance.saved')} tone="success" />}
       <PrimaryButton onClick={save} disabled={saving}>
-        {saving ? 'Kaydediliyor...' : 'Kaydet'}
+        {saving ? t('common.saving') : t('common.save')}
       </PrimaryButton>
     </Section>
   );
 }
 
 function AppearanceSettings() {
+  const t = useT();
   const { permissions, isOwner } = useDashboardSession();
   const canManageStudioTheme = hasAnyPermission(['studio.settings.view', 'studio.settings.manage'], permissions, isOwner);
 
   return (
     <div className="space-y-6">
-      <SettingsHeader title="Görünüm" description="İşletme teması ve kişisel görünüm tercihiniz" />
+      <SettingsHeader title={t('settings.appearance.title')} description={t('settings.appearance.description')} />
       {canManageStudioTheme && <StudioThemeForm />}
       <PersonalAppearanceForm />
     </div>

@@ -1,0 +1,33 @@
+import type { trChurn } from '../tr/churn';
+
+/** English text for the `churn.*` namespace. Keep keys in sync with tr/churn.ts. */
+export const enChurn = {
+  'churn.title': 'At-risk members',
+  'churn.subtitle': 'Members at high risk of leaving and their reasons',
+  'churn.downloadCsv': 'Download CSV',
+  'churn.recompute': 'Recompute',
+  'churn.errors.recomputeFailed': 'Could not be recomputed',
+  'churn.searchPlaceholder': 'Search by name...',
+  'churn.allLevels': 'All levels',
+  'churn.level.HIGH': 'High',
+  'churn.level.MEDIUM': 'Medium',
+  'churn.level.LOW': 'Low',
+  'churn.showSnoozed': 'Also show snoozed',
+  'churn.errors.loadFailed': 'At-risk members could not be loaded',
+  'churn.empty.title': 'No at-risk members found',
+  'churn.empty.description': 'No member matches the selected filters.',
+  'churn.score': 'Score: {score}',
+  'churn.previousScore': ' (previously {score})',
+  'churn.lastContact': 'Last contacted: {date}',
+  'churn.contacted': 'Contacted',
+  'churn.snooze14': 'Snooze 14 days',
+  'churn.errors.snoozeFailed': 'Could not be snoozed',
+  'churn.contactedDialog.title': '{name} - Contacted',
+  'churn.contactedDialog.notePlaceholder': 'Contact note',
+  'churn.contactedDialog.noteRequired': 'Enter a note',
+  'churn.contactedDialog.errors.saveFailed': 'Could not be saved',
+  'churn.summary.HIGH': 'High risk',
+  'churn.summary.MEDIUM': 'Medium risk',
+  'churn.summary.LOW': 'Low risk',
+  'churn.summary.weekOverWeek': 'Vs. last week {delta}',
+} as const satisfies Record<keyof typeof trChurn, string>;

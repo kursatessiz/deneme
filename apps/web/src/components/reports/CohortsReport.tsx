@@ -2,7 +2,7 @@
 
 import type { CohortReportDTO } from '@platform/shared';
 import { formatPercent as formatPercentShared } from '@/lib/money';
-import { useLocale } from '@/components/i18n/I18nProvider';
+import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 
 type CohortsReport = CohortReportDTO;
@@ -14,11 +14,12 @@ function cellColor(ratio: number): string {
 }
 
 export function CohortsReport({ report, loading, error }: { report: CohortsReport | null; loading: boolean; error: string | null }) {
+  const t = useT();
   const locale = useLocale();
   const formatPercent = (ratio: number | null | undefined, fractionDigits?: number) => formatPercentShared(ratio, locale, fractionDigits);
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} />;
-  if (!report || report.cohorts.length === 0) return <EmptyState title="Veri yok" description="Henüz kohort oluşturacak paket satışı yok." />;
+  if (!report || report.cohorts.length === 0) return <EmptyState title={t('reports.empty.title')} description={t('reports.empty.cohortDescription')} />;
 
   const maxMonths = Math.max(...report.cohorts.map((c) => c.retention.length));
 
@@ -28,14 +29,14 @@ export function CohortsReport({ report, loading, error }: { report: CohortsRepor
         <thead>
           <tr>
             <th className="text-left px-3 py-2 font-medium sticky left-0" style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-text-secondary)' }}>
-              Kohort
+              {t('reports.cohorts.col.cohort')}
             </th>
             <th className="text-left px-3 py-2 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-              Üye
+              {t('reports.cohorts.col.members')}
             </th>
             {Array.from({ length: maxMonths }, (_, i) => (
               <th key={i} className="text-center px-2 py-2 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                Ay {i}
+                {t('reports.cohorts.col.month', { index: i })}
               </th>
             ))}
           </tr>

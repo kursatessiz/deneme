@@ -7,17 +7,8 @@ import { bffFetch, BffError } from '@/lib/session/client';
 import { PermissionButton } from '@/components/common/PermissionButton';
 import { Badge } from '@/components/common/Badge';
 import { Modal } from '@/components/common/Modal';
-import { useLocale } from '@/components/i18n/I18nProvider';
+import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { upcomingTrialSessions, type TrialSessionRow } from '@/lib/leads/trial-sessions';
-
-const STAGE_LABEL: Record<string, string> = {
-  NEW: 'Yeni',
-  CONTACTED: 'Görüşüldü',
-  TRIAL_BOOKED: 'Deneme planlandı',
-  TRIAL_DONE: 'Deneme yapıldı',
-  WON: 'Üye oldu',
-  LOST: 'Kaybedildi',
-};
 
 const inputStyle: React.CSSProperties = {
   borderRadius: 'var(--radius-input)',
@@ -37,6 +28,7 @@ export function LeadDetailDrawer({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const t = useT();
   const locale = useLocale();
   const [note, setNote] = useState('');
   const [lostReason, setLostReason] = useState('');
@@ -45,6 +37,7 @@ export function LeadDetailDrawer({
   const [error, setError] = useState<string | null>(null);
   const [sessionOptions, setSessionOptions] = useState<TrialSessionRow[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
+  const stageLabel = (s: string) => t(`leads.stage.${s}`);
 
   const transitions = LEAD_STAGE_TRANSITIONS[lead.stage as LeadStage] ?? [];
   const canBookTrial = transitions.includes(LeadStage.TRIAL_BOOKED);
@@ -80,7 +73,7 @@ export function LeadDetailDrawer({
       setNote('');
       onChanged();
     } catch (err) {
-      setError(err instanceof BffError ? err.message : 'Not eklenemedi');
+      setError(err instanceof BffError ? err.message : t('leads.detail.errors.noteFailed'));
     } finally {
       setBusy(false);
     }
@@ -88,7 +81,7 @@ export function LeadDetailDrawer({
 
   async function changeStage(stage: LeadStage) {
     if (stage === LeadStage.LOST && !lostReason.trim()) {
-      setError('Kayıp nedeni giriniz');
+      setError(t('leads.detail.lostReasonRequired'));
       return;
     }
     setBusy(true);
@@ -97,7 +90,7 @@ export function LeadDetailDrawer({
       await bffFetch(`leads/${lead.id}/stage`, { method: 'POST', studioId, body: { stage, lostReason: stage === LeadStage.LOST ? lostReason.trim() : undefined } });
       onChanged();
     } catch (err) {
-      setError(err instanceof BffError ? err.message : 'Aşama güncellenemedi');
+      setError(err instanceof BffError ? err.message : t('leads.detail.errors.stageChangeFailed'));
     } finally {
       setBusy(false);
     }
@@ -105,7 +98,7 @@ export function LeadDetailDrawer({
 
   async function bookTrial() {
     if (!scheduleId.trim()) {
-      setError('Bir seans seçiniz');
+      setError(t('leads.detail.sessionRequired'));
       return;
     }
     setBusy(true);
@@ -114,7 +107,7 @@ export function LeadDetailDrawer({
       await bffFetch(`leads/${lead.id}/trial`, { method: 'POST', studioId, body: { scheduleId: scheduleId.trim() } });
       onChanged();
     } catch (err) {
-      setError(err instanceof BffError ? err.message : 'Deneme dersi planlanamadı');
+      setError(err instanceof BffError ? err.message : t('leads.detail.errors.trialBookFailed'));
     } finally {
       setBusy(false);
     }
@@ -127,7 +120,7 @@ export function LeadDetailDrawer({
       await bffFetch(`leads/${lead.id}/convert`, { method: 'POST', studioId, body: {} });
       onChanged();
     } catch (err) {
-      setError(err instanceof BffError ? err.message : 'Üyeliğe dönüştürülemedi');
+      setError(err instanceof BffError ? err.message : t('leads.detail.errors.convertFailed'));
     } finally {
       setBusy(false);
     }
@@ -137,18 +130,18 @@ export function LeadDetailDrawer({
     <Modal title={lead.fullName} onClose={onClose}>
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <Badge tone={lead.stage === 'WON' ? 'success' : lead.stage === 'LOST' ? 'danger' : 'info'}>{STAGE_LABEL[lead.stage] ?? lead.stage}</Badge>
+          <Badge tone={lead.stage === 'WON' ? 'success' : lead.stage === 'LOST' ? 'danger' : 'info'}>{stageLabel(lead.stage)}</Badge>
           {lead.ownerName && (
             <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              Sorumlu: {lead.ownerName}
+              {t('leads.detail.owner', { name: lead.ownerName })}
             </span>
           )}
         </div>
 
         <div className="text-sm space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
-          <div>Telefon: {lead.phone}</div>
-          {lead.email && <div>E-posta: {lead.email}</div>}
-          {lead.interestServiceTypeName && <div>İlgilendiği hizmet: {lead.interestServiceTypeName}</div>}
+          <div>{t('leads.detail.phone', { phone: lead.phone })}</div>
+          {lead.email && <div>{t('leads.detail.email', { email: lead.email })}</div>}
+          {lead.interestServiceTypeName && <div>{t('leads.detail.interestedService', { name: lead.interestServiceTypeName })}</div>}
         </div>
 
         {error && <p className="text-xs text-red-600">{error}</p>}
@@ -160,12 +153,12 @@ export function LeadDetailDrawer({
                 .filter((s) => s !== LeadStage.LOST && s !== LeadStage.WON)
                 .map((s) => (
                   <PermissionButton key={s} required={['leads.manage']} onClick={() => changeStage(s)} disabled={busy}>
-                    {STAGE_LABEL[s]}
+                    {stageLabel(s)}
                   </PermissionButton>
                 ))}
               {transitions.includes(LeadStage.WON) && (
                 <PermissionButton required={['leads.manage']} variant="primary" onClick={convert} disabled={busy}>
-                  Üyeliğe dönüştür
+                  {t('leads.detail.convert')}
                 </PermissionButton>
               )}
             </div>
@@ -180,10 +173,10 @@ export function LeadDetailDrawer({
                 >
                   <option value="">
                     {sessionsLoading
-                      ? 'Seanslar yükleniyor...'
+                      ? t('leads.detail.sessionsLoading')
                       : sessionOptions.length === 0
-                        ? 'Önümüzdeki 14 günde uygun seans yok'
-                        : 'Seans seçin'}
+                        ? t('leads.detail.noUpcomingSessions')
+                        : t('leads.detail.chooseSession')}
                   </option>
                   {sessionOptions.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -200,21 +193,21 @@ export function LeadDetailDrawer({
                   ))}
                 </select>
                 <PermissionButton required={['leads.manage']} onClick={bookTrial} disabled={busy || !scheduleId}>
-                  Deneme dersi planla
+                  {t('leads.detail.bookTrial')}
                 </PermissionButton>
               </div>
             )}
             {transitions.includes(LeadStage.LOST) && (
               <div className="flex items-center gap-2">
                 <input
-                  placeholder="Kayıp nedeni"
+                  placeholder={t('leads.detail.lostReasonPlaceholder')}
                   value={lostReason}
                   onChange={(e) => setLostReason(e.target.value)}
                   className="flex-1 text-xs px-2 py-1.5"
                   style={inputStyle}
                 />
                 <PermissionButton required={['leads.manage']} variant="danger" onClick={() => changeStage(LeadStage.LOST)} disabled={busy}>
-                  Kaybedildi
+                  {t('leads.detail.markLost')}
                 </PermissionButton>
               </div>
             )}
@@ -223,18 +216,18 @@ export function LeadDetailDrawer({
 
         <div>
           <h4 className="text-xs font-semibold mb-1.5" style={{ color: 'var(--color-text-primary)' }}>
-            Geçmiş
+            {t('leads.detail.history')}
           </h4>
           <div className="space-y-1.5 max-h-48 overflow-y-auto">
             {lead.activities.length === 0 && (
               <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                Henüz kayıt yok
+                {t('leads.detail.noHistory')}
               </p>
             )}
             {lead.activities.map((a) => (
               <div key={a.id} className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
                 <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                  {a.actorName ?? 'Sistem'}
+                  {a.actorName ?? t('leads.detail.system')}
                 </span>{' '}
                 {a.body} - {new Date(a.createdAt).toLocaleString(locale)}
               </div>
@@ -243,13 +236,18 @@ export function LeadDetailDrawer({
         </div>
 
         <div className="flex items-center gap-2">
-          <input placeholder="Not ekle" value={note} onChange={(e) => setNote(e.target.value)} className="flex-1 text-sm px-3 py-1.5" style={inputStyle} />
+          <input
+            placeholder={t('leads.detail.addNotePlaceholder')}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className="flex-1 text-sm px-3 py-1.5"
+            style={inputStyle}
+          />
           <PermissionButton required={['leads.manage']} onClick={addNote} disabled={busy}>
-            Ekle
+            {t('leads.detail.addNote')}
           </PermissionButton>
         </div>
       </div>
     </Modal>
   );
 }
-

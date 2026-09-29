@@ -1,7 +1,7 @@
 'use client';
 
-import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
-import { useLocale } from '@/components/i18n/I18nProvider';
+import { useDashboardSession, useFormatMoney } from '@/components/session/DashboardSessionProvider';
+import { useT } from '@/components/i18n/I18nProvider';
 import { useBff } from '@/lib/session/use-bff';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { PageGuard } from '@/components/common/PageGuard';
@@ -17,7 +17,8 @@ interface PackageDefinitionRow {
 }
 
 function PackageList() {
-  const locale = useLocale();
+  const t = useT();
+  const formatMoney = useFormatMoney();
   const { activeStudioId } = useDashboardSession();
   const { data: packages, loading, error } = useBff<PackageDefinitionRow[]>(`catalog/package-definitions/studio/${activeStudioId}`, activeStudioId);
 
@@ -25,17 +26,17 @@ function PackageList() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-          Paket Tanımları
+          {t('packages.title')}
         </h2>
         <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          Satışa açık seans/kredi paketleri
+          {t('packages.subtitle')}
         </p>
       </div>
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
       {!loading && !error && (!packages || packages.length === 0) && (
-        <EmptyState title="Henüz paket tanımı yok" description="İşletme ayarlarından yeni bir paket tanımladığınızda burada görünecek." />
+        <EmptyState title={t('packages.empty.title')} description={t('packages.empty.description')} />
       )}
       {!loading && !error && packages && packages.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -51,12 +52,12 @@ function PackageList() {
             >
               <div>
                 <h3 className="font-bold text-lg">{pkg.name}</h3>
-                <p className="text-2xl font-extrabold mt-3">{Number(pkg.price).toLocaleString(locale)} ₺</p>
+                <p className="text-2xl font-extrabold mt-3">{formatMoney(pkg.price)}</p>
               </div>
               <div className="mt-4 text-xs space-y-1 opacity-90">
-                <div>{pkg.totalUnits ? `${pkg.totalUnits} birim` : 'Sınırsız'}</div>
-                <div>{pkg.validityDays} gün geçerli</div>
-                <div>{pkg.freezeDaysAllowed} gün dondurma hakkı</div>
+                <div>{pkg.totalUnits ? t('packages.units', { count: pkg.totalUnits }) : t('packages.unlimited')}</div>
+                <div>{t('packages.validity', { count: pkg.validityDays })}</div>
+                <div>{t('packages.freezeDays', { count: pkg.freezeDaysAllowed })}</div>
               </div>
             </div>
           ))}

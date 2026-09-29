@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import type { PermissionKey, RoleTemplateDTO, StaffMembershipDTO } from '@platform/shared';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useT } from '@/components/i18n/I18nProvider';
 import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
@@ -21,6 +22,7 @@ function RoleEditor({
   onCancel: () => void;
   onSaved: () => void;
 }) {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const [name, setName] = useState(role?.name ?? '');
   const [selected, setSelected] = useState<Set<PermissionKey>>(new Set((role?.permissions ?? []) as PermissionKey[]));
@@ -39,7 +41,7 @@ function RoleEditor({
   const save = async () => {
     setError(null);
     if (name.trim().length < 2) {
-      setError('Rol adı en az 2 karakter olmalıdır');
+      setError(t('settings.roles.nameTooShort'));
       return;
     }
     setSaving(true);
@@ -52,16 +54,16 @@ function RoleEditor({
       }
       onSaved();
     } catch (err) {
-      setError(err instanceof BffError ? err.message : 'Rol kaydedilemedi');
+      setError(err instanceof BffError ? err.message : t('settings.roles.errors.saveFailed'));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Section title={role ? `"${role.name}" rolünü düzenle` : 'Yeni rol'} description="İzin kataloğundan bu role vereceğiniz yetkileri seçin">
+    <Section title={role ? t('settings.roles.editTitle', { name: role.name }) : t('settings.roles.newTitle')} description={t('settings.roles.editDescription')}>
       <div className="max-w-sm">
-        <TextField label="Rol adı" value={name} onChange={setName} placeholder="Örn. Kıdemli Resepsiyon" />
+        <TextField label={t('settings.roles.nameLabel')} value={name} onChange={setName} placeholder={t('settings.roles.namePlaceholder')} />
       </div>
       <div className="space-y-4">
         {AREA_GROUPS.map((group) => (
@@ -88,10 +90,10 @@ function RoleEditor({
       {error && <InlineMessage text={error} tone="error" />}
       <div className="flex gap-2">
         <PrimaryButton onClick={save} disabled={saving}>
-          {saving ? 'Kaydediliyor...' : 'Kaydet'}
+          {saving ? t('common.saving') : t('common.save')}
         </PrimaryButton>
         <SecondaryButton onClick={onCancel} disabled={saving}>
-          Vazgeç
+          {t('common.cancel')}
         </SecondaryButton>
       </div>
     </Section>
@@ -108,6 +110,7 @@ function RoleEditor({
  * edit, delete or role assignment.
  */
 function RolesAndStaffView({ onChanged }: { onChanged: () => void }) {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const { data: roles, loading, error, forbidden } = useBff<RoleTemplateDTO[]>(`role-templates/studio/${activeStudioId}`, activeStudioId);
   const {
@@ -130,7 +133,7 @@ function RolesAndStaffView({ onChanged }: { onChanged: () => void }) {
       await bffFetch(`role-templates/staff/${membershipId}`, { method: 'PUT', body: { roleTemplateId }, studioId: activeStudioId });
       onChanged();
     } catch (err) {
-      setAssignError(err instanceof BffError ? err.message : 'Rol ataması yapılamadı');
+      setAssignError(err instanceof BffError ? err.message : t('settings.roles.errors.assignFailed'));
     } finally {
       setAssigningId(null);
     }
@@ -142,17 +145,17 @@ function RolesAndStaffView({ onChanged }: { onChanged: () => void }) {
       await bffFetch(`role-templates/${id}`, { method: 'DELETE', studioId: activeStudioId });
       onChanged();
     } catch (err) {
-      setDeleteError(err instanceof BffError ? err.message : 'Rol silinemedi');
+      setDeleteError(err instanceof BffError ? err.message : t('settings.roles.errors.deleteFailed'));
     }
   };
 
-  if (forbidden) return <ErrorState message="Bu sayfayı görüntüleme yetkiniz yok" />;
+  if (forbidden) return <ErrorState message={t('settings.roles.forbidden')} />;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <SettingsHeader title="Roller ve yetkiler" description="Rol tanımları, izin kümeleri ve personel rol ataması" />
-        {editing === null && <PrimaryButton onClick={() => setEditing('new')}>Yeni rol</PrimaryButton>}
+        <SettingsHeader title={t('settings.roles.title')} description={t('settings.roles.description')} />
+        {editing === null && <PrimaryButton onClick={() => setEditing('new')}>{t('settings.roles.new')}</PrimaryButton>}
       </div>
 
       {loading && <LoadingState />}
@@ -177,16 +180,16 @@ function RolesAndStaffView({ onChanged }: { onChanged: () => void }) {
                   <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                     {role.name}
                   </h3>
-                  {role.isOwner && <Badge tone="primary">İşletme sahibi -- salt okunur</Badge>}
+                  {role.isOwner && <Badge tone="primary">{t('settings.roles.ownerBadge')}</Badge>}
                 </div>
                 <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  {role.isOwner ? 'Her zaman tüm izinlere sahiptir' : `${role.permissions.length} izin`}
+                  {role.isOwner ? t('settings.roles.ownerHasAll') : t('settings.roles.permissionCount', { count: role.permissions.length })}
                 </p>
                 {!role.isOwner && (
                   <div className="flex gap-2">
-                    <SecondaryButton onClick={() => setEditing(role)}>Düzenle</SecondaryButton>
+                    <SecondaryButton onClick={() => setEditing(role)}>{t('settings.roles.edit')}</SecondaryButton>
                     <SecondaryButton danger onClick={() => deleteRole(role.id)}>
-                      Sil
+                      {t('settings.roles.delete')}
                     </SecondaryButton>
                   </div>
                 )}
@@ -194,12 +197,12 @@ function RolesAndStaffView({ onChanged }: { onChanged: () => void }) {
             ))}
           </div>
 
-          <Section title="Personel rol ataması" description="Personelin rolünü değiştirin; işletme sahibinin rolü değiştirilemez">
+          <Section title={t('settings.roles.assignment.title')} description={t('settings.roles.assignment.description')}>
             {staffLoading && <LoadingState />}
             {staffError && <ErrorState message={staffError} />}
             {assignError && <InlineMessage text={assignError} tone="error" />}
             {!staffLoading && !staffError && (!staff || staff.length === 0) && (
-              <EmptyState title="Henüz personel yok" description="Personel davet edildikçe burada listelenecek." />
+              <EmptyState title={t('settings.roles.assignment.empty.title')} description={t('settings.roles.assignment.empty.description')} />
             )}
             {!staffLoading && !staffError && staff && staff.length > 0 && (
               <div className="space-y-2">
@@ -214,7 +217,7 @@ function RolesAndStaffView({ onChanged }: { onChanged: () => void }) {
                       </p>
                     </div>
                     {m.isOwner ? (
-                      <Badge tone="primary">İşletme sahibi</Badge>
+                      <Badge tone="primary">{t('settings.roles.assignment.owner')}</Badge>
                     ) : (
                       <select
                         value={m.roleTemplateId}

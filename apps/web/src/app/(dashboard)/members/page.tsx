@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useT } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { useBff } from '@/lib/session/use-bff';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
@@ -25,6 +26,7 @@ interface BranchRow {
 }
 
 function MembersList() {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const [search, setSearch] = useState('');
   const [homeBranchId, setHomeBranchId] = useState('');
@@ -44,26 +46,27 @@ function MembersList() {
     const timer = setTimeout(() => {
       bffFetch<MemberRow[]>(`members/studio/${activeStudioId}${query ? `?${query}` : ''}`, { studioId: activeStudioId })
         .then(setMembers)
-        .catch((err) => setError(err instanceof BffError ? err.message : 'Üyeler yüklenemedi'))
+        .catch((err) => setError(err instanceof BffError ? err.message : t('members.errors.loadFailed')))
         .finally(() => setLoading(false));
     }, 250);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStudioId, search, homeBranchId]);
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-          Üyeler
+          {t('members.title')}
         </h2>
         <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          Kayıtlı üyeler ve aktif paketleri
+          {t('members.subtitle')}
         </p>
       </div>
 
       <div className="flex flex-wrap gap-2">
         <input
-          placeholder="Ad, soyad veya telefon ara..."
+          placeholder={t('members.searchPlaceholder')}
           className="text-sm px-3 py-1.5 flex-1 min-w-[220px]"
           style={{ borderRadius: 'var(--radius-input)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)', color: 'var(--color-text-primary)' }}
           value={search}
@@ -75,7 +78,7 @@ function MembersList() {
           value={homeBranchId}
           onChange={(e) => setHomeBranchId(e.target.value)}
         >
-          <option value="">Tüm şubeler</option>
+          <option value="">{t('members.allBranches')}</option>
           {branches?.map((b) => (
             <option key={b.id} value={b.id}>
               {b.name}
@@ -87,7 +90,7 @@ function MembersList() {
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
       {!loading && !error && (!members || members.length === 0) && (
-        <EmptyState title="Üye bulunamadı" description="Arama kriterlerine uyan üye yok." />
+        <EmptyState title={t('members.empty.title')} description={t('members.empty.description')} />
       )}
       {!loading && !error && members && members.length > 0 && (
         <div className="border overflow-hidden" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)' }}>
@@ -95,13 +98,13 @@ function MembersList() {
             <thead>
               <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
                 <th className="text-left px-4 py-2.5 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                  Ad Soyad
+                  {t('members.col.name')}
                 </th>
                 <th className="text-left px-4 py-2.5 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                  Telefon
+                  {t('members.col.phone')}
                 </th>
                 <th className="text-left px-4 py-2.5 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                  Aktif Paket
+                  {t('members.col.activePackage')}
                 </th>
               </tr>
             </thead>
@@ -114,7 +117,7 @@ function MembersList() {
                     </Link>
                     {m.isPartnerGuest && (
                       <span className="ml-2">
-                        <Badge tone="info">Partner misafiri</Badge>
+                        <Badge tone="info">{t('members.partnerGuest')}</Badge>
                       </span>
                     )}
                   </td>
@@ -122,7 +125,9 @@ function MembersList() {
                     {m.phone ?? '—'}
                   </td>
                   <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
-                    {m.packages && m.packages.filter((p) => p.status === 'ACTIVE').length > 0 ? m.packages.filter((p) => p.status === 'ACTIVE').length : 'Yok'}
+                    {m.packages && m.packages.filter((p) => p.status === 'ACTIVE').length > 0
+                      ? m.packages.filter((p) => p.status === 'ACTIVE').length
+                      : t('members.noActivePackage')}
                   </td>
                 </tr>
               ))}

@@ -92,10 +92,14 @@ describe('startOfWeek', () => {
 
 describe('weekdayLabel', () => {
   it('labels a Tuesday in Turkish', () => {
-    expect(weekdayLabel(new Date(2026, 2, 17))).toBe('Salı');
+    expect(weekdayLabel(new Date(2026, 2, 17), 'tr')).toBe('Salı');
   });
 
   it('labels a Sunday in Turkish', () => {
-    expect(weekdayLabel(new Date(2026, 2, 22))).toBe('Pazar');
+    expect(weekdayLabel(new Date(2026, 2, 22), 'tr')).toBe('Pazar');
+  });
+
+  it('labels a Tuesday in English', () => {
+    expect(weekdayLabel(new Date(2026, 2, 17), 'en')).toBe('Tuesday');
   });
 });

@@ -156,18 +156,18 @@ function ConnectionsSection() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
         {platform === 'META' && (
           <>
-            <TextField label="Access token" value={credentials.META.accessToken} onChange={(v) => setField('META', 'accessToken', v)} type="password" />
-            <TextField label="Pixel ID" value={credentials.META.pixelId} onChange={(v) => setField('META', 'pixelId', v)} />
+            <TextField label={t('ads.connections.field.accessToken')} value={credentials.META.accessToken} onChange={(v) => setField('META', 'accessToken', v)} type="password" />
+            <TextField label={t('ads.connections.field.pixelId')} value={credentials.META.pixelId} onChange={(v) => setField('META', 'pixelId', v)} />
           </>
         )}
         {platform === 'GOOGLE' && (
           <>
-            <TextField label="Client ID" value={credentials.GOOGLE.clientId} onChange={(v) => setField('GOOGLE', 'clientId', v)} />
-            <TextField label="Client secret" value={credentials.GOOGLE.clientSecret} onChange={(v) => setField('GOOGLE', 'clientSecret', v)} type="password" />
-            <TextField label="Refresh token" value={credentials.GOOGLE.refreshToken} onChange={(v) => setField('GOOGLE', 'refreshToken', v)} type="password" />
-            <TextField label="Developer token" value={credentials.GOOGLE.developerToken} onChange={(v) => setField('GOOGLE', 'developerToken', v)} type="password" />
-            <TextField label="Login customer ID" value={credentials.GOOGLE.loginCustomerId} onChange={(v) => setField('GOOGLE', 'loginCustomerId', v)} />
-            <TextField label="Customer ID" value={credentials.GOOGLE.customerId} onChange={(v) => setField('GOOGLE', 'customerId', v)} />
+            <TextField label={t('ads.connections.field.clientId')} value={credentials.GOOGLE.clientId} onChange={(v) => setField('GOOGLE', 'clientId', v)} />
+            <TextField label={t('ads.connections.field.clientSecret')} value={credentials.GOOGLE.clientSecret} onChange={(v) => setField('GOOGLE', 'clientSecret', v)} type="password" />
+            <TextField label={t('ads.connections.field.refreshToken')} value={credentials.GOOGLE.refreshToken} onChange={(v) => setField('GOOGLE', 'refreshToken', v)} type="password" />
+            <TextField label={t('ads.connections.field.developerToken')} value={credentials.GOOGLE.developerToken} onChange={(v) => setField('GOOGLE', 'developerToken', v)} type="password" />
+            <TextField label={t('ads.connections.field.loginCustomerId')} value={credentials.GOOGLE.loginCustomerId} onChange={(v) => setField('GOOGLE', 'loginCustomerId', v)} />
+            <TextField label={t('ads.connections.field.customerId')} value={credentials.GOOGLE.customerId} onChange={(v) => setField('GOOGLE', 'customerId', v)} />
             <TextField
               label={t('ads.connections.field.googleConversionId')}
               value={credentials.GOOGLE.conversionId}
@@ -178,8 +178,8 @@ function ConnectionsSection() {
         )}
         {platform === 'TIKTOK' && (
           <>
-            <TextField label="Access token" value={credentials.TIKTOK.accessToken} onChange={(v) => setField('TIKTOK', 'accessToken', v)} type="password" />
-            <TextField label="Pixel code" value={credentials.TIKTOK.pixelCode} onChange={(v) => setField('TIKTOK', 'pixelCode', v)} />
+            <TextField label={t('ads.connections.field.accessToken')} value={credentials.TIKTOK.accessToken} onChange={(v) => setField('TIKTOK', 'accessToken', v)} type="password" />
+            <TextField label={t('ads.connections.field.pixelCode')} value={credentials.TIKTOK.pixelCode} onChange={(v) => setField('TIKTOK', 'pixelCode', v)} />
           </>
         )}
       </div>
@@ -248,7 +248,7 @@ function UtmBuilderSection() {
   try {
     campaignName = buildCampaignName({ market, language, sector, objective, yearMonth });
   } catch (err) {
-    buildError = err instanceof Error ? err.message : 'Geçersiz';
+    buildError = err instanceof Error ? err.message : t('ads.utm.invalid');
   }
   const urlParams = AD_URL_TEMPLATES[platform];
   const exampleUrl = landingPath ? `https://example.com/${landingPath.replace(/^\/+/, '')}?${urlParams}` : '';

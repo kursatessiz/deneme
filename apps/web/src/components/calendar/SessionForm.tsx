@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { SessionDeliveryMode, VideoMeetingProviderKind } from '@platform/shared';
 import type { CreateScheduleInput } from '@platform/shared';
+import { useT } from '@/components/i18n/I18nProvider';
 import { validateScheduleForm, type ScheduleFormValues } from '@/lib/calendar/schedule-form';
 import type { BranchRow, ResourceRow, ServiceTypeRow, TrainerRow } from '@/lib/calendar/types';
 
@@ -35,6 +36,7 @@ export interface SessionFormProps {
 
 /** Create-session form (W2.2). Fields map 1:1 to CreateScheduleSchema so validation reuses the shared schema. */
 export function SessionForm({ studioId, branches, resources, trainers, serviceTypes, defaultDate, onCancel, onSubmit }: SessionFormProps) {
+  const t = useT();
   const [values, setValues] = useState<ScheduleFormValues>({
     studioId,
     branchId: '',
@@ -77,14 +79,14 @@ export function SessionForm({ studioId, branches, resources, trainers, serviceTy
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <Field label="Başlık">
+      <Field label={t('calendar.form.title')}>
         <input className="px-2.5 py-1.5 text-sm" style={inputStyle} value={values.title} onChange={(e) => set('title', e.target.value)} required />
       </Field>
 
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Hizmet türü">
+        <Field label={t('calendar.form.serviceType')}>
           <select className="px-2.5 py-1.5 text-sm" style={inputStyle} value={values.serviceTypeId} onChange={(e) => set('serviceTypeId', e.target.value)} required>
-            <option value="">Seçiniz</option>
+            <option value="">{t('calendar.form.choose')}</option>
             {serviceTypes.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -92,9 +94,9 @@ export function SessionForm({ studioId, branches, resources, trainers, serviceTy
             ))}
           </select>
         </Field>
-        <Field label="Şube">
+        <Field label={t('calendar.form.branch')}>
           <select className="px-2.5 py-1.5 text-sm" style={inputStyle} value={values.branchId} onChange={(e) => set('branchId', e.target.value)}>
-            <option value="">Seçiniz</option>
+            <option value="">{t('calendar.form.choose')}</option>
             {branches.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
@@ -105,9 +107,9 @@ export function SessionForm({ studioId, branches, resources, trainers, serviceTy
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Kaynak (oda/ekipman)">
+        <Field label={t('calendar.form.resource')}>
           <select className="px-2.5 py-1.5 text-sm" style={inputStyle} value={values.resourceId} onChange={(e) => set('resourceId', e.target.value)}>
-            <option value="">Yok</option>
+            <option value="">{t('calendar.form.none')}</option>
             {resources.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
@@ -115,12 +117,12 @@ export function SessionForm({ studioId, branches, resources, trainers, serviceTy
             ))}
           </select>
         </Field>
-        <Field label="Eğitmen">
+        <Field label={t('calendar.form.trainer')}>
           <select className="px-2.5 py-1.5 text-sm" style={inputStyle} value={values.trainerId} onChange={(e) => set('trainerId', e.target.value)}>
-            <option value="">Yok</option>
-            {trainers.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.firstName} {t.lastName}
+            <option value="">{t('calendar.form.none')}</option>
+            {trainers.map((tr) => (
+              <option key={tr.id} value={tr.id}>
+                {tr.firstName} {tr.lastName}
               </option>
             ))}
           </select>
@@ -128,51 +130,51 @@ export function SessionForm({ studioId, branches, resources, trainers, serviceTy
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <Field label="Tarih">
+        <Field label={t('calendar.form.date')}>
           <input type="date" className="px-2.5 py-1.5 text-sm" style={inputStyle} value={values.date} onChange={(e) => set('date', e.target.value)} required />
         </Field>
-        <Field label="Başlangıç">
+        <Field label={t('calendar.form.startTime')}>
           <input type="time" className="px-2.5 py-1.5 text-sm" style={inputStyle} value={values.startTime} onChange={(e) => set('startTime', e.target.value)} required />
         </Field>
-        <Field label="Bitiş">
+        <Field label={t('calendar.form.endTime')}>
           <input type="time" className="px-2.5 py-1.5 text-sm" style={inputStyle} value={values.endTime} onChange={(e) => set('endTime', e.target.value)} required />
         </Field>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Kapasite (boş bırakılırsa hizmet türünden gelir)">
+        <Field label={t('calendar.form.capacity')}>
           <input type="number" min={1} className="px-2.5 py-1.5 text-sm" style={inputStyle} value={values.capacity} onChange={(e) => set('capacity', e.target.value)} />
         </Field>
-        <Field label="Teslim şekli">
+        <Field label={t('calendar.form.deliveryMode')}>
           <select
             className="px-2.5 py-1.5 text-sm"
             style={inputStyle}
             value={values.deliveryMode}
             onChange={(e) => set('deliveryMode', e.target.value as SessionDeliveryMode)}
           >
-            <option value={SessionDeliveryMode.IN_PERSON}>Yüz yüze</option>
-            <option value={SessionDeliveryMode.ONLINE}>Çevrimiçi</option>
-            <option value={SessionDeliveryMode.HYBRID}>Hibrit</option>
+            <option value={SessionDeliveryMode.IN_PERSON}>{t('calendar.form.deliveryMode.IN_PERSON')}</option>
+            <option value={SessionDeliveryMode.ONLINE}>{t('calendar.form.deliveryMode.ONLINE')}</option>
+            <option value={SessionDeliveryMode.HYBRID}>{t('calendar.form.deliveryMode.HYBRID')}</option>
           </select>
         </Field>
       </div>
 
       {values.deliveryMode !== SessionDeliveryMode.IN_PERSON && (
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Yayın sağlayıcısı">
+          <Field label={t('calendar.form.meetingProvider')}>
             <select
               className="px-2.5 py-1.5 text-sm"
               style={inputStyle}
               value={values.meetingProvider}
               onChange={(e) => set('meetingProvider', e.target.value)}
             >
-              <option value="">Seçiniz</option>
-              <option value={VideoMeetingProviderKind.JITSI}>Jitsi (otomatik)</option>
-              <option value={VideoMeetingProviderKind.MANUAL}>Elle bağlantı</option>
+              <option value="">{t('calendar.form.choose')}</option>
+              <option value={VideoMeetingProviderKind.JITSI}>{t('calendar.form.meetingProvider.JITSI')}</option>
+              <option value={VideoMeetingProviderKind.MANUAL}>{t('calendar.form.meetingProvider.MANUAL')}</option>
             </select>
           </Field>
           {values.meetingProvider === VideoMeetingProviderKind.MANUAL && (
-            <Field label="Bağlantı (https)">
+            <Field label={t('calendar.form.meetingUrl')}>
               <input
                 className="px-2.5 py-1.5 text-sm"
                 style={inputStyle}
@@ -187,10 +189,10 @@ export function SessionForm({ studioId, branches, resources, trainers, serviceTy
 
       <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
         <input type="checkbox" checked={values.isRecurring} onChange={(e) => set('isRecurring', e.target.checked)} />
-        Haftalık tekrar eden seans
+        {t('calendar.form.recurring')}
       </label>
       {values.isRecurring && (
-        <Field label="Kaç hafta (en fazla 12)">
+        <Field label={t('calendar.form.recurringWeeks')}>
           <input
             type="number"
             min={1}
@@ -216,7 +218,7 @@ export function SessionForm({ studioId, branches, resources, trainers, serviceTy
           className="text-xs font-medium px-3 py-1.5"
           style={{ borderRadius: 'var(--radius-button)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
         >
-          Vazgeç
+          {t('common.cancel')}
         </button>
         <button
           type="submit"
@@ -224,7 +226,7 @@ export function SessionForm({ studioId, branches, resources, trainers, serviceTy
           className="text-xs font-medium px-4 py-1.5 disabled:opacity-60"
           style={{ borderRadius: 'var(--radius-button)', background: 'var(--gradient-brand)', color: 'var(--color-on-primary)' }}
         >
-          {submitting ? 'Kaydediliyor...' : 'Seansı oluştur'}
+          {submitting ? t('calendar.form.creating') : t('calendar.form.create')}
         </button>
       </div>
     </form>

@@ -1,15 +1,11 @@
 import { BadgeKind } from '@platform/shared';
 import type { BadgeThresholdParams } from '@platform/shared';
+import type { Translate } from '@platform/shared';
 
-/** Labels for the badge kind selector. */
-export const BADGE_KIND_LABELS: Record<BadgeKind, string> = {
-  [BadgeKind.MILESTONE_SESSIONS]: 'Seans sayısı kilometre taşı',
-  [BadgeKind.STREAK_WEEKS]: 'Haftalık seri',
-  [BadgeKind.MONTHLY_GOAL_MET]: 'Aylık hedefe ulaşma',
-  [BadgeKind.FIRST_SESSION]: 'İlk seans',
-  [BadgeKind.EARLY_BIRD]: 'Erkenci',
-  [BadgeKind.VARIETY]: 'Çeşitlilik',
-};
+/** Label for the badge kind selector; call with the active `useT()`/`getT()` translator. */
+export function badgeKindLabel(t: Translate, kind: BadgeKind): string {
+  return t(`settings.badges.kind.${kind}`);
+}
 
 /** A sensible default threshold for a freshly chosen badge kind, so the form always has a valid value. */
 export function defaultThresholdFor(kind: BadgeKind): BadgeThresholdParams {
@@ -27,30 +23,31 @@ export function defaultThresholdFor(kind: BadgeKind): BadgeThresholdParams {
     case BadgeKind.VARIETY:
       return { kind, distinctServiceTypes: 3 };
     default: {
+      // Exhaustiveness guard only: unreachable for any value TypeScript allows through.
       const _exhaustive: never = kind;
-      throw new Error(`Bilinmeyen rozet türü: ${_exhaustive}`);
+      throw new Error(`Unknown badge kind: ${String(_exhaustive)}`);
     }
   }
 }
 
-/** Human-readable one-line summary of a threshold, for the badge list. */
-export function describeThreshold(threshold: BadgeThresholdParams): string {
+/** Human-readable one-line summary of a threshold, for the badge list; call with the active translator. */
+export function describeThreshold(t: Translate, threshold: BadgeThresholdParams): string {
   switch (threshold.kind) {
     case BadgeKind.MILESTONE_SESSIONS:
-      return `${threshold.sessions} seans`;
+      return t('settings.badges.threshold.sessions', { count: threshold.sessions });
     case BadgeKind.STREAK_WEEKS:
-      return `${threshold.weeks} hafta üst üste (haftada en az ${threshold.minSessionsPerWeek} seans)`;
+      return t('settings.badges.threshold.streak', { weeks: threshold.weeks, minPerWeek: threshold.minSessionsPerWeek });
     case BadgeKind.MONTHLY_GOAL_MET:
-      return 'Aylık hedefe ulaşıldığında';
+      return t('settings.badges.threshold.monthlyGoal');
     case BadgeKind.FIRST_SESSION:
-      return 'İlk seansta';
+      return t('settings.badges.threshold.firstSession');
     case BadgeKind.EARLY_BIRD:
-      return `Saat ${String(threshold.beforeHour).padStart(2, '0')}:00'dan önce başlayan seans`;
+      return t('settings.badges.threshold.earlyBird', { hour: String(threshold.beforeHour).padStart(2, '0') });
     case BadgeKind.VARIETY:
-      return `${threshold.distinctServiceTypes} farklı hizmet türü`;
+      return t('settings.badges.threshold.variety', { count: threshold.distinctServiceTypes });
     default: {
       const _exhaustive: never = threshold;
-      return '';
+      return String(_exhaustive);
     }
   }
 }
