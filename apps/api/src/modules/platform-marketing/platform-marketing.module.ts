@@ -22,10 +22,12 @@ import { BrandKitController, ContentCalendarController, MarketingStudioControlle
 import { SegmentInsightService } from './studio/segment-insight.service';
 import { AdminMarketingSettingsController, MarketingApprovalsController, PlatformCampaignsController } from './approvals/marketing-approvals.controllers';
 import { PlatformMarketingContactsController } from './consent/marketing-consent.controller';
+import { AdminMarketingInsightsController, MarketingInsightsController } from './insights/marketing-insights.controllers';
+import { MarketingInsightsService } from './insights/marketing-insights.service';
 
 const systemDns: DnsLookup = { resolveTxt, resolveCname, resolveMx };
 
-/** Platform marketing (docs/PAZARLAMA_MODULU.md): M1 the integrations hub, M2 the brand kit, AI studio and content calendar, M3a the KPI dashboard, M3b the approval queue, platform campaign actions and marketing settings (services in GrowthModule, next to the send path), M3e the double opt-in resend. */
+/** Platform marketing (docs/PAZARLAMA_MODULU.md): M1 the integrations hub, M2 the brand kit, AI studio and content calendar, M3a the KPI dashboard, M3b the approval queue, platform campaign actions and marketing settings (services in GrowthModule, next to the send path), M3e the double opt-in resend, M3d the weekly summary (heartbeat via JobsService) and the audit view (in AdminModule). */
 @Module({
   imports: [AuthModule, AdsModule, AiModule, ApiKeysModule, CrmCoreModule, FunnelsModule, GrowthModule, WebhooksModule],
   controllers: [
@@ -38,6 +40,8 @@ const systemDns: DnsLookup = { resolveTxt, resolveCname, resolveMx };
     PlatformCampaignsController,
     AdminMarketingSettingsController,
     PlatformMarketingContactsController,
+    MarketingInsightsController,
+    AdminMarketingInsightsController,
   ],
   providers: [
     IntegrationHubService,
@@ -49,6 +53,8 @@ const systemDns: DnsLookup = { resolveTxt, resolveCname, resolveMx };
     ContentCalendarService,
     MarketingAiRateLimitGuard,
     MarketingDashboardService,
+    MarketingInsightsService,
   ],
+  exports: [MarketingInsightsService],
 })
 export class PlatformMarketingModule {}

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { CurrencyCodeSchema } from '../growth/regions';
 import { SegmentGroupSchema, type SegmentGroup } from '../growth/segments';
 import { DEFAULT_DOUBLE_OPT_IN_REGIONS, DoubleOptInRegionsSchema } from './consent';
+import { EmailWarmupPlanSchema } from './guards';
 
 /**
  * Marketing settings of the platform tenant (M3b, docs/PAZARLAMA_MODULU.md
@@ -31,6 +32,7 @@ export const MARKETING_SETTINGS_DEFAULTS = {
   approvalTtlHours: 72,
   doubleOptInRegions: DEFAULT_DOUBLE_OPT_IN_REGIONS,
   trMerchantExemptionEnabled: false,
+  emailWarmupPlan: null,
 } as const;
 
 export interface MarketingSettingsDTO {
@@ -55,6 +57,8 @@ export interface MarketingSettingsDTO {
   doubleOptInRegions: string[];
   /** TR merchant exemption: business contacts may be messaged without prior consent (registered with the registry). */
   trMerchantExemptionEnabled: boolean;
+  /** Daily e-mail caps of the first days after the sender domain was verified ([day 1, day 2, ...]); null: no warm-up. */
+  emailWarmupPlan: number[] | null;
   updatedByUserId: string | null;
   /** Null while the defaults are in use (no row yet). */
   updatedAt: string | null;
@@ -88,6 +92,7 @@ export const UpdateMarketingSettingsSchema = z
     approvalTtlHours: z.number().int().min(1).max(24 * 30).optional(),
     doubleOptInRegions: DoubleOptInRegionsSchema.optional(),
     trMerchantExemptionEnabled: z.boolean().optional(),
+    emailWarmupPlan: EmailWarmupPlanSchema.nullable().optional(),
   })
   .strict();
 export type UpdateMarketingSettingsInput = z.infer<typeof UpdateMarketingSettingsSchema>;

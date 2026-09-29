@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@platform/database';
 import type { MarketingSettings } from '@platform/database';
-import { MARKETING_SETTINGS_DEFAULTS, SegmentGroupSchema, contactDisplayName } from '@platform/shared';
+import { MARKETING_SETTINGS_DEFAULTS, SegmentGroupSchema, contactDisplayName, parseWarmupPlan } from '@platform/shared';
 import type {
   MarketingSettingsDTO,
   MarketingSettingsRecipientDTO,
@@ -38,6 +38,7 @@ export function toMarketingSettingsDto(row: MarketingSettings | null): Marketing
       monthlyAdSpendCaps: {},
       weeklySummaryRecipients: [],
       doubleOptInRegions: [...MARKETING_SETTINGS_DEFAULTS.doubleOptInRegions],
+      emailWarmupPlan: null,
       updatedByUserId: null,
       updatedAt: null,
     };
@@ -60,6 +61,7 @@ export function toMarketingSettingsDto(row: MarketingSettings | null): Marketing
     approvalTtlHours: row.approvalTtlHours,
     doubleOptInRegions: regionList(row.doubleOptInRegions),
     trMerchantExemptionEnabled: row.trMerchantExemptionEnabled,
+    emailWarmupPlan: parseWarmupPlan(row.emailWarmupPlan),
     updatedByUserId: row.updatedByUserId,
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -131,6 +133,7 @@ export class MarketingSettingsService {
       ...(input.approvalTtlHours !== undefined ? { approvalTtlHours: input.approvalTtlHours } : {}),
       ...(input.doubleOptInRegions !== undefined ? { doubleOptInRegions: input.doubleOptInRegions } : {}),
       ...(input.trMerchantExemptionEnabled !== undefined ? { trMerchantExemptionEnabled: input.trMerchantExemptionEnabled } : {}),
+      ...(input.emailWarmupPlan !== undefined ? { emailWarmupPlan: input.emailWarmupPlan === null ? Prisma.DbNull : (input.emailWarmupPlan as Prisma.InputJsonValue) } : {}),
       updatedByUserId: userId,
     };
     const createData = { ...data, studioId } as Prisma.MarketingSettingsUncheckedCreateInput;

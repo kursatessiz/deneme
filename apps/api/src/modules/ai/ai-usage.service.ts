@@ -65,8 +65,9 @@ export class AiUsageService {
     private readonly settings: AiSettingsService,
   ) {}
 
-  async record(input: RecordUsageInput): Promise<void> {
-    await this.prisma.aiUsage.create({
+  /** Stores one metered call and returns the id of its AiUsage row. */
+  async record(input: RecordUsageInput): Promise<string> {
+    const row = await this.prisma.aiUsage.create({
       data: {
         studioId: input.studioId,
         userId: input.userId,
@@ -81,7 +82,9 @@ export class AiUsageService {
         errorCode: input.errorCode,
         translationJobId: input.translationJobId ?? null,
       },
+      select: { id: true },
     });
+    return row.id;
   }
 
   async resolveBudget(studioId: string): Promise<ResolvedBudget> {
@@ -129,6 +132,23 @@ export class AiUsageService {
     const cents = await this.settings.getMarketingBudgetCents();
     const used = await this.marketingMonthCostMicroUsd(studioId, now);
     if (cents <= 0 || used >= centsToMicroUsd(cents)) throw new AiError('MARKETING_AI_BUDGET_EXCEEDED');
+  }
+
+  /**
+   * Throws 402 MARKETING_AI_DAILY_CAP_EXCEEDED once today's (UTC) marketing spend reaches
+   * `marketing_settings.ai_daily_cap_cents` of the studio (M3d); no setting or no cap means no daily limit,
+   * a cap of 0 blocks the day like a 0 monthly budget does.
+   */
+  async assertWithinMarketingDailyCap(studioId: string, now: Date): Promise<void> {
+    const settings = await this.prisma.marketingSettings.findUnique({ where: { studioId }, select: { aiDailyCapCents: true } });
+    const cap = settings?.aiDailyCapCents ?? null;
+    if (cap === null) return;
+    const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const agg = await this.prisma.aiUsage.aggregate({
+      where: { studioId, task: { in: [...MARKETING_AI_TASKS] as DbAiTask[] }, createdAt: { gte: dayStart } },
+      _sum: { costMicroUsd: true },
+    });
+    if ((agg._sum.costMicroUsd ?? 0) >= centsToMicroUsd(cap)) throw new AiError('MARKETING_AI_DAILY_CAP_EXCEEDED');
   }
 
   async marketingStatus(studioId: string, configured: boolean, now: Date): Promise<MarketingAiStatusDTO> {

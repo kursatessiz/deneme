@@ -24,6 +24,7 @@ import { Section, SettingsHeader } from '@/components/settings/ui';
 import { formatPercent } from '@/lib/money';
 import { InputField } from '../fields';
 import { usePlatformSession } from '../PlatformSession';
+import { InsightsPanel } from './InsightsPanel';
 
 type Preset = (typeof DASHBOARD_PERIOD_PRESET_DAYS)[number] | 'custom';
 
@@ -485,6 +486,8 @@ export function MarketingDashboard() {
         </div>
       </Section>
 
+      <InsightsPanel />
+
       <Section title={t('marketingDashboard.health.title')} description={t('marketingDashboard.health.description')}>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-8">
           <div className="space-y-4">
@@ -589,6 +592,75 @@ export function MarketingDashboard() {
               {health.approvals.available ? t('marketingDashboard.approvals.pending', { count: health.approvals.pending }) : t('marketingDashboard.approvals.unavailable')}
             </p>
           </div>
+
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+              {t('marketingDashboard.caps.title')}
+            </h4>
+            <p className="text-sm">
+              {health.caps.email.cap === null
+                ? t('marketingDashboard.caps.emailNoCap', { sent: number.format(health.caps.email.sent) })
+                : t('marketingDashboard.caps.email', { sent: number.format(health.caps.email.sent), cap: number.format(health.caps.email.cap) })}
+            </p>
+            {health.caps.email.source === 'WARMUP' && health.caps.email.warmupDay !== null && (
+              <p className="text-xs" style={secondary}>
+                {t('marketingDashboard.caps.warmup', { day: health.caps.email.warmupDay })}
+              </p>
+            )}
+            <p className="text-sm">
+              {health.caps.sms.cap === null
+                ? t('marketingDashboard.caps.smsNoCap', { credits: number.format(health.caps.sms.credits) })
+                : t('marketingDashboard.caps.sms', { credits: number.format(health.caps.sms.credits), cap: number.format(health.caps.sms.cap) })}
+            </p>
+            {health.caps.deferredRecipients > 0 && (
+              <p role="status" className="flex items-start gap-1.5 text-xs" style={{ color: 'var(--color-warning)' }}>
+                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden="true" />
+                <span>{t('marketingDashboard.caps.deferred', { count: health.caps.deferredRecipients })}</span>
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+              {t('marketingDashboard.autoPause.title')}
+            </h4>
+            {health.autoPause.active ? (
+              <p role="status" className="flex items-start gap-1.5 text-sm" style={{ color: 'var(--color-danger)', fontWeight: 600 }}>
+                <AlertTriangle className="w-3.5 h-3.5 mt-1 shrink-0" aria-hidden="true" />
+                <span>
+                  {t('marketingDashboard.autoPause.active', { count: health.autoPause.pausedCampaigns, reasons: health.autoPause.reasons.map((r) => t(`marketingGuards.reason.${r}`)).join(', ') })}
+                </span>
+              </p>
+            ) : (
+              <p className="text-sm" style={muted}>
+                {t('marketingDashboard.autoPause.none')}
+              </p>
+            )}
+          </div>
+
+          {health.adSpendCaps.length > 0 && (
+            <div className="space-y-2 lg:col-span-2">
+              <h4 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                {t('marketingDashboard.adCap.title')}
+              </h4>
+              <ul className="space-y-1">
+                {health.adSpendCaps.map((c) => (
+                  <li key={c.currency} className="text-sm" style={c.exceeded ? { color: 'var(--color-danger)', fontWeight: 600 } : undefined}>
+                    {t('marketingDashboard.adCap.line', {
+                      spent: fmtMoney({ amount: c.spent, currency: c.currency }),
+                      cap: fmtMoney({ amount: c.cap, currency: c.currency }),
+                    })}
+                    {c.exceeded && (
+                      <span className="inline-flex items-center gap-1 ml-2 text-xs">
+                        <AlertTriangle className="w-3.5 h-3.5" aria-hidden="true" />
+                        {t('marketingDashboard.adCap.exceeded')}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div className="space-y-2 lg:col-span-2">
             <h4 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>

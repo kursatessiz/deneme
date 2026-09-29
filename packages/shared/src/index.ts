@@ -42,3 +42,4 @@ export * from './backups';
 export * from './platform-permissions';
 export * from './integrations-hub';
 export * from './marketing';
+export * from './audit';

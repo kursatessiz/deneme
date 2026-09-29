@@ -6,6 +6,7 @@ import type { Money } from '../growth/regions';
 import { compareKpi } from '../report-compare';
 import { medianOf } from '../funnels';
 import { redactPii } from './privacy';
+import { AdSpendCapStatusSchema, FUSE_REASONS } from './guards';
 
 /**
  * Platform marketing dashboard (M3a, docs/PAZARLAMA_MODULU.md 3.3). One
@@ -243,6 +244,34 @@ export const DashboardHealthSchema = z
       })
       .strict(),
     approvals: z.object({ available: z.boolean(), pending: z.number().int().min(0) }).strict(),
+    /** M3d: today's (UTC) sends against the daily caps. */
+    caps: z
+      .object({
+        email: z
+          .object({
+            sent: z.number().int().min(0),
+            /** The effective cap of today (the warm-up plan's when it is lower); null: no cap. */
+            cap: z.number().int().min(0).nullable(),
+            source: z.enum(['NONE', 'CONFIGURED', 'WARMUP']),
+            warmupDay: z.number().int().min(1).nullable(),
+          })
+          .strict(),
+        sms: z.object({ credits: z.number().int().min(0), cap: z.number().int().min(0).nullable() }).strict(),
+        /** Recipients waiting for the next day because a cap was reached. */
+        deferredRecipients: z.number().int().min(0),
+      })
+      .strict(),
+    /** M3d: the e-mail deliverability fuse. */
+    autoPause: z
+      .object({
+        /** At least one e-mail campaign is paused by the system. */
+        active: z.boolean(),
+        pausedCampaigns: z.number().int().min(0),
+        reasons: z.array(z.enum(FUSE_REASONS)),
+      })
+      .strict(),
+    /** M3d: month-to-date ad spend against the monthly caps, per currency (only currencies with a cap). */
+    adSpendCaps: z.array(AdSpendCapStatusSchema),
     connections: z
       .object({
         errorCount: z.number().int().min(0),

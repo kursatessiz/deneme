@@ -52,6 +52,8 @@ kiracının kendi izin sistemi üzerinden, `StudioTenantGuard` ile olur.
 | Benchmark | `GET /admin/benchmark?businessTypeTemplateKey=` | Aşağıya bakın |
 | Sistem sağlığı | `GET /admin/health` | DB, Redis, kuyruk derinliği, son heartbeat zamanı, başarısız webhook teslimatı sayısı, SMS sağlayıcı bakiye durumu, yedek durumu (son başarılı yedek, gecikme) |
 | Yedekler (D2) | `GET /admin/backups`, `POST /admin/backups/run`, `PUT /admin/backups/settings`, `POST /admin/backups/verify`, `POST /admin/backups/download-url`, `POST /admin/backups/delete` | Veritabanı yedeklerinin tek yönetim ekranı: listeleme (uzak depo ve sunucu), şimdi yedek al, zamanlama ve saklama, doğrulama, kısa ömürlü indirme bağlantısı, onaylı silme. Ayrıntılar: `docs/YEDEKLER.md` |
+| Denetim (M3d) | `GET /admin/audit?userId&action&from&to&page&limit` | Tüm kiracıların `AuditLog` satırları, en yeni önce; `action` eylemin kendisi ya da nokta ile devam eden öneki; metadata yerine kısa ve maskelenmiş özet |
+| Pazarlama özeti (M3d) | `POST /admin/marketing/insights/generate` | Son tamamlanan haftanın özetini şimdi üretir (`{ at?, force?, notify? }`); deneme içindir |
 | Zamanlayıcı/dunning/churn tetikleyicileri | `POST /admin/scheduler/run`, `POST /admin/dunning/run`, `POST /admin/churn/recompute-all`, `POST /admin/feedback/rating-prompts/run` | Önceden var olan uç noktalar, artık `SuperAdminOnly()` |
 
 Tüm payload'lar `packages/shared/src/admin.ts` içindeki Zod şemalarıyla
@@ -131,7 +133,7 @@ src/design`'daki nötr semantik renkleri ve ölçüleri doğrudan okur
 (`AdminTheme` bileşeni), gradyan içermez. Sayfalar: `/admin/tenants`,
 `/admin/plans`, `/admin/business-types`, `/admin/feature-flags`,
 `/admin/sms-packages`, `/admin/content`, `/admin/benchmark`,
-`/admin/health`, `/admin/yedekler`. Tarayıcı yalnızca `/api/bff/*` üzerinden konuşur
+`/admin/health`, `/admin/yedekler`, `/admin/denetim` (M3d). Tarayıcı yalnızca `/api/bff/*` üzerinden konuşur
 (`docs/WEB_PANEL.md`), API'ye doğrudan erişmez.
 
 ## Platform kullanıcıları ve pazarlama paneli (M1)
@@ -268,6 +270,12 @@ platform davetinde yalnızca KVKK aydınlatma metni istenir. Kabulde
 - **Uçlar** `GET /admin/marketing/settings` ve `PATCH /admin/marketing/settings` (`SuperAdminOnly()`; gövde paylaşılan `UpdateMarketingSettingsSchema`, bütün alanlar isteğe bağlı). Her değişiklik platform kiracısında `AuditLog` satırıdır (`marketing.settings.updated`, `metadata.changes` alan başına eski ve yeni değer). Pazarlama yöneticisi bu uçları çağıramaz (403).
 - **Bugün davranışı olanlar**: eşikler ve TTL (onay akışı). Tavanlar, otomatik duraklatma ve haftalık özet saklanır, işleri M3d'dedir; MQL/SQL kuralları bu sayfada düzenlenmez (M3a panosu kullanır).
 - **Onaylar**: süper admin onay kuyruğunu pazarlama panelinde `/pazarlama/onaylar` ekranında görür; onay ve ret yalnızca süper admindedir (`POST /platform/marketing/approvals/:id/approve|reject`, `PlatformScoped` + `SuperAdminGuard`). Süper admin kendi talebini onaylayabilir; bu `SELF_APPROVED` ve özet içinde `selfApprovedBySuperAdmin: true` olarak kaydedilir. Yeni talepte süper adminlere işlemsel e-posta ve uygulama içi bildirim gider (`MARKETING_APPROVAL_REQUESTED`), karar talep edene bildirilir (`MARKETING_APPROVAL_APPROVED` / `_REJECTED`). Akışın tamamı `docs/PAZARLAMA_MODULU.md` M3b notlarında.
+
+### M3d notları: denetim görünümü ve pazarlama sigortaları
+
+- **`/admin/denetim`** (AdminNav'da "Denetim"): `AuditLog` satırlarını tüm kiracılar için listeler; süzgeçler kullanıcı kimliği, eylem (önek eşleşir: `marketing.approval` altındaki tüm eylemler), başlangıç ve bitiş tarihi (UTC gün sınırları); tablo zaman, kullanıcı, eylem, hedef (tür ve kimlik) ve ayrıntı sütunlarından oluşur, sayfa başına 50 kayıt. Ayrıntı sütunu ham `metadata` değil, iletişim bilgisi maskelenmiş kısa özettir. Uç yalnızca süper adminindir (`SuperAdminOnly`; diğer herkese 403).
+- **`/admin/pazarlama-ayarlari`** artık uygulanan alanları içerir: günlük e-posta ve SMS kredi tavanı ile e-posta ısınma planı (virgülle ayrılmış günlük tavanlar), günlük yapay zeka tavanı, para birimi başına aylık reklam tavanı (aşımda panoda kırmızı uyarı ve süper admin bildirimi; reklamlar durdurulmaz), otomatik duraklatma eşikleri (bounce ve şikâyet, son 24 saat) ve haftalık özet (anahtar, alıcılar, "şimdi oluştur").
+- **Bildirimler**: e-posta sigortası tetiklenince (neden başına 24 saatte en fazla bir kez) ve reklam tavanı aşılınca (ay ve para birimi başına bir kez) her süper admine işlemsel e-posta ve uygulama içi bildirim gider. Duraklatılan kampanyalar pazarlama panelinden elle sürdürülür.
 
 ## Kapsam dışı / takip maddeleri
 

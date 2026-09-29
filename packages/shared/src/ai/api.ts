@@ -25,6 +25,7 @@ export const AI_ERROR_CODES = [
   'AI_INVALID_OUTPUT',
   'AI_ENCRYPTION_UNAVAILABLE',
   'MARKETING_AI_BUDGET_EXCEEDED',
+  'MARKETING_AI_DAILY_CAP_EXCEEDED',
 ] as const;
 export type AiErrorCode = (typeof AI_ERROR_CODES)[number];
 
@@ -80,6 +81,7 @@ export const UpdateAiSettingsSchema = z
         MARKETING_DRAFT: AiModelIdSchema.optional(),
         MARKETING_ANALYSIS: AiModelIdSchema.optional(),
         MARKETING_RESEARCH: AiModelIdSchema.optional(),
+        MARKETING_WEEKLY_SUMMARY: AiModelIdSchema.optional(),
       })
       .strict()
       .optional(),

@@ -195,6 +195,9 @@ import { trContentCalendar } from './tr/contentCalendar';
 import { trMarketingDashboard } from './tr/marketingDashboard';
 import { trMarketingApprovals } from './tr/marketingApprovals';
 import { trAdminMarketingSettings } from './tr/admin-marketing-settings';
+import { trMarketingInsights } from './tr/marketingInsights';
+import { trMarketingGuards } from './tr/marketingGuards';
+import { trAdminAudit } from './tr/admin-audit';
 import { enMarketing } from './en/marketing';
 import { enBrandKit } from './en/brandKit';
 import { enMarketingStudio } from './en/marketingStudio';
@@ -202,6 +205,9 @@ import { enContentCalendar } from './en/contentCalendar';
 import { enMarketingDashboard } from './en/marketingDashboard';
 import { enMarketingApprovals } from './en/marketingApprovals';
 import { enAdminMarketingSettings } from './en/admin-marketing-settings';
+import { enMarketingInsights } from './en/marketingInsights';
+import { enMarketingGuards } from './en/marketingGuards';
+import { enAdminAudit } from './en/admin-audit';
 import { trIntegrations } from './tr/integrations';
 import { enIntegrations } from './en/integrations';
 import { trJoinInvite } from './tr/join-invite';
@@ -324,6 +330,9 @@ export const TR_NAMESPACES = [
   trMarketingDashboard,
   trMarketingApprovals,
   trAdminMarketingSettings,
+  trMarketingInsights,
+  trMarketingGuards,
+  trAdminAudit,
   trIntegrations,
   trJoinInvite,
   trConsentConfirm,
@@ -432,6 +441,9 @@ export const EN_NAMESPACES = [
   enMarketingDashboard,
   enMarketingApprovals,
   enAdminMarketingSettings,
+  enMarketingInsights,
+  enMarketingGuards,
+  enAdminAudit,
   enIntegrations,
   enJoinInvite,
   enConsentConfirm,

@@ -4,11 +4,13 @@ import type { Campaign, CampaignRecipientStatus } from '@platform/database';
 import {
   CAMPAIGN_BATCH_SIZE,
   CAMPAIGN_QUIET_HOURS_MAX_DEFER_HOURS,
+  CAP_DEFERRED_REASON_CODES,
   assignVariants,
   canPauseCampaign,
   canResumeCampaign,
   contactDisplayName,
   countryOfPhone,
+  nextCapWindowStart,
   nextLocalTime,
   resolveRecipientTimeZone,
 } from '@platform/shared';
@@ -35,6 +37,7 @@ import { GrowthQueueService } from '../growth-queue.service';
 import { CampaignApprovalService, approvalError } from './approval/campaign-approval.service';
 import { CampaignAbService, parseAbSetup, parseOverrides } from './campaign-ab.service';
 import { CampaignSendTimeService } from './campaign-send-time.service';
+import { MarketingGuardsService } from './marketing-guards.service';
 
 const HOUR_MS = 60 * 60 * 1000;
 /** A recipient being sent is leased for this long (concurrent workers). */
@@ -69,6 +72,7 @@ export class CampaignsService {
     private readonly approvals: CampaignApprovalService,
     private readonly ab: CampaignAbService,
     private readonly sendTime: CampaignSendTimeService,
+    private readonly guards: MarketingGuardsService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -226,7 +230,7 @@ export class CampaignsService {
       throw new ConflictException('Bu kampanya iptal edilemez');
     }
     const results = await this.prisma.$transaction([
-      this.prisma.campaign.update({ where: { id: campaign.id }, data: { status: 'CANCELLED', cancelledAt: now } }),
+      this.prisma.campaign.update({ where: { id: campaign.id }, data: { status: 'CANCELLED', cancelledAt: now, pauseReason: null } }),
       this.prisma.campaignRecipient.updateMany({ where: { campaignId: campaign.id, status: 'PENDING' }, data: { status: 'CANCELLED', nextAttemptAt: null } }),
       // An open approval request of a cancelled campaign is closed with it (M3b).
       ...(campaign.approvalRequestId
@@ -259,7 +263,7 @@ export class CampaignsService {
     const campaign = await this.get(studioId, id);
     if (!canPauseCampaign(campaign.status)) throw approvalError(HttpStatus.CONFLICT, 'CAMPAIGN_NOT_PAUSABLE', 'Yalnızca planlanmış veya gönderilen kampanya duraklatılabilir');
     await this.prisma.$transaction(async (tx) => {
-      const moved = await tx.campaign.updateMany({ where: { id: campaign.id, status: campaign.status }, data: { status: 'PAUSED' } });
+      const moved = await tx.campaign.updateMany({ where: { id: campaign.id, status: campaign.status }, data: { status: 'PAUSED', pauseReason: null } });
       if (moved.count === 0) throw approvalError(HttpStatus.CONFLICT, 'CAMPAIGN_NOT_PAUSABLE', 'Kampanyanın durumu değişti');
       await tx.auditLog.create({
         data: { studioId, userId, action: 'marketing.campaign.paused', entityType: 'Campaign', entityId: campaign.id, metadata: { from: campaign.status, at: now.toISOString() } },
@@ -284,7 +288,7 @@ export class CampaignsService {
     }
     const next = campaign.startedAt ? 'SENDING' : 'SCHEDULED';
     await this.prisma.$transaction(async (tx) => {
-      const moved = await tx.campaign.updateMany({ where: { id: campaign.id, status: 'PAUSED' }, data: { status: next } });
+      const moved = await tx.campaign.updateMany({ where: { id: campaign.id, status: 'PAUSED' }, data: { status: next, pauseReason: null } });
       if (moved.count === 0) throw approvalError(HttpStatus.CONFLICT, 'CAMPAIGN_NOT_RESUMABLE', 'Kampanyanın durumu değişti');
       await tx.auditLog.create({
         data: { studioId, userId, action: 'marketing.campaign.resumed', entityType: 'Campaign', entityId: campaign.id, metadata: { to: next, at: now.toISOString() } },
@@ -394,8 +398,11 @@ export class CampaignsService {
     const abActive = variantRows.length >= 2;
     if (abActive) await this.ab.advance(campaign, now);
     const variants = new Map(variantRows.map((v) => [v.key, v]));
+    // M3d: the platform tenant's daily caps (e-mail, SMS credits) with the warm-up plan; null when nothing is capped.
+    const caps = (await this.approvals.isPlatformStudio(campaign.studioId)) ? await this.guards.trackerFor(campaign.studioId, now) : null;
+    let capBlocked: 'EMAIL' | 'SMS' | null = null;
 
-    for (let batch = 0; batch < batches; batch += 1) {
+    for (let batch = 0; batch < batches && !capBlocked; batch += 1) {
       // A pause (or cancel) between batches stops the send at once.
       if (batch > 0) {
         const current = await this.prisma.campaign.findUnique({ where: { id }, select: { status: true } });
@@ -414,10 +421,16 @@ export class CampaignsService {
       });
       if (!pending.length) break;
       for (const recipient of pending) {
-        const outcome = await this.sendOne(campaign, recipient, now, variants);
-        if (outcome) totals[outcome] += 1;
+        capBlocked = caps?.blockedBy(campaign.channel) ?? null;
+        if (capBlocked) break;
+        const sent = await this.sendOne(campaign, recipient, now, variants);
+        if (sent) {
+          totals[sent.outcome] += 1;
+          if (sent.outcome === 'sent') caps?.consume(sent.channel);
+        }
       }
     }
+    if (capBlocked) await this.deferForCap(campaign, capBlocked, abActive, now);
 
     // Recipients of the test (or all, without a test) that are due or scheduled; held-back ones are not.
     const scheduled = { campaignId: id, status: 'PENDING' as const, ...(abActive ? { variantKey: { not: null } } : {}) };
@@ -489,6 +502,42 @@ export class CampaignsService {
     return this.detail(studioId, id);
   }
 
+  /**
+   * A daily cap is full: the rest of the campaign waits for the next UTC day.
+   * Every due recipient keeps PENDING with the next day as its due time and a
+   * cap reason code (shown on the campaign); one audit entry per campaign and day.
+   */
+  private async deferForCap(campaign: Campaign, channel: 'EMAIL' | 'SMS', abActive: boolean, now: Date): Promise<void> {
+    const until = nextCapWindowStart(now);
+    const deferred = await this.prisma.campaignRecipient.updateMany({
+      where: {
+        campaignId: campaign.id,
+        status: 'PENDING',
+        OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+        ...(abActive ? { variantKey: { not: null } } : {}),
+      },
+      data: { nextAttemptAt: until, reasonCode: CAP_DEFERRED_REASON_CODES[channel] },
+    });
+    if (deferred.count === 0) return;
+    const dayStart = new Date(until.getTime() - 86_400_000);
+    const already = await this.prisma.auditLog.findFirst({
+      where: { studioId: campaign.studioId, action: 'marketing.campaign.cap_deferred', entityId: campaign.id, createdAt: { gte: dayStart } },
+      select: { id: true },
+    });
+    if (already) return;
+    await this.prisma.auditLog.create({
+      data: {
+        studioId: campaign.studioId,
+        userId: null,
+        action: 'marketing.campaign.cap_deferred',
+        entityType: 'Campaign',
+        entityId: campaign.id,
+        createdAt: now,
+        metadata: { channel, deferred: deferred.count, until: until.toISOString() },
+      },
+    });
+  }
+
   private async sendOne(
     campaign: Campaign,
     recipient: {
@@ -500,7 +549,7 @@ export class CampaignsService {
     },
     now: Date,
     variants: ReadonlyMap<string, { templateKey: string | null; templateOverrides: Prisma.JsonValue | null }>,
-  ): Promise<'sent' | 'skipped' | 'failed' | null> {
+  ): Promise<{ outcome: 'sent' | 'skipped' | 'failed'; channel: string | null } | null> {
     // Lease the row; a concurrent worker that already took it gets count 0.
     const leased = await this.prisma.campaignRecipient.updateMany({
       where: { id: recipient.id, status: 'PENDING', nextAttemptAt: recipient.nextAttemptAt },
@@ -555,7 +604,8 @@ export class CampaignsService {
         sentAt: result.success ? now : null,
       },
     });
-    return status === 'SENT' ? 'sent' : status === 'FAILED' ? 'failed' : status === 'SKIPPED' ? 'skipped' : null;
+    const outcome = status === 'SENT' ? 'sent' : status === 'FAILED' ? 'failed' : status === 'SKIPPED' ? 'skipped' : null;
+    return outcome ? { outcome, channel: result.channel ?? null } : null;
   }
 
   // ---------------------------------------------------------------------------
@@ -563,7 +613,7 @@ export class CampaignsService {
   // ---------------------------------------------------------------------------
 
   async stats(campaign: Campaign): Promise<CampaignStatsDTO> {
-    const [byStatus, byReason, delivered, opened, clicked, unsubscribed, studio] = await Promise.all([
+    const [byStatus, byReason, delivered, opened, clicked, unsubscribed, studio, capDeferred] = await Promise.all([
       this.prisma.campaignRecipient.groupBy({ by: ['status'], where: { campaignId: campaign.id }, _count: { _all: true } }),
       this.prisma.campaignRecipient.groupBy({ by: ['reasonCode'], where: { campaignId: campaign.id, status: 'SKIPPED' }, _count: { _all: true } }),
       this.prisma.notificationLog.count({ where: { studioId: campaign.studioId, campaignId: campaign.id, OR: [{ deliveredAt: { not: null } }, { status: 'DELIVERED' }] } }),
@@ -571,6 +621,11 @@ export class CampaignsService {
       this.prisma.notificationLog.count({ where: { studioId: campaign.studioId, campaignId: campaign.id, clickedAt: { not: null } } }),
       this.prisma.messageTrackingEvent.count({ where: { studioId: campaign.studioId, type: 'UNSUBSCRIBE', notificationLog: { campaignId: campaign.id } } }),
       this.prisma.studio.findUnique({ where: { id: campaign.studioId }, select: { attributionWindowDays: true } }),
+      this.prisma.campaignRecipient.aggregate({
+        where: { campaignId: campaign.id, status: 'PENDING', reasonCode: { in: Object.values(CAP_DEFERRED_REASON_CODES) } },
+        _count: { _all: true },
+        _min: { nextAttemptAt: true },
+      }),
     ]);
     const count = (s: CampaignRecipientStatus) => byStatus.find((b) => b.status === s)?._count._all ?? 0;
     const windowDays = studio?.attributionWindowDays ?? 30;
@@ -606,6 +661,8 @@ export class CampaignsService {
       converted: Number(converted[0]?.n ?? 0),
       revenue: Object.fromEntries(revenueRows.map((r) => [r.currency, r.total])),
       skippedByReason: Object.fromEntries(byReason.map((b) => [b.reasonCode ?? 'UNKNOWN', b._count._all])),
+      deferredByCap: capDeferred._count._all,
+      deferredUntil: capDeferred._min.nextAttemptAt?.toISOString() ?? null,
     };
   }
 
@@ -630,6 +687,7 @@ export class CampaignsService {
       winnerKey: ab.winnerKey,
       sendTimeMode: c.sendTimeMode,
       sendTimeLocal: c.sendTimeLocal,
+      pauseReason: c.pauseReason,
       createdAt: c.createdAt.toISOString(),
       updatedAt: c.updatedAt.toISOString(),
       stats: await this.stats(c),

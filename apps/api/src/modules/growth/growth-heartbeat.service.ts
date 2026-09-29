@@ -5,6 +5,7 @@ import { JourneyEngineService } from './journeys/journey-engine.service';
 import { LegacyAutomationMigratorService } from './journeys/legacy-automation-migrator.service';
 import { CampaignsService } from './campaigns/campaigns.service';
 import { CampaignApprovalService } from './campaigns/approval/campaign-approval.service';
+import { MarketingGuardsService, type MarketingGuardsResult } from './campaigns/marketing-guards.service';
 
 export interface GrowthHeartbeatResult {
   legacyMigrated: number;
@@ -17,6 +18,8 @@ export interface GrowthHeartbeatResult {
   campaigns: { campaigns: number; sent: number; skipped: number; failed: number };
   /** M3b: approval requests past their TTL marked EXPIRED. */
   approvalsExpired: number;
+  /** M3d: the e-mail fuse and the ad spend cap alerts. */
+  marketingGuards: MarketingGuardsResult;
   contactConsentSync: { synced: number; failed: number };
 }
 
@@ -25,7 +28,8 @@ export interface GrowthHeartbeatResult {
  * order: convert any remaining legacy automation rule (so the old and the
  * new engine never both send), refresh stale dynamic segments (which fires
  * segment_entered), scan time-based journey triggers, advance due journey
- * enrollments, expire approval requests past their TTL (M3b), send due
+ * enrollments, expire approval requests past their TTL (M3b), run the
+ * marketing guards (M3d: e-mail fuse, ad spend cap alerts), send due
  * campaign batches, push contact consent changes to
  * İYS. Every step is idempotent, so running it more often is harmless.
  */
@@ -37,6 +41,7 @@ export class GrowthHeartbeatService {
     private readonly journeys: JourneyEngineService,
     private readonly campaigns: CampaignsService,
     private readonly approvals: CampaignApprovalService,
+    private readonly guards: MarketingGuardsService,
     private readonly contactConsents: ContactConsentService,
   ) {}
 
@@ -46,6 +51,8 @@ export class GrowthHeartbeatService {
     const scan = await this.journeys.scanAll(now);
     const steps = await this.journeys.processDue(now);
     const approvals = await this.approvals.expireDue(now);
+    // M3d: the fuse runs before sending, so a campaign it pauses does not send in the same run.
+    const marketingGuards = await this.guards.run(now);
     const campaigns = await this.campaigns.processDue(now);
     const contactConsentSync = await this.contactConsents.syncPending();
     return {
@@ -58,6 +65,7 @@ export class GrowthHeartbeatService {
       journeysCompleted: steps.completed,
       campaigns,
       approvalsExpired: approvals.expired,
+      marketingGuards,
       contactConsentSync,
     };
   }
