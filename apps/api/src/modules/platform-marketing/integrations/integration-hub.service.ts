@@ -2,17 +2,23 @@ import { ConflictException, Inject, Injectable, NotFoundException } from '@nestj
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@platform/database';
 import {
+  MessagingSettingsSchema,
+  PLATFORM_WEBHOOK_EVENTS,
+  SMS_PROVIDER_KEYS,
   maskSecretPreview,
   parseMessagingSettings,
   resolvePlatformTenantPermissions,
+  type ConfigureLeadAdsInput,
   type CreateApiKeyInput,
   type CreateEmailSenderDomainInput,
   type CreateSocialConnectionInput,
   type DnsRecordStatus,
   type EmailDomainPurpose,
   type EmailSenderDomainDTO,
+  type HubAutomationDTO,
   type HubMessagingChannelDTO,
   type HubPlatformCardDTO,
+  type HubSmsSenderDTO,
   type HubUpdateAdConnectionInput,
   type HubUpdateWebhookInput,
   type IntegrationEntryPoint,
@@ -20,18 +26,22 @@ import {
   type SocialConnectionDTO,
   type SocialConnectionTestDTO,
   type UpdateSocialConnectionInput,
+  type MessagingSettings,
+  type UpdateSmsSenderInput,
+  type UpsertLeadAdFormMappingInput,
 } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AdConnectionsService } from '../../ads/connections/ad-connections.service';
 import { ApiKeysService } from '../../api-keys/api-keys.service';
 import { WebhooksService } from '../../webhooks/webhooks.service';
 import { SocialConnectionsService } from '../../social/social-connections.service';
+import { LeadAdsAdminService } from '../../lead-ads/lead-ads-admin.service';
 import type { PlatformContext, TenantContext } from '../../auth/tenant-context';
 import { checkEmailDomainDns, expectedEmailDomainRecords, type DnsLookup } from './email-domain-dns';
 
 export const DNS_LOOKUP = Symbol('DNS_LOOKUP');
 
-type HubKind = 'ads' | 'api_key' | 'webhook' | 'email_domain' | 'social';
+type HubKind = 'ads' | 'api_key' | 'webhook' | 'email_domain' | 'social' | 'lead_ads' | 'sms_sender';
 
 /**
  * Integrations hub (docs/PAZARLAMA_MODULU.md 5.1): one service behind
@@ -52,18 +62,20 @@ export class IntegrationHubService {
     private readonly apiKeys: ApiKeysService,
     private readonly webhooks: WebhooksService,
     private readonly social: SocialConnectionsService,
+    private readonly leadAds: LeadAdsAdminService,
     @Inject(DNS_LOOKUP) private readonly dns: DnsLookup,
   ) {}
 
   async summary(platform: PlatformContext): Promise<IntegrationHubDTO> {
     const tenant = this.tenantFor(platform);
-    const [ads, socialConnections, keys, hooks, studio, domains] = await Promise.all([
+    const [ads, socialConnections, keys, hooks, studio, domains, leadAds] = await Promise.all([
       this.adConnections.list(tenant),
       this.social.list(platform.platformStudioId),
       this.apiKeys.list(tenant),
       this.webhooks.list(tenant),
       this.prisma.studio.findUniqueOrThrow({ where: { id: platform.platformStudioId }, select: { messagingSettings: true } }),
       this.prisma.emailSenderDomain.findMany({ where: { studioId: platform.platformStudioId }, orderBy: { createdAt: 'asc' } }),
+      this.leadAds.overview(platform.platformStudioId, platform.isSuperAdmin),
     ]);
     return {
       platformStudioId: platform.platformStudioId,
@@ -97,6 +109,9 @@ export class IntegrationHubService {
       messaging: this.messagingChannels(studio.messagingSettings),
       emailDomains: domains.map((d) => this.toDomainDto(d)),
       platformCards: platform.isSuperAdmin ? await this.platformCards() : [],
+      leadAds,
+      smsSender: this.smsSender(studio.messagingSettings),
+      automation: this.automation(hooks, keys),
     };
   }
 
@@ -237,7 +252,96 @@ export class IntegrationHubService {
     return { id: domain.id };
   }
 
+  // -- Meta Lead Ads (M4c) --
+
+  async configureLeadAds(platform: PlatformContext, via: IntegrationEntryPoint, connectionId: string, dto: ConfigureLeadAdsInput) {
+    const result = await this.leadAds.configure(platform.platformStudioId, connectionId, dto);
+    await this.audit(platform, via, 'lead_ads', 'configure', connectionId, { pageId: result.pageId, appSecretSet: dto.appSecret !== undefined });
+    return result;
+  }
+
+  async checkLeadAdsSubscription(platform: PlatformContext, via: IntegrationEntryPoint, connectionId: string) {
+    const result = await this.leadAds.checkSubscription(platform.platformStudioId, connectionId);
+    await this.audit(platform, via, 'lead_ads', 'check_subscription', connectionId, { subscribed: result.subscribed });
+    return result;
+  }
+
+  async upsertLeadAdForm(platform: PlatformContext, via: IntegrationEntryPoint, formId: string, dto: UpsertLeadAdFormMappingInput) {
+    const result = await this.leadAds.upsertForm(platform.platformStudioId, platform.userId, formId, dto);
+    await this.audit(platform, via, 'lead_ads', 'form_upsert', formId, { questions: Object.keys(dto.mapping).length, consentQuestion: dto.consentQuestionKey !== null });
+    return result;
+  }
+
+  async removeLeadAdForm(platform: PlatformContext, via: IntegrationEntryPoint, formId: string) {
+    const result = await this.leadAds.removeForm(platform.platformStudioId, formId);
+    await this.audit(platform, via, 'lead_ads', 'form_delete', formId, {});
+    return result;
+  }
+
+  leadAdEvents(platform: PlatformContext) {
+    return this.leadAds.events(platform.platformStudioId);
+  }
+
+  async retryLeadAdEvent(platform: PlatformContext, via: IntegrationEntryPoint, id: string) {
+    const result = await this.leadAds.retryEvent(platform.platformStudioId, id);
+    await this.audit(platform, via, 'lead_ads', 'event_retry', id, {});
+    return result;
+  }
+
+  // -- SMS sender identity (M4c): registration status entered by hand --
+
+  async updateSmsSender(platform: PlatformContext, via: IntegrationEntryPoint, dto: UpdateSmsSenderInput): Promise<HubSmsSenderDTO> {
+    const studio = await this.prisma.studio.findUniqueOrThrow({ where: { id: platform.platformStudioId }, select: { messagingSettings: true } });
+    const parsed = MessagingSettingsSchema.safeParse(studio.messagingSettings ?? {});
+    const current: MessagingSettings = parsed.success ? parsed.data : {};
+    const now = new Date().toISOString();
+    const next: MessagingSettings =
+      dto.kind === 'SENDER_ID'
+        ? { ...current, smsSenderRegistrations: { ...(current.smsSenderRegistrations ?? {}), [dto.provider]: { senderId: dto.senderId ?? null, status: dto.status, updatedAt: now } } }
+        : { ...current, twilio10dlc: { brandStatus: dto.brandStatus, campaignStatus: dto.campaignStatus, updatedAt: now } };
+    await this.prisma.studio.update({ where: { id: platform.platformStudioId }, data: { messagingSettings: next as Prisma.InputJsonValue } });
+    await this.audit(
+      platform,
+      via,
+      'sms_sender',
+      dto.kind === 'SENDER_ID' ? 'update' : 'update_10dlc',
+      dto.kind === 'SENDER_ID' ? dto.provider : 'TWILIO',
+      dto.kind === 'SENDER_ID' ? { provider: dto.provider, status: dto.status } : { brandStatus: dto.brandStatus, campaignStatus: dto.campaignStatus },
+    );
+    return this.smsSender(next);
+  }
+
   // -- Helpers --
+
+  private smsSender(raw: unknown): HubSmsSenderDTO {
+    const parsed = MessagingSettingsSchema.safeParse(raw ?? {});
+    const settings: MessagingSettings = parsed.success ? parsed.data : {};
+    const envProvider = this.config.get<string>('SMS_PROVIDER', 'MOCK');
+    const active = settings.smsProvider ?? ((SMS_PROVIDER_KEYS as readonly string[]).includes(envProvider) ? envProvider : null);
+    return {
+      providers: SMS_PROVIDER_KEYS.map((provider) => {
+        const registration = settings.smsSenderRegistrations?.[provider];
+        return {
+          provider,
+          // The Netgsm header of the environment is the sender id in use until one is recorded here.
+          senderId: registration?.senderId ?? (provider === 'NETGSM' ? (this.config.get<string>('NETGSM_HEADER') ?? null) : null),
+          status: registration?.status ?? 'NOT_STARTED',
+          updatedAt: registration?.updatedAt ?? null,
+          active: provider === active,
+        };
+      }),
+      twilio10dlc: settings.twilio10dlc
+        ? { brandStatus: settings.twilio10dlc.brandStatus, campaignStatus: settings.twilio10dlc.campaignStatus, updatedAt: settings.twilio10dlc.updatedAt ?? null }
+        : null,
+    };
+  }
+
+  private automation(hooks: { isActive: boolean; events: string[] }[], keys: { revokedAt: Date | null; expiresAt?: Date | null; scopes: string[] }[]): HubAutomationDTO {
+    return {
+      platformEvents: PLATFORM_WEBHOOK_EVENTS.map((event) => ({ event, activeSubscriptions: hooks.filter((h) => h.isActive && h.events.includes(event)).length })),
+      crmWriteKeyCount: keys.filter((k) => !k.revokedAt && k.scopes.includes('crm.write')).length,
+    };
+  }
 
   /**
    * Tenant context for the platform tenant, bounded by the caller's derived

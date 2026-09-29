@@ -6,6 +6,7 @@ import {
   INTEGRATION_ENTRY_HEADER,
   type DnsRecordStatus,
   type EmailSenderDomainDTO,
+  type ApiKeyScope,
   type IntegrationEntryPoint,
   type IntegrationHubDTO,
   type MessageKey,
@@ -20,6 +21,10 @@ import { Badge } from '@/components/common/Badge';
 import { ErrorState, LoadingState } from '@/components/common/DataState';
 import { SelectField } from '@/components/marketing/fields';
 import { InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader, TextField, Toggle } from '@/components/settings/ui';
+import { AutomationSection } from './AutomationSection';
+import { HubTable as Table } from './HubTable';
+import { LeadAdsSection } from './LeadAdsSection';
+import { SmsSenderSection } from './SmsSenderSection';
 
 const STATUS_TONE: Record<DnsRecordStatus, 'neutral' | 'success' | 'warning' | 'danger'> = {
   PENDING: 'neutral',
@@ -40,25 +45,6 @@ const CHANNEL_LABEL: Record<string, MessageKey> = {
   WHATSAPP: 'integrations.messaging.WHATSAPP',
 };
 
-function Table({ head, children }: { head: string[]; children: React.ReactNode }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr style={{ color: 'var(--color-text-muted)' }}>
-            {head.map((h) => (
-              <th key={h} className="text-left font-medium text-xs py-1.5 pr-3">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>{children}</tbody>
-      </table>
-    </div>
-  );
-}
-
 /**
  * Integrations hub (docs/PAZARLAMA_MODULU.md 5.1), one component for both
  * entry points: `/admin/entegrasyonlar` (entry "admin") and
@@ -73,6 +59,7 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [newKeyName, setNewKeyName] = useState('');
+  const [newKeyScopes, setNewKeyScopes] = useState<ApiKeyScope[]>(['webhooks.manage']);
   const [newKeyPlaintext, setNewKeyPlaintext] = useState<string | null>(null);
   const [domain, setDomain] = useState('');
   const [mailFrom, setMailFrom] = useState('');
@@ -265,6 +252,7 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
           {t('integrations.social.openPosts')}
         </Link>
       </Section>
+      <LeadAdsSection data={data} run={run} call={call} fmtDate={fmtDate} entryHeaders={headers} />
 
       <Section title={t('integrations.email.title')} description={t('integrations.email.description')}>
         {data.emailDomains.length === 0 && (
@@ -322,11 +310,12 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
             {t('integrations.apiKeys.empty')}
           </p>
         ) : (
-          <Table head={[t('integrations.apiKeys.name'), '', t('integrations.apiKeys.lastUsed'), '']}>
+          <Table head={[t('integrations.apiKeys.name'), '', t('automationHub.scopes'), t('integrations.apiKeys.lastUsed'), '']}>
             {data.apiKeys.map((k) => (
               <tr key={k.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
                 <td className="py-2 pr-3">{k.name}</td>
                 <td className="py-2 pr-3 font-mono text-xs">{k.prefix}</td>
+                <td className="py-2 pr-3 font-mono text-xs">{k.scopes.join(', ')}</td>
                 <td className="py-2 pr-3 text-xs">{fmtDate(k.lastUsedAt)}</td>
                 <td className="py-2 text-right">
                   {k.revokedAt ? (
@@ -348,7 +337,7 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
             run(async () => {
               const created = await bffFetch<{ plaintext: string }>('platform/integrations/api-keys', {
                 method: 'POST',
-                body: { name: newKeyName, scopes: ['webhooks.manage'] },
+                body: { name: newKeyName, scopes: newKeyScopes },
                 headers,
               });
               setNewKeyPlaintext(created.plaintext);
@@ -357,7 +346,17 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
           }}
         >
           <TextField label={t('integrations.apiKeys.name')} value={newKeyName} onChange={setNewKeyName} placeholder="Zapier" />
-          <PrimaryButton type="submit" disabled={newKeyName.trim().length < 2}>
+          <Toggle
+            label={t('automationHub.scope.webhooks_manage')}
+            checked={newKeyScopes.includes('webhooks.manage')}
+            onChange={(v) => setNewKeyScopes((prev) => (v ? [...new Set([...prev, 'webhooks.manage' as const])] : prev.filter((s) => s !== 'webhooks.manage')))}
+          />
+          <Toggle
+            label={t('automationHub.scope.crm_write')}
+            checked={newKeyScopes.includes('crm.write')}
+            onChange={(v) => setNewKeyScopes((prev) => (v ? [...new Set([...prev, 'crm.write' as const])] : prev.filter((s) => s !== 'crm.write')))}
+          />
+          <PrimaryButton type="submit" disabled={newKeyName.trim().length < 2 || newKeyScopes.length === 0}>
             {t('integrations.apiKeys.create')}
           </PrimaryButton>
         </form>
@@ -389,6 +388,8 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
         )}
       </Section>
 
+      <AutomationSection data={data} />
+
       <Section title={t('integrations.messaging.title')}>
         <ul className="space-y-1 text-sm">
           {data.messaging.map((m) => (
@@ -402,6 +403,8 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
           ))}
         </ul>
       </Section>
+
+      <SmsSenderSection data={data} run={run} call={call} fmtDate={fmtDate} />
 
       {data.platformCards.length > 0 && (
         <Section title={t('integrations.platform.title')}>

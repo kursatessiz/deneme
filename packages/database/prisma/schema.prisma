@@ -2844,6 +2844,12 @@ model AdConnection {
   isTestMode          Boolean  @default(false) @map("is_test_mode")
   lastSyncAt          DateTime? @map("last_sync_at")
   lastError           String?  @db.Text @map("last_error")
+  /// M4c: the Facebook Page whose Lead Ads this Meta connection receives; a
+  /// webhook notification is routed to the connection by this id (unique
+  /// across tenants, so one page never feeds two tenants).
+  leadAdsPageId       String?  @unique @map("lead_ads_page_id") @db.VarChar(40)
+  /// M4c: last time the page's app subscription was seen active (subscribed_apps check).
+  leadAdsSubscribedAt DateTime? @map("lead_ads_subscribed_at")
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
@@ -5967,4 +5973,94 @@ model SocialPost {
   @@index([status, scheduledAt])
   @@index([studioId, calendarItemId])
   @@map("social_posts")
+}
+
+// ---------------------------------------------------------------------------
+// M4c: inbound leads and automation (docs/PAZARLAMA_MODULU.md 5.2, 8)
+// ---------------------------------------------------------------------------
+
+/// One Meta Lead Ads notification (a `leadgen` change), the idempotency record
+/// of the intake: (studio_id, leadgen_id) is unique, so a re-delivered webhook
+/// or a retry never creates a second contact. `status` is one of
+/// LEAD_AD_EVENT_STATUSES in @platform/shared. studio_id and contact_id are
+/// plain ids (no foreign keys), like approval_requests.target_id.
+model LeadAdEvent {
+  id            String    @id @default(uuid()) @db.Uuid
+  studioId      String    @map("studio_id") @db.Uuid
+  connectionId  String?   @map("connection_id") @db.Uuid
+  leadgenId     String    @map("leadgen_id") @db.VarChar(40)
+  formId        String    @map("form_id") @db.VarChar(40)
+  pageId        String    @map("page_id") @db.VarChar(40)
+  /// { campaignId?, adsetId?, adId? } from the lead payload.
+  adIds         Json      @default("{}") @map("ad_ids")
+  /// Answers not mapped to a contact field, kept as-is (the attributes bag).
+  attributes    Json      @default("{}")
+  /// Meta's created_time of the lead.
+  createdTime   DateTime? @map("created_time")
+  receivedAt    DateTime  @default(now()) @map("received_at")
+  processedAt   DateTime? @map("processed_at")
+  contactId     String?   @map("contact_id") @db.Uuid
+  status        String    @default("PENDING") @db.VarChar(16)
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime? @map("next_attempt_at")
+  lastError     String?   @map("last_error") @db.Text
+
+  @@unique([studioId, leadgenId])
+  @@index([studioId, status, nextAttemptAt])
+  @@index([studioId, receivedAt])
+  @@map("lead_ad_events")
+}
+
+/// Per form: how the form's questions map to contact fields (data, edited in the
+/// integrations hub) and which question is the marketing consent checkbox.
+model LeadAdFormMapping {
+  id                 String   @id @default(uuid()) @db.Uuid
+  studioId           String   @map("studio_id") @db.Uuid
+  formId             String   @map("form_id") @db.VarChar(40)
+  /// Display label only (Meta form names are not fetched).
+  formName           String?  @map("form_name") @db.VarChar(120)
+  /// { questionKey: name | first_name | last_name | email | phone | company | country }
+  mapping            Json     @default("{}")
+  consentQuestionKey String?  @map("consent_question_key") @db.VarChar(120)
+  updatedByUserId    String?  @map("updated_by_user_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@unique([studioId, formId])
+  @@map("lead_ad_form_mappings")
+}
+
+/// Idempotency-Key records of the public write endpoints, kept 24 hours. The
+/// claim row is inserted before the work starts (IN_PROGRESS), so a parallel
+/// duplicate is refused; DONE rows replay the stored response.
+model PublicApiIdempotencyKey {
+  id             String   @id @default(uuid()) @db.Uuid
+  studioId       String   @map("studio_id") @db.Uuid
+  apiKeyId       String   @map("api_key_id") @db.Uuid
+  key            String   @db.VarChar(255)
+  /// SHA-256 of method, path and canonical body: the same key with another request is refused.
+  requestHash    String   @map("request_hash") @db.VarChar(64)
+  status         String   @default("IN_PROGRESS") @db.VarChar(12)
+  responseStatus Int?     @map("response_status")
+  responseBody   Json?    @map("response_body")
+  createdAt      DateTime @default(now()) @map("created_at")
+  expiresAt      DateTime @map("expires_at")
+
+  @@unique([studioId, key])
+  @@index([expiresAt])
+  @@map("public_api_idempotency_keys")
+}
+
+/// Platform-wide integration settings (singleton row id "platform"), edited by
+/// the super admin only. Holds the Meta leadgen webhook verify token as a SHA-256
+/// hash (Meta keeps the plaintext; the handshake compares hashes).
+model PlatformIntegrationSettings {
+  id                       String    @id @default("platform") @db.VarChar(20)
+  leadgenVerifyTokenHash   String?   @map("leadgen_verify_token_hash") @db.VarChar(64)
+  leadgenVerifyTokenLast4  String?   @map("leadgen_verify_token_last4") @db.VarChar(4)
+  leadgenVerifyTokenSetAt  DateTime? @map("leadgen_verify_token_set_at")
+  updatedByUserId          String?   @map("updated_by_user_id") @db.Uuid
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+
+  @@map("platform_integration_settings")
 }

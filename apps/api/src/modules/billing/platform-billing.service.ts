@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, OnModuleInit, Optional } from '@nestjs/common';
 import { Prisma, SubscriptionStatus } from '@platform/database';
 import type { PaymentProvider, Plan, PlanPrice, PlatformBillingPayment } from '@platform/database';
 import {
@@ -36,6 +36,7 @@ import type { RoutedWebhookResult } from '../payments/payment-webhook-router';
 import type { WebhookVerificationResult } from '../payments/providers/payment-provider.interface';
 import { ConversionService } from '../crm/conversions/conversion.service';
 import { StudioReferralsService } from './studio-referrals.service';
+import { PlatformEventsService } from '../webhooks/platform-events.service';
 import type { TenantContext } from '../auth/tenant-context';
 
 type Tx = Prisma.TransactionClient;
@@ -75,6 +76,7 @@ export class PlatformBillingService implements OnModuleInit {
     private readonly webhookRouter: PaymentWebhookRouter,
     private readonly conversions: ConversionService,
     private readonly referrals: StudioReferralsService,
+    @Optional() private readonly platformEvents?: PlatformEventsService,
   ) {}
 
   onModuleInit(): void {
@@ -465,6 +467,28 @@ export class PlatformBillingService implements OnModuleInit {
   private async recordPaidActivation(studioId: string, value: { amount: string; currency: string }, now: Date): Promise<void> {
     await this.conversions.recordStudioPaid(studioId, { kind: 'studio_activation', id: studioId }, value, now);
     await this.referrals.onReferredStudioActivated(studioId);
+    await this.emitStudioPaid(studioId, value);
+  }
+
+  /** M4c: studio.paid for the platform tenant's automation subscriptions (Zapier, Make, n8n). Never throws. */
+  private async emitStudioPaid(studioId: string, value: { amount: string; currency: string }): Promise<void> {
+    if (!this.platformEvents) return;
+    try {
+      const studio = await this.prisma.studio.findUnique({
+        where: { id: studioId },
+        select: { name: true, subscriptions: { where: { status: { not: 'CANCELLED' } }, orderBy: { createdAt: 'desc' }, take: 1, select: { plan: { select: { key: true } } } } },
+      });
+      if (!studio) return;
+      await this.platformEvents.emit('studio.paid', {
+        studioId,
+        name: studio.name,
+        planKey: studio.subscriptions[0]?.plan.key ?? null,
+        amount: value.amount,
+        currency: value.currency,
+      });
+    } catch {
+      // A failed automation event must never undo or fail an activation.
+    }
   }
 
   private async fail(paymentId: string): Promise<void> {

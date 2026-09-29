@@ -27,6 +27,7 @@ import { furthestLifecycle, lifecycleEventForStage, nextLifecycle } from '../lif
 import type { LifecycleEvent } from '../lifecycle';
 import { toCsv } from '../../../common/csv';
 import { GrowthEventsService } from '../hooks/growth-events.service';
+import { PlatformEventsService } from '../../webhooks/platform-events.service';
 
 type Db = PrismaService | Prisma.TransactionClient;
 
@@ -79,6 +80,7 @@ export class ContactsService {
     private readonly pipeline: PipelineService,
     private readonly attribution: AttributionService,
     @Optional() private readonly events?: GrowthEventsService,
+    @Optional() private readonly platformEvents?: PlatformEventsService,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -200,6 +202,12 @@ export class ContactsService {
         metadata: { from: contact.lifecycleStage, to: next, event },
       },
     });
+    await this.platformEvents?.emitForStudio(contact.studioId, 'contact.lifecycle_changed', {
+      contactId: contact.id,
+      from: contact.lifecycleStage,
+      to: next,
+      event,
+    });
     return next;
   }
 
@@ -216,7 +224,8 @@ export class ContactsService {
     const current = contact.pipelineStageId
       ? await this.prisma.pipelineStage.findUnique({ where: { id: contact.pipelineStageId } })
       : null;
-    const lifecycle = nextLifecycle(contact.lifecycleStage, lifecycleEventForStage(target.key, target.kind));
+    const lifecycleEvent = lifecycleEventForStage(target.key, target.kind);
+    const lifecycle = nextLifecycle(contact.lifecycleStage, lifecycleEvent);
     await this.prisma.$transaction(async (tx) => {
       await tx.contact.update({
         where: { id: contact.id },
@@ -239,6 +248,14 @@ export class ContactsService {
         },
       });
     });
+    if (lifecycle !== contact.lifecycleStage) {
+      await this.platformEvents?.emitForStudio(contact.studioId, 'contact.lifecycle_changed', {
+        contactId: contact.id,
+        from: contact.lifecycleStage,
+        to: lifecycle,
+        event: lifecycleEvent,
+      });
+    }
   }
 
   // -------------------------------------------------------------------------

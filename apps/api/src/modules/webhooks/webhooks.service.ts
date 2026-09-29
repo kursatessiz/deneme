@@ -1,9 +1,9 @@
 import { randomBytes } from 'crypto';
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@platform/database';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { enqueueWebhookDeliveries } from './webhook-outbox';
 import { PrismaService } from '../prisma/prisma.service';
 import { assertPublicHttpsHostname } from './ssrf-check';
-import { MAX_REST_HOOKS_PER_STUDIO, WEBHOOK_EVENTS, isWebhookEvent } from '@platform/shared';
+import { MAX_REST_HOOKS_PER_STUDIO, WEBHOOK_EVENTS, isPlatformWebhookEvent, isWebhookEvent } from '@platform/shared';
 import type { CreateWebhookEndpointInput, SubscribeHookInput, UpdateWebhookEndpointInput, WebhookEvent } from '@platform/shared';
 import type { TenantContext } from '../auth/tenant-context';
 
@@ -21,6 +21,7 @@ export class WebhooksService {
 
   async create(tenant: TenantContext, userId: string, dto: CreateWebhookEndpointInput) {
     await assertPublicHttpsHostname(dto.url);
+    await this.assertEventsAllowed(tenant.studioId, dto.events);
     const secret = generateSecret();
     const endpoint = await this.prisma.webhookEndpoint.create({
       data: { studioId: tenant.studioId, url: dto.url, secret, events: dto.events, isActive: dto.isActive },
@@ -40,6 +41,7 @@ export class WebhooksService {
   async update(tenant: TenantContext, userId: string, id: string, dto: UpdateWebhookEndpointInput) {
     const endpoint = await this.findOwned(tenant.studioId, id);
     if (dto.url) await assertPublicHttpsHostname(dto.url);
+    if (dto.events) await this.assertEventsAllowed(tenant.studioId, dto.events);
     const updated = await this.prisma.webhookEndpoint.update({
       where: { id: endpoint.id },
       data: {
@@ -77,6 +79,7 @@ export class WebhooksService {
 
   async subscribeRestHook(studioId: string, apiKeyId: string, dto: SubscribeHookInput) {
     await assertPublicHttpsHostname(dto.targetUrl);
+    await this.assertEventsAllowed(studioId, [dto.event]);
     const existing = await this.prisma.webhookEndpoint.count({ where: { studioId } });
     if (existing >= MAX_REST_HOOKS_PER_STUDIO) {
       throw new ConflictException('Bu işletme için en fazla webhook sayısına ulaşıldı');
@@ -166,20 +169,7 @@ export class WebhooksService {
 
   async emit(studioId: string, event: WebhookEvent, payload: Record<string, unknown>): Promise<void> {
     try {
-      const endpoints = await this.prisma.webhookEndpoint.findMany({
-        where: { studioId, isActive: true, events: { has: event } },
-        select: { id: true },
-      });
-      if (endpoints.length === 0) return;
-      await this.prisma.webhookDelivery.createMany({
-        data: endpoints.map((e) => ({
-          endpointId: e.id,
-          event,
-          payload: { event, studioId, occurredAt: new Date().toISOString(), data: payload } as Prisma.InputJsonValue,
-          status: 'PENDING' as const,
-          nextAttemptAt: new Date(),
-        })),
-      });
+      await enqueueWebhookDeliveries(this.prisma, studioId, event, payload);
     } catch {
       // Never let a webhook outbox failure surface to the caller.
     }
@@ -188,6 +178,13 @@ export class WebhooksService {
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
+
+  /** Platform events (M4c) exist only for the platform tenant: any other tenant would wait for deliveries that never come. */
+  private async assertEventsAllowed(studioId: string, events: readonly string[]): Promise<void> {
+    if (!events.some(isPlatformWebhookEvent)) return;
+    const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { isPlatform: true } });
+    if (!studio?.isPlatform) throw new BadRequestException('Bu olaylar yalnızca platform kiracısı için kullanılabilir');
+  }
 
   private async findOwned(studioId: string, id: string) {
     const endpoint = await this.prisma.webhookEndpoint.findFirst({ where: { id, studioId } });

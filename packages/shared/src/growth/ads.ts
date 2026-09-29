@@ -41,6 +41,8 @@ export const MetaCredentialsSchema = z
     pixelId: z.string().trim().regex(/^\d{5,20}$/, 'Geçersiz pixel kimliği'),
     /** For test-mode events, shown in Meta Events Manager's test events tab. */
     testEventCode: z.string().trim().max(40).optional(),
+    /** M4c: the Meta app secret that signs Lead Ads webhooks; set from the integrations hub, kept across token changes. */
+    appSecret: z.string().trim().min(16).max(200).optional(),
   })
   .strict();
 export type MetaCredentials = z.infer<typeof MetaCredentialsSchema>;
