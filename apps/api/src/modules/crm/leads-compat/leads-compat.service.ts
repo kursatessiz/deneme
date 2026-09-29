@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { Prisma } from '@platform/database';
 import { LeadSource, LeadStage, canTransitionLeadStage, contactDisplayName, splitContactName } from '@platform/shared';
 import type {
@@ -26,6 +26,7 @@ import { PipelineService } from '../pipeline/pipeline.service';
 import { ConversionService } from '../conversions/conversion.service';
 import { AttributionService } from '../attribution/attribution.service';
 import { CrmHooksService } from '../hooks/crm-hooks.service';
+import { WebhooksService } from '../../webhooks/webhooks.service';
 
 const LEAD_INCLUDE = {
   pipelineStage: true,
@@ -47,6 +48,8 @@ const LEAD_STAGE_KEYS = new Set<string>(Object.values(LeadStage));
  * screens keep working. Removed together with the leads tables in the
  * contract release; new code uses /crm (docs/CRM_VE_ATIF.md).
  */
+type LeadWebhookContact = { id: string; firstName: string; lastName: string; phone: string | null; email: string | null };
+
 @Injectable()
 export class LeadsCompatService {
   constructor(
@@ -58,6 +61,7 @@ export class LeadsCompatService {
     private readonly hooks: CrmHooksService,
     private readonly members: MembersService,
     private readonly schedules: SchedulesService,
+    @Optional() private readonly webhooks?: WebhooksService,
   ) {}
 
   async findAll(tenant: TenantContext, query: LeadListQuery): Promise<LeadListResponseDTO> {
@@ -154,6 +158,7 @@ export class LeadsCompatService {
       utm: { source: dto.utmSource ?? null, medium: dto.utmMedium ?? null, campaign: dto.utmCampaign ?? null },
     });
     await this.recordLead(studioId, contact.id);
+    await this.emitLeadCreated(studioId, contact, dto.source);
     return { lead: await this.leadDto(studioId, contact.id), deduplicated: false };
   }
 
@@ -187,9 +192,11 @@ export class LeadsCompatService {
     }
 
     let contactId: string;
+    let leadContact: LeadWebhookContact;
     if (existing) {
       await this.contacts.moveToStage(existing, 'NEW', { activityBody: 'Web formu ile yeniden satış hattına alındı' });
       contactId = existing.id;
+      leadContact = existing;
     } else {
       const { firstName, lastName } = splitContactName(dto.fullName);
       const { contact } = await this.contacts.resolveOrCreate(studioId, {
@@ -204,12 +211,25 @@ export class LeadsCompatService {
         referralCode: dto.referralCode || null,
       });
       contactId = contact.id;
+      leadContact = contact;
     }
     await this.prisma.contactActivity.create({
       data: { studioId, contactId, type: 'FORM', body: 'İletişim izni web formu üzerinden onaylandı' },
     });
     await this.attribution.identify(studioId, visitorId, contactId);
     await this.recordLead(studioId, contactId);
+    await this.emitLeadCreated(studioId, leadContact, dto.referralCode ? LeadSource.REFERRAL : LeadSource.WEB_FORM);
+  }
+
+  /** Automation hook (G3c-3): a new pipeline entry from a form or from staff. The outbox never throws. */
+  private async emitLeadCreated(studioId: string, contact: LeadWebhookContact, source: string): Promise<void> {
+    await this.webhooks?.emit(studioId, 'lead.created', {
+      contactId: contact.id,
+      fullName: contactDisplayName(contact),
+      phone: contact.phone,
+      email: contact.email,
+      source,
+    });
   }
 
   async update(tenant: TenantContext, leadId: string, dto: UpdateLeadInput): Promise<LeadDTO> {

@@ -46,6 +46,10 @@ export const WEBHOOK_EVENTS = {
   'member.created': 'Yeni üye eklendi',
   'payment.completed': 'Ödeme tamamlandı',
   'payment.refunded': 'Ödeme iade edildi',
+  // G3c-3: automation tools (Zapier and other REST-hook clients).
+  'lead.created': 'Yeni potansiyel müşteri (aday) oluşturuldu',
+  'event.registration.created': 'Etkinliğe yeni kayıt oluşturuldu',
+  'retail.sale.completed': 'Mağaza satışı tamamlandı',
 } as const;
 
 export type WebhookEvent = keyof typeof WEBHOOK_EVENTS;
@@ -83,6 +87,98 @@ export const SendTestWebhookSchema = z.object({
   event: WebhookEventSchema,
 });
 export type SendTestWebhookInput = z.infer<typeof SendTestWebhookSchema>;
+
+// ---------------------------------------------------------------------------
+// REST hooks and sample payloads (G3c-3, docs/ZAPIER.md)
+// ---------------------------------------------------------------------------
+
+/** Body of `POST /v1/public/hooks`: one target URL subscribed to exactly one event. */
+export const SubscribeHookSchema = z.object({
+  targetUrl: z
+    .string()
+    .url()
+    .max(2000)
+    .refine((v) => v.startsWith('https://'), 'Webhook adresi https:// ile başlamalıdır'),
+  event: WebhookEventSchema,
+});
+export type SubscribeHookInput = z.infer<typeof SubscribeHookSchema>;
+
+/** Most REST-hook subscriptions one studio may hold through the public API. */
+export const MAX_REST_HOOKS_PER_STUDIO = 100;
+
+/** Envelope every delivery carries: `data` differs per event, see WEBHOOK_SAMPLE_DATA. */
+export interface WebhookEnvelope {
+  event: WebhookEvent;
+  studioId: string;
+  occurredAt: string;
+  data: Record<string, unknown>;
+}
+
+/**
+ * Realistic `data` of each event, shaped exactly like what the emitting
+ * service sends (ids are placeholders). Zapier shows these fields when the
+ * user maps a trigger; a unit test keeps the keys equal to WEBHOOK_EVENTS.
+ */
+export const WEBHOOK_SAMPLE_DATA: Record<WebhookEvent, Record<string, unknown>> = {
+  'booking.created': {
+    bookingId: '3f0b6c1e-2b7a-4a3c-9d55-0a1b2c3d4e01',
+    scheduleId: '8a1d4f52-6c1e-4b0f-8a52-5d7e9b1c2f02',
+    memberId: '5c2e9a77-1d3b-4f6a-b8c4-7e0d1a2b3c03',
+  },
+  'booking.cancelled': {
+    bookingId: '3f0b6c1e-2b7a-4a3c-9d55-0a1b2c3d4e01',
+    scheduleId: '8a1d4f52-6c1e-4b0f-8a52-5d7e9b1c2f02',
+    memberId: '5c2e9a77-1d3b-4f6a-b8c4-7e0d1a2b3c03',
+    isLateCancellation: false,
+  },
+  'booking.attended': {
+    bookingId: '3f0b6c1e-2b7a-4a3c-9d55-0a1b2c3d4e01',
+    scheduleId: '8a1d4f52-6c1e-4b0f-8a52-5d7e9b1c2f02',
+    memberId: '5c2e9a77-1d3b-4f6a-b8c4-7e0d1a2b3c03',
+  },
+  'member.created': {
+    membershipId: '9e4b7c10-5a2d-4e8f-a1b3-6c7d8e9f0a04',
+    firstName: 'Ayşe',
+    lastName: 'Yılmaz',
+  },
+  'payment.completed': {
+    paymentId: '1b8d3e5f-7a9c-4d2e-8f10-3a4b5c6d7e05',
+  },
+  'payment.refunded': {
+    paymentId: '1b8d3e5f-7a9c-4d2e-8f10-3a4b5c6d7e05',
+    amount: '250.00',
+    fullyRefunded: false,
+  },
+  'lead.created': {
+    contactId: '6d1f2a3b-4c5d-4e6f-8a7b-9c0d1e2f3a06',
+    fullName: 'Mehmet Demir',
+    phone: '+905551112233',
+    email: 'mehmet@example.com',
+    source: 'WEB_FORM',
+  },
+  'event.registration.created': {
+    registrationId: '2c3d4e5f-6a7b-4c8d-9e0f-1a2b3c4d5e07',
+    eventId: '7f8a9b0c-1d2e-4f3a-8b4c-5d6e7f8a9b08',
+    ticketTypeId: '4a5b6c7d-8e9f-4a0b-8c1d-2e3f4a5b6c09',
+    status: 'CONFIRMED',
+    memberId: '5c2e9a77-1d3b-4f6a-b8c4-7e0d1a2b3c03',
+    contactId: null,
+    amountDue: '400.00',
+    currency: 'EUR',
+  },
+  'retail.sale.completed': {
+    saleId: 'a0b1c2d3-e4f5-4a6b-8c7d-8e9f0a1b2c10',
+    receiptNumber: 'S000042',
+    total: '85.00',
+    currency: 'EUR',
+    paymentId: '1b8d3e5f-7a9c-4d2e-8f10-3a4b5c6d7e05',
+  },
+};
+
+/** A full sample delivery for an event, as the receiving URL would see it. */
+export function webhookSamplePayload(event: WebhookEvent, studioId: string, now: Date = new Date()): WebhookEnvelope {
+  return { event, studioId, occurredAt: now.toISOString(), data: { ...WEBHOOK_SAMPLE_DATA[event] } };
+}
 
 // ---------------------------------------------------------------------------
 // Retry policy (also used by unit tests and docs)

@@ -1,3 +1,4 @@
+import { WebhooksModule } from '../webhooks/webhooks.module';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { MembersModule } from '../members/members.module';
@@ -16,7 +17,7 @@ import { LeadsPublicRateLimitGuard } from './leads-compat/leads-public-rate-limi
 
 /** CRM and attribution (G1b), replacing the W11 leads module. See docs/CRM_VE_ATIF.md. */
 @Module({
-  imports: [AuthModule, CrmCoreModule, MembersModule, SchedulesModule],
+  imports: [AuthModule, CrmCoreModule, MembersModule, SchedulesModule, WebhooksModule],
   controllers: [CrmController, TrackingController, LeadsController, LeadsPublicController],
   providers: [
     FieldsService,
