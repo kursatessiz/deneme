@@ -36,7 +36,8 @@ fi
 log "Deploying ${TAG} (previous: ${PREVIOUS:-none})"
 
 if compose ps --status running --services 2>/dev/null | grep -qx postgres; then
-  bash "${SCRIPT_DIR}/backup.sh"
+  # The local dump is what a rollback needs; a storage outage must not block the release.
+  BACKUP_OFFSITE_REQUIRED=0 bash "${SCRIPT_DIR}/backup.sh"
 fi
 
 use_release "${TAG}"

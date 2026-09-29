@@ -80,6 +80,15 @@ mkdir -p /opt/app/backups
 mkdir -p /opt/app/scripts
 mkdir -p /opt/app/releases
 
+# Daily database backup (local rotation plus encrypted off-site copy when
+# BACKUP_S3_BUCKET is set in /opt/app/.env). Output goes to the deploy log.
+cat > /etc/cron.d/app-backup <<'CRON'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+30 2 * * * root /opt/app/scripts/backup.sh >> /opt/app/deploy.log 2>&1
+CRON
+chmod 644 /etc/cron.d/app-backup
+
 # Set timezone
 timedatectl set-timezone Europe/Istanbul
 
