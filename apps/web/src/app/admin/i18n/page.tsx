@@ -35,7 +35,7 @@ function CompletionBar({ completion }: { completion: number }) {
 export default function AdminI18nPage() {
   const t = useT();
   const [refreshKey, setRefreshKey] = useState(0);
-  const { data, loading, error } = useBff<{ items: AdminLanguageDTO[] }>('admin/i18n/languages', null);
+  const { data, loading, error } = useBff<{ items: AdminLanguageDTO[] }>('admin/i18n/languages', null, refreshKey);
   const [form, setForm] = useState({ code: '', name: '', nativeName: '' });
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);

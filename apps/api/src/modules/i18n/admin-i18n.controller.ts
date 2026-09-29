@@ -4,11 +4,13 @@ import {
   CreateLanguageSchema,
   ImportLanguagePackSchema,
   LocaleCodeSchema,
+  ReviewTranslationsSchema,
   TranslationEntriesQuerySchema,
   UpdateLanguageSchema,
   UpsertTranslationSchema,
   type CreateLanguageInput,
   type ImportLanguagePackInput,
+  type ReviewTranslationsInput,
   type TranslationEntriesQuery,
   type UpdateLanguageInput,
   type UpsertTranslationInput,
@@ -71,6 +73,17 @@ export class AdminI18nController {
     @ZodBody(UpsertTranslationSchema) body: UpsertTranslationInput,
   ) {
     return this.i18n.adminUpsertEntry(user.id, code, key, body.value);
+  }
+
+  /** Approve AI translations (G3b): the listed keys, or all unreviewed ones of the language. */
+  @Post('languages/:code/review')
+  @HttpCode(200)
+  async review(
+    @CurrentUser() user: AuthUser,
+    @Param('code') code: string,
+    @ZodBody(ReviewTranslationsSchema) body: ReviewTranslationsInput,
+  ) {
+    return this.i18n.adminReview(user.id, code, body);
   }
 
   @Get('languages/:code/export')

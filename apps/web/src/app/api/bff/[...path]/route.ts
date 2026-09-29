@@ -3,7 +3,7 @@ import { apiInternalBaseUrl } from '@/lib/server-env';
 import { sanitizeApiPath } from '@/lib/bff/path';
 import { hasValidCsrfHeader, isSameOriginRequest, methodNeedsCsrfCheck } from '@/lib/bff/csrf';
 import { stripHopByHopHeaders } from '@/lib/bff/headers';
-import { buildPassthroughResponseInit, isJsonResponse } from '@/lib/bff/proxy-response';
+import { buildPassthroughResponseInit, isJsonResponse, isNullBodyStatus } from '@/lib/bff/proxy-response';
 import {
   ACCESS_TOKEN_COOKIE,
   ACTIVE_STUDIO_COOKIE,
@@ -82,8 +82,9 @@ function clearSessionCookies(res: NextResponse) {
 
 async function toNextResponse(apiRes: Response, dropKeys: readonly string[] = []): Promise<{ body: unknown; res: NextResponse }> {
   if (!isJsonResponse(apiRes)) {
-    const buf = await apiRes.arrayBuffer();
     const { status, headers } = buildPassthroughResponseInit(apiRes);
+    // A 204 (e.g. a delete) has no body; passing even an empty buffer throws.
+    const buf = isNullBodyStatus(status) ? null : await apiRes.arrayBuffer();
     const res = new NextResponse(buf, { status });
     headers.forEach((value, key) => res.headers.set(key, value));
     return { body: null, res };

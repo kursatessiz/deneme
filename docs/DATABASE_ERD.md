@@ -160,7 +160,7 @@ erDiagram
 | `plans` | Özellik limitleriyle SaaS abonelik seviyeleri | key benzersiz |
 | `sms_packages` | Satılık SMS kredi paketleri | key benzersiz |
 | `languages` | Platform dilleri; `tr` ve `en` kodla birlikte gelir (bundled) ve her zaman etkindir, diğerleri süper admin tarafından eklenir ve varsayılan olarak devre dışı başlar | code birincil anahtar |
-| `translation_overrides` | Bir dil için CMS'te düzenlenen veya dil paketiyle yüklenen çeviri değeri; yalnızca kodda var olan mesaj anahtarları için yazılır | (locale, key) benzersiz; locale -> languages.code (cascade silme) |
+| `translation_overrides` | Bir dil için CMS'te düzenlenen, dil paketiyle yüklenen veya yapay zekayla çevrilen değer; yalnızca kodda var olan mesaj anahtarları ve o dilin ihtiyaç duyduğu çoğul uzantı anahtarları (ör. `.few`) için yazılır. `source` (MANUAL/UPLOAD/AI) değerin kaynağı, `reviewed_at` bir kişinin onay zamanı (yapay zeka değerlerinde onaya kadar boş) | (locale, key) benzersiz; (locale, source, reviewed_at) index; locale -> languages.code (cascade silme) |
 
 ## Kiracı ve Kimlik
 
@@ -443,6 +443,18 @@ Sahip kararı: partner misafiri kendisi stüdyoya katılana kadar mesajlaşma/et
 | `company_info` | Tekil satır: platformun ticari unvanı, adresi, MERSIS/vergi bilgisi, iletişim, sosyal medya | tekil kayıt (sabit id) |
 
 `site.view`/`site.manage` izinleri kiracının kendi sitesini kapsar; platform sitesi aynı tablolar üzerinde, platform kiracısının `studio_id`'siyle, yalnızca süper admin tarafından yönetilir. Ayrıntılar: `docs/SAYFA_MOTORU.md`.
+
+## Yapay zeka çekirdeği (G3b)
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `ai_settings` | Tekil platform satırı (`id = 'platform'`): şifreli sağlayıcı anahtarı (`encrypted_api_key`, AES-256-GCM, `INTEGRATION_ENCRYPTION_KEY`) ve son 4 karakteri, görev başına model (`models` JSON), fiyat özelleştirmeleri (`price_overrides` JSON), varsayılan aylık limit (`default_monthly_budget_cents`, 500), son bağlantı testi | tekil kayıt (sabit id); anahtar API yanıtlarında hiç dönmez |
+| `ai_usage` | Her model çağrısı: işletme (platform işlerinde boş), kullanıcı, görev (`AiTask`: TRANSLATION/COPYWRITING/REPLY_SUGGESTION), model, girdi/çıktı/önbellek token'ları, mikro-dolar (1e-6 USD) tahmini maliyet, başarı ve hata kodu, çeviri işi | (studio_id, created_at) index -- aylık limit sorgusu; (created_at) index; studio_id -> studios (cascade silme); translation_job_id -> ai_translation_jobs (set null) |
+| `ai_glossary_terms` | Dil başına sözlük: aynen kalacak (translation boş) veya sabit çevrilecek terimler; her çeviri isteğine eklenir | (locale, term) benzersiz; locale -> languages.code (cascade silme) |
+| `ai_translation_jobs` | Arka plan "yapay zeka ile çevir" işi: dil, bölümler, üzerine yazma, durum (`AiTranslationJobStatus`: QUEUED/RUNNING/COMPLETED/FAILED/CANCELLED), toplam/tamamlanan/başarısız/atlanan sayaçları, model, işçi kilidi (`locked_until`), art arda geçici hata sayısı, son hata, iptal zamanı | (locale, created_at) index; (status) index; locale -> languages.code (cascade silme) |
+| `ai_translation_job_items` | İşin anahtar (veya `<grup>.*` çoğul birimi) başına kalemi: durum (`AiTranslationItemStatus`: PENDING/DONE/FAILED/SKIPPED), deneme sayısı (en fazla 2), hata nedeni; devam ettirmenin birimi | (job_id, key) benzersiz; (job_id, status) index; job_id -> ai_translation_jobs (cascade silme) |
+
+`studios.ai_monthly_budget_cents` süper adminin işletmeye özel aylık yapay zeka limitidir (boşsa planın `limits.aiMonthlyBudgetCents` değeri, o da yoksa `ai_settings.default_monthly_budget_cents`); 0 yapay zekayı kapatır. Tüm AI tabloları platform verisidir; kiracıya ait tek satır türü `ai_usage`'dır ve `studio_id` taşır. Ayrıntılar: `docs/YAPAY_ZEKA.md`.
 
 ## Denetim (Audit)
 

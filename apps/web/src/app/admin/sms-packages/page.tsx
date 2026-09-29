@@ -70,7 +70,7 @@ function TopUpForm() {
 export default function SmsPackagesPage() {
   const locale = useLocale();
   const [refreshKey, setRefreshKey] = useState(0);
-  const { data, loading, error, forbidden } = useBff<{ items: SmsPackage[] }>('admin/sms-packages', null);
+  const { data, loading, error, forbidden } = useBff<{ items: SmsPackage[] }>('admin/sms-packages', null, refreshKey);
   const [form, setForm] = useState({ key: '', name: '', credits: '', price: '' });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);

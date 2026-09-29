@@ -1,4 +1,4 @@
-import { buildPassthroughResponseInit, isJsonResponse } from './proxy-response';
+import { buildPassthroughResponseInit, isJsonResponse, isNullBodyStatus } from './proxy-response';
 
 describe('isJsonResponse', () => {
   it('is true for application/json content types', () => {
@@ -53,5 +53,17 @@ describe('buildPassthroughResponseInit', () => {
   it('preserves a non-2xx status (e.g. a 404 from the API) on passthrough', () => {
     const res = new Response('not found', { status: 404, headers: { 'content-type': 'text/plain' } });
     expect(buildPassthroughResponseInit(res).status).toBe(404);
+  });
+});
+
+describe('isNullBodyStatus', () => {
+  it('marks the statuses that must be answered without a body', () => {
+    for (const status of [101, 204, 205, 304]) expect(isNullBodyStatus(status)).toBe(true);
+    for (const status of [200, 201, 400, 404, 500]) expect(isNullBodyStatus(status)).toBe(false);
+  });
+
+  it('lets a 204 be rebuilt as a response without throwing', () => {
+    expect(() => new Response(null, { status: 204 })).not.toThrow();
+    expect(() => new Response(new ArrayBuffer(0), { status: 204 })).toThrow();
   });
 });

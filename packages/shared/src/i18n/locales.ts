@@ -89,6 +89,12 @@ export interface TranslationEntryDTO {
   effective: string | null;
   /** `{name}` placeholders the value must keep. */
   placeholders: string[];
+  /** Where the override came from; null without an override. */
+  source: 'MANUAL' | 'UPLOAD' | 'AI' | null;
+  /** When a person approved the override; null for machine translations still to review. */
+  reviewedAt: string | null;
+  /** A plural form the base lacks but this language needs (e.g. ".few"). */
+  isPluralExtension: boolean;
 }
 
 export const TranslationEntriesQuerySchema = z
@@ -99,6 +105,8 @@ export const TranslationEntriesQuerySchema = z
     missingOnly: z.coerce.boolean().optional(),
     /** Key prefix such as "nav" or "members.card". */
     namespace: z.string().trim().max(60).regex(/^[a-zA-Z0-9_.]*$/).optional(),
+    /** AI_UNREVIEWED lists machine translations nobody approved yet. */
+    source: z.enum(['MANUAL', 'UPLOAD', 'AI', 'AI_UNREVIEWED']).optional(),
   })
   .strict();
 export type TranslationEntriesQuery = z.infer<typeof TranslationEntriesQuerySchema>;

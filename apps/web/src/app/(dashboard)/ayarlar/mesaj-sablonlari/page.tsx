@@ -25,6 +25,7 @@ import { Badge } from '@/components/common/Badge';
 import { EmptyState, ErrorState, LoadingState } from '@/components/common/DataState';
 import { InlineMessage, PrimaryButton, Section, SecondaryButton, SettingsHeader, TextField, Toggle } from '@/components/settings/ui';
 import { bffFetch, BffError } from '@/lib/session/client';
+import { AiDraftPanel } from '@/components/ai/AiDraftPanel';
 
 type EditableChannel = 'SMS' | 'WHATSAPP' | 'EMAIL';
 const CHANNELS: readonly EditableChannel[] = ['SMS', 'WHATSAPP', 'EMAIL'];
@@ -295,6 +296,13 @@ function TemplateEditor({
             <textarea value={draft.body} onChange={(e) => set('body', e.target.value)} rows={4} maxLength={2000} className="w-full text-sm px-3 py-2" style={fieldStyle} />
           </label>
           {draft.channel === 'EMAIL' && <InlineMessage text={t('messaging.templates.bodyHintEmail')} />}
+          <AiDraftPanel
+            kinds={draft.channel === 'EMAIL' ? ['EMAIL'] : draft.channel === 'SMS' ? ['SMS', 'CAMPAIGN'] : ['CAMPAIGN', 'SMS']}
+            locale={draft.locale || undefined}
+            onUse={(result) =>
+              setDraft((d) => ({ ...d, body: result.text.slice(0, 2000), ...(d.channel === 'EMAIL' && result.subject ? { subject: result.subject } : {}) }))
+            }
+          />
           {draft.channel === 'WHATSAPP' && (
             <>
               <TextField label={t('messaging.templates.whatsappName')} value={draft.whatsappTemplateName} onChange={(v) => set('whatsappTemplateName', v)} />

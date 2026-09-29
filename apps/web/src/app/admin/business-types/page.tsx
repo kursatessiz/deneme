@@ -22,7 +22,7 @@ const inputStyle: React.CSSProperties = {
 
 export default function BusinessTypesPage() {
   const [refreshKey, setRefreshKey] = useState(0);
-  const { data, loading, error, forbidden } = useBff<{ items: BusinessType[] }>('admin/business-type-templates', null);
+  const { data, loading, error, forbidden } = useBff<{ items: BusinessType[] }>('admin/business-type-templates', null, refreshKey);
   const [form, setForm] = useState({ key: '', name: '', serviceTypeNames: '', resourceTypeNames: '', enabledModules: '' });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);

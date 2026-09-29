@@ -691,6 +691,22 @@ describe('Messaging engine G1c (e2e)', () => {
       expect((await as(trainerToken, ZEN).post(`/studios/${ZEN}/messaging/self/chat`).send({ body: 'x' })).status).toBe(403);
     });
 
+    it('after a closed chat, the member sees the new open conversation and its reply', async () => {
+      const first = await as(memberToken, ZEN).post(`/studios/${ZEN}/messaging/self/chat`).send({ body: 'E2E ilk soru' });
+      const firstId = first.body.conversationId as string;
+      expect((await as(receptionToken, ZEN).patch(`/studios/${ZEN}/inbox/conversations/${firstId}/status`).send({ status: 'CLOSED' })).status).toBe(200);
+
+      const second = await as(memberToken, ZEN).post(`/studios/${ZEN}/messaging/self/chat`).send({ body: 'E2E ikinci soru' });
+      const secondId = second.body.conversationId as string;
+      expect(secondId).not.toBe(firstId);
+      await as(receptionToken, ZEN).post(`/studios/${ZEN}/inbox/conversations/${secondId}/reply`).send({ body: 'E2E ikinci cevap' });
+
+      const mine = await as(memberToken, ZEN).get(`/studios/${ZEN}/messaging/self/chat`);
+      expect(mine.body).toMatchObject({ conversationId: secondId, status: 'OPEN' });
+      expect(mine.body.messages[mine.body.messages.length - 1]).toMatchObject({ direction: 'OUT', body: 'E2E ikinci cevap' });
+      await as(receptionToken, ZEN).patch(`/studios/${ZEN}/inbox/conversations/${secondId}/status`).send({ status: 'CLOSED' });
+    });
+
     it('in-app messages are listed for the member and can be marked read', async () => {
       const member = await prisma.user.findUniqueOrThrow({ where: { phone: MEMBER_PHONE } });
       const sent = await messaging.send({

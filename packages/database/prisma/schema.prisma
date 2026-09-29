@@ -432,7 +432,9 @@ model Language {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
-  overrides TranslationOverride[]
+  overrides       TranslationOverride[]
+  glossaryTerms   AiGlossaryTerm[]
+  translationJobs AiTranslationJob[]
 
   @@map("languages")
 }
@@ -441,18 +443,30 @@ model Language {
 /// or an uploaded language pack. Only keys present in the code's base
 /// (Turkish) message catalogue are ever written here.
 model TranslationOverride {
-  id              String   @id @default(uuid()) @db.Uuid
-  locale          String   @db.VarChar(10)
-  key             String   @db.VarChar(200)
-  value           String   @db.Text
-  updatedByUserId String?  @map("updated_by_user_id") @db.Uuid
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id              String            @id @default(uuid()) @db.Uuid
+  locale          String            @db.VarChar(10)
+  key             String            @db.VarChar(200)
+  value           String            @db.Text
+  /// Who produced the value: a person in the CMS, an uploaded pack or the
+  /// AI translation engine (G3b).
+  source          TranslationSource @default(MANUAL)
+  /// When a person approved the value. Null on AI values still to review.
+  reviewedAt      DateTime?         @map("reviewed_at")
+  updatedByUserId String?           @map("updated_by_user_id") @db.Uuid
+  updatedAt       DateTime          @updatedAt @map("updated_at")
 
   language      Language @relation(fields: [locale], references: [code], onDelete: Cascade)
   updatedByUser User?    @relation(fields: [updatedByUserId], references: [id], onDelete: SetNull)
 
   @@unique([locale, key])
+  @@index([locale, source, reviewedAt])
   @@map("translation_overrides")
+}
+
+enum TranslationSource {
+  MANUAL
+  UPLOAD
+  AI
 }
 
 model Plan {
@@ -583,6 +597,9 @@ model Studio {
   /// The platform's own tenant (its marketing CRM and site). At most one row
   /// is true (partial unique index in the migration SQL).
   isPlatform             Boolean  @default(false) @map("is_platform")
+  /// Super-admin override of the monthly AI budget in US cents (G3b). Null
+  /// falls back to the plan's aiMonthlyBudgetCents, then the platform default.
+  aiMonthlyBudgetCents   Int?     @map("ai_monthly_budget_cents")
   isActive               Boolean  @default(true) @map("is_active")
   createdAt              DateTime @default(now()) @map("created_at")
   updatedAt              DateTime @updatedAt @map("updated_at")
@@ -620,6 +637,7 @@ model Studio {
   smsTransactions       SmsTransaction[]
   notificationLogs      NotificationLog[]
   auditLogs             AuditLog[]
+  aiUsages              AiUsage[]
   messageTemplates      MessageTemplate[]
   communicationConsents CommunicationConsent[]
   payrollRuns           PayrollRun[]
@@ -3957,4 +3975,149 @@ model CompanyInfo {
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@map("company_info")
+}
+
+// ---------------------------------------------------------------------------
+// AI core (G3b, docs/YAPAY_ZEKA.md)
+// ---------------------------------------------------------------------------
+
+enum AiTask {
+  TRANSLATION
+  COPYWRITING
+  REPLY_SUGGESTION
+}
+
+enum AiTranslationJobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum AiTranslationItemStatus {
+  PENDING
+  DONE
+  FAILED
+  SKIPPED
+}
+
+/// Platform-wide AI settings, a single row with id "platform". The provider
+/// key is stored encrypted (CredentialCipher, AES-256-GCM) with only its last
+/// four characters in clear; the API never returns it.
+model AiSettings {
+  id                        String    @id @default("platform") @db.VarChar(20)
+  encryptedApiKey           String?   @map("encrypted_api_key") @db.Text
+  apiKeyLast4               String?   @map("api_key_last4") @db.VarChar(4)
+  apiKeyUpdatedAt           DateTime? @map("api_key_updated_at")
+  apiKeyUpdatedByUserId     String?   @map("api_key_updated_by_user_id") @db.Uuid
+  /// { "TRANSLATION": "claude-sonnet-5", ... }; missing tasks use the shared defaults.
+  models                    Json      @default("{}")
+  /// Model id -> AiModelPrice overriding the shared price table.
+  priceOverrides            Json      @default("{}") @map("price_overrides")
+  defaultMonthlyBudgetCents Int       @default(500) @map("default_monthly_budget_cents")
+  lastTestAt                DateTime? @map("last_test_at")
+  lastTestOk                Boolean?  @map("last_test_ok")
+  lastTestErrorCode         String?   @map("last_test_error_code") @db.VarChar(40)
+  updatedAt                 DateTime  @updatedAt @map("updated_at")
+
+  @@map("ai_settings")
+}
+
+/// One model call: tokens and estimated cost in micro-USD (1e-6 USD). The
+/// tenant's monthly budget is checked against the sum of its rows in the
+/// current UTC month before every call. studioId is null for platform jobs.
+model AiUsage {
+  id                  String   @id @default(uuid()) @db.Uuid
+  studioId            String?  @map("studio_id") @db.Uuid
+  userId              String?  @map("user_id") @db.Uuid
+  task                AiTask
+  model               String   @db.VarChar(80)
+  inputTokens         Int      @default(0) @map("input_tokens")
+  outputTokens        Int      @default(0) @map("output_tokens")
+  cacheCreationTokens Int      @default(0) @map("cache_creation_tokens")
+  cacheReadTokens     Int      @default(0) @map("cache_read_tokens")
+  costMicroUsd        Int      @default(0) @map("cost_micro_usd")
+  success             Boolean
+  errorCode           String?  @map("error_code") @db.VarChar(40)
+  translationJobId    String?  @map("translation_job_id") @db.Uuid
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  studio         Studio?           @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  translationJob AiTranslationJob? @relation(fields: [translationJobId], references: [id], onDelete: SetNull)
+
+  @@index([studioId, createdAt])
+  @@index([createdAt])
+  @@index([translationJobId])
+  @@map("ai_usage")
+}
+
+/// Per-language glossary sent with every translation request: terms that
+/// stay unchanged (translation null) or are always translated one way.
+model AiGlossaryTerm {
+  id          String   @id @default(uuid()) @db.Uuid
+  locale      String   @db.VarChar(10)
+  term        String   @db.VarChar(120)
+  translation String?  @db.VarChar(200)
+  note        String?  @db.VarChar(300)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  language Language @relation(fields: [locale], references: [code], onDelete: Cascade)
+
+  @@unique([locale, term])
+  @@map("ai_glossary_terms")
+}
+
+/// A background "translate this language with AI" run. Its items are the
+/// unit of resumability: a crashed or paused run continues with the items
+/// still PENDING once lockedUntil has passed.
+model AiTranslationJob {
+  id                String                 @id @default(uuid()) @db.Uuid
+  locale            String                 @db.VarChar(10)
+  namespaces        String[]               @default([])
+  overwrite         Boolean                @default(false)
+  status            AiTranslationJobStatus @default(QUEUED)
+  total             Int                    @default(0)
+  done              Int                    @default(0)
+  failed            Int                    @default(0)
+  skipped           Int                    @default(0)
+  model             String?                @db.VarChar(80)
+  createdByUserId   String?                @map("created_by_user_id") @db.Uuid
+  /// Worker lease; another worker may resume the job after it passes.
+  lockedUntil       DateTime?              @map("locked_until")
+  /// Consecutive provider outages (rate limit, 5xx, timeout); the job fails after a few.
+  transientErrors   Int                    @default(0) @map("transient_errors")
+  lastErrorCode     String?                @map("last_error_code") @db.VarChar(40)
+  cancelRequestedAt DateTime?              @map("cancel_requested_at")
+  startedAt         DateTime?              @map("started_at")
+  finishedAt        DateTime?              @map("finished_at")
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+
+  language Language               @relation(fields: [locale], references: [code], onDelete: Cascade)
+  items    AiTranslationJobItem[]
+  usages   AiUsage[]
+
+  @@index([locale, createdAt])
+  @@index([status])
+  @@map("ai_translation_jobs")
+}
+
+/// One key (or one plural group "<key>.*") of a translation job.
+model AiTranslationJobItem {
+  id        String                  @id @default(uuid()) @db.Uuid
+  jobId     String                  @map("job_id") @db.Uuid
+  key       String                  @db.VarChar(210)
+  isPlural  Boolean                 @default(false) @map("is_plural")
+  status    AiTranslationItemStatus @default(PENDING)
+  attempts  Int                     @default(0)
+  errorCode String?                 @map("error_code") @db.VarChar(40)
+  updatedAt DateTime                @updatedAt @map("updated_at")
+
+  job AiTranslationJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, key])
+  @@index([jobId, status])
+  @@map("ai_translation_job_items")
 }
