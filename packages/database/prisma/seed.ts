@@ -48,6 +48,12 @@ const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? 'Demo1234!';
 // Tables in no particular order: TRUNCATE ... CASCADE handles FK order for us.
 const ALL_TABLES = [
   'audit_logs',
+  'community_reactions',
+  'community_comments',
+  'community_post_tiers',
+  'community_posts',
+  'access_tier_rules',
+  'access_tiers',
   'platform_credit_ledger',
   'studio_referrals',
   'platform_billing_payments',
@@ -269,6 +275,7 @@ async function main() {
   await seedLoyalty(zen.studioId);
   await seedEvents(zen.studioId);
   await seedRetail(zen.studioId);
+  await seedCommunity(zen.studioId);
   await seedSites(platformStudioId);
   await seedPlatformBilling(zen.studioId, businessTypeTemplates.personal_training, plans.starter, kvkkDoc.id, passwordHash);
 
@@ -591,6 +598,108 @@ async function seedEvents(zenStudioId: string) {
     data: { studioId: zenStudioId, eventId: course.id, name: 'Kurs ücreti', priceAmount: new Prisma.Decimal(2400), currency: studio.currency },
   });
   count('event_ticket_types');
+}
+
+/**
+ * G5b community feed for Zen (docs/TOPLULUK.md): two access tiers, a pinned
+ * announcement for every active member, a post only for the unlimited
+ * package holders, a file post, a draft, and one comment and like.
+ */
+async function seedCommunity(zenStudioId: string) {
+  const ownerMembership = await prisma.membership.findFirstOrThrow({
+    where: { studioId: zenStudioId, roleTemplate: { isOwner: true } },
+    orderBy: { createdAt: 'asc' },
+  });
+  const unlimited = await prisma.packageDefinition.findFirstOrThrow({
+    where: { studioId: zenStudioId, entitlementKind: EntitlementKind.TIME_UNLIMITED },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  const everyone = await prisma.accessTier.create({
+    data: {
+      studioId: zenStudioId,
+      name: 'Tüm aktif üyeler',
+      description: 'İşletmenin her aktif üyesi',
+      rules: { create: [{ studioId: zenStudioId, kind: 'ACTIVE_MEMBER' }] },
+    },
+  });
+  count('access_tiers');
+  const unlimitedTier = await prisma.accessTier.create({
+    data: {
+      studioId: zenStudioId,
+      name: 'Sınırsız üyelik sahipleri',
+      description: 'Aktif sınırsız paketi olan üyeler',
+      rules: { create: [{ studioId: zenStudioId, kind: 'PACKAGE_DEFINITION', packageDefinitionId: unlimited.id }] },
+    },
+  });
+  count('access_tiers');
+  count('access_tier_rules', 2);
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const announcement = await prisma.communityPost.create({
+    data: {
+      studioId: zenStudioId,
+      type: 'ANNOUNCEMENT',
+      status: 'PUBLISHED',
+      title: 'Bayram haftası çalışma saatleri',
+      body: 'Bayram haftası boyunca seanslar sabah 09.00 ile akşam 18.00 arasında yapılacaktır. Takvimdeki güncel saatleri kontrol etmeyi unutmayın.',
+      pinned: true,
+      authorMembershipId: ownerMembership.id,
+      publishedAt: new Date(Date.now() - 2 * dayMs),
+    },
+  });
+  await prisma.communityPost.create({
+    data: {
+      studioId: zenStudioId,
+      type: 'POST',
+      status: 'PUBLISHED',
+      title: 'Sınırsız üyelere özel: ay sonu buluşması',
+      body: 'Ay sonunda sınırsız üyelik sahiplerine özel bir tanışma buluşması yapıyoruz. Katılmak isteyenler resepsiyona haber verebilir.',
+      authorMembershipId: ownerMembership.id,
+      publishedAt: new Date(Date.now() - dayMs),
+      tiers: { create: [{ tierId: unlimitedTier.id, studioId: zenStudioId }] },
+    },
+  });
+  await prisma.communityPost.create({
+    data: {
+      studioId: zenStudioId,
+      type: 'FILE',
+      status: 'PUBLISHED',
+      title: 'Yeni dönem ders programı',
+      body: 'Yeni dönemin haftalık programını aşağıdaki bağlantıdan indirebilirsiniz.',
+      attachmentUrl: 'https://example.com/ornek-program.pdf',
+      attachmentName: 'Haftalık program (PDF)',
+      authorMembershipId: ownerMembership.id,
+      publishedAt: new Date(Date.now() - 3 * dayMs),
+      tiers: { create: [{ tierId: everyone.id, studioId: zenStudioId }] },
+    },
+  });
+  await prisma.communityPost.create({
+    data: {
+      studioId: zenStudioId,
+      type: 'POST',
+      status: 'DRAFT',
+      title: 'Taslak: yaz kampı duyurusu',
+      body: 'Yaz kampı ayrıntıları netleşince yayınlanacak.',
+      authorMembershipId: ownerMembership.id,
+    },
+  });
+  count('community_posts', 4);
+  count('community_post_tiers', 2);
+
+  const member = await prisma.memberProfile.findFirst({
+    where: { studioId: zenStudioId, membership: { status: MembershipStatus.ACTIVE, isPartnerGuest: false } },
+    orderBy: { createdAt: 'asc' },
+    select: { membershipId: true },
+  });
+  if (member) {
+    await prisma.communityComment.create({
+      data: { studioId: zenStudioId, postId: announcement.id, authorMembershipId: member.membershipId, body: 'Bilgi için teşekkürler.' },
+    });
+    count('community_comments');
+    await prisma.communityReaction.create({ data: { studioId: zenStudioId, postId: announcement.id, membershipId: member.membershipId } });
+    count('community_reactions');
+  }
 }
 
 /**

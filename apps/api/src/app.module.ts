@@ -52,6 +52,7 @@ import { AccountingModule } from './modules/accounting/accounting.module';
 import { FunnelsModule } from './modules/funnels/funnels.module';
 import { validateEnv } from './config/env';
 import { BillingModule } from './modules/billing/billing.module';
+import { CommunityModule } from './modules/community/community.module';
 
 @Module({
   imports: [
@@ -111,6 +112,7 @@ import { BillingModule } from './modules/billing/billing.module';
     AccountingModule,
     FunnelsModule,
     BillingModule,
+    CommunityModule,
   ],
 })
 export class AppModule {}

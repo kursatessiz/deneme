@@ -44,6 +44,12 @@ export function buildHesabimMenu(input: StaffMenuInput): MenuItem[] {
     items.push({ key: 'chat', labelKey: 'mAccount.menu.chat', route: '/(app)/hesabim/mesajlar' });
   }
 
+  // Community feed (G5b): members see the posts of their access tiers;
+  // staff with community.view read every published post.
+  if (isMember || has(permissions, 'community.view') || has(permissions, 'community.manage')) {
+    items.push({ key: 'community', labelKey: 'mAccount.menu.community', route: '/(app)/hesabim/topluluk' });
+  }
+
   if (isTrainer && has(permissions, 'commissions.view.own')) {
     items.push({ key: 'my-commission', labelKey: 'mAccount.menu.myCommission', route: '/(app)/hesabim/hakedisim' });
   }

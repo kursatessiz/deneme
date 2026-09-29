@@ -52,6 +52,13 @@ describe('events navigation', () => {
   });
 });
 
+describe('community navigation', () => {
+  it('community.view unlocks the community page; a role without it does not see it', () => {
+    expect(filterNavByPermissions(NAV_ITEMS, ['community.view'], false).map((i) => i.key)).toContain('community');
+    expect(filterNavByPermissions(NAV_ITEMS, ['members.view', 'schedule.view'], false).map((i) => i.key)).not.toContain('community');
+  });
+});
+
 describe('hasAnyPermission', () => {
   it('an item with no required permissions is always visible', () => {
     expect(hasAnyPermission([], [], false)).toBe(true);

@@ -16,6 +16,8 @@ export const enSettings = {
   'settings.hub.badges.description': 'Manage global and business-specific gamification badges',
   'settings.hub.loyalty.title': 'Loyalty program',
   'settings.hub.loyalty.description': 'Earning rules, rewards and the points expiry policy',
+  'settings.hub.community.title': 'Community access tiers',
+  'settings.hub.community.description': 'Which membership or package sees which community posts',
   'settings.hub.site.title': 'My website',
   'settings.hub.site.description': 'Business website pages, domain and publishing settings',
   'settings.hub.integrations.title': 'Integrations',

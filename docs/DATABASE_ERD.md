@@ -151,6 +151,18 @@ erDiagram
     GiftCard ||--o{ GiftCardTransaction : logs
     Payment ||--o{ GiftCardTransaction : records
     Payment ||--o{ GiftCard : paid_with
+
+    Studio ||--o{ AccessTier : defines
+    AccessTier ||--o{ AccessTierRule : grants_by
+    PackageDefinition ||--o{ AccessTierRule : unlocks
+    Studio ||--o{ CommunityPost : publishes
+    CommunityPost ||--o{ CommunityPostTier : requires
+    AccessTier ||--o{ CommunityPostTier : gates
+    VideoContent |o--o{ CommunityPost : featured_in
+    Membership |o--o{ CommunityPost : authors
+    CommunityPost ||--o{ CommunityComment : has
+    CommunityPost ||--o{ CommunityReaction : liked_by
+    Membership ||--o{ CommunityReaction : likes
 ```
 
 ## Platform Seviyesi
@@ -480,6 +492,19 @@ Sahip kararı: partner misafiri kendisi stüdyoya katılana kadar mesajlaşma/et
 | `event_registrations` | Kayıt: üye (`member_id`) veya CRM kişisi (`contact_id`), bilet, `status` (PENDING_PAYMENT/CONFIRMED/WAITLIST/CANCELLED/ATTENDED/NO_SHOW), `source` (STAFF/MEMBER/PUBLIC), `dedupe_key`, bekleme sırası, ödenecek/ödenen/iade tutarı + `currency`, `payment_id`, ödeme yöntemi/bağlantısı/son zamanı, paket ve düşülen/iade hak, giriş ve iptal zamanı | (event_id, dedupe_key) benzersiz (kişi başına tek canlı kayıt; iptalde anahtar silinir); `payment_id` benzersiz (payments -> set null); üye veya kişiden biri zorunlu (CHECK); member ve contact -> cascade; (studio_id, event_id, status), (event_id, status, waitlist_position), (studio_id, status, payment_due_at) index |
 
 Oturumlar bilerek `session_schedules` tablosunda değildir: kapasite, bilet ve kayıt etkinlik başınadır (gerekçe `docs/ETKINLIKLER.md`). Ayrıntılar: `docs/ETKINLIKLER.md`.
+
+## Topluluk ve erişim katmanları (G5b)
+
+| Tablo | Amaç | Kısıtlar |
+|---|---|---|
+| `access_tiers` | Kiracı verisi erişim katmanı: ad, açıklama | (studio_id, name) index; studio -> cascade |
+| `access_tier_rules` | Katmanın kuralı: `kind` (ACTIVE_MEMBER/ACTIVE_PACKAGE/PACKAGE_DEFINITION), paket kuralında `package_definition_id`; kurallardan biri yeterlidir | Paket kuralında paket zorunlu, diğerlerinde boş (CHECK); tier ve package_definition -> cascade (paket silinirse kural gider, katman kimseyi kapsamaz) |
+| `community_posts` | Üyelere özel gönderi: `type` (POST/VIDEO/FILE/ANNOUNCEMENT), `status` (DRAFT/PUBLISHED/ARCHIVED), başlık, düz metin gövde, video kütüphanesi bağlantısı, https dosya bağlantısı, sabitleme, yorum açık/kapalı, yazar üyeliği, paylaşım belirteci, yayın/arşiv zamanı | `status` CHECK; `share_token` benzersiz; (studio_id, status, pinned, published_at) index; video ve yazar -> set null |
+| `community_post_tiers` | Gönderinin gerektirdiği katmanlar (herhangi biri yeterli; hiç yoksa tüm aktif üyeler) | (post_id, tier_id) birincil anahtar; post -> cascade; tier -> NO ACTION (kullanılan katman silinemez) |
+| `community_comments` | Düz metin yorum (en fazla 1000 karakter), moderatör gizlemesi (`hidden_at`, `hidden_by_membership_id`), yumuşak silme (`deleted_at`) | (post_id, created_at) ve (studio_id, created_at) index; post -> cascade; yazar -> set null |
+| `community_reactions` | Beğeni | (post_id, membership_id) benzersiz; post ve membership -> cascade |
+
+Erişim kararı yalnızca API'de `CommunityAccessService` ile verilir ve video kütüphanesiyle paylaşılır. Ayrıntılar: `docs/TOPLULUK.md`.
 
 ## Denetim (Audit)
 

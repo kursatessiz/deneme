@@ -18,6 +18,7 @@ export const trNav = {
   'nav.campaigns': 'Kampanyalar',
   'nav.journeys': 'Otomatik akışlar',
   'nav.events': 'Etkinlikler',
+  'nav.community': 'Topluluk',
   'nav.inbox': 'Gelen Kutusu',
   'nav.settings': 'Ayarlar',
   'nav.billing': 'Abonelik',

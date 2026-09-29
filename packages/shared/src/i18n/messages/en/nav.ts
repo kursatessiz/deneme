@@ -19,6 +19,7 @@ export const enNav = {
   'nav.campaigns': 'Campaigns',
   'nav.journeys': 'Journeys',
   'nav.events': 'Events',
+  'nav.community': 'Community',
   'nav.inbox': 'Inbox',
   'nav.settings': 'Settings',
   'nav.billing': 'Subscription',

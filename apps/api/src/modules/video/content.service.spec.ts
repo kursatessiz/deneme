@@ -1,6 +1,7 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { VideoContentVisibility } from '@platform/database';
 import { ContentService } from './content.service';
+import { CommunityAccessService } from '../community/community-access.service';
 import type { TenantContext } from '../auth/tenant-context';
 
 describe('ContentService', () => {
@@ -53,7 +54,7 @@ describe('ContentService', () => {
       trainerProfile: { findFirst: jest.fn() },
       $transaction: jest.fn(async (cb: any) => cb(prisma)),
     };
-    service = new ContentService(prisma);
+    service = new ContentService(prisma, new CommunityAccessService(prisma));
   });
 
   describe('start (credit charge idempotency)', () => {

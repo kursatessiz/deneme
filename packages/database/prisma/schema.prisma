@@ -747,6 +747,10 @@ model Studio {
   referralsMade         StudioReferral[]     @relation("StudioReferralReferrer")
   referredBy            StudioReferral?      @relation("StudioReferralReferred")
   funnels               Funnel[]
+  accessTiers           AccessTier[]
+  communityPosts        CommunityPost[]
+  communityComments     CommunityComment[]
+  communityReactions    CommunityReaction[]
 
   @@map("studios")
 }
@@ -908,6 +912,9 @@ model Membership {
   loyaltyRedemptions        LoyaltyRedemption[]   @relation("LoyaltyRedemptionHolder")
   eventsCreated             Event[]               @relation("EventCreator")
   eventRegistrationsCreated EventRegistration[]   @relation("EventRegistrationCreator")
+  communityPosts            CommunityPost[]       @relation("CommunityPostAuthor")
+  communityComments         CommunityComment[]    @relation("CommunityCommentAuthor")
+  communityReactions        CommunityReaction[]
 
   @@unique([userId, studioId])
   @@index([studioId, status])
@@ -1337,6 +1344,7 @@ model PackageDefinition {
   subscriptions    MemberSubscription[]
   trialRedemptions TrialRedemption[]
   videoContents    VideoContentPackage[]
+  accessTierRules  AccessTierRule[]
 
   @@index([studioId, isActive])
   @@index([studioId, isTrial])
@@ -3835,6 +3843,7 @@ model VideoContent {
   trainerProfile TrainerProfile?       @relation(fields: [trainerProfileId], references: [id], onDelete: SetNull)
   packages       VideoContentPackage[]
   views          VideoView[]
+  communityPosts CommunityPost[]
 
   @@index([studioId, isPublished])
   @@map("video_contents")
@@ -4905,4 +4914,137 @@ model PlatformBillingSettings {
   updatedAt              DateTime @updatedAt @map("updated_at")
 
   @@map("platform_billing_settings")
+}
+
+// ---------------------------------------------------------------------------
+// G5b: community feed and access tiers (docs/TOPLULUK.md)
+// ---------------------------------------------------------------------------
+
+/// Tenant-defined access tier: which members may see a community post. A
+/// member satisfies the tier when any one of its rules matches; a tier
+/// whose rules were all removed (e.g. the package definition was deleted)
+/// matches nobody, so access fails closed.
+model AccessTier {
+  id          String   @id @default(uuid()) @db.Uuid
+  studioId    String   @map("studio_id") @db.Uuid
+  name        String   @db.VarChar(80)
+  description String?  @db.VarChar(300)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  studio Studio              @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  rules  AccessTierRule[]
+  posts  CommunityPostTier[]
+
+  @@index([studioId, name])
+  @@map("access_tiers")
+}
+
+/// One rule of a tier: ACTIVE_MEMBER, ACTIVE_PACKAGE or PACKAGE_DEFINITION
+/// (ACCESS_TIER_RULE_KINDS in @platform/shared). packageDefinitionId is set
+/// exactly for PACKAGE_DEFINITION (CHECK constraint in the migration).
+model AccessTierRule {
+  id                  String   @id @default(uuid()) @db.Uuid
+  studioId            String   @map("studio_id") @db.Uuid
+  tierId              String   @map("tier_id") @db.Uuid
+  kind                String   @db.VarChar(30)
+  packageDefinitionId String?  @map("package_definition_id") @db.Uuid
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  tier              AccessTier         @relation(fields: [tierId], references: [id], onDelete: Cascade)
+  packageDefinition PackageDefinition? @relation(fields: [packageDefinitionId], references: [id], onDelete: Cascade)
+
+  @@index([tierId])
+  @@index([studioId, packageDefinitionId])
+  @@map("access_tier_rules")
+}
+
+/// A members-only feed item. type: COMMUNITY_POST_TYPES, status:
+/// COMMUNITY_POST_STATUSES. shareToken is set only while the public share
+/// link is on (32 random bytes, base64url); archiving clears it.
+model CommunityPost {
+  id                 String    @id @default(uuid()) @db.Uuid
+  studioId           String    @map("studio_id") @db.Uuid
+  type               String    @db.VarChar(20)
+  status             String    @default("DRAFT") @db.VarChar(12)
+  title              String    @db.VarChar(160)
+  body               String    @default("") @db.Text
+  videoContentId     String?   @map("video_content_id") @db.Uuid
+  attachmentUrl      String?   @map("attachment_url") @db.Text
+  attachmentName     String?   @map("attachment_name") @db.VarChar(200)
+  pinned             Boolean   @default(false)
+  commentsEnabled    Boolean   @default(true) @map("comments_enabled")
+  authorMembershipId String?   @map("author_membership_id") @db.Uuid
+  shareToken         String?   @unique @map("share_token") @db.VarChar(64)
+  publishedAt        DateTime? @map("published_at")
+  archivedAt         DateTime? @map("archived_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  studio       Studio              @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  videoContent VideoContent?       @relation(fields: [videoContentId], references: [id], onDelete: SetNull)
+  author       Membership?         @relation("CommunityPostAuthor", fields: [authorMembershipId], references: [id], onDelete: SetNull)
+  tiers        CommunityPostTier[]
+  comments     CommunityComment[]
+  reactions    CommunityReaction[]
+
+  @@index([studioId, status, pinned, publishedAt])
+  @@map("community_posts")
+}
+
+/// Which tiers a post requires (any one is enough). A tier that is still
+/// used by a post cannot be deleted (NO ACTION: checked at the end of the
+/// statement, so deleting a whole studio still cascades), so removing a tier never
+/// silently opens a post to every member.
+model CommunityPostTier {
+  postId   String @map("post_id") @db.Uuid
+  tierId   String @map("tier_id") @db.Uuid
+  studioId String @map("studio_id") @db.Uuid
+
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tier AccessTier    @relation(fields: [tierId], references: [id], onDelete: NoAction)
+
+  @@id([postId, tierId])
+  @@index([tierId])
+  @@map("community_post_tiers")
+}
+
+/// Plain-text comment. deletedAt: removed by its author or a moderator;
+/// hiddenAt: hidden by a moderator (still visible to staff with community.view).
+model CommunityComment {
+  id                   String    @id @default(uuid()) @db.Uuid
+  studioId             String    @map("studio_id") @db.Uuid
+  postId               String    @map("post_id") @db.Uuid
+  authorMembershipId   String?   @map("author_membership_id") @db.Uuid
+  body                 String    @db.VarChar(1000)
+  hiddenAt             DateTime? @map("hidden_at")
+  hiddenByMembershipId String?   @map("hidden_by_membership_id") @db.Uuid
+  deletedAt            DateTime? @map("deleted_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  studio Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  post   CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author Membership?   @relation("CommunityCommentAuthor", fields: [authorMembershipId], references: [id], onDelete: SetNull)
+
+  @@index([postId, createdAt])
+  @@index([studioId, createdAt])
+  @@map("community_comments")
+}
+
+/// One like per post and membership.
+model CommunityReaction {
+  id           String   @id @default(uuid()) @db.Uuid
+  studioId     String   @map("studio_id") @db.Uuid
+  postId       String   @map("post_id") @db.Uuid
+  membershipId String   @map("membership_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  studio     Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  post       CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  membership Membership    @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, membershipId])
+  @@index([studioId])
+  @@map("community_reactions")
 }

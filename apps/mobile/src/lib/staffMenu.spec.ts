@@ -29,6 +29,12 @@ describe('buildHesabimMenu', () => {
     expect(buildHesabimMenu({ permissions: ['events.checkin'], isMember: false, isTrainer: false }).map((m) => m.key)).not.toContain('event-check-in');
   });
 
+  it('members and staff with community.view get the community feed; others do not', () => {
+    expect(buildHesabimMenu({ permissions: [], isMember: true, isTrainer: false }).map((m) => m.key)).toContain('community');
+    expect(buildHesabimMenu({ permissions: ['community.view'], isMember: false, isTrainer: true }).map((m) => m.key)).toContain('community');
+    expect(buildHesabimMenu({ permissions: ['schedule.view'], isMember: false, isTrainer: true }).map((m) => m.key)).not.toContain('community');
+  });
+
   it('shows Programım only for a trainer with schedule.view', () => {
     const menu = buildHesabimMenu({ permissions: ['schedule.view'], isMember: false, isTrainer: true });
     expect(menu.map((m) => m.key)).toContain('my-schedule');
