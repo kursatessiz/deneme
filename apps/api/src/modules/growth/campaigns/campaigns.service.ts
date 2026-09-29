@@ -1,9 +1,23 @@
 import { BadRequestException, ConflictException, HttpStatus, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@platform/database';
 import type { Campaign, CampaignRecipientStatus } from '@platform/database';
-import { CAMPAIGN_BATCH_SIZE, CAMPAIGN_QUIET_HOURS_MAX_DEFER_HOURS, canPauseCampaign, canResumeCampaign, contactDisplayName, nextLocalTime } from '@platform/shared';
+import {
+  CAMPAIGN_BATCH_SIZE,
+  CAMPAIGN_QUIET_HOURS_MAX_DEFER_HOURS,
+  assignVariants,
+  canPauseCampaign,
+  canResumeCampaign,
+  contactDisplayName,
+  countryOfPhone,
+  nextLocalTime,
+  resolveRecipientTimeZone,
+} from '@platform/shared';
 import type {
+  CampaignAbTestInput,
   CampaignDTO,
+  CampaignSendTimeMode,
+  CampaignVariantInput,
+  PickCampaignWinnerInput,
   CampaignRecipientDTO,
   CampaignRecipientsQuery,
   CampaignStatsDTO,
@@ -19,6 +33,8 @@ import type { TenantContext } from '../../auth/tenant-context';
 import { SegmentsService } from '../segments/segments.service';
 import { GrowthQueueService } from '../growth-queue.service';
 import { CampaignApprovalService, approvalError } from './approval/campaign-approval.service';
+import { CampaignAbService, parseAbSetup, parseOverrides } from './campaign-ab.service';
+import { CampaignSendTimeService } from './campaign-send-time.service';
 
 const HOUR_MS = 60 * 60 * 1000;
 /** A recipient being sent is leased for this long (concurrent workers). */
@@ -51,6 +67,8 @@ export class CampaignsService {
     private readonly segments: SegmentsService,
     private readonly queue: GrowthQueueService,
     private readonly approvals: CampaignApprovalService,
+    private readonly ab: CampaignAbService,
+    private readonly sendTime: CampaignSendTimeService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -79,17 +97,25 @@ export class CampaignsService {
 
   async create(tenant: TenantContext, input: CreateCampaignInput, actorUserId: string | null = null): Promise<CampaignDTO> {
     await this.segments.get(tenant.studioId, input.segmentId);
-    const row = await this.prisma.campaign.create({
-      data: {
-        studioId: tenant.studioId,
-        name: input.name,
-        segmentId: input.segmentId,
-        channel: input.channel ?? null,
-        templateKey: input.templateKey,
-        createdByMembershipId: tenant.membershipId,
-        createdByUserId: actorUserId,
-      },
-      include: { segment: { select: { name: true } } },
+    const plan = await this.planAbAndTiming(tenant.studioId, null, input);
+    const row = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.campaign.create({
+        data: {
+          studioId: tenant.studioId,
+          name: input.name,
+          segmentId: input.segmentId,
+          channel: input.channel ?? null,
+          templateKey: input.templateKey,
+          createdByMembershipId: tenant.membershipId,
+          createdByUserId: actorUserId,
+          abTest: plan.abTest ? (plan.abTest as Prisma.InputJsonValue) : Prisma.DbNull,
+          sendTimeMode: plan.sendTimeMode,
+          sendTimeLocal: plan.sendTimeLocal,
+        },
+        include: { segment: { select: { name: true } } },
+      });
+      if (plan.variants) await this.ab.replace(tx, tenant.studioId, created.id, plan.variants);
+      return created;
     });
     return this.toDto(row);
   }
@@ -105,9 +131,21 @@ export class CampaignsService {
       throw new ConflictException('Gönderimi başlamış kampanya değiştirilemez');
     }
     if (input.segmentId) await this.segments.get(studioId, input.segmentId);
-    await this.prisma.campaign.update({
-      where: { id: campaign.id },
-      data: { name: input.name, segmentId: input.segmentId, channel: input.channel, templateKey: input.templateKey },
+    const plan = await this.planAbAndTiming(studioId, campaign, input);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.campaign.update({
+        where: { id: campaign.id },
+        data: {
+          name: input.name,
+          segmentId: input.segmentId,
+          channel: input.channel,
+          templateKey: input.templateKey,
+          ...(input.abTest !== undefined ? { abTest: plan.abTest ? (plan.abTest as Prisma.InputJsonValue) : Prisma.DbNull } : {}),
+          sendTimeMode: plan.sendTimeMode,
+          sendTimeLocal: plan.sendTimeLocal,
+        },
+      });
+      if (plan.variants) await this.ab.replace(tx, studioId, campaign.id, plan.variants);
     });
     if (campaign.approvalRequestId && (await this.approvals.isPlatformStudio(studioId))) {
       await this.approvals.onCampaignChanged(campaign.id, actorUserId);
@@ -120,6 +158,48 @@ export class CampaignsService {
     if (campaign.status !== 'DRAFT') throw new ConflictException('Yalnızca taslak kampanyalar silinebilir');
     await this.prisma.campaign.delete({ where: { id: campaign.id } });
     return { deleted: true };
+  }
+
+  /**
+   * Validates the A/B setup and the send time fields of a create or update
+   * against what is stored: a test needs two or more variants, RECIPIENT_LOCAL
+   * needs a local time, and a WhatsApp variant differs by template only (an
+   * approved WhatsApp template is never rewritten). `variants` is null when the
+   * stored ones stay; an empty array clears them.
+   */
+  private async planAbAndTiming(
+    studioId: string,
+    existing: Campaign | null,
+    input: Pick<CreateCampaignInput, 'abTest' | 'variants' | 'sendTimeMode' | 'sendTimeLocal'> & { channel?: CreateCampaignInput['channel'] | null },
+  ): Promise<{
+    abTest: CampaignAbTestInput | null;
+    variants: CampaignVariantInput[] | null;
+    sendTimeMode: CampaignSendTimeMode;
+    sendTimeLocal: string | null;
+  }> {
+    const storedSetup = existing ? parseAbSetup(existing.abTest) : null;
+    const abTest = input.abTest !== undefined ? input.abTest : storedSetup;
+    let variants: CampaignVariantInput[] | null = null;
+    if (abTest === null) {
+      if (input.variants) throw new BadRequestException('Varyantlar için A/B testi ayarı gerekir');
+      // A test that is removed takes its variants with it.
+      variants = existing ? [] : null;
+    } else if (input.variants) {
+      variants = input.variants;
+    } else if (!existing || (await this.ab.variantsOf(existing.id)).length < 2) {
+      throw new BadRequestException('A/B testi için en az iki varyant gerekir');
+    }
+    if (variants && variants.length > 0) {
+      await this.ab.validate(studioId, variants);
+      const channel = input.channel !== undefined ? input.channel : existing?.channel;
+      if (channel === 'WHATSAPP' && variants.some((v) => v.overrides && Object.keys(v.overrides).length > 0 && !v.templateKey)) {
+        throw new BadRequestException('WhatsApp varyantları ayrı bir şablonla farklılaşmalıdır');
+      }
+    }
+    const sendTimeMode = input.sendTimeMode ?? existing?.sendTimeMode ?? 'FIXED';
+    const requestedLocal = input.sendTimeLocal !== undefined ? input.sendTimeLocal : (existing?.sendTimeLocal ?? null);
+    if (sendTimeMode === 'RECIPIENT_LOCAL' && !requestedLocal) throw new BadRequestException('Alıcı yerel saati için bir saat girilmelidir');
+    return { abTest, variants, sendTimeMode, sendTimeLocal: sendTimeMode === 'FIXED' ? null : requestedLocal };
   }
 
   async schedule(studioId: string, id: string, input: ScheduleCampaignInput, now = new Date()): Promise<CampaignDTO> {
@@ -253,6 +333,8 @@ export class CampaignsService {
         reasonCode: r.reasonCode,
         channel: (r.channel as MessageChannelV2 | null) ?? null,
         sentAt: r.sentAt?.toISOString() ?? null,
+        variantKey: r.variantKey,
+        dueAt: r.status === 'PENDING' ? (r.nextAttemptAt?.toISOString() ?? null) : null,
       })),
     };
   }
@@ -299,18 +381,19 @@ export class CampaignsService {
       const claimed = await this.prisma.campaign.updateMany({ where: { id, status: 'SCHEDULED' }, data: { status: 'SENDING', startedAt: now } });
       if (claimed.count === 1) {
         const contactIds = approvedAudience ?? (await this.segments.memberIds(campaign.studioId, campaign.segmentId, now));
-        for (let i = 0; i < contactIds.length; i += 1000) {
-          await this.prisma.campaignRecipient.createMany({
-            data: contactIds.slice(i, i + 1000).map((contactId) => ({ studioId: campaign!.studioId, campaignId: id, contactId })),
-            skipDuplicates: true,
-          });
-        }
+        await this.materialise(campaign, contactIds, now);
         await this.prisma.campaign.update({ where: { id }, data: { audienceCount: contactIds.length } });
       }
       campaign = await this.prisma.campaign.findUnique({ where: { id } });
       if (!campaign) return totals;
     }
     if (campaign.status !== 'SENDING') return totals;
+
+    // A/B test (M3c): the variants (two or more) drive what each recipient gets; the held-back rest waits for the winner.
+    const variantRows = parseAbSetup(campaign.abTest) ? await this.ab.variantsOf(id) : [];
+    const abActive = variantRows.length >= 2;
+    if (abActive) await this.ab.advance(campaign, now);
+    const variants = new Map(variantRows.map((v) => [v.key, v]));
 
     for (let batch = 0; batch < batches; batch += 1) {
       // A pause (or cancel) between batches stops the send at once.
@@ -319,23 +402,37 @@ export class CampaignsService {
         if (current?.status !== 'SENDING') return totals;
       }
       const pending = await this.prisma.campaignRecipient.findMany({
-        where: { campaignId: id, status: 'PENDING', OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }] },
-        include: { contact: { select: { timezone: true } } },
+        where: {
+          campaignId: id,
+          status: 'PENDING',
+          OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+          ...(abActive ? { variantKey: { not: null } } : {}),
+        },
+        include: { contact: { select: { timezone: true, countryCode: true, phone: true } } },
         orderBy: { createdAt: 'asc' },
         take: CAMPAIGN_BATCH_SIZE,
       });
       if (!pending.length) break;
       for (const recipient of pending) {
-        const outcome = await this.sendOne(campaign, recipient, now);
+        const outcome = await this.sendOne(campaign, recipient, now, variants);
         if (outcome) totals[outcome] += 1;
       }
     }
 
-    const remaining = await this.prisma.campaignRecipient.findFirst({
-      where: { campaignId: id, status: 'PENDING' },
-      orderBy: { nextAttemptAt: { sort: 'asc', nulls: 'first' } },
-      select: { nextAttemptAt: true },
-    });
+    // Recipients of the test (or all, without a test) that are due or scheduled; held-back ones are not.
+    const scheduled = { campaignId: id, status: 'PENDING' as const, ...(abActive ? { variantKey: { not: null } } : {}) };
+    let remaining = await this.prisma.campaignRecipient.findFirst({ where: scheduled, orderBy: { nextAttemptAt: { sort: 'asc', nulls: 'first' } }, select: { nextAttemptAt: true } });
+    if (!remaining && abActive) {
+      // The test is settled: decide when the wait is over, otherwise wake up when it ends.
+      const current = await this.prisma.campaign.findUnique({ where: { id } });
+      if (current && (await this.ab.advance(current, now))) {
+        remaining = await this.prisma.campaignRecipient.findFirst({ where: scheduled, orderBy: { nextAttemptAt: { sort: 'asc', nulls: 'first' } }, select: { nextAttemptAt: true } });
+      } else if (current && !(await this.ab.variantsOf(id)).some((v) => v.isWinner)) {
+        const due = await this.ab.decisionDueAt(current);
+        if (due) await this.queue.scheduleCampaign(id, due > now ? due : now);
+        return totals;
+      }
+    }
     if (!remaining) {
       await this.prisma.campaign.updateMany({ where: { id, status: 'SENDING' }, data: { status: 'SENT', completedAt: now } });
     } else {
@@ -344,10 +441,65 @@ export class CampaignsService {
     return totals;
   }
 
+  /**
+   * The audience snapshot (one row per contact). With an A/B test every
+   * recipient is assigned once, deterministically: the test share gets a
+   * variant now, the rest is held back (no variant, not due) until the winner.
+   * With a recipient-local or best-time send each recipient row carries its
+   * own due instant; rows are written in chunks, never one job per recipient.
+   */
+  private async materialise(campaign: Campaign, contactIds: readonly string[], now: Date): Promise<void> {
+    const variantKeys = parseAbSetup(campaign.abTest) ? (await this.ab.variantsOf(campaign.id)).map((v) => v.key) : [];
+    const setup = parseAbSetup(campaign.abTest);
+    const assignment =
+      setup && variantKeys.length >= 2
+        ? assignVariants({ campaignId: campaign.id, contactIds, variantKeys, testSharePercent: setup.testShare })
+        : null;
+    const timing = await this.sendTime.context(campaign, now);
+    for (let i = 0; i < contactIds.length; i += 1000) {
+      const chunk = contactIds.slice(i, i + 1000);
+      const sendingNow = assignment ? chunk.filter((id) => assignment.get(id)) : chunk;
+      const due = timing && sendingNow.length > 0 ? await this.sendTime.plan(timing, sendingNow) : null;
+      await this.prisma.campaignRecipient.createMany({
+        data: chunk.map((contactId) => ({
+          studioId: campaign.studioId,
+          campaignId: campaign.id,
+          contactId,
+          variantKey: assignment?.get(contactId) ?? null,
+          nextAttemptAt: due?.get(contactId) ?? null,
+        })),
+        skipDuplicates: true,
+      });
+    }
+  }
+
+  /**
+   * The campaign owner picks the winner now (by the metric, or an explicit
+   * variant): the held-back audience receives it from the next batch on.
+   */
+  async pickWinner(studioId: string, id: string, input: PickCampaignWinnerInput, actorUserId: string | null = null, now = new Date()): Promise<CampaignDTO> {
+    const campaign = await this.get(studioId, id);
+    const variants = parseAbSetup(campaign.abTest) ? await this.ab.variantsOf(campaign.id) : [];
+    if (variants.length < 2) throw new ConflictException('Bu kampanyada A/B testi yok');
+    if (campaign.status !== 'SENDING') throw new ConflictException('Kazanan yalnızca test gönderimi sürerken seçilebilir');
+    if (variants.some((v) => v.isWinner)) throw new ConflictException('Kazanan zaten seçildi');
+    const key = await this.ab.decide(campaign, input.variantKey ?? null, now, actorUserId);
+    if (!key) throw new ConflictException('Kazanan zaten seçildi');
+    await this.queue.scheduleCampaign(campaign.id, now);
+    return this.detail(studioId, id);
+  }
+
   private async sendOne(
     campaign: Campaign,
-    recipient: { id: string; contactId: string; nextAttemptAt: Date | null; contact: { timezone: string | null } },
+    recipient: {
+      id: string;
+      contactId: string;
+      variantKey: string | null;
+      nextAttemptAt: Date | null;
+      contact: { timezone: string | null; countryCode: string | null; phone: string | null };
+    },
     now: Date,
+    variants: ReadonlyMap<string, { templateKey: string | null; templateOverrides: Prisma.JsonValue | null }>,
   ): Promise<'sent' | 'skipped' | 'failed' | null> {
     // Lease the row; a concurrent worker that already took it gets count 0.
     const leased = await this.prisma.campaignRecipient.updateMany({
@@ -356,15 +508,20 @@ export class CampaignsService {
     });
     if (leased.count === 0) return null;
 
+    // A/B variant (M3c): its own template and/or e-mail and SMS text overrides.
+    const variant = recipient.variantKey ? variants.get(recipient.variantKey) : undefined;
+    const templateKey = variant?.templateKey ?? campaign.templateKey;
+    const overrides = variant ? parseOverrides(variant.templateOverrides) : null;
     const result = await this.messaging.send({
       studioId: campaign.studioId,
       recipient: { contactId: recipient.contactId },
       ...(campaign.channel ? { channel: campaign.channel as MessageChannelV2 } : {}),
       purpose: 'COMMERCIAL',
-      templateKey: campaign.templateKey,
+      templateKey,
+      ...(overrides ? { overrides } : {}),
       idempotencyKey: `campaign:${campaign.id}:${recipient.contactId}`,
       campaignId: campaign.id,
-      type: campaign.templateKey,
+      type: templateKey,
     });
 
     let status: CampaignRecipientStatus;
@@ -377,7 +534,13 @@ export class CampaignsService {
     ) {
       status = 'PENDING';
       const studio = await this.prisma.studio.findUnique({ where: { id: campaign.studioId }, select: { timezone: true } });
-      nextAttemptAt = nextLocalTime(now, '08:00', recipient.contact.timezone ?? studio?.timezone ?? 'UTC');
+      // The same zone the engine judged quiet hours in: the contact's, their country's, the tenant's.
+      const zone = resolveRecipientTimeZone({
+        timezone: recipient.contact.timezone,
+        countryCode: recipient.contact.countryCode ?? countryOfPhone(recipient.contact.phone),
+        studioTimezone: studio?.timezone,
+      });
+      nextAttemptAt = nextLocalTime(now, '08:00', zone);
     } else {
       status = result.reasonCode === 'PROVIDER_ERROR' ? 'FAILED' : 'SKIPPED';
     }
@@ -447,6 +610,7 @@ export class CampaignsService {
   }
 
   private async toDto(c: CampaignWithSegment): Promise<CampaignDTO> {
+    const ab = await this.ab.describe(c, parseAbSetup(c.abTest) ? await this.ab.variantsOf(c.id) : []);
     return {
       id: c.id,
       name: c.name,
@@ -460,6 +624,12 @@ export class CampaignsService {
       completedAt: c.completedAt?.toISOString() ?? null,
       cancelledAt: c.cancelledAt?.toISOString() ?? null,
       approvalRequestId: c.approvalRequestId,
+      abTest: parseAbSetup(c.abTest),
+      abPhase: ab.phase,
+      variants: ab.variants,
+      winnerKey: ab.winnerKey,
+      sendTimeMode: c.sendTimeMode,
+      sendTimeLocal: c.sendTimeLocal,
       createdAt: c.createdAt.toISOString(),
       updatedAt: c.updatedAt.toISOString(),
       stats: await this.stats(c),

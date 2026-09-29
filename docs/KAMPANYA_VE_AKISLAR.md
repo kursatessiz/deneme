@@ -61,7 +61,7 @@ Durumlar: `DRAFT` -> `SCHEDULED` -> `SENDING` -> `SENT`, veya `CANCELLED`.
 
 Diğer uç noktalar: `GET/POST /studios/:studioId/campaigns`, `PATCH /:id` (yalnızca `DRAFT`/`SCHEDULED`), `DELETE /:id` (yalnızca `DRAFT`), `POST /:id/cancel`, `GET /:id/recipients`.
 
-Kapsam dışı bırakılanlar: A/B varyantı ve kazananı otomatik seçme, "alıcının yerel saatine göre" gönderim (şimdilik sessiz saat ertelemesi bunu kısmen karşılar).
+**A/B testi ve gönderim saati (M3c)**: kampanyaya isteğe bağlı A/B testi (test payı, ölçüt açılma/tıklama/dönüşüm oranı, bekleme, 2-5 varyant; varyant kendi şablonuyla ya da e-posta konu/ön başlık/metin ve SMS metin geçersiz kılmasıyla farklılaşır) ve gönderim saati modu (`FIXED`, `RECIPIENT_LOCAL`, `BEST_TIME`) eklendi. Test payı varyantlara eşit paylaştırılır, kalan kitle bekletilir ve bekleme sonunda kazanan varyantı alır; `POST /:id/pick-winner` ile elle seçilebilir. Atama `hash(kampanya:kişi)` ile deterministik ve tekildir. Sessiz saat, izin ve sıklık sınırı her varyantta ve her modda motordan geçmeye devam eder. Ayrıntılar ve sapmalar: `docs/PAZARLAMA_MODULU.md` (M3c notları).
 
 ## 5. Akışlar (journeys)
 
@@ -138,4 +138,4 @@ Tüm metinler `crm`, `segments`, `campaigns`, `journeys` ve `nav` i18n ad alanla
 
 - Resepsiyona pazarlama izinlerinin (`segments.*`, `campaigns.*`, `journeys.*`) varsayılan olarak verilip verilmeyeceği (şimdilik yalnızca sahip).
 - Geri kazanma akışının eski "koşul sürdükçe haftalık tekrar" davranışına dönmesi istenirse `ALWAYS` tekrar girişli, haftalık referanslı bir tarama tetikleyicisi eklenebilir.
-- Kampanyada A/B testi ve alıcının yerel saatine göre gönderim önceliği.
+- Kampanyada A/B testi ve alıcının yerel saatine göre gönderim: M3c ile yapıldı (yukarıdaki bölüm 4).

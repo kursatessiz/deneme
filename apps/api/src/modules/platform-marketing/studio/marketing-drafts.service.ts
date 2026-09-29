@@ -5,8 +5,10 @@ import type { MarketingDraft, MarketingDraftVariant } from '@platform/database';
 import {
   AbTestSetupSchema,
   CAMPAIGN_EXPORTABLE_KINDS,
+  CAMPAIGN_VARIANT_KEYS,
   GENERATABLE_DRAFT_KINDS,
   MarketingBriefSchema,
+  abSetupToCampaignAbTest,
   TenantTemplateUpsertSchema,
   hasBlockingIssues,
   parseMarketingContent,
@@ -14,6 +16,7 @@ import {
   runMarketingChecks,
   type AbTestSetupDTO,
   type AbTestSetupInput,
+  type CampaignVariantInput,
   type CampaignExportableKind,
   type DraftListQuery,
   type EmailBlock,
@@ -78,7 +81,7 @@ function toVariantDto(row: MarketingDraftVariant): MarketingDraftVariantDTO {
 function toAbTest(value: Prisma.JsonValue | null): AbTestSetupDTO | null {
   if (!value) return null;
   const parsed = AbTestSetupSchema.safeParse(value);
-  return parsed.success ? { ...parsed.data, storedOnly: true } : null;
+  return parsed.success ? parsed.data : null;
 }
 
 export function toDraftDto(row: DraftRow): MarketingDraftDTO {
@@ -292,7 +295,7 @@ export class MarketingDraftsService {
     return toDraftDto(row);
   }
 
-  /** A/B setup stub: the choice is stored on the draft; nothing is sent (M3 owns test sends). */
+  /** A/B setup: stored on the draft; "Kampanyaya aktar" carries it into the campaign's A/B test (M3c). */
   async setAbTest(platform: PlatformContext, draftId: string, input: AbTestSetupInput): Promise<MarketingDraftDTO> {
     const draft = await this.load(platform, draftId);
     if (!(GENERATABLE_DRAFT_KINDS as readonly string[]).includes(draft.kind)) {
@@ -313,7 +316,7 @@ export class MarketingDraftsService {
           action: 'marketing.draft.ab_setup',
           entityType: 'MarketingDraft',
           entityId: draftId,
-          metadata: { enabled: input.enabled, variants: input.variantIds.length, storedOnly: true } as Prisma.InputJsonValue,
+          metadata: { enabled: input.enabled, variants: input.variantIds.length } as Prisma.InputJsonValue,
         },
       });
       return updated;
@@ -350,12 +353,43 @@ export class MarketingDraftsService {
     const upsert = this.templateInput(kind as CampaignExportableKind, templateKey, draft.locale, parsed.content);
     const tenant = this.tenantFor(platform);
     await this.templates.upsert(studioId, upsert);
-    const campaign = await this.campaigns.create(tenant, {
-      name: (input.name ?? draft.title).slice(0, 120),
-      segmentId: input.segmentId,
-      channel: kind as CampaignExportableKind,
-      templateKey,
-    }, platform.userId);
+
+    // M3c: the stored A/B setup and its variants become the campaign's test; each variant gets a template of its own.
+    const setup = toAbTest(draft.abTest);
+    const carryAb = input.withAbTest !== false && setup?.enabled === true;
+    const campaignVariants: CampaignVariantInput[] = [];
+    if (carryAb && setup) {
+      for (const variantId of setup.variantIds) {
+        const source = draft.variants.find((v) => v.id === variantId);
+        if (!source) continue;
+        const key = CAMPAIGN_VARIANT_KEYS[campaignVariants.length];
+        if (!key) break;
+        let variantTemplateKey = templateKey;
+        if (source.id !== variant.id) {
+          const content = parseMarketingContent(kind, source.content);
+          if (!content.ok) throw new BadRequestException({ statusCode: 400, message: 'Geçersiz içerik' });
+          const variantIssues = runMarketingChecks(kind, content.content, ctx);
+          if (hasBlockingIssues(variantIssues)) {
+            throw new ConflictException({ statusCode: 409, code: 'DRAFT_HAS_BLOCKING_ISSUES', message: 'Taslakta engelleyici marka kontrolü sorunları var', issues: variantIssues });
+          }
+          variantTemplateKey = `MKT_${randomBytes(6).toString('hex').toUpperCase()}`;
+          await this.templates.upsert(studioId, this.templateInput(kind as CampaignExportableKind, variantTemplateKey, draft.locale, content.content));
+        }
+        campaignVariants.push({ key, templateKey: variantTemplateKey, aiDraftId: draft.id });
+      }
+    }
+    const withTest = carryAb && setup && campaignVariants.length >= 2;
+    const campaign = await this.campaigns.create(
+      tenant,
+      {
+        name: (input.name ?? draft.title).slice(0, 120),
+        segmentId: input.segmentId,
+        channel: kind as CampaignExportableKind,
+        templateKey,
+        ...(withTest ? { abTest: abSetupToCampaignAbTest(setup), variants: campaignVariants } : {}),
+      },
+      platform.userId,
+    );
     await this.prisma.$transaction([
       this.prisma.marketingDraft.update({ where: { id: draftId }, data: { exportedCampaignId: campaign.id, updatedByUserId: platform.userId } }),
       this.prisma.auditLog.create({
@@ -365,11 +399,11 @@ export class MarketingDraftsService {
           action: 'marketing.draft.export_campaign',
           entityType: 'MarketingDraft',
           entityId: draftId,
-          metadata: { campaignId: campaign.id, templateKey, variantId: variant.id, segmentId: input.segmentId } as Prisma.InputJsonValue,
+          metadata: { campaignId: campaign.id, templateKey, variantId: variant.id, segmentId: input.segmentId, abTest: Boolean(withTest) } as Prisma.InputJsonValue,
         },
       }),
     ]);
-    return { campaignId: campaign.id, templateKey, campaignStatus: 'DRAFT' };
+    return { campaignId: campaign.id, templateKey, campaignStatus: 'DRAFT', abTest: Boolean(withTest) };
   }
 
   private templateInput(kind: CampaignExportableKind, key: string, locale: string, content: MarketingContent) {

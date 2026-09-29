@@ -76,3 +76,42 @@ describe('campaignContentHash', () => {
     expect(canonicalJson({ b: 1, a: { d: [2, { z: 1, y: 2 }], c: undefined } })).toBe('{"a":{"d":[2,{"y":2,"z":1}]},"b":1}');
   });
 });
+
+describe('campaignContentHash with an A/B test and a send time mode (M3c)', () => {
+  const ab = { testShare: 20, metric: 'CLICK_RATE', waitMinutes: 120 };
+  const variants = [
+    { key: 'A', templateKey: null, overrides: { subject: 'Yeni ozellik' }, templates: [] },
+    { key: 'B', templateKey: 'MKT_B', overrides: null, templates: [{ ...smsTr, body: 'Baska metin {firstName}' }] },
+  ];
+  const withAb: CampaignContentInput = { ...base, abTest: ab, variants };
+
+  it('keeps the hash of a campaign without a test or send time mode (existing approvals stay valid)', () => {
+    const hash = campaignContentHash(base);
+    expect(campaignContentHash({ ...base, abTest: null, variants: [], sendTime: null })).toBe(hash);
+    expect(campaignContentHash({ ...base, sendTime: { mode: 'FIXED', local: null } })).toBe(hash);
+  });
+
+  it('changes when the A/B setup or any variant changes', () => {
+    const hash = campaignContentHash(withAb);
+    expect(hash).not.toBe(campaignContentHash(base));
+    expect(campaignContentHash({ ...withAb, abTest: { ...ab, testShare: 30 } })).not.toBe(hash);
+    expect(campaignContentHash({ ...withAb, abTest: { ...ab, metric: 'OPEN_RATE' } })).not.toBe(hash);
+    expect(campaignContentHash({ ...withAb, abTest: { ...ab, waitMinutes: 60 } })).not.toBe(hash);
+    expect(campaignContentHash({ ...withAb, variants: [variants[0]] })).not.toBe(hash);
+    expect(campaignContentHash({ ...withAb, variants: [{ ...variants[0], overrides: { subject: 'Baska konu' } }, variants[1]] })).not.toBe(hash);
+    expect(campaignContentHash({ ...withAb, variants: [variants[0], { ...variants[1], templateKey: 'MKT_C' }] })).not.toBe(hash);
+    expect(campaignContentHash({ ...withAb, variants: [variants[0], { ...variants[1], templates: [{ ...smsTr, body: 'Degisti' }] }] })).not.toBe(hash);
+  });
+
+  it('does not depend on the variant order', () => {
+    expect(campaignContentHash({ ...withAb, variants: [variants[1], variants[0]] })).toBe(campaignContentHash(withAb));
+  });
+
+  it('changes with the send time mode and local time', () => {
+    const hash = campaignContentHash(base);
+    const local = campaignContentHash({ ...base, sendTime: { mode: 'RECIPIENT_LOCAL', local: '10:00' } });
+    expect(local).not.toBe(hash);
+    expect(campaignContentHash({ ...base, sendTime: { mode: 'RECIPIENT_LOCAL', local: '11:00' } })).not.toBe(local);
+    expect(campaignContentHash({ ...base, sendTime: { mode: 'BEST_TIME', local: '10:00' } })).not.toBe(local);
+  });
+});

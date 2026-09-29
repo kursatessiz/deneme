@@ -1,6 +1,6 @@
 import { Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
-import { CampaignRecipientsQuerySchema, CreateCampaignSchema, ScheduleCampaignSchema, UpdateCampaignSchema } from '@platform/shared';
-import type { CampaignRecipientsQuery, CreateCampaignInput, ScheduleCampaignInput, UpdateCampaignInput } from '@platform/shared';
+import { CampaignRecipientsQuerySchema, CreateCampaignSchema, PickCampaignWinnerSchema, ScheduleCampaignSchema, UpdateCampaignSchema } from '@platform/shared';
+import type { CampaignRecipientsQuery, CreateCampaignInput, PickCampaignWinnerInput, ScheduleCampaignInput, UpdateCampaignInput } from '@platform/shared';
 import { RequirePermission, StudioScoped } from '../../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../../auth/decorators/current-user.decorator';
 import type { AuthUser, TenantContext } from '../../auth/tenant-context';
@@ -62,6 +62,18 @@ export class CampaignsController {
   @RequirePermission('campaigns.manage')
   cancel(@Tenant() tenant: TenantContext, @CurrentUser() user: AuthUser, @Param('campaignId', ParseUUIDPipe) campaignId: string) {
     return this.campaigns.cancel(tenant.studioId, campaignId, new Date(), user.id);
+  }
+
+  /** The campaign owner picks the A/B winner now instead of waiting (M3c). */
+  @Post(':campaignId/pick-winner')
+  @RequirePermission('campaigns.manage')
+  pickWinner(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @Param('campaignId', ParseUUIDPipe) campaignId: string,
+    @ZodBody(PickCampaignWinnerSchema) body: PickCampaignWinnerInput,
+  ) {
+    return this.campaigns.pickWinner(tenant.studioId, campaignId, body, user.id);
   }
 
   @Post(':campaignId/test-send')

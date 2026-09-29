@@ -27,7 +27,8 @@ import { effectiveConsent } from '../../../notifications/consent/contact-consent
 import { normalizeAddress } from '../../../messaging/engine/opt-out.service';
 import { localeChain, pickTemplate } from '../../../messaging/engine/template-resolver.service';
 import { SegmentsService } from '../../segments/segments.service';
-import { campaignContentHash, type TemplateFingerprintRow } from './content-hash';
+import { campaignContentHash, type CampaignVariantFingerprint, type TemplateFingerprintRow } from './content-hash';
+import { parseAbSetup, parseOverrides } from '../campaign-ab.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const CHUNK = 500;
@@ -48,7 +49,8 @@ export interface CampaignPrecheck extends CampaignFingerprint {
   summary: ApprovalSummary;
 }
 
-type CampaignLike = Pick<Campaign, 'id' | 'studioId' | 'name' | 'segmentId' | 'channel' | 'templateKey' | 'startedAt' | 'audienceCount'>;
+type CampaignLike = Pick<Campaign, 'id' | 'studioId' | 'name' | 'segmentId' | 'channel' | 'templateKey' | 'startedAt' | 'audienceCount'> &
+  Partial<Pick<Campaign, 'abTest' | 'sendTimeMode' | 'sendTimeLocal'>>;
 
 /**
  * Dry run of a campaign send (docs/PAZARLAMA_MODULU.md 4.4 "Uyum ön
@@ -73,6 +75,18 @@ export class CampaignPrecheckService {
     const channels = this.channelsOf(campaign, studio.notificationSettings);
     const contactIds = await this.audience(campaign, now);
     const templates = await this.templateRows(campaign.studioId, campaign.templateKey, channels);
+    // M3c: an A/B test is part of what was approved (variants, their templates and text, the setup); so is a send time mode.
+    const abSetup = parseAbSetup(campaign.abTest);
+    const variantRows = abSetup ? await this.prisma.campaignVariant.findMany({ where: { campaignId: campaign.id, studioId: campaign.studioId }, orderBy: { key: 'asc' } }) : [];
+    const variants: CampaignVariantFingerprint[] = [];
+    for (const v of variantRows) {
+      variants.push({
+        key: v.key,
+        templateKey: v.templateKey,
+        overrides: parseOverrides(v.templateOverrides),
+        templates: v.templateKey && v.templateKey !== campaign.templateKey ? await this.templateRows(campaign.studioId, v.templateKey, channels) : [],
+      });
+    }
     const contentHash = campaignContentHash({
       channel: campaign.channel,
       channels,
@@ -81,6 +95,9 @@ export class CampaignPrecheckService {
       segmentId: campaign.segmentId,
       audienceCount: contactIds.length,
       schedule,
+      abTest: abSetup,
+      variants,
+      sendTime: campaign.sendTimeMode ? { mode: campaign.sendTimeMode, local: campaign.sendTimeLocal ?? null } : null,
     });
     return { contentHash, channels, audienceCount: contactIds.length, contactIds };
   }
