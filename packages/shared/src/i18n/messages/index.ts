@@ -9,6 +9,7 @@ import { trJourneys } from './tr/journeys';
 import { trSegments } from './tr/segments';
 import { trCommon } from './tr/common';
 import { trConsent } from './tr/consent';
+import { trEmbed } from './tr/embed';
 import { trCrm } from './tr/crm';
 import { trFinance } from './tr/finance';
 import { trLanguage } from './tr/language';
@@ -40,6 +41,7 @@ import { enJourneys } from './en/journeys';
 import { enSegments } from './en/segments';
 import { enCommon } from './en/common';
 import { enConsent } from './en/consent';
+import { enEmbed } from './en/embed';
 import { enCrm } from './en/crm';
 import { enFinance } from './en/finance';
 import { enLanguage } from './en/language';
@@ -86,6 +88,7 @@ export const TR_NAMESPACES = [
   trCommon,
   trConsent,
   trCrm,
+  trEmbed,
   trFinance,
   trLanguage,
   trLayout,
@@ -120,6 +123,7 @@ export const EN_NAMESPACES = [
   enCommon,
   enConsent,
   enCrm,
+  enEmbed,
   enFinance,
   enLanguage,
   enLayout,
