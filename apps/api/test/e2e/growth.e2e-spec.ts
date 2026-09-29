@@ -179,7 +179,7 @@ describe('Growth engagement G2a (e2e)', () => {
       expect(res.body.count).toBe(2);
     });
 
-    it('rejects invalid and not yet available rules with 400', async () => {
+    it('rejects invalid rules with 400 and accepts the loyalty field since G3a', async () => {
       const unknown = await as(ownerToken, ZEN)
         .post(`/studios/${ZEN}/segments/preview`)
         .send({ rules: { combinator: 'and', rules: [{ field: 'contact.nope', op: 'eq', value: 'x' }] } });
@@ -187,7 +187,11 @@ describe('Growth engagement G2a (e2e)', () => {
       const loyalty = await as(ownerToken, ZEN)
         .post(`/studios/${ZEN}/segments/preview`)
         .send({ rules: { combinator: 'and', rules: [{ field: 'loyalty.pointsBalance', op: 'gt', value: 1 }] } });
-      expect(loyalty.status).toBe(400);
+      expect(loyalty.status).toBe(201);
+      const badOp = await as(ownerToken, ZEN)
+        .post(`/studios/${ZEN}/segments/preview`)
+        .send({ rules: { combinator: 'and', rules: [{ field: 'loyalty.pointsBalance', op: 'contains', value: 1 }] } });
+      expect(badOp.status).toBe(400);
     });
 
     it('stores a segment, keeps its members, and hides it from other tenants', async () => {
@@ -356,7 +360,8 @@ describe('Growth engagement G2a (e2e)', () => {
       expect(invalid.status).toBe(400);
       const points = await as(ownerToken, ZEN)
         .post(`/studios/${ZEN}/journeys`)
-        .send({ name: 'E2E G2A puan', definition: { ...definition, steps: { ...definition.steps, mark: { type: 'award_points', points: 5, reasonKey: 'x', next: null } } } });
+        .send({ name: 'E2E G2A puan', definition: { ...definition, steps: { ...definition.steps, mark: { type: 'award_points', points: 5, reasonKey: ' ', next: null } } } });
+      // award_points works since G3a (loyalty.e2e-spec.ts) but needs a reason.
       expect(points.status).toBe(400);
 
       const create = await as(ownerToken, ZEN).post(`/studios/${ZEN}/journeys`).send({ name: 'E2E G2A akis', definition });

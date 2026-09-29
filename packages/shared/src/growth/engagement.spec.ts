@@ -69,12 +69,17 @@ describe('journey validation additions', () => {
     expect(validateJourneyGraph(pkg).join(' ')).toContain('Paket');
   });
 
-  it('rejects award_points until the loyalty module exists', () => {
+  it('accepts award_points (G3a) and requires a reason', () => {
     const def = JourneyDefinitionSchema.parse({
       ...base,
-      steps: { send: { type: 'award_points', points: 10, reasonKey: 'x', next: null } },
+      steps: { send: { type: 'award_points', points: 10, reasonKey: 'Hos geldin puani', next: null } },
     });
-    expect(validateJourneyGraph(def).join(' ')).toContain('G3a');
+    expect(validateJourneyGraph(def)).toEqual([]);
+    const noReason = JourneyDefinitionSchema.parse({
+      ...base,
+      steps: { send: { type: 'award_points', points: 10, reasonKey: ' ', next: null } },
+    });
+    expect(validateJourneyGraph(noReason).join(' ')).toContain('açıklama');
   });
 
   it('requires an assignee for role or user tasks', () => {
@@ -101,11 +106,12 @@ describe('nextLocalTime', () => {
 });
 
 describe('segment, campaign and consent contracts', () => {
-  it('knows built-in and custom field kinds and flags unavailable fields', () => {
+  it('knows built-in and custom field kinds; the loyalty field is available since G3a', () => {
     expect(segmentFieldKind('activity.attendedTotal')).toBe('number');
     expect(segmentFieldKind('custom.goal', { goal: 'enum' })).toBe('enum');
     expect(segmentFieldKind('custom.missing')).toBeNull();
-    expect(UNAVAILABLE_SEGMENT_FIELDS['loyalty.pointsBalance']).toBeTruthy();
+    expect(UNAVAILABLE_SEGMENT_FIELDS['loyalty.pointsBalance']).toBeUndefined();
+    expect(segmentFieldKind('loyalty.pointsBalance')).toBe('number');
   });
 
   it('requires rules for a dynamic segment only', () => {

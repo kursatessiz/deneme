@@ -17,12 +17,14 @@ import { trFinance } from './tr/finance';
 import { trLanguage } from './tr/language';
 import { trLayout } from './tr/layout';
 import { trLeads } from './tr/leads';
+import { trLoyalty } from './tr/loyalty';
 import { trMessaging } from './tr/messaging';
 import { trMsgTpl } from './tr/msgTpl';
 import { trMMessaging } from './tr/mMessaging';
 import { trMAccount } from './tr/mAccount';
 import { trMembers } from './tr/members';
 import { trMAuth } from './tr/mAuth';
+import { trMLoyalty } from './tr/mLoyalty';
 import { trMNav } from './tr/mNav';
 import { trMScreens } from './tr/mScreens';
 import { trMWidgets } from './tr/mWidgets';
@@ -51,12 +53,14 @@ import { enFinance } from './en/finance';
 import { enLanguage } from './en/language';
 import { enLayout } from './en/layout';
 import { enLeads } from './en/leads';
+import { enLoyalty } from './en/loyalty';
 import { enMessaging } from './en/messaging';
 import { enMsgTpl } from './en/msgTpl';
 import { enMMessaging } from './en/mMessaging';
 import { enMAccount } from './en/mAccount';
 import { enMembers } from './en/members';
 import { enMAuth } from './en/mAuth';
+import { enMLoyalty } from './en/mLoyalty';
 import { enMNav } from './en/mNav';
 import { enMScreens } from './en/mScreens';
 import { enMWidgets } from './en/mWidgets';
@@ -99,10 +103,12 @@ export const TR_NAMESPACES = [
   trLanguage,
   trLayout,
   trLeads,
+  trLoyalty,
   trMessaging,
   trMsgTpl,
   trMAccount,
   trMAuth,
+  trMLoyalty,
   trMembers,
   trMMessaging,
   trMNav,
@@ -136,10 +142,12 @@ export const EN_NAMESPACES = [
   enLanguage,
   enLayout,
   enLeads,
+  enLoyalty,
   enMessaging,
   enMsgTpl,
   enMAccount,
   enMAuth,
+  enMLoyalty,
   enMembers,
   enMMessaging,
   enMNav,

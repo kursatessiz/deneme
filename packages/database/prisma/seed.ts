@@ -44,6 +44,12 @@ const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? 'Demo1234!';
 // Tables in no particular order: TRUNCATE ... CASCADE handles FK order for us.
 const ALL_TABLES = [
   'audit_logs',
+  'loyalty_redemptions',
+  'loyalty_ledger',
+  'loyalty_accounts',
+  'loyalty_rewards',
+  'loyalty_rules',
+  'loyalty_settings',
   'ai_usage',
   'ai_translation_job_items',
   'ai_translation_jobs',
@@ -239,6 +245,7 @@ async function main() {
 
   const platformStudioId = await seedCrm(zen.studioId, flow.studioId);
   await seedGrowth(zen.studioId);
+  await seedLoyalty(zen.studioId);
   await seedSites(platformStudioId);
 
   printSummary();
@@ -330,6 +337,110 @@ const JOURNEY_NAMES: Record<(typeof AUTOMATION_RULE_TYPES)[number], string> = {
   FIRST_CLASS_FOLLOW_UP: 'İlk seans sonrası takip',
   NO_SHOW_FOLLOW_UP: 'Gelmeyene takip',
 };
+
+/**
+ * Demo loyalty program for Zen (G3a, docs/SADAKAT.md): 12-month expiry,
+ * member self-redeem on, one rule per earning source, four rewards and a
+ * little history for the first three members. Rule and reward names are
+ * tenant data. History rows follow the ledger contract (running balance,
+ * one idempotency key per row, cached account balance).
+ */
+async function seedLoyalty(zenStudioId: string) {
+  const studio = await prisma.studio.findUniqueOrThrow({ where: { id: zenStudioId }, select: { currency: true } });
+  await prisma.loyaltySettings.create({
+    data: { studioId: zenStudioId, enabled: true, expiryMode: 'MONTHS_AFTER_EARN', expiryMonths: 12, expiryNoticeDays: 14, memberRedeemEnabled: true },
+  });
+  count('loyalty_settings');
+
+  const rules = [
+    { kind: 'ATTENDANCE', name: 'Seansa katılım', points: 10 },
+    { kind: 'PURCHASE_AMOUNT', name: 'Paket satın alma', points: 1, perAmount: new Prisma.Decimal(10), currency: studio.currency },
+    { kind: 'REFERRAL', name: 'Arkadaşını getir', points: 100 },
+    { kind: 'BIRTHDAY', name: 'Doğum günü hediyesi', points: 50 },
+    { kind: 'BADGE', name: 'Yeni rozet', points: 25 },
+    { kind: 'MANUAL', name: 'İşletme yorumu', points: 30 },
+  ];
+  for (const rule of rules) {
+    await prisma.loyaltyRule.create({ data: { studioId: zenStudioId, ...rule } });
+    count('loyalty_rules');
+  }
+
+  const rewards = [
+    { type: 'GIFT', name: 'Havlu hediyesi', costPoints: 100, description: 'Resepsiyondan teslim alınır' },
+    { type: 'DISCOUNT_PERCENT', name: 'Yüzde 10 indirim', costPoints: 300, value: new Prisma.Decimal(10) },
+    { type: 'EXTRA_SESSION_CREDIT', name: 'Bir seans hakkı', costPoints: 400, value: new Prisma.Decimal(1) },
+    { type: 'DISCOUNT_AMOUNT', name: 'Tutar indirimi', costPoints: 500, value: new Prisma.Decimal(100), currency: studio.currency },
+  ];
+  const created: { id: string; name: string; type: string; costPoints: number }[] = [];
+  for (const reward of rewards) {
+    created.push(await prisma.loyaltyReward.create({ data: { studioId: zenStudioId, ...reward } }));
+    count('loyalty_rewards');
+  }
+  const gift = created[0];
+
+  const members = await prisma.memberProfile.findMany({
+    where: { studioId: zenStudioId, membership: { status: MembershipStatus.ACTIVE, isPartnerGuest: false } },
+    orderBy: { createdAt: 'asc' },
+    take: 3,
+    select: { membershipId: true },
+  });
+  const dayMs = 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  for (const [index, member] of members.entries()) {
+    const history: { delta: number; reason: string; sourceType: string; key: string; note: string; daysAgo: number }[] = [
+      { delta: 50, reason: 'MANUAL_ADJUST', sourceType: 'manual', key: 'welcome', note: 'Hoş geldin puanı', daysAgo: 60 },
+      { delta: 120 + index * 40, reason: 'MANUAL_ADJUST', sourceType: 'manual', key: 'campaign', note: 'Yaz kampanyası katılımı', daysAgo: 30 },
+    ];
+    if (index === 0) history.push({ delta: -gift.costPoints, reason: 'REDEEM', sourceType: 'redemption', key: 'gift', note: gift.name, daysAgo: 10 });
+
+    let balance = 0;
+    let earned = 0;
+    let redeemed = 0;
+    let nextExpiryAt: Date | null = null;
+    for (const row of history) {
+      balance += row.delta;
+      const createdAt = new Date(now - row.daysAgo * dayMs);
+      const expiresAt = row.delta > 0 ? new Date(createdAt.getTime() + 365 * dayMs) : null;
+      if (expiresAt && (!nextExpiryAt || expiresAt < nextExpiryAt)) nextExpiryAt = expiresAt;
+      if (row.delta > 0) earned += row.delta;
+      const entry = await prisma.loyaltyLedger.create({
+        data: {
+          studioId: zenStudioId,
+          membershipId: member.membershipId,
+          delta: row.delta,
+          balanceAfter: balance,
+          reason: row.reason,
+          sourceType: row.sourceType,
+          sourceId: `seed:${member.membershipId}:${row.key}`,
+          expiresAt,
+          note: row.note,
+          createdAt,
+        },
+      });
+      count('loyalty_ledger');
+      if (row.reason === 'REDEEM') {
+        redeemed += -row.delta;
+        await prisma.loyaltyRedemption.create({
+          data: {
+            studioId: zenStudioId,
+            membershipId: member.membershipId,
+            rewardId: gift.id,
+            ledgerId: entry.id,
+            rewardName: gift.name,
+            type: gift.type,
+            pointsSpent: gift.costPoints,
+            createdAt,
+          },
+        });
+        count('loyalty_redemptions');
+      }
+    }
+    await prisma.loyaltyAccount.create({
+      data: { studioId: zenStudioId, membershipId: member.membershipId, balance, lifetimeEarned: earned, lifetimeRedeemed: redeemed, nextExpiryAt },
+    });
+    count('loyalty_accounts');
+  }
+}
 
 /**
  * Demo segments and a campaign draft for Zen (G2a). Segment counts are

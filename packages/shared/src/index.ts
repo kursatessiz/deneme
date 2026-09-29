@@ -27,3 +27,4 @@ export * from './growth';
 export * from './crm';
 export * from './sites';
 export * from './ai';
+export * from './loyalty';

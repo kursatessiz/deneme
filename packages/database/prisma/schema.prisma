@@ -704,6 +704,12 @@ model Studio {
   journeys              Journey[]
   journeyEnrollments    JourneyEnrollment[]
   journeyStepRuns       JourneyStepRun[]
+  loyaltySettings       LoyaltySettings?
+  loyaltyRules          LoyaltyRule[]
+  loyaltyRewards        LoyaltyReward[]
+  loyaltyAccounts       LoyaltyAccount[]
+  loyaltyLedger         LoyaltyLedger[]
+  loyaltyRedemptions    LoyaltyRedemption[]
 
   @@map("studios")
 }
@@ -855,6 +861,10 @@ model Membership {
   contactTasksCreated  ContactTask[]     @relation("ContactTaskCreator")
   conversationsAssigned     Conversation[]        @relation("ConversationAssignee")
   conversationMessagesSent  ConversationMessage[] @relation("ConversationMessageAuthor")
+  loyaltyAccount            LoyaltyAccount?
+  loyaltyLedger             LoyaltyLedger[]       @relation("LoyaltyLedgerHolder")
+  loyaltyLedgerCreated      LoyaltyLedger[]       @relation("LoyaltyLedgerActor")
+  loyaltyRedemptions        LoyaltyRedemption[]   @relation("LoyaltyRedemptionHolder")
 
   @@unique([userId, studioId])
   @@index([studioId, status])
@@ -1811,6 +1821,8 @@ model PromoCode {
   /// Empty means every package definition of the studio qualifies.
   applicablePackageDefinitionIds String[]      @default([]) @map("applicable_package_definition_ids")
   newMembersOnly                 Boolean       @default(false) @map("new_members_only")
+  /// G3a: a loyalty reward code only this user may redeem. Null = anyone.
+  restrictedToUserId             String?       @map("restricted_to_user_id") @db.Uuid
   isActive                       Boolean       @default(true) @map("is_active")
   createdByUserId                String        @map("created_by_user_id") @db.Uuid
   createdAt                      DateTime      @default(now()) @map("created_at")
@@ -1820,6 +1832,7 @@ model PromoCode {
   createdBy   User              @relation("PromoCodeCreatedBy", fields: [createdByUserId], references: [id])
   redemptions PromoRedemption[]
   payments    Payment[]
+  loyaltyRedemptions LoyaltyRedemption[]
 
   @@unique([studioId, code])
   @@index([studioId, isActive])
@@ -4120,4 +4133,167 @@ model AiTranslationJobItem {
   @@unique([jobId, key])
   @@index([jobId, status])
   @@map("ai_translation_job_items")
+}
+
+// ---------------------------------------------------------------------------
+// Loyalty points (G3a, docs/SADAKAT.md)
+// ---------------------------------------------------------------------------
+
+enum LoyaltyExpiryMode {
+  NONE
+  MONTHS_AFTER_EARN
+}
+
+/// Per-tenant loyalty program settings. No row = program off.
+model LoyaltySettings {
+  studioId            String            @id @map("studio_id") @db.Uuid
+  enabled             Boolean           @default(false)
+  expiryMode          LoyaltyExpiryMode @default(NONE) @map("expiry_mode")
+  /// MONTHS_AFTER_EARN: months an earned lot stays spendable.
+  expiryMonths        Int?              @map("expiry_months")
+  /// Days before expiry the member is told (0 = never).
+  expiryNoticeDays    Int               @default(14) @map("expiry_notice_days")
+  memberRedeemEnabled Boolean           @default(false) @map("member_redeem_enabled")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@map("loyalty_settings")
+}
+
+/// Tenant earn rule. `kind` is a key from LOYALTY_RULE_KINDS (shared); the
+/// rows themselves are tenant data (CLAUDE.md rule 7).
+model LoyaltyRule {
+  id         String   @id @default(uuid()) @db.Uuid
+  studioId   String   @map("studio_id") @db.Uuid
+  kind       String   @db.VarChar(30)
+  name       String   @db.VarChar(120)
+  points     Int
+  /// PURCHASE_AMOUNT: `points` per this much of `currency`.
+  perAmount  Decimal? @map("per_amount") @db.Decimal(10, 2)
+  currency   String?  @db.VarChar(3)
+  /// { serviceTypeIds?, packageDefinitionIds?, badgeDefinitionIds? }
+  conditions Json     @default("{}")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@index([studioId, kind, isActive])
+  @@map("loyalty_rules")
+}
+
+/// Tenant rewards catalogue. `type` is a key from LOYALTY_REWARD_TYPES.
+model LoyaltyReward {
+  id               String   @id @default(uuid()) @db.Uuid
+  studioId         String   @map("studio_id") @db.Uuid
+  name             String   @db.VarChar(120)
+  description      String?  @db.Text
+  type             String   @db.VarChar(30)
+  costPoints       Int      @map("cost_points")
+  /// Amount (DISCOUNT_AMOUNT, with currency), percent (DISCOUNT_PERCENT) or units (EXTRA_SESSION_CREDIT).
+  value            Decimal? @db.Decimal(10, 2)
+  currency         String?  @db.VarChar(3)
+  /// Days an issued promotion code stays valid.
+  validityDays     Int      @default(90) @map("validity_days")
+  isActive         Boolean  @default(true) @map("is_active")
+  memberRedeemable Boolean  @default(true) @map("member_redeemable")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  studio      Studio              @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  redemptions LoyaltyRedemption[]
+
+  @@index([studioId, isActive])
+  @@map("loyalty_rewards")
+}
+
+/// Cached balance per membership, updated in the same transaction as every
+/// ledger row (the ledger stays the source of truth). The row lock
+/// serialises a member's ledger writes, so a balance never goes below zero.
+model LoyaltyAccount {
+  id               String    @id @default(uuid()) @db.Uuid
+  studioId         String    @map("studio_id") @db.Uuid
+  membershipId     String    @unique @map("membership_id") @db.Uuid
+  balance          Int       @default(0)
+  lifetimeEarned   Int       @default(0) @map("lifetime_earned")
+  lifetimeRedeemed Int       @default(0) @map("lifetime_redeemed")
+  /// Earliest expiry of a lot that may still hold points: a recheck hint for
+  /// the expiry job, never later than the real next expiry (earlier only
+  /// costs one extra recheck).
+  nextExpiryAt     DateTime? @map("next_expiry_at")
+  /// The lot expiry the member was last told about (one notice per date).
+  expiryNoticeFor  DateTime? @map("expiry_notice_for")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  studio     Studio     @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@index([studioId, balance])
+  @@index([nextExpiryAt])
+  @@map("loyalty_accounts")
+}
+
+/// Append-only points ledger: rows are never updated or deleted by the
+/// application. Positive rows are lots (expiresAt from the tenant policy at
+/// earn time); negative rows are debits consumed FIFO by expiry date.
+model LoyaltyLedger {
+  id                    String    @id @default(uuid()) @db.Uuid
+  studioId              String    @map("studio_id") @db.Uuid
+  membershipId          String    @map("membership_id") @db.Uuid
+  /// The member's CRM contact when known (reporting and journeys).
+  contactId             String?   @map("contact_id") @db.Uuid
+  delta                 Int
+  balanceAfter          Int       @map("balance_after")
+  /// Key from LOYALTY_REASONS.
+  reason                String    @db.VarChar(30)
+  /// Key from LOYALTY_SOURCE_TYPES; with sourceId and reason the idempotency key.
+  sourceType            String    @map("source_type") @db.VarChar(30)
+  sourceId              String    @map("source_id") @db.VarChar(120)
+  ruleId                String?   @map("rule_id") @db.Uuid
+  expiresAt             DateTime? @map("expires_at")
+  createdByMembershipId String?   @map("created_by_membership_id") @db.Uuid
+  note                  String?   @db.VarChar(300)
+  createdAt             DateTime  @default(now()) @map("created_at")
+
+  studio     Studio             @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  membership Membership         @relation("LoyaltyLedgerHolder", fields: [membershipId], references: [id], onDelete: Cascade)
+  createdBy  Membership?        @relation("LoyaltyLedgerActor", fields: [createdByMembershipId], references: [id], onDelete: SetNull)
+  redemption LoyaltyRedemption?
+
+  @@unique([studioId, sourceType, sourceId, reason])
+  @@index([studioId, membershipId, createdAt])
+  @@index([studioId, expiresAt])
+  @@map("loyalty_ledger")
+}
+
+/// A reward taken: the negative ledger row plus its effect (a single-use
+/// promotion code, units on a member package, or a gift to hand over).
+model LoyaltyRedemption {
+  id                    String   @id @default(uuid()) @db.Uuid
+  studioId              String   @map("studio_id") @db.Uuid
+  membershipId          String   @map("membership_id") @db.Uuid
+  rewardId              String   @map("reward_id") @db.Uuid
+  ledgerId              String   @unique @map("ledger_id") @db.Uuid
+  rewardName            String   @map("reward_name") @db.VarChar(120)
+  type                  String   @db.VarChar(30)
+  pointsSpent           Int      @map("points_spent")
+  value                 Decimal? @db.Decimal(10, 2)
+  currency              String?  @db.VarChar(3)
+  promoCodeId           String?  @map("promo_code_id") @db.Uuid
+  memberPackageId       String?  @map("member_package_id") @db.Uuid
+  createdByMembershipId String?  @map("created_by_membership_id") @db.Uuid
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  studio     Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  membership Membership    @relation("LoyaltyRedemptionHolder", fields: [membershipId], references: [id], onDelete: Cascade)
+  reward     LoyaltyReward @relation(fields: [rewardId], references: [id])
+  ledger     LoyaltyLedger @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
+  promoCode  PromoCode?    @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
+
+  @@index([studioId, membershipId, createdAt])
+  @@map("loyalty_redemptions")
 }

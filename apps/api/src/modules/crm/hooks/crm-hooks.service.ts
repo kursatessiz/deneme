@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import type { Contact } from '@platform/database';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ContactsService } from '../contacts/contacts.service';
@@ -6,12 +6,15 @@ import { AttributionService } from '../attribution/attribution.service';
 import { ConversionService } from '../conversions/conversion.service';
 import { PipelineService } from '../pipeline/pipeline.service';
 import { GrowthEventsService } from './growth-events.service';
+import { LoyaltyEarnService } from '../../loyalty/loyalty-earn.service';
 
 /**
  * Small, explicit hooks the existing business services call after their
  * own work is committed. Every method logs and swallows its errors: CRM
  * bookkeeping must never block or fail a membership, booking, check-in or
  * payment. Journey triggers (G2a) are forwarded through GrowthEventsService.
+ * Check-ins and completed payments are also the loyalty earning sources
+ * (G3a); LoyaltyEarnService is idempotent per booking and payment.
  */
 @Injectable()
 export class CrmHooksService {
@@ -24,6 +27,7 @@ export class CrmHooksService {
     private readonly conversions: ConversionService,
     private readonly pipeline: PipelineService,
     private readonly events: GrowthEventsService,
+    @Optional() private readonly loyalty?: LoyaltyEarnService,
   ) {}
 
   /**
@@ -99,6 +103,7 @@ export class CrmHooksService {
    * pipeline card to TRIAL_DONE.
    */
   async onBookingAttended(studioId: string, bookingId: string): Promise<void> {
+    await this.loyalty?.onAttendance(studioId, bookingId);
     await this.onBookingEvent(studioId, bookingId, 'session_attended');
     await this.safely(`booking attended ${bookingId}`, async () => {
       const booking = await this.prisma.booking.findFirst({
@@ -130,6 +135,7 @@ export class CrmHooksService {
    * TRIAL, anything else makes it MEMBER.
    */
   async onPaymentCompleted(studioId: string, paymentId: string): Promise<void> {
+    await this.loyalty?.onPayment(studioId, paymentId);
     await this.safely(`payment ${paymentId}`, async () => {
       const payment = await this.prisma.payment.findFirst({
         where: { id: paymentId, studioId, paymentStatus: 'COMPLETED' },
