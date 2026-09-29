@@ -33,8 +33,8 @@ async function collect(stream: Readable): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
-async function encryptBuffer(plain: Buffer, pass: string, opts: { salt?: Buffer; iterations?: number } = {}): Promise<Buffer> {
-  const enc = await createEncryptStream(pass, opts);
+async function encryptBuffer(plain: Buffer, encryptionKey: string, opts: { salt?: Buffer; iterations?: number } = {}): Promise<Buffer> {
+  const enc = await createEncryptStream(encryptionKey, opts);
   const out: Buffer[] = [];
   await pipeline(Readable.from([plain]), enc, async (src: AsyncIterable<Buffer>) => {
     for await (const c of src) out.push(c);
@@ -42,9 +42,9 @@ async function encryptBuffer(plain: Buffer, pass: string, opts: { salt?: Buffer;
   return Buffer.concat(out);
 }
 
-async function decryptBuffer(cipher: Buffer, pass: string): Promise<Buffer> {
+async function decryptBuffer(cipher: Buffer, encryptionKey: string): Promise<Buffer> {
   const out: Buffer[] = [];
-  await pipeline(Readable.from([cipher]), createDecryptStream(pass), async (src: AsyncIterable<Buffer>) => {
+  await pipeline(Readable.from([cipher]), createDecryptStream(encryptionKey), async (src: AsyncIterable<Buffer>) => {
     for await (const c of src) out.push(c);
   });
   return Buffer.concat(out);
@@ -222,11 +222,11 @@ describe('S3 client', () => {
 // ---------------------------------------------------------------------------
 
 describe('openssl-compatible encryption', () => {
-  const pass = 'golden-passphrase-0123456789';
+  const encryptionKey = 'golden-passphrase-0123456789';
 
   it('matches a golden vector produced by openssl enc -aes-256-cbc -pbkdf2 -iter 200000', async () => {
-    // openssl enc ... -S 0102030405060708 -pass env:K <<< "hello backup" (openssl 3 omits the header when -S is given)
-    const out = await encryptBuffer(Buffer.from('hello backup\n'), pass, { salt: Buffer.from('0102030405060708', 'hex') });
+    // openssl enc ... -S 0102030405060708 -encryptionKey env:K <<< "hello backup" (openssl 3 omits the header when -S is given)
+    const out = await encryptBuffer(Buffer.from('hello backup\n'), encryptionKey, { salt: Buffer.from('0102030405060708', 'hex') });
     expect(out.subarray(0, 8).equals(OPENSSL_MAGIC)).toBe(true);
     expect(out.subarray(8, 16).toString('hex')).toBe('0102030405060708');
     expect(out.subarray(16).toString('hex')).toBe('466cf7713d419e89ec9322501aba3d91');
@@ -234,24 +234,24 @@ describe('openssl-compatible encryption', () => {
 
   it('round-trips and rejects a wrong key', async () => {
     const plain = Buffer.from('x'.repeat(100_000));
-    const cipher = await encryptBuffer(plain, pass);
-    expect((await decryptBuffer(cipher, pass)).equals(plain)).toBe(true);
+    const cipher = await encryptBuffer(plain, encryptionKey);
+    expect((await decryptBuffer(cipher, encryptionKey)).equals(plain)).toBe(true);
     await expect(decryptBuffer(cipher, 'another-passphrase-0000')).rejects.toThrow();
-    await expect(decryptBuffer(Buffer.from('not encrypted at all'), pass)).rejects.toThrow(/Salted__/);
+    await expect(decryptBuffer(Buffer.from('not encrypted at all'), encryptionKey)).rejects.toThrow(/Salted__/);
   });
 
   (hasOpenssl ? it : it.skip)('is readable by the documented openssl command and reads openssl output', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'backup-spec-'));
     try {
       const plain = Buffer.from('-- PostgreSQL database dump\nSELECT 1;\n'.repeat(1000));
-      writeFileSync(join(dir, 'api.enc'), await encryptBuffer(plain, pass));
-      const env = { ...process.env, BACKUP_ENCRYPTION_KEY: pass };
-      execFileSync('openssl', ['enc', '-d', '-aes-256-cbc', '-pbkdf2', '-iter', '200000', '-pass', 'env:BACKUP_ENCRYPTION_KEY', '-in', join(dir, 'api.enc'), '-out', join(dir, 'api.out')], { env });
+      writeFileSync(join(dir, 'api.enc'), await encryptBuffer(plain, encryptionKey));
+      const env = { ...process.env, BACKUP_ENCRYPTION_KEY: encryptionKey };
+      execFileSync('openssl', ['enc', '-d', '-aes-256-cbc', '-pbkdf2', '-iter', '200000', '-encryptionKey', 'env:BACKUP_ENCRYPTION_KEY', '-in', join(dir, 'api.enc'), '-out', join(dir, 'api.out')], { env });
       expect(readFileSync(join(dir, 'api.out')).equals(plain)).toBe(true);
 
       writeFileSync(join(dir, 'host.in'), plain);
-      execFileSync('openssl', ['enc', '-aes-256-cbc', '-pbkdf2', '-iter', '200000', '-salt', '-pass', 'env:BACKUP_ENCRYPTION_KEY', '-in', join(dir, 'host.in'), '-out', join(dir, 'host.enc')], { env });
-      expect((await decryptBuffer(readFileSync(join(dir, 'host.enc')), pass)).equals(plain)).toBe(true);
+      execFileSync('openssl', ['enc', '-aes-256-cbc', '-pbkdf2', '-iter', '200000', '-salt', '-encryptionKey', 'env:BACKUP_ENCRYPTION_KEY', '-in', join(dir, 'host.in'), '-out', join(dir, 'host.enc')], { env });
+      expect((await decryptBuffer(readFileSync(join(dir, 'host.enc')), encryptionKey)).equals(plain)).toBe(true);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -263,7 +263,7 @@ describe('openssl-compatible encryption', () => {
 // ---------------------------------------------------------------------------
 
 describe('verifyEncryptedStream', () => {
-  const pass = 'verify-passphrase-0123456789';
+  const encryptionKey = 'verify-passphrase-0123456789';
   const dump = Buffer.from('--\n-- PostgreSQL database dump\n--\nCREATE TABLE t ();\n--\n-- PostgreSQL database dump complete\n--\n');
 
   async function artifact(plain: Buffer): Promise<Buffer> {
@@ -271,23 +271,23 @@ describe('verifyEncryptedStream', () => {
     await pipeline(Readable.from([plain]), createGzip(), async (src: AsyncIterable<Buffer>) => {
       for await (const c of src) gz.push(c);
     });
-    return encryptBuffer(Buffer.concat(gz), pass);
+    return encryptBuffer(Buffer.concat(gz), encryptionKey);
   }
 
   it('accepts a good artifact and reports its sha256', async () => {
     const enc = await artifact(dump);
     const sha = createHash('sha256').update(enc).digest('hex');
-    const r = await verifyEncryptedStream(Readable.from([enc]), pass, sha);
+    const r = await verifyEncryptedStream(Readable.from([enc]), encryptionKey, sha);
     expect(r).toEqual({ sha256: sha, sizeBytes: enc.length, sqlBytes: dump.length, failure: null });
   });
 
   it('flags a sha256 mismatch, a wrong key and a non-dump', async () => {
     const enc = await artifact(dump);
-    expect((await verifyEncryptedStream(Readable.from([enc]), pass, '0'.repeat(64))).failure).toBe('SHA256_MISMATCH');
+    expect((await verifyEncryptedStream(Readable.from([enc]), encryptionKey, '0'.repeat(64))).failure).toBe('SHA256_MISMATCH');
     expect((await verifyEncryptedStream(Readable.from([enc]), 'wrong-passphrase-000000', null)).failure).toBe('DECRYPT_FAILED');
-    expect((await verifyEncryptedStream(Readable.from([enc.subarray(0, enc.length - 16)]), pass, null)).failure).toBe('DECRYPT_FAILED');
+    expect((await verifyEncryptedStream(Readable.from([enc.subarray(0, enc.length - 16)]), encryptionKey, null)).failure).toBe('DECRYPT_FAILED');
     const other = await artifact(Buffer.from('hello'));
-    expect((await verifyEncryptedStream(Readable.from([other]), pass, null)).failure).toBe('NOT_A_DUMP');
+    expect((await verifyEncryptedStream(Readable.from([other]), encryptionKey, null)).failure).toBe('NOT_A_DUMP');
   });
 
   it('rethrows download errors instead of calling them a bad backup', async () => {
@@ -296,7 +296,7 @@ describe('verifyEncryptedStream', () => {
         this.destroy(new Error('socket hang up'));
       },
     });
-    await expect(verifyEncryptedStream(failing, pass, null)).rejects.toThrow('socket hang up');
+    await expect(verifyEncryptedStream(failing, encryptionKey, null)).rejects.toThrow('socket hang up');
   });
 
   it('parses sha256sum sidecars', () => {
