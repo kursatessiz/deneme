@@ -33,6 +33,8 @@ Migration: `20260930000000_ads_integration` (yalnızca ileri yönlü; `packages/
 4. Domain doğrulaması yapın (Meta Business Manager -> Marka Güvenliği -> Alan Adları): olay eşleştirme kalitesini artırır.
 5. Panelde `/ayarlar/reklam` -> Meta bağlantısı ekleyin: Pixel ID ve access token'ı girin. Test modunu açarsanız Events Manager'ın "Test Olayları" sekmesinde bir kod görürsünüz; bu kodu bağlantının kimlik bilgilerine `testEventCode` olarak ekleyin.
 6. Lead Ads (M4c): aynı bağlantıya Facebook sayfa kimliği ve Meta uygulama sırrı, entegrasyon merkezinden (`/pazarlama/entegrasyonlar`) girilir; uygulama sırrı şifreli kimlik bilgisinin içinde `appSecret` olarak saklanır, hiçbir yanıtta dönmez ve belirteç değiştirilince korunur. Webhook, form eşleme ve izin kuralları `docs/PAZARLAMA_MODULU.md` M4c notlarındadır.
+
+Platform kiracısı için (M4a) access token yapıştırmak yerine entegrasyon merkezindeki "Meta ile bağlan" formu kullanılabilir: reklam hesabı kimliği ve pixel kimliği girilir, Meta onay ekranından dönen kullanıcı jetonu uzun ömürlü jetona çevrilip şifreli saklanır ve bitişine 24 saat kala arka planda yenilenir; yenileme kalıcı olarak başarısız olursa bağlantı `REAUTH_REQUIRED` olur ve "Yeniden bağlan" istenir. Süper admin önce Meta uygulamasının kimliğini ve sırrını `/admin/entegrasyonlar`'a girer. Kiracıların `/ayarlar/reklam` ekranı değişmedi (yapıştırma).
 6. "Bağlantıyı test et" ile erişimi doğrulayın.
 7. İlk gerçek dönüşümden sonra Events Manager'da tarayıcı (Pixel) ve sunucu (CAPI) olaylarının **aynı `event_id` ile tekilleştirildiğini** ("Event Match Quality" yüksek) doğrulayın.
 
@@ -47,6 +49,8 @@ Migration: `20260930000000_ads_integration` (yalnızca ileri yönlü; `packages/
 7. Panelde bağlantıyı ekleyin: client ID, client secret, refresh token, developer token, login customer ID, customer ID, `AW-XXXXXXXXX` dönüşüm kimliği.
 8. Her `ConversionEventType` için dönüşüm eylemi kimliğini bağlantının "dönüşüm eylemi eşlemesi" alanına girin (API: `conversionActionIds`).
 9. Google Ads -> Dönüşümler ekranında eylemlerin "Kaydediliyor" durumuna geçtiğini doğrulayın (birkaç saat sürebilir).
+
+Platform kiracısı için (M4a) 2, 3 ve 7. adımlardaki elle refresh token üretimi yerine entegrasyon merkezindeki "Google Ads ile bağlan" formu kullanılabilir: süper admin OAuth istemcisini ve geliştirici anahtarını `/admin/entegrasyonlar`'a bir kez girer, bağlarken müşteri kimliği, gerekirse yönetici hesap kimliği ve `AW-` etiket kimliği girilir; `access_type=offline` ve `prompt=consent` ile alınan refresh token şifreli saklanır, günde bir kez sağlık kontrolünden geçer, iptal edilmişse bağlantı `REAUTH_REQUIRED` olur. Google Cloud'da yetkili yönlendirme adresi `<API>/platform/integrations/oauth/google/callback` olmalıdır (ayrıntılar `docs/PAZARLAMA_MODULU.md` M4a notları).
 
 ### TikTok
 
