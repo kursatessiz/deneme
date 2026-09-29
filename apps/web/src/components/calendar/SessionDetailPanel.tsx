@@ -8,7 +8,7 @@ import { Badge } from '@/components/common/Badge';
 import { PermissionButton } from '@/components/common/PermissionButton';
 import { hasAnyPermission } from '@/lib/nav';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
-import { useLocale } from '@/components/i18n/I18nProvider';
+import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { bookingMemberName, trainerName, type ScheduleRow, type TrainerRow, type WaitlistRow } from '@/lib/calendar/types';
 
 const STATUS_TONE: Record<string, 'success' | 'warning' | 'danger' | 'neutral'> = {
@@ -18,15 +18,6 @@ const STATUS_TONE: Record<string, 'success' | 'warning' | 'danger' | 'neutral'> 
   CANCELLED_LATE: 'warning',
   NO_SHOW: 'danger',
   WAITLIST: 'warning',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  CONFIRMED: 'Onaylı',
-  ATTENDED: 'Katıldı',
-  CANCELLED_EARLY: 'İptal',
-  CANCELLED_LATE: 'Geç iptal',
-  NO_SHOW: 'Gelmedi',
-  WAITLIST: 'Bekleme listesi',
 };
 
 export function SessionDetailPanel({
@@ -51,6 +42,8 @@ export function SessionDetailPanel({
   const { permissions, isOwner } = useDashboardSession();
   const canManageSchedule = hasAnyPermission(['schedule.manage'], permissions, isOwner);
   const locale = useLocale();
+  const t = useT();
+  const statusLabel = (s: string) => t(`calendar.detail.status.${s}`);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,7 +66,7 @@ export function SessionDetailPanel({
       await action();
       onChanged();
     } catch (err) {
-      setError(err instanceof BffError ? err.message : 'İşlem başarısız oldu');
+      setError(err instanceof BffError ? err.message : t('calendar.detail.errors.actionFailed'));
     } finally {
       setBusyId(null);
     }
@@ -91,7 +84,7 @@ export function SessionDetailPanel({
       <div className="p-4 flex items-start justify-between border-b" style={{ borderColor: 'var(--color-border)' }}>
         <div>
           <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-            {schedule.title || schedule.serviceType?.name || 'Seans'}
+            {schedule.title || schedule.serviceType?.name || t('calendar.detail.defaultTitle')}
           </h3>
           <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
             {start.toLocaleString(locale, { weekday: 'long', day: '2-digit', month: 'long' })} ·{' '}
@@ -100,27 +93,32 @@ export function SessionDetailPanel({
           </p>
           {trainerName(schedule.trainer) && (
             <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-              Eğitmen: {trainerName(schedule.trainer)}
-              {schedule.originalTrainerId && ' (ikame)'}
+              {t('calendar.detail.trainer', { name: trainerName(schedule.trainer) ?? '' })}
+              {schedule.originalTrainerId && t('calendar.detail.trainerSubstituted')}
             </p>
           )}
           {schedule.resource?.name && (
             <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              Kaynak: {schedule.resource.name}
+              {t('calendar.detail.resource', { name: schedule.resource.name })}
             </p>
           )}
         </div>
-        <button onClick={onClose} className="p-1" style={{ color: 'var(--color-text-muted)' }} aria-label="Kapat">
+        <button onClick={onClose} className="p-1" style={{ color: 'var(--color-text-muted)' }} aria-label={t('calendar.detail.close')}>
           <X className="w-4 h-4" />
         </button>
       </div>
 
       <div className="p-4 space-y-4">
-        {schedule.isCancelled && <Badge tone="danger">Seans iptal edildi{schedule.cancellationReason ? `: ${schedule.cancellationReason}` : ''}</Badge>}
+        {schedule.isCancelled && (
+          <Badge tone="danger">
+            {t('calendar.detail.cancelled')}
+            {schedule.cancellationReason ? `: ${schedule.cancellationReason}` : ''}
+          </Badge>
+        )}
 
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            Kontenjan
+            {t('calendar.detail.capacity')}
           </span>
           <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
             {schedule.bookedCount}/{schedule.capacity}
@@ -130,7 +128,7 @@ export function SessionDetailPanel({
         {!schedule.isCancelled && (
           <div className="flex flex-wrap gap-2">
             <PermissionButton required={['schedule.manage']} variant="secondary" onClick={onEdit}>
-              Seansı düzenle
+              {t('calendar.detail.edit')}
             </PermissionButton>
             <PermissionButton
               required={['schedule.manage']}
@@ -146,7 +144,7 @@ export function SessionDetailPanel({
                 )
               }
             >
-              Seansı iptal et
+              {t('calendar.detail.cancelSession')}
             </PermissionButton>
           </div>
         )}
@@ -154,7 +152,7 @@ export function SessionDetailPanel({
         {!schedule.isCancelled && canManageSchedule && (
           <div className="flex items-center gap-2">
             <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              İkame eğitmen
+              {t('calendar.detail.substituteTrainer')}
             </span>
             <select
               className="text-xs px-2 py-1"
@@ -162,10 +160,10 @@ export function SessionDetailPanel({
               value={substituteId}
               onChange={(e) => setSubstituteId(e.target.value)}
             >
-              <option value="">Eğitmen seç</option>
-              {trainers.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.firstName} {t.lastName}
+              <option value="">{t('calendar.detail.chooseTrainer')}</option>
+              {trainers.map((tr) => (
+                <option key={tr.id} value={tr.id}>
+                  {tr.firstName} {tr.lastName}
                 </option>
               ))}
             </select>
@@ -179,19 +177,19 @@ export function SessionDetailPanel({
                 )
               }
             >
-              Değiştir
+              {t('calendar.detail.substitute')}
             </PermissionButton>
           </div>
         )}
 
         <div>
           <h4 className="text-xs font-semibold mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-            Katılımcılar ({roster.length})
+            {t('calendar.detail.attendees', { count: roster.length })}
           </h4>
           <div className="space-y-1.5">
             {roster.length === 0 && (
               <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                Henüz rezervasyon yok.
+                {t('calendar.detail.noBookings')}
               </p>
             )}
             {roster.map((b) => (
@@ -205,7 +203,7 @@ export function SessionDetailPanel({
                     {bookingMemberName(b)}
                   </Link>
                   <div className="mt-0.5">
-                    <Badge tone={STATUS_TONE[b.status] ?? 'neutral'}>{STATUS_LABEL[b.status] ?? b.status}</Badge>
+                    <Badge tone={STATUS_TONE[b.status] ?? 'neutral'}>{statusLabel(b.status)}</Badge>
                   </div>
                 </div>
                 {b.status === 'CONFIRMED' && !schedule.isCancelled && (
@@ -216,7 +214,7 @@ export function SessionDetailPanel({
                       disabled={busyId === b.id}
                       onClick={() => run(b.id, () => bffFetch(`schedules/check-in/${b.id}`, { method: 'PATCH', studioId }))}
                     >
-                      Giriş yap
+                      {t('calendar.detail.checkIn')}
                     </PermissionButton>
                     <PermissionButton
                       required={['attendance.manage']}
@@ -224,7 +222,7 @@ export function SessionDetailPanel({
                       disabled={busyId === b.id}
                       onClick={() => run(b.id, () => bffFetch(`schedules/no-show/${b.id}`, { method: 'PATCH', studioId, body: {} }))}
                     >
-                      Gelmedi
+                      {t('calendar.detail.noShow')}
                     </PermissionButton>
                     <PermissionButton
                       required={['bookings.manage']}
@@ -232,7 +230,7 @@ export function SessionDetailPanel({
                       disabled={busyId === b.id}
                       onClick={() => run(b.id, () => bffFetch('schedules/cancel', { method: 'POST', studioId, body: { bookingId: b.id, cancelledBy: 'STUDIO' } }))}
                     >
-                      İptal
+                      {t('calendar.detail.cancel')}
                     </PermissionButton>
                   </div>
                 )}
@@ -244,7 +242,7 @@ export function SessionDetailPanel({
         {waitlist.length > 0 && (
           <div>
             <h4 className="text-xs font-semibold mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-              Bekleme listesi ({waitlist.length})
+              {t('calendar.detail.waitlist', { count: waitlist.length })}
             </h4>
             <div className="space-y-1.5">
               {waitlist.map((w) => (
@@ -254,7 +252,7 @@ export function SessionDetailPanel({
                   style={{ borderRadius: 'var(--radius-chip)', backgroundColor: 'var(--color-surface-muted)', color: 'var(--color-text-primary)' }}
                 >
                   <span>
-                    {w.placeInLine}. {w.member?.membership?.user ? `${w.member.membership.user.firstName} ${w.member.membership.user.lastName}` : 'Üye'}
+                    {w.placeInLine}. {w.member?.membership?.user ? `${w.member.membership.user.firstName} ${w.member.membership.user.lastName}` : t('calendar.detail.member')}
                   </span>
                 </div>
               ))}

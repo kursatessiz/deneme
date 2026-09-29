@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import type { BranchDTO, BranchSummaryDTO, StaffMembershipDTO } from '@platform/shared';
-import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
-import { useLocale } from '@/components/i18n/I18nProvider';
+import { useDashboardSession, useFormatMoney } from '@/components/session/DashboardSessionProvider';
+import { useT } from '@/components/i18n/I18nProvider';
 import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
@@ -12,6 +12,7 @@ import { hasAnyPermission } from '@/lib/nav';
 import { Badge, InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader, TextField } from '@/components/settings/ui';
 
 function BranchForm({ branch, onCancel, onSaved }: { branch: BranchDTO | null; onCancel: () => void; onSaved: () => void }) {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const [name, setName] = useState(branch?.name ?? '');
   const [address, setAddress] = useState(branch?.address ?? '');
@@ -23,7 +24,7 @@ function BranchForm({ branch, onCancel, onSaved }: { branch: BranchDTO | null; o
   const save = async () => {
     setError(null);
     if (name.trim().length < 2) {
-      setError('Şube adı en az 2 karakter olmalıdır');
+      setError(t('settings.branches.nameTooShort'));
       return;
     }
     setSaving(true);
@@ -36,27 +37,27 @@ function BranchForm({ branch, onCancel, onSaved }: { branch: BranchDTO | null; o
       }
       onSaved();
     } catch (err) {
-      setError(err instanceof BffError ? err.message : 'Şube kaydedilemedi');
+      setError(err instanceof BffError ? err.message : t('settings.branches.errors.saveFailed'));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Section title={branch ? `"${branch.name}" şubesini düzenle` : 'Yeni şube'}>
+    <Section title={branch ? t('settings.branches.editTitle', { name: branch.name }) : t('settings.branches.newTitle')}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
-        <TextField label="Şube adı" value={name} onChange={setName} />
-        <TextField label="Telefon" value={phone} onChange={setPhone} />
-        <TextField label="E-posta" value={email} onChange={setEmail} />
-        <TextField label="Adres" value={address} onChange={setAddress} />
+        <TextField label={t('settings.branches.nameLabel')} value={name} onChange={setName} />
+        <TextField label={t('settings.branches.phoneLabel')} value={phone} onChange={setPhone} />
+        <TextField label={t('settings.branches.emailLabel')} value={email} onChange={setEmail} />
+        <TextField label={t('settings.branches.addressLabel')} value={address} onChange={setAddress} />
       </div>
       {error && <InlineMessage text={error} tone="error" />}
       <div className="flex gap-2">
         <PrimaryButton onClick={save} disabled={saving}>
-          {saving ? 'Kaydediliyor...' : 'Kaydet'}
+          {saving ? t('settings.branches.saving') : t('common.save')}
         </PrimaryButton>
         <SecondaryButton onClick={onCancel} disabled={saving}>
-          Vazgeç
+          {t('common.cancel')}
         </SecondaryButton>
       </div>
     </Section>
@@ -64,6 +65,7 @@ function BranchForm({ branch, onCancel, onSaved }: { branch: BranchDTO | null; o
 }
 
 function StaffBranchAccess({ studioId, branches }: { studioId: string; branches: BranchDTO[] }) {
+  const t = useT();
   const { data: staff, loading, error } = useBff<StaffMembershipDTO[]>(`role-templates/studio/${studioId}/staff`, studioId);
   const [openMembershipId, setOpenMembershipId] = useState<string | null>(null);
   const [selectedBranchIds, setSelectedBranchIds] = useState<Set<string>>(new Set());
@@ -81,7 +83,7 @@ function StaffBranchAccess({ studioId, branches }: { studioId: string; branches:
       setSelectedBranchIds(new Set(res.branchIds));
       setOpenMembershipId(membershipId);
     } catch (err) {
-      setError2(err instanceof BffError ? err.message : 'Şube erişimi okunamadı');
+      setError2(err instanceof BffError ? err.message : t('settings.branches.staffAccess.errors.loadFailed'));
     }
   };
 
@@ -101,18 +103,18 @@ function StaffBranchAccess({ studioId, branches }: { studioId: string; branches:
       await bffFetch(`branches/staff/${membershipId}`, { method: 'PUT', body: { branchIds: [...selectedBranchIds] }, studioId });
       setOpenMembershipId(null);
     } catch (err) {
-      setError2(err instanceof BffError ? err.message : 'Şube erişimi kaydedilemedi');
+      setError2(err instanceof BffError ? err.message : t('settings.branches.staffAccess.errors.saveFailed'));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Section title="Personelin şube erişimi" description="Hiç kayıt yoksa personel tüm şubelere erişir; işletme sahibi hiçbir zaman kısıtlanamaz">
+    <Section title={t('settings.branches.staffAccess.title')} description={t('settings.branches.staffAccess.description')}>
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
       {error2 && <InlineMessage text={error2} tone="error" />}
-      {!loading && !error && (!staff || staff.length === 0) && <EmptyState title="Henüz personel yok" />}
+      {!loading && !error && (!staff || staff.length === 0) && <EmptyState title={t('settings.branches.staffAccess.empty')} />}
       {!loading && !error && staff && staff.length > 0 && (
         <div className="space-y-2">
           {staff.map((m) => (
@@ -126,12 +128,16 @@ function StaffBranchAccess({ studioId, branches }: { studioId: string; branches:
                     {m.roleName}
                   </p>
                 </div>
-                {m.isOwner ? <Badge tone="primary">Kısıtlanamaz</Badge> : <SecondaryButton onClick={() => open(m.membershipId)}>Şube erişimi</SecondaryButton>}
+                {m.isOwner ? (
+                  <Badge tone="primary">{t('settings.branches.staffAccess.unrestricted')}</Badge>
+                ) : (
+                  <SecondaryButton onClick={() => open(m.membershipId)}>{t('settings.branches.staffAccess.manage')}</SecondaryButton>
+                )}
               </div>
               {openMembershipId === m.membershipId && (
                 <div className="mt-3 pl-2 space-y-2">
                   <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    Hiçbiri işaretli değilse tüm şubelere erişebilir
+                    {t('settings.branches.staffAccess.hint')}
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {branches.map((b) => (
@@ -142,7 +148,7 @@ function StaffBranchAccess({ studioId, branches }: { studioId: string; branches:
                     ))}
                   </div>
                   <PrimaryButton onClick={() => save(m.membershipId)} disabled={saving}>
-                    {saving ? 'Kaydediliyor...' : 'Kaydet'}
+                    {saving ? t('settings.branches.saving') : t('common.save')}
                   </PrimaryButton>
                 </div>
               )}
@@ -155,22 +161,23 @@ function StaffBranchAccess({ studioId, branches }: { studioId: string; branches:
 }
 
 function BranchSummaryTable({ studioId }: { studioId: string }) {
-  const locale = useLocale();
+  const t = useT();
+  const formatMoney = useFormatMoney();
   const { data, loading, error } = useBff<BranchSummaryDTO[]>(`branches/studio/${studioId}/summary`, studioId);
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} />;
-  if (!data || data.length === 0) return <EmptyState title="Son 30 günde veri yok" />;
+  if (!data || data.length === 0) return <EmptyState title={t('settings.branches.summary.empty')} />;
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left" style={{ color: 'var(--color-text-muted)' }}>
-            <th className="font-medium py-1.5 pr-4">Şube</th>
-            <th className="font-medium py-1.5 pr-4">Seans</th>
-            <th className="font-medium py-1.5 pr-4">Doluluk</th>
-            <th className="font-medium py-1.5 pr-4">Katılım</th>
-            <th className="font-medium py-1.5 pr-4">Gelmeme</th>
-            <th className="font-medium py-1.5 pr-4">Gelir</th>
+            <th className="font-medium py-1.5 pr-4">{t('settings.branches.summary.col.branch')}</th>
+            <th className="font-medium py-1.5 pr-4">{t('settings.branches.summary.col.sessions')}</th>
+            <th className="font-medium py-1.5 pr-4">{t('settings.branches.summary.col.occupancy')}</th>
+            <th className="font-medium py-1.5 pr-4">{t('settings.branches.summary.col.attended')}</th>
+            <th className="font-medium py-1.5 pr-4">{t('settings.branches.summary.col.noShows')}</th>
+            <th className="font-medium py-1.5 pr-4">{t('settings.branches.summary.col.revenue')}</th>
           </tr>
         </thead>
         <tbody>
@@ -181,7 +188,7 @@ function BranchSummaryTable({ studioId }: { studioId: string }) {
               <td className="py-1.5 pr-4">{Math.round(row.occupancy * 100)}%</td>
               <td className="py-1.5 pr-4">{row.attended}</td>
               <td className="py-1.5 pr-4">{row.noShows}</td>
-              <td className="py-1.5 pr-4">{Number(row.revenue).toLocaleString(locale)} TL</td>
+              <td className="py-1.5 pr-4">{formatMoney(row.revenue)}</td>
             </tr>
           ))}
         </tbody>
@@ -191,6 +198,7 @@ function BranchSummaryTable({ studioId }: { studioId: string }) {
 }
 
 function BranchesSettings() {
+  const t = useT();
   const { activeStudioId, permissions, isOwner } = useDashboardSession();
   const canManage = hasAnyPermission(['branches.manage'], permissions, isOwner);
   const canReport = hasAnyPermission(['reports.view'], permissions, isOwner);
@@ -201,8 +209,8 @@ function BranchesSettings() {
   return (
     <div className="space-y-6" key={refreshKey}>
       <div className="flex items-center justify-between">
-        <SettingsHeader title="Şubeler" description="Şube tanımları ve personelin şube erişimi" />
-        {canManage && editing === null && <PrimaryButton onClick={() => setEditing('new')}>Yeni şube</PrimaryButton>}
+        <SettingsHeader title={t('settings.branches.title')} description={t('settings.branches.description')} />
+        {canManage && editing === null && <PrimaryButton onClick={() => setEditing('new')}>{t('settings.branches.new')}</PrimaryButton>}
       </div>
 
       {loading && <LoadingState />}
@@ -215,7 +223,9 @@ function BranchesSettings() {
 
       {!loading && !error && editing === null && (
         <>
-          {(!branches || branches.length === 0) && <EmptyState title="Henüz şube yok" description="Yeni şube ekleyerek başlayın." />}
+          {(!branches || branches.length === 0) && (
+            <EmptyState title={t('settings.branches.empty.title')} description={t('settings.branches.empty.description')} />
+          )}
           {branches && branches.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {branches.map((b) => (
@@ -228,12 +238,12 @@ function BranchesSettings() {
                     <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                       {b.name}
                     </h3>
-                    {!b.isActive && <Badge>Pasif</Badge>}
+                    {!b.isActive && <Badge>{t('settings.branches.inactive')}</Badge>}
                   </div>
                   <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    {b.address || 'Adres eklenmemiş'}
+                    {b.address || t('settings.branches.noAddress')}
                   </p>
-                  {canManage && <SecondaryButton onClick={() => setEditing(b)}>Düzenle</SecondaryButton>}
+                  {canManage && <SecondaryButton onClick={() => setEditing(b)}>{t('settings.branches.edit')}</SecondaryButton>}
                 </div>
               ))}
             </div>
@@ -241,7 +251,7 @@ function BranchesSettings() {
 
           {canManage && branches && <StaffBranchAccess studioId={activeStudioId} branches={branches} />}
           {canReport && (
-            <Section title="Şube özeti" description="Son 30 gün">
+            <Section title={t('settings.branches.summary.title')} description={t('settings.branches.summary.description')}>
               <BranchSummaryTable studioId={activeStudioId} />
             </Section>
           )}

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { CreateScheduleInput, UpdateScheduleInput } from '@platform/shared';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
-import { useLocale } from '@/components/i18n/I18nProvider';
+import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { useBff } from '@/lib/session/use-bff';
 import { LoadingState, ErrorState } from '@/components/common/DataState';
@@ -18,12 +18,12 @@ import { SessionDetailPanel } from '@/components/calendar/SessionDetailPanel';
 import { rangeForView, stepAnchor, type CalendarView } from '@/lib/calendar/range';
 import type { BranchRow, ResourceRow, ScheduleRow, ServiceTypeRow, TrainerRow } from '@/lib/calendar/types';
 
-const VIEW_LABEL: Record<CalendarView, string> = { day: 'Gün', week: 'Hafta', month: 'Ay' };
-
 function CalendarScreen() {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const locale = useLocale();
   const router = useRouter();
+  const viewLabel: Record<CalendarView, string> = { day: t('calendar.view.day'), week: t('calendar.view.week'), month: t('calendar.view.month') };
   const [view, setView] = useState<CalendarView>('week');
   const [anchor, setAnchor] = useState(() => new Date());
   const [branchFilter, setBranchFilter] = useState('');
@@ -56,8 +56,9 @@ function CalendarScreen() {
     if (trainerFilter) params.set('trainerId', trainerFilter);
     bffFetch<ScheduleRow[]>(`schedules/studio/${activeStudioId}?${params.toString()}`, { studioId: activeStudioId })
       .then((rows) => setSchedules(serviceTypeFilter ? rows.filter((r) => r.serviceTypeId === serviceTypeFilter) : rows))
-      .catch((err) => setError(err instanceof BffError ? err.message : 'Takvim yüklenemedi'))
+      .catch((err) => setError(err instanceof BffError ? err.message : t('calendar.errors.loadFailed')))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStudioId, start, end, branchFilter, resourceFilter, trainerFilter, serviceTypeFilter]);
 
   useEffect(() => {
@@ -80,7 +81,7 @@ function CalendarScreen() {
       await bffFetch(`schedules/${schedule.id}`, { method: 'PATCH', studioId: activeStudioId, body });
     } catch (err) {
       setSchedules(previous);
-      setDragError(err instanceof BffError ? err.message : 'Seans taşınamadı');
+      setDragError(err instanceof BffError ? err.message : t('calendar.errors.moveFailed'));
     }
   }
 
@@ -102,7 +103,7 @@ function CalendarScreen() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-            Seans Takvimi
+            {t('calendar.title')}
           </h2>
           <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
             {start.toLocaleDateString(locale)} - {new Date(end.getTime() - 1).toLocaleDateString(locale)}
@@ -110,10 +111,10 @@ function CalendarScreen() {
         </div>
         <div className="flex gap-2">
           <PermissionButton required={['attendance.manage']} variant="secondary" onClick={() => router.push('/attendance')}>
-            Bugünün yoklaması
+            {t('calendar.todayAttendance')}
           </PermissionButton>
           <PermissionButton required={['schedule.manage']} variant="primary" onClick={() => setShowCreate(true)}>
-            Yeni seans
+            {t('calendar.newSession')}
           </PermissionButton>
         </div>
       </div>
@@ -130,7 +131,7 @@ function CalendarScreen() {
                 color: view === v ? 'var(--color-on-primary)' : 'var(--color-text-secondary)',
               }}
             >
-              {VIEW_LABEL[v]}
+              {viewLabel[v]}
             </button>
           ))}
         </div>
@@ -139,21 +140,21 @@ function CalendarScreen() {
           className="text-xs px-2.5 py-1.5"
           style={{ borderRadius: 'var(--radius-button)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
         >
-          Önceki
+          {t('calendar.nav.previous')}
         </button>
         <button
           onClick={() => setAnchor(new Date())}
           className="text-xs px-2.5 py-1.5"
           style={{ borderRadius: 'var(--radius-button)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
         >
-          Bugün
+          {t('calendar.nav.today')}
         </button>
         <button
           onClick={() => setAnchor((a) => stepAnchor(view, a, 1))}
           className="text-xs px-2.5 py-1.5"
           style={{ borderRadius: 'var(--radius-button)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
         >
-          Sonraki
+          {t('calendar.nav.next')}
         </button>
 
         <select
@@ -162,7 +163,7 @@ function CalendarScreen() {
           value={branchFilter}
           onChange={(e) => setBranchFilter(e.target.value)}
         >
-          <option value="">Tüm şubeler</option>
+          <option value="">{t('calendar.filter.allBranches')}</option>
           {branches?.map((b) => (
             <option key={b.id} value={b.id}>
               {b.name}
@@ -175,7 +176,7 @@ function CalendarScreen() {
           value={resourceFilter}
           onChange={(e) => setResourceFilter(e.target.value)}
         >
-          <option value="">Tüm kaynaklar</option>
+          <option value="">{t('calendar.filter.allResources')}</option>
           {resources?.map((r) => (
             <option key={r.id} value={r.id}>
               {r.name}
@@ -188,10 +189,10 @@ function CalendarScreen() {
           value={trainerFilter}
           onChange={(e) => setTrainerFilter(e.target.value)}
         >
-          <option value="">Tüm eğitmenler</option>
-          {trainers?.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.firstName} {t.lastName}
+          <option value="">{t('calendar.filter.allTrainers')}</option>
+          {trainers?.map((tr) => (
+            <option key={tr.id} value={tr.id}>
+              {tr.firstName} {tr.lastName}
             </option>
           ))}
         </select>
@@ -201,7 +202,7 @@ function CalendarScreen() {
           value={serviceTypeFilter}
           onChange={(e) => setServiceTypeFilter(e.target.value)}
         >
-          <option value="">Tüm hizmet türleri</option>
+          <option value="">{t('calendar.filter.allServiceTypes')}</option>
           {serviceTypes?.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
@@ -245,7 +246,7 @@ function CalendarScreen() {
       )}
 
       {showCreate && (
-        <Modal title="Yeni seans oluştur" onClose={() => setShowCreate(false)}>
+        <Modal title={t('calendar.createTitle')} onClose={() => setShowCreate(false)}>
           <SessionForm
             studioId={activeStudioId}
             branches={branches ?? []}
@@ -260,7 +261,7 @@ function CalendarScreen() {
       )}
 
       {showEdit && selected && (
-        <Modal title="Seansı düzenle" onClose={() => setShowEdit(false)}>
+        <Modal title={t('calendar.editTitle')} onClose={() => setShowEdit(false)}>
           <EditSessionForm
             schedule={selected}
             branches={branches ?? []}

@@ -13,6 +13,7 @@ import type {
 } from '@platform/shared';
 import { TAX_REGIMES } from '@platform/shared';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useT } from '@/components/i18n/I18nProvider';
 import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, ErrorState } from '@/components/common/DataState';
@@ -31,9 +32,8 @@ interface CancellationPolicyRow {
   isActive: boolean;
 }
 
-const CHANNEL_LABELS: Record<MessageChannelName, string> = { WHATSAPP: 'WhatsApp', SMS: 'SMS' };
-
 function useSave<T>(studioId: string, path: string, initial: T | null) {
+  const t = useT();
   const [form, setForm] = useState<T | null>(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +48,7 @@ function useSave<T>(studioId: string, path: string, initial: T | null) {
       setForm(updated);
       setSaved(true);
     } catch (err) {
-      setError(err instanceof BffError ? err.message : 'Kaydedilemedi');
+      setError(err instanceof BffError ? err.message : t('common.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -57,6 +57,7 @@ function useSave<T>(studioId: string, path: string, initial: T | null) {
 }
 
 function CancellationPolicySection() {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const { data, loading, error } = useBff<CancellationPolicyRow[]>(`catalog/cancellation-policies/studio/${activeStudioId}`, activeStudioId);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -79,14 +80,14 @@ function CancellationPolicySection() {
       setEditingId(null);
       setRefreshKey((k) => k + 1);
     } catch (err) {
-      setSaveError(err instanceof BffError ? err.message : 'Politika kaydedilemedi');
+      setSaveError(err instanceof BffError ? err.message : t('settings.business.cancellation.errors.saveFailed'));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Section title="İptal politikası" description="Ücretsiz iptal süresi ve geç iptal/gelmeme ceza birimleri" key={refreshKey}>
+    <Section title={t('settings.business.cancellation.title')} description={t('settings.business.cancellation.description')} key={refreshKey}>
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
       {saveError && <InlineMessage text={saveError} tone="error" />}
@@ -95,12 +96,12 @@ function CancellationPolicySection() {
           {data.map((row) => (
             <div key={row.id} className="border-b last:border-b-0 pb-3" style={{ borderColor: 'var(--color-border)' }}>
               <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                {row.name} {row.isDefault && '(varsayılan)'}
+                {row.name} {row.isDefault && t('settings.business.cancellation.default')}
               </p>
               {editingId === row.id && draft ? (
                 <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-xl">
                   <label className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                    Ücretsiz iptal (saat)
+                    {t('settings.business.cancellation.freeCancelHours')}
                     <input
                       type="number"
                       min={0}
@@ -111,7 +112,7 @@ function CancellationPolicySection() {
                     />
                   </label>
                   <label className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                    Geç iptal (birim)
+                    {t('settings.business.cancellation.lateCancelUnits')}
                     <input
                       type="number"
                       min={0}
@@ -122,7 +123,7 @@ function CancellationPolicySection() {
                     />
                   </label>
                   <label className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                    Gelmeme (birim)
+                    {t('settings.business.cancellation.noShowUnits')}
                     <input
                       type="number"
                       min={0}
@@ -134,16 +135,20 @@ function CancellationPolicySection() {
                   </label>
                   <div className="col-span-full flex gap-2">
                     <PrimaryButton onClick={save} disabled={saving}>
-                      {saving ? 'Kaydediliyor...' : 'Kaydet'}
+                      {saving ? t('common.saving') : t('common.save')}
                     </PrimaryButton>
                   </div>
                 </div>
               ) : (
                 <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                  {row.freeCancelHours} saat öncesine kadar ücretsiz -- geç iptalde {row.lateCancelChargeUnits}, gelmemede {row.noShowChargeUnits} birim kesilir
+                  {t('settings.business.cancellation.summary', {
+                    hours: row.freeCancelHours,
+                    lateUnits: row.lateCancelChargeUnits,
+                    noShowUnits: row.noShowChargeUnits,
+                  })}
                   {' -- '}
                   <button type="button" className="underline" onClick={() => startEdit(row)}>
-                    düzenle
+                    {t('settings.business.cancellation.edit')}
                   </button>
                 </p>
               )}
@@ -156,6 +161,7 @@ function CancellationPolicySection() {
 }
 
 function CheckInWindowSection() {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const { data, loading, error } = useBff<UpdateCheckInWindowInput>(`studios/${activeStudioId}/check-in/window`, activeStudioId);
   const { form, setForm, saving, error: saveError, saved, save } = useSave<UpdateCheckInWindowInput>(activeStudioId, `studios/${activeStudioId}/check-in/window`, data);
@@ -165,10 +171,10 @@ function CheckInWindowSection() {
   if (!form) return null;
 
   return (
-    <Section title="Check-in penceresi" description="Üyenin seans başlamadan önce ve sonra check-in yapabileceği süre">
+    <Section title={t('settings.business.checkIn.title')} description={t('settings.business.checkIn.description')}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
         <label className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-          Önce (dakika)
+          {t('settings.business.checkIn.before')}
           <input
             type="number"
             min={0}
@@ -180,7 +186,7 @@ function CheckInWindowSection() {
           />
         </label>
         <label className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-          Sonra (dakika)
+          {t('settings.business.checkIn.after')}
           <input
             type="number"
             min={0}
@@ -193,15 +199,16 @@ function CheckInWindowSection() {
         </label>
       </div>
       {saveError && <InlineMessage text={saveError} tone="error" />}
-      {saved && <InlineMessage text="Kaydedildi" tone="success" />}
+      {saved && <InlineMessage text={t('settings.appearance.saved')} tone="success" />}
       <PrimaryButton onClick={() => save(form)} disabled={saving}>
-        {saving ? 'Kaydediliyor...' : 'Kaydet'}
+        {saving ? t('common.saving') : t('common.save')}
       </PrimaryButton>
     </Section>
   );
 }
 
 function LocaleSection() {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const { data: languages } = useBff<PublicLanguagesDTO>('i18n/languages', null);
   const { data, loading, error } = useBff<{ defaultLocale: string }>(`studios/${activeStudioId}/locale`, activeStudioId);
@@ -216,7 +223,7 @@ function LocaleSection() {
   if (!form) return null;
 
   return (
-    <Section title="Varsayılan dil" description="Kendi dilini seçmemiş üye ve personelin göreceği dil">
+    <Section title={t('settings.business.locale.title')} description={t('settings.business.locale.description')}>
       <div className="max-w-xs">
         <select
           value={form.defaultLocale}
@@ -232,23 +239,16 @@ function LocaleSection() {
         </select>
       </div>
       {saveError && <InlineMessage text={saveError} tone="error" />}
-      {saved && <InlineMessage text="Kaydedildi" tone="success" />}
+      {saved && <InlineMessage text={t('settings.appearance.saved')} tone="success" />}
       <PrimaryButton onClick={() => save(form)} disabled={saving}>
-        {saving ? 'Kaydediliyor...' : 'Kaydet'}
+        {saving ? t('common.saving') : t('common.save')}
       </PrimaryButton>
     </Section>
   );
 }
 
-const TAX_REGIME_LABELS: Record<TaxRegime, string> = {
-  TR_KDV: 'Türkiye KDV',
-  EU_VAT: 'AB KDV',
-  UK_VAT: 'Birleşik Krallık KDV',
-  US_SALES_TAX: 'ABD eyalet satış vergisi',
-  NONE: 'Yok',
-};
-
 function RegionSection() {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const { data, loading, error } = useBff<StudioRegion>(`studios/${activeStudioId}/region`, activeStudioId);
   const { form, setForm, saving, error: saveError, saved, save } = useSave<StudioRegion>(
@@ -262,13 +262,13 @@ function RegionSection() {
   if (!form) return null;
 
   return (
-    <Section title="Bölge ve para birimi" description="Ülke, para birimi, saat dilimi ve vergi rejimi; ödeme kaydedildikten sonra para birimi değiştirilemez">
+    <Section title={t('settings.business.region.title')} description={t('settings.business.region.description')}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
-        <TextField label="Ülke kodu (ISO 3166-1, ör: TR)" value={form.countryCode} onChange={(v) => setForm({ ...form, countryCode: v.toUpperCase() })} />
-        <TextField label="Para birimi (ISO 4217, ör: TRY)" value={form.currency} onChange={(v) => setForm({ ...form, currency: v.toUpperCase() })} />
-        <TextField label="Saat dilimi (ör: Europe/Istanbul)" value={form.timezone} onChange={(v) => setForm({ ...form, timezone: v })} />
+        <TextField label={t('settings.business.region.countryCode')} value={form.countryCode} onChange={(v) => setForm({ ...form, countryCode: v.toUpperCase() })} />
+        <TextField label={t('settings.business.region.currency')} value={form.currency} onChange={(v) => setForm({ ...form, currency: v.toUpperCase() })} />
+        <TextField label={t('settings.business.region.timezone')} value={form.timezone} onChange={(v) => setForm({ ...form, timezone: v })} />
         <label className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-          Vergi rejimi
+          {t('settings.business.region.taxRegime')}
           <select
             value={form.taxRegime}
             onChange={(e) => setForm({ ...form, taxRegime: e.target.value as TaxRegime })}
@@ -277,23 +277,24 @@ function RegionSection() {
           >
             {TAX_REGIMES.map((regime) => (
               <option key={regime} value={regime}>
-                {TAX_REGIME_LABELS[regime]}
+                {t(`settings.business.taxRegime.${regime}`)}
               </option>
             ))}
           </select>
         </label>
-        <Toggle label="Paket fiyatları vergi dahil girilir" checked={form.pricesIncludeTax} onChange={(v) => setForm({ ...form, pricesIncludeTax: v })} />
+        <Toggle label={t('settings.business.region.pricesIncludeTax')} checked={form.pricesIncludeTax} onChange={(v) => setForm({ ...form, pricesIncludeTax: v })} />
       </div>
       {saveError && <InlineMessage text={saveError} tone="error" />}
-      {saved && <InlineMessage text="Kaydedildi" tone="success" />}
+      {saved && <InlineMessage text={t('settings.appearance.saved')} tone="success" />}
       <PrimaryButton onClick={() => save(form)} disabled={saving}>
-        {saving ? 'Kaydediliyor...' : 'Kaydet'}
+        {saving ? t('common.saving') : t('common.save')}
       </PrimaryButton>
     </Section>
   );
 }
 
 function NotificationChannelSection() {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const { data, loading, error } = useBff<NotificationSettings>(`studios/${activeStudioId}/notification-settings`, activeStudioId);
   const { data: wallet } = useBff<{ balance: number; lowBalanceThreshold: number }>(`studios/${activeStudioId}/sms-wallet`, activeStudioId);
@@ -313,59 +314,66 @@ function NotificationChannelSection() {
   };
 
   return (
-    <Section title="Bildirim kanalları" description="Kanal deneme sırası ve fallback; WhatsApp kapatılırsa doğrudan SMS'e düşer">
+    <Section title={t('settings.business.notifications.title')} description={t('settings.business.notifications.description')}>
       <div className="space-y-2 max-w-md">
         {form.order.map((channel, idx) => (
           <div key={channel} className="flex items-center justify-between px-3 py-2 border" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)' }}>
             <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
-              {idx + 1}. {CHANNEL_LABELS[channel]}
+              {idx + 1}. {t(`settings.business.channel.${channel}`)}
             </span>
             <div className="flex gap-1">
               <button type="button" disabled={idx === 0} onClick={() => moveChannel(channel, -1)} className="text-xs px-2 py-1 disabled:opacity-30">
-                Yukarı
+                {t('settings.business.notifications.moveUp')}
               </button>
               <button type="button" disabled={idx === form.order.length - 1} onClick={() => moveChannel(channel, 1)} className="text-xs px-2 py-1 disabled:opacity-30">
-                Aşağı
+                {t('settings.business.notifications.moveDown')}
               </button>
             </div>
           </div>
         ))}
-        <Toggle label="WhatsApp etkin" checked={form.whatsappEnabled} onChange={(v) => setForm({ ...form, whatsappEnabled: v })} />
-        <TextField label="SMS gönderen başlığı" value={form.smsSenderName ?? ''} onChange={(v) => setForm({ ...form, smsSenderName: v || undefined })} placeholder="En fazla 11 karakter" />
+        <Toggle label={t('settings.business.notifications.whatsappEnabled')} checked={form.whatsappEnabled} onChange={(v) => setForm({ ...form, whatsappEnabled: v })} />
+        <TextField
+          label={t('settings.business.notifications.smsSenderName')}
+          value={form.smsSenderName ?? ''}
+          onChange={(v) => setForm({ ...form, smsSenderName: v || undefined })}
+          placeholder={t('settings.business.notifications.smsSenderPlaceholder')}
+        />
       </div>
       {wallet && (
         <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          SMS bakiyesi: {wallet.balance} kredi
+          {t('settings.business.notifications.smsBalance', { balance: wallet.balance })}
         </p>
       )}
       {saveError && <InlineMessage text={saveError} tone="error" />}
-      {saved && <InlineMessage text="Kaydedildi" tone="success" />}
+      {saved && <InlineMessage text={t('settings.appearance.saved')} tone="success" />}
       <PrimaryButton onClick={() => save(form)} disabled={saving}>
-        {saving ? 'Kaydediliyor...' : 'Kaydet'}
+        {saving ? t('common.saving') : t('common.save')}
       </PrimaryButton>
     </Section>
   );
 }
 
 function GamificationSection() {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const { data, loading, error } = useBff<GamificationSettingsDTO>(`gamification/studio/${activeStudioId}/settings`, activeStudioId);
-  const { form, setForm, saving, error: saveError, saved, save } = useSave<GamificationSettingsDTO>(activeStudioId, `gamification/studio/${activeStudioId}/settings`, data);
+  const { form, setForm, saving: _saving, error: saveError, saved, save } = useSave<GamificationSettingsDTO>(activeStudioId, `gamification/studio/${activeStudioId}/settings`, data);
 
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} />;
   if (!form) return null;
 
   return (
-    <Section title="Oyunlaştırma" description="Seri, kilometre taşı, rozet ve aylık hedef özellikleri">
-      <Toggle label="Oyunlaştırma etkin" checked={form.enabled} onChange={(v) => { setForm({ enabled: v }); save({ enabled: v }); }} />
+    <Section title={t('settings.business.gamification.title')} description={t('settings.business.gamification.description')}>
+      <Toggle label={t('settings.business.gamification.enabled')} checked={form.enabled} onChange={(v) => { setForm({ enabled: v }); save({ enabled: v }); }} />
       {saveError && <InlineMessage text={saveError} tone="error" />}
-      {saved && <InlineMessage text="Kaydedildi" tone="success" />}
+      {saved && <InlineMessage text={t('settings.appearance.saved')} tone="success" />}
     </Section>
   );
 }
 
 function FeedbackSection() {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const { data, loading, error } = useBff<FeedbackSettingsDTO>(`studios/${activeStudioId}/feedback-settings`, activeStudioId);
   const { form, setForm, saving, error: saveError, saved, save } = useSave<FeedbackSettingsDTO>(activeStudioId, `studios/${activeStudioId}/feedback-settings`, data);
@@ -388,17 +396,17 @@ function FeedbackSection() {
   };
 
   return (
-    <Section title="Geri bildirim ve tavsiye" description="Google yorum yönlendirmesi ve arkadaşını getir ödül birimi">
+    <Section title={t('settings.business.feedback.title')} description={t('settings.business.feedback.description')}>
       <div className="max-w-lg space-y-3">
         <TextField
-          label="Google yorum bağlantısı"
+          label={t('settings.business.feedback.googleReviewUrl')}
           value={form.googleReviewUrl ?? ''}
           onChange={(v) => setForm({ ...form, googleReviewUrl: v || null })}
           placeholder="https://g.page/..."
           error={urlError}
         />
         <label className="block text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-          Tavsiye ödül birimi
+          {t('settings.business.feedback.referralRewardUnits')}
           <input
             type="number"
             min={0}
@@ -411,15 +419,16 @@ function FeedbackSection() {
         </label>
       </div>
       {saveError && <InlineMessage text={saveError} tone="error" />}
-      {saved && <InlineMessage text="Kaydedildi" tone="success" />}
+      {saved && <InlineMessage text={t('settings.appearance.saved')} tone="success" />}
       <PrimaryButton onClick={doSave} disabled={saving}>
-        {saving ? 'Kaydediliyor...' : 'Kaydet'}
+        {saving ? t('common.saving') : t('common.save')}
       </PrimaryButton>
     </Section>
   );
 }
 
 function EmbedOriginsSection() {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const { data, loading, error: loadError } = useBff<{ id: string; embedAllowedOrigins: string[] }>(
     `studios/${activeStudioId}/embed-settings`,
@@ -457,25 +466,25 @@ function EmbedOriginsSection() {
       await bffFetch(`studios/${activeStudioId}/embed-settings`, { method: 'PUT', body: { embedAllowedOrigins: origins }, studioId: activeStudioId });
       setSaved(true);
     } catch (err) {
-      setSaveError(err instanceof BffError ? err.message : 'Kaydedilemedi');
+      setSaveError(err instanceof BffError ? err.message : t('common.saveFailed'));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Section title="Gömülü widget izinli kökenler" description="Boş bırakılırsa rezervasyon widget'ı her kökenden çerçevelenebilir">
+    <Section title={t('settings.business.embed.title')} description={t('settings.business.embed.description')}>
       {loading && <LoadingState />}
-      {loadError && <InlineMessage text="Mevcut liste yüklenemedi" tone="error" />}
+      {loadError && <InlineMessage text={t('settings.business.embed.errors.loadFailed')} tone="error" />}
       <div className="flex gap-2 max-w-lg">
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="https://ornek.com"
+          placeholder={t('settings.business.embed.placeholder')}
           className="flex-1 px-3 py-2 text-sm border"
           style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)', backgroundColor: 'var(--color-background)', color: 'var(--color-text-primary)' }}
         />
-        <PrimaryButton onClick={add}>Ekle</PrimaryButton>
+        <PrimaryButton onClick={add}>{t('common.add')}</PrimaryButton>
       </div>
       {draftError && <InlineMessage text={draftError} tone="error" />}
       {origins.length > 0 && (
@@ -484,22 +493,23 @@ function EmbedOriginsSection() {
             <li key={o} className="flex items-center justify-between">
               {o}
               <button type="button" className="text-xs underline" onClick={() => setOrigins((prev) => prev.filter((x) => x !== o))}>
-                kaldır
+                {t('settings.business.embed.remove')}
               </button>
             </li>
           ))}
         </ul>
       )}
       {saveError && <InlineMessage text={saveError} tone="error" />}
-      {saved && <InlineMessage text="Kaydedildi" tone="success" />}
+      {saved && <InlineMessage text={t('settings.appearance.saved')} tone="success" />}
       <PrimaryButton onClick={doSave} disabled={saving}>
-        {saving ? 'Kaydediliyor...' : 'Kaydet'}
+        {saving ? t('common.saving') : t('common.save')}
       </PrimaryButton>
     </Section>
   );
 }
 
 function BusinessSettings() {
+  const t = useT();
   const { permissions, isOwner } = useDashboardSession();
   const canCatalog = hasAnyPermission(['catalog.view', 'catalog.manage'], permissions, isOwner);
   const canStudio = hasAnyPermission(['studio.settings.view', 'studio.settings.manage'], permissions, isOwner);
@@ -509,7 +519,7 @@ function BusinessSettings() {
 
   return (
     <div className="space-y-6">
-      <SettingsHeader title="İşletme" description="İptal politikası, check-in, bildirim, oyunlaştırma ve geri bildirim ayarları" />
+      <SettingsHeader title={t('settings.business.title')} description={t('settings.business.description')} />
       {canCatalog && <CancellationPolicySection />}
       {canStudio && <RegionSection />}
       {canStudio && <LocaleSection />}

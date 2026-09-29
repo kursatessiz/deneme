@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { PayrollLineDTO, PayrollRunDTO, PayrollRunStatus } from '@platform/shared';
 import { useDashboardSession, useFormatMoney } from '@/components/session/DashboardSessionProvider';
-import { useLocale } from '@/components/i18n/I18nProvider';
+import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { formatMoney } from '@/lib/money';
 import { toDateInputValue, fromDateInputValue } from '@/lib/date-range';
@@ -17,7 +17,6 @@ type RunStatus = PayrollRunStatus;
 type PayrollLineDetail = PayrollLineDTO;
 type PayrollRun = PayrollRunDTO;
 
-const STATUS_LABEL: Record<RunStatus, string> = { DRAFT: 'Taslak', APPROVED: 'Onaylandı', PAID: 'Ödendi' };
 const STATUS_TONE: Record<RunStatus, 'neutral' | 'warning' | 'success'> = { DRAFT: 'neutral', APPROVED: 'warning', PAID: 'success' };
 
 const inputStyle: React.CSSProperties = {
@@ -28,6 +27,7 @@ const inputStyle: React.CSSProperties = {
 };
 
 function NewRunDialog({ studioId, onClose, onDone }: { studioId: string; onClose: () => void; onDone: () => void }) {
+  const t = useT();
   const [periodStart, setPeriodStart] = useState(() => toDateInputValue(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
   const [periodEnd, setPeriodEnd] = useState(() => toDateInputValue(new Date()));
   const [branchId, setBranchId] = useState('');
@@ -40,7 +40,7 @@ function NewRunDialog({ studioId, onClose, onDone }: { studioId: string; onClose
     const start = fromDateInputValue(periodStart);
     const end = fromDateInputValue(periodEnd);
     if (!start || !end || start >= end) {
-      setError('Geçerli bir dönem seçiniz');
+      setError(t('finance.payroll.periodInvalid'));
       return;
     }
     setSubmitting(true);
@@ -52,14 +52,14 @@ function NewRunDialog({ studioId, onClose, onDone }: { studioId: string; onClose
       });
       onDone();
     } catch (err) {
-      setError(err instanceof BffError ? err.message : 'Bordro dönemi oluşturulamadı');
+      setError(err instanceof BffError ? err.message : t('finance.payroll.errors.createFailed'));
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <Modal title="Yeni bordro taslağı" onClose={onClose}>
+    <Modal title={t('finance.payroll.newRunTitle')} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="flex items-center gap-2">
           <input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} className="flex-1 text-sm px-3 py-1.5" style={inputStyle} />
@@ -72,10 +72,10 @@ function NewRunDialog({ studioId, onClose, onDone }: { studioId: string; onClose
         {error && <p className="text-xs text-red-600">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <PermissionButton type="button" variant="ghost" onClick={onClose}>
-            Vazgeç
+            {t('common.cancel')}
           </PermissionButton>
           <PermissionButton required={['payroll.manage']} type="submit" variant="primary" disabled={submitting}>
-            {submitting ? 'Oluşturuluyor...' : 'Oluştur / yeniden hesapla'}
+            {submitting ? t('finance.payroll.creating') : t('finance.payroll.createSubmit')}
           </PermissionButton>
         </div>
       </form>
@@ -96,6 +96,7 @@ function AdjustLineDialog({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const t = useT();
   const [amount, setAmount] = useState('0');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -105,7 +106,7 @@ function AdjustLineDialog({
     e.preventDefault();
     setError(null);
     if (note.trim().length < 3) {
-      setError('Düzeltme için bir açıklama giriniz');
+      setError(t('finance.payroll.adjustReasonRequired'));
       return;
     }
     setSubmitting(true);
@@ -117,27 +118,33 @@ function AdjustLineDialog({
       });
       onDone();
     } catch (err) {
-      setError(err instanceof BffError ? err.message : 'Düzeltme kaydedilemedi');
+      setError(err instanceof BffError ? err.message : t('finance.payroll.errors.adjustFailed'));
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <Modal title={`${line.trainerFullName} - manuel düzeltme`} onClose={onClose}>
+    <Modal title={t('finance.payroll.adjustTitle', { name: line.trainerFullName })} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-          Pozitif tutar nete ekler, negatif tutar neti düşürür.
+          {t('finance.payroll.adjustHint')}
         </p>
         <input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full text-sm px-3 py-1.5" style={inputStyle} />
-        <textarea placeholder="Açıklama" value={note} onChange={(e) => setNote(e.target.value)} className="w-full text-sm px-3 py-1.5" style={{ ...inputStyle, minHeight: 60 }} />
+        <textarea
+          placeholder={t('finance.payroll.notePlaceholder')}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          className="w-full text-sm px-3 py-1.5"
+          style={{ ...inputStyle, minHeight: 60 }}
+        />
         {error && <p className="text-xs text-red-600">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <PermissionButton type="button" variant="ghost" onClick={onClose}>
-            Vazgeç
+            {t('common.cancel')}
           </PermissionButton>
           <PermissionButton required={['payroll.manage']} type="submit" variant="primary" disabled={submitting}>
-            {submitting ? 'Kaydediliyor...' : 'Düzeltmeyi kaydet'}
+            {submitting ? t('finance.payroll.adjustSaving') : t('finance.payroll.adjustSubmit')}
           </PermissionButton>
         </div>
       </form>
@@ -146,10 +153,12 @@ function AdjustLineDialog({
 }
 
 function RunDetail({ studioId, run, onReload }: { studioId: string; run: PayrollRun; onReload: () => void }) {
+  const t = useT();
   const formatMoney = useFormatMoney();
   const locale = useLocale();
   const [adjustingLine, setAdjustingLine] = useState<PayrollLineDetail | null>(null);
   const [busy, setBusy] = useState(false);
+  const statusLabel = (s: RunStatus) => t(`finance.runStatus.${s}`);
 
   async function handleApprove() {
     setBusy(true);
@@ -157,7 +166,7 @@ function RunDetail({ studioId, run, onReload }: { studioId: string; run: Payroll
       await bffFetch(`payroll/runs/${run.id}/approve`, { method: 'POST', studioId });
       onReload();
     } catch (err) {
-      window.alert(err instanceof BffError ? err.message : 'Onaylanamadı');
+      window.alert(err instanceof BffError ? err.message : t('finance.payroll.errors.approveFailed'));
     } finally {
       setBusy(false);
     }
@@ -169,7 +178,7 @@ function RunDetail({ studioId, run, onReload }: { studioId: string; run: Payroll
       await bffFetch(`payroll/runs/${run.id}/mark-paid`, { method: 'POST', studioId });
       onReload();
     } catch (err) {
-      window.alert(err instanceof BffError ? err.message : 'Ödendi işaretlenemedi');
+      window.alert(err instanceof BffError ? err.message : t('finance.payroll.errors.markPaidFailed'));
     } finally {
       setBusy(false);
     }
@@ -179,7 +188,7 @@ function RunDetail({ studioId, run, onReload }: { studioId: string; run: Payroll
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Badge tone={STATUS_TONE[run.status]}>{STATUS_LABEL[run.status]}</Badge>
+          <Badge tone={STATUS_TONE[run.status]}>{statusLabel(run.status)}</Badge>
           <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
             {new Date(run.periodStart).toLocaleDateString(locale)} - {new Date(run.periodEnd).toLocaleDateString(locale)}
           </span>
@@ -190,16 +199,16 @@ function RunDetail({ studioId, run, onReload }: { studioId: string; run: Payroll
             className="text-xs font-medium px-3 py-1.5"
             style={{ ...inputStyle, background: 'var(--color-surface-muted)' }}
           >
-            CSV indir
+            {t('finance.payroll.downloadCsv')}
           </a>
           {run.status === 'DRAFT' && (
             <PermissionButton required={['payroll.manage']} variant="primary" onClick={handleApprove} disabled={busy}>
-              Onayla
+              {t('finance.payroll.approve')}
             </PermissionButton>
           )}
           {run.status === 'APPROVED' && (
             <PermissionButton required={['payroll.manage']} variant="primary" onClick={handleMarkPaid} disabled={busy}>
-              Ödendi işaretle
+              {t('finance.payroll.markPaid')}
             </PermissionButton>
           )}
         </div>
@@ -209,8 +218,16 @@ function RunDetail({ studioId, run, onReload }: { studioId: string; run: Payroll
         <table className="w-full text-sm">
           <thead>
             <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
-              {['Eğitmen', 'Seans', 'Katılımcı', 'Brüt', 'Düzeltme', 'Net', ''].map((h) => (
-                <th key={h} className="text-left px-4 py-2.5 font-medium whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
+              {[
+                t('finance.payroll.col.trainer'),
+                t('finance.payroll.col.sessions'),
+                t('finance.payroll.col.attendees'),
+                t('finance.payroll.col.gross'),
+                t('finance.payroll.col.adjustment'),
+                t('finance.payroll.col.net'),
+                '',
+              ].map((h, i) => (
+                <th key={i} className="text-left px-4 py-2.5 font-medium whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
                   {h}
                 </th>
               ))}
@@ -245,7 +262,7 @@ function RunDetail({ studioId, run, onReload }: { studioId: string; run: Payroll
                 <td className="px-4 py-2.5 text-right">
                   {run.status === 'DRAFT' && (
                     <PermissionButton required={['payroll.manage']} onClick={() => setAdjustingLine(l)}>
-                      Düzelt
+                      {t('finance.payroll.adjust')}
                     </PermissionButton>
                   )}
                 </td>
@@ -255,7 +272,7 @@ function RunDetail({ studioId, run, onReload }: { studioId: string; run: Payroll
           <tfoot>
             <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
               <td colSpan={5} className="px-4 py-2.5 font-semibold text-right" style={{ color: 'var(--color-text-primary)' }}>
-                Toplam net
+                {t('finance.payroll.totalNet')}
               </td>
               <td colSpan={2} className="px-4 py-2.5 font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                 {formatMoney(run.totalNet)}
@@ -282,6 +299,7 @@ function RunDetail({ studioId, run, onReload }: { studioId: string; run: Payroll
 }
 
 export function PayrollRuns() {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const locale = useLocale();
   const [runs, setRuns] = useState<PayrollRun[] | null>(null);
@@ -291,6 +309,7 @@ export function PayrollRuns() {
   const [selectedRun, setSelectedRun] = useState<PayrollRun | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const statusLabel = (s: RunStatus) => t(`finance.runStatus.${s}`);
 
   useEffect(() => {
     if (!activeStudioId) return;
@@ -301,7 +320,7 @@ export function PayrollRuns() {
         setRuns(data);
         if (!selectedRunId && data.length > 0) setSelectedRunId(data[0].id);
       })
-      .catch((err) => setError(err instanceof BffError ? err.message : 'Bordro dönemleri yüklenemedi'))
+      .catch((err) => setError(err instanceof BffError ? err.message : t('finance.payroll.errors.loadFailed')))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStudioId, reloadKey]);
@@ -321,20 +340,22 @@ export function PayrollRuns() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-            Hakediş ve bordro
+            {t('finance.payroll.title')}
           </h2>
           <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-            Dönemsel eğitmen hakediş bordrosu
+            {t('finance.payroll.subtitle')}
           </p>
         </div>
         <PermissionButton required={['payroll.manage']} variant="primary" onClick={() => setShowNew(true)}>
-          Yeni dönem
+          {t('finance.payroll.newPeriod')}
         </PermissionButton>
       </div>
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
-      {!loading && !error && (!runs || runs.length === 0) && <EmptyState title="Henüz bordro dönemi yok" description="Yeni dönem oluşturarak başlayın." />}
+      {!loading && !error && (!runs || runs.length === 0) && (
+        <EmptyState title={t('finance.payroll.empty.title')} description={t('finance.payroll.empty.description')} />
+      )}
 
       {!loading && !error && runs && runs.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -351,7 +372,7 @@ export function PayrollRuns() {
                 color: r.id === selectedRunId ? 'var(--color-on-primary)' : 'var(--color-text-primary)',
               }}
             >
-              {new Date(r.periodStart).toLocaleDateString(locale)} - {new Date(r.periodEnd).toLocaleDateString(locale)} ({STATUS_LABEL[r.status]})
+              {new Date(r.periodStart).toLocaleDateString(locale)} - {new Date(r.periodEnd).toLocaleDateString(locale)} ({statusLabel(r.status)})
             </button>
           ))}
         </div>

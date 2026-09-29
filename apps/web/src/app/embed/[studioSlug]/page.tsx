@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { useLocale } from '@/components/i18n/I18nProvider';
+import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { resolveTheme, themeCssVariables, THEME_FAMILY_KEYS, DEFAULT_THEME_FAMILY, STUDIO_SLUG_PATTERN } from '@platform/shared';
 import { trackingHeaders } from '@/lib/tracking/client';
 
@@ -83,6 +83,7 @@ function formatTime(iso: string, locale: string) {
  * existing public lead form (see apps/api/src/modules/leads).
  */
 export default function EmbedBookingPage() {
+  const t = useT();
   const locale = useLocale();
   const params = useParams();
   const rawSlug = params.studioSlug as string;
@@ -139,10 +140,11 @@ export default function EmbedBookingPage() {
         setSchedules(scheduleList.filter((s) => s.bookedCount < s.capacity));
         setStatus('idle');
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Bilgiler yüklenemedi');
+        setError(err instanceof Error ? err.message : t('embed.errors.loadFailed'));
         setStatus('error');
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
   // Auto-resize the host page's iframe: tell it our content height whenever it changes.
@@ -182,8 +184,9 @@ export default function EmbedBookingPage() {
     setLeadError(null);
     try {
       const interest = selectedSchedule
-        ? `Web widget üzerinden deneme seansı talebi: ${serviceTypeName(selectedSchedule.serviceTypeId)} - ${formatTime(selectedSchedule.startTime, locale)}${selectedSchedule.branchId ? ` (${branchName(selectedSchedule.branchId)})` : ''}`
-        : 'Web widget üzerinden deneme seansı talebi';
+        ? t('embed.leadInterest.withSchedule', { service: serviceTypeName(selectedSchedule.serviceTypeId), time: formatTime(selectedSchedule.startTime, locale) }) +
+          (selectedSchedule.branchId ? t('embed.leadInterest.withBranch', { branch: branchName(selectedSchedule.branchId) }) : '')
+        : t('embed.leadInterest.noSchedule');
       await fetch(`${API_BASE_URL}/public/studios/${encodeURIComponent(slug)}/leads`, {
         method: 'POST',
         // X-PW-VID links this visitor's tracked visits to the new contact (only present after consent).
@@ -201,7 +204,7 @@ export default function EmbedBookingPage() {
       setLeadStatus('submitted');
     } catch {
       // Network-level failure only (the endpoint itself never errors).
-      setLeadError('Gönderilemedi, lütfen tekrar deneyin.');
+      setLeadError(t('embed.errors.submitFailed'));
       setLeadStatus('idle');
     }
   };
@@ -222,14 +225,14 @@ export default function EmbedBookingPage() {
           <img src={config.logoUrl} alt={config.name} className="mb-3 h-8 object-contain" />
         )}
         <h1 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          {config?.name ?? 'Online Rezervasyon'}
+          {config?.name ?? t('embed.defaultTitle')}
         </h1>
 
-        {status === 'loading' && <p className="mt-4 text-sm" style={{ color: 'var(--color-text-muted)' }}>Yükleniyor...</p>}
+        {status === 'loading' && <p className="mt-4 text-sm" style={{ color: 'var(--color-text-muted)' }}>{t('embed.loading')}</p>}
 
         {status === 'error' && (
           <p className="mt-4 text-sm" style={{ color: '#b42318' }}>
-            {error ?? 'Bilgiler yüklenemedi, lütfen daha sonra tekrar deneyin.'}
+            {error ?? t('embed.errors.loadFailedRetry')}
           </p>
         )}
 
@@ -237,7 +240,7 @@ export default function EmbedBookingPage() {
           <div className="mt-4 space-y-4">
             <div>
               <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                Seans seçin
+                {t('embed.chooseSession')}
               </label>
               <select
                 value={selectedScheduleId}
@@ -245,7 +248,7 @@ export default function EmbedBookingPage() {
                 className="w-full border px-3 py-2 text-sm"
                 style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)', background: 'var(--color-surface)', color: 'var(--color-text-primary)' }}
               >
-                <option value="">Bir seans seçin</option>
+                <option value="">{t('embed.choosePlaceholder')}</option>
                 {schedules.map((s) => (
                   <option key={s.id} value={s.id}>
                     {formatTime(s.startTime, locale)} - {serviceTypeName(s.serviceTypeId)}
@@ -254,7 +257,7 @@ export default function EmbedBookingPage() {
                 ))}
               </select>
               <p className="mt-1 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-                Bu, yalnızca bir zaman/hizmet seçimidir; rezervasyon bu sayfada oluşturulmaz.
+                {t('embed.selectionHint')}
               </p>
             </div>
 
@@ -267,7 +270,7 @@ export default function EmbedBookingPage() {
                   className="w-full py-2.5 text-sm font-semibold text-white disabled:opacity-60"
                   style={{ background: 'var(--gradient-brand)', borderRadius: 'var(--radius-button)', color: 'var(--color-on-primary)' }}
                 >
-                  Üyeyim, uygulamada rezervasyon yapacağım
+                  {t('embed.openApp')}
                 </button>
                 <button
                   type="button"
@@ -276,7 +279,7 @@ export default function EmbedBookingPage() {
                   className="w-full border py-2.5 text-sm font-semibold disabled:opacity-60"
                   style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-button)', color: 'var(--color-text-primary)' }}
                 >
-                  İlk kez geliyorum, benimle iletişime geçin
+                  {t('embed.firstTime')}
                 </button>
               </div>
             )}
@@ -285,7 +288,7 @@ export default function EmbedBookingPage() {
               <form onSubmit={submitLead} className="space-y-3">
                 <div>
                   <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                    Ad soyad
+                    {t('embed.fullName')}
                   </label>
                   <input
                     required
@@ -297,7 +300,7 @@ export default function EmbedBookingPage() {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                    Telefon numaranız
+                    {t('embed.phone')}
                   </label>
                   <input
                     required
@@ -321,7 +324,7 @@ export default function EmbedBookingPage() {
                 />
                 <label className="flex items-start gap-2 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
                   <input type="checkbox" checked={leadConsent} onChange={(e) => setLeadConsent(e.target.checked)} required className="mt-0.5" />
-                  Bu bilgilerin işletme tarafından benimle iletişime geçmek için kullanılmasına izin veriyorum.
+                  {t('embed.consent')}
                 </label>
                 {leadError && (
                   <p className="text-xs" style={{ color: '#b42318' }}>
@@ -335,7 +338,7 @@ export default function EmbedBookingPage() {
                     className="flex-1 border py-2.5 text-sm font-semibold"
                     style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-button)', color: 'var(--color-text-primary)' }}
                   >
-                    Geri
+                    {t('embed.back')}
                   </button>
                   <button
                     type="submit"
@@ -343,7 +346,7 @@ export default function EmbedBookingPage() {
                     className="flex-1 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
                     style={{ background: 'var(--gradient-brand)', borderRadius: 'var(--radius-button)', color: 'var(--color-on-primary)' }}
                   >
-                    {leadStatus === 'submitting' ? 'Gönderiliyor...' : 'Gönder'}
+                    {leadStatus === 'submitting' ? t('embed.sending') : t('embed.send')}
                   </button>
                 </div>
               </form>
@@ -352,10 +355,10 @@ export default function EmbedBookingPage() {
             {mode === 'lead' && leadStatus === 'submitted' && (
               <div className="space-y-2">
                 <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                  Talebiniz alındı.
+                  {t('embed.submitted.title')}
                 </p>
                 <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  Ekibimiz en kısa sürede sizinle iletişime geçecek.
+                  {t('embed.submitted.description')}
                 </p>
               </div>
             )}

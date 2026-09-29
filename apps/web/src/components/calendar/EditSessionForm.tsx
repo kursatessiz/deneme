@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { UpdateScheduleSchema } from '@platform/shared';
 import type { UpdateScheduleInput } from '@platform/shared';
+import { useT } from '@/components/i18n/I18nProvider';
 import type { BranchRow, ResourceRow, ScheduleRow, TrainerRow } from '@/lib/calendar/types';
 
 const inputStyle: React.CSSProperties = {
@@ -45,6 +46,7 @@ export function EditSessionForm({
   onCancel: () => void;
   onSubmit: (payload: UpdateScheduleInput) => Promise<void>;
 }) {
+  const t = useT();
   const [title, setTitle] = useState(schedule.title ?? '');
   const [branchId, setBranchId] = useState(schedule.branchId ?? '');
   const [resourceId, setResourceId] = useState(schedule.resourceId ?? '');
@@ -83,13 +85,13 @@ export function EditSessionForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <Field label="Başlık">
+      <Field label={t('calendar.form.title')}>
         <input className="px-2.5 py-1.5 text-sm" style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} required />
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Şube">
+        <Field label={t('calendar.form.branch')}>
           <select className="px-2.5 py-1.5 text-sm" style={inputStyle} value={branchId} onChange={(e) => setBranchId(e.target.value)}>
-            <option value="">Yok</option>
+            <option value="">{t('calendar.form.branchNone')}</option>
             {branches.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
@@ -97,9 +99,9 @@ export function EditSessionForm({
             ))}
           </select>
         </Field>
-        <Field label="Kaynak">
+        <Field label={t('calendar.form.resourceShort')}>
           <select className="px-2.5 py-1.5 text-sm" style={inputStyle} value={resourceId} onChange={(e) => setResourceId(e.target.value)}>
-            <option value="">Yok</option>
+            <option value="">{t('calendar.form.branchNone')}</option>
             {resources.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
@@ -108,28 +110,28 @@ export function EditSessionForm({
           </select>
         </Field>
       </div>
-      <Field label="Eğitmen">
+      <Field label={t('calendar.form.trainer')}>
         <select className="px-2.5 py-1.5 text-sm" style={inputStyle} value={trainerId} onChange={(e) => setTrainerId(e.target.value)}>
-          <option value="">Yok</option>
-          {trainers.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.firstName} {t.lastName}
+          <option value="">{t('calendar.form.branchNone')}</option>
+          {trainers.map((tr) => (
+            <option key={tr.id} value={tr.id}>
+              {tr.firstName} {tr.lastName}
             </option>
           ))}
         </select>
       </Field>
       <div className="grid grid-cols-3 gap-3">
-        <Field label="Tarih">
+        <Field label={t('calendar.form.date')}>
           <input type="date" className="px-2.5 py-1.5 text-sm" style={inputStyle} value={date} onChange={(e) => setDate(e.target.value)} required />
         </Field>
-        <Field label="Başlangıç">
+        <Field label={t('calendar.form.startTime')}>
           <input type="time" className="px-2.5 py-1.5 text-sm" style={inputStyle} value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
         </Field>
-        <Field label="Bitiş">
+        <Field label={t('calendar.form.endTime')}>
           <input type="time" className="px-2.5 py-1.5 text-sm" style={inputStyle} value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
         </Field>
       </div>
-      <Field label="Kapasite">
+      <Field label={t('calendar.detail.capacity')}>
         <input type="number" min={1} className="px-2.5 py-1.5 text-sm w-24" style={inputStyle} value={capacity} onChange={(e) => setCapacity(e.target.value)} />
       </Field>
 
@@ -146,7 +148,7 @@ export function EditSessionForm({
           className="text-xs font-medium px-3 py-1.5"
           style={{ borderRadius: 'var(--radius-button)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
         >
-          Vazgeç
+          {t('common.cancel')}
         </button>
         <button
           type="submit"
@@ -154,7 +156,7 @@ export function EditSessionForm({
           className="text-xs font-medium px-4 py-1.5 disabled:opacity-60"
           style={{ borderRadius: 'var(--radius-button)', background: 'var(--gradient-brand)', color: 'var(--color-on-primary)' }}
         >
-          {submitting ? 'Kaydediliyor...' : 'Değişiklikleri kaydet'}
+          {submitting ? t('calendar.form.saving') : t('calendar.form.saveChanges')}
         </button>
       </div>
     </form>

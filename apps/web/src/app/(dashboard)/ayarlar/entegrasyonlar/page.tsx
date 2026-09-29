@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ALL_API_KEY_SCOPES, ALL_WEBHOOK_EVENTS, API_KEY_SCOPES, PARTNER_PROVIDERS, WEBHOOK_EVENTS } from '@platform/shared';
 import type { ApiKeyScope, PartnerConnectionStatusName, PartnerProviderName, WebhookEvent } from '@platform/shared';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useT } from '@/components/i18n/I18nProvider';
 import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
@@ -51,6 +52,7 @@ interface PartnerConnectionRow {
 }
 
 function CopyButton({ text }: { text: string }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
   return (
     <SecondaryButton
@@ -60,12 +62,13 @@ function CopyButton({ text }: { text: string }) {
         setTimeout(() => setCopied(false), 2000);
       }}
     >
-      {copied ? 'Kopyalandı' : 'Kopyala'}
+      {copied ? t('settings.integrations.copied') : t('settings.integrations.copy')}
     </SecondaryButton>
   );
 }
 
 function ApiKeysSection() {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const { data, loading, error } = useBff<ApiKeyRow[]>('integrations/api-keys', activeStudioId);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -88,11 +91,11 @@ function ApiKeysSection() {
   const create = async () => {
     setCreateError(null);
     if (name.trim().length < 2) {
-      setCreateError('Anahtar adı en az 2 karakter olmalıdır');
+      setCreateError(t('settings.integrations.apiKeys.nameTooShort'));
       return;
     }
     if (scopes.size === 0) {
-      setCreateError('En az bir yetki alanı seçilmelidir');
+      setCreateError(t('settings.integrations.apiKeys.scopeRequired'));
       return;
     }
     setCreating(true);
@@ -103,7 +106,7 @@ function ApiKeysSection() {
       setScopes(new Set());
       setRefreshKey((k) => k + 1);
     } catch (err) {
-      setCreateError(err instanceof BffError ? err.message : 'Anahtar oluşturulamadı');
+      setCreateError(err instanceof BffError ? err.message : t('settings.integrations.apiKeys.errors.createFailed'));
     } finally {
       setCreating(false);
     }
@@ -115,16 +118,16 @@ function ApiKeysSection() {
       await bffFetch(`integrations/api-keys/${id}`, { method: 'DELETE', studioId: activeStudioId });
       setRefreshKey((k) => k + 1);
     } catch (err) {
-      setActionError(err instanceof BffError ? err.message : 'Anahtar iptal edilemedi');
+      setActionError(err instanceof BffError ? err.message : t('settings.integrations.apiKeys.errors.revokeFailed'));
     }
   };
 
   return (
-    <Section title="API anahtarları" description="Herkese açık REST API için kimlik doğrulama anahtarları" key={refreshKey}>
+    <Section title={t('settings.integrations.apiKeys.title')} description={t('settings.integrations.apiKeys.description')} key={refreshKey}>
       {plaintext && (
         <div className="p-3 border space-y-2" style={{ borderColor: 'var(--color-primary)', borderRadius: 'var(--radius-input)' }}>
           <p className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
-            Bu anahtar yalnızca bir kez gösterilir, şimdi kopyalayın:
+            {t('settings.integrations.apiKeys.showOnce')}
           </p>
           <div className="flex items-center gap-2">
             <code className="text-xs break-all flex-1" style={{ color: 'var(--color-text-primary)' }}>
@@ -133,15 +136,15 @@ function ApiKeysSection() {
             <CopyButton text={plaintext} />
           </div>
           <button type="button" className="text-xs underline" onClick={() => setPlaintext(null)}>
-            Kapat
+            {t('settings.integrations.close')}
           </button>
         </div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end max-w-xl">
-        <TextField label="Anahtar adı" value={name} onChange={setName} placeholder="Örn. Rezervasyon sitesi" />
+        <TextField label={t('settings.integrations.apiKeys.nameLabel')} value={name} onChange={setName} placeholder={t('settings.integrations.apiKeys.namePlaceholder')} />
         <PrimaryButton onClick={create} disabled={creating}>
-          {creating ? 'Oluşturuluyor...' : 'Anahtar oluştur'}
+          {creating ? t('settings.integrations.apiKeys.creating') : t('settings.integrations.apiKeys.create')}
         </PrimaryButton>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -157,7 +160,7 @@ function ApiKeysSection() {
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
       {actionError && <InlineMessage text={actionError} tone="error" />}
-      {!loading && !error && (!data || data.length === 0) && <EmptyState title="Henüz API anahtarı yok" />}
+      {!loading && !error && (!data || data.length === 0) && <EmptyState title={t('settings.integrations.apiKeys.empty')} />}
       {!loading && !error && data && data.length > 0 && (
         <div className="space-y-2">
           {data.map((k) => (
@@ -170,7 +173,13 @@ function ApiKeysSection() {
                   {k.scopes.join(', ')}
                 </p>
               </div>
-              {k.revokedAt ? <Badge tone="danger">İptal edildi</Badge> : <SecondaryButton danger onClick={() => revoke(k.id)}>İptal et</SecondaryButton>}
+              {k.revokedAt ? (
+                <Badge tone="danger">{t('settings.integrations.apiKeys.revoked')}</Badge>
+              ) : (
+                <SecondaryButton danger onClick={() => revoke(k.id)}>
+                  {t('settings.integrations.apiKeys.revoke')}
+                </SecondaryButton>
+              )}
             </div>
           ))}
         </div>
@@ -180,6 +189,7 @@ function ApiKeysSection() {
 }
 
 function WebhookDeliveries({ endpointId }: { endpointId: string }) {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const { data, loading, error } = useBff<{ items: WebhookDelivery[] }>(`integrations/webhooks/${endpointId}/deliveries`, activeStudioId);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -191,7 +201,7 @@ function WebhookDeliveries({ endpointId }: { endpointId: string }) {
     try {
       await bffFetch(`integrations/webhooks/${endpointId}/deliveries/${deliveryId}/redeliver`, { method: 'POST', studioId: activeStudioId });
     } catch (err) {
-      setActionError(err instanceof BffError ? err.message : 'Yeniden gönderilemedi');
+      setActionError(err instanceof BffError ? err.message : t('settings.integrations.webhooks.deliveries.errors.redeliverFailed'));
     } finally {
       setRedelivering(null);
     }
@@ -199,7 +209,7 @@ function WebhookDeliveries({ endpointId }: { endpointId: string }) {
 
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} />;
-  if (!data || data.items.length === 0) return <EmptyState title="Henüz teslimat yok" />;
+  if (!data || data.items.length === 0) return <EmptyState title={t('settings.integrations.webhooks.deliveries.empty')} />;
 
   return (
     <div className="mt-2 space-y-1">
@@ -211,7 +221,7 @@ function WebhookDeliveries({ endpointId }: { endpointId: string }) {
             {d.lastError ? ` -- ${d.lastError}` : ''}
           </span>
           <button type="button" disabled={redelivering === d.id} className="underline disabled:opacity-50" onClick={() => redeliver(d.id)}>
-            yeniden gönder
+            {t('settings.integrations.webhooks.deliveries.resend')}
           </button>
         </div>
       ))}
@@ -220,6 +230,7 @@ function WebhookDeliveries({ endpointId }: { endpointId: string }) {
 }
 
 function WebhooksSection() {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const { data, loading, error } = useBff<WebhookRow[]>('integrations/webhooks', activeStudioId);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -250,7 +261,7 @@ function WebhooksSection() {
       return;
     }
     if (events.size === 0) {
-      setCreateError('En az bir olay seçilmelidir');
+      setCreateError(t('settings.integrations.webhooks.eventRequired'));
       return;
     }
     setCreating(true);
@@ -261,7 +272,7 @@ function WebhooksSection() {
       setEvents(new Set());
       setRefreshKey((k) => k + 1);
     } catch (err) {
-      setCreateError(err instanceof BffError ? err.message : 'Webhook oluşturulamadı');
+      setCreateError(err instanceof BffError ? err.message : t('settings.integrations.webhooks.errors.createFailed'));
     } finally {
       setCreating(false);
     }
@@ -273,7 +284,7 @@ function WebhooksSection() {
       const res = await bffFetch<{ secret: string }>(`integrations/webhooks/${id}/rotate-secret`, { method: 'POST', studioId: activeStudioId });
       setSecretShown(res.secret);
     } catch (err) {
-      setActionError(err instanceof BffError ? err.message : 'Gizli anahtar döndürülemedi');
+      setActionError(err instanceof BffError ? err.message : t('settings.integrations.webhooks.errors.rotateFailed'));
     }
   };
 
@@ -283,7 +294,7 @@ function WebhooksSection() {
       await bffFetch(`integrations/webhooks/${id}`, { method: 'DELETE', studioId: activeStudioId });
       setRefreshKey((k) => k + 1);
     } catch (err) {
-      setActionError(err instanceof BffError ? err.message : 'Webhook silinemedi');
+      setActionError(err instanceof BffError ? err.message : t('settings.integrations.webhooks.errors.deleteFailed'));
     }
   };
 
@@ -292,16 +303,16 @@ function WebhooksSection() {
     try {
       await bffFetch(`integrations/webhooks/${id}/test-event`, { method: 'POST', body: { event }, studioId: activeStudioId });
     } catch (err) {
-      setActionError(err instanceof BffError ? err.message : 'Test olayı gönderilemedi');
+      setActionError(err instanceof BffError ? err.message : t('settings.integrations.webhooks.errors.testFailed'));
     }
   };
 
   return (
-    <Section title="Webhook uç noktaları" description="Rezervasyon, üye ve ödeme olaylarını dış sistemlere iletir" key={refreshKey}>
+    <Section title={t('settings.integrations.webhooks.title')} description={t('settings.integrations.webhooks.description')} key={refreshKey}>
       {secretShown && (
         <div className="p-3 border space-y-2" style={{ borderColor: 'var(--color-primary)', borderRadius: 'var(--radius-input)' }}>
           <p className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
-            Gizli anahtar yalnızca bir kez gösterilir:
+            {t('settings.integrations.webhooks.secretShowOnce')}
           </p>
           <div className="flex items-center gap-2">
             <code className="text-xs break-all flex-1" style={{ color: 'var(--color-text-primary)' }}>
@@ -310,13 +321,13 @@ function WebhooksSection() {
             <CopyButton text={secretShown} />
           </div>
           <button type="button" className="text-xs underline" onClick={() => setSecretShown(null)}>
-            Kapat
+            {t('settings.integrations.close')}
           </button>
         </div>
       )}
 
       <div className="max-w-xl space-y-2">
-        <TextField label="Webhook adresi" value={url} onChange={setUrl} placeholder="https://..." error={urlError} />
+        <TextField label={t('settings.integrations.webhooks.urlLabel')} value={url} onChange={setUrl} placeholder="https://..." error={urlError} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {ALL_WEBHOOK_EVENTS.map((e) => (
             <label key={e} className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-primary)' }}>
@@ -327,14 +338,14 @@ function WebhooksSection() {
         </div>
         {createError && <InlineMessage text={createError} tone="error" />}
         <PrimaryButton onClick={create} disabled={creating}>
-          {creating ? 'Oluşturuluyor...' : 'Webhook ekle'}
+          {creating ? t('settings.integrations.apiKeys.creating') : t('settings.integrations.webhooks.add')}
         </PrimaryButton>
       </div>
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
       {actionError && <InlineMessage text={actionError} tone="error" />}
-      {!loading && !error && (!data || data.length === 0) && <EmptyState title="Henüz webhook yok" />}
+      {!loading && !error && (!data || data.length === 0) && <EmptyState title={t('settings.integrations.webhooks.empty')} />}
       {!loading && !error && data && data.length > 0 && (
         <div className="space-y-3">
           {data.map((w) => (
@@ -345,14 +356,17 @@ function WebhooksSection() {
                     {w.url}
                   </p>
                   <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    {w.events.join(', ')} {!w.isActive && '-- pasif'} {w.failureCount > 0 && `-- ${w.failureCount} ardışık hata`}
+                    {w.events.join(', ')} {!w.isActive && `-- ${t('settings.integrations.webhooks.inactive')}`}{' '}
+                    {w.failureCount > 0 && `-- ${t('settings.integrations.webhooks.consecutiveFailures', { count: w.failureCount })}`}
                   </p>
                 </div>
                 <div className="flex gap-2 shrink-0">
-                  <SecondaryButton onClick={() => rotate(w.id)}>Anahtarı döndür</SecondaryButton>
-                  <SecondaryButton onClick={() => sendTest(w.id, w.events[0])}>Test olayı</SecondaryButton>
-                  <SecondaryButton onClick={() => setExpandedId(expandedId === w.id ? null : w.id)}>Teslimatlar</SecondaryButton>
-                  <SecondaryButton danger onClick={() => remove(w.id)}>Sil</SecondaryButton>
+                  <SecondaryButton onClick={() => rotate(w.id)}>{t('settings.integrations.webhooks.rotateSecret')}</SecondaryButton>
+                  <SecondaryButton onClick={() => sendTest(w.id, w.events[0])}>{t('settings.integrations.webhooks.testEvent')}</SecondaryButton>
+                  <SecondaryButton onClick={() => setExpandedId(expandedId === w.id ? null : w.id)}>{t('settings.integrations.webhooks.deliveries')}</SecondaryButton>
+                  <SecondaryButton danger onClick={() => remove(w.id)}>
+                    {t('settings.integrations.webhooks.delete')}
+                  </SecondaryButton>
                 </div>
               </div>
               {expandedId === w.id && <WebhookDeliveries endpointId={w.id} />}
@@ -365,6 +379,7 @@ function WebhooksSection() {
 }
 
 function PartnersSection() {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const { data, loading, error } = useBff<PartnerConnectionRow[]>('partners/connections', activeStudioId);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -374,15 +389,21 @@ function PartnersSection() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const statusLabel = (s: PartnerConnectionStatusName) =>
+    s === 'ACTIVE'
+      ? t('settings.integrations.partners.status.ACTIVE')
+      : s === 'PAUSED'
+        ? t('settings.integrations.partners.status.PAUSED')
+        : t('settings.integrations.partners.status.INACTIVE');
 
   const create = async () => {
     setCreateError(null);
     if (label.trim().length < 1) {
-      setCreateError('Bağlantı etiketi giriniz');
+      setCreateError(t('settings.integrations.partners.labelRequired'));
       return;
     }
     if (webhookSecret.trim().length < 1) {
-      setCreateError('Webhook gizli anahtarı giriniz');
+      setCreateError(t('settings.integrations.partners.secretRequired'));
       return;
     }
     setCreating(true);
@@ -392,7 +413,7 @@ function PartnersSection() {
       setWebhookSecret('');
       setRefreshKey((k) => k + 1);
     } catch (err) {
-      setCreateError(err instanceof BffError ? err.message : 'Bağlantı oluşturulamadı');
+      setCreateError(err instanceof BffError ? err.message : t('settings.integrations.partners.errors.createFailed'));
     } finally {
       setCreating(false);
     }
@@ -404,16 +425,16 @@ function PartnersSection() {
       await bffFetch(`partners/connections/${id}`, { method: 'PATCH', body: { status }, studioId: activeStudioId });
       setRefreshKey((k) => k + 1);
     } catch (err) {
-      setActionError(err instanceof BffError ? err.message : 'Durum değiştirilemedi');
+      setActionError(err instanceof BffError ? err.message : t('settings.integrations.partners.errors.statusChangeFailed'));
     }
   };
 
   return (
-    <Section title="Partner platformlar" description="Toplayıcı/pazaryeri bağlantıları; kimlik bilgileri yalnızca yazılır, hiçbir zaman görüntülenmez" key={refreshKey}>
+    <Section title={t('settings.integrations.partners.title')} description={t('settings.integrations.partners.description')} key={refreshKey}>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl items-end">
         <div>
           <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            Sağlayıcı
+            {t('settings.integrations.partners.providerLabel')}
           </span>
           <select
             value={provider}
@@ -428,18 +449,18 @@ function PartnersSection() {
             ))}
           </select>
         </div>
-        <TextField label="Etiket" value={label} onChange={setLabel} placeholder="Örn. ClassPass Ana" />
-        <TextField label="Webhook gizli anahtarı" value={webhookSecret} onChange={setWebhookSecret} type="password" />
+        <TextField label={t('settings.integrations.partners.labelLabel')} value={label} onChange={setLabel} placeholder={t('settings.integrations.partners.labelPlaceholder')} />
+        <TextField label={t('settings.integrations.partners.webhookSecretLabel')} value={webhookSecret} onChange={setWebhookSecret} type="password" />
       </div>
       {createError && <InlineMessage text={createError} tone="error" />}
       <PrimaryButton onClick={create} disabled={creating}>
-        {creating ? 'Oluşturuluyor...' : 'Bağlantı ekle'}
+        {creating ? t('settings.integrations.apiKeys.creating') : t('settings.integrations.partners.add')}
       </PrimaryButton>
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
       {actionError && <InlineMessage text={actionError} tone="error" />}
-      {!loading && !error && (!data || data.length === 0) && <EmptyState title="Henüz partner bağlantısı yok" />}
+      {!loading && !error && (!data || data.length === 0) && <EmptyState title={t('settings.integrations.partners.empty')} />}
       {!loading && !error && data && data.length > 0 && (
         <div className="space-y-2">
           {data.map((c) => (
@@ -449,14 +470,14 @@ function PartnersSection() {
                   {c.label} <span style={{ color: 'var(--color-text-muted)' }}>({c.provider})</span>
                 </p>
                 <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  {c.status === 'ACTIVE' ? 'Etkin' : c.status === 'PAUSED' ? 'Duraklatıldı' : 'Pasif'}
-                  {c.consecutiveFailures > 0 && ` -- ${c.consecutiveFailures} ardışık hata`}
+                  {statusLabel(c.status)}
+                  {c.consecutiveFailures > 0 && ` -- ${t('settings.integrations.webhooks.consecutiveFailures', { count: c.consecutiveFailures })}`}
                 </p>
               </div>
               {c.status === 'ACTIVE' ? (
-                <SecondaryButton onClick={() => setStatus(c.id, 'PAUSED')}>Duraklat</SecondaryButton>
+                <SecondaryButton onClick={() => setStatus(c.id, 'PAUSED')}>{t('settings.integrations.partners.pause')}</SecondaryButton>
               ) : (
-                <SecondaryButton onClick={() => setStatus(c.id, 'ACTIVE')}>Etkinleştir</SecondaryButton>
+                <SecondaryButton onClick={() => setStatus(c.id, 'ACTIVE')}>{t('settings.integrations.partners.activate')}</SecondaryButton>
               )}
             </div>
           ))}
@@ -467,13 +488,14 @@ function PartnersSection() {
 }
 
 function IntegrationsSettings() {
+  const t = useT();
   const { permissions, isOwner } = useDashboardSession();
   const canIntegrations = hasAnyPermission(['integrations.manage'], permissions, isOwner);
   const canPartners = hasAnyPermission(['integrations.partners.manage'], permissions, isOwner);
 
   return (
     <div className="space-y-6">
-      <SettingsHeader title="Entegrasyonlar" description="API anahtarları, webhook'lar ve partner platform bağlantıları" />
+      <SettingsHeader title={t('settings.integrations.title')} description={t('settings.integrations.description')} />
       {canIntegrations && <ApiKeysSection />}
       {canIntegrations && <WebhooksSection />}
       {canPartners && <PartnersSection />}
