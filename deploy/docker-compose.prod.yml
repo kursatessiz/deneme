@@ -1,6 +1,8 @@
 # Production stack. Images are built in CI and only pulled here.
 # Required in /opt/app/.env: IMAGE_REPO, POSTGRES_PASSWORD, REDIS_PASSWORD,
-# JWT_SECRET, WEB_DOMAIN, API_DOMAIN (see .env.example).
+# JWT_SECRET, WEB_DOMAIN, API_DOMAIN, ACME_EMAIL (see .env.example, which
+# also lists every optional provider key). The same file serves preprod and
+# production; only the values differ.
 name: app
 
 services:
@@ -15,6 +17,8 @@ services:
       WEB_DOMAIN: ${WEB_DOMAIN:?WEB_DOMAIN required}
       API_DOMAIN: ${API_DOMAIN:?API_DOMAIN required}
       ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL required}
+      # production (default) or preprod: noindex header, no HSTS preload.
+      SITE_ENV: ${SITE_ENV:-production}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -46,6 +50,68 @@ services:
       NETGSM_USER: ${NETGSM_USER:-}
       NETGSM_PASSWORD: ${NETGSM_PASSWORD:-}
       NETGSM_HEADER: ${NETGSM_HEADER:-}
+      # -- Pass-through from /opt/app/.env (D1) ---------------------------
+      # Every other key of apps/api/src/config/env.ts, listed explicitly so
+      # a key can never be silently missing from the container; unset ones
+      # arrive empty and the API treats empty as unset. The values above are
+      # computed here and stay authoritative. apps/api/src/config/
+      # compose-env.spec.ts fails when a schema key is neither listed here
+      # nor in its "intentionally not passed" list (OTP_TEST_CODE,
+      # AI_FAKE_PROVIDER: test-only, refused in production).
+      # Tenant sites: <slug>.<SITES_DOMAIN>; empty falls back to WEB_DOMAIN.
+      SITES_DOMAIN: ${SITES_DOMAIN:-}
+      WEB_DOMAIN: ${WEB_DOMAIN}
+      SMS_PROVIDER_LOW_BALANCE_THRESHOLD: ${SMS_PROVIDER_LOW_BALANCE_THRESHOLD:-}
+      ILETI_MERKEZI_USER: ${ILETI_MERKEZI_USER:-}
+      ILETI_MERKEZI_PASSWORD: ${ILETI_MERKEZI_PASSWORD:-}
+      ILETI_MERKEZI_SENDER: ${ILETI_MERKEZI_SENDER:-}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
+      SMS_DLR_WEBHOOK_TOKEN: ${SMS_DLR_WEBHOOK_TOKEN:-}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
+      WHATSAPP_WEBHOOK_VERIFY_TOKEN: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN:-}
+      IYS_BRAND_CODE: ${IYS_BRAND_CODE:-}
+      IYS_API_KEY: ${IYS_API_KEY:-}
+      SES_REGION: ${SES_REGION:-}
+      SES_FROM_ADDRESS: ${SES_FROM_ADDRESS:-}
+      SES_FROM_NAME: ${SES_FROM_NAME:-}
+      SES_CONFIGURATION_SET: ${SES_CONFIGURATION_SET:-}
+      SES_SNS_TOPIC_ARNS: ${SES_SNS_TOPIC_ARNS:-}
+      # SES credentials for the AWS SDK default chain (not in the schema).
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      MESSAGING_TRACKING_SECRET: ${MESSAGING_TRACKING_SECRET:-}
+      PUSH_PROVIDER: ${PUSH_PROVIDER:-}
+      EXPO_ACCESS_TOKEN: ${EXPO_ACCESS_TOKEN:-}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_CHECKOUT_SUCCESS_URL: ${STRIPE_CHECKOUT_SUCCESS_URL:-}
+      STRIPE_CHECKOUT_CANCEL_URL: ${STRIPE_CHECKOUT_CANCEL_URL:-}
+      IYZICO_API_KEY: ${IYZICO_API_KEY:-}
+      IYZICO_SECRET_KEY: ${IYZICO_SECRET_KEY:-}
+      IYZICO_BASE_URL: ${IYZICO_BASE_URL:-}
+      PAYTR_MERCHANT_ID: ${PAYTR_MERCHANT_ID:-}
+      PAYTR_MERCHANT_KEY: ${PAYTR_MERCHANT_KEY:-}
+      PAYTR_MERCHANT_SALT: ${PAYTR_MERCHANT_SALT:-}
+      PARASUT_CLIENT_ID: ${PARASUT_CLIENT_ID:-}
+      PARASUT_CLIENT_SECRET: ${PARASUT_CLIENT_SECRET:-}
+      ELOGO_USERNAME: ${ELOGO_USERNAME:-}
+      ELOGO_PASSWORD: ${ELOGO_PASSWORD:-}
+      FORIBA_USERNAME: ${FORIBA_USERNAME:-}
+      FORIBA_PASSWORD: ${FORIBA_PASSWORD:-}
+      UYUMSOFT_USERNAME: ${UYUMSOFT_USERNAME:-}
+      UYUMSOFT_PASSWORD: ${UYUMSOFT_PASSWORD:-}
+      INTEGRATION_ENCRYPTION_KEY: ${INTEGRATION_ENCRYPTION_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      JITSI_BASE_URL: ${JITSI_BASE_URL:-}
+      ERROR_USER_HASH_SALT: ${ERROR_USER_HASH_SALT:-}
+      ERROR_CLIENT_SAMPLE_RATE: ${ERROR_CLIENT_SAMPLE_RATE:-}
+      ERROR_ALERT_COOLDOWN_MINUTES: ${ERROR_ALERT_COOLDOWN_MINUTES:-}
+      ERROR_ALERTS_ENABLED: ${ERROR_ALERTS_ENABLED:-}
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -67,6 +133,13 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      # Read at runtime (never inlined at build), so one image serves every
+      # environment: the browser-facing API origin (lead forms, tracking,
+      # embed widget; see apps/web/src/lib/public-api-url.ts) and the base
+      # domain tenant sites hang off.
+      PUBLIC_API_URL: https://${API_DOMAIN}
+      SITES_DOMAIN: ${SITES_DOMAIN:-}
+      WEB_DOMAIN: ${WEB_DOMAIN}
       # BFF (apps/web/src/app/api/bff/[...path]/route.ts) proxies to the API
       # over the internal docker network -- never the public API_DOMAIN, and
       # never baked into client bundles (no NEXT_PUBLIC_ prefix). See

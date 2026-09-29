@@ -1,3 +1,5 @@
+// Must stay the first import: empty variables from compose read as unset.
+import './config/unset-empty-env';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe, Logger } from '@nestjs/common';
