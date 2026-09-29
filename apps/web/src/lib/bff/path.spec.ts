@@ -1,3 +1,4 @@
+import { READY_MADE_FUNNELS } from '@platform/shared';
 import { sanitizeApiPath } from './path';
 
 describe('sanitizeApiPath', () => {
@@ -34,5 +35,11 @@ describe('sanitizeApiPath', () => {
     expect(sanitizeApiPath(['schedules', '11111111-1111-1111-1111-111111111111', 'spots'])).toBe(
       'schedules/11111111-1111-1111-1111-111111111111/spots',
     );
+  });
+
+  it('accepts every ready-made funnel id as a path segment', () => {
+    for (const funnel of READY_MADE_FUNNELS) {
+      expect(sanitizeApiPath(['studios', 'x', 'funnels', funnel.id, 'report'])).toBe(`studios/x/funnels/${funnel.id}/report`);
+    }
   });
 });

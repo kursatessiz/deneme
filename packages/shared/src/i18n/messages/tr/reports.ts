@@ -10,6 +10,7 @@ export const trReports = {
   'reports.tabs.renewal': 'Yenileme',
   'reports.tabs.cohorts': 'Kohortlar',
   'reports.tabs.trainers': 'Eğitmenler',
+  'reports.tabs.funnels': 'Huniler',
   'reports.granularity.day': 'Günlük',
   'reports.granularity.week': 'Haftalık',
   'reports.granularity.month': 'Aylık',
