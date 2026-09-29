@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ALL_API_KEY_SCOPES, ALL_WEBHOOK_EVENTS, API_KEY_SCOPES, PARTNER_PROVIDERS, WEBHOOK_EVENTS } from '@platform/shared';
+import { ALL_API_KEY_SCOPES, API_KEY_SCOPES, PARTNER_PROVIDERS, TENANT_WEBHOOK_EVENTS, WEBHOOK_EVENTS } from '@platform/shared';
 import type { ApiKeyScope, PartnerConnectionStatusName, PartnerProviderName, WebhookEvent } from '@platform/shared';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { useT } from '@/components/i18n/I18nProvider';
@@ -329,7 +329,7 @@ function WebhooksSection() {
       <div className="max-w-xl space-y-2">
         <TextField label={t('settings.integrations.webhooks.urlLabel')} value={url} onChange={setUrl} placeholder="https://..." error={urlError} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {ALL_WEBHOOK_EVENTS.map((e) => (
+          {TENANT_WEBHOOK_EVENTS.map((e) => (
             <label key={e} className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-primary)' }}>
               <input type="checkbox" checked={events.has(e)} onChange={() => toggleEvent(e)} />
               {WEBHOOK_EVENTS[e]}
