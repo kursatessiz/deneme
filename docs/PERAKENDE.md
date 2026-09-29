@@ -43,8 +43,8 @@ Veritabanı kısıtları: fiyat, maliyet ve toplamlar negatif olamaz; vergi oran
 1. İşletmenin `retail_settings` satırında fiş sayacı artırılır (`INSERT ... ON CONFLICT DO UPDATE ... RETURNING`). Satır kilidi aynı işletmenin satışlarını sıraya koyar; işlem geri alınırsa numara da geri alınır, bu yüzden fiş numaraları **boşluksuz ve işletme başına benzersizdir** (`S000001`, `S000002`, ...).
 2. Promosyon kodu varsa `PromotionsService.applyPromoCodeTx` ile doğrulanır ve kullanım hakkı aynı işlemde ayrılır.
 3. Stok takip edilen her ürün için tek bir koşullu güncelleme: `quantity = quantity - n WHERE quantity - n >= 0`. Postgres satırı kilitler ve eşzamanlı bir satış tamamlandıktan sonra koşulu yeniden değerlendirir; son ürün için yarışan iki satıştan yalnızca biri geçer, diğeri 409 `RETAIL_INSUFFICIENT_STOCK` alır ve tüm işlem geri alınır. Ürünler kimlik sırasıyla kilitlenir (kilitlenme sırası sabit, deadlock yok). İşletme eksi stoka izin verdiyse (`allow_backorder`) koşul uygulanmaz.
-4. Satış ve satırları, defter satırları (`SALE`) ve müşteri üye ise ödeme kaydı (`Payment`) ile promosyon kullanımı yazılır.
-5. İşlem bittikten sonra, üyeye yapılan satışta paket ödemeleriyle aynı kancalar çalışır: `CrmHooksService.onPaymentCompleted` (CRM satın alma dönüşümü ve sadakat puanı, `docs/SADAKAT.md`) ve `payment.completed` webhook'u.
+4. Satış ve satırları, defter satırları (`SALE`), ödeme kaydı (`Payment`, her satışta) ve üyeye satışta promosyon kullanımı yazılır.
+5. İşlem bittikten sonra paket ödemeleriyle aynı kancalar çalışır: `CrmHooksService.onPaymentCompleted` (CRM satın alma dönüşümü: üyede üyenin kişisine, seçilmiş kişide o kişiye; sadakat puanı yalnızca üyeye, `docs/SADAKAT.md`) ve `payment.completed` webhook'u.
 
 İstemci her gönderimde bir `idempotencyKey` yollar; aynı anahtarla tekrar gelen istek ilk satışı döndürür (`duplicate: true`), yeniden satış yapmaz.
 
@@ -52,8 +52,8 @@ Veritabanı kısıtları: fiyat, maliyet ve toplamlar negatif olamaz; vergi oran
 
 - Müşteri isteğe bağlıdır: üye (`memberId`), CRM kişisi (`contactId`) veya kayıtsız müşteri.
 - Ödeme yöntemi yalnızca anlık yöntemlerdir: nakit (`CASH`) ve POS cihazıyla kart (`CREDIT_CARD_POS`). Tek satışta tek ödeme yöntemi vardır.
-- **Üyeye yapılan satış** bir `Payment` kaydı üretir (tutar, para birimi, yöntem, şube, fiş numarası, promosyon). Bu sayede finans ekranındaki ödeme listesi, gelir raporu, promosyon kullanım kaydı, sadakat puanı ve CRM dönüşümü mevcut mekanizmalarla çalışır.
-- **Kayıtsız müşteriye satış** `Payment` üretmez; çünkü `payments.member_id` zorunludur. Bu satışlar perakende raporunda ve satış geçmişinde görünür, finans gelir raporuna girmez (sahip kararı, aşağıda).
+- **Her satış** bir `Payment` kaydı üretir (tutar, para birimi, yöntem, şube, fiş numarası, promosyon): üyeye satışta `member_id`, kişi seçildiyse `contact_id`, kayıtsız müşteride ikisi de boştur (migration `20261009000000_guest_payments`). Bu sayede finans ekranındaki ödeme listesi, gelir raporu, muhasebe dışa aktarımı, promosyon kullanım kaydı, sadakat puanı (üyede) ve CRM dönüşümü mevcut mekanizmalarla çalışır. Finans listesi üye yoksa kişinin adını, kişi de yoksa "Kayıtsız müşteri" yazar.
+- Bu sürümden önce yapılmış kayıtsız müşteri satışlarının `Payment` satırı yoktur; geriye dönük kayıt üretilmedi (sahip kararı, aşağıda).
 - Promosyon kodu yalnızca üyeye satışta kullanılabilir (kod kullanım limiti kullanıcı başınadır); aksi 400 `RETAIL_PROMO_REQUIRES_MEMBER`. Pakete kısıtlı kodlar ve `FREE_UNITS` türü perakende satışta geçersizdir. Promosyon indirimi, satır indirimlerinden sonraki tutar üzerinden hesaplanır.
 
 ## İade ve iptal
@@ -117,7 +117,7 @@ Tümü `@StudioScoped()`; işletme her zaman kiracı korumasından gelir. Hatala
 - Ürüne göre: adet, iade adedi, tutar (iade düşülmüş), maliyet ve brüt kâr. Brüt kâr yalnızca alış maliyeti girilmiş ürünler için, vergi hariç tutar üzerinden hesaplanır (satır maliyeti satış anında kopyalanır).
 - Güne göre: işletmenin saat diliminde gün, satış sayısı, brüt ve iade.
 - CSV: `format=csv`, `view=product` (varsayılan) veya `view=day`. Başlıklar işletmenin varsayılan dilinde i18n kataloğundan gelir (`retail.csv.*`); `docs/REPORTS.md` ile aynı CSV kuralları (UTF-8 BOM, noktalı virgül, formül koruması).
-- **Finans raporu:** mevcut gelir raporu `payments` tablosundan hesaplanır. Üyeye yapılan ürün satışları ödeme kaydı ürettiği için finans toplamlarına zaten girer ("Paketsiz" satırında); kayıtsız müşteri satışları girmez. Tam perakende cirosu perakende raporundadır.
+- **Finans raporu:** mevcut gelir raporu `payments` tablosundan hesaplanır. Tüm ürün satışları (kayıtsız müşteri dahil) ödeme kaydı ürettiği için finans toplamlarına girer ("Paketsiz" satırında). Üye raporundaki ARPU yalnızca üyeli ödemeleri sayar. Bu sürümden önceki kayıtsız müşteri satışları finans toplamlarında yoktur; tam perakende cirosu perakende raporundadır.
 
 ## Arayüz
 
@@ -150,7 +150,7 @@ Seed, Zen işletmesinde üç kategori (İçecekler, Aksesuar, Beslenme), işletm
 
 ## Sahip kararları
 
-1. **Kayıtsız müşteri satışları finans gelirine girsin mi?** Şu an girmiyor (ödeme kaydı üye gerektiriyor). Girmesi için `payments.member_id` boş olabilir hale getirilmeli (genişlet-daralt ile, finans ve fatura ekranlarının üyesiz ödemeyi göstermesi gerekir) veya gelir raporuna perakende satırı eklenmeli.
+1. **Kayıtsız müşteri satışları finans gelirine giriyor** (karar verildi): `payments.member_id` boş olabilir, isteğe bağlı `payments.contact_id` eklendi. Açık karar: bu sürümden önceki kayıtsız müşteri satışları için geriye dönük `Payment` üretilsin mi? Migration saf şemadır; istenirse ayrı, tekrar çalıştırılabilir bir yönetici betiği yazılır (`docs/MUHASEBE.md`, "Sahip kararları").
 2. **Resepsiyon iade yapabilsin mi?** Varsayılan olarak hayır (`retail.refund` yalnızca sahipte). İşletme rol şablonundan açabilir.
 3. **Vergi varsayılanı:** fatura ayarı olmayan ve rejimi `NONE` olmayan işletmelerde ürün oranı girilmezse vergi 0 hesaplanır. Ülke varsayılan oranı (ör. TR yüzde 20) otomatik uygulansın mı?
 4. **Promosyon kodu kayıtsız müşteride:** kullanıcı başı limit nedeniyle kapalı. Genel (limitsiz) kodlar kayıtsız müşteride de kullanılabilsin mi?

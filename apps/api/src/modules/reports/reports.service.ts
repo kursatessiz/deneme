@@ -345,6 +345,9 @@ export class ReportsService {
       this.prisma.payment.aggregate({
         where: {
           studioId: tenant.studioId,
+          // Revenue per member: guest and walk-in payments (no member) stay in
+          // the revenue report and the accounting export, not in ARPU.
+          memberId: { not: null },
           // Gross revenue: refunded payments were revenue first; refunds are reported separately.
           paymentStatus: { in: ['COMPLETED', 'REFUNDED'] },
           paidAt: { gte: range.from, lt: range.to },

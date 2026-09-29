@@ -82,6 +82,10 @@ describe('Events G3c-1 (e2e)', () => {
       where: { OR: [{ contactId: { in: contactIds } }, { userId: { in: userIds } }, { recipientPhone: { startsWith: PREFIX } }] },
     });
     await prisma.conversionEvent.deleteMany({ where: { contactId: { in: contactIds } } });
+    // Guest payments (no member) name their contact.
+    const guestPayments = await prisma.payment.findMany({ where: { contactId: { in: contactIds } }, select: { id: true } });
+    await prisma.auditLog.deleteMany({ where: { entityType: 'Payment', entityId: { in: guestPayments.map((p) => p.id) } } });
+    await prisma.payment.deleteMany({ where: { id: { in: guestPayments.map((p) => p.id) } } });
     await prisma.contact.deleteMany({ where: { id: { in: contactIds } } });
     await prisma.payment.deleteMany({ where: { memberId: { in: profileIds } } });
     await prisma.memberPackage.deleteMany({ where: { memberId: { in: profileIds } } });

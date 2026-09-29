@@ -62,7 +62,7 @@ erDiagram
     MemberProfile ||--o{ MemberPackage : holds
     MemberProfile ||--o{ Booking : makes
     MemberProfile ||--o{ Waitlist : joins
-    MemberProfile ||--o{ Payment : pays
+    MemberProfile |o--o{ Payment : pays
     MemberProfile ||--o{ StoredCard : owns
     MemberProfile ||--o{ MemberSubscription : subscribes
     MemberProfile ||--o{ MeasurementEntry : records
@@ -123,6 +123,7 @@ erDiagram
     Contact ||--o{ ContactTask : has
     Contact ||--o{ Touchpoint : attributed
     Contact ||--o{ ConversionEvent : converts
+    Contact |o--o{ Payment : pays_as_guest
     Contact ||--o{ Contact : merged_into
     Visitor ||--o{ Touchpoint : visits
     Touchpoint ||--o{ ConversionEvent : credited
@@ -241,7 +242,7 @@ alanını `ATTENDED` yapmak için kullanılır. Detaylar: `docs/CHECKIN.md`.
 
 | Tablo | Amaç | Kısıtlar |
 |-------|---------|-------------|
-| `payments` | Üye işlemleri: tutar, para birimi (her zaman `studios.currency` ile aynı; sabit `'TRY'` yazılmaz), iade edilen tutar, yöntem (nakit, kart, banka, online), durum, sağlayıcı (mock/iyzico/paytr/stripe) ve sağlayıcı referansı, taksit sayısı, satışın yapıldığı şube, beklemedeki (örn. havale) ödemeler için paket bilgisini taşıyan `metadata` | (studio_id, paid_at) index; (branch_id, paid_at) index; (provider, provider_reference) index |
+| `payments` | Ödemeler (üye, misafir veya kayıtsız müşteri): `member_id` boş olabilir (misafir etkinlik ödemesi, kayıtsız perakende satışı; `20261009000000_guest_payments`), `contact_id` üye olmayan ödeyenin CRM kişisi (isteğe bağlı; ikisi de boş olabilir, CHECK yok), tutar, para birimi (her zaman `studios.currency` ile aynı; sabit `'TRY'` yazılmaz), iade edilen tutar, yöntem (nakit, kart, banka, online), durum, sağlayıcı (mock/iyzico/paytr/stripe) ve sağlayıcı referansı, taksit sayısı, satışın yapıldığı şube, beklemedeki (örn. havale) ödemeler için paket bilgisini taşıyan `metadata` | (studio_id, paid_at) index; (branch_id, paid_at) index; (provider, provider_reference) index; (contact_id) index; member -> restrict, contact -> set null (kişinin aynı işletmeye ait olması yazan serviste denetlenir) |
 | `stored_cards` | Üye başına saklanan kart: yalnızca sağlayıcı kart token'ı + son 4 hane + marka + son kullanma tarihi; PAN veya CVV asla saklanmaz | (studio_id, member_id) index |
 | `member_subscriptions` | Bir pakete bağlı, otomatik yenilenen üye aboneliği: durum (aktif, ödeme gecikmiş, iptal, duraklatıldı), dönem tarihleri, sonraki tahsilat zamanı, dönem sonunda iptal bayrağı, taksit sayısı | (studio_id, member_id) index; (status, next_charge_at) index (dunning taramasi için) |
 | `payment_attempts` | Bir aboneliğin tahsilat denemesi (dunning): deneme numarası, durum, hata kodu, sonraki deneme zamanı | member_subscription_id index |
