@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { maskPhone } from '@platform/shared';
 import { ConfigService } from '@nestjs/config';
 import type { ChannelSendRequest, ChannelSendResult, SmsChannelAdapter } from './message-channel.interface';
 
@@ -25,7 +26,7 @@ export class SmsIletiMerkeziAdapter implements SmsChannelAdapter {
 
   async send(request: ChannelSendRequest): Promise<ChannelSendResult> {
     if (!this.isConfigured()) {
-      this.logger.log(`[MOCK SMS/IletiMerkezi] Simulated SMS sent to ${request.phone}`);
+      this.logger.log(`[MOCK SMS/IletiMerkezi] Simulated SMS sent to ${maskPhone(request.phone)}`);
       return { success: true, providerMessageId: `mock-iletimerkezi-${Date.now()}` };
     }
 

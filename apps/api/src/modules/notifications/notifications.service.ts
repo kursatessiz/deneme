@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { maskPhone } from '@platform/shared';
 import type { MessageSendReasonCode, NotificationCategory } from '@platform/shared';
 import type { PushMessage } from './push.service';
 import { MessagingService } from '../messaging/engine/messaging.service';
@@ -151,7 +152,7 @@ export class NotificationsService {
    * gated by consent, content redacted when sensitive.
    */
   async sendSms(params: SendSmsParams): Promise<{ success: boolean; messageId?: string }> {
-    this.logger.log(`[SMS Queue] To: ${params.phone} | Type: ${params.type}`);
+    this.logger.log(`[SMS Queue] To: ${maskPhone(params.phone)} | Type: ${params.type}`);
     const result = await this.messaging.send({
       studioId: params.studioId,
       recipient: { phone: params.phone },
