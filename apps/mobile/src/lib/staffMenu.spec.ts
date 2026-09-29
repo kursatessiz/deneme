@@ -49,6 +49,13 @@ describe('buildHesabimMenu', () => {
     expect(keys).toContain('new-member');
   });
 
+  it('shows the quick sale only with retail.sell', () => {
+    const seller = buildHesabimMenu({ permissions: ['retail.sell'], isMember: false, isTrainer: false });
+    const viewer = buildHesabimMenu({ permissions: ['retail.view'], isMember: false, isTrainer: false });
+    expect(seller.find((m) => m.key === 'quick-sale')?.route).toBe('/(app)/hesabim/hizli-satis');
+    expect(viewer.map((m) => m.key)).not.toContain('quick-sale');
+  });
+
   it('shows session creation only with schedule.manage', () => {
     const withPermission = buildHesabimMenu({ permissions: ['schedule.manage'], isMember: false, isTrainer: false });
     const without = buildHesabimMenu({ permissions: [], isMember: false, isTrainer: false });

@@ -6,6 +6,7 @@ import { useT } from '@/components/i18n/I18nProvider';
 import { useBff } from '@/lib/session/use-bff';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { QuickActionBar } from '@/components/dashboard/QuickActionBar';
+import { LowStockWidget } from '@/components/retail/LowStockWidget';
 
 export default function DashboardPage() {
   const t = useT();
@@ -24,6 +25,8 @@ export default function DashboardPage() {
       </div>
 
       <QuickActionBar />
+
+      <LowStockWidget />
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}

@@ -12,8 +12,8 @@ test.describe('Dashboard quick action bar', () => {
     const quickActions = main.getByRole('group', { name: 'Hızlı işlemler', exact: true });
     await expect(quickActions).toBeVisible();
 
-    // The owner has every permission, so all five actions show up.
-    for (const label of ['Yeni seans', 'Yeni üye', 'Paket sat', 'Ödeme kaydet', 'Check-in']) {
+    // The owner has every permission, so every action shows up.
+    for (const label of ['Yeni seans', 'Yeni üye', 'Paket sat', 'Ödeme kaydet', 'Hızlı satış', 'Check-in']) {
       await expect(quickActions.getByRole('link', { name: label, exact: true })).toBeVisible();
     }
     const ownerActionCount = await quickActions.getByRole('link').count();
@@ -31,6 +31,7 @@ test.describe('Dashboard quick action bar', () => {
     await expect(quickActions.getByRole('link', { name: 'Check-in', exact: true })).toBeVisible();
     await expect(quickActions.getByRole('link', { name: 'Yeni seans', exact: true })).toHaveCount(0);
     await expect(quickActions.getByRole('link', { name: 'Paket sat', exact: true })).toHaveCount(0);
+    await expect(quickActions.getByRole('link', { name: 'Hızlı satış', exact: true })).toHaveCount(0);
 
     const trainerActionCount = await quickActions.getByRole('link').count();
     expect(trainerActionCount).toBeLessThan(5);

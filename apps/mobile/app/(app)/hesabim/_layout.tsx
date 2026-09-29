@@ -33,6 +33,7 @@ export default function HesabimLayout() {
       <Stack.Screen name="gelen-kutusu" options={{ title: t('mMessaging.inbox.title') }} />
       <Stack.Screen name="kisiler" options={{ title: t('mAccount.menu.contacts') }} />
       <Stack.Screen name="puanlarim" options={{ title: t('mLoyalty.title') }} />
+      <Stack.Screen name="hizli-satis" options={{ title: t('mRetail.title') }} />
     </Stack>
   );
 }
