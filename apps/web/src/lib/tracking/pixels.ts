@@ -7,7 +7,7 @@
  * public tracking tree.
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { publicApiBaseUrl } from '@/lib/public-api-url';
 
 export interface AdsPixelConfig {
   meta: { pixelId: string } | null;
@@ -20,7 +20,7 @@ const EMPTY_CONFIG: AdsPixelConfig = { meta: null, google: null, tiktok: null };
 /** Public, unauthenticated: which pixels this tenant has active. No secrets in the response. */
 export async function fetchAdsPixelConfig(studioSlug: string): Promise<AdsPixelConfig> {
   try {
-    const res = await fetch(`${API_BASE_URL}/public/studios/${encodeURIComponent(studioSlug)}/ads/pixels`, {
+    const res = await fetch(`${publicApiBaseUrl()}/public/studios/${encodeURIComponent(studioSlug)}/ads/pixels`, {
       signal: AbortSignal.timeout(3000),
     });
     if (!res.ok) return EMPTY_CONFIG;

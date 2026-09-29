@@ -4,10 +4,10 @@ import { PAGE_LOCALE_HEADER } from '@/lib/i18n/constants';
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE, accessTokenCookieOptions, refreshTokenCookieOptions } from '@/lib/bff/cookies';
 import { dashboardCsp, generateNonce } from '@/lib/security/csp';
 import { isProtectedPath } from '@/lib/security/protected-paths';
+import { apiOrigin, serverPublicApiUrl } from '@/lib/public-api-url';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-/** Server-side API base for the session refresh; same variable the BFF uses. */
-const API_INTERNAL_BASE_URL = process.env.API_INTERNAL_URL || API_BASE_URL;
+/** Server-side API base (docker network) for host resolution, session refresh and the embed CSP; same variable the BFF uses. */
+const API_INTERNAL_BASE_URL = process.env.API_INTERNAL_URL || serverPublicApiUrl();
 /** The same domain the dashboard and the platform's own site are served on. */
 const SITES_BASE_DOMAIN = process.env.SITES_DOMAIN || process.env.WEB_DOMAIN || 'localhost';
 
@@ -95,13 +95,17 @@ const AD_PIXEL_CONNECT_SRC = [
   'https://www.googletagmanager.com',
   'https://www.google.com',
   'https://analytics.tiktok.com',
-  API_BASE_URL,
 ];
+
+/** The browser-facing API origin (runtime PUBLIC_API_URL): lead forms and tracking beacons post to it. */
+function publicApiConnectSrc(): string {
+  return apiOrigin(serverPublicApiUrl());
+}
 
 function publicAdsCsp(response: NextResponse): NextResponse {
   response.headers.set(
     'Content-Security-Policy',
-    `script-src ${AD_PIXEL_SCRIPT_SRC.join(' ')}; connect-src ${AD_PIXEL_CONNECT_SRC.join(' ')}`,
+    `script-src ${AD_PIXEL_SCRIPT_SRC.join(' ')}; connect-src ${[...AD_PIXEL_CONNECT_SRC, publicApiConnectSrc()].join(' ')}`,
   );
   return response;
 }
@@ -138,7 +142,7 @@ async function embedCsp(request: NextRequest): Promise<NextResponse> {
 
   let frameAncestors = '*';
   try {
-    const res = await fetch(`${API_BASE_URL}/studios/public/${encodeURIComponent(slug)}`, { signal: AbortSignal.timeout(2000) });
+    const res = await fetch(`${API_INTERNAL_BASE_URL}/studios/public/${encodeURIComponent(slug)}`, { signal: AbortSignal.timeout(2000) });
     if (res.ok) {
       const studio = (await res.json()) as { embedAllowedOrigins?: string[] };
       // Re-validate before putting values into a header: only plain https origins.

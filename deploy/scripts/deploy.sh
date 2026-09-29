@@ -4,7 +4,8 @@
 #
 # 1. back up the database
 # 2. pull the new images (abort if missing, nothing has changed yet)
-# 3. run migrations (abort on failure, old release keeps serving)
+# 3. run migrations and create missing platform defaults (abort on failure,
+#    old release keeps serving)
 # 4. start the new release and smoke test it (3 attempts)
 # 5. on failure roll back to the release that was running before
 
@@ -43,9 +44,19 @@ fi
 use_release "${TAG}"
 compose pull api web
 
-compose up -d postgres redis
+# Wait for the healthchecks: on an empty volume Postgres needs a few seconds
+# to initialise and the migration below would otherwise race it.
+compose up -d --wait --wait-timeout 120 postgres redis
 compose run --rm --no-deps api \
   sh -c 'cd node_modules/@platform/database && ./node_modules/.bin/prisma migrate deploy --schema prisma/schema.prisma'
+# Create-only platform defaults (plans, templates, the platform tenant and
+# its home page, ...): never updates or deletes a row, so it is safe on
+# every deploy and gives a fresh environment what the smoke test and the
+# first tenant need. A failure aborts here, before any traffic moves. The
+# first super admin is a separate, one-time manual step (docs/CICD_GUIDE.md).
+# Images built before the command existed simply skip it.
+compose run --rm --no-deps api \
+  sh -c 'if [ -f dist/cli/bootstrap.js ]; then node dist/cli/bootstrap.js --defaults-only; else echo "bootstrap command not in this image; skipped"; fi'
 
 # Wait for container healthchecks; the smoke test below makes the decision.
 compose up -d --remove-orphans --wait --wait-timeout 120 || true

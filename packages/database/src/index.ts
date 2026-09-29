@@ -16,3 +16,5 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export * from '@prisma/client';
+export * from './platform-defaults';
+export * from './ensure-platform-defaults';
