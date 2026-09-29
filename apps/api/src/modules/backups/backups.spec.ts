@@ -405,7 +405,8 @@ describe('retention', () => {
 
 describe('pg_dump environment', () => {
   it('takes DATABASE_URL apart and drops the Prisma schema parameter', () => {
-    expect(pgEnvFromUrl('postgresql://app:p%40ss@postgres:5432/app?schema=public&sslmode=require')).toEqual({
+    // trufflehog:ignore (test fixture, not a real database)
+    expect(pgEnvFromUrl('postgresql://app:p%40ss@postgres:5432/app?schema=public&sslmode=require')).toEqual({ // trufflehog:ignore
       PGHOST: 'postgres',
       PGPORT: '5432',
       PGUSER: 'app',
