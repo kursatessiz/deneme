@@ -12,6 +12,9 @@ import { DEMO_PASSWORD } from './support/login';
  * removed at the end.
  */
 
+// Fail a stuck action with its own message instead of the whole-test timeout.
+test.use({ actionTimeout: 15_000 });
+
 const SUPER_ADMIN_PHONE = '+905321000001';
 const FAKE_KEY = 'sk-ant-api03-playwright-fake-key-0000PWKY';
 const CSRF = { 'x-requested-with': 'platform-web' };
@@ -106,14 +109,15 @@ test('the super admin sets the AI key and translates a language section with AI'
     await expect(job.getByText(/^(\d+) \/ \1 tamamlandı/)).toBeVisible();
 
     // 4. Review: filter the unreviewed AI values, check placeholders, approve.
-    await main.getByLabel('Kaynak', { exact: true }).selectOption('AI_UNREVIEWED');
+    await main.locator('#i18n-source-filter').selectOption('AI_UNREVIEWED');
     const pluralRow = main.getByRole('row').filter({ hasText: 'common.itemCount.other' });
     await expect(pluralRow.getByRole('textbox')).toHaveValue(/\{count\}/);
     await expect(pluralRow.getByText('Yapay zeka, onay bekliyor')).toBeVisible();
     await main.getByRole('button', { name: 'Görünen yapay zeka çevirilerini onayla' }).click();
-    await expect(main.getByText('Yapay zeka, onay bekliyor')).toHaveCount(0);
+    // Scoped to the table: the filter select has an option with the same text.
+    await expect(main.getByRole('table').getByText('Yapay zeka, onay bekliyor')).toHaveCount(0);
 
-    await main.getByLabel('Kaynak', { exact: true }).selectOption('AI');
+    await main.locator('#i18n-source-filter').selectOption('AI');
     await expect(main.getByRole('row').filter({ hasText: 'common.itemCount.other' }).getByText('Yapay zeka', { exact: true })).toBeVisible();
   } finally {
     // Best-effort cleanup; never hide the real failure behind a cleanup error.
