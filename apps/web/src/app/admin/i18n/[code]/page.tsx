@@ -41,6 +41,11 @@ const inputStyle: React.CSSProperties = {
 function EntryRow({ code, entry, onSaved }: { code: string; entry: TranslationEntryDTO; onSaved: (entry: TranslationEntryDTO) => void }) {
   const t = useT();
   const [value, setValue] = useState(entry.effective ?? '');
+  // Rows are keyed by message key, so a value that changes on the server
+  // (an AI job finishing, a pack upload) must replace the local copy.
+  useEffect(() => {
+    setValue(entry.effective ?? '');
+  }, [entry.effective]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dirty = value !== (entry.effective ?? '');
