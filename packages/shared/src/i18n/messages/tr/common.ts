@@ -21,6 +21,7 @@ export const trCommon = {
   'common.loading': 'Yükleniyor...',
   'common.saved': 'Kaydedildi.',
   'common.saving': 'Kaydediliyor...',
+  'common.saveFailed': 'Kaydedilemedi',
   'common.retry': 'Tekrar dene',
   'common.required': 'Bu alan zorunlu.',
   'common.error.generic': 'Bir hata oluştu. Lütfen tekrar deneyin.',
