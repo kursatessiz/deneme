@@ -60,8 +60,8 @@ export class CampaignsController {
 
   @Post(':campaignId/cancel')
   @RequirePermission('campaigns.manage')
-  cancel(@Tenant() tenant: TenantContext, @Param('campaignId', ParseUUIDPipe) campaignId: string) {
-    return this.campaigns.cancel(tenant.studioId, campaignId);
+  cancel(@Tenant() tenant: TenantContext, @CurrentUser() user: AuthUser, @Param('campaignId', ParseUUIDPipe) campaignId: string) {
+    return this.campaigns.cancel(tenant.studioId, campaignId, new Date(), user.id);
   }
 
   @Post(':campaignId/test-send')

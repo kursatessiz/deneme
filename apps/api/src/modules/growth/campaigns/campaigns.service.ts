@@ -140,12 +140,12 @@ export class CampaignsService {
     return this.toDto(updated);
   }
 
-  async cancel(studioId: string, id: string, now = new Date()): Promise<CampaignDTO> {
+  async cancel(studioId: string, id: string, now = new Date(), actorUserId: string | null = null): Promise<CampaignDTO> {
     const campaign = await this.get(studioId, id);
     if (!['SCHEDULED', 'SENDING', 'DRAFT', 'PENDING_APPROVAL', 'PAUSED'].includes(campaign.status)) {
       throw new ConflictException('Bu kampanya iptal edilemez');
     }
-    await this.prisma.$transaction([
+    const results = await this.prisma.$transaction([
       this.prisma.campaign.update({ where: { id: campaign.id }, data: { status: 'CANCELLED', cancelledAt: now } }),
       this.prisma.campaignRecipient.updateMany({ where: { campaignId: campaign.id, status: 'PENDING' }, data: { status: 'CANCELLED', nextAttemptAt: null } }),
       // An open approval request of a cancelled campaign is closed with it (M3b).
@@ -153,11 +153,24 @@ export class CampaignsService {
         ? [
             this.prisma.approvalRequest.updateMany({
               where: { id: campaign.approvalRequestId, studioId, status: 'PENDING' },
-              data: { status: 'CANCELLED', decidedAt: now },
+              data: { status: 'CANCELLED', decidedAt: now, decidedByUserId: actorUserId },
             }),
           ]
         : []),
     ]);
+    const closed = results[2];
+    if (campaign.approvalRequestId && closed && 'count' in closed && closed.count > 0) {
+      await this.prisma.auditLog.create({
+        data: {
+          studioId,
+          userId: actorUserId,
+          action: 'marketing.approval.cancelled',
+          entityType: 'ApprovalRequest',
+          entityId: campaign.approvalRequestId,
+          metadata: { campaignId: campaign.id, via: 'campaign_cancel' },
+        },
+      });
+    }
     return this.detail(studioId, id);
   }
 

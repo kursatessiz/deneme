@@ -355,6 +355,7 @@ describe('Marketing approvals (M3b) e2e', () => {
       expect(await prisma.auditLog.count({ where: { studioId: PLATFORM, action: 'marketing.approval.invalidated', createdAt: { gte: startedAt } } })).toBeGreaterThanOrEqual(2);
       expect((await tenant(superAdminToken, PLATFORM).post(`/studios/${PLATFORM}/campaigns/${id}/cancel`)).status).toBe(201);
       expect((await prisma.approvalRequest.findUniqueOrThrow({ where: { id: after.approvalRequestId! } })).status).toBe('CANCELLED');
+      expect(await prisma.auditLog.count({ where: { studioId: PLATFORM, action: 'marketing.approval.cancelled', entityId: after.approvalRequestId!, userId: superAdminId } })).toBe(1);
     });
 
     it('SMS to a United States recipient always needs a super admin; only the requester or a super admin withdraws it', async () => {

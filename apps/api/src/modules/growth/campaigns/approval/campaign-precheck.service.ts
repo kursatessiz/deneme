@@ -121,9 +121,7 @@ export class CampaignPrecheckService {
       const userIds = contacts.map((c) => c.membership?.user.id).filter((v): v is string => Boolean(v));
       const [contactConsents, memberConsents, frequency] = await Promise.all([
         this.prisma.contactConsent.findMany({ where: { studioId: campaign.studioId, contactId: { in: ids } } }),
-        userIds.length
-          ? this.prisma.communicationConsent.findMany({ where: { studioId: campaign.studioId, userId: { in: userIds } } })
-          : Promise.resolve([]),
+        this.prisma.communicationConsent.findMany({ where: { studioId: campaign.studioId, userId: { in: userIds } } }),
         this.frequency(campaign.studioId, ids, now),
       ]);
       const addressesByChannel = new Map<ApprovalChannel, string[]>();
