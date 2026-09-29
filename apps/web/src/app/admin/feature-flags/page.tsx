@@ -28,8 +28,8 @@ const inputStyle: React.CSSProperties = {
 
 export default function FeatureFlagsPage() {
   const [refreshKey, setRefreshKey] = useState(0);
-  const { data, loading, error, forbidden } = useBff<{ items: FeatureFlagRow[] }>('admin/feature-flags', null);
-  const { data: catalog } = useBff<{ items: CatalogEntry[] }>('admin/feature-flags/catalog', null);
+  const { data, loading, error, forbidden } = useBff<{ items: FeatureFlagRow[] }>('admin/feature-flags', null, refreshKey);
+  const { data: catalog } = useBff<{ items: CatalogEntry[] }>('admin/feature-flags/catalog', null, refreshKey);
   const [form, setForm] = useState({ key: '', scope: 'GLOBAL' as FeatureFlagRow['scope'], businessTypeTemplateId: '', studioId: '', enabled: true });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);

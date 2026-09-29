@@ -11,7 +11,8 @@ interface UseBffResult<T> {
 }
 
 /** Loads one BFF endpoint on mount, exposing loading/empty/error/forbidden states for a page to render around. */
-export function useBff<T>(path: string | null, studioId: string | null): UseBffResult<T> {
+/** `refreshKey`: bump it to refetch the same path (e.g. after a create or delete). */
+export function useBff<T>(path: string | null, studioId: string | null, refreshKey = 0): UseBffResult<T> {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +42,7 @@ export function useBff<T>(path: string | null, studioId: string | null): UseBffR
     return () => {
       cancelled = true;
     };
-  }, [path, studioId]);
+  }, [path, studioId, refreshKey]);
 
   return { data, loading, error, forbidden };
 }

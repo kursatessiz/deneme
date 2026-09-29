@@ -135,8 +135,8 @@ function CreateTenantForm({ onCreated }: { onCreated: () => void }) {
 }
 
 export default function TenantsPage() {
-  const { data, loading, error, forbidden } = useBff<{ items: TenantListItem[] }>('admin/tenants', null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const { data, loading, error, forbidden } = useBff<{ items: TenantListItem[] }>('admin/tenants', null, refreshKey);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const refresh = () => setRefreshKey((k) => k + 1);

@@ -31,8 +31,8 @@ const inputStyle: React.CSSProperties = {
 
 export default function ContentPage() {
   const [refreshKey, setRefreshKey] = useState(0);
-  const { data: templates, loading: tLoading, error: tError } = useBff<{ items: MessageTemplateRow[] }>('admin/content/message-templates', null);
-  const { data: docs, loading: dLoading, error: dError } = useBff<{ items: DocumentVersionRow[] }>('admin/content/document-versions', null);
+  const { data: templates, loading: tLoading, error: tError } = useBff<{ items: MessageTemplateRow[] }>('admin/content/message-templates', null, refreshKey);
+  const { data: docs, loading: dLoading, error: dError } = useBff<{ items: DocumentVersionRow[] }>('admin/content/document-versions', null, refreshKey);
 
   const [tplForm, setTplForm] = useState({ studioId: '', key: '', channel: 'SMS', body: '', whatsappTemplateName: '' });
   const [docForm, setDocForm] = useState({ studioId: '', type: 'KVKK_NOTICE', title: '', body: '' });
