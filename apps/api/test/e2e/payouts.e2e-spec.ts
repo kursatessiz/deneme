@@ -548,7 +548,7 @@ describe('Bank payouts G5d-2 (e2e)', () => {
     const sync = app.get(PayoutSyncService);
     await prisma.payoutConnection.deleteMany({ where: { studioId: ZEN } });
     ledger(ZEN, 'CHARGE', `${REF}_4`, 10);
-    const first = await sync.syncDue(new Date(), 100);
+    const first = await sync.syncDue(new Date(), 100, ZEN);
     expect(first.failed).toBe(0);
     const connection = await prisma.payoutConnection.findUniqueOrThrow({ where: { studioId_provider: { studioId: ZEN, provider: 'MOCK' } } });
     expect(connection.lastSyncedAt).not.toBeNull();
@@ -556,10 +556,10 @@ describe('Bank payouts G5d-2 (e2e)', () => {
 
     // Within six hours nothing is due for this studio any more.
     ledger(ZEN, 'CHARGE', `${REF}_5`, 10);
-    await sync.syncDue(new Date(), 100);
+    await sync.syncDue(new Date(), 100, ZEN);
     expect(await prisma.payoutItem.count({ where: { studioId: ZEN, providerReference: `${REF}_5` } })).toBe(0);
     // Seven hours later it is.
-    await sync.syncDue(new Date(Date.now() + 7 * 3600_000), 100);
+    await sync.syncDue(new Date(Date.now() + 7 * 3600_000), 100, ZEN);
     expect(await prisma.payoutItem.count({ where: { studioId: ZEN, providerReference: `${REF}_5` } })).toBe(1);
   });
 });

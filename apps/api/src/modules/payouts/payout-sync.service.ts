@@ -97,7 +97,7 @@ export class PayoutSyncService {
    * the last 6 hours. Failures are recorded per connection and never stop
    * the run.
    */
-  async syncDue(now = new Date(), limit = 25): Promise<{ synced: number; payouts: number; failed: number }> {
+  async syncDue(now = new Date(), limit = 25, onlyStudioId?: string): Promise<{ synced: number; payouts: number; failed: number }> {
     const activeSince = new Date(now.getTime() - PAYOUT_ACTIVE_PAYMENT_DAYS * DAY_MS);
     const dueBefore = new Date(now.getTime() - PAYOUT_SYNC_INTERVAL_MS);
     const [used, connections] = await Promise.all([
@@ -110,6 +110,7 @@ export class PayoutSyncService {
     for (const row of connections) targets.set(`${row.studioId}:${row.provider}`, { studioId: row.studioId, provider: row.provider });
 
     const due = [...targets.entries()]
+      .filter(([, target]) => !onlyStudioId || target.studioId === onlyStudioId)
       .filter(([key]) => {
         const at = lastSynced.get(key);
         return !at || at < dueBefore;
