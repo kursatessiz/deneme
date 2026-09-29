@@ -9,11 +9,16 @@ import {
   type IntegrationEntryPoint,
   type IntegrationHubDTO,
   type MessageKey,
+  SOCIAL_PROVIDERS,
+  type SocialConnectionDTO,
+  type SocialConnectionTestDTO,
+  type SocialProvider,
 } from '@platform/shared';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { Badge } from '@/components/common/Badge';
 import { ErrorState, LoadingState } from '@/components/common/DataState';
+import { SelectField } from '@/components/marketing/fields';
 import { InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader, TextField, Toggle } from '@/components/settings/ui';
 
 const STATUS_TONE: Record<DnsRecordStatus, 'neutral' | 'success' | 'warning' | 'danger'> = {
@@ -72,6 +77,13 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
   const [domain, setDomain] = useState('');
   const [mailFrom, setMailFrom] = useState('');
   const [dkim, setDkim] = useState('');
+  const [socialProvider, setSocialProvider] = useState<SocialProvider>('META_PAGE');
+  const [socialExternalId, setSocialExternalId] = useState('');
+  const [socialName, setSocialName] = useState('');
+  const [socialToken, setSocialToken] = useState('');
+  const [socialHost, setSocialHost] = useState<'graph.facebook.com' | 'graph.instagram.com'>('graph.facebook.com');
+  const [rotateId, setRotateId] = useState<string | null>(null);
+  const [rotateToken, setRotateToken] = useState('');
 
   const headers = { [INTEGRATION_ENTRY_HEADER]: entry };
   const fmtDate = (iso: string | null) => (iso ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso)) : t('integrations.ads.never'));
@@ -140,6 +152,117 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
         )}
         <Link href={adsSettingsHref} className="text-sm underline" style={{ color: 'var(--color-text-secondary)' }}>
           {t('integrations.ads.manage')}
+        </Link>
+      </Section>
+
+      <Section title={t('integrations.social.title')} description={t('integrations.social.description')}>
+        {data.socialConnections.length === 0 ? (
+          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+            {t('integrations.social.empty')}
+          </p>
+        ) : (
+          <Table head={[t('integrations.social.account'), t('integrations.social.credential'), t('integrations.social.status'), t('integrations.social.lastError'), '']}>
+            {data.socialConnections.map((c: SocialConnectionDTO) => (
+              <tr key={c.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
+                <td className="py-2 pr-3">
+                  <span className="font-medium">{c.displayName}</span>
+                  <span className="block text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                    {t(`integrations.social.provider.${c.provider}`)}
+                  </span>
+                </td>
+                <td className="py-2 pr-3 font-mono text-xs">{c.credentialPreview}</td>
+                <td className="py-2 pr-3">
+                  <Badge tone={c.status === 'CONNECTED' ? 'success' : 'danger'}>{t(`integrations.social.status.${c.status}`)}</Badge>
+                </td>
+                <td className="py-2 pr-3 text-xs" style={{ color: 'var(--color-danger)' }}>
+                  {c.lastError ?? ''}
+                </td>
+                <td className="py-2 text-right space-x-2 whitespace-nowrap">
+                  <SecondaryButton
+                    onClick={() =>
+                      run(async () => {
+                        const res = (await call(`social/${c.id}/test`, 'POST')) as SocialConnectionTestDTO;
+                        if (!res.ok) throw new BffError(t('integrations.social.testFailed', { error: res.error ?? '' }), 422);
+                      })
+                    }
+                  >
+                    {t('integrations.social.test')}
+                  </SecondaryButton>
+                  <SecondaryButton onClick={() => setRotateId(rotateId === c.id ? null : c.id)}>{t('integrations.social.rotate')}</SecondaryButton>
+                  <SecondaryButton danger onClick={() => window.confirm(t('integrations.confirmDelete')) && run(() => call(`social/${c.id}`, 'DELETE'))}>
+                    {t('integrations.delete')}
+                  </SecondaryButton>
+                </td>
+              </tr>
+            ))}
+          </Table>
+        )}
+        {rotateId && (
+          <form
+            className="flex flex-wrap gap-3 items-end"
+            onSubmit={(e) => {
+              e.preventDefault();
+              run(async () => {
+                await call(`social/${rotateId}`, 'PATCH', { credentials: { accessToken: rotateToken.trim() } });
+                setRotateId(null);
+                setRotateToken('');
+              });
+            }}
+          >
+            <TextField label={t('integrations.social.token')} value={rotateToken} onChange={setRotateToken} type="password" />
+            <PrimaryButton type="submit" disabled={rotateToken.trim().length < 8}>
+              {t('integrations.social.rotate')}
+            </PrimaryButton>
+          </form>
+        )}
+        <form
+          className="grid gap-3 md:grid-cols-3 items-end"
+          onSubmit={(e) => {
+            e.preventDefault();
+            run(async () => {
+              await call('social', 'POST', {
+                provider: socialProvider,
+                externalId: socialExternalId.trim(),
+                ...(socialName.trim() ? { displayName: socialName.trim() } : {}),
+                credentials: { accessToken: socialToken.trim(), ...(socialProvider === 'INSTAGRAM' ? { apiHost: socialHost } : {}) },
+              });
+              setSocialExternalId('');
+              setSocialName('');
+              setSocialToken('');
+            });
+          }}
+        >
+          <SelectField
+            label={t('integrations.social.provider')}
+            value={socialProvider}
+            onChange={(v) => setSocialProvider(v as SocialProvider)}
+            options={SOCIAL_PROVIDERS.map((p) => ({ value: p, label: t(`integrations.social.provider.${p}`) }))}
+          />
+          <TextField label={t('integrations.social.externalId')} value={socialExternalId} onChange={setSocialExternalId} />
+          <TextField label={t('integrations.social.displayName')} value={socialName} onChange={setSocialName} />
+          <TextField label={t('integrations.social.token')} value={socialToken} onChange={setSocialToken} type="password" />
+          {socialProvider === 'INSTAGRAM' && (
+            <SelectField
+              label={t('integrations.social.apiHost')}
+              value={socialHost}
+              onChange={(v) => setSocialHost(v === 'graph.instagram.com' ? 'graph.instagram.com' : 'graph.facebook.com')}
+              options={[
+                { value: 'graph.facebook.com', label: t('integrations.social.apiHost.graph.facebook.com') },
+                { value: 'graph.instagram.com', label: t('integrations.social.apiHost.graph.instagram.com') },
+              ]}
+            />
+          )}
+          <div>
+            <PrimaryButton type="submit" disabled={!socialExternalId.trim() || socialToken.trim().length < 8}>
+              {t('integrations.social.add')}
+            </PrimaryButton>
+          </div>
+        </form>
+        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          {t('integrations.social.externalIdHint')}
+        </p>
+        <Link href="/pazarlama/sosyal" className="text-sm underline" style={{ color: 'var(--color-text-secondary)' }}>
+          {t('integrations.social.openPosts')}
         </Link>
       </Section>
 

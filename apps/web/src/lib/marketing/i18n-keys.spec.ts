@@ -9,6 +9,10 @@ import {
   MARKETING_DRAFT_KINDS,
   MARKETING_DRAFT_STATUSES,
   MARKETING_STUDIO_ERROR_CODES,
+  SOCIAL_ERROR_CODES,
+  SOCIAL_POST_STATUSES,
+  SOCIAL_PROVIDERS,
+  SOCIAL_APPROVAL_REASONS,
 } from '@platform/shared';
 
 /**
@@ -78,13 +82,19 @@ describe('marketing screens i18n keys', () => {
       ...['month', 'week'].map((m) => `contentCalendar.mode.${m}`),
       ...CALENDAR_STATUSES.map((s) => `contentCalendar.status.${s}`),
       ...CALENDAR_CHANNELS.map((c) => `contentCalendar.channel.${c}`),
+      ...SOCIAL_POST_STATUSES.map((x) => `marketingSocial.status.${x}`),
+      ...SOCIAL_PROVIDERS.flatMap((x) => [`marketingSocial.provider.${x}`, `integrations.social.provider.${x}`]),
+      ...SOCIAL_ERROR_CODES.map((x) => `marketingSocial.error.${x}`),
+      ...SOCIAL_APPROVAL_REASONS.map((x) => `marketingApprovals.reason.${x}`),
+      ...['MEDIA_REQUIRED', 'TOO_MANY_MEDIA', 'MEDIA_NOT_SUPPORTED'].map((x) => `marketingSocial.shape.${x}`),
+      ...['CONNECTED', 'ERROR'].map((x) => `integrations.social.status.${x}`),
     ];
     expect(expected.filter((k) => !has(k))).toEqual([]);
   });
 
   it('English has every key Turkish has in these namespaces', () => {
     const en = BUNDLED_MESSAGES.en as Record<string, string>;
-    const prefixes = ['brandKit.', 'marketingStudio.', 'contentCalendar.'];
+    const prefixes = ['brandKit.', 'marketingStudio.', 'contentCalendar.', 'marketingSocial.', 'integrations.social.'];
     const missing = Object.keys(catalogue).filter((k) => prefixes.some((p) => k.startsWith(p)) && !(k in en));
     expect(missing).toEqual([]);
   });

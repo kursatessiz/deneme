@@ -198,6 +198,7 @@ import { trAdminMarketingSettings } from './tr/admin-marketing-settings';
 import { trMarketingInsights } from './tr/marketingInsights';
 import { trMarketingGuards } from './tr/marketingGuards';
 import { trAdminAudit } from './tr/admin-audit';
+import { trMarketingSocial } from './tr/marketingSocial';
 import { enMarketing } from './en/marketing';
 import { enBrandKit } from './en/brandKit';
 import { enMarketingStudio } from './en/marketingStudio';
@@ -208,6 +209,7 @@ import { enAdminMarketingSettings } from './en/admin-marketing-settings';
 import { enMarketingInsights } from './en/marketingInsights';
 import { enMarketingGuards } from './en/marketingGuards';
 import { enAdminAudit } from './en/admin-audit';
+import { enMarketingSocial } from './en/marketingSocial';
 import { trIntegrations } from './tr/integrations';
 import { enIntegrations } from './en/integrations';
 import { trJoinInvite } from './tr/join-invite';
@@ -333,6 +335,7 @@ export const TR_NAMESPACES = [
   trMarketingInsights,
   trMarketingGuards,
   trAdminAudit,
+  trMarketingSocial,
   trIntegrations,
   trJoinInvite,
   trConsentConfirm,
@@ -444,6 +447,7 @@ export const EN_NAMESPACES = [
   enMarketingInsights,
   enMarketingGuards,
   enAdminAudit,
+  enMarketingSocial,
   enIntegrations,
   enJoinInvite,
   enConsentConfirm,

@@ -54,4 +54,6 @@ export const enContentCalendar = {
   'contentCalendar.delete': 'Delete item',
   'contentCalendar.confirmDelete': 'Delete this calendar item?',
   'contentCalendar.invalid': 'The item could not be saved. Check the title, channel and date.',
+  'contentCalendar.social.open': 'Open the social post',
+  'contentCalendar.social.create': 'Create a social post',
 } as const satisfies Record<keyof typeof trContentCalendar, string>;

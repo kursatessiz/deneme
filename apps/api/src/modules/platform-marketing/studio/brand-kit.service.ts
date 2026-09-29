@@ -13,7 +13,7 @@ import {
   type BrandKitLocaleDTO,
   type BrandKitViewDTO,
   type MarketingCheckContext,
-  type MarketingDraftKind,
+  type MarketingCheckKind,
   type ProductFactDTO,
   type ProductFactInput,
   type UpdateProductFactInput,
@@ -277,7 +277,7 @@ export class BrandKitService {
     };
   }
 
-  checkContext(kit: BrandKitDTO, locale: string, kind: MarketingDraftKind): MarketingCheckContext {
+  checkContext(kit: BrandKitDTO, locale: string, kind: MarketingCheckKind): MarketingCheckContext {
     const row = this.localeRowFor(kit, locale);
     const channel = disclaimerChannelOf(kind);
     return {
@@ -288,7 +288,7 @@ export class BrandKitService {
   }
 
   /** Check context straight from the database (used when a variant is edited). A missing kit checks nothing. */
-  async loadCheckContext(studioId: string, locale: string, kind: MarketingDraftKind): Promise<MarketingCheckContext> {
+  async loadCheckContext(studioId: string, locale: string, kind: MarketingCheckKind): Promise<MarketingCheckContext> {
     const kit = await this.prisma.brandKit.findUnique({ where: { studioId }, include: { locales: true } });
     if (!kit) return { locale, bannedPhrases: [], requiredDisclaimer: null };
     return this.checkContext(toKitDto(kit), locale, kind);

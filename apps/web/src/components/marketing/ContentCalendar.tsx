@@ -35,6 +35,7 @@ interface ItemForm {
   status: CalendarStatus;
   ownerUserId: string;
   draftId: string;
+  socialPostId: string;
   notes: string;
 }
 
@@ -46,7 +47,7 @@ const STATUS_COLOR: Record<CalendarStatus, string> = {
   CANCELLED: 'var(--color-danger)',
 };
 
-const newForm = (date: string): ItemForm => ({ id: null, title: '', channel: 'EMAIL', scheduledDate: date, status: 'PLANNED', ownerUserId: '', draftId: '', notes: '' });
+const newForm = (date: string): ItemForm => ({ id: null, title: '', channel: 'EMAIL', scheduledDate: date, status: 'PLANNED', ownerUserId: '', draftId: '', socialPostId: '', notes: '' });
 
 function formOf(item: ContentItemDTO): ItemForm {
   return {
@@ -57,6 +58,7 @@ function formOf(item: ContentItemDTO): ItemForm {
     status: item.status,
     ownerUserId: item.ownerUserId ?? '',
     draftId: item.draftId ?? '',
+    socialPostId: item.socialPostId ?? '',
     notes: item.notes ?? '',
   };
 }
@@ -289,28 +291,34 @@ export function ContentCalendar() {
                   {cell.items.map((item) => {
                     const movable = canManage && isCalendarItemMovable(item.status);
                     return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        draggable={movable}
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData('text/plain', item.id);
-                          setDragging(item.id);
-                        }}
-                        onDragEnd={() => setDragging(null)}
-                        onClick={() => setForm(formOf(item))}
-                        className="w-full text-left text-xs px-1.5 py-1 border-l-2 truncate"
-                        style={{
-                          borderColor: STATUS_COLOR[item.status],
-                          backgroundColor: 'var(--color-surface-muted)',
-                          color: 'var(--color-text-primary)',
-                          textDecoration: item.status === 'CANCELLED' ? 'line-through' : undefined,
-                          cursor: movable ? 'grab' : 'pointer',
-                        }}
-                        title={`${item.title} (${t(`contentCalendar.status.${item.status}`)})`}
-                      >
-                        <span className="font-medium">{t(`contentCalendar.channel.${item.channel}`)}</span> {item.title}
-                      </button>
+                      <div key={item.id}>
+                        <button
+                          type="button"
+                          draggable={movable}
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('text/plain', item.id);
+                            setDragging(item.id);
+                          }}
+                          onDragEnd={() => setDragging(null)}
+                          onClick={() => setForm(formOf(item))}
+                          className="w-full text-left text-xs px-1.5 py-1 border-l-2 truncate"
+                          style={{
+                            borderColor: STATUS_COLOR[item.status],
+                            backgroundColor: 'var(--color-surface-muted)',
+                            color: 'var(--color-text-primary)',
+                            textDecoration: item.status === 'CANCELLED' ? 'line-through' : undefined,
+                            cursor: movable ? 'grab' : 'pointer',
+                          }}
+                          title={`${item.title} (${t(`contentCalendar.status.${item.status}`)})`}
+                        >
+                          <span className="font-medium">{t(`contentCalendar.channel.${item.channel}`)}</span> {item.title}
+                        </button>
+                        {item.channel === 'SOCIAL' && item.socialPostId && (
+                          <Link href={`/pazarlama/sosyal?id=${encodeURIComponent(item.socialPostId)}`} className="block text-xs px-1.5 underline" style={{ color: 'var(--color-text-secondary)' }}>
+                            {t('contentCalendar.social.open')}
+                          </Link>
+                        )}
+                      </div>
                     );
                   })}
                   {cell.campaigns.map((c) => (
@@ -386,6 +394,19 @@ export function ContentCalendar() {
             )}
           </div>
           <AreaField label={t('contentCalendar.field.notes')} value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} rows={2} disabled={!canManage} />
+          {form.id && form.channel === 'SOCIAL' && (
+            <Link
+              href={
+                form.socialPostId
+                  ? `/pazarlama/sosyal?id=${encodeURIComponent(form.socialPostId)}`
+                  : `/pazarlama/sosyal?calendarItemId=${encodeURIComponent(form.id)}&title=${encodeURIComponent(form.title)}`
+              }
+              className="text-xs underline"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              {form.socialPostId ? t('contentCalendar.social.open') : t('contentCalendar.social.create')}
+            </Link>
+          )}
           {form.draftId && (
             <Link href="/pazarlama/yapay-zeka" className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
               {t('contentCalendar.openStudio')}

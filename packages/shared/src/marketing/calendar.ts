@@ -60,6 +60,8 @@ export interface ContentItemDTO {
   status: CalendarStatus;
   draftId: string | null;
   campaignId: string | null;
+  /** M4b: the organic social post created for this item, when there is one. */
+  socialPostId: string | null;
   ownerUserId: string | null;
   ownerName: string | null;
   notes: string | null;

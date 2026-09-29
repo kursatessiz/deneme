@@ -27,6 +27,7 @@ import type {
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MessagingService } from '../../../messaging/engine/messaging.service';
 import { GrowthQueueService } from '../../growth-queue.service';
+import type { ApprovalTargetHandler } from './approval-target-handler';
 import { CampaignPrecheckService } from './campaign-precheck.service';
 import { MarketingSettingsService } from './marketing-settings.service';
 
@@ -59,6 +60,8 @@ type Tx = Prisma.TransactionClient;
 @Injectable()
 export class CampaignApprovalService {
   private readonly logger = new Logger(CampaignApprovalService.name);
+  /** Targets other than campaigns (M4b: SOCIAL_POST) decide through their own handler. */
+  private readonly targetHandlers = new Map<string, ApprovalTargetHandler>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -68,6 +71,10 @@ export class CampaignApprovalService {
     private readonly messaging: MessagingService,
     private readonly queue: GrowthQueueService,
   ) {}
+
+  registerTargetHandler(targetType: ApprovalTargetType, handler: ApprovalTargetHandler): void {
+    this.targetHandlers.set(targetType, handler);
+  }
 
   async isPlatformStudio(studioId: string): Promise<boolean> {
     const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { isPlatform: true } });
@@ -130,6 +137,7 @@ export class CampaignApprovalService {
     const request = await this.pending(studioId, id, now);
     const outcome = approvalOutcomeFor({ requestedByUserId: request.requestedByUserId, approverUserId: actor.userId, approverIsSuperAdmin: actor.isSuperAdmin });
     if (outcome === 'FOUR_EYES_VIOLATION') throw approvalError(HttpStatus.FORBIDDEN, 'APPROVAL_FOUR_EYES', 'Kendi talebinizi onaylayamazsınız');
+    if (request.targetType !== 'CAMPAIGN') return this.approveOther(studioId, actor, request, outcome, note, now);
     const campaign = await this.targetCampaign(request);
 
     // The content must still be what the requester submitted.
@@ -162,6 +170,63 @@ export class CampaignApprovalService {
     await this.queue.scheduleCampaign(campaign.id, campaign.startedAt ? now : sendAt);
     if (request.requestedByUserId !== actor.userId) await this.notifyRequester(decided, 'approved');
     return this.toDto(decided, actor);
+  }
+
+  /** Approval of a non-campaign target (M4b: social posts): the content must still be what the requester submitted. */
+  private async approveOther(
+    studioId: string,
+    actor: ApprovalActor,
+    request: ApprovalRequest,
+    outcome: 'APPROVED' | 'SELF_APPROVED',
+    note: string | undefined,
+    now: Date,
+  ): Promise<ApprovalRequestDTO> {
+    const handler = this.targetHandlers.get(request.targetType);
+    const hash = handler ? await handler.currentHash(request) : null;
+    if (!handler || hash === null) throw approvalError(HttpStatus.CONFLICT, 'APPROVAL_NOT_PENDING', 'Talep artık geçerli değil');
+    if (hash !== request.contentHash) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.approvalRequest.updateMany({
+          where: { id: request.id, status: 'PENDING' },
+          data: {
+            status: 'CANCELLED',
+            decidedAt: now,
+            summary: { ...asSummary(request.summary), invalidated: { at: now.toISOString(), reason: 'CONTENT_CHANGED', replacedByRequestId: null } } as unknown as Prisma.InputJsonValue,
+          },
+        });
+        await handler.onClosed(tx, request, 'CONTENT_CHANGED');
+        await this.audit(tx, studioId, actor.userId, 'marketing.approval.invalidated', request, { targetId: request.targetId });
+      });
+      throw approvalError(HttpStatus.CONFLICT, 'APPROVAL_CONTENT_CHANGED', 'İçerik talepten sonra değişti; yeniden onay istenmeli');
+    }
+    const summary = asSummary(request.summary);
+    const decided = await this.prisma.$transaction(async (tx) => {
+      const moved = await tx.approvalRequest.updateMany({
+        where: { id: request.id, status: 'PENDING' },
+        data: {
+          status: outcome,
+          decidedByUserId: actor.userId,
+          decidedAt: now,
+          decisionNote: note?.trim() || null,
+          ...(outcome === 'SELF_APPROVED' ? { summary: { ...summary, selfApprovedBySuperAdmin: true } as unknown as Prisma.InputJsonValue } : {}),
+        },
+      });
+      if (moved.count === 0) throw approvalError(HttpStatus.CONFLICT, 'APPROVAL_NOT_PENDING', 'Talep bekleyen durumda değil');
+      const updated = await tx.approvalRequest.findUniqueOrThrow({ where: { id: request.id } });
+      await handler.onApproved(tx, updated);
+      await this.audit(tx, studioId, actor.userId, outcome === 'SELF_APPROVED' ? 'marketing.approval.self_approved_by_super_admin' : 'marketing.approval.approved', updated, {
+        targetId: request.targetId,
+        note: note?.trim() || null,
+      });
+      return updated;
+    });
+    if (request.requestedByUserId !== actor.userId) await this.notifyRequester(decided, 'approved');
+    return this.toDto(decided, actor);
+  }
+
+  /** Tells the super admins a non-campaign request is waiting (campaign requests notify from requestForCampaign). */
+  async notifyPending(request: ApprovalRequest): Promise<void> {
+    await this.notifySuperAdmins(request, request.requestedByUserId);
   }
 
   async reject(studioId: string, actor: ApprovalActor, id: string, note: string, now = new Date()): Promise<ApprovalRequestDTO> {
@@ -296,6 +361,8 @@ export class CampaignApprovalService {
         expired += 1;
         if (request.targetType === 'CAMPAIGN') {
           await tx.campaign.updateMany({ where: { id: request.targetId, studioId: request.studioId, approvalRequestId: request.id, status: 'PENDING_APPROVAL' }, data: { status: 'DRAFT' } });
+        } else {
+          await this.targetHandlers.get(request.targetType)?.onClosed(tx, request, 'EXPIRED');
         }
         await this.audit(tx, request.studioId, null, 'marketing.approval.expired', request, { targetId: request.targetId });
       });
@@ -351,6 +418,8 @@ export class CampaignApprovalService {
           where: { id: request.targetId, studioId: request.studioId, approvalRequestId: request.id, status: 'PENDING_APPROVAL' },
           data: { status: 'DRAFT' },
         });
+      } else {
+        await this.targetHandlers.get(request.targetType)?.onClosed(tx, request, status);
       }
       const updated = await tx.approvalRequest.findUniqueOrThrow({ where: { id: request.id } });
       await this.audit(tx, request.studioId, actor.userId, action, updated, { targetId: request.targetId, note: note?.trim() || null });

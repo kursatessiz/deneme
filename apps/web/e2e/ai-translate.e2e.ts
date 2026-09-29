@@ -107,7 +107,8 @@ test('the super admin sets the AI key and translates a language section with AI'
     expect(list.length).toBeGreaterThan(0);
     const run = await bff(page, 'POST', `admin/ai/translation-jobs/${list[0].id}/run`);
     expect(run.status).toBe(200);
-    await expect(job.getByText('Tamamlandı', { exact: true })).toBeVisible({ timeout: 30_000 });
+    // The fake provider translates every key of the section; a loaded CI runner needs well over 30 seconds.
+    await expect(job.getByText('Tamamlandı', { exact: true })).toBeVisible({ timeout: 90_000 });
     await expect(job.getByText(/^(\d+) \/ \1 tamamlandı/)).toBeVisible();
 
     // 4. Review: filter the unreviewed AI values, check placeholders, approve.

@@ -9,3 +9,4 @@ export * from './settings';
 export * from './consent';
 export * from './guards';
 export * from './insights';
+export * from './social';

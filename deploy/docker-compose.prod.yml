@@ -57,7 +57,7 @@ services:
       # computed here and stay authoritative. apps/api/src/config/
       # compose-env.spec.ts fails when a schema key is neither listed here
       # nor in its "intentionally not passed" list (OTP_TEST_CODE,
-      # AI_FAKE_PROVIDER: test-only, refused in production).
+      # AI_FAKE_PROVIDER, SOCIAL_FAKE_PROVIDER: test-only, refused in production).
       # Tenant sites: <slug>.<SITES_DOMAIN>; empty falls back to WEB_DOMAIN.
       SITES_DOMAIN: ${SITES_DOMAIN:-}
       WEB_DOMAIN: ${WEB_DOMAIN}

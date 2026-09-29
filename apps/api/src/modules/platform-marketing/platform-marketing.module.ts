@@ -7,6 +7,7 @@ import { ApiKeysModule } from '../api-keys/api-keys.module';
 import { CrmCoreModule } from '../crm/crm-core.module';
 import { FunnelsModule } from '../funnels/funnels.module';
 import { GrowthModule } from '../growth/growth.module';
+import { SocialModule } from '../social/social.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
 import { MarketingDashboardController } from './dashboard/marketing-dashboard.controller';
 import { MarketingDashboardService } from './dashboard/marketing-dashboard.service';
@@ -21,15 +22,17 @@ import { MarketingDraftsService } from './studio/marketing-drafts.service';
 import { BrandKitController, ContentCalendarController, MarketingStudioController } from './studio/marketing-studio.controllers';
 import { SegmentInsightService } from './studio/segment-insight.service';
 import { AdminMarketingSettingsController, MarketingApprovalsController, PlatformCampaignsController } from './approvals/marketing-approvals.controllers';
+import { SocialPostsController } from './social/social-posts.controller';
+import { SocialPostsService } from './social/social-posts.service';
 import { PlatformMarketingContactsController } from './consent/marketing-consent.controller';
 import { AdminMarketingInsightsController, MarketingInsightsController } from './insights/marketing-insights.controllers';
 import { MarketingInsightsService } from './insights/marketing-insights.service';
 
 const systemDns: DnsLookup = { resolveTxt, resolveCname, resolveMx };
 
-/** Platform marketing (docs/PAZARLAMA_MODULU.md): M1 the integrations hub, M2 the brand kit, AI studio and content calendar, M3a the KPI dashboard, M3b the approval queue, platform campaign actions and marketing settings (services in GrowthModule, next to the send path), M3e the double opt-in resend, M3d the weekly summary (heartbeat via JobsService) and the audit view (in AdminModule). */
+/** Platform marketing (docs/PAZARLAMA_MODULU.md): M1 the integrations hub, M2 the brand kit, AI studio and content calendar, M3a the KPI dashboard, M3b the approval queue, platform campaign actions and marketing settings (services in GrowthModule, next to the send path), M3e the double opt-in resend, M3d the weekly summary (heartbeat via JobsService) and the audit view (in AdminModule), M4b organic social posts (connections and publishing live in SocialModule). */
 @Module({
-  imports: [AuthModule, AdsModule, AiModule, ApiKeysModule, CrmCoreModule, FunnelsModule, GrowthModule, WebhooksModule],
+  imports: [AuthModule, AdsModule, AiModule, ApiKeysModule, CrmCoreModule, FunnelsModule, GrowthModule, SocialModule, WebhooksModule],
   controllers: [
     PlatformIntegrationsController,
     BrandKitController,
@@ -42,6 +45,7 @@ const systemDns: DnsLookup = { resolveTxt, resolveCname, resolveMx };
     PlatformMarketingContactsController,
     MarketingInsightsController,
     AdminMarketingInsightsController,
+    SocialPostsController,
   ],
   providers: [
     IntegrationHubService,
@@ -54,6 +58,7 @@ const systemDns: DnsLookup = { resolveTxt, resolveCname, resolveMx };
     MarketingAiRateLimitGuard,
     MarketingDashboardService,
     MarketingInsightsService,
+    SocialPostsService,
   ],
   exports: [MarketingInsightsService],
 })

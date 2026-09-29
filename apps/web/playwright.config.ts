@@ -69,6 +69,8 @@ export default defineConfig({
         // Deterministic fake AI provider for e2e/ai-translate.e2e.ts; the API
         // refuses it at boot when NODE_ENV=production.
         AI_FAKE_PROVIDER: '1',
+        // Deterministic fake social publishers for e2e/marketing-social.e2e.ts (same lock).
+        SOCIAL_FAKE_PROVIDER: '1',
       },
     },
     {

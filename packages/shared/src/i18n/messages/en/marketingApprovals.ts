@@ -138,4 +138,6 @@ export const enMarketingApprovals = {
   'marketingApprovals.error.APPROVAL_FOUR_EYES': 'You cannot approve your own request.',
   'marketingApprovals.error.APPROVAL_CONTENT_CHANGED': 'The campaign changed after the request; a new approval request was opened.',
   'marketingApprovals.error.APPROVAL_CANCEL_FORBIDDEN': 'Only the requester or a super admin can withdraw the request.',
+  'marketingApprovals.reason.SOCIAL_APPROVAL_REQUIRED_SETTING': 'The setting sends every social post to approval',
+  'marketingApprovals.reason.SOCIAL_BRAND_CHECK_BLOCKING': 'The brand check has a blocking issue',
 } as const satisfies Record<keyof typeof trMarketingApprovals, string>;
