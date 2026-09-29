@@ -1,8 +1,9 @@
-import { INestApplication } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
 import { PrismaClient } from '@platform/database';
 import { AppModule } from '../../src/app.module';
+import { configureBodyParsers } from '../../src/common/body-parsers';
 
 /**
  * Multi-language support (i18n): public reads, super-admin CMS, self and
@@ -19,7 +20,7 @@ const TRAINER_PHONE = '+905321000004';
 const TEST_LANGUAGE_CODE = 'qaa';
 
 describe('i18n (e2e)', () => {
-  let app: INestApplication;
+  let app: NestExpressApplication;
   let prisma: PrismaClient;
   let server: any;
 
@@ -36,7 +37,9 @@ describe('i18n (e2e)', () => {
 
   beforeAll(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = moduleRef.createNestApplication();
+    // Language packs exceed the default body limit; parse bodies as src/main.ts does.
+    app = moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false });
+    configureBodyParsers(app);
     await app.init();
     server = app.getHttpServer();
     prisma = new PrismaClient();
