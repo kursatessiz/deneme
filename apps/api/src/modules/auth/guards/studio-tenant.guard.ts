@@ -6,9 +6,10 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ALL_PERMISSIONS, resolvePermissions } from '@platform/shared';
+import { ALL_PERMISSIONS, isPlatformSystemRoleKey, resolvePermissions } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { AuthenticatedRequest, TenantContext } from '../tenant-context';
+import { mfaGateError, platformAccessDenied, platformMfaGate, requireTwoFactorForPlatformRoles } from '../platform-access';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -33,7 +34,9 @@ export class StudioTenantGuard implements CanActivate {
 
     const studioId = this.resolveStudioId(request);
 
-    if (user.isSuperAdmin) {
+    // A super admin who enrolled 2FA but whose session skipped the TOTP step
+    // gets no bypass: only their own memberships apply (docs/PAZARLAMA_MODULU.md 6.3).
+    if (user.isSuperAdmin && !(user.mfaEnabled && !user.mfaVerified)) {
       const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { id: true } });
       if (!studio) throw new ForbiddenException('İşletme bulunamadı');
       request.tenant = {
@@ -56,14 +59,28 @@ export class StudioTenantGuard implements CanActivate {
         roleTemplate: { include: { permissions: true } },
         memberProfile: { select: { id: true } },
         trainerProfile: { select: { id: true } },
-        studio: { select: { isActive: true, billingStatus: true } },
+        studio: { select: { isActive: true, billingStatus: true, isPlatform: true } },
         branchAccess: { select: { branchId: true } },
+        user: { select: { platformMembership: { select: { status: true, platformStudioMembershipId: true } } } },
       },
     });
 
     // Same error for "not a member" and "inactive" so studio ids cannot be probed.
     if (!membership || membership.status !== 'ACTIVE' || !membership.studio.isActive) {
       throw new ForbiddenException('Bu işletmeye erişim yetkiniz yok');
+    }
+
+    // Platform system role (M1): the membership only stands while the
+    // user's PlatformMembership is ACTIVE and points at it, so a revocation
+    // takes effect on the next request even if the sync ever failed.
+    const roleKey = membership.roleTemplate.key;
+    if (typeof roleKey === 'string' && membership.roleTemplate.isSystem && isPlatformSystemRoleKey(roleKey)) {
+      const pm = membership.user?.platformMembership;
+      if (!membership.studio.isPlatform || !pm || pm.status !== 'ACTIVE' || pm.platformStudioMembershipId !== membership.id) {
+        throw platformAccessDenied();
+      }
+      const gate = platformMfaGate(user, await requireTwoFactorForPlatformRoles(this.prisma));
+      if (gate !== 'ok') throw mfaGateError(gate);
     }
 
     const tenant: TenantContext = {

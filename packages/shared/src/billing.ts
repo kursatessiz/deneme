@@ -3,6 +3,7 @@ import { PAYOUT_ERROR_CODES } from './payouts';
 import { CurrencyCodeSchema } from './growth/regions';
 import type { PermissionKey } from './permissions';
 import type { MessageKey } from './i18n/messages';
+import { PLATFORM_ACCESS_TRANSLATED_ERRORS } from './platform-permissions';
 
 /**
  * Platform billing of tenants (G5c-1, docs/DENEME_VE_ETKINLESTIRME.md):
@@ -539,4 +540,5 @@ export const TRANSLATED_API_ERROR_CODES: Readonly<Record<string, MessageKey>> = 
   [PAYOUT_ERROR_CODES.unknownProvider]: 'payouts.error.PAYOUT_UNKNOWN_PROVIDER',
   [BILLING_CURRENCY_LOCKED_ERROR_CODE]: 'billing.error.BILLING_CURRENCY_LOCKED',
   [PLAN_PRICE_UNAVAILABLE_ERROR_CODE]: 'billing.error.PLAN_PRICE_UNAVAILABLE',
+  ...PLATFORM_ACCESS_TRANSLATED_ERRORS,
 };

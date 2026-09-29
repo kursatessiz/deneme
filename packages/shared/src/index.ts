@@ -37,3 +37,5 @@ export * from './payouts';
 export * from './billing';
 export * from './error-reporting';
 export * from './community';
+export * from './platform-permissions';
+export * from './integrations-hub';

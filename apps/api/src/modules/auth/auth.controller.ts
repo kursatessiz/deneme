@@ -67,6 +67,6 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async me(@CurrentUser() user: AuthUser) {
-    return this.authService.sessionUser(user.id);
+    return this.authService.sessionUser(user.id, { mfaVerified: user.mfaVerified });
   }
 }

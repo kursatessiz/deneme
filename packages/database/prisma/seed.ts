@@ -34,6 +34,7 @@ import {
   formatReceiptNumber,
 } from '@platform/shared';
 import type { BadgeThresholdParams } from '@platform/shared';
+import { DEFAULT_PLATFORM_ROLE_TEMPLATES } from '@platform/shared';
 
 // Seed is a development-only tool: it truncates every table before writing,
 // so it must never run against a production database (see CLAUDE.md).
@@ -281,6 +282,7 @@ async function main() {
   await seedCommunity(zen.studioId);
   await seedSites(platformStudioId);
   await seedPlatformBilling(zen.studioId, businessTypeTemplates.personal_training, plans.starter, kvkkDoc.id, passwordHash);
+  await seedPlatformAccess();
 
   printSummary();
 }
@@ -3437,4 +3439,29 @@ async function seedPayouts(zenStudioId: string) {
       count('payout_items');
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// M1: platform access (docs/PAZARLAMA_MODULU.md 7.1). The TRUNCATE above
+// cascades platform memberships through users; the role templates and the
+// policy row are platform level and are reset here.
+// ---------------------------------------------------------------------------
+
+async function seedPlatformAccess() {
+  await prisma.$executeRawUnsafe(
+    'TRUNCATE TABLE platform_memberships, user_mfa_recovery_codes, platform_role_template_permissions, platform_role_templates, platform_access_settings, email_sender_domains RESTART IDENTITY CASCADE;',
+  );
+  for (const template of DEFAULT_PLATFORM_ROLE_TEMPLATES) {
+    await prisma.platformRoleTemplate.create({
+      data: {
+        key: template.key,
+        name: template.name,
+        isSystem: true,
+        permissions: { create: template.permissions.map((permissionKey) => ({ permissionKey })) },
+      },
+    });
+    count('platform_role_templates');
+  }
+  await prisma.platformAccessSettings.create({ data: { id: 'platform', require2faForPlatformRoles: true } });
+  count('platform_access_settings');
 }
