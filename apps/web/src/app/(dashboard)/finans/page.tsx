@@ -9,6 +9,7 @@ import { PaymentsTab } from '@/components/finance/PaymentsTab';
 import { ExpensesTab } from '@/components/finance/ExpensesTab';
 import { InvoicesTab } from '@/components/finance/InvoicesTab';
 import { PromotionsTab } from '@/components/finance/PromotionsTab';
+import { AccountingExportCard } from '@/components/finance/AccountingExportCard';
 
 const TAB_KEYS = ['payments', 'expenses', 'invoices', 'promotions'] as const;
 
@@ -33,6 +34,8 @@ function FinancePage() {
         </Link>
       </div>
 
+      <AccountingExportCard />
+
       <Tabs tabs={tabs} active={tab} onChange={(k) => setTab(k as (typeof TAB_KEYS)[number])} />
 
       {tab === 'payments' && <PaymentsTab />}
@@ -45,7 +48,7 @@ function FinancePage() {
 
 export default function Page() {
   return (
-    <PageGuard required={['finance.view', 'finance.manage', 'promotions.manage']}>
+    <PageGuard required={['finance.view', 'finance.manage', 'promotions.manage', 'accounting.export']}>
       <FinancePage />
     </PageGuard>
   );

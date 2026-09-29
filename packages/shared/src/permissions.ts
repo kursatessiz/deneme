@@ -105,6 +105,9 @@ export const PERMISSIONS = {
   'retail.sell': 'Hızlı satış ekranından ürün satma',
   'retail.manage': 'Ürün kataloğu, fiyatlar ve stok giriş, düzeltme ve transferleri',
   'retail.refund': 'Ürün satışını iade etme veya iptal etme',
+  // G3c-3: accounting export. Owner only by default: it carries every
+  // customer name, receipt and expense of the period.
+  'accounting.export': 'Muhasebe dışa aktarımı (satış ve gider defteri, vergi özeti)',
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
@@ -128,7 +131,7 @@ export const PERMISSION_AREAS = {
   Rezervasyon: ['bookings.view', 'bookings.manage', 'attendance.manage'],
   Satış: ['packages.sell', 'promotions.manage'],
   Ölçümler: ['measurements.view', 'measurements.manage'],
-  Finans: ['finance.view', 'finance.manage', 'commissions.view.own', 'commissions.view.all', 'payroll.manage'],
+  Finans: ['finance.view', 'finance.manage', 'commissions.view.own', 'commissions.view.all', 'payroll.manage', 'accounting.export'],
   Bildirim: ['notifications.manage', 'reports.view'],
   'Potansiyel üyeler': ['leads.view', 'leads.manage'],
   'Kişiler (CRM)': ['crm.view', 'crm.manage', 'crm.export'],

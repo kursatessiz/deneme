@@ -30,3 +30,4 @@ export * from './ai';
 export * from './loyalty';
 export * from './events';
 export * from './retail';
+export * from './accounting';
