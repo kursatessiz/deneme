@@ -23,7 +23,7 @@ test('an active studio shows no trial banner and the owner sees the referral pag
   await page.goto('/tavsiye');
   await expect(main.getByRole('heading', { name: 'Tavsiye et', exact: true })).toBeVisible();
   await expect(main.getByTestId('referral-code')).toHaveText('ZENREF23');
-  await expect(main.getByLabel('Tavsiye bağlantınız', { exact: true })).toHaveValue(/\?pw_ref=ZENREF23$/);
+  await expect(main.getByRole('textbox', { name: 'Tavsiye bağlantınız', exact: true })).toHaveValue(/\?pw_ref=ZENREF23$/);
   await expect(main.getByRole('button', { name: 'Kopyala', exact: true })).toBeVisible();
   await expect(main.getByRole('cell', { name: 'Nova Hareket Merkezi', exact: true })).toBeVisible();
 });
