@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
-import { useLocale } from '@/components/i18n/I18nProvider';
+import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { PageGuard } from '@/components/common/PageGuard';
@@ -14,6 +14,7 @@ import { bookingMemberName, trainerName, type ScheduleRow } from '@/lib/calendar
 
 /** Reception quick check-in: today's sessions with a one-tap check-in per confirmed booking. */
 function AttendanceList() {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const locale = useLocale();
   const [schedules, setSchedules] = useState<ScheduleRow[]>([]);
@@ -28,8 +29,9 @@ function AttendanceList() {
     const { start, end } = rangeForView('day', new Date());
     bffFetch<ScheduleRow[]>(`schedules/studio/${activeStudioId}?startDate=${start.toISOString()}&endDate=${end.toISOString()}`, { studioId: activeStudioId })
       .then((rows) => setSchedules(rows.filter((r) => !r.isCancelled)))
-      .catch((err) => setError(err instanceof BffError ? err.message : 'Bugünün seansları yüklenemedi'))
+      .catch((err) => setError(err instanceof BffError ? err.message : t('screens.attendance.errors.loadFailed')))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStudioId]);
 
   useEffect(() => {
@@ -52,16 +54,16 @@ function AttendanceList() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-          Bugünün Yoklaması
+          {t('screens.attendance.title')}
         </h2>
         <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          Resepsiyon için hızlı giriş listesi
+          {t('screens.attendance.subtitle')}
         </p>
       </div>
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
-      {!loading && !error && schedules.length === 0 && <EmptyState title="Bugün planlanmış seans yok" />}
+      {!loading && !error && schedules.length === 0 && <EmptyState title={t('screens.attendance.empty')} />}
 
       {!loading &&
         !error &&
@@ -75,7 +77,7 @@ function AttendanceList() {
                     {s.title || s.serviceType?.name}
                   </p>
                   <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                    {new Date(s.startTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })} · {trainerName(s.trainer) ?? 'Eğitmen atanmamış'}
+                    {new Date(s.startTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })} · {trainerName(s.trainer) ?? t('screens.attendance.noTrainer')}
                   </p>
                 </div>
                 <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
@@ -84,7 +86,7 @@ function AttendanceList() {
               </div>
               {roster.length === 0 ? (
                 <p className="text-xs px-4 py-3" style={{ color: 'var(--color-text-muted)' }}>
-                  Rezervasyon yok.
+                  {t('screens.attendance.noBookings')}
                 </p>
               ) : (
                 <div className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
@@ -95,11 +97,11 @@ function AttendanceList() {
                       </Link>
                       {b.status === 'CONFIRMED' ? (
                         <PermissionButton required={['attendance.manage']} variant="primary" disabled={busyId === b.id} onClick={() => checkIn(b.id)}>
-                          Giriş yap
+                          {t('screens.attendance.checkIn')}
                         </PermissionButton>
                       ) : (
                         <Badge tone={b.status === 'ATTENDED' ? 'success' : b.status === 'NO_SHOW' ? 'danger' : 'neutral'}>
-                          {b.status === 'ATTENDED' ? 'Katıldı' : b.status === 'NO_SHOW' ? 'Gelmedi' : b.status}
+                          {b.status === 'ATTENDED' ? t('screens.attendance.status.ATTENDED') : b.status === 'NO_SHOW' ? t('screens.attendance.status.NO_SHOW') : b.status}
                         </Badge>
                       )}
                     </div>
