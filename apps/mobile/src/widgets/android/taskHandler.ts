@@ -2,6 +2,8 @@ import React from 'react';
 import { registerWidgetTaskHandler } from 'react-native-android-widget';
 import type { WidgetTaskHandler } from 'react-native-android-widget';
 
+import { toWidgetDisplayModel } from '../format';
+import { resolveWidgetTranslation } from '../locale';
 import { loadWidgetSummary } from '../store';
 import { NextSessionAndroidWidget } from './nextSessionWidget';
 
@@ -15,7 +17,9 @@ const nextSessionTaskHandler: WidgetTaskHandler = async ({ widgetAction, renderW
   if (widgetAction === 'WIDGET_DELETED') return;
 
   const data = await loadWidgetSummary();
-  renderWidget(React.createElement(NextSessionAndroidWidget, { data }));
+  const { locale, t } = await resolveWidgetTranslation();
+  const display = toWidgetDisplayModel(data, locale, t);
+  renderWidget(React.createElement(NextSessionAndroidWidget, { display }));
 };
 
 /** Call once at JS bundle load (see app/_layout.tsx) so it also registers

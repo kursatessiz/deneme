@@ -4,6 +4,7 @@ import { ActivityIndicator, RefreshControl, ScrollView, Share, StyleSheet, Text,
 import type { ReferralCodeDTO, ReferralDTO } from '@platform/shared';
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
+import { useLocale } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
@@ -33,6 +34,7 @@ export default function ArkadasiniGetirScreen() {
   const { activeMembership } = useSession();
   const { theme } = useTheme();
   const fonts = useThemeFonts();
+  const { locale } = useLocale();
   const c = theme.colors;
   const studioId = activeMembership?.studioId;
 
@@ -111,7 +113,7 @@ export default function ArkadasiniGetirScreen() {
           <View style={styles.referralInfo}>
             <Text style={[styles.referralName, fonts.bodyStrong, { color: c.textPrimary }]}>{r.referredName}</Text>
             <Text style={[styles.referralDate, fonts.body, { color: c.textMuted }]}>
-              {new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(r.createdAt))}
+              {new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(r.createdAt))}
             </Text>
           </View>
           <Text style={[styles.statusBadge, fonts.bodyStrong, { color: statusColor(r.status) }]}>{STATUS_LABELS[r.status]}</Text>

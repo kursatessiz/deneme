@@ -7,18 +7,19 @@ import { BookSessionSchema } from '@platform/shared';
 import { PermissionGate } from '../../../../src/components/PermissionGate';
 import { PrimaryButton } from '../../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../../src/components/ScreenContainer';
+import { useLocale } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { weekRange } from '../../../../src/lib/dateRange';
 import { trainerName, type ScheduleRow } from '../../../../src/lib/scheduleTypes';
 import { useSession } from '../../../../src/lib/session';
 import { palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../../src/theme';
 
-function formatDayTime(startTime: string, endTime: string): string {
+function formatDayTime(startTime: string, endTime: string, locale: string): string {
   const start = new Date(startTime);
   const end = new Date(endTime);
-  const day = start.toLocaleDateString('tr-TR', { weekday: 'short', day: 'numeric', month: 'short' });
-  const startHour = start.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-  const endHour = end.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  const day = start.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
+  const startHour = start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  const endHour = end.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   return `${day}, ${startHour}-${endHour}`;
 }
 
@@ -26,6 +27,7 @@ function WalkInContent() {
   const router = useRouter();
   const colors = useThemeColors();
   const fonts = useThemeFonts();
+  const { locale } = useLocale();
   const { memberId } = useLocalSearchParams<{ memberId: string }>();
   const { activeMembership } = useSession();
   const studioId = activeMembership?.studioId;
@@ -98,7 +100,7 @@ function WalkInContent() {
               {item.serviceType?.name ?? item.title}
             </Text>
             <Text style={[styles.rowMeta, fonts.body, { color: colors.textSecondary }]}>
-              {formatDayTime(item.startTime, item.endTime)}
+              {formatDayTime(item.startTime, item.endTime, locale)}
             </Text>
             {trainerName(item.trainer) ? (
               <Text style={[styles.rowMeta, fonts.body, { color: colors.textSecondary }]}>{trainerName(item.trainer)}</Text>

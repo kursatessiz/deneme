@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { InvoiceStatus } from '@platform/shared';
 import type { InvoiceDTO } from '@platform/shared';
 import { useDashboardSession, useFormatMoney } from '@/components/session/DashboardSessionProvider';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { buildReportQuery } from '@/lib/reports/query';
 import { formatMoney } from '@/lib/money';
@@ -37,6 +38,7 @@ const selectStyle: React.CSSProperties = {
 
 export function InvoicesTab() {
   const formatMoney = useFormatMoney();
+  const locale = useLocale();
   const { activeStudioId } = useDashboardSession();
   const [branchId, setBranchId] = useState('');
   const [status, setStatus] = useState('');
@@ -132,7 +134,7 @@ export function InvoicesTab() {
                     {inv.number}
                   </td>
                   <td className="px-4 py-2.5 whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
-                    {new Date(inv.issueDate).toLocaleDateString('tr-TR')}
+                    {new Date(inv.issueDate).toLocaleDateString(locale)}
                   </td>
                   <td className="px-4 py-2.5 font-medium" style={{ color: 'var(--color-text-primary)' }}>
                     {formatMoney(inv.total)}

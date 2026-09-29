@@ -28,4 +28,13 @@ export const trCommon = {
   'common.empty': 'Gösterilecek kayıt yok.',
   'common.itemCount.one': '{count} kayıt',
   'common.itemCount.other': '{count} kayıt',
+  'common.allBranches': 'Tüm şubeler',
+  'common.dateRange.today': 'Bugün',
+  'common.dateRange.thisWeek': 'Bu hafta',
+  'common.dateRange.last7Days': 'Son 7 gün',
+  'common.dateRange.thisMonth': 'Bu ay',
+  'common.dateRange.last30Days': 'Son 30 gün',
+  'common.dateRange.thisYear': 'Bu yıl',
+  'common.forbidden.title': 'Bu sayfayı görüntüleme yetkiniz yok',
+  'common.forbidden.description': 'Erişim için işletme sahibinizden ilgili izni talep edin.',
 } as const satisfies Record<string, string>;

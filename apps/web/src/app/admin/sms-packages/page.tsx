@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useBff } from '@/lib/session/use-bff';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 
@@ -67,6 +68,7 @@ function TopUpForm() {
 }
 
 export default function SmsPackagesPage() {
+  const locale = useLocale();
   const [refreshKey, setRefreshKey] = useState(0);
   const { data, loading, error, forbidden } = useBff<{ items: SmsPackage[] }>('admin/sms-packages', null);
   const [form, setForm] = useState({ key: '', name: '', credits: '', price: '' });
@@ -127,7 +129,7 @@ export default function SmsPackagesPage() {
           {data.items.map((p) => (
             <div key={p.id} className="p-5 border" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
               <h3 className="text-sm font-semibold">{p.name}</h3>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>{p.credits.toLocaleString('tr-TR')} kredi · {Number(p.price).toLocaleString('tr-TR')} TL</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>{p.credits.toLocaleString(locale)} kredi · {Number(p.price).toLocaleString(locale)} TL</p>
             </div>
           ))}
         </div>

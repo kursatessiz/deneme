@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, T
 
 import type { ChurnListResponseDTO, ChurnMemberSummaryDTO } from '@platform/shared';
 
+import { useLocale } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { useSession } from '../../../../src/lib/session';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../../src/theme';
@@ -11,13 +12,13 @@ const LEVEL_LABEL: Record<string, string> = { HIGH: 'Yüksek', MEDIUM: 'Orta', L
 const LEVEL_ORDER: Record<string, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
 const LEVEL_COLOR: Record<string, string> = { HIGH: palette.danger, MEDIUM: palette.warning, LOW: palette.success };
 
-const dateLabel = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('tr-TR') : 'Hiç gelmedi');
-
 /** W12 mobile: HIGH then MEDIUM churn-risk members, top 2 reasons, quick "görüşüldü" action. */
 export default function RiskliUyelerScreen() {
   const { activeMembership } = useSession();
   const { theme } = useTheme();
   const fonts = useThemeFonts();
+  const { locale } = useLocale();
+  const dateLabel = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(locale) : 'Hiç gelmedi');
   const c = theme.colors;
   const studioId = activeMembership?.studioId;
 

@@ -6,6 +6,7 @@ import type { GiftCardBalanceDTO, GiftCardDTO, MemberPackageDTO, MemberSubscript
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { TextField } from '../../../src/components/TextField';
+import { useLocale } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
@@ -32,19 +33,20 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   ONLINE_PAYTR: 'Online ödeme',
 };
 
-function formatAmount(amount: string, currency: string): string {
+function formatAmount(amount: string, currency: string, locale: string): string {
   const value = Number(amount);
-  return `${value.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+  return `${value.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+function formatDate(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
 /** The member's own payment history and active subscription, with a cancel-at-period-end action. */
 export default function OdemelerimScreen() {
   const { activeMembership } = useSession();
   const { theme } = useTheme();
+  const { locale } = useLocale();
   const fonts = useThemeFonts();
   const c = theme.colors;
   const studioId = activeMembership?.studioId;
@@ -197,7 +199,7 @@ export default function OdemelerimScreen() {
             <View key={sub.id} style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
               <Text style={[styles.cardTitle, fonts.bodyStrong, { color: c.textPrimary }]}>{sub.packageDefinitionName}</Text>
               <Text style={[styles.cardLine, fonts.body, { color: c.textSecondary }]}>
-                Sonraki yenileme: {formatDate(sub.nextChargeAt)}
+                Sonraki yenileme: {formatDate(sub.nextChargeAt, locale)}
               </Text>
               <Text style={[styles.cardLine, fonts.body, { color: c.textMuted }]}>
                 Durum: {sub.status === 'ACTIVE' ? 'Aktif' : sub.status === 'PAUSED' ? 'Durduruldu' : sub.status === 'PAST_DUE' ? 'Ödeme bekleniyor' : 'İptal edildi'}
@@ -226,10 +228,10 @@ export default function OdemelerimScreen() {
         <View key={payment.id} style={[styles.paymentRow, { borderColor: c.border }]}>
           <View style={styles.paymentInfo}>
             <Text style={[styles.paymentAmount, fonts.bodyStrong, { color: c.textPrimary }]}>
-              {formatAmount(payment.amount, payment.currency)}
+              {formatAmount(payment.amount, payment.currency, locale)}
             </Text>
             <Text style={[styles.paymentMeta, fonts.body, { color: c.textMuted }]}>
-              {PAYMENT_METHOD_LABELS[payment.paymentMethod] ?? payment.paymentMethod} · {formatDate(payment.paidAt)}
+              {PAYMENT_METHOD_LABELS[payment.paymentMethod] ?? payment.paymentMethod} · {formatDate(payment.paidAt, locale)}
             </Text>
           </View>
           <Text
@@ -251,7 +253,7 @@ export default function OdemelerimScreen() {
             <View key={card.id} style={[styles.paymentRow, { borderColor: c.border }]}>
               <View style={styles.paymentInfo}>
                 <Text style={[styles.paymentAmount, fonts.bodyStrong, { color: c.textPrimary }]}>
-                  {formatAmount(card.balance, card.currency)}
+                  {formatAmount(card.balance, card.currency, locale)}
                 </Text>
                 <Text style={[styles.paymentMeta, fonts.body, { color: c.textMuted }]}>**** {card.last4}</Text>
               </View>
@@ -271,7 +273,7 @@ export default function OdemelerimScreen() {
         </View>
         {checkResult ? (
           <Text style={[styles.cardLine, fonts.body, { color: c.textPrimary }]}>
-            **** {checkResult.last4}: {formatAmount(checkResult.balance, checkResult.currency)} ({GIFT_CARD_STATUS_LABELS[checkResult.status] ?? checkResult.status})
+            **** {checkResult.last4}: {formatAmount(checkResult.balance, checkResult.currency, locale)} ({GIFT_CARD_STATUS_LABELS[checkResult.status] ?? checkResult.status})
           </Text>
         ) : null}
         {checkError ? <Text style={[styles.cardLine, fonts.body, { color: palette.danger }]}>{checkError}</Text> : null}

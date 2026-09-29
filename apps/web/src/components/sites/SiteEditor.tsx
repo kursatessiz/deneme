@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { BLOCK_TYPES, TENANT_ONLY_BLOCK_TYPES, type BlockType, type PageKind } from '@platform/shared';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, ErrorState, EmptyState } from '@/components/common/DataState';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { Badge, InlineMessage, PrimaryButton, SecondaryButton, Section, TextField } from '@/components/settings/ui';
 
 interface PageLocaleRow {
@@ -292,6 +293,7 @@ function PageDetailEditor({
   onChanged: () => void;
   onClose: () => void;
 }) {
+  const uiLocale = useLocale();
   const [refreshKey, setRefreshKey] = useState(0);
   const refresh = () => setRefreshKey((k) => k + 1);
   const { data: detail, loading, error } = useSiteFetch<PageRow & { blocks: BlockRow[] }>(`sites/studio/${studioId}/pages/${page.id}`, studioId, refreshKey);
@@ -501,7 +503,7 @@ function PageDetailEditor({
             {versions.items.map((v) => (
               <li key={v.id} className="flex items-center gap-2">
                 <span>
-                  Sürüm {v.version} · {new Date(v.publishedAt).toLocaleString('tr-TR')} {v.publishedByName ? `· ${v.publishedByName}` : ''}
+                  Sürüm {v.version} · {new Date(v.publishedAt).toLocaleString(uiLocale)} {v.publishedByName ? `· ${v.publishedByName}` : ''}
                 </span>
                 <SecondaryButton onClick={() => rollback(v.id)}>Bu sürüme dön</SecondaryButton>
               </li>

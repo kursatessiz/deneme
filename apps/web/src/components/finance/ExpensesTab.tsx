@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { ExpenseDTO } from '@platform/shared';
 import { useDashboardSession, useFormatMoney } from '@/components/session/DashboardSessionProvider';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { buildReportQuery } from '@/lib/reports/query';
 import { formatMoney, sumMoney } from '@/lib/money';
@@ -80,6 +81,7 @@ function NewExpenseDialog({ studioId, onClose, onDone }: { studioId: string; onC
 
 export function ExpensesTab() {
   const formatMoney = useFormatMoney();
+  const locale = useLocale();
   const { activeStudioId } = useDashboardSession();
   const [branchId, setBranchId] = useState('');
   const [from, setFrom] = useState<Date | null>(null);
@@ -154,7 +156,7 @@ export function ExpensesTab() {
               {expenses.map((e) => (
                 <tr key={e.id} className="border-t" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
                   <td className="px-4 py-2.5 whitespace-nowrap" style={{ color: 'var(--color-text-primary)' }}>
-                    {new Date(e.spentAt).toLocaleDateString('tr-TR')}
+                    {new Date(e.spentAt).toLocaleDateString(locale)}
                   </td>
                   <td className="px-4 py-2.5" style={{ color: 'var(--color-text-primary)' }}>
                     {e.category}

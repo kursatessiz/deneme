@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { addDays, isSameDay, snapToSlot, startOfDay, startOfWeek, weekdayLabel } from '@/lib/calendar/range';
 import { trainerName, type ScheduleRow } from '@/lib/calendar/types';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { hasAnyPermission } from '@/lib/nav';
 
 const START_HOUR = 7;
@@ -40,6 +41,7 @@ interface Props {
  */
 export function CalendarBoard({ view, anchor, schedules, selectedId, onSelect, onMove }: Props) {
   const { permissions, isOwner } = useDashboardSession();
+  const locale = useLocale();
   const canDrag = hasAnyPermission(['schedule.manage'], permissions, isOwner);
   const days = view === 'day' ? [startOfDay(anchor)] : Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(anchor), i));
   const grabOffsetRef = useRef(0);
@@ -137,7 +139,7 @@ export function CalendarBoard({ view, anchor, schedules, selectedId, onSelect, o
                       {s.title || s.serviceType?.name}
                     </p>
                     <p className="text-[10px] truncate" style={{ color: 'var(--color-text-secondary)' }}>
-                      {start.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} · {s.bookedCount}/{s.capacity}
+                      {start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })} · {s.bookedCount}/{s.capacity}
                       {trainerName(s.trainer) ? ` · ${trainerName(s.trainer)}` : ''}
                     </p>
                   </button>
@@ -152,6 +154,7 @@ export function CalendarBoard({ view, anchor, schedules, selectedId, onSelect, o
 }
 
 export function MonthGrid({ anchor, schedules, onSelectDay }: { anchor: Date; schedules: ScheduleRow[]; onSelectDay: (day: Date) => void }) {
+  const locale = useLocale();
   const gridStart = startOfWeek(new Date(anchor.getFullYear(), anchor.getMonth(), 1));
   const days = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
   const weekdays = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
@@ -183,7 +186,7 @@ export function MonthGrid({ anchor, schedules, onSelectDay }: { anchor: Date; sc
               <div className="mt-1 space-y-0.5">
                 {daySchedules.slice(0, 3).map((s) => (
                   <div key={s.id} className="text-[10px] truncate px-1 py-0.5" style={{ borderRadius: 'var(--radius-chip)', backgroundColor: occupancyTone(s.bookedCount, s.capacity) }}>
-                    {new Date(s.startTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} {s.title || s.serviceType?.name}
+                    {new Date(s.startTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })} {s.title || s.serviceType?.name}
                   </div>
                 ))}
                 {daySchedules.length > 3 && (

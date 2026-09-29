@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useBff } from '@/lib/session/use-bff';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 
@@ -22,6 +23,7 @@ const inputStyle: React.CSSProperties = {
 };
 
 export default function PlansPage() {
+  const locale = useLocale();
   const [refreshKey, setRefreshKey] = useState(0);
   const { data, loading, error, forbidden } = useBff<{ items: Plan[] }>('admin/plans', null);
   const [form, setForm] = useState({ key: '', name: '', priceMonthly: '', maxBranches: '', maxActiveMembers: '', maxStaff: '' });
@@ -105,7 +107,7 @@ export default function PlansPage() {
                   {p.isActive ? 'Aktif' : 'Pasif'}
                 </span>
               </div>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>{p.key} · {Number(p.priceMonthly).toLocaleString('tr-TR')} TL/ay</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>{p.key} · {Number(p.priceMonthly).toLocaleString(locale)} TL/ay</p>
               <ul className="text-xs mt-3 space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
                 <li>Şube: {p.limits.maxBranches ?? 'sınırsız'}</li>
                 <li>Aktif üye: {p.limits.maxActiveMembers ?? 'sınırsız'}</li>

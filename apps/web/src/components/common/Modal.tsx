@@ -1,8 +1,10 @@
 'use client';
 
 import { X } from 'lucide-react';
+import { useT } from '@/components/i18n/I18nProvider';
 
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  const t = useT();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(15, 23, 42, 0.45)' }}>
       <div
@@ -13,7 +15,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
           <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
             {title}
           </h3>
-          <button onClick={onClose} className="p-1" style={{ color: 'var(--color-text-muted)' }} aria-label="Kapat">
+          <button onClick={onClose} className="p-1" style={{ color: 'var(--color-text-muted)' }} aria-label={t('common.close')}>
             <X className="w-4 h-4" />
           </button>
         </div>

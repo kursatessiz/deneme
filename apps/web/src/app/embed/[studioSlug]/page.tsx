@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { resolveTheme, themeCssVariables, THEME_FAMILY_KEYS, DEFAULT_THEME_FAMILY, STUDIO_SLUG_PATTERN } from '@platform/shared';
 import { trackingHeaders } from '@/lib/tracking/client';
 
@@ -58,8 +59,15 @@ async function embedFetch<T>(slug: string, path: string, init?: RequestInit): Pr
   return res.json();
 }
 
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleString('tr-TR', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+/** No signed-in session here: the locale comes from the root layout (cookie or Accept-Language), the same on server and client. */
+function formatTime(iso: string, locale: string) {
+  return new Date(iso).toLocaleString(locale, {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 /**
@@ -75,6 +83,7 @@ function formatTime(iso: string) {
  * existing public lead form (see apps/api/src/modules/leads).
  */
 export default function EmbedBookingPage() {
+  const locale = useLocale();
   const params = useParams();
   const rawSlug = params.studioSlug as string;
   const slug = STUDIO_SLUG_PATTERN.test(rawSlug) ? rawSlug : '';
@@ -173,7 +182,7 @@ export default function EmbedBookingPage() {
     setLeadError(null);
     try {
       const interest = selectedSchedule
-        ? `Web widget üzerinden deneme seansı talebi: ${serviceTypeName(selectedSchedule.serviceTypeId)} - ${formatTime(selectedSchedule.startTime)}${selectedSchedule.branchId ? ` (${branchName(selectedSchedule.branchId)})` : ''}`
+        ? `Web widget üzerinden deneme seansı talebi: ${serviceTypeName(selectedSchedule.serviceTypeId)} - ${formatTime(selectedSchedule.startTime, locale)}${selectedSchedule.branchId ? ` (${branchName(selectedSchedule.branchId)})` : ''}`
         : 'Web widget üzerinden deneme seansı talebi';
       await fetch(`${API_BASE_URL}/public/studios/${encodeURIComponent(slug)}/leads`, {
         method: 'POST',
@@ -239,7 +248,7 @@ export default function EmbedBookingPage() {
                 <option value="">Bir seans seçin</option>
                 {schedules.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {formatTime(s.startTime)} - {serviceTypeName(s.serviceTypeId)}
+                    {formatTime(s.startTime, locale)} - {serviceTypeName(s.serviceTypeId)}
                     {s.branchId ? ` (${branchName(s.branchId)})` : ''}
                   </option>
                 ))}

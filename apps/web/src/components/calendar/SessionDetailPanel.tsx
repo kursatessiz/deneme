@@ -8,6 +8,7 @@ import { Badge } from '@/components/common/Badge';
 import { PermissionButton } from '@/components/common/PermissionButton';
 import { hasAnyPermission } from '@/lib/nav';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { bookingMemberName, trainerName, type ScheduleRow, type TrainerRow, type WaitlistRow } from '@/lib/calendar/types';
 
 const STATUS_TONE: Record<string, 'success' | 'warning' | 'danger' | 'neutral'> = {
@@ -49,6 +50,7 @@ export function SessionDetailPanel({
   const [substituteId, setSubstituteId] = useState('');
   const { permissions, isOwner } = useDashboardSession();
   const canManageSchedule = hasAnyPermission(['schedule.manage'], permissions, isOwner);
+  const locale = useLocale();
 
   useEffect(() => {
     let cancelled = false;
@@ -92,9 +94,9 @@ export function SessionDetailPanel({
             {schedule.title || schedule.serviceType?.name || 'Seans'}
           </h3>
           <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-            {start.toLocaleString('tr-TR', { weekday: 'long', day: '2-digit', month: 'long' })} ·{' '}
-            {start.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}-
-            {end.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+            {start.toLocaleString(locale, { weekday: 'long', day: '2-digit', month: 'long' })} ·{' '}
+            {start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}-
+            {end.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
           </p>
           {trainerName(schedule.trainer) && (
             <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>

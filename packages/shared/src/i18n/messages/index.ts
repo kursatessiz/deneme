@@ -15,6 +15,8 @@ import { trMMessaging } from './tr/mMessaging';
 import { trMAccount } from './tr/mAccount';
 import { trMAuth } from './tr/mAuth';
 import { trMNav } from './tr/mNav';
+import { trMScreens } from './tr/mScreens';
+import { trMWidgets } from './tr/mWidgets';
 import { trNav } from './tr/nav';
 import { trSites } from './tr/sites';
 import { enAdminI18n } from './en/admin-i18n';
@@ -34,6 +36,8 @@ import { enMMessaging } from './en/mMessaging';
 import { enMAccount } from './en/mAccount';
 import { enMAuth } from './en/mAuth';
 import { enMNav } from './en/mNav';
+import { enMScreens } from './en/mScreens';
+import { enMWidgets } from './en/mWidgets';
 import { enNav } from './en/nav';
 import { enSites } from './en/sites';
 
@@ -67,6 +71,8 @@ export const TR_NAMESPACES = [
   trMAuth,
   trMMessaging,
   trMNav,
+  trMScreens,
+  trMWidgets,
   trNav,
   trSites,
 ] as const;
@@ -89,6 +95,8 @@ export const EN_NAMESPACES = [
   enMAuth,
   enMMessaging,
   enMNav,
+  enMScreens,
+  enMWidgets,
   enNav,
   enSites,
 ] as const;

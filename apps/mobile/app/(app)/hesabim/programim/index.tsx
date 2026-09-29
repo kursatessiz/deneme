@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, Vi
 import { PermissionGate } from '../../../../src/components/PermissionGate';
 import { ScreenContainer } from '../../../../src/components/ScreenContainer';
 import { SessionDetail } from '../../../../src/components/SessionDetail';
+import { useLocale } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { dayRange, weekRange } from '../../../../src/lib/dateRange';
 import { isTabletWidth } from '../../../../src/lib/layout';
@@ -12,12 +13,12 @@ import { trainerName, type ScheduleRow } from '../../../../src/lib/scheduleTypes
 import { useSession } from '../../../../src/lib/session';
 import { palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../../src/theme';
 
-function formatDayTime(startTime: string, endTime: string): string {
+function formatDayTime(startTime: string, endTime: string, locale: string): string {
   const start = new Date(startTime);
   const end = new Date(endTime);
-  const day = start.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
-  const startHour = start.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-  const endHour = end.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  const day = start.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
+  const startHour = start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  const endHour = end.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   return `${day}, ${startHour} - ${endHour}`;
 }
 
@@ -25,6 +26,7 @@ function ProgramimContent() {
   const router = useRouter();
   const colors = useThemeColors();
   const fonts = useThemeFonts();
+  const { locale } = useLocale();
   const { width } = useWindowDimensions();
   const isTablet = isTabletWidth(width);
   const { activeMembership } = useSession();
@@ -107,7 +109,7 @@ function ProgramimContent() {
             {item.serviceType?.name ?? item.title}
           </Text>
           <Text style={[styles.subtitle, fonts.body, { color: colors.textSecondary }]}>
-            {formatDayTime(item.startTime, item.endTime)}
+            {formatDayTime(item.startTime, item.endTime, locale)}
           </Text>
           {trainerName(item.trainer) ? (
             <Text style={[styles.subtitle, fonts.body, { color: colors.textSecondary }]}>{trainerName(item.trainer)}</Text>

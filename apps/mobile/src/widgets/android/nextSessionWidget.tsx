@@ -3,16 +3,13 @@ import { FlexWidget, TextWidget, requestWidgetUpdate } from 'react-native-androi
 
 import { palette } from '@platform/shared';
 
-import { toWidgetDisplayModel } from '../format';
-import type { WidgetSummaryData } from '../types';
+import type { WidgetDisplayModel } from '../format';
 
 /** Widget name; must match `widgets[].name` in app.json's android widget config. */
 export const ANDROID_WIDGET_NAME = 'NextSessionWidget';
 
-/** Renders the Android app-widget layout for a given snapshot. */
-export function NextSessionAndroidWidget({ data }: { data: WidgetSummaryData | null }) {
-  const display = toWidgetDisplayModel(data);
-
+/** Renders the Android app-widget layout for an already-translated display model. */
+export function NextSessionAndroidWidget({ display }: { display: WidgetDisplayModel }) {
   return (
     <FlexWidget
       style={{
@@ -41,10 +38,10 @@ export function NextSessionAndroidWidget({ data }: { data: WidgetSummaryData | n
   );
 }
 
-/** Immediately re-renders any placed widgets while the app is running. */
-export async function updateAndroidWidgets(data: WidgetSummaryData | null): Promise<void> {
+/** Immediately re-renders any placed widgets while the app is running, from an already-translated display model. */
+export async function updateAndroidWidgets(display: WidgetDisplayModel): Promise<void> {
   await requestWidgetUpdate({
     widgetName: ANDROID_WIDGET_NAME,
-    renderWidget: () => <NextSessionAndroidWidget data={data} />,
+    renderWidget: () => <NextSessionAndroidWidget display={display} />,
   });
 }

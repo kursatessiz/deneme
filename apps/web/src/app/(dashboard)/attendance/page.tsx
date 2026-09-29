@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { PageGuard } from '@/components/common/PageGuard';
@@ -14,6 +15,7 @@ import { bookingMemberName, trainerName, type ScheduleRow } from '@/lib/calendar
 /** Reception quick check-in: today's sessions with a one-tap check-in per confirmed booking. */
 function AttendanceList() {
   const { activeStudioId } = useDashboardSession();
+  const locale = useLocale();
   const [schedules, setSchedules] = useState<ScheduleRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +75,7 @@ function AttendanceList() {
                     {s.title || s.serviceType?.name}
                   </p>
                   <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                    {new Date(s.startTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} · {trainerName(s.trainer) ?? 'Eğitmen atanmamış'}
+                    {new Date(s.startTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })} · {trainerName(s.trainer) ?? 'Eğitmen atanmamış'}
                   </p>
                 </div>
                 <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>

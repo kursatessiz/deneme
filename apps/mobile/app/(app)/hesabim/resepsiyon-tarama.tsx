@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
+import { useLocale } from '../../../src/i18n';
 import { apiRequest, ApiError } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { radii, spacing, typography, useThemeColors } from '../../../src/theme';
@@ -24,6 +25,7 @@ type ScanOutcome =
 export default function ResepsiyonTaramaScreen() {
   const router = useRouter();
   const colors = useThemeColors();
+  const { locale } = useLocale();
   const { activeStudioId } = useSession();
   const [permission, requestPermission] = useCameraPermissions();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -107,7 +109,7 @@ export default function ResepsiyonTaramaScreen() {
           >
             <Text style={[styles.candidateTitle, { color: colors.textPrimary }]}>{c.title}</Text>
             <Text style={[styles.candidateTime, { color: colors.textMuted }]}>
-              {new Date(c.startTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+              {new Date(c.startTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
             </Text>
           </Pressable>
         ))}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { useBff } from '@/lib/session/use-bff';
 import { LoadingState, ErrorState } from '@/components/common/DataState';
@@ -41,6 +42,7 @@ function MemberCard() {
   const params = useParams<{ memberId: string }>();
   const router = useRouter();
   const { activeStudioId, permissions, isOwner } = useDashboardSession();
+  const locale = useLocale();
   const memberId = params.memberId;
 
   const [member, setMember] = useState<MemberDetail | null>(null);
@@ -191,8 +193,8 @@ function MemberCard() {
                       <p className="text-xs opacity-90 mt-1">kalan birim</p>
                     </div>
                     <div className="mt-3 text-xs opacity-90 space-y-0.5">
-                      <div>Bitiş: {new Date(pkg.endDate).toLocaleDateString('tr-TR')}</div>
-                      {pkg.frozenUntil && <div>Donduruldu: {new Date(pkg.frozenUntil).toLocaleDateString('tr-TR')} tarihine kadar</div>}
+                      <div>Bitiş: {new Date(pkg.endDate).toLocaleDateString(locale)}</div>
+                      {pkg.frozenUntil && <div>Donduruldu: {new Date(pkg.frozenUntil).toLocaleDateString(locale)} tarihine kadar</div>}
                     </div>
                     <PermissionButton required={['packages.sell']} variant="secondary" className="mt-3 self-start" style={{ backgroundColor: 'rgba(255,255,255,0.9)' }}
                       disabled={busyPackageId === pkg.id}
@@ -263,7 +265,7 @@ function MemberCard() {
                           {b.schedule?.title ?? 'Seans'}
                         </td>
                         <td className="px-3 py-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                          {b.schedule ? new Date(b.schedule.startTime).toLocaleString('tr-TR') : '—'}
+                          {b.schedule ? new Date(b.schedule.startTime).toLocaleString(locale) : '—'}
                         </td>
                         <td className="px-3 py-2 text-right">
                           <Badge tone="neutral">{BOOKING_STATUS_LABEL[b.status] ?? b.status}</Badge>
@@ -289,9 +291,9 @@ function MemberCard() {
                 {member.payments.map((p) => (
                   <div key={p.id} className="flex items-center justify-between px-3 py-2 text-xs" style={{ borderRadius: 'var(--radius-chip)', backgroundColor: 'var(--color-surface-muted)' }}>
                     <span style={{ color: 'var(--color-text-primary)' }}>
-                      {Number(p.amount).toLocaleString('tr-TR')} {p.currency}
+                      {Number(p.amount).toLocaleString(locale)} {p.currency}
                     </span>
-                    <span style={{ color: 'var(--color-text-secondary)' }}>{p.paidAt ? new Date(p.paidAt).toLocaleDateString('tr-TR') : '—'}</span>
+                    <span style={{ color: 'var(--color-text-secondary)' }}>{p.paidAt ? new Date(p.paidAt).toLocaleDateString(locale) : '—'}</span>
                     <Badge tone="neutral">{p.status}</Badge>
                   </div>
                 ))}

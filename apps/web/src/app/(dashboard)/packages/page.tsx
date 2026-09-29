@@ -1,6 +1,7 @@
 'use client';
 
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useLocale } from '@/components/i18n/I18nProvider';
 import { useBff } from '@/lib/session/use-bff';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { PageGuard } from '@/components/common/PageGuard';
@@ -16,6 +17,7 @@ interface PackageDefinitionRow {
 }
 
 function PackageList() {
+  const locale = useLocale();
   const { activeStudioId } = useDashboardSession();
   const { data: packages, loading, error } = useBff<PackageDefinitionRow[]>(`catalog/package-definitions/studio/${activeStudioId}`, activeStudioId);
 
@@ -49,7 +51,7 @@ function PackageList() {
             >
               <div>
                 <h3 className="font-bold text-lg">{pkg.name}</h3>
-                <p className="text-2xl font-extrabold mt-3">{Number(pkg.price).toLocaleString('tr-TR')} ₺</p>
+                <p className="text-2xl font-extrabold mt-3">{Number(pkg.price).toLocaleString(locale)} ₺</p>
               </div>
               <div className="mt-4 text-xs space-y-1 opacity-90">
                 <div>{pkg.totalUnits ? `${pkg.totalUnits} birim` : 'Sınırsız'}</div>
