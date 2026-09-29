@@ -10,6 +10,7 @@ import { PartnersModule } from '../partners/partners.module';
 import { VideoModule } from '../video/video.module';
 import { CrmCoreModule } from '../crm/crm-core.module';
 import { AdsModule } from '../ads/ads.module';
+import { LeadAdsModule } from '../lead-ads/lead-ads.module';
 import { AiModule } from '../ai/ai.module';
 import { LoyaltyModule } from '../loyalty/loyalty.module';
 import { EventsModule } from '../events/events.module';
@@ -44,6 +45,7 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
     VideoModule,
     CrmCoreModule,
     AdsModule,
+    LeadAdsModule,
     AiModule,
     LoyaltyModule,
     EventsModule,

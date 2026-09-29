@@ -7,6 +7,7 @@ import { ConversionService } from '../conversions/conversion.service';
 import { PipelineService } from '../pipeline/pipeline.service';
 import { GrowthEventsService } from './growth-events.service';
 import { LoyaltyEarnService } from '../../loyalty/loyalty-earn.service';
+import { PlatformEventsService } from '../../webhooks/platform-events.service';
 
 /**
  * Small, explicit hooks the existing business services call after their
@@ -28,6 +29,7 @@ export class CrmHooksService {
     private readonly pipeline: PipelineService,
     private readonly events: GrowthEventsService,
     @Optional() private readonly loyalty?: LoyaltyEarnService,
+    @Optional() private readonly platformEvents?: PlatformEventsService,
   ) {}
 
   /**
@@ -231,7 +233,17 @@ export class CrmHooksService {
   async onStudioCreated(newStudioId: string, ownerPhone: string): Promise<void> {
     await this.safely(`studio created ${newStudioId}`, async () => {
       await this.pipeline.ensureDefaults(newStudioId);
-      await this.conversions.recordStudioSignup(newStudioId, ownerPhone);
+      const signup = await this.conversions.recordStudioSignup(newStudioId, ownerPhone);
+      const studio = await this.prisma.studio.findUnique({ where: { id: newStudioId }, select: { name: true, slug: true, countryCode: true } });
+      if (studio) {
+        await this.platformEvents?.emit('studio.signup', {
+          studioId: newStudioId,
+          name: studio.name,
+          slug: studio.slug,
+          countryCode: studio.countryCode,
+          ownerContactId: signup?.event.contactId ?? null,
+        });
+      }
     });
   }
 

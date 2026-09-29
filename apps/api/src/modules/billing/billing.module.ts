@@ -3,6 +3,7 @@ import { AuthModule } from '../auth/auth.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { CrmCoreModule } from '../crm/crm-core.module';
 import { MessagingModule } from '../messaging/messaging.module';
+import { PlatformEventsModule } from '../webhooks/platform-events.module';
 import { BillingController } from './billing.controller';
 import { AdminBillingController } from './admin-billing.controller';
 import { PlatformBillingService } from './platform-billing.service';
@@ -16,7 +17,7 @@ import { BillingJobsService } from './billing-jobs.service';
  * the auth module (part of @StudioScoped()).
  */
 @Module({
-  imports: [AuthModule, PaymentsModule, CrmCoreModule, MessagingModule],
+  imports: [AuthModule, PaymentsModule, CrmCoreModule, MessagingModule, PlatformEventsModule],
   controllers: [BillingController, AdminBillingController],
   providers: [PlatformBillingService, StudioReferralsService, BillingJobsService],
   exports: [PlatformBillingService, StudioReferralsService, BillingJobsService],

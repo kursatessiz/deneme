@@ -14,6 +14,9 @@ export const STRIPE_WEBHOOK_PATH = '/payments/webhook/stripe';
 /** Meta's X-Hub-Signature-256 is computed over the exact raw body, like Stripe's. */
 export const WHATSAPP_WEBHOOK_PATH = '/messaging/webhook/whatsapp';
 
+/** Meta Lead Ads (M4c): the same X-Hub-Signature-256 over the exact raw body, verified with the app secret of the page's connection. */
+export const META_LEADGEN_WEBHOOK_PATH = '/webhooks/meta/leadgen';
+
 /** Amazon SNS posts JSON with Content-Type text/plain; the SNS signature covers fields, not bytes. */
 export const SES_WEBHOOK_PATH = '/messaging/webhook/ses';
 
@@ -42,6 +45,7 @@ export const SOURCEMAP_UPLOAD_PATH = '/admin/errors/sourcemaps';
 export function configureBodyParsers(app: NestExpressApplication): void {
   app.use(STRIPE_WEBHOOK_PATH, raw({ type: '*/*', limit: DEFAULT_BODY_LIMIT }));
   app.use(WHATSAPP_WEBHOOK_PATH, raw({ type: '*/*', limit: '1mb' }));
+  app.use(META_LEADGEN_WEBHOOK_PATH, raw({ type: '*/*', limit: '1mb' }));
   app.use(SES_WEBHOOK_PATH, text({ type: '*/*', limit: '256kb' }));
   app.use('/admin/i18n/languages', json({ limit: LANGUAGE_PACK_MAX_BYTES + 64 * 1024 }));
   // The token is checked before the large body is read, so an anonymous caller cannot make the API parse 24 MB.

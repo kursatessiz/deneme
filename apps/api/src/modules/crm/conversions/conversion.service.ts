@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { Prisma } from '@platform/database';
 import type { ConversionEvent as ConversionEventRow } from '@platform/database';
@@ -8,6 +8,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AttributionService } from '../attribution/attribution.service';
 import { ConversionOutboxService } from './conversion-outbox.service';
 import { GrowthEventsService } from '../hooks/growth-events.service';
+import { PlatformEventsService } from '../../webhooks/platform-events.service';
 
 export interface RecordConversionInput {
   studioId: string;
@@ -56,6 +57,7 @@ export class ConversionService {
     private readonly attribution: AttributionService,
     private readonly outbox: ConversionOutboxService,
     private readonly events: GrowthEventsService,
+    @Optional() private readonly platformEvents?: PlatformEventsService,
   ) {}
 
   async record(input: RecordConversionInput): Promise<RecordConversionResult> {
@@ -160,6 +162,7 @@ export class ConversionService {
     });
     if (result?.created && (contact.lifecycleStage === 'LEAD' || contact.lifecycleStage === 'LOST')) {
       await this.prisma.contact.update({ where: { id: contact.id }, data: { lifecycleStage: 'TRIAL' } });
+      await this.platformEvents?.emit('contact.lifecycle_changed', { contactId: contact.id, from: contact.lifecycleStage, to: 'TRIAL', event: 'studio_signup' });
     }
     return result;
   }
@@ -203,7 +206,11 @@ export class ConversionService {
       fallbackTouchpointId: signup?.attributedTouchpointId ?? null,
     });
     if (result?.created) {
+      const before = this.platformEvents ? await this.prisma.contact.findUnique({ where: { id: contact.id }, select: { lifecycleStage: true } }) : null;
       await this.prisma.contact.update({ where: { id: contact.id }, data: { lifecycleStage: 'MEMBER' } });
+      if (before && before.lifecycleStage !== 'MEMBER') {
+        await this.platformEvents?.emit('contact.lifecycle_changed', { contactId: contact.id, from: before.lifecycleStage, to: 'MEMBER', event: 'studio_paid' });
+      }
     }
     return result;
   }

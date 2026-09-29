@@ -3,6 +3,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { AuthModule } from '../auth/auth.module';
 import { CrmCoreModule } from '../crm/crm-core.module';
 import { LoyaltyCoreModule } from '../loyalty/loyalty-core.module';
+import { PlatformEventsModule } from '../webhooks/platform-events.module';
 import { SegmentEvaluatorService } from './segments/segment-evaluator.service';
 import { SegmentsService } from './segments/segments.service';
 import { SegmentsController } from './segments/segments.controller';
@@ -32,7 +33,7 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
  * LoyaltyCoreModule the ledger for the award_points step (G3a).
  */
 @Module({
-  imports: [AuthModule, CrmCoreModule, LoyaltyCoreModule, ...(redisConfigured ? [BullModule.registerQueue({ name: GROWTH_QUEUE })] : [])],
+  imports: [AuthModule, CrmCoreModule, LoyaltyCoreModule, PlatformEventsModule, ...(redisConfigured ? [BullModule.registerQueue({ name: GROWTH_QUEUE })] : [])],
   controllers: [SegmentsController, CampaignsController, JourneysController],
   providers: [
     SegmentEvaluatorService,

@@ -8,6 +8,7 @@ import { CrmCoreModule } from '../crm/crm-core.module';
 import { FunnelsModule } from '../funnels/funnels.module';
 import { GrowthModule } from '../growth/growth.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
+import { LeadAdsModule } from '../lead-ads/lead-ads.module';
 import { MarketingDashboardController } from './dashboard/marketing-dashboard.controller';
 import { MarketingDashboardService } from './dashboard/marketing-dashboard.service';
 import { DNS_LOOKUP, IntegrationHubService } from './integrations/integration-hub.service';
@@ -27,7 +28,7 @@ const systemDns: DnsLookup = { resolveTxt, resolveCname, resolveMx };
 
 /** Platform marketing (docs/PAZARLAMA_MODULU.md): M1 the integrations hub, M2 the brand kit, AI studio and content calendar, M3a the KPI dashboard, M3b the approval queue, platform campaign actions and marketing settings (services in GrowthModule, next to the send path), M3e the double opt-in resend. */
 @Module({
-  imports: [AuthModule, AdsModule, AiModule, ApiKeysModule, CrmCoreModule, FunnelsModule, GrowthModule, WebhooksModule],
+  imports: [AuthModule, AdsModule, AiModule, ApiKeysModule, CrmCoreModule, FunnelsModule, GrowthModule, WebhooksModule, LeadAdsModule],
   controllers: [
     PlatformIntegrationsController,
     BrandKitController,

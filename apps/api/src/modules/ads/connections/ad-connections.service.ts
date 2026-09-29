@@ -10,6 +10,7 @@ import {
   type ConversionActionMap,
   type CreateAdConnectionInput,
   type GoogleCredentials,
+  type MetaCredentials,
   type UpdateAdConnectionInput,
 } from '@platform/shared';
 import type { ConversionEventType } from '@platform/shared';
@@ -96,6 +97,11 @@ export class AdConnectionsService {
       const parsed = validateCredentialsFor(platform, dto.credentials);
       if (!parsed.success) throw new BadRequestException('Bu platform için kimlik bilgileri eksik veya geçersiz');
       credentials = dto.credentials as AdConnectionCredentials;
+      // M4c: a token change through the ads screen keeps the Lead Ads app secret set from the hub.
+      if (platform === 'META' && !(credentials as MetaCredentials).appSecret) {
+        const prior = JSON.parse(this.cipher.decrypt(existing.encryptedCredentials)) as MetaCredentials;
+        if (prior.appSecret) credentials = { ...(credentials as MetaCredentials), appSecret: prior.appSecret };
+      }
     }
 
     const mergedActionIds = dto.conversionActionIds

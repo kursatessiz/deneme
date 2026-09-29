@@ -8,6 +8,7 @@ import { AdConnectionResolver, PrismaAdConnectionResolver } from './conversions/
 import { CrmHooksService } from './hooks/crm-hooks.service';
 import { GrowthEventsService } from './hooks/growth-events.service';
 import { LoyaltyCoreModule } from '../loyalty/loyalty-core.module';
+import { PlatformEventsModule } from '../webhooks/platform-events.module';
 
 /**
  * CRM services without controllers or module dependencies beyond the
@@ -16,7 +17,7 @@ import { LoyaltyCoreModule } from '../loyalty/loyalty-core.module';
  * import cycle through CrmModule.
  */
 @Module({
-  imports: [LoyaltyCoreModule],
+  imports: [LoyaltyCoreModule, PlatformEventsModule],
   providers: [
     ContactsService,
     PipelineService,
