@@ -185,8 +185,10 @@ const CopywritingOutputSchema = z.object({ subject: z.string().optional(), text:
 
 /** Strips markup a model may still add; values are rendered as plain text anyway. */
 export function toPlainText(value: string): string {
-  const stripped = containsHtml(value) ? value.replace(/<[^>]*>/g, '') : value;
-  return stripped.trim();
+  // Drop tags, then any angle bracket left over (e.g. a split "<scr<script>ipt"),
+  // so no markup can survive even if a caller ever renders the value as HTML.
+  const stripped = containsHtml(value) ? value.replace(/<[^<>]*>/g, '') : value;
+  return stripped.replace(/[<>]/g, '').trim();
 }
 
 export function parseCopywritingOutput(text: string): { text: string; subject: string | null } {

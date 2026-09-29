@@ -185,5 +185,8 @@ describe('batching and validation', () => {
     expect(validateTranslatedValue('Kaydet', 'x'.repeat(2001))).toBe('TOO_LONG');
     expect(containsHtml('a < b and c > d')).toBe(false);
     expect(containsHtml('<script>alert(1)</script>')).toBe(true);
+    const start = Date.now();
+    expect(containsHtml(`<!${'<!'.repeat(50000)}`)).toBe(false);
+    expect(Date.now() - start).toBeLessThan(1000);
   });
 });

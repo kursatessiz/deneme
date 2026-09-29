@@ -1,4 +1,3 @@
-import { createHash } from 'crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import type { AiErrorCode } from '@platform/shared';
 import { AiProviderError, type AiCompletionRequest, type AiCompletionResult, type AiProviderAdapter } from './ai-provider';
@@ -55,25 +54,24 @@ export function classifyAnthropicError(err: unknown): AiErrorCode {
 }
 
 /**
- * Anthropic Claude through the official SDK. One client per key (keyed by a
- * hash, never by the key itself), with ambient credentials disabled so only
+ * Anthropic Claude through the official SDK. One cached client for the
+ * current key, with ambient credentials disabled so only
  * the key the platform stored is ever used, and SDK logging off so neither
  * the key nor prompts reach the logs.
  */
 export class AnthropicAiAdapter implements AiProviderAdapter {
   readonly name = 'anthropic';
-  private readonly clients = new Map<string, Anthropic>();
+  /** The client for the most recently used key; a replaced key simply gets a new client. */
+  private current: { apiKey: string; client: Anthropic } | null = null;
 
   private clientFor(apiKey: string): Anthropic {
-    const id = createHash('sha256').update(apiKey).digest('hex');
-    let client = this.clients.get(id);
-    if (!client) {
-      client = new Anthropic({ apiKey, authToken: null, maxRetries: MAX_RETRIES, timeout: DEFAULT_TIMEOUT_MS, logLevel: 'off' });
-      // A replaced key leaves one stale client behind at most; keep the map tiny.
-      if (this.clients.size >= 4) this.clients.clear();
-      this.clients.set(id, client);
+    if (this.current?.apiKey !== apiKey) {
+      this.current = {
+        apiKey,
+        client: new Anthropic({ apiKey, authToken: null, maxRetries: MAX_RETRIES, timeout: DEFAULT_TIMEOUT_MS, logLevel: 'off' }),
+      };
     }
-    return client;
+    return this.current.client;
   }
 
   async complete(apiKey: string, request: AiCompletionRequest): Promise<AiCompletionResult> {

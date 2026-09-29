@@ -7,6 +7,7 @@ import { AiService } from './ai.service';
 import { AiError } from './ai-errors';
 import { FakeAiAdapter } from './providers/fake-ai.adapter';
 import type { PrismaService } from '../prisma/prisma.service';
+import { toPlainText } from './prompts';
 
 const ENCRYPTION_KEY = Buffer.alloc(32, 3).toString('base64');
 const API_KEY = 'sk-ant-api03-unit-test-key-0000WXYZ';
@@ -191,5 +192,12 @@ describe('AiService.run', () => {
     expect(state.settings).toMatchObject({ lastTestOk: false, lastTestErrorCode: 'AI_AUTH_FAILED' });
     await settings.setKey('admin-1', API_KEY);
     await expect(ai.testConnection('admin-1')).resolves.toEqual({ ok: true, errorCode: null, model: 'claude-haiku-4-5-20251001' });
+  });
+});
+
+describe('toPlainText', () => {
+  it('leaves no angle brackets behind, even from nested or split tags', () => {
+    expect(toPlainText('<b>Merhaba</b> <scr<script>ipt>alert(1)</script>')).not.toMatch(/[<>]/);
+    expect(toPlainText('  duz metin  ')).toBe('duz metin');
   });
 });

@@ -196,7 +196,8 @@ export function chunkBatches<T>(items: readonly T[], size: number): T[][] {
 
 // -- validation ----------------------------------------------------------------
 
-const HTML_TAG = /<\/?[a-zA-Z!][^>]*>/;
+/** A tag cannot contain another '<', which also keeps the match linear on hostile input. */
+const HTML_TAG = /<\/?[a-zA-Z!][^<>]*>/;
 
 export function containsHtml(value: string): boolean {
   return HTML_TAG.test(value);
