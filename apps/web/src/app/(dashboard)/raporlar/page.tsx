@@ -16,6 +16,9 @@ import { MembersReport } from '@/components/reports/MembersReport';
 import { RenewalReport } from '@/components/reports/RenewalReport';
 import { CohortsReport } from '@/components/reports/CohortsReport';
 import { TrainersReport } from '@/components/reports/TrainersReport';
+import { CompareStrip } from '@/components/reports/CompareStrip';
+import { previousPeriodWindow } from '@/lib/reports/compare';
+import { extractReportKpis } from '@/lib/reports/kpis';
 
 const REPORT_KEYS = ['occupancy', 'revenue', 'members', 'renewal', 'cohorts', 'trainers'] as const;
 
@@ -42,6 +45,8 @@ function ReportsPage() {
   const [report, setReport] = useState<AnyReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [compare, setCompare] = useState(false);
+  const [previousReport, setPreviousReport] = useState<AnyReport | null>(null);
 
   useEffect(() => {
     if (!activeStudioId) return;
@@ -56,6 +61,32 @@ function ReportsPage() {
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStudioId, tab, branchId, from, to, granularity]);
+
+  // Second call for the "compare with previous period" toggle: same
+  // endpoint and filters, only the date window shifts to the same-length
+  // window immediately before the selected one. Cohorts has no date range,
+  // so it is never comparable.
+  useEffect(() => {
+    if (!activeStudioId || !compare || tab === 'cohorts' || !from || !to) {
+      setPreviousReport(null);
+      return;
+    }
+    let cancelled = false;
+    const { from: prevFrom, to: prevTo } = previousPeriodWindow({ from, to });
+    const filters = { from: prevFrom, to: prevTo, branchId: branchId || null, granularity: tab === 'revenue' ? granularity : undefined };
+    const path = `reports/studio/${activeStudioId}/${tab}`;
+    const qs = buildReportQuery(filters);
+    bffFetch<AnyReport>(`${path}${qs ? `?${qs}` : ''}`, { studioId: activeStudioId })
+      .then((res) => {
+        if (!cancelled) setPreviousReport(res);
+      })
+      .catch(() => {
+        if (!cancelled) setPreviousReport(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeStudioId, compare, tab, branchId, from, to, granularity]);
 
   const exportHref = (() => {
     if (!activeStudioId) return '#';
@@ -116,7 +147,17 @@ function ReportsPage() {
             <option value="month">{t('reports.granularity.month')}</option>
           </select>
         )}
+        {tab !== 'cohorts' && (
+          <label className="flex items-center gap-1.5 text-xs font-medium ml-auto" style={{ color: 'var(--color-text-secondary)' }}>
+            <input type="checkbox" checked={compare} onChange={(e) => setCompare(e.target.checked)} />
+            {t('reports.compare.toggle')}
+          </label>
+        )}
       </div>
+
+      {compare && tab !== 'cohorts' && (
+        <CompareStrip current={extractReportKpis(tab, report)} previous={extractReportKpis(tab, previousReport)} />
+      )}
 
       {/*
         `report` is refetched whenever `tab` changes and is only ever set from

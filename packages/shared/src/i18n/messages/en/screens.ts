@@ -25,4 +25,10 @@ export const enScreens = {
   'screens.dashboard.empty.title': 'No data yet',
   'screens.dashboard.empty.description': 'Branch and session data will be summarized here as it comes in.',
   'screens.dashboard.noAddress': 'No address defined',
+  'screens.dashboard.quickActions.title': 'Quick actions',
+  'screens.dashboard.quickActions.newSession': 'New session',
+  'screens.dashboard.quickActions.newMember': 'New member',
+  'screens.dashboard.quickActions.sellPackage': 'Sell package',
+  'screens.dashboard.quickActions.recordPayment': 'Record payment',
+  'screens.dashboard.quickActions.checkIn': 'Check in',
 } as const satisfies Record<keyof typeof trScreens, string>;

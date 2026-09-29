@@ -33,7 +33,13 @@ function SegmentList() {
       />
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
-      {!loading && !error && data && data.items.length === 0 && <EmptyState title={t('segments.empty')} description={t('segments.emptyHint')} />}
+      {!loading && !error && data && data.items.length === 0 && (
+        <EmptyState
+          title={t('segments.empty')}
+          description={t('segments.emptyHint')}
+          action={{ labelKey: 'segments.new', href: '/segmentler/yeni', permissions: ['segments.manage'] }}
+        />
+      )}
       {!loading && !error && data && data.items.length > 0 && (
         <div className="overflow-x-auto" style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
           <table className="w-full text-sm" aria-label={t('segments.title')}>

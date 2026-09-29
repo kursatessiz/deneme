@@ -131,7 +131,7 @@ function MemberCard() {
                   {churn && <Badge tone={RISK_TONE[churn.level]}>{riskLabel(churn.level)}</Badge>}
                 </div>
               </div>
-              <PermissionButton required={['packages.sell']} variant="primary" onClick={() => setShowSell(true)}>
+              <PermissionButton required={['packages.sell']} variant="primary" mode="disable" onClick={() => setShowSell(true)}>
                 {t('members.card.sellPackage')}
               </PermissionButton>
             </div>

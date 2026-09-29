@@ -56,4 +56,8 @@ export const trReports = {
   'reports.trainers.col.noShows': 'Gelmedi',
   'reports.trainers.col.lateCancellations': 'Geç iptal',
   'reports.trainers.col.substitutions': 'İkame',
+
+  'reports.compare.toggle': 'Önceki dönemle karşılaştır',
+  'reports.compare.previous': 'Önceki dönem: {value}',
+  'reports.compare.noPrevious': 'Önceki dönemde veri yok',
 } as const satisfies Record<string, string>;
