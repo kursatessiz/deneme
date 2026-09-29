@@ -58,6 +58,13 @@ export const enMsgTpl = {
   'msgTpl.BACKUP_STALE.subject': 'Database backup overdue',
   'msgTpl.BACKUP_STALE.text': 'Hi {firstName}, there has been no successful database backup for {hours} hours (threshold: {threshold} hours). Last successful backup: {lastSuccessAt}. Check the Backups screen in the super admin panel, where you can also start a backup right away.',
   'msgTpl.BACKUP_STALE.cta': 'Open backups',
+  'msgTpl.MARKETING_APPROVAL_REQUESTED.subject': 'Marketing send waiting for approval: {targetName}',
+  'msgTpl.MARKETING_APPROVAL_REQUESTED.text': 'Hi {firstName}, {requesterName} asked for approval to send "{targetName}". Audience: {audience} people. Why it needs approval: {reasons}. Review the request on the Approvals screen of the marketing panel to approve or reject it.',
+  'msgTpl.MARKETING_APPROVAL_APPROVED.subject': 'Your send was approved: {targetName}',
+  'msgTpl.MARKETING_APPROVAL_APPROVED.text': 'Hi {firstName}, {deciderName} approved "{targetName}"; it will go out at the planned time. Note: {note}',
+  'msgTpl.MARKETING_APPROVAL_REJECTED.subject': 'Your send was rejected: {targetName}',
+  'msgTpl.MARKETING_APPROVAL_REJECTED.text': 'Hi {firstName}, {deciderName} rejected "{targetName}" and it is back in draft. Reason: {note}',
+  'msgTpl.MARKETING_APPROVAL.cta': 'Open approvals',
 
   'msgTpl.email.reasonCommercial': 'You are receiving this email because you agreed to hear from {studioName}.',
   'msgTpl.email.reasonTransactional': 'This email is about your account with {studioName}.',

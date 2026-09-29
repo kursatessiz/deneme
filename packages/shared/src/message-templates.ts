@@ -137,6 +137,32 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplateDefinition[] = [
     whatsappName: 'backup_stale',
     emailButton: { labelKey: 'msgTpl.BACKUP_STALE.cta', urlVariable: 'link' },
   },
+  /**
+   * M3b marketing approvals (docs/PAZARLAMA_MODULU.md 6.1): e-mail and
+   * in-app notices to super admins (new request) and to the requester
+   * (decision). Operational, so TRANSACTIONAL.
+   */
+  {
+    key: 'MARKETING_APPROVAL_REQUESTED',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'requesterName', 'targetName', 'audience', 'reasons', 'link'],
+    whatsappName: 'marketing_approval_requested',
+    emailButton: { labelKey: 'msgTpl.MARKETING_APPROVAL.cta', urlVariable: 'link' },
+  },
+  {
+    key: 'MARKETING_APPROVAL_APPROVED',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'targetName', 'deciderName', 'note', 'link'],
+    whatsappName: 'marketing_approval_approved',
+    emailButton: { labelKey: 'msgTpl.MARKETING_APPROVAL.cta', urlVariable: 'link' },
+  },
+  {
+    key: 'MARKETING_APPROVAL_REJECTED',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'targetName', 'deciderName', 'note', 'link'],
+    whatsappName: 'marketing_approval_rejected',
+    emailButton: { labelKey: 'msgTpl.MARKETING_APPROVAL.cta', urlVariable: 'link' },
+  },
 ];
 
 export function builtinTemplate(key: string): BuiltinTemplateDefinition | null {

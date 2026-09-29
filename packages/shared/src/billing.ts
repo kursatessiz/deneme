@@ -4,6 +4,7 @@ import { CurrencyCodeSchema } from './growth/regions';
 import type { PermissionKey } from './permissions';
 import type { MessageKey } from './i18n/messages';
 import { PLATFORM_ACCESS_TRANSLATED_ERRORS } from './platform-permissions';
+import { MARKETING_APPROVAL_TRANSLATED_ERRORS } from './marketing/approvals';
 
 /**
  * Platform billing of tenants (G5c-1, docs/DENEME_VE_ETKINLESTIRME.md):
@@ -541,4 +542,5 @@ export const TRANSLATED_API_ERROR_CODES: Readonly<Record<string, MessageKey>> = 
   [BILLING_CURRENCY_LOCKED_ERROR_CODE]: 'billing.error.BILLING_CURRENCY_LOCKED',
   [PLAN_PRICE_UNAVAILABLE_ERROR_CODE]: 'billing.error.PLAN_PRICE_UNAVAILABLE',
   ...PLATFORM_ACCESS_TRANSLATED_ERRORS,
+  ...MARKETING_APPROVAL_TRANSLATED_ERRORS,
 };

@@ -190,10 +190,14 @@ import { trMarketing } from './tr/marketing';
 import { trBrandKit } from './tr/brandKit';
 import { trMarketingStudio } from './tr/marketingStudio';
 import { trContentCalendar } from './tr/contentCalendar';
+import { trMarketingApprovals } from './tr/marketingApprovals';
+import { trAdminMarketingSettings } from './tr/admin-marketing-settings';
 import { enMarketing } from './en/marketing';
 import { enBrandKit } from './en/brandKit';
 import { enMarketingStudio } from './en/marketingStudio';
 import { enContentCalendar } from './en/contentCalendar';
+import { enMarketingApprovals } from './en/marketingApprovals';
+import { enAdminMarketingSettings } from './en/admin-marketing-settings';
 import { trIntegrations } from './tr/integrations';
 import { enIntegrations } from './en/integrations';
 import { trJoinInvite } from './tr/join-invite';
@@ -310,6 +314,8 @@ export const TR_NAMESPACES = [
   trBrandKit,
   trMarketingStudio,
   trContentCalendar,
+  trMarketingApprovals,
+  trAdminMarketingSettings,
   trIntegrations,
   trJoinInvite,
 ] as const;
@@ -413,6 +419,8 @@ export const EN_NAMESPACES = [
   enBrandKit,
   enMarketingStudio,
   enContentCalendar,
+  enMarketingApprovals,
+  enAdminMarketingSettings,
   enIntegrations,
   enJoinInvite,
 ] as const;

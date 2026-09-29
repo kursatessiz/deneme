@@ -766,6 +766,8 @@ model Studio {
   marketingDrafts       MarketingDraft[]
   marketingDraftVariants MarketingDraftVariant[]
   contentCalendarItems  ContentCalendarItem[]
+  approvalRequests      ApprovalRequest[]
+  marketingSettings     MarketingSettings?
 
   @@map("studios")
 }
@@ -3065,6 +3067,10 @@ enum CampaignStatus {
   SENDING
   SENT
   CANCELLED
+  /// M3b: waiting for a super admin decision (platform tenant only).
+  PENDING_APPROVAL
+  /// M3b: stopped by a user; never sends until resumed.
+  PAUSED
 }
 
 enum CampaignRecipientStatus {
@@ -3091,6 +3097,10 @@ model Campaign {
   cancelledAt           DateTime?            @map("cancelled_at")
   audienceCount         Int                  @default(0) @map("audience_count")
   createdByMembershipId String?              @map("created_by_membership_id") @db.Uuid
+  /// M3b: the user who created it (set for super admins too, who have no membership).
+  createdByUserId       String?              @map("created_by_user_id") @db.Uuid
+  /// M3b: the approval request the campaign currently depends on (plain id; approval_requests.target_id points back).
+  approvalRequestId     String?              @map("approval_request_id") @db.Uuid
   createdAt             DateTime             @default(now()) @map("created_at")
   updatedAt             DateTime             @updatedAt @map("updated_at")
 
@@ -5655,4 +5665,86 @@ model ContentCalendarItem {
 
   @@index([studioId, scheduledDate])
   @@map("content_calendar_items")
+}
+
+// ---------------------------------------------------------------------------
+// M3b marketing approvals (docs/PAZARLAMA_MODULU.md 6.1, 6.2, 7.4): approval
+// requests for outgoing actions and the marketing settings (thresholds,
+// caps, TTL). Enforced for the platform tenant only; other tenants have no
+// MarketingSettings row and keep their behaviour.
+// ---------------------------------------------------------------------------
+
+enum ApprovalTargetType {
+  CAMPAIGN
+  JOURNEY
+  SOCIAL_POST
+  PAGE_PUBLISH
+  AD_BUDGET
+  AD_ACTIVATE
+  EXPORT
+}
+
+enum ApprovalRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  CANCELLED
+  SELF_APPROVED
+}
+
+/// One request to let an outgoing action (a campaign send today) happen. Bound to contentHash: a change of the content invalidates it.
+model ApprovalRequest {
+  id                String                @id @default(uuid()) @db.Uuid
+  studioId          String                @map("studio_id") @db.Uuid
+  targetType        ApprovalTargetType    @map("target_type")
+  /// Id of the campaign (or later journey, post, ...); plain id, the target owns its lifecycle.
+  targetId          String                @map("target_id") @db.Uuid
+  /// sha256 hex of the content fingerprint (template versions, audience count, schedule, channel).
+  contentHash       String                @map("content_hash") @db.VarChar(64)
+  /// Precheck summary: audience, regions, cost estimate, findings, reasons (shared ApprovalSummary).
+  summary           Json                  @default("{}")
+  status            ApprovalRequestStatus @default(PENDING)
+  requestedByUserId String                @map("requested_by_user_id") @db.Uuid
+  decidedByUserId   String?               @map("decided_by_user_id") @db.Uuid
+  decisionNote      String?               @map("decision_note") @db.VarChar(1000)
+  expiresAt         DateTime              @map("expires_at")
+  createdAt         DateTime              @default(now()) @map("created_at")
+  decidedAt         DateTime?             @map("decided_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@index([studioId, status, createdAt])
+  @@index([studioId, targetType, targetId])
+  @@index([status, expiresAt])
+  @@map("approval_requests")
+}
+
+/// Marketing thresholds and caps of a tenant (the platform tenant today). Only the approval fields have behaviour in M3b.
+model MarketingSettings {
+  studioId                 String   @id @map("studio_id") @db.Uuid
+  selfApproveEmailMax      Int      @default(1000) @map("self_approve_email_max")
+  selfApproveSmsMax        Int      @default(100) @map("self_approve_sms_max")
+  selfApproveSmsCredits    Int      @default(100) @map("self_approve_sms_credits")
+  requireApprovalForSocial Boolean  @default(false) @map("require_approval_for_social")
+  dailyEmailCap            Int?     @map("daily_email_cap")
+  dailySmsCreditCap        Int?     @map("daily_sms_credit_cap")
+  /// { ISO 4217 currency: decimal string }
+  monthlyAdSpendCaps       Json     @default("{}") @map("monthly_ad_spend_caps")
+  aiDailyCapCents          Int?     @map("ai_daily_cap_cents")
+  bounceAutoPausePct       Decimal  @default(2) @map("bounce_auto_pause_pct") @db.Decimal(6, 3)
+  complaintAutoPausePct    Decimal  @default(0.08) @map("complaint_auto_pause_pct") @db.Decimal(6, 3)
+  /// Segment rule group (shared SegmentGroupSchema) defining an MQL / SQL; used by the dashboard (M3a).
+  mqlRule                  Json?    @map("mql_rule")
+  sqlRule                  Json?    @map("sql_rule")
+  weeklySummaryEnabled     Boolean  @default(false) @map("weekly_summary_enabled")
+  /// [userId]
+  weeklySummaryRecipients  Json     @default("[]") @map("weekly_summary_recipients")
+  approvalTtlHours         Int      @default(72) @map("approval_ttl_hours")
+  updatedByUserId          String?  @map("updated_by_user_id") @db.Uuid
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@map("marketing_settings")
 }

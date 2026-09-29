@@ -11,7 +11,12 @@ import type { MessageChannelV2 } from './journeys';
  * the engine's idempotency key is derived from it).
  */
 
-export const CAMPAIGN_STATUSES = ['DRAFT', 'SCHEDULED', 'SENDING', 'SENT', 'CANCELLED'] as const;
+/**
+ * PENDING_APPROVAL and PAUSED (M3b, docs/PAZARLAMA_MODULU.md 6.1) are only
+ * reached by the platform tenant, whose sends need an approval; other
+ * tenants move DRAFT -> SCHEDULED -> SENDING -> SENT as before.
+ */
+export const CAMPAIGN_STATUSES = ['DRAFT', 'SCHEDULED', 'SENDING', 'SENT', 'CANCELLED', 'PENDING_APPROVAL', 'PAUSED'] as const;
 export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number];
 
 export const CAMPAIGN_RECIPIENT_STATUSES = ['PENDING', 'SENT', 'SKIPPED', 'FAILED', 'CANCELLED'] as const;
@@ -92,6 +97,8 @@ export interface CampaignDTO {
   startedAt: string | null;
   completedAt: string | null;
   cancelledAt: string | null;
+  /** M3b: the approval request the campaign depends on (platform tenant only). */
+  approvalRequestId: string | null;
   createdAt: string;
   updatedAt: string;
   stats: CampaignStatsDTO;
