@@ -4,8 +4,10 @@ import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Calendar, Clock, User, CheckCircle2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { useT } from '@/components/i18n/I18nProvider';
 
 export default function PublicBookingPage() {
+  const t = useT();
   const params = useParams();
   const slug = params.slug as string;
 
@@ -38,7 +40,7 @@ export default function PublicBookingPage() {
           href="/"
           className="inline-flex items-center text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 mb-6"
         >
-          <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Stüdyo Listesine Dön
+          <ArrowLeft className="w-3.5 h-3.5 mr-1" /> {t('booking.backToList')}
         </Link>
 
         {isConfirmed ? (
@@ -47,39 +49,39 @@ export default function PublicBookingPage() {
               <CheckCircle2 className="w-10 h-10" />
             </div>
             <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-              Rezervasyon Onaylandı!
+              {t('booking.confirmed.title')}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              <strong>{selectedType}</strong> seansınız {selectedDate} günü saat <strong>{selectedSlot}</strong> için oluşturuldu. Kalan seansınızdan 1 kredi düşüldü.
+              {t('booking.confirmed.summary', { type: selectedType, date: selectedDate, slot: selectedSlot })}
             </p>
             <p className="text-[11px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border border-amber-200 dark:border-amber-900/60">
-              Not: İptal işlemleri seans saatine en geç 4 saat kala ücretsiz olarak yapılabilir.
+              {t('booking.confirmed.cancellationNote')}
             </p>
             <button
               onClick={() => setIsConfirmed(false)}
               className="w-full py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold mt-4"
             >
-              Yeni Bir Randevu Al
+              {t('booking.confirmed.newBooking')}
             </button>
           </div>
         ) : (
           <div>
             <div className="text-center mb-6">
               <span className="text-[10px] font-bold uppercase tracking-wider text-sky-500 bg-sky-50 dark:bg-sky-950/60 px-3 py-1 rounded-full border border-sky-200 dark:border-sky-900/60">
-                Online Rezervasyon
+                {t('booking.badge')}
               </span>
               <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-3">
                 {studioName}
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Lütfen seans türünü ve uygun saatinizi belirleyin
+                {t('booking.intro')}
               </p>
             </div>
 
             <form onSubmit={handleBooking} className="space-y-4">
               <div>
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
-                  Ders Türü
+                  {t('booking.sessionType')}
                 </label>
                 <select
                   value={selectedType}
@@ -95,7 +97,7 @@ export default function PublicBookingPage() {
 
               <div>
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
-                  Tarih Seçimi
+                  {t('booking.dateSelection')}
                 </label>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   {['Bugün (18 Eylül)', 'Yarın (19 Eylül)'].map((d) => (
@@ -117,7 +119,7 @@ export default function PublicBookingPage() {
 
               <div>
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
-                  Müsait Seans Saatleri
+                  {t('booking.availableSlots')}
                 </label>
                 <div className="space-y-2">
                   {availableSlots.map((s) => (
@@ -154,7 +156,7 @@ export default function PublicBookingPage() {
                 disabled={!selectedSlot}
                 className="w-full py-3 rounded-xl bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white font-semibold text-xs transition shadow-md mt-6"
               >
-                Randevuyu Onayla
+                {t('booking.confirm')}
               </button>
             </form>
           </div>

@@ -1,10 +1,10 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { addDays, isSameDay, snapToSlot, startOfDay, startOfWeek, weekdayLabel } from '@/lib/calendar/range';
+import { addDays, isSameDay, shortWeekdayLabels, snapToSlot, startOfDay, startOfWeek, weekdayLabel } from '@/lib/calendar/range';
 import { trainerName, type ScheduleRow } from '@/lib/calendar/types';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
-import { useLocale } from '@/components/i18n/I18nProvider';
+import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { hasAnyPermission } from '@/lib/nav';
 
 const START_HOUR = 7;
@@ -70,7 +70,7 @@ export function CalendarBoard({ view, anchor, schedules, selectedId, onSelect, o
           >
             <div className="h-10 border-b flex flex-col items-center justify-center" style={{ borderColor: 'var(--color-border)' }}>
               <span className="text-[10px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                {weekdayLabel(day)}
+                {weekdayLabel(day, locale)}
               </span>
               <span className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                 {day.getDate()}
@@ -154,10 +154,11 @@ export function CalendarBoard({ view, anchor, schedules, selectedId, onSelect, o
 }
 
 export function MonthGrid({ anchor, schedules, onSelectDay }: { anchor: Date; schedules: ScheduleRow[]; onSelectDay: (day: Date) => void }) {
+  const t = useT();
   const locale = useLocale();
   const gridStart = startOfWeek(new Date(anchor.getFullYear(), anchor.getMonth(), 1));
   const days = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
-  const weekdays = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+  const weekdays = shortWeekdayLabels(locale);
 
   return (
     <div className="border" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
@@ -191,7 +192,7 @@ export function MonthGrid({ anchor, schedules, onSelectDay }: { anchor: Date; sc
                 ))}
                 {daySchedules.length > 3 && (
                   <div className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
-                    +{daySchedules.length - 3} daha
+                    {t('calendar.monthGrid.more', { count: daySchedules.length - 3 })}
                   </div>
                 )}
               </div>

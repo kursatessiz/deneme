@@ -21,6 +21,8 @@ export const enCommon: Record<keyof typeof trCommon, string> = {
   'common.none': 'None',
   'common.loading': 'Loading...',
   'common.saved': 'Saved.',
+  'common.saving': 'Saving...',
+  'common.saveFailed': 'Could not be saved',
   'common.retry': 'Try again',
   'common.required': 'This field is required.',
   'common.error.generic': 'Something went wrong. Please try again.',

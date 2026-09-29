@@ -1,4 +1,4 @@
-import type { MemberDetailDTO } from '@platform/shared';
+import type { MemberDetailDTO, Translate } from '@platform/shared';
 
 export interface MemberPackageRow {
   id: string;
@@ -44,19 +44,12 @@ export type MemberDetail = Omit<MemberDetailDTO, 'packages' | 'bookings' | 'paym
   payments: MemberPaymentRow[];
 };
 
-export const PACKAGE_STATUS_LABEL: Record<MemberPackageRow['status'], string> = {
-  ACTIVE: 'Aktif',
-  FROZEN: 'Donduruldu',
-  EXPIRED: 'Süresi doldu',
-  DEPLETED: 'Tükendi',
-  CANCELLED: 'İptal',
-};
+/** Package status label; call with the active `useT()`/`getT()` translator. */
+export function packageStatusLabel(t: Translate, status: MemberPackageRow['status']): string {
+  return t(`members.packageStatus.${status}`);
+}
 
-export const BOOKING_STATUS_LABEL: Record<string, string> = {
-  CONFIRMED: 'Onaylı',
-  ATTENDED: 'Katıldı',
-  CANCELLED_EARLY: 'İptal',
-  CANCELLED_LATE: 'Geç iptal',
-  NO_SHOW: 'Gelmedi',
-  WAITLIST: 'Bekleme listesi',
-};
+/** Booking status label; reuses the same status set as the calendar detail panel. */
+export function bookingStatusLabel(t: Translate, status: string): string {
+  return t(`calendar.detail.status.${status}`);
+}

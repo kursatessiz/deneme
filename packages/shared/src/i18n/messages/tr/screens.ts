@@ -1,0 +1,26 @@
+/** Small standalone web screens: trainers list, attendance/check-in, dashboard overview. */
+export const trScreens = {
+  'screens.trainers.title': 'Eğitmenler',
+  'screens.trainers.subtitle': 'Kadroda yer alan eğitmenler',
+  'screens.trainers.empty.title': 'Henüz eğitmen yok',
+  'screens.trainers.empty.description': 'Personel davet edildikçe burada listelenecek.',
+  'screens.trainers.noBio': 'Açıklama eklenmemiş',
+  'screens.trainers.qualifiedCount.one': '{count} hizmet türünde yetkili',
+  'screens.trainers.qualifiedCount.other': '{count} hizmet türünde yetkili',
+
+  'screens.attendance.title': 'Bugünün Yoklaması',
+  'screens.attendance.subtitle': 'Resepsiyon için hızlı giriş listesi',
+  'screens.attendance.errors.loadFailed': 'Bugünün seansları yüklenemedi',
+  'screens.attendance.empty': 'Bugün planlanmış seans yok',
+  'screens.attendance.noTrainer': 'Eğitmen atanmamış',
+  'screens.attendance.noBookings': 'Rezervasyon yok.',
+  'screens.attendance.checkIn': 'Giriş yap',
+  'screens.attendance.status.ATTENDED': 'Katıldı',
+  'screens.attendance.status.NO_SHOW': 'Gelmedi',
+
+  'screens.dashboard.title': 'Genel Bakış',
+  'screens.dashboard.subtitle': 'İşletmenizin güncel durumu',
+  'screens.dashboard.empty.title': 'Henüz veri yok',
+  'screens.dashboard.empty.description': 'Şube ve seans verileri geldikçe burada özetlenecek.',
+  'screens.dashboard.noAddress': 'Adres tanımlı değil',
+} as const satisfies Record<string, string>;

@@ -5,6 +5,7 @@ import { PaymentMethod } from '@platform/shared';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { hasAnyPermission } from '@/lib/nav';
 import { useDashboardSession, useFormatMoney } from '@/components/session/DashboardSessionProvider';
+import { useT } from '@/components/i18n/I18nProvider';
 
 interface PackageDefinitionRow {
   id: string;
@@ -12,11 +13,7 @@ interface PackageDefinitionRow {
   price: string | number;
 }
 
-const METHOD_LABEL: Record<string, string> = {
-  CASH: 'Nakit',
-  CREDIT_CARD_POS: 'Kredi kartı (POS)',
-  BANK_TRANSFER: 'Havale/EFT',
-};
+const METHODS: PaymentMethod[] = [PaymentMethod.CASH, PaymentMethod.CREDIT_CARD_POS, PaymentMethod.BANK_TRANSFER];
 
 const inputStyle: React.CSSProperties = {
   borderRadius: 'var(--radius-input)',
@@ -38,8 +35,10 @@ export function PackageSaleDialog({
   onClose: () => void;
   onSold: () => void;
 }) {
+  const t = useT();
   const { permissions, currency } = useDashboardSession();
   const formatMoney = useFormatMoney();
+  const methodLabel = (m: PaymentMethod) => t(`finance.method.${m}`);
   const canViewInvoices = hasAnyPermission(['finance.view'], permissions, false);
   const [packageDefinitionId, setPackageDefinitionId] = useState(packageDefinitions[0]?.id ?? '');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.CASH);
@@ -57,7 +56,7 @@ export function PackageSaleDialog({
     e.preventDefault();
     setError(null);
     if (paymentMethod === PaymentMethod.BANK_TRANSFER && !bankReference.trim()) {
-      setError('Havale/EFT için referans giriniz');
+      setError(t('members.sale.bankReferenceRequired'));
       return;
     }
     setSubmitting(true);
@@ -96,7 +95,7 @@ export function PackageSaleDialog({
       setResult({ paymentStatus: sale.payment.paymentStatus, invoiceStatus });
       onSold();
     } catch (err) {
-      setError(err instanceof BffError ? err.message : 'Paket satışı başarısız oldu');
+      setError(err instanceof BffError ? err.message : t('members.sale.errors.sellFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -106,12 +105,18 @@ export function PackageSaleDialog({
     return (
       <div className="space-y-3">
         <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
-          Paket satışı tamamlandı. Ödeme durumu:{' '}
-          <strong>{result.paymentStatus === 'COMPLETED' ? 'Tamamlandı' : result.paymentStatus === 'PENDING' ? 'Beklemede' : result.paymentStatus}</strong>
+          {t('members.sale.complete')}{' '}
+          <strong>
+            {result.paymentStatus === 'COMPLETED'
+              ? t('members.sale.paymentStatus.COMPLETED')
+              : result.paymentStatus === 'PENDING'
+                ? t('members.sale.paymentStatus.PENDING')
+                : result.paymentStatus}
+          </strong>
         </p>
         {result.invoiceStatus && (
           <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            Fatura durumu: <strong>{result.invoiceStatus}</strong>
+            {t('members.sale.invoiceStatus')} <strong>{result.invoiceStatus}</strong>
           </p>
         )}
         <div className="flex justify-end pt-2">
@@ -120,7 +125,7 @@ export function PackageSaleDialog({
             className="text-xs font-medium px-4 py-1.5"
             style={{ borderRadius: 'var(--radius-button)', background: 'var(--gradient-brand)', color: 'var(--color-on-primary)' }}
           >
-            Kapat
+            {t('members.sale.close')}
           </button>
         </div>
       </div>
@@ -130,7 +135,7 @@ export function PackageSaleDialog({
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <label className="flex flex-col gap-1 text-xs">
-        <span style={{ color: 'var(--color-text-secondary)' }}>Paket</span>
+        <span style={{ color: 'var(--color-text-secondary)' }}>{t('members.sale.package')}</span>
         <select
           className="px-2.5 py-1.5 text-sm"
           style={inputStyle}
@@ -152,42 +157,42 @@ export function PackageSaleDialog({
 
       <div className="grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1 text-xs">
-          <span style={{ color: 'var(--color-text-secondary)' }}>Ödeme yöntemi</span>
+          <span style={{ color: 'var(--color-text-secondary)' }}>{t('members.sale.paymentMethod')}</span>
           <select className="px-2.5 py-1.5 text-sm" style={inputStyle} value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}>
-            {Object.entries(METHOD_LABEL).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
+            {METHODS.map((m) => (
+              <option key={m} value={m}>
+                {methodLabel(m)}
               </option>
             ))}
           </select>
         </label>
         <label className="flex flex-col gap-1 text-xs">
-          <span style={{ color: 'var(--color-text-secondary)' }}>Tahsil edilen tutar</span>
+          <span style={{ color: 'var(--color-text-secondary)' }}>{t('members.sale.collectedAmount')}</span>
           <input type="number" min={0} step="0.01" className="px-2.5 py-1.5 text-sm" style={inputStyle} value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} required />
         </label>
       </div>
 
       {paymentMethod === PaymentMethod.BANK_TRANSFER && (
         <label className="flex flex-col gap-1 text-xs">
-          <span style={{ color: 'var(--color-text-secondary)' }}>Havale/EFT referansı</span>
+          <span style={{ color: 'var(--color-text-secondary)' }}>{t('members.sale.bankReference')}</span>
           <input className="px-2.5 py-1.5 text-sm" style={inputStyle} value={bankReference} onChange={(e) => setBankReference(e.target.value)} required />
         </label>
       )}
 
       <div className="grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1 text-xs">
-          <span style={{ color: 'var(--color-text-secondary)' }}>Promosyon kodu (opsiyonel)</span>
+          <span style={{ color: 'var(--color-text-secondary)' }}>{t('members.sale.promoCode')}</span>
           <input className="px-2.5 py-1.5 text-sm" style={inputStyle} value={promoCode} onChange={(e) => setPromoCode(e.target.value)} />
         </label>
         <label className="flex flex-col gap-1 text-xs">
-          <span style={{ color: 'var(--color-text-secondary)' }}>Hediye kartı kodu (opsiyonel)</span>
+          <span style={{ color: 'var(--color-text-secondary)' }}>{t('members.sale.giftCardCode')}</span>
           <input className="px-2.5 py-1.5 text-sm" style={inputStyle} value={giftCardCode} onChange={(e) => setGiftCardCode(e.target.value)} />
         </label>
       </div>
 
       {selectedDefinition && (
         <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          Liste fiyatı: {formatMoney(selectedDefinition.price)}
+          {t('members.sale.listPrice', { price: formatMoney(selectedDefinition.price) })}
         </p>
       )}
 
@@ -204,7 +209,7 @@ export function PackageSaleDialog({
           className="text-xs font-medium px-3 py-1.5"
           style={{ borderRadius: 'var(--radius-button)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
         >
-          Vazgeç
+          {t('common.cancel')}
         </button>
         <button
           type="submit"
@@ -212,7 +217,7 @@ export function PackageSaleDialog({
           className="text-xs font-medium px-4 py-1.5 disabled:opacity-60"
           style={{ borderRadius: 'var(--radius-button)', background: 'var(--gradient-brand)', color: 'var(--color-on-primary)' }}
         >
-          {submitting ? 'Satılıyor...' : 'Paketi sat'}
+          {submitting ? t('members.sale.selling') : t('members.sale.sell')}
         </button>
       </div>
     </form>

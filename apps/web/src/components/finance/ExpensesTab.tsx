@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { ExpenseDTO } from '@platform/shared';
 import { useDashboardSession, useFormatMoney } from '@/components/session/DashboardSessionProvider';
-import { useLocale } from '@/components/i18n/I18nProvider';
+import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { buildReportQuery } from '@/lib/reports/query';
 import { formatMoney, sumMoney } from '@/lib/money';
@@ -23,6 +23,7 @@ const inputStyle: React.CSSProperties = {
 };
 
 function NewExpenseDialog({ studioId, onClose, onDone }: { studioId: string; onClose: () => void; onDone: () => void }) {
+  const t = useT();
   const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
   const [spentAt, setSpentAt] = useState(() => new Date().toISOString().slice(0, 10));
@@ -35,7 +36,7 @@ function NewExpenseDialog({ studioId, onClose, onDone }: { studioId: string; onC
     setError(null);
     const value = Number(amount);
     if (!category.trim() || !Number.isFinite(value) || value <= 0) {
-      setError('Kategori ve tutar giriniz');
+      setError(t('finance.expenses.validation'));
       return;
     }
     setSubmitting(true);
@@ -52,26 +53,47 @@ function NewExpenseDialog({ studioId, onClose, onDone }: { studioId: string; onC
       });
       onDone();
     } catch (err) {
-      setError(err instanceof BffError ? err.message : 'Gider kaydedilemedi');
+      setError(err instanceof BffError ? err.message : t('finance.expenses.errors.saveFailed'));
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <Modal title="Yeni gider" onClose={onClose}>
+    <Modal title={t('finance.expenses.newTitle')} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-3">
-        <input placeholder="Kategori (örn. Kira)" value={category} onChange={(e) => setCategory(e.target.value)} className="w-full text-sm px-3 py-1.5" style={inputStyle} />
-        <input type="number" min="0.01" step="0.01" placeholder="Tutar" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full text-sm px-3 py-1.5" style={inputStyle} />
+        <input
+          placeholder={t('finance.expenses.categoryPlaceholder')}
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className="w-full text-sm px-3 py-1.5"
+          style={inputStyle}
+        />
+        <input
+          type="number"
+          min="0.01"
+          step="0.01"
+          placeholder={t('finance.expenses.amountPlaceholder')}
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          className="w-full text-sm px-3 py-1.5"
+          style={inputStyle}
+        />
         <input type="date" value={spentAt} onChange={(e) => setSpentAt(e.target.value)} className="w-full text-sm px-3 py-1.5" style={inputStyle} />
-        <textarea placeholder="Not (opsiyonel)" value={note} onChange={(e) => setNote(e.target.value)} className="w-full text-sm px-3 py-1.5" style={{ ...inputStyle, minHeight: 60 }} />
+        <textarea
+          placeholder={t('finance.expenses.notePlaceholder')}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          className="w-full text-sm px-3 py-1.5"
+          style={{ ...inputStyle, minHeight: 60 }}
+        />
         {error && <p className="text-xs text-red-600">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <PermissionButton type="button" variant="ghost" onClick={onClose}>
-            Vazgeç
+            {t('common.cancel')}
           </PermissionButton>
           <PermissionButton required={['finance.manage']} type="submit" variant="primary" disabled={submitting}>
-            {submitting ? 'Kaydediliyor...' : 'Kaydet'}
+            {submitting ? t('finance.expenses.saving') : t('common.save')}
           </PermissionButton>
         </div>
       </form>
@@ -80,6 +102,7 @@ function NewExpenseDialog({ studioId, onClose, onDone }: { studioId: string; onC
 }
 
 export function ExpensesTab() {
+  const t = useT();
   const formatMoney = useFormatMoney();
   const locale = useLocale();
   const { activeStudioId } = useDashboardSession();
@@ -99,18 +122,19 @@ export function ExpensesTab() {
     const qs = buildReportQuery({ from, to, branchId: branchId || null });
     bffFetch<ExpenseRow[]>(`expenses/studio/${activeStudioId}${qs ? `?${qs}` : ''}`, { studioId: activeStudioId })
       .then(setExpenses)
-      .catch((err) => setError(err instanceof BffError ? err.message : 'Giderler yüklenemedi'))
+      .catch((err) => setError(err instanceof BffError ? err.message : t('finance.expenses.errors.loadFailed')))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStudioId, branchId, from, to, reloadKey]);
 
   async function handleDelete(id: string) {
     if (!activeStudioId) return;
-    if (!window.confirm('Bu gideri silmek istediğinize emin misiniz?')) return;
+    if (!window.confirm(t('finance.expenses.confirmDelete'))) return;
     try {
       await bffFetch(`expenses/${id}/studio/${activeStudioId}`, { method: 'DELETE', studioId: activeStudioId });
       setReloadKey((k) => k + 1);
     } catch (err) {
-      window.alert(err instanceof BffError ? err.message : 'Gider silinemedi');
+      window.alert(err instanceof BffError ? err.message : t('finance.expenses.errors.deleteFailed'));
     }
   }
 
@@ -123,30 +147,37 @@ export function ExpensesTab() {
           <DateRangeFilter
             from={from}
             to={to}
-            onChange={({ from: f, to: t }) => {
+            onChange={({ from: f, to: t2 }) => {
               setFrom(f);
-              setTo(t);
+              setTo(t2);
             }}
           />
           <BranchSelect value={branchId} onChange={setBranchId} />
         </div>
         <PermissionButton required={['finance.manage']} variant="primary" onClick={() => setShowNew(true)}>
-          Yeni gider
+          {t('finance.expenses.new')}
         </PermissionButton>
       </div>
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
       {!loading && !error && (!expenses || expenses.length === 0) && (
-        <EmptyState title="Gider bulunamadı" description="Seçili filtrelere uyan gider kaydı yok." />
+        <EmptyState title={t('finance.expenses.empty.title')} description={t('finance.expenses.empty.description')} />
       )}
       {!loading && !error && expenses && expenses.length > 0 && (
         <div className="border overflow-x-auto" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)' }}>
           <table className="w-full text-sm">
             <thead>
               <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
-                {['Tarih', 'Kategori', 'Tutar', 'Not', 'Ekleyen', ''].map((h) => (
-                  <th key={h} className="text-left px-4 py-2.5 font-medium whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
+                {[
+                  t('finance.expenses.col.date'),
+                  t('finance.expenses.col.category'),
+                  t('finance.expenses.col.amount'),
+                  t('finance.expenses.col.note'),
+                  t('finance.expenses.col.addedBy'),
+                  '',
+                ].map((h, i) => (
+                  <th key={i} className="text-left px-4 py-2.5 font-medium whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
                     {h}
                   </th>
                 ))}
@@ -172,7 +203,7 @@ export function ExpensesTab() {
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <PermissionButton required={['finance.manage']} variant="danger" onClick={() => handleDelete(e.id)}>
-                      Sil
+                      {t('common.delete')}
                     </PermissionButton>
                   </td>
                 </tr>
@@ -181,7 +212,7 @@ export function ExpensesTab() {
             <tfoot>
               <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
                 <td colSpan={2} className="px-4 py-2.5 font-semibold text-right" style={{ color: 'var(--color-text-primary)' }}>
-                  Toplam
+                  {t('finance.expenses.total')}
                 </td>
                 <td className="px-4 py-2.5 font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                   {formatMoney(total)}

@@ -4,38 +4,36 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { PageGuard } from '@/components/common/PageGuard';
 import { Tabs } from '@/components/common/Tabs';
+import { useT } from '@/components/i18n/I18nProvider';
 import { PaymentsTab } from '@/components/finance/PaymentsTab';
 import { ExpensesTab } from '@/components/finance/ExpensesTab';
 import { InvoicesTab } from '@/components/finance/InvoicesTab';
 import { PromotionsTab } from '@/components/finance/PromotionsTab';
 
-const TABS = [
-  { key: 'payments', label: 'Ödemeler' },
-  { key: 'expenses', label: 'Giderler' },
-  { key: 'invoices', label: 'Faturalar' },
-  { key: 'promotions', label: 'Promosyon ve Hediye Kartı' },
-] as const;
+const TAB_KEYS = ['payments', 'expenses', 'invoices', 'promotions'] as const;
 
 function FinancePage() {
-  const [tab, setTab] = useState<(typeof TABS)[number]['key']>('payments');
+  const t = useT();
+  const [tab, setTab] = useState<(typeof TAB_KEYS)[number]>('payments');
+  const tabs = TAB_KEYS.map((key) => ({ key, label: t(`finance.tabs.${key}`) }));
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-            Finans
+            {t('finance.title')}
           </h2>
           <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-            Ödemeler, giderler, faturalar, promosyon kodları ve hediye kartları
+            {t('finance.subtitle')}
           </p>
         </div>
         <Link href="/finans/bordro" className="text-sm font-medium hover:underline" style={{ color: 'var(--color-text-secondary)' }}>
-          Hakediş ve bordro
+          {t('finance.payrollLink')}
         </Link>
       </div>
 
-      <Tabs tabs={TABS} active={tab} onChange={(k) => setTab(k as (typeof TABS)[number]['key'])} />
+      <Tabs tabs={tabs} active={tab} onChange={(k) => setTab(k as (typeof TAB_KEYS)[number])} />
 
       {tab === 'payments' && <PaymentsTab />}
       {tab === 'expenses' && <ExpensesTab />}
