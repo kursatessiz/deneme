@@ -2,8 +2,11 @@ name: Security
 
 on:
   pull_request:
+  # Working branches are scanned through their pull request (diff against
+  # the base). A push that creates a branch reports an all-zero "before"
+  # commit, which would make the secret scan walk the whole history.
   push:
-    branches: [main, 'claude/**']
+    branches: [main]
 
 permissions:
   contents: read
@@ -39,7 +42,9 @@ jobs:
           persist-credentials: false
       - uses: trufflesecurity/trufflehog@4dd8831c5f12599465d4d45c3c447b4018a34c85 # v3.97.9
         with:
-          extra_args: --results=verified,unknown
+          # .env.example files are templates with placeholder credentials;
+          # real values live only in the untracked .env on the server.
+          extra_args: --results=verified,unknown --exclude-paths=.github/trufflehog-exclude.txt
 
   workflows:
     name: Workflow audit (zizmor)
