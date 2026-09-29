@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { EnvSchema } from './env';
 
@@ -49,11 +49,14 @@ function serviceEnvironment(service: string): Map<string, string> {
 function directEnvReads(dir: string): Set<string> {
   const keys = new Set<string>();
   const walk = (d: string) => {
-    for (const name of readdirSync(d)) {
+    // withFileTypes: the directory entry already knows its kind, so no
+    // separate stat call sits between the listing and the read.
+    for (const entry of readdirSync(d, { withFileTypes: true })) {
+      const name = entry.name;
       const p = join(d, name);
-      if (statSync(p).isDirectory()) {
+      if (entry.isDirectory()) {
         if (name !== 'node_modules') walk(p);
-      } else if (/\.tsx?$/.test(name) && !/\.(spec|test|e2e)\.tsx?$/.test(name)) {
+      } else if (entry.isFile() && /\.tsx?$/.test(name) && !/\.(spec|test|e2e)\.tsx?$/.test(name)) {
         for (const m of readFileSync(p, 'utf8').matchAll(/process\.env(?:\.([A-Z][A-Z0-9_]*)|\[['"]([A-Z][A-Z0-9_]*)['"]\])/g)) {
           keys.add(m[1] ?? m[2]);
         }
