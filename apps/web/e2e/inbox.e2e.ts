@@ -58,9 +58,19 @@ test('a member message reaches the reception inbox and the reply reaches the mem
   await page.getByRole('button', { name: 'Gönder', exact: true }).click();
   await expect(page.getByText(answer, { exact: true }).first()).toBeVisible();
 
-  const chat = await request.get(`${API_URL}/studios/${member.studioId}/messaging/self/chat`, { headers: authHeaders(member) });
-  const messages = ((await chat.json()) as { messages: { direction: string; body: string }[] }).messages;
-  expect(messages[messages.length - 1]).toMatchObject({ direction: 'OUT', body: answer });
+  // The reply shows in the thread before the API has finished writing it,
+  // so poll the member's view instead of reading it once.
+  await expect
+    .poll(
+      async () => {
+        const chat = await request.get(`${API_URL}/studios/${member.studioId}/messaging/self/chat`, { headers: authHeaders(member) });
+        const messages = ((await chat.json()) as { messages: { direction: string; body: string }[] }).messages;
+        const last = messages[messages.length - 1];
+        return last ? `${last.direction}:${last.body}` : null;
+      },
+      { timeout: 15_000 },
+    )
+    .toBe(`OUT:${answer}`);
 
   // Cleanup: close the conversation (the member's next message opens a new one).
   await page.getByRole('button', { name: 'Kapat', exact: true }).click();

@@ -90,8 +90,10 @@ test('the super admin sets the AI key and translates a language section with AI'
     await page.waitForURL(`**/admin/i18n/${code}`);
 
     // 3. Translate the "common" section in the background.
+    // The page shows a loading state until the whole language pack has
+    // arrived, which takes longer than the default 5 s on a busy CI runner.
     const panel = main.getByRole('region', { name: 'Yapay zeka ile çevir' });
-    await expect(panel).toBeVisible();
+    await expect(panel).toBeVisible({ timeout: 30_000 });
     await panel.getByRole('checkbox', { name: 'common', exact: true }).check();
     await panel.getByRole('button', { name: 'Çeviriyi başlat' }).click();
     const job = panel.getByTestId('ai-translate-job');
