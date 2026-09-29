@@ -222,7 +222,7 @@ describe('S3 client', () => {
 // ---------------------------------------------------------------------------
 
 describe('openssl-compatible encryption', () => {
-  const encryptionKey = 'golden-passphrase-0123456789';
+  const encryptionKey = 'golden-passphrase-0123456789'; // bound to the openssl golden vector below
 
   it('matches a golden vector produced by openssl enc -aes-256-cbc -pbkdf2 -iter 200000', async () => {
     // openssl enc ... -S 0102030405060708 -pass env:K <<< "hello backup" (openssl 3 omits the header when -S is given)
@@ -263,7 +263,7 @@ describe('openssl-compatible encryption', () => {
 // ---------------------------------------------------------------------------
 
 describe('verifyEncryptedStream', () => {
-  const encryptionKey = 'verify-passphrase-0123456789';
+  const encryptionKey = 'verify-secret-0123456789';
   const dump = Buffer.from('--\n-- PostgreSQL database dump\n--\nCREATE TABLE t ();\n--\n-- PostgreSQL database dump complete\n--\n');
 
   async function artifact(plain: Buffer): Promise<Buffer> {
