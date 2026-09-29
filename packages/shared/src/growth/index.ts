@@ -7,3 +7,5 @@ export * from './ads';
 export * from './segment-api';
 export * from './campaigns';
 export * from './journey-api';
+export * from './campaign-ab';
+export * from './send-time';

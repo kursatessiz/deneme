@@ -143,4 +143,6 @@ export const trMessaging = {
   'messaging.unsubscribe.invalid': 'Bu bağlantı geçersiz.',
   'messaging.unsubscribe.note': 'Rezervasyon ve hesap bildirimleri gibi işlemsel mesajlar gelmeye devam eder.',
   'messaging.unsubscribe.error': 'İşlem tamamlanamadı, lütfen tekrar deneyin.',
+  'messaging.settings.defaultSendTime': 'Varsayılan kampanya gönderim saati (alıcı yerel saati)',
+  'messaging.settings.defaultSendTimeHint': 'Kampanyanın "alıcının yerel saatinde" veya "en iyi saat" modunda saat girilmediğinde ya da yeterli veri olmadığında kullanılır.',
 } as const satisfies Record<string, string>;
