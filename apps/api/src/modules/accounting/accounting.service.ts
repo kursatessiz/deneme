@@ -1,8 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PaymentStatus, Prisma } from '@platform/database';
 import {
-  BASE_MESSAGES,
-  BUNDLED_MESSAGES,
   EXPENSE_JOURNAL_COLUMNS,
   SALES_JOURNAL_COLUMNS,
   SUMMARY_COLUMNS,
@@ -10,7 +8,6 @@ import {
   buildAccountingSummary,
   buildExpenseJournal,
   buildSalesJournal,
-  createTranslator,
   defaultRetailTaxRate,
   renderAccountingCsv,
 } from '@platform/shared';
@@ -26,16 +23,21 @@ import type {
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { branchScope } from '../branches/branch-access';
+import { I18nService } from '../i18n/i18n.service';
+import { exportTranslator } from './accounting-i18n';
+import { buildAccountingWorkbook } from './accounting-xlsx';
 
 /** Upper bound of payments in one export; a longer period is exported in parts. */
 export const ACCOUNTING_MAX_PAYMENTS = 50_000;
 
 export type AccountingExportResult =
+  | { format: 'xlsx'; filename: string; body: Buffer }
   | { format: 'csv'; filename: string; body: string }
   | { format: 'json'; filename: string; body: AccountingJsonExport<object> };
 
 const PAYMENT_INCLUDE = {
   member: { include: { membership: { include: { user: { select: { firstName: true, lastName: true } } } } } },
+  contact: { select: { firstName: true, lastName: true } },
   memberPackage: { include: { packageDefinition: { select: { name: true } } } },
   memberSubscription: { include: { packageDefinition: { select: { name: true } } } },
   invoice: { select: { number: true, status: true } },
@@ -44,10 +46,6 @@ const PAYMENT_INCLUDE = {
 } satisfies Prisma.PaymentInclude;
 
 type PaymentRow = Prisma.PaymentGetPayload<{ include: typeof PAYMENT_INCLUDE }>;
-
-function messagesFor(locale: string): Readonly<Record<string, string>> {
-  return BUNDLED_MESSAGES[locale] ?? BUNDLED_MESSAGES[locale.split('-')[0]] ?? BASE_MESSAGES;
-}
 
 /** Reads `metadata.amount` of a `payments.refund` audit row; anything else is ignored rather than guessed. */
 function refundAmountOf(metadata: Prisma.JsonValue | null): string | null {
@@ -66,7 +64,10 @@ function refundAmountOf(metadata: Prisma.JsonValue | null): string | null {
  */
 @Injectable()
 export class AccountingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly i18n: I18nService,
+  ) {}
 
   async export(tenant: TenantContext, actorUserId: string, query: AccountingExportQuery): Promise<AccountingExportResult> {
     const studioId = tenant.studioId;
@@ -76,13 +77,15 @@ export class AccountingService {
     });
     const range = { from: query.from, to: query.to };
     const locale = query.locale ?? studio.defaultLocale;
-    const t = createTranslator({ locale, messages: messagesFor(locale), fallback: BASE_MESSAGES });
+    // Headers and labels in the requested language, uploaded packs and overrides included.
+    const t = await exportTranslator(this.i18n, locale);
     const branch = branchScope(tenant, query.branchId);
     const defaultTaxRate = defaultRetailTaxRate(studio.taxRegime, studio.invoiceSettings ? studio.invoiceSettings.defaultVatRate.toString() : null);
 
     const wantSales = query.kind === 'sales' || query.kind === 'summary';
     const wantExpenses = query.kind === 'expenses' || query.kind === 'summary';
-    const sales = wantSales ? buildSalesJournal(await this.loadPaymentSources(studioId, branch, range, defaultTaxRate), range) : [];
+    const walkIn = t('finance.payments.walkIn');
+    const sales = wantSales ? buildSalesJournal(await this.loadPaymentSources(studioId, branch, range, defaultTaxRate, walkIn), range) : [];
     const expenses = wantExpenses ? buildExpenseJournal(await this.loadExpenseSources(studioId, branch, range), studio.currency, range) : [];
 
     let columns: readonly AccountingColumn<never>[];
@@ -116,6 +119,16 @@ export class AccountingService {
     if (query.format === 'json') {
       return { format: 'json', filename, body: buildAccountingJson(query.kind, range, query.branchId ?? null, [...rows]) };
     }
+    if (query.format === 'xlsx') {
+      const body = await buildAccountingWorkbook({
+        columns: columns as readonly AccountingColumn<{ currency: string }>[],
+        rows: rows as readonly { currency: string }[],
+        t,
+        fallbackCurrency: studio.currency,
+        totals: query.kind !== 'summary',
+      });
+      return { format: 'xlsx', filename, body };
+    }
     return { format: 'csv', filename, body: renderAccountingCsv(columns as readonly AccountingColumn<object>[], rows, t, query.delimiter) };
   }
 
@@ -128,6 +141,7 @@ export class AccountingService {
     branch: ReturnType<typeof branchScope>,
     range: { from: Date; to: Date },
     defaultTaxRate: string,
+    walkInLabel: string,
   ): Promise<AccountingPaymentSource[]> {
     // A payment belongs to the export when it was paid inside the range or
     // when it was refunded inside it (the refund line lands in this period).
@@ -180,13 +194,16 @@ export class AccountingService {
       refundsByPayment.set(log.entityId, list);
     }
 
-    return payments.map((p) => this.toSource(p, refundsByPayment.get(p.id) ?? [], defaultTaxRate));
+    return payments.map((p) => this.toSource(p, refundsByPayment.get(p.id) ?? [], defaultTaxRate, walkInLabel));
   }
 
-  private toSource(p: PaymentRow, auditRefunds: AccountingRefundSource[], defaultTaxRate: string): AccountingPaymentSource {
-    const user = p.member.membership.user;
+  private toSource(p: PaymentRow, auditRefunds: AccountingRefundSource[], defaultTaxRate: string, walkInLabel: string): AccountingPaymentSource {
     const sale = p.retailSale;
-    const customerName = (sale?.customerName ?? `${user.firstName} ${user.lastName}`).trim();
+    // Member, then the guest's CRM contact, then the translated walk-in label
+    // (an anonymous retail sale has neither); a sale keeps its receipt name.
+    const person = p.member?.membership.user ?? p.contact;
+    const personName = person ? `${person.firstName} ${person.lastName}`.trim() : '';
+    const customerName = (sale?.customerName ?? '').trim() || personName || walkInLabel;
 
     let description = p.notes ?? '';
     let taxComponents: AccountingTaxComponent[];

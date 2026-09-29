@@ -1,4 +1,4 @@
-/** Accounting export (G3c-3): CSV header cells and the finance page card. */
+/** Accounting export (G3c-3): CSV / XLSX header cells and the finance page card. */
 export const trAccounting = {
   'accounting.col.date': 'Tarih',
   'accounting.col.entryType': 'Kayıt türü',
@@ -21,6 +21,8 @@ export const trAccounting = {
   'accounting.col.section': 'Bölüm',
   'accounting.col.key': 'Anahtar',
   'accounting.col.count': 'Satır sayısı',
+  /** XLSX: bold row under each currency sheet with the column totals. */
+  'accounting.xlsx.total': 'Toplam',
 
   'accounting.card.title': 'Muhasebe dışa aktarımı',
   'accounting.card.description': 'Satış ve iade defterini, gider defterini veya vergi ve ödeme yöntemi özetini muhasebecinize verilecek dosya olarak indirin.',
@@ -31,12 +33,13 @@ export const trAccounting = {
   'accounting.card.kind.expenses': 'Gider defteri',
   'accounting.card.kind.summary': 'Özet (vergi oranı ve ödeme yöntemi)',
   'accounting.card.format': 'Dosya biçimi',
-  'accounting.card.format.csv': 'CSV (Excel)',
+  'accounting.card.format.xlsx': 'Excel (XLSX)',
+  'accounting.card.format.csv': 'CSV',
   'accounting.card.format.json': 'JSON',
   'accounting.card.delimiter': 'Ayraç',
   'accounting.card.delimiter.semicolon': 'Noktalı virgül (;)',
   'accounting.card.delimiter.comma': 'Virgül (,)',
   'accounting.card.branch': 'Şube',
   'accounting.card.download': 'İndir',
-  'accounting.card.hint': 'Tutarlar para biriminin küçük birimine göre yazılır ve para birimleri hiçbir zaman tek toplamda karıştırılmaz.',
+  'accounting.card.hint': 'Excel dosyasında her para birimi ayrı bir sayfadadır. Tutarlar para biriminin küçük birimine göre yazılır ve para birimleri hiçbir zaman tek toplamda karıştırılmaz.',
 } as const;

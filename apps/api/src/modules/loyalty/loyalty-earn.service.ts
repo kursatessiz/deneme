@@ -149,7 +149,9 @@ export class LoyaltyEarnService {
           member: { select: { membershipId: true, membership: { select: { isPartnerGuest: true } } } },
         },
       });
-      if (!payment || payment.member.membership.isPartnerGuest) return 0;
+      // Points live on a membership: a guest or walk-in payment (no member) earns nothing.
+      if (!payment || !payment.member || payment.member.membership.isPartnerGuest) return 0;
+      const membershipId = payment.member.membershipId;
       const net = Number(payment.amount.minus(payment.refundedAmount));
       const packageDefinitionId = payment.memberPackage?.packageDefinitionId ?? null;
       const matched: LoyaltyRule[] = [];
@@ -167,7 +169,7 @@ export class LoyaltyEarnService {
       }
       return this.credit(null, {
         studioId,
-        membershipId: payment.member.membershipId,
+        membershipId,
         points,
         reason: 'EARN_PURCHASE',
         sourceType: 'payment',

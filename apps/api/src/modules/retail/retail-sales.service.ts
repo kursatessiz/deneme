@@ -40,9 +40,11 @@ const ZERO = new Prisma.Decimal(0);
 /**
  * Desk sales (G3c-2, docs/PERAKENDE.md): checkout, sales history, refunds
  * and voids, and the sales report. A checkout is one transaction: receipt
- * number, stock decrements, the sale and its lines, and (when a member is
- * the customer) the Payment row with its promo redemption. CRM, loyalty and
- * webhooks run after commit through the same hooks as package payments.
+ * number, stock decrements, the sale and its lines, and the Payment row
+ * (member, CRM contact or anonymous walk-in customer) with its promo
+ * redemption, so every sale reaches finance and the accounting export. CRM,
+ * loyalty and webhooks run after commit through the same hooks as package
+ * payments.
  */
 @Injectable()
 export class RetailSalesService {
@@ -148,26 +150,25 @@ export class RetailSalesService {
             });
           }
 
-          let payment: { id: string } | null = null;
-          if (dto.memberId) {
-            payment = await tx.payment.create({
-              data: {
-                studioId,
-                memberId: dto.memberId,
-                branchId: dto.branchId,
-                amount: new Prisma.Decimal(totals.total),
-                currency: tax.currency,
-                paymentMethod: dto.paymentMethod as PaymentMethod,
-                paymentStatus: PaymentStatus.COMPLETED,
-                receiptNumber,
-                notes: dto.note,
-                promoCodeId: promo?.id,
-                discountAmount: promo?.discount ?? ZERO,
-                metadata: { saleId, kind: 'retail' },
-              },
-              select: { id: true },
-            });
-          }
+          // Every sale is a Payment: memberId null for a walk-in, contactId when a contact was chosen.
+          const payment = await tx.payment.create({
+            data: {
+              studioId,
+              memberId: dto.memberId ?? null,
+              contactId: dto.contactId ?? null,
+              branchId: dto.branchId,
+              amount: new Prisma.Decimal(totals.total),
+              currency: tax.currency,
+              paymentMethod: dto.paymentMethod as PaymentMethod,
+              paymentStatus: PaymentStatus.COMPLETED,
+              receiptNumber,
+              notes: dto.note,
+              promoCodeId: promo?.id,
+              discountAmount: promo?.discount ?? ZERO,
+              metadata: { saleId, kind: 'retail' },
+            },
+            select: { id: true },
+          });
 
           await tx.sale.create({
             data: {
@@ -188,7 +189,7 @@ export class RetailSalesService {
               taxTotal: new Prisma.Decimal(totals.taxTotal),
               total: new Prisma.Decimal(totals.total),
               paymentMethod: dto.paymentMethod as PaymentMethod,
-              paymentId: payment?.id ?? null,
+              paymentId: payment.id,
               promoCode: promo?.code ?? null,
               promoDiscount: promo?.discount ?? ZERO,
               note: dto.note ?? null,
@@ -221,13 +222,13 @@ export class RetailSalesService {
             }),
           });
 
-          if (promo && payment && memberUserId) {
+          if (promo && memberUserId) {
             await this.promotions.recordPromoRedemption(tx, studioId, memberUserId, promo.id, payment.id, promo.discount);
           }
           await tx.auditLog.create({
             data: { studioId, userId: actorUserId, action: 'retail.sale.create', entityType: 'Sale', entityId: saleId, metadata: { receiptNumber, total: totals.total } },
           });
-          return payment?.id ?? null;
+          return payment.id;
         },
         { timeout: 20_000, maxWait: 20_000 },
       );
@@ -240,13 +241,20 @@ export class RetailSalesService {
       throw err;
     }
 
+    const created = await this.getSale(tenant, saleId);
     if (paymentId) {
       // Same post-commit hooks as a package payment: CRM purchase conversion
-      // and loyalty points (never throws), then the payment.completed webhook.
+      // (on the contact for a guest) and loyalty points for a member (never
+      // throws), then the payment.completed webhook.
       await this.crm?.onPaymentCompleted(studioId, paymentId);
-      await this.safeEmit(studioId, 'payment.completed', { paymentId });
+      await this.safeEmit(studioId, 'payment.completed', {
+        paymentId,
+        memberId: dto.memberId ?? null,
+        contactId: dto.contactId ?? null,
+        amount: created.total,
+        currency: created.currency,
+      });
     }
-    const created = await this.getSale(tenant, saleId);
     // Automation hook (G3c-3): one event per desk sale, with or without a payment row.
     await this.safeEmit(studioId, 'retail.sale.completed', {
       saleId,
@@ -368,13 +376,20 @@ export class RetailSalesService {
             metadata: { amount: amount.toFixed(2), reason: dto.reason, refundId: refund.id },
           },
         });
-        return { paymentId: sale.paymentId, amount, fullyRefunded };
+        return { paymentId: sale.paymentId, memberId: sale.memberId, contactId: sale.contactId, currency: sale.currency, amount, fullyRefunded };
       },
       { timeout: 20_000, maxWait: 20_000 },
     );
 
     if (result.paymentId) {
-      await this.safeEmit(studioId, 'payment.refunded', { paymentId: result.paymentId, amount: result.amount.toFixed(2), fullyRefunded: result.fullyRefunded });
+      await this.safeEmit(studioId, 'payment.refunded', {
+        paymentId: result.paymentId,
+        memberId: result.memberId,
+        contactId: result.contactId,
+        amount: result.amount.toFixed(2),
+        currency: result.currency,
+        fullyRefunded: result.fullyRefunded,
+      });
     }
     return this.getSale(tenant, saleId);
   }

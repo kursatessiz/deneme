@@ -322,9 +322,12 @@ export class EventsService {
   }
 
   /**
-   * Refunds what a registration paid, in full: a Payment row through the
-   * payments module's refund (provider refund, invoice cancel, audit), a
-   * guest's pay-at-desk amount as a recorded refund to hand back at the desk.
+   * Refunds what a registration paid, in full: a Payment row (member or
+   * guest) through the payments module's refund (provider refund, invoice
+   * cancel, audit, negative line in the accounting export). Only a guest
+   * desk payment taken before guest payments had a Payment row (release
+   * 20261009000000_guest_payments) is still refunded on the registration
+   * alone, for the desk to hand back.
    */
   async refundInFull(
     tenant: TenantContext,

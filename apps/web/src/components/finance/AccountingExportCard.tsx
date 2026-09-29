@@ -38,7 +38,8 @@ export function AccountingExportCard() {
   const [to, setTo] = useState<Date | null>(initial.to);
   const [branchId, setBranchId] = useState('');
   const [kind, setKind] = useState<AccountingKind>('sales');
-  const [format, setFormat] = useState<AccountingFormat>('csv');
+  // XLSX is the default; the delimiter option only applies to CSV.
+  const [format, setFormat] = useState<AccountingFormat>('xlsx');
   const [delimiter, setDelimiter] = useState<AccountingDelimiterName>('semicolon');
 
   if (!hasAnyPermission(['accounting.export'], permissions, isOwner) || !activeStudioId) return null;

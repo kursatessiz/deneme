@@ -13,7 +13,7 @@ import type {
   InvoiceSettingsInput,
   ListInvoicesQuery,
 } from '@platform/shared';
-import { EARSIV_GENERIC_CONSUMER_TCKN } from '@platform/shared';
+import { BASE_MESSAGES, BUNDLED_MESSAGES, EARSIV_GENERIC_CONSUMER_TCKN, createTranslator } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
@@ -123,7 +123,12 @@ export class InvoicingService {
   async issueForPayment(studioId: string, paymentId: string): Promise<Invoice> {
     const payment = await this.prisma.payment.findFirst({
       where: { id: paymentId, studioId },
-      include: { memberPackage: { include: { packageDefinition: true } }, member: { include: { membership: { include: { user: true } } } } },
+      include: {
+        memberPackage: { include: { packageDefinition: true } },
+        member: { include: { membership: { include: { user: true } } } },
+        contact: { select: { firstName: true, lastName: true } },
+        studio: { select: { defaultLocale: true } },
+      },
     });
     if (!payment) throw new NotFoundException('Ödeme bulunamadı');
     if (payment.paymentStatus !== PaymentStatus.COMPLETED) {
@@ -140,8 +145,10 @@ export class InvoicingService {
       return invoice; // ISSUED or CANCELLED: nothing to do, already resolved.
     }
 
-    const billingProfile = await this.prisma.billingProfile.findUnique({ where: { memberId: payment.memberId } });
-    const buyer = this.buildBuyer(billingProfile, payment.member.membership.user);
+    // A guest or walk-in payment has no member and so no billing profile: the
+    // buyer is the CRM contact when known, otherwise the translated walk-in label.
+    const billingProfile = payment.memberId ? await this.prisma.billingProfile.findUnique({ where: { memberId: payment.memberId } }) : null;
+    const buyer = this.buildBuyer(billingProfile, payment.member?.membership.user ?? payment.contact ?? this.walkInBuyer(payment.studio.defaultLocale));
 
     if (settings.eInvoiceMode === EInvoiceMode.EFATURA && !buyer.vkn) {
       const reason = 'e-Fatura için alıcının VKN bilgisi zorunludur; üye şirket fatura profili eksik';
@@ -275,6 +282,13 @@ export class InvoicingService {
     });
   }
 
+  /** Name of an anonymous walk-in buyer, in the studio language (bundled catalogue). */
+  private walkInBuyer(locale: string): { firstName: string; lastName: string } {
+    const messages = BUNDLED_MESSAGES[locale] ?? BUNDLED_MESSAGES[locale.split('-')[0]] ?? BASE_MESSAGES;
+    const t = createTranslator({ locale, messages, fallback: BASE_MESSAGES });
+    return { firstName: t('finance.payments.walkIn'), lastName: '' };
+  }
+
   private buildBuyer(
     billingProfile: { kind: string; fullName: string | null; tckn: string | null; companyTitle: string | null; vkn: string | null; taxOffice: string | null; address: string | null; email: string | null } | null,
     user: { firstName: string; lastName: string },
@@ -291,7 +305,7 @@ export class InvoicingService {
     }
     return {
       kind: 'INDIVIDUAL',
-      fullName: billingProfile?.fullName ?? `${user.firstName} ${user.lastName}`,
+      fullName: billingProfile?.fullName ?? `${user.firstName} ${user.lastName}`.trim(),
       // No TCKN on file: e-Arsiv's standard generic-consumer identity number (documented in docs/INVOICING.md).
       tckn: billingProfile?.tckn ?? EARSIV_GENERIC_CONSUMER_TCKN,
       address: billingProfile?.address ?? undefined,

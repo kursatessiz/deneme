@@ -7,11 +7,13 @@ import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import { ZodQuery } from '../../common/zod-body.pipe';
 import { AccountingService } from './accounting.service';
+import { XLSX_CONTENT_TYPE } from './accounting-xlsx';
 
 /**
  * Accounting export (G3c-3, docs/MUHASEBE.md). The studio always comes from
  * the tenant guard (`:studioId` is checked against the caller's membership);
- * branch-restricted staff only export their branches.
+ * branch-restricted staff only export their branches. XLSX is the default
+ * format; CSV and JSON stay available.
  */
 @Controller('studios/:studioId/accounting')
 @StudioScoped()
@@ -25,6 +27,10 @@ export class AccountingController {
     res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
     res.setHeader('Cache-Control', 'no-store');
     if (result.format === 'json') return res.json(result.body);
+    if (result.format === 'xlsx') {
+      res.setHeader('Content-Type', XLSX_CONTENT_TYPE);
+      return res.send(result.body);
+    }
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     return res.send(result.body);
   }

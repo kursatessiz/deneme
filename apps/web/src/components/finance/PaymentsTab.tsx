@@ -217,9 +217,20 @@ export function PaymentsTab() {
                     {new Date(p.paidAt).toLocaleString(locale)}
                   </td>
                   <td className="px-4 py-2.5">
-                    <a href={`/members/${p.memberId}`} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
-                      {p.memberDisplayName ?? `${p.memberId.slice(0, 8)}...`}
-                    </a>
+                    {p.memberId ? (
+                      <a href={`/members/${p.memberId}`} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                        {p.memberDisplayName ?? `${p.memberId.slice(0, 8)}...`}
+                      </a>
+                    ) : p.contactId ? (
+                      <span className="inline-flex items-center gap-2">
+                        <a href={`/kisiler/${p.contactId}`} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                          {p.contactDisplayName ?? `${p.contactId.slice(0, 8)}...`}
+                        </a>
+                        <Badge tone="neutral">{t('finance.payments.guest')}</Badge>
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--color-text-secondary)' }}>{t('finance.payments.walkIn')}</span>
+                    )}
                   </td>
                   <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
                     {methodLabel(p.paymentMethod)}

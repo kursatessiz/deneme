@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server';
 process.env.API_INTERNAL_URL = 'http://api.internal:4000';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { POST } = require('./route') as typeof import('./route');
+const { GET, POST } = require('./route') as typeof import('./route');
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -62,6 +62,26 @@ describe('BFF route', () => {
     const retryBody = new TextDecoder().decode(retryInit.body as ArrayBuffer);
     expect(JSON.parse(retryBody)).toEqual({ scheduleId: 's1' });
     expect((retryInit.headers as Headers).get('authorization')).toBe('Bearer acc-2');
+  });
+
+  it('passes a binary XLSX download through byte for byte with its type and filename', async () => {
+    // A zip header plus bytes that are not valid UTF-8: any text decoding would change them.
+    const bytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0x00, 0xff, 0xfe, 0x80, 0x0d, 0x0a]);
+    const xlsx = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    fetchMock.mockResolvedValueOnce(
+      new Response(bytes, { status: 200, headers: { 'content-type': xlsx, 'content-disposition': 'attachment; filename="accounting-sales-2026-09-01_2026-09-30.xlsx"' } }),
+    );
+    const req = new NextRequest('http://panel.local/api/bff/studios/s1/accounting/export?format=xlsx', {
+      method: 'GET',
+      headers: { host: 'panel.local', cookie: 'pw_access=acc-1' },
+    });
+
+    const res = await GET(req, params('studios/s1/accounting/export'));
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe(xlsx);
+    expect(res.headers.get('content-disposition')).toContain('.xlsx');
+    expect(new Uint8Array(await res.arrayBuffer())).toEqual(bytes);
   });
 
   it('rejects state-changing calls without the CSRF header', async () => {
