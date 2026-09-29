@@ -14,6 +14,7 @@ export const enMAccount: Record<keyof typeof trMAccount, string> = {
   'mAccount.menu.myAchievements': 'My achievements',
   'mAccount.menu.myPoints': 'My points',
   'mAccount.menu.events': 'Events',
+  'mAccount.menu.community': 'Community',
   'mAccount.menu.eventCheckIn': 'Event check-in',
   'mAccount.menu.referFriend': 'Refer a friend',
   'mAccount.menu.health': 'Health integration',
