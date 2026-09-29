@@ -13,6 +13,7 @@ export const enAds: Record<keyof typeof trAds, string> = {
   'ads.connections.status.DISCONNECTED': 'Disconnected',
   'ads.connections.status.CONNECTED': 'Connected',
   'ads.connections.status.ERROR': 'Error',
+  'ads.connections.status.REAUTH_REQUIRED': 'Needs reconnecting',
   'ads.connections.testMode': 'Test mode',
   'ads.connections.testConnection': 'Test connection',
   'ads.connections.testConnection.ok': 'Connection works',

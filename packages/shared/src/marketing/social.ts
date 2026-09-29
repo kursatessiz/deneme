@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { ApprovalReasonCode } from './approvals';
+import type { HubConnectionAuthDTO } from './oauth';
 import { hasBlockingIssues, runMarketingChecks, type MarketingCheckContext, type MarketingCheckIssue } from './checks';
 
 /**
@@ -14,7 +15,8 @@ import { hasBlockingIssues, runMarketingChecks, type MarketingCheckContext, type
 export const SOCIAL_PROVIDERS = ['META_PAGE', 'INSTAGRAM', 'LINKEDIN_ORG'] as const;
 export type SocialProvider = (typeof SOCIAL_PROVIDERS)[number];
 
-export const SOCIAL_CONNECTION_STATUSES = ['CONNECTED', 'ERROR'] as const;
+/** REAUTH_REQUIRED (M4a): an OAuth token could not be refreshed; the hub offers a reconnect. */
+export const SOCIAL_CONNECTION_STATUSES = ['CONNECTED', 'ERROR', 'REAUTH_REQUIRED'] as const;
 export type SocialConnectionStatus = (typeof SOCIAL_CONNECTION_STATUSES)[number];
 
 export const SOCIAL_POST_STATUSES = ['DRAFT', 'PENDING_APPROVAL', 'SCHEDULED', 'PUBLISHING', 'PUBLISHED', 'FAILED', 'CANCELLED'] as const;
@@ -294,7 +296,7 @@ export type SocialPostsQuery = z.infer<typeof SocialPostsQuerySchema>;
 // ---------------------------------------------------------------------------
 
 /** Connection as every endpoint returns it: the credential is only ever a masked tail. */
-export interface SocialConnectionDTO {
+export interface SocialConnectionDTO extends HubConnectionAuthDTO {
   id: string;
   provider: SocialProvider;
   externalId: string;

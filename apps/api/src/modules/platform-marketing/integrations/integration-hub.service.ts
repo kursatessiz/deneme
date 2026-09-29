@@ -34,8 +34,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AdConnectionsService } from '../../ads/connections/ad-connections.service';
 import { ApiKeysService } from '../../api-keys/api-keys.service';
 import { WebhooksService } from '../../webhooks/webhooks.service';
-import { SocialConnectionsService } from '../../social/social-connections.service';
+import { SocialConnectionsService, oauthProviderOf } from '../../social/social-connections.service';
 import { LeadAdsAdminService } from '../../lead-ads/lead-ads-admin.service';
+import { OAuthConnectService } from '../oauth/oauth-connect.service';
 import type { PlatformContext, TenantContext } from '../../auth/tenant-context';
 import { checkEmailDomainDns, expectedEmailDomainRecords, type DnsLookup } from './email-domain-dns';
 
@@ -63,12 +64,13 @@ export class IntegrationHubService {
     private readonly webhooks: WebhooksService,
     private readonly social: SocialConnectionsService,
     private readonly leadAds: LeadAdsAdminService,
+    private readonly oauth: OAuthConnectService,
     @Inject(DNS_LOOKUP) private readonly dns: DnsLookup,
   ) {}
 
   async summary(platform: PlatformContext): Promise<IntegrationHubDTO> {
     const tenant = this.tenantFor(platform);
-    const [ads, socialConnections, keys, hooks, studio, domains, leadAds] = await Promise.all([
+    const [ads, socialConnections, keys, hooks, studio, domains, leadAds, oauth, adAuth] = await Promise.all([
       this.adConnections.list(tenant),
       this.social.list(platform.platformStudioId),
       this.apiKeys.list(tenant),
@@ -76,7 +78,10 @@ export class IntegrationHubService {
       this.prisma.studio.findUniqueOrThrow({ where: { id: platform.platformStudioId }, select: { messagingSettings: true } }),
       this.prisma.emailSenderDomain.findMany({ where: { studioId: platform.platformStudioId }, orderBy: { createdAt: 'asc' } }),
       this.leadAds.overview(platform.platformStudioId, platform.isSuperAdmin),
+      this.oauth.hubOAuth(platform.isSuperAdmin),
+      this.prisma.adConnection.findMany({ where: { studioId: platform.platformStudioId }, select: { id: true, oauthProvider: true } }),
     ]);
+    const adOAuthProvider = new Map(adAuth.map((a) => [a.id, oauthProviderOf(a.oauthProvider)]));
     return {
       platformStudioId: platform.platformStudioId,
       adConnections: ads.map((a) => ({
@@ -88,6 +93,10 @@ export class IntegrationHubService {
         credentialPreview: maskSecretPreview(a.credentialLast4),
         lastSyncAt: a.lastSyncAt,
         lastError: a.lastError,
+        authMethod: a.authMethod,
+        oauthProvider: adOAuthProvider.get(a.id) ?? null,
+        tokenExpiresAt: a.tokenExpiresAt,
+        reauthRequired: a.status === 'REAUTH_REQUIRED',
       })),
       socialConnections,
       apiKeys: keys.map((k) => ({
@@ -112,6 +121,7 @@ export class IntegrationHubService {
       leadAds,
       smsSender: this.smsSender(studio.messagingSettings),
       automation: this.automation(hooks, keys),
+      oauth,
     };
   }
 

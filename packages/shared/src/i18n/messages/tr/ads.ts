@@ -12,6 +12,7 @@ export const trAds = {
   'ads.connections.status.DISCONNECTED': 'Bağlı değil',
   'ads.connections.status.CONNECTED': 'Bağlı',
   'ads.connections.status.ERROR': 'Hata',
+  'ads.connections.status.REAUTH_REQUIRED': 'Yeniden bağlanmalı',
   'ads.connections.testMode': 'Test modu',
   'ads.connections.testConnection': 'Bağlantıyı test et',
   'ads.connections.testConnection.ok': 'Bağlantı çalışıyor',

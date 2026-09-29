@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { AD_PLATFORM_ALLOWED_HOSTS, SOCIAL_PROVIDER_ALLOWED_HOSTS } from '@platform/shared';
-import type { AdConnectionPlatform, SocialProvider } from '@platform/shared';
+import { AD_PLATFORM_ALLOWED_HOSTS, OAUTH_PROVIDER_ALLOWED_HOSTS, SOCIAL_PROVIDER_ALLOWED_HOSTS } from '@platform/shared';
+import type { AdConnectionPlatform, OAuthProvider, SocialProvider } from '@platform/shared';
 
-/** Which allow-list applies: an ad platform (conversions, spend) or a social provider (organic publishing, M4b). */
-export type OutboundScope = AdConnectionPlatform | SocialProvider;
+/** OAuth token and identity calls of a provider (M4a); prefixed so 'META' / 'GOOGLE' never mean the ad platform lists. */
+export type OAuthOutboundScope = `oauth:${OAuthProvider}`;
+
+/** Which allow-list applies: an ad platform (conversions, spend), a social provider (organic publishing, M4b) or an OAuth provider (M4a). */
+export type OutboundScope = AdConnectionPlatform | SocialProvider | OAuthOutboundScope;
 
 export interface AdsHttpResponse {
   ok: boolean;
@@ -15,6 +18,10 @@ export interface AdsHttpResponse {
 
 /** The fixed hosts of a scope; a name in neither list has none. */
 function allowedHostsOf(scope: OutboundScope): readonly string[] {
+  if (scope.startsWith('oauth:')) {
+    const provider = scope.slice('oauth:'.length);
+    return Object.prototype.hasOwnProperty.call(OAUTH_PROVIDER_ALLOWED_HOSTS, provider) ? OAUTH_PROVIDER_ALLOWED_HOSTS[provider as OAuthProvider] : [];
+  }
   if (Object.prototype.hasOwnProperty.call(AD_PLATFORM_ALLOWED_HOSTS, scope)) return AD_PLATFORM_ALLOWED_HOSTS[scope as AdConnectionPlatform];
   return SOCIAL_PROVIDER_ALLOWED_HOSTS[scope as SocialProvider] ?? [];
 }
@@ -32,6 +39,16 @@ export class AdsHttpClient {
   async postJson(platform: OutboundScope, url: string, headers: Record<string, string>, body: unknown): Promise<AdsHttpResponse> {
     this.assertAllowedHost(platform, url);
     return this.send(url, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  }
+
+  /** application/x-www-form-urlencoded POST (OAuth token endpoints); secrets travel in the body, never in the URL. */
+  async postForm(platform: OutboundScope, url: string, headers: Record<string, string>, form: Record<string, string>): Promise<AdsHttpResponse> {
+    this.assertAllowedHost(platform, url);
+    return this.send(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json', ...headers },
+      body: new URLSearchParams(form).toString(),
+    });
   }
 
   async getJson(platform: OutboundScope, url: string, headers: Record<string, string>): Promise<AdsHttpResponse> {

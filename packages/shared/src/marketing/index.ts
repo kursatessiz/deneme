@@ -11,3 +11,4 @@ export * from './guards';
 export * from './insights';
 export * from './social';
 export * from './lead-ads';
+export * from './oauth';
