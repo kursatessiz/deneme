@@ -1,14 +1,13 @@
-import { Workbook } from 'exceljs';
-import type { Cell } from 'exceljs';
 import { ACCOUNTING_DATE_FORMAT, accountingAmountFormat, accountingSheetCell, accountingSheetGroups, accountingSheetTotals } from '@platform/shared';
 import type { AccountingColumn, AccountingSheetCell } from '@platform/shared';
+import { cellRef } from './xlsx/xlsx-primitives';
+import { buildXlsx } from './xlsx/xlsx-writer';
+import type { XlsxCell, XlsxSheet } from './xlsx/xlsx-writer';
 
 export const XLSX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 const MIN_WIDTH = 10;
 const MAX_WIDTH = 50;
-/** Characters that Excel refuses in a sheet name. */
-const SHEET_NAME_FORBIDDEN = /[\\/?*[\]:]/g;
 
 export interface AccountingWorkbookInput<Row extends { currency: string }> {
   columns: readonly AccountingColumn<Row>[];
@@ -21,19 +20,15 @@ export interface AccountingWorkbookInput<Row extends { currency: string }> {
   totals: boolean;
 }
 
-function setCell(cell: Cell, value: AccountingSheetCell): void {
-  // Only strings, numbers and dates are ever assigned: exceljs writes a
-  // formula only for a { formula } object, so text such as "=cmd" stays a
-  // plain string cell and is never evaluated by the spreadsheet.
-  if (value.type === 'number') {
-    cell.value = value.value;
-    cell.numFmt = value.numFmt;
-  } else if (value.type === 'date') {
-    cell.value = value.value;
-    cell.numFmt = ACCOUNTING_DATE_FORMAT;
-  } else {
-    cell.value = value.value;
-  }
+/**
+ * Only strings, numbers and dates are ever produced: the writer has no
+ * formula cell type, so text such as "=cmd" stays an inline string and is
+ * never evaluated by the spreadsheet.
+ */
+function toXlsxCell(value: AccountingSheetCell, bold = false): XlsxCell {
+  if (value.type === 'number') return { type: 'number', value: value.value, numFmt: value.numFmt, bold };
+  if (value.type === 'date') return { type: 'date', value: value.value, numFmt: ACCOUNTING_DATE_FORMAT, bold };
+  return { type: 'string', value: value.value, bold };
 }
 
 /** Rough printed length of a cell, for the column width. */
@@ -43,11 +38,6 @@ function printedLength(value: AccountingSheetCell): number {
   return value.value.length;
 }
 
-function sheetName(currency: string): string {
-  const name = currency.replace(SHEET_NAME_FORBIDDEN, '_').slice(0, 31);
-  return name || '_';
-}
-
 /**
  * The accounting export as an XLSX workbook (docs/MUHASEBE.md, "XLSX"): one
  * sheet per currency, named by the currency code, so no sheet ever mixes
@@ -55,50 +45,48 @@ function sheetName(currency: string): string {
  * in the requested language; amounts are numbers with the currency's minor
  * digits, dates are date cells (UTC), everything else is a string. Journals
  * end with a bold totals row computed in minor units, never a formula.
+ * Written by the dependency-free writer in ./xlsx.
  */
-export async function buildAccountingWorkbook<Row extends { currency: string }>(input: AccountingWorkbookInput<Row>): Promise<Buffer> {
+export function buildAccountingWorkbook<Row extends { currency: string }>(input: AccountingWorkbookInput<Row>): Buffer {
   const { columns, t } = input;
-  const workbook = new Workbook();
-  workbook.created = new Date();
+  const sheets: XlsxSheet[] = [];
 
   for (const group of accountingSheetGroups(input.rows, input.fallbackCurrency)) {
-    const sheet = workbook.addWorksheet(sheetName(group.currency), { views: [{ state: 'frozen', ySplit: 1 }] });
     const widths = columns.map((c) => t(c.labelKey).length);
+    const rows: (XlsxCell | null)[][] = [columns.map((column): XlsxCell => ({ type: 'string', value: t(column.labelKey), bold: true }))];
 
-    const header = sheet.getRow(1);
-    columns.forEach((column, i) => {
-      header.getCell(i + 1).value = t(column.labelKey);
-    });
-    header.font = { bold: true };
-
-    group.rows.forEach((row, r) => {
-      const line = sheet.getRow(r + 2);
-      columns.forEach((column, i) => {
-        const value = accountingSheetCell(column, row, group.currency);
-        setCell(line.getCell(i + 1), value);
-        widths[i] = Math.max(widths[i], printedLength(value));
-      });
-    });
-
-    sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1 + group.rows.length, column: columns.length } };
+    for (const row of group.rows) {
+      rows.push(
+        columns.map((column, i) => {
+          const value = accountingSheetCell(column, row, group.currency);
+          widths[i] = Math.max(widths[i], printedLength(value));
+          return toXlsxCell(value);
+        }),
+      );
+    }
 
     if (input.totals && group.rows.length > 0) {
       // One empty row keeps the totals outside the filtered range.
-      const totalsRow = sheet.getRow(group.rows.length + 3);
-      setCell(totalsRow.getCell(1), { type: 'text', value: t('accounting.xlsx.total') });
+      rows.push([]);
+      const totals: (XlsxCell | null)[] = columns.map(() => null);
+      totals[0] = { type: 'string', value: t('accounting.xlsx.total'), bold: true };
       accountingSheetTotals(columns, group.rows, group.currency).forEach((total, i) => {
         if (total === null) return;
         const value: AccountingSheetCell = { type: 'number', value: total, numFmt: accountingAmountFormat(group.currency) };
-        setCell(totalsRow.getCell(i + 1), value);
+        totals[i] = toXlsxCell(value, true);
         widths[i] = Math.max(widths[i], printedLength(value));
       });
-      totalsRow.font = { bold: true };
+      rows.push(totals);
     }
 
-    widths.forEach((width, i) => {
-      sheet.getColumn(i + 1).width = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.ceil(width) + 2));
+    sheets.push({
+      name: group.currency,
+      rows,
+      columnWidths: widths.map((width) => Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.ceil(width) + 2))),
+      freezeHeader: true,
+      autoFilter: `${cellRef(1, 1)}:${cellRef(columns.length, 1 + group.rows.length)}`,
     });
   }
 
-  return Buffer.from(await workbook.xlsx.writeBuffer());
+  return buildXlsx({ sheets });
 }

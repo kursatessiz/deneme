@@ -166,10 +166,29 @@ Sahip kararı (G3c sonrası): misafir ve kayıtsız müşteri ödemeleri finansa
   testler: `accounting.spec.ts`; yuvarlama, para birimi gruplama, CSV kaçışı,
   formül koruması, hücre tipleri).
 - XLSX yazıcısı: `apps/api/src/modules/accounting/accounting-xlsx.ts`
-  (`exceljs`, yalnızca API'de, sürüm sabit). Birim test
-  `accounting-xlsx.spec.ts` dosyayı `exceljs` ile geri okur: sayı, metin ve
-  tarih hücre tipleri, `=` ile başlayan metinde bile formül olmaması,
-  toplam satırı, para birimi sayfaları.
+  (düzen ve hücre eşlemesi) ile bağımlılıksız yazıcı
+  `apps/api/src/modules/accounting/xlsx/` (`xlsx-writer.ts`: SpreadsheetML
+  parçaları, `xlsx-primitives.ts`: CRC-32, XML kaçışı, sütun/hücre
+  başvurusu, Excel seri tarihi, sayfa adı kuralları, ZIP kabı). Yalnızca
+  Node yerleşikleri (`zlib.deflateRawSync`) kullanılır; CRC-32 tablo ile
+  elle hesaplanır (`zlib.crc32` Node 20'de yoktur). Node'a özgü olduğu için
+  `packages/shared` (web ve mobil de kullanır) içine değil API'ye konur.
+  Yazıcı hücre olarak yalnızca sayı, satır içi metin (`inlineStr`) ve tarih
+  (biçimli sayı) bilir; `<f>` (formül) öğesi yazacak bir kod yolu yoktur.
+  Geçersiz XML 1.0 karakterleri atılır, sayfa adları Excel kurallarına
+  (en fazla 31 karakter, `[]:*?/\` yok) göre temizlenir ve tekilleştirilir,
+  4 GB üstü arşiv hata verir (ZIP64 yok).
+  Neden `exceljs` değil: PR #95'teki `exceljs@4.4.0` yaklaşık 58 geçişli
+  paket getiriyordu; biri (`jszip`) GPL-3.0 ile çift lisanslıydı (politika
+  gereği yasak) ve 12'si zayıf OpenSSF Scorecard puanlıydı. Tedarik zinciri
+  yüzeyini sıfırlamak için küçük ve denetlenebilir kendi yazıcımız var.
+  Birim testler: `xlsx/xlsx-primitives.spec.ts` (CRC-32 bilinen değerler,
+  kaçış, sütun harfleri, tarih seri numarası, sayfa adı, ZIP) ve
+  `accounting-xlsx.spec.ts`; ikisi de çıktıyı test amaçlı küçük bir ZIP
+  okuyucu (`xlsx/xlsx-test-reader.ts`, merkezi dizin + `inflateRawSync`)
+  ile geri okur: gerekli parçalar, hiç `<f>` olmaması, `=` ile başlayan
+  metnin `inlineStr` olması, sayı hücreleri, toplam satırı, para birimi
+  sayfaları. Çıktı ayrıca harici olarak openpyxl ile doğrulandı.
 - Başlık çevirisi: `accounting-i18n.ts` (`I18nService` etkin mesajları;
   birim test `accounting-i18n.spec.ts`, bir geçersiz kılmanın başlığa
   yansıması).

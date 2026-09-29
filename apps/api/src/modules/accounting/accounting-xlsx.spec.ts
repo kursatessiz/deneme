@@ -1,5 +1,3 @@
-import { ValueType, Workbook } from 'exceljs';
-import type { Worksheet } from 'exceljs';
 import {
   BASE_MESSAGES,
   BUNDLED_MESSAGES,
@@ -13,6 +11,10 @@ import {
 } from '@platform/shared';
 import type { AccountingColumn, AccountingPaymentSource } from '@platform/shared';
 import { buildAccountingWorkbook } from './accounting-xlsx';
+import { excelSerialDate } from './xlsx/xlsx-primitives';
+import { parseSheetCells, readZipText } from './xlsx/xlsx-test-reader';
+import type { ParsedCell } from './xlsx/xlsx-test-reader';
+import { buildXlsx } from './xlsx/xlsx-writer';
 
 const RANGE = { from: new Date('2026-09-01T00:00:00Z'), to: new Date('2026-09-30T23:59:59Z') };
 const t = createTranslator({ locale: 'en', messages: BUNDLED_MESSAGES.en, fallback: BASE_MESSAGES });
@@ -45,94 +47,175 @@ const sales = buildSalesJournal(
   RANGE,
 );
 
-async function readBack(buffer: Buffer): Promise<Workbook> {
-  const workbook = new Workbook();
-  // exceljs types its input as an ArrayBuffer-like "Buffer"; hand it the exact bytes.
-  await workbook.xlsx.load(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer);
-  return workbook;
+interface Parsed {
+  files: Map<string, string>;
+  sheetNames: string[];
+  sheet: (name: string) => Map<number, ParsedCell[]>;
+  sheetXml: (name: string) => string;
+  /** cellXfs entries of styles.xml as raw attribute strings. */
+  xfs: string[];
+  numFmts: Map<number, string>;
 }
 
-function everyCell(sheet: Worksheet, visit: (type: ValueType, formula: string | undefined, value: unknown) => void): void {
-  sheet.eachRow({ includeEmpty: false }, (row) => {
-    row.eachCell({ includeEmpty: false }, (cell) => visit(cell.type, cell.formula, cell.value));
-  });
+function parse(buffer: Buffer): Parsed {
+  const files = readZipText(buffer);
+  const workbook = files.get('xl/workbook.xml') as string;
+  const sheetNames = [...workbook.matchAll(/<sheet name="([^"]*)"/g)].map((m) => m[1]);
+  const sheetXml = (name: string): string => {
+    const index = sheetNames.indexOf(name);
+    expect(index).toBeGreaterThanOrEqual(0);
+    return files.get(`xl/worksheets/sheet${index + 1}.xml`) as string;
+  };
+  const styles = files.get('xl/styles.xml') as string;
+  const cellXfs = /<cellXfs[^>]*>([\s\S]*?)<\/cellXfs>/.exec(styles)?.[1] ?? '';
+  return {
+    files,
+    sheetNames,
+    sheetXml,
+    sheet: (name) => parseSheetCells(sheetXml(name)),
+    xfs: [...cellXfs.matchAll(/<xf ([^>]*)\/>/g)].map((m) => m[1]),
+    numFmts: new Map([...styles.matchAll(/<numFmt numFmtId="(\d+)" formatCode="([^"]*)"/g)].map((m) => [Number(m[1]), m[2]])),
+  };
 }
+
+const isBold = (p: Parsed, cell: ParsedCell): boolean => p.xfs[cell.s].includes('fontId="1"');
+/** Number format code of a cell (built-in ids resolved). */
+function formatOf(p: Parsed, cell: ParsedCell): string | undefined {
+  const id = Number(/numFmtId="(\d+)"/.exec(p.xfs[cell.s])?.[1] ?? 0);
+  const builtin: Record<number, string> = { 1: '0', 3: '#,##0', 4: '#,##0.00' };
+  return builtin[id] ?? p.numFmts.get(id);
+}
+
+const journal = (): Buffer => buildAccountingWorkbook({ columns: SALES_JOURNAL_COLUMNS, rows: sales, t, fallbackCurrency: 'EUR', totals: true });
 
 describe('buildAccountingWorkbook', () => {
-  it('writes one sheet per currency with a bold, frozen, filtered header in the requested language', async () => {
-    const workbook = await readBack(await buildAccountingWorkbook({ columns: SALES_JOURNAL_COLUMNS, rows: sales, t, fallbackCurrency: 'EUR', totals: true }));
-    expect(workbook.worksheets.map((s) => s.name)).toEqual(['EUR', 'JPY']);
-    const eur = workbook.getWorksheet('EUR') as Worksheet;
-    const header = eur.getRow(1);
-    expect(header.getCell(1).value).toBe('Date');
-    expect(header.getCell(10).value).toBe('Gross');
-    expect(header.getCell(1).font?.bold).toBe(true);
-    expect(eur.views[0]).toMatchObject({ state: 'frozen', ySplit: 1 });
-    expect(eur.autoFilter).toBeTruthy();
-    for (let c = 1; c <= SALES_JOURNAL_COLUMNS.length; c++) {
-      const width = eur.getColumn(c).width ?? 0;
+  it('contains every required part with matching content types and relationships', () => {
+    const p = parse(journal());
+    for (const name of [
+      '[Content_Types].xml',
+      '_rels/.rels',
+      'xl/workbook.xml',
+      'xl/_rels/workbook.xml.rels',
+      'xl/styles.xml',
+      'xl/worksheets/sheet1.xml',
+      'xl/worksheets/sheet2.xml',
+      'docProps/core.xml',
+      'docProps/app.xml',
+    ]) {
+      expect(p.files.has(name)).toBe(true);
+    }
+    const types = p.files.get('[Content_Types].xml') as string;
+    expect(types).toContain('PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"');
+    expect(types).toContain('PartName="/xl/worksheets/sheet2.xml"');
+    const rels = p.files.get('xl/_rels/workbook.xml.rels') as string;
+    expect(rels).toContain('Id="rId1"');
+    expect(rels).toContain('Id="rId2"');
+    expect(rels).toContain('Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles"');
+    expect(p.files.get('xl/workbook.xml')).toContain('r:id="rId2"');
+  });
+
+  it('writes one sheet per currency with a bold, frozen, filtered header in the requested language', () => {
+    const p = parse(journal());
+    expect(p.sheetNames).toEqual(['EUR', 'JPY']);
+    const eur = p.sheet('EUR');
+    const header = eur.get(1) as ParsedCell[];
+    expect(header).toHaveLength(SALES_JOURNAL_COLUMNS.length);
+    expect(header[0].value).toBe('Date');
+    expect(header[9].value).toBe('Gross');
+    expect(header.every((c) => c.t === 'inlineStr' && isBold(p, c))).toBe(true);
+
+    const xml = p.sheetXml('EUR');
+    expect(xml).toContain('<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>');
+    const dataRows = sales.filter((r) => r.currency === 'EUR').length;
+    expect(xml).toContain(`<autoFilter ref="A1:${String.fromCharCode(64 + SALES_JOURNAL_COLUMNS.length)}${1 + dataRows}"/>`);
+    const widths = [...xml.matchAll(/<col min="(\d+)" max="\d+" width="([\d.]+)" customWidth="1"\/>/g)].map((m) => Number(m[2]));
+    expect(widths).toHaveLength(SALES_JOURNAL_COLUMNS.length);
+    for (const width of widths) {
       expect(width).toBeGreaterThanOrEqual(10);
       expect(width).toBeLessThanOrEqual(50);
     }
-    // Currencies never share a sheet.
-    const jpy = workbook.getWorksheet('JPY') as Worksheet;
-    for (let r = 2; r <= jpy.rowCount; r++) {
-      const cur = jpy.getRow(r).getCell(11).value;
-      if (cur !== null) expect(cur).toBe('JPY');
+    // Currencies never share a sheet: the currency column of every JPY data row says JPY.
+    const jpy = p.sheet('JPY');
+    expect(jpy.get(2)?.[10].value).toBe('JPY');
+  });
+
+  it('types cells as numbers, inline strings and dates and never writes a formula, even for text starting with "="', () => {
+    const p = parse(journal());
+    for (const [name, xml] of p.files) {
+      if (name.endsWith('.xml') || name.endsWith('.rels')) expect(xml).not.toMatch(/<f[\s>/]/);
+    }
+    const eur = p.sheet('EUR');
+    const first = eur.get(2) as ParsedCell[];
+    expect(first[0].t).toBe('n');
+    expect(Number(first[0].value)).toBeCloseTo(excelSerialDate(new Date('2026-09-10T09:00:00Z')), 6);
+    expect(formatOf(p, first[0])).toBe('yyyy-mm-dd hh:mm:ss');
+    expect(first[4].t).toBe('inlineStr');
+    expect(first[4].value).toBe('=HYPERLINK(&quot;http://x&quot;,&quot;y&quot;)');
+    expect(first[5]).toMatchObject({ t: 'inlineStr', value: '+cmd' });
+    expect(first[9]).toMatchObject({ t: 'n', value: '120' });
+    expect(formatOf(p, first[9])).toBe('#,##0.00');
+    expect(first[7].t).toBe('n'); // tax rate
+    const jpyFirst = p.sheet('JPY').get(2) as ParsedCell[];
+    expect(jpyFirst[9]).toMatchObject({ t: 'n', value: '3000' });
+    expect(formatOf(p, jpyFirst[9])).toBe('#,##0');
+
+    for (const name of p.sheetNames) {
+      for (const cells of p.sheet(name).values()) {
+        for (const cell of cells) {
+          expect(cell.hasFormula).toBe(false);
+          expect(['n', 'inlineStr']).toContain(cell.t);
+        }
+      }
     }
   });
 
-  it('types cells as numbers, strings and dates and never writes a formula, even for text starting with "="', async () => {
-    const workbook = await readBack(await buildAccountingWorkbook({ columns: SALES_JOURNAL_COLUMNS, rows: sales, t, fallbackCurrency: 'EUR', totals: true }));
-    const eur = workbook.getWorksheet('EUR') as Worksheet;
-    const first = eur.getRow(2);
-    expect(first.getCell(1).type).toBe(ValueType.Date);
-    expect(first.getCell(1).value).toEqual(new Date('2026-09-10T09:00:00.000Z'));
-    expect(first.getCell(5).type).toBe(ValueType.String);
-    expect(first.getCell(5).value).toBe('=HYPERLINK("http://x","y")');
-    expect(first.getCell(6).value).toBe('+cmd');
-    expect(first.getCell(10).type).toBe(ValueType.Number);
-    expect(first.getCell(10).value).toBe(120);
-    expect(first.getCell(10).numFmt).toBe('#,##0.00');
-    expect(first.getCell(8).type).toBe(ValueType.Number); // tax rate
-    const jpy = workbook.getWorksheet('JPY') as Worksheet;
-    expect(jpy.getRow(2).getCell(10).value).toBe(3000);
-    expect(jpy.getRow(2).getCell(10).numFmt).toBe('#,##0');
-
-    for (const sheet of workbook.worksheets) {
-      everyCell(sheet, (type, formula) => {
-        expect(type).not.toBe(ValueType.Formula);
-        expect(formula).toBeUndefined();
-        expect([ValueType.Number, ValueType.String, ValueType.Date]).toContain(type);
-      });
-    }
-  });
-
-  it('ends a journal sheet with a bold totals row (refunds netted in) outside the filter range', async () => {
-    const workbook = await readBack(await buildAccountingWorkbook({ columns: SALES_JOURNAL_COLUMNS, rows: sales, t, fallbackCurrency: 'EUR', totals: true }));
-    const eur = workbook.getWorksheet('EUR') as Worksheet;
+  it('ends a journal sheet with a bold totals row (refunds netted in) after a blank row, outside the filter range', () => {
+    const p = parse(journal());
+    const eur = p.sheet('EUR');
     const dataRows = sales.filter((r) => r.currency === 'EUR').length;
-    expect(eur.getRow(dataRows + 2).getCell(1).value).toBeNull();
-    const totals = eur.getRow(dataRows + 3);
-    expect(totals.getCell(1).value).toBe('Total');
-    expect(totals.getCell(1).font?.bold).toBe(true);
-    expect(totals.getCell(10).value).toBe(120); // 120 + 40 - 40
-    expect(totals.getCell(10).type).toBe(ValueType.Number);
-    const refund = eur.getRow(2 + sales.filter((r) => r.currency === 'EUR').findIndex((r) => r.entryType === 'REFUND'));
-    expect(refund.getCell(10).value).toBe(-40);
+    expect(eur.has(dataRows + 2)).toBe(false);
+    const totals = eur.get(dataRows + 3) as ParsedCell[];
+    expect(totals[0].value).toBe('Total');
+    expect(totals.every((c) => isBold(p, c))).toBe(true);
+    const gross = totals.find((c) => c.ref === `J${dataRows + 3}`) as ParsedCell;
+    expect(gross).toMatchObject({ t: 'n', value: '120' }); // 120 + 40 - 40
+    const refundIndex = sales.filter((r) => r.currency === 'EUR').findIndex((r) => r.entryType === 'REFUND');
+    expect((eur.get(2 + refundIndex) as ParsedCell[])[9].value).toBe('-40');
   });
 
-  it('keeps an empty export as one header-only sheet and writes the summary without totals', async () => {
-    const empty = await readBack(await buildAccountingWorkbook({ columns: EXPENSE_JOURNAL_COLUMNS, rows: buildExpenseJournal([], 'GBP', RANGE), t, fallbackCurrency: 'GBP', totals: true }));
-    expect(empty.worksheets.map((s) => s.name)).toEqual(['GBP']);
-    expect((empty.getWorksheet('GBP') as Worksheet).rowCount).toBe(1);
+  it('keeps an empty export as one header-only sheet and writes the summary without totals', () => {
+    const empty = parse(buildAccountingWorkbook({ columns: EXPENSE_JOURNAL_COLUMNS, rows: buildExpenseJournal([], 'GBP', RANGE), t, fallbackCurrency: 'GBP', totals: true }));
+    expect(empty.sheetNames).toEqual(['GBP']);
+    expect([...empty.sheet('GBP').keys()]).toEqual([1]);
+    expect(empty.sheetXml('GBP')).toContain(`<autoFilter ref="A1:${String.fromCharCode(64 + EXPENSE_JOURNAL_COLUMNS.length)}1"/>`);
 
     const summaryRows = buildAccountingSummary(sales, []);
-    const summary = await readBack(
-      await buildAccountingWorkbook({ columns: SUMMARY_COLUMNS as readonly AccountingColumn<{ currency: string }>[], rows: summaryRows, t, fallbackCurrency: 'EUR', totals: false }),
+    const summary = parse(
+      buildAccountingWorkbook({ columns: SUMMARY_COLUMNS as readonly AccountingColumn<{ currency: string }>[], rows: summaryRows, t, fallbackCurrency: 'EUR', totals: false }),
     );
-    const eur = summary.getWorksheet('EUR') as Worksheet;
-    expect(eur.rowCount).toBe(1 + summaryRows.filter((r) => r.currency === 'EUR').length);
-    expect(eur.getRow(2).getCell(4).type).toBe(ValueType.Number); // count
+    const eur = summary.sheet('EUR');
+    expect(eur.size).toBe(1 + summaryRows.filter((r) => r.currency === 'EUR').length);
+    expect((eur.get(2) as ParsedCell[])[3].t).toBe('n'); // count
+  });
+});
+
+describe('buildXlsx', () => {
+  it('sanitises and de-duplicates sheet names and escapes text', () => {
+    const p = parse(
+      buildXlsx({
+        sheets: [
+          { name: 'A/B', rows: [[{ type: 'string', value: 'x & <y>\u0000' }]] },
+          { name: 'a_b', rows: [[{ type: 'string', value: 'plain' }]] },
+          { name: "It's", rows: [] },
+        ],
+      }),
+    );
+    expect(p.sheetNames).toEqual(['A_B', 'a_b (2)', 'It&apos;s']);
+    expect(p.sheet('A_B').get(1)?.[0].value).toBe('x &amp; &lt;y&gt;');
+  });
+
+  it('rejects non-finite numbers and empty workbooks', () => {
+    expect(() => buildXlsx({ sheets: [{ name: 'S', rows: [[{ type: 'number', value: Number.NaN }]] }] })).toThrow(RangeError);
+    expect(() => buildXlsx({ sheets: [] })).toThrow(RangeError);
   });
 });
