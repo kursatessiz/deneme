@@ -4,7 +4,7 @@ import { TemplateResolver } from './template-resolver.service';
 import { ComplianceService } from '../../compliance/compliance.service';
 import { MessagingUrls } from '../tracking/messaging-urls.service';
 import type { PrismaService } from '../../prisma/prisma.service';
-import type { ConsentService } from '../../notifications/consent/consent.service';
+import type { ContactConsentService } from '../../notifications/consent/contact-consent.service';
 import type { NotificationPreferencesService } from '../../notifications/notification-preferences.service';
 import type { PushService } from '../../notifications/push.service';
 import type { MessagingChannelRegistry } from '../channels/channel-registry.service';
@@ -93,7 +93,7 @@ function setup(opts: { consent?: boolean; suppressed?: boolean; counts?: [number
     prisma as unknown as PrismaService,
     config as unknown as ConfigService,
     new ComplianceService(),
-    consents as unknown as ConsentService,
+    consents as unknown as ContactConsentService,
     { channelsFor: jest.fn(async () => ({ push: true, sms: true })) } as unknown as NotificationPreferencesService,
     { hasDevices: jest.fn(async () => true), sendToUser: jest.fn(async () => 1) } as unknown as PushService,
     registry as unknown as MessagingChannelRegistry,

@@ -169,7 +169,9 @@ Herkese açık bir rezervasyon kayıt akışı henüz yoktur (gömülü widget r
 - **Kişi başına tek üyelik**: `membershipId` global benzersizdir (üyelik zaten tek işletmeye aittir).
 - **Atıf penceresi** şimdilik sabit 30 gündür; kiracı ayarı olarak açılması G2b ile birlikte ele alınacaktır.
 - **API hata mesajları** mevcut API kalıbıyla Türkçe dizgedir; kullanıcıya görünen web metinleri (izin bandı, aşama, yaşam döngüsü, alan türü ve görev durumu etiketleri) i18n anahtarlarıdır.
-- **Tam CRM arayüzü** (kişi listesi, kart, satış hattı panosu) segment ve kampanya fazıyla (G2a) gelecektir; bu fazda yalnızca mevcut aday ekranlarının doğru çalışması sağlanmıştır.
+- **Tam CRM arayüzü** (kişi listesi, kart, satış hattı panosu) G2a ile geldi: `/kisiler`, `/kisiler/[id]`, `/kisiler/satis-hatti` (bkz. `docs/WEB_PANEL.md` ve `docs/KAMPANYA_VE_AKISLAR.md`). Eski "Adaylar" ekranı `/leads` uyumluluk uçlarıyla çalışmaya devam eder.
+- **Kişi düzeyinde ticari izin** (G2a): `contact_consents`; `GET/PUT /crm/studios/:studioId/contacts/:contactId/consents` (`crm.view` / `crm.manage`, izin verirken kanıt notu zorunlu); kişi detayı `consents` alanını da döndürür. Gönderimde kişi kaydı ile üyenin kendi kaydının en son kararı geçerlidir.
+- **Akış olayları** (G2a): `ConversionService` her yeni dönüşümü, rezervasyon kancaları (`CrmHooksService.onBookingEvent`) oluşturma/iptal/gelmeme/katılımı, etiket ekleme ve gelen cevaplar `GrowthEventsService` üzerinden akış motoruna iletilir; hatalar yutulur, iş akışını asla bozmaz.
 
 ## 11. Nasıl test edilir
 

@@ -3,6 +3,7 @@ import { NotificationsService } from './notifications.service';
 import { PushService } from './push.service';
 import { NotificationPreferencesService } from './notification-preferences.service';
 import { ConsentService } from './consent/consent.service';
+import { ContactConsentService } from './consent/contact-consent.service';
 import { ConsentController } from './consent/consent.controller';
 import { IysClientAdapter } from './consent/iys-client.adapter';
 import { NotificationSettingsService } from './settings/notification-settings.service';
@@ -26,6 +27,7 @@ import {
     PushService,
     NotificationPreferencesService,
     ConsentService,
+    ContactConsentService,
     IysClientAdapter,
     NotificationSettingsService,
     SmsProviderBalanceService,
@@ -35,6 +37,7 @@ import {
     PushService,
     NotificationPreferencesService,
     ConsentService,
+    ContactConsentService,
     IysClientAdapter,
     NotificationSettingsService,
     SmsProviderBalanceService,

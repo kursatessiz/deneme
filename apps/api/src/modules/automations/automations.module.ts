@@ -1,28 +1,18 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { GrowthModule } from '../growth/growth.module';
 import { AutomationRulesController } from './automation-rules.controller';
-import { AutomationRulesService } from './automation-rules.service';
-import { AutomationRunnerService } from './automation-runner.service';
-import { WinBackEvaluator } from './evaluators/win-back.evaluator';
-import { PackageExpiringEvaluator } from './evaluators/package-expiring.evaluator';
-import { BirthdayEvaluator } from './evaluators/birthday.evaluator';
-import { FirstClassFollowUpEvaluator } from './evaluators/first-class-follow-up.evaluator';
-import { BookingReminderEvaluator } from './evaluators/booking-reminder.evaluator';
-import { NoShowFollowUpEvaluator } from './evaluators/no-show-follow-up.evaluator';
+import { AutomationRulesCompatService } from './automation-rules-compat.service';
 
+/**
+ * @deprecated W10 automations, reduced to the /automation-rules
+ * compatibility wrapper over journeys (G2a, docs/KAMPANYA_VE_AKISLAR.md).
+ * The rule evaluators and the runner were rewritten as journey triggers
+ * (growth/journeys); this module goes away in the contract release.
+ */
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, GrowthModule],
   controllers: [AutomationRulesController],
-  providers: [
-    AutomationRulesService,
-    AutomationRunnerService,
-    WinBackEvaluator,
-    PackageExpiringEvaluator,
-    BirthdayEvaluator,
-    FirstClassFollowUpEvaluator,
-    BookingReminderEvaluator,
-    NoShowFollowUpEvaluator,
-  ],
-  exports: [AutomationRunnerService, AutomationRulesService],
+  providers: [AutomationRulesCompatService],
 })
 export class AutomationsModule {}

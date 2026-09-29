@@ -34,6 +34,11 @@ export const trMAccount = {
   'mAccount.menu.partners': 'Partner platformlar',
   'mAccount.menu.videoContent': 'Video içerikleri',
   'mAccount.menu.chat': 'İşletmeye yaz',
+  'mAccount.menu.contacts': 'Kişiler',
+  'mAccount.contacts.search': 'Ad veya telefon ara',
+  'mAccount.contacts.empty': 'Kişi bulunamadı.',
+  'mAccount.contacts.back': 'Kişilere dön',
+  'mAccount.contacts.loadError': 'Kişiler yüklenemedi.',
   'mAccount.menu.inbox': 'Gelen kutusu',
 
   'mAccount.appearance.section.theme': 'Tema',

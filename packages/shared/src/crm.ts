@@ -434,3 +434,106 @@ export interface ContactListResponseDTO {
   page: number;
   limit: number;
 }
+
+// ---------------------------------------------------------------------------
+// Contact-level commercial consent (G2a)
+// ---------------------------------------------------------------------------
+
+/**
+ * Commercial-message consent recorded on the contact itself, so a person
+ * without a user account (a lead from a form, an imported contact) can be
+ * messaged lawfully. For a contact with an account the member's own
+ * CommunicationConsent row still counts: the most recent decision of the
+ * two wins, and an unsubscribe or STOP revokes both.
+ */
+export const CONTACT_CONSENT_CHANNELS = ['SMS', 'WHATSAPP', 'EMAIL'] as const;
+export type ContactConsentChannel = (typeof CONTACT_CONSENT_CHANNELS)[number];
+
+export const UpdateContactConsentSchema = z
+  .object({
+    channel: z.enum(CONTACT_CONSENT_CHANNELS),
+    granted: z.boolean(),
+    /** How the person agreed (e.g. "signed form at the desk"); required when granting. */
+    evidence: z.string().trim().max(300).optional(),
+  })
+  .strict()
+  .refine((v) => !v.granted || (v.evidence?.length ?? 0) > 0, { message: 'Onayın nasıl alındığını yazınız', path: ['evidence'] });
+export type UpdateContactConsentInput = z.infer<typeof UpdateContactConsentSchema>;
+
+export interface ContactConsentDTO {
+  channel: ContactConsentChannel;
+  /** Effective status after merging the contact row and the member's own consent. */
+  status: 'GRANTED' | 'REVOKED';
+  /** Which record decided the status. */
+  decidedBy: 'contact' | 'member' | 'default';
+  source: string | null;
+  evidence: string | null;
+  grantedAt: string | null;
+  revokedAt: string | null;
+  /** The address is on the suppression list (unsubscribe, STOP, bounce, complaint). */
+  suppressed: boolean;
+}
+
+export interface ContactActivityDTO {
+  id: string;
+  type: string;
+  body: string;
+  actorName: string | null;
+  createdAt: string;
+}
+
+export interface ContactTaskDTO {
+  id: string;
+  title: string;
+  notes: string | null;
+  dueAt: string | null;
+  status: ContactTaskStatus;
+  assigneeMembershipId: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+export interface ContactTouchpointDTO {
+  id: string;
+  occurredAt: string;
+  landingHost: string | null;
+  landingPath: string;
+  referrerHost: string | null;
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  adPlatform: string | null;
+  pwCid: string | null;
+  pwAsid: string | null;
+  pwAdid: string | null;
+  isPaidUntagged: boolean;
+}
+
+export interface ContactConversionDTO {
+  id: string;
+  eventId: string;
+  type: string;
+  occurredAt: string;
+  valueAmount: string | null;
+  currency: string | null;
+  isTest: boolean;
+}
+
+/** GET /crm/studios/:studioId/contacts/:contactId */
+export interface ContactDetailDTO extends ContactDTO {
+  activities: ContactActivityDTO[];
+  tasks: ContactTaskDTO[];
+  touchpoints: ContactTouchpointDTO[];
+  conversions: ContactConversionDTO[];
+  consents: ContactConsentDTO[];
+}
+
+export interface ContactFieldDefinitionDTO {
+  id: string;
+  key: string;
+  label: Record<string, string>;
+  kind: ContactFieldKind;
+  options: string[];
+  sortOrder: number;
+  isArchived: boolean;
+}

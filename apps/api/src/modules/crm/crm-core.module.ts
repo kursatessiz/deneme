@@ -6,6 +6,7 @@ import { ConversionService } from './conversions/conversion.service';
 import { ConversionOutboxService } from './conversions/conversion-outbox.service';
 import { AdConnectionResolver, PrismaAdConnectionResolver } from './conversions/ad-connection.resolver';
 import { CrmHooksService } from './hooks/crm-hooks.service';
+import { GrowthEventsService } from './hooks/growth-events.service';
 
 /**
  * CRM services without controllers or module dependencies beyond the
@@ -22,7 +23,16 @@ import { CrmHooksService } from './hooks/crm-hooks.service';
     ConversionOutboxService,
     { provide: AdConnectionResolver, useClass: PrismaAdConnectionResolver },
     CrmHooksService,
+    GrowthEventsService,
   ],
-  exports: [ContactsService, PipelineService, AttributionService, ConversionService, ConversionOutboxService, CrmHooksService],
+  exports: [
+    ContactsService,
+    PipelineService,
+    AttributionService,
+    ConversionService,
+    ConversionOutboxService,
+    CrmHooksService,
+    GrowthEventsService,
+  ],
 })
 export class CrmCoreModule {}

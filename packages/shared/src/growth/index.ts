@@ -4,3 +4,6 @@ export * from './conversions';
 export * from './segments';
 export * from './journeys';
 export * from './ads';
+export * from './segment-api';
+export * from './campaigns';
+export * from './journey-api';

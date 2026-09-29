@@ -4,7 +4,9 @@ import * as request from 'supertest';
 import { createHmac, randomUUID } from 'crypto';
 import { PrismaClient, BookingStatus } from '@platform/database';
 import { AppModule } from '../../src/app.module';
-import { WinBackEvaluator } from '../../src/modules/automations/evaluators/win-back.evaluator';
+import { winBackSegmentRules } from '@platform/shared';
+import { SegmentEvaluatorService } from '../../src/modules/growth/segments/segment-evaluator.service';
+import { JourneyScannersService } from '../../src/modules/growth/journeys/journey-scanners.service';
 import { ChurnService } from '../../src/modules/churn/churn.service';
 
 /**
@@ -181,7 +183,7 @@ describe('Partner guest filtering (e2e)', () => {
     expect(membership.isPartnerGuest).toBe(false);
   });
 
-  it('excludes a flagged partner guest from automation rule targeting (WIN_BACK)', async () => {
+  it('excludes a flagged partner guest from journey targeting (win-back segment, trigger scan)', async () => {
     const connection = await makeConnection('automation-skip');
     const schedule = await makeSchedule(5);
     const { membership } = await createGuestBooking(connection.id, 'whsec_automation-skip', schedule.id, {
@@ -190,13 +192,16 @@ describe('Partner guest filtering (e2e)', () => {
     });
     expect(membership.isPartnerGuest).toBe(true);
 
-    const evaluator = moduleRef.get(WinBackEvaluator);
-    const candidates = await evaluator.findCandidates(
-      ZEN,
-      { type: 'WIN_BACK', noAttendanceDays: 1, requireNoActivePackage: false },
-      new Date(),
-    );
-    expect(candidates.some((c) => c.userId === membership.userId)).toBe(false);
+    // Journeys replaced the W10 rules (G2a): the win-back audience segment
+    // and the time-based trigger scan must both leave the guest out.
+    const evaluator = moduleRef.get(SegmentEvaluatorService);
+    const ids = await evaluator.contactIds(ZEN, winBackSegmentRules({ type: 'WIN_BACK', noAttendanceDays: 1, requireNoActivePackage: false }));
+    const guestContacts = await prisma.contact.findMany({ where: { studioId: ZEN, membershipId: membership.id }, select: { id: true } });
+    expect(guestContacts.some((c) => ids.includes(c.id))).toBe(false);
+
+    const scanners = moduleRef.get(JourneyScannersService);
+    const upcoming = await scanners.scan(ZEN, { kind: 'event', event: 'booking_upcoming', leadMinutes: 60 * 24 * 3 }, new Date(), new Date());
+    expect(upcoming.some((c) => c.legacy?.userId === membership.userId)).toBe(false);
   });
 
   it('excludes a flagged partner guest from churn recompute', async () => {

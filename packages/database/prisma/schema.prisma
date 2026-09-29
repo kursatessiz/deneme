@@ -678,6 +678,14 @@ model Studio {
   conversations         Conversation[]
   conversationMessages  ConversationMessage[]
   savedReplies          SavedReply[]
+  segments              Segment[]
+  segmentMembers        SegmentMember[]
+  contactConsents       ContactConsent[]
+  campaigns             Campaign[]
+  campaignRecipients    CampaignRecipient[]
+  journeys              Journey[]
+  journeyEnrollments    JourneyEnrollment[]
+  journeyStepRuns       JourneyStepRun[]
 
   @@map("studios")
 }
@@ -2015,8 +2023,9 @@ model NotificationLog {
   errorMessage      String?             @map("error_message") @db.Text
   /// Caller-supplied de-duplication key, unique per studio.
   idempotencyKey    String?             @map("idempotency_key") @db.VarChar(200)
-  /// G2a campaign / journey references (no FK until those tables exist).
+  /// G2a: the campaign this message belongs to.
   campaignId        String?             @map("campaign_id") @db.Uuid
+  /// G2a: the journey enrollment (one contact's run through a journey) that sent it.
   journeyRunId      String?             @map("journey_run_id") @db.Uuid
   deliveredAt       DateTime?           @map("delivered_at")
   /// First human open; machine (privacy proxy) opens only set machineOpenedAt.
@@ -2031,6 +2040,8 @@ model NotificationLog {
 
   studio         Studio?                @relation(fields: [studioId], references: [id], onDelete: Cascade)
   contact        Contact?               @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  campaign       Campaign?              @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  journeyRun     JourneyEnrollment?     @relation(fields: [journeyRunId], references: [id], onDelete: SetNull)
   fallbackOf     NotificationLog?       @relation("NotificationFallback", fields: [fallbackOfId], references: [id])
   fallbacks      NotificationLog[]      @relation("NotificationFallback")
   smsTransaction SmsTransaction?
@@ -2042,6 +2053,8 @@ model NotificationLog {
   @@index([providerMessageId])
   @@index([studioId, contactId, purpose, createdAt])
   @@index([studioId, userId, createdAt])
+  @@index([campaignId])
+  @@index([journeyRunId])
   @@map("notification_logs")
 }
 
@@ -2435,6 +2448,10 @@ model Contact {
   notificationLogs    NotificationLog[]
   conversations       Conversation[]
   suppressions        MessageSuppression[]
+  consents            ContactConsent[]
+  segmentMemberships  SegmentMember[]
+  campaignRecipients  CampaignRecipient[]
+  journeyEnrollments  JourneyEnrollment[]
 
   @@index([studioId, lifecycleStage])
   @@index([studioId, pipelineStageId])
@@ -2787,11 +2804,16 @@ model AutomationRule {
   /// win-back/birthday are marketing) and re-validated by the evaluator.
   isTransactional Boolean              @default(true) @map("is_transactional")
   isActive        Boolean              @default(false) @map("is_active")
+  /// G2a: set once the rule has been converted into a journey; a migrated
+  /// rule is never evaluated again (the journey sends instead).
+  migratedJourneyId String?            @unique @map("migrated_journey_id") @db.Uuid
+  migratedAt      DateTime?            @map("migrated_at")
   createdAt       DateTime             @default(now()) @map("created_at")
   updatedAt       DateTime             @updatedAt @map("updated_at")
 
-  studio Studio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  runs   AutomationRun[]
+  studio          Studio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  runs            AutomationRun[]
+  migratedJourney Journey?        @relation("AutomationRuleMigration", fields: [migratedJourneyId], references: [id], onDelete: SetNull)
 
   @@index([studioId, type])
   @@index([studioId, isActive])
@@ -2821,6 +2843,272 @@ model AutomationRun {
   @@unique([ruleId, userId, targetRef])
   @@index([studioId, ruleId, createdAt])
   @@map("automation_runs")
+}
+
+// ---------------------------------------------------------------------------
+// Segments, contact consent, campaigns and journeys (G2a)
+// ---------------------------------------------------------------------------
+
+enum SegmentKind {
+  DYNAMIC
+  STATIC
+}
+
+/// A saved audience. DYNAMIC: `rules` (the segment DSL in @platform/shared)
+/// is re-evaluated in the background and the result stored in
+/// segment_members; STATIC: staff maintain segment_members by hand.
+model Segment {
+  id                    String      @id @default(uuid()) @db.Uuid
+  studioId              String      @map("studio_id") @db.Uuid
+  name                  String      @db.VarChar(120)
+  description           String?     @db.Text
+  kind                  SegmentKind @default(DYNAMIC)
+  /// SegmentGroup JSON, validated with SegmentGroupSchema on every write.
+  rules                 Json?
+  cachedCount           Int         @default(0) @map("cached_count")
+  refreshedAt           DateTime?   @map("refreshed_at")
+  createdByMembershipId String?     @map("created_by_membership_id") @db.Uuid
+  archivedAt            DateTime?   @map("archived_at")
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @updatedAt @map("updated_at")
+
+  studio    Studio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  members   SegmentMember[]
+  campaigns Campaign[]
+
+  @@index([studioId, archivedAt])
+  @@map("segments")
+}
+
+/// Current members of a segment. enteredAt drives the segment_entered
+/// journey trigger.
+model SegmentMember {
+  segmentId     String   @map("segment_id") @db.Uuid
+  contactId     String   @map("contact_id") @db.Uuid
+  studioId      String   @map("studio_id") @db.Uuid
+  enteredAt     DateTime @default(now()) @map("entered_at")
+  addedManually Boolean  @default(false) @map("added_manually")
+
+  segment Segment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  studio  Studio  @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@id([segmentId, contactId])
+  @@index([studioId, contactId])
+  @@index([segmentId, enteredAt])
+  @@map("segment_members")
+}
+
+/// Commercial-message consent of a contact (with or without a user
+/// account), per channel. Changes for TR contacts are pushed to İYS.
+model ContactConsent {
+  id          String         @id @default(uuid()) @db.Uuid
+  studioId    String         @map("studio_id") @db.Uuid
+  contactId   String         @map("contact_id") @db.Uuid
+  channel     ConsentChannel
+  status      ConsentStatus
+  /// e.g. staff-entry, web-form, import, unsubscribe-link, stop-keyword.
+  source      String         @db.VarChar(60)
+  /// Staff note on how consent was obtained; never a copy of personal data.
+  evidence    String?        @db.VarChar(300)
+  grantedAt   DateTime?      @map("granted_at")
+  revokedAt   DateTime?      @map("revoked_at")
+  /// Set once the change has been pushed to İYS (TR only).
+  iysSyncedAt DateTime?      @map("iys_synced_at")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  studio  Studio  @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([contactId, channel])
+  @@index([studioId, status])
+  @@index([iysSyncedAt])
+  @@map("contact_consents")
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  CANCELLED
+}
+
+enum CampaignRecipientStatus {
+  PENDING
+  SENT
+  SKIPPED
+  FAILED
+  CANCELLED
+}
+
+/// One-off commercial broadcast of a message template to a segment.
+model Campaign {
+  id                    String               @id @default(uuid()) @db.Uuid
+  studioId              String               @map("studio_id") @db.Uuid
+  name                  String               @db.VarChar(120)
+  segmentId             String               @map("segment_id") @db.Uuid
+  /// Null: the tenant's channel order.
+  channel               NotificationChannel?
+  templateKey           String               @map("template_key") @db.VarChar(60)
+  status                CampaignStatus       @default(DRAFT)
+  scheduledAt           DateTime?            @map("scheduled_at")
+  startedAt             DateTime?            @map("started_at")
+  completedAt           DateTime?            @map("completed_at")
+  cancelledAt           DateTime?            @map("cancelled_at")
+  audienceCount         Int                  @default(0) @map("audience_count")
+  createdByMembershipId String?              @map("created_by_membership_id") @db.Uuid
+  createdAt             DateTime             @default(now()) @map("created_at")
+  updatedAt             DateTime             @updatedAt @map("updated_at")
+
+  studio           Studio              @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  segment          Segment             @relation(fields: [segmentId], references: [id], onDelete: Restrict)
+  recipients       CampaignRecipient[]
+  notificationLogs NotificationLog[]
+
+  @@index([studioId, status])
+  @@index([status, scheduledAt])
+  @@map("campaigns")
+}
+
+/// The audience snapshot of a campaign: at most one row (and one message)
+/// per contact.
+model CampaignRecipient {
+  id                String                  @id @default(uuid()) @db.Uuid
+  studioId          String                  @map("studio_id") @db.Uuid
+  campaignId        String                  @map("campaign_id") @db.Uuid
+  contactId         String                  @map("contact_id") @db.Uuid
+  status            CampaignRecipientStatus @default(PENDING)
+  /// Messaging engine reason code when not sent (CONSENT_REQUIRED, FREQUENCY_CAP, ...).
+  reasonCode        String?                 @map("reason_code") @db.VarChar(40)
+  channel           NotificationChannel?
+  notificationLogId String?                 @map("notification_log_id") @db.Uuid
+  attempts          Int                     @default(0)
+  nextAttemptAt     DateTime?               @map("next_attempt_at")
+  sentAt            DateTime?               @map("sent_at")
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+
+  studio   Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact  Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, contactId])
+  @@index([campaignId, status, nextAttemptAt])
+  @@map("campaign_recipients")
+}
+
+enum JourneyStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum JourneyEnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  EXITED_GOAL
+  EXITED
+  CANCELLED
+  FAILED
+}
+
+/// Multi-step automation (replaces the W10 automation rules). `definition`
+/// is a JourneyDefinition validated with JourneyDefinitionSchema and
+/// validateJourneyGraph on every write.
+model Journey {
+  id                    String              @id @default(uuid()) @db.Uuid
+  studioId              String              @map("studio_id") @db.Uuid
+  name                  String              @db.VarChar(120)
+  description           String?             @db.Text
+  status                JourneyStatus       @default(DRAFT)
+  definition            Json
+  /// JOURNEY_TEMPLATE_KEYS entry the journey was created from, if any.
+  templateKey           String?             @map("template_key") @db.VarChar(40)
+  /// The legacy rule this journey replaces (no double sending: its
+  /// automation_runs are checked before enrolling).
+  legacyRuleId          String?             @unique @map("legacy_rule_id") @db.Uuid
+  legacyRuleType        AutomationRuleType? @map("legacy_rule_type")
+  activatedAt           DateTime?           @map("activated_at")
+  createdByMembershipId String?             @map("created_by_membership_id") @db.Uuid
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+
+  studio        Studio              @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  enrollments   JourneyEnrollment[]
+  stepRuns      JourneyStepRun[]
+  migratedRules AutomationRule[]    @relation("AutomationRuleMigration")
+
+  @@index([studioId, status])
+  @@index([status])
+  @@map("journeys")
+}
+
+/// One contact's run through a journey. The unique (journey, contact,
+/// triggerRef) index makes enrollment idempotent; lockKey enforces the
+/// re-entry policy ("once" for NEVER, "active" while an AFTER_EXIT run is
+/// in progress, null otherwise).
+model JourneyEnrollment {
+  id            String                  @id @default(uuid()) @db.Uuid
+  studioId      String                  @map("studio_id") @db.Uuid
+  journeyId     String                  @map("journey_id") @db.Uuid
+  contactId     String                  @map("contact_id") @db.Uuid
+  status        JourneyEnrollmentStatus @default(ACTIVE)
+  triggerRef    String                  @map("trigger_ref") @db.VarChar(120)
+  lockKey       String?                 @map("lock_key") @db.VarChar(10)
+  currentStepId String?                 @map("current_step_id") @db.VarChar(40)
+  /// When the current step was reached (the base of a wait step).
+  stepEnteredAt DateTime                @map("step_entered_at")
+  nextRunAt     DateTime?               @map("next_run_at")
+  /// Claimed by a worker until this instant (concurrent heartbeats).
+  lockedUntil   DateTime?               @map("locked_until")
+  /// Template variables captured from the trigger (serviceName, startTime, ...).
+  context       Json                    @default("{}")
+  enteredAt     DateTime                @default(now()) @map("entered_at")
+  completedAt   DateTime?               @map("completed_at")
+  exitReason    String?                 @map("exit_reason") @db.VarChar(60)
+  createdAt     DateTime                @default(now()) @map("created_at")
+  updatedAt     DateTime                @updatedAt @map("updated_at")
+
+  studio           Studio            @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  journey          Journey           @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  contact          Contact           @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  stepRuns         JourneyStepRun[]
+  notificationLogs NotificationLog[]
+
+  @@unique([journeyId, contactId, triggerRef])
+  @@unique([journeyId, contactId, lockKey])
+  @@index([status, nextRunAt])
+  @@index([studioId, journeyId, status])
+  @@index([contactId])
+  @@map("journey_enrollments")
+}
+
+/// One executed step of one enrollment (the journey graph is acyclic, so a
+/// step runs at most once per enrollment).
+model JourneyStepRun {
+  id                String   @id @default(uuid()) @db.Uuid
+  studioId          String   @map("studio_id") @db.Uuid
+  journeyId         String   @map("journey_id") @db.Uuid
+  enrollmentId      String   @map("enrollment_id") @db.Uuid
+  stepId            String   @map("step_id") @db.VarChar(40)
+  stepType          String   @map("step_type") @db.VarChar(20)
+  /// DONE, SKIPPED or FAILED.
+  status            String   @db.VarChar(10)
+  reasonCode        String?  @map("reason_code") @db.VarChar(40)
+  notificationLogId String?  @map("notification_log_id") @db.Uuid
+  detail            Json?
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  studio     Studio            @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  journey    Journey           @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  enrollment JourneyEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, stepId])
+  @@index([journeyId, stepId, status])
+  @@map("journey_step_runs")
 }
 
 // ---------------------------------------------------------------------------
