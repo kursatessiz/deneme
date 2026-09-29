@@ -1,15 +1,13 @@
 {
   "cli": {
-    "version": ">= 13.0.0",
+    "version": ">= 16.0.0",
     "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://api-staging.example.com"
-      },
+      "environment": "development",
       "ios": {
         "resourceClass": "m-medium"
       },
@@ -20,8 +18,21 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
+      "environment": "preview",
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "android": {
+        "resourceClass": "medium",
+        "buildType": "apk"
+      }
+    },
+    "preprod": {
+      "distribution": "internal",
+      "channel": "preprod",
+      "environment": "preview",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api-staging.example.com"
+        "APP_VARIANT": "preprod"
       },
       "ios": {
         "resourceClass": "m-medium"
@@ -33,8 +44,9 @@
     },
     "production": {
       "channel": "production",
+      "environment": "production",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.example.com"
+        "APP_VARIANT": "production"
       },
       "ios": {
         "resourceClass": "m-medium"
