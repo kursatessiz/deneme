@@ -23,7 +23,7 @@ export class FakeSocialPublisher implements SocialPublisher {
     if (token.includes('FAKE_QUOTA')) throw new SocialPublishError('QUOTA_EXHAUSTED', 'Fake: the 24 hour publishing limit is used up', null);
     if (token.includes('FAKE_5XX')) throw new SocialPublishError('RETRYABLE', 'Fake 503: temporarily unavailable', 503);
     if (token.includes('FAKE_4XX')) throw new SocialPublishError('PERMANENT', 'Fake 400: the content was rejected', 400);
-    const digest = createHash('sha1').update(`${this.provider}:${request.externalId}:${request.text}`).digest('hex').slice(0, 12);
+    const digest = createHash('sha256').update(`${this.provider}:${request.externalId}:${request.text}`).digest('hex').slice(0, 12);
     return { externalPostId: `fake_${this.provider.toLowerCase()}_${digest}` };
   }
 }

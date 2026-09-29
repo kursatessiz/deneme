@@ -46,7 +46,8 @@ test('super admin sees the marketing dashboard with its sections and tiles', asy
   // Channel health.
   await expect(main.getByRole('heading', { name: 'E-posta', exact: true })).toBeVisible();
   await expect(main.getByRole('heading', { name: 'Bekleyen onaylar', exact: true })).toBeVisible();
-  await expect(main.getByText('Onay akışı henüz etkin değil.', { exact: true })).toBeVisible();
+  // M3d wires the real pending count: the placeholder is gone and a count line is shown.
+  await expect(main.getByText(/^\d+ bekleyen talep$/)).toBeVisible();
 });
 
 test('the period picker and the comparison toggle reload the dashboard', async ({ page }) => {

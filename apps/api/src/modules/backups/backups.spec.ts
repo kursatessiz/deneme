@@ -236,7 +236,13 @@ describe('openssl-compatible encryption', () => {
     const plain = Buffer.from('x'.repeat(100_000));
     const cipher = await encryptBuffer(plain, encryptionKey);
     expect((await decryptBuffer(cipher, encryptionKey)).equals(plain)).toBe(true);
-    await expect(decryptBuffer(cipher, 'another-passphrase-0000')).rejects.toThrow();
+    // CBC without authentication: a wrong key almost always fails the padding check, but about one run in 256
+    // decodes to garbage that happens to end in valid padding. Either way the plaintext must not come back.
+    const wrongKey = await decryptBuffer(cipher, 'another-passphrase-0000').then(
+      (out) => ({ rejected: false as const, out }),
+      () => ({ rejected: true as const }),
+    );
+    if (!wrongKey.rejected) expect(wrongKey.out.equals(plain)).toBe(false);
     await expect(decryptBuffer(Buffer.from('not encrypted at all'), encryptionKey)).rejects.toThrow(/Salted__/);
   });
 
