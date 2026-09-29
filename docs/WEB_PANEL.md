@@ -281,6 +281,19 @@ sadece bildirim kanalları bölümünü gösterir).
   önizleme (`sandbox=""` ile korumalı `iframe`), işletme şablonunu silip
   varsayılana dönme. Ekranın tüm metinleri `messaging.*` i18n anahtarlarıdır.
 
+## Kişiler, segmentler, kampanyalar ve akışlar (G2a)
+
+Menüde dört yeni giriş: "Kişiler" (`crm.view`), "Segmentler" (`segments.view`), "Kampanyalar" (`campaigns.view`), "Otomatik akışlar" (`journeys.view`). Sayfalar `PageGuard` ile korunur, eylemler `PermissionButton` ile gizlenir, tüm veri BFF (`bffFetch`) üzerinden gelir, metinler `crm`, `segments`, `campaigns`, `journeys` ve `nav` i18n ad alanlarındadır. Ortak yardımcılar `apps/web/src/components/growth/` altındadır (`ui.tsx`, `SegmentBuilder.tsx`, `SegmentEditor.tsx`, `CampaignEditor.tsx`, `JourneyEditor.tsx`).
+
+- `kisiler/page.tsx`: arama, yaşam döngüsü, aşama ve etiket filtreli, sayfalı kişi tablosu.
+- `kisiler/[contactId]/page.tsx`: kişi kartı (bilgiler, etiketler, özel alanlar, ticari izin, görevler, etkinlik geçmişi, atıf özeti).
+- `kisiler/satis-hatti/page.tsx`: aşama sütunlu satış hattı panosu; sürükle-bırak ve her kartta erişilebilir "aşamaya taşı" seçimi.
+- `segmentler/...`: liste, iç içe VE/VEYA kural oluşturucu, canlı önizleme (sayı + örnek kişiler), statik üyeler.
+- `kampanyalar/...`: liste, düzenleyici (segment, kanal, şablon, hemen/ileri tarihli), kendine test gönderimi, iptal, sonuçlar ve alıcılar.
+- `akislar/...`: liste, şablon galerisi (`akislar/sablonlar`), dikey adım düzenleyici (bekle, mesaj, dal, kişiyi güncelle, görev), hedef ve tekrar giriş, başlat/durdur/arşivle, istatistikler.
+
+Ayrıntılar: `docs/KAMPANYA_VE_AKISLAR.md`. Tarayıcı testleri: `e2e/crm-contacts.e2e.ts`, `e2e/segments-campaigns.e2e.ts`.
+
 ## Gelen kutusu (G1c)
 
 `apps/web/src/app/(dashboard)/gelen-kutusu/page.tsx`, menüde "Gelen Kutusu"

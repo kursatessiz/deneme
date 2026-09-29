@@ -326,7 +326,24 @@ Atıf raporu (`GET /crm/studios/:studioId/attribution`), `groupBy` seviyesine ka
 
 `conversion_deliveries` artık gerçek bir işçi tarafından tüketilir: `ConversionDeliveryDispatcherService`, `JobsService.runAll()` içindeki 15 dakikalık kalp atışından (veya Redis varsa BullMQ tekrarlayan işinden) çağrılır; `PENDING` ve zamanı gelmiş satırları alır, `Meta CAPI` / `Google Ads` / `TikTok Events` adaptörlerinden birine gönderir ve `CONVERSION_RETRY_DELAYS_SECONDS` ile üstel geri çekilme uygular. Son denemeden sonra `FAILED` (ölü mektup) kalır; izin veya eşleşme yoksa `SKIPPED_NO_CONSENT` / `SKIPPED_NO_MATCH` ile hemen sonlanır, yeniden denenmez.
 
+## Segmentler, kişi izni, kampanyalar ve akışlar (G2a)
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `segments` | Kayıtlı kitle: `DYNAMIC` (kurallar arka planda yeniden hesaplanır) veya `STATIC` (elle); `rules` JSON (`SegmentGroupSchema` ile doğrulanır), `cached_count`, `refreshed_at`, `archived_at` | (studio_id, archived_at) index |
+| `segment_members` | Segmentin güncel üyeleri; `entered_at` `segment_entered` tetikleyicisini besler | PK (segment_id, contact_id); (studio_id, contact_id), (segment_id, entered_at) index |
+| `contact_consents` | Kişi düzeyinde ticari izin (SMS/WhatsApp/e-posta), kaynak ve kanıt notu, İYS senkron zamanı | (contact_id, channel) benzersiz; (studio_id, status), (iys_synced_at) index |
+| `campaigns` | Bir segmente tek seferlik ticari gönderim: kanal (boşsa işletme sırası), şablon anahtarı, durum, zamanlar, kitle sayısı | segment_id -> segments (RESTRICT); (studio_id, status), (status, scheduled_at) index |
+| `campaign_recipients` | Kampanyanın alıcı anlık görüntüsü ve kişi başına sonuç (durum, neden kodu, kanal, `notification_log_id`, deneme, sonraki deneme) | (campaign_id, contact_id) benzersiz; (campaign_id, status, next_attempt_at) index |
+| `journeys` | Çok adımlı akış: `definition` JSON (`JourneyDefinitionSchema` + `validateJourneyGraph`), durum, şablon anahtarı, taşınan eski kural (`legacy_rule_id` benzersiz, `legacy_rule_type`), `activated_at` | (studio_id, status), (status) index |
+| `journey_enrollments` | Bir kişinin akıştaki çalışması: geçerli adım, adıma varış, sonraki çalışma, işçi kilidi, tetikleyici değişkenleri, bitiş nedeni | (journey_id, contact_id, trigger_ref) benzersiz (idempotent kayıt); (journey_id, contact_id, lock_key) benzersiz (tekrar giriş politikası); (status, next_run_at) index |
+| `journey_step_runs` | Çalışmış her adım (DONE/SKIPPED/FAILED, neden, mesaj kaydı) | (enrollment_id, step_id) benzersiz |
+
+`notification_logs.campaign_id` ve `journey_run_id` artık `campaigns` ve `journey_enrollments` tablolarına yabancı anahtardır (SET NULL); migration öncesindeki değerler (G1c'de hiç yazılmamıştı) boşaltıldı. `automation_rules` tablosuna `migrated_journey_id` (benzersiz, `journeys`'e SET NULL) ve `migrated_at` eklendi. Migration: `20261003000000_growth_engagement`. Ayrıntılar: `docs/KAMPANYA_VE_AKISLAR.md`.
+
 ## Otomasyon (Otomatik Pazarlama ve Yaşam Döngüsü Akışları)
+
+> Kullanımdan kaldırıldı (G2a): kurallar akışlara taşınır, tablolar daraltma sürümüne kadar okunabilir kalır.
 
 | Tablo | Amaç | Kısıtlar |
 |-------|---------|-------------|

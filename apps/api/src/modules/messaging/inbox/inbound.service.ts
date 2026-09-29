@@ -5,6 +5,7 @@ import { classifyInboundKeyword, countryOfPhone, recipientRegion } from '@platfo
 import type { ConversationAttachmentDTO, InboundKeyword } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ContactsService } from '../../crm/contacts/contacts.service';
+import { GrowthEventsService } from '../../crm/hooks/growth-events.service';
 import { MessagingService } from '../engine/messaging.service';
 import { OptOutService } from '../engine/opt-out.service';
 
@@ -55,6 +56,7 @@ export class InboundService {
     private readonly contacts: ContactsService,
     private readonly messaging: MessagingService,
     private readonly optOut: OptOutService,
+    private readonly events: GrowthEventsService,
   ) {}
 
   async receive(msg: InboundMessage): Promise<InboundResult | null> {
@@ -110,6 +112,9 @@ export class InboundService {
     const keyword = classifyInboundKeyword(body, region);
     if (keyword === 'OPT_OUT') await this.handleOptOut(studioId, contact, conversation, msg, studio.countryCode);
     if (keyword === 'HELP') await this.reply(studioId, contact.id, conversation.id, msg.channel, 'INBOX_HELP_REPLY');
+    if (!keyword) {
+      await this.events.emit({ studioId, contactId: contact.id, event: 'message_replied', ref: `msg:${msg.providerMessageId}`, occurredAt: msg.receivedAt });
+    }
 
     return { studioId, contactId: contact.id, conversationId: conversation.id, duplicate: false, keyword };
   }

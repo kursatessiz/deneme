@@ -30,7 +30,7 @@ import type {
 } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ComplianceService } from '../../compliance/compliance.service';
-import { ConsentService } from '../../notifications/consent/consent.service';
+import { ContactConsentService } from '../../notifications/consent/contact-consent.service';
 import { NotificationPreferencesService } from '../../notifications/notification-preferences.service';
 import { PushService } from '../../notifications/push.service';
 import { MessagingChannelRegistry } from '../channels/channel-registry.service';
@@ -112,7 +112,7 @@ export class MessagingService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly compliance: ComplianceService,
-    private readonly consents: ConsentService,
+    private readonly consents: ContactConsentService,
     private readonly preferences: NotificationPreferencesService,
     private readonly push: PushService,
     private readonly registry: MessagingChannelRegistry,
@@ -525,12 +525,17 @@ export class MessagingService {
     return this.templates.resolve(input.studioId, input.templateKey!, channel, ctx.locales);
   }
 
-  /** Recorded opt-in for a commercial message on this channel. */
+  /**
+   * Recorded opt-in for a commercial message on this channel: the
+   * contact's own consent row and the member's consent (when there is an
+   * account), the most recent decision winning (G2a). A raw address with
+   * neither has no consent.
+   */
   private async consentFor(studioId: string, recipient: ResolvedRecipient, channel: EngineChannel): Promise<boolean> {
     if (channel === 'IN_APP') return true;
-    if (!recipient.userId) return false;
-    if (channel === 'PUSH') return (await this.preferences.channelsFor(recipient.userId, 'MARKETING')).push;
-    return this.consents.isGranted(studioId, recipient.userId, channel as ConsentChannelName);
+    if (channel === 'PUSH') return recipient.userId ? (await this.preferences.channelsFor(recipient.userId, 'MARKETING')).push : false;
+    if (!recipient.userId && !recipient.contactId) return false;
+    return this.consents.isGranted(studioId, recipient.contactId, recipient.userId, channel as ConsentChannelName);
   }
 
   private async frequencyCounts(studioId: string, recipient: ResolvedRecipient, now: Date): Promise<FrequencyCounts> {

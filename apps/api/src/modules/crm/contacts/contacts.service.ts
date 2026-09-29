@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { Prisma } from '@platform/database';
 import type { Contact, ContactLifecycleStage } from '@platform/database';
 import {
@@ -26,6 +26,7 @@ import { AttributionService } from '../attribution/attribution.service';
 import { furthestLifecycle, lifecycleEventForStage, nextLifecycle } from '../lifecycle';
 import type { LifecycleEvent } from '../lifecycle';
 import { toCsv } from '../../../common/csv';
+import { GrowthEventsService } from '../hooks/growth-events.service';
 
 type Db = PrismaService | Prisma.TransactionClient;
 
@@ -77,6 +78,7 @@ export class ContactsService {
     private readonly prisma: PrismaService,
     private readonly pipeline: PipelineService,
     private readonly attribution: AttributionService,
+    @Optional() private readonly events?: GrowthEventsService,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -416,6 +418,18 @@ export class ContactsService {
     const remove = new Set(dto.remove);
     const tags = dedupeTags([...contact.tags.filter((t) => !remove.has(t)), ...dto.add]);
     await this.prisma.contact.update({ where: { id: contact.id }, data: { tags } });
+    const before = new Set(contact.tags);
+    const now = new Date();
+    for (const tag of tags.filter((t) => !before.has(t))) {
+      await this.events?.emit({
+        studioId: tenant.studioId,
+        contactId: contact.id,
+        event: 'tag_added',
+        ref: `tag:${tag}:${now.toISOString()}`,
+        occurredAt: now,
+        variables: { tag },
+      });
+    }
     return this.getDto(tenant.studioId, contact.id, canSeeMemberContact(tenant));
   }
 

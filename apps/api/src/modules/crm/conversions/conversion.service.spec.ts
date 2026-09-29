@@ -2,6 +2,7 @@ import { Prisma } from '@platform/database';
 import { ConversionService, deriveEventId } from './conversion.service';
 import { ConversionOutboxService } from './conversion-outbox.service';
 import { AdConnectionResolver } from './ad-connection.resolver';
+import { GrowthEventsService } from '../hooks/growth-events.service';
 import type { PrismaService } from '../../prisma/prisma.service';
 import type { AttributionService } from '../attribution/attribution.service';
 
@@ -33,7 +34,7 @@ describe('ConversionService', () => {
 
   const build = (targets: ('META_CAPI' | 'GOOGLE_ADS')[] = []) => {
     const outbox = new ConversionOutboxService(prisma as unknown as PrismaService, new FixedResolver(targets));
-    return new ConversionService(prisma as unknown as PrismaService, attribution as unknown as AttributionService, outbox);
+    return new ConversionService(prisma as unknown as PrismaService, attribution as unknown as AttributionService, outbox, new GrowthEventsService());
   };
 
   beforeEach(() => {

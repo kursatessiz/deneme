@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Patch, Post, Put } from '@nestjs/common';
 import {
   CreateAutomationRuleSchema,
   ToggleAutomationRuleSchema,
@@ -13,12 +13,17 @@ import { RequirePermission, StudioScoped } from '../auth/decorators/require-perm
 import { Tenant } from '../auth/decorators/current-user.decorator';
 import { ZodBody, ZodQuery } from '../../common/zod-body.pipe';
 import type { TenantContext } from '../auth/tenant-context';
-import { AutomationRulesService } from './automation-rules.service';
+import { AutomationRulesCompatService } from './automation-rules-compat.service';
 
+/**
+ * @deprecated W10 automation rules, kept with unchanged paths, shapes and
+ * permission for the current mobile screen; every rule is a journey now
+ * (AutomationRulesCompatService). New clients use /studios/:studioId/journeys.
+ */
 @Controller('studios/:studioId/automation-rules')
 @StudioScoped()
 export class AutomationRulesController {
-  constructor(private readonly rules: AutomationRulesService) {}
+  constructor(private readonly rules: AutomationRulesCompatService) {}
 
   @Get()
   @RequirePermission('notifications.manage')

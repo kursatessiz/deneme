@@ -1,7 +1,7 @@
 import { Logger, Module, OnModuleInit, Optional } from '@nestjs/common';
 import { BullModule, InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
-import { AutomationsModule } from '../automations/automations.module';
+import { GrowthModule } from '../growth/growth.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { ChurnModule } from '../churn/churn.module';
 import { FeedbackModule } from '../feedback/feedback.module';
@@ -29,7 +29,7 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
 
 @Module({
   imports: [
-    AutomationsModule,
+    GrowthModule,
     PaymentsModule,
     ChurnModule,
     FeedbackModule,

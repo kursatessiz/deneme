@@ -32,7 +32,7 @@ G1c fazında (mesajlaşma motoru) netleşen noktalar; ayrıntılar `docs/MESAJLA
 - `notifications` içindeki gönderim, şablon ve kanal kodu `apps/api/src/modules/messaging/` altına taşındı; tek giriş noktası `MessagingService.send()`. `NotificationsService` eski çağıranlar için ince bir uyumluluk katmanı olarak kaldı (imzalar ve uç noktalar değişmedi). İYS dosyaları hâlâ `notifications/consent/` altındadır (1a notu geçerli).
 - 1a'daki `skipQuietHours` geçici çözümü kaldırıldı: sessiz saat (alıcının yerel saatiyle 08:00-21:00) **yalnızca ticari** mesajlarda uygulanır. İşlemsel mesajlar izin, sessiz saat ve sıklık sınırından muaftır; bölüm 2.3'teki eski cümle buna göre düzeltildi (bugünkü Türkiye hatırlatmaları değişmesin diye).
 - Mesajlaşma kanalları `ProviderRegistry` üzerine taşındı (SMS: TR için Netgsm, sonra İleti Merkezi; diğer ülkeler Twilio; kiracı sabitleyebilir). `SMS_PROVIDER` artık yalnızca global varsayılandır.
-- Ticari izin şimdilik kullanıcı hesabına bağlıdır; hesabı olmayan kişiler için kişi düzeyinde izin kaydı G2a'da eklenecek.
+- Ticari izin şimdilik kullanıcı hesabına bağlıdır; hesabı olmayan kişiler için kişi düzeyinde izin kaydı G2a'da eklenecek. **G2a ile yapıldı:** `ContactConsent` (kişi ve kanal başına), gönderim kontrolünde kişi kaydı ile üyenin kendi kaydının en son kararı geçerli, abonelikten çıkma ve STOP ikisini de geri alır, TR alıcılar için İYS'ye gönderilir (bkz. `docs/KAMPANYA_VE_AKISLAR.md` bölüm 3).
 
 ## 2. Globalleşme çekirdeği
 
@@ -81,6 +81,8 @@ Kiracı başına her tanınan kişi tek bir `Contact` satırıdır: aday, deneme
 
 **Durum (G1b, yapıldı):** `Contact` (tüm alanlar, etiketler, özel alanlar, ilk/son atıf özeti, test işareti, birleştirme), `ContactActivity`, `ContactFieldDefinition`, `PipelineStage` (her kiracıya varsayılan aşamalar), `ContactTask`; `Lead`/`LeadActivity` verisinin ve üyelerin kişiye taşınması (eski tablolar daraltma sürümüne kadar yerinde, yazılmıyor); üyelik bağlama ve yaşam döngüsü kancaları; tekilleştirme ve denetimli birleştirme; `crm.view`/`crm.manage`/`crm.export` izinleri; `/crm` API'si ve kullanımdan kaldırılmış `/leads` sarmalayıcıları. Kalan: kişi listesi, kartı ve satış hattı panosu arayüzü (G2a ile). Ayrıntılar: `docs/CRM_VE_ATIF.md`.
 
+**Durum (G2a, yapıldı):** web'de kişi listesi (arama, yaşam döngüsü, aşama ve etiket filtreleri), kişi kartı (bilgiler, etiketler, özel alanlar, ticari izin, görevler, etkinlik geçmişi, atıf özeti ve dönüşümler) ve sürükle-bırak satış hattı panosu (`/kisiler`, `/kisiler/[id]`, `/kisiler/satis-hatti`); kişi düzeyinde ticari izin. Ayrıntılar: `docs/KAMPANYA_VE_AKISLAR.md`.
+
 ### 3.2 Atıf (attribution)
 **Ziyaretçi ve oturum.** Birinci taraf çerezi `pw_vid` (anonim ziyaretçi kimliği, 13 ay) ve `pw_sid` (oturum). Çerez izni gereken bölgelerde izin verilmeden yalnızca oturum içi, çerezsiz sayım yapılır.
 
@@ -118,6 +120,8 @@ Meta Marketing API ve Google Ads API'den günlük olarak kampanya, reklam seti v
 ### 3.5 Segmentler
 Kural dili (Zod ile tanımlı, `packages/shared`) kişi alanları, etiketler, özel alanlar, yaşam döngüsü, katılım (son X günde seans, toplam seans), paket durumu (bitiyor, bitti), ödeme, atıf (kaynak, kampanya), dil, ülke ve şube üzerinde çalışır. `AND`/`OR` grupları desteklenir. Kurallar güvenli biçimde parametreli sorguya çevrilir (serbest SQL yok). Segment boyutu önbelleğe alınır ve arka planda yenilenir. Segmentler kampanyalar, akışlar ve raporlar tarafından ortak kullanılır.
 
+**Durum (G2a, yapıldı):** `Segment` (dinamik/statik, önbellekli sayı, `refreshedAt`) ve `SegmentMember` (giriş zamanı `segment_entered` tetikleyicisini besler); kurallar paylaşılan Zod şemasıyla ve işletmenin özel alan türleriyle doğrulanır, Prisma `where` filtresine derlenir, toplamlar (katılım sayısı, toplam ödeme, doğum gününe kalan gün, özel tarih alanları) parametreli etiketli şablon sorgusuyla çözülür; önizleme (sayı + örnek), CRUD, statik üye yönetimi, saatlik arka plan yenilemesi; `segments.view`/`segments.manage`; web segment oluşturucu ve canlı önizleme. Sadakat puanı alanı G3a'ya kadar açık bir nedenle reddedilir. Ayrıntılar: `docs/KAMPANYA_VE_AKISLAR.md`.
+
 ### 3.6 Mesajlaşma motoru
 - **Kanallar:** e-posta, SMS, WhatsApp, push, uygulama içi. Hepsi bölgesel sağlayıcı kayıt defterinden seçilir. Mevcut WhatsApp -> SMS sırası kiracı ayarı olarak kalır.
 - **Şablonlar:** kanal ve dil başına varyant, değişkenler (`{firstName}` gibi), e-posta için blok tabanlı düzenleyici ve marka teması. WhatsApp şablonları Meta onay durumunu taşır.
@@ -132,6 +136,8 @@ Kural dili (Zod ile tanımlı, `packages/shared`) kişi alanları, etiketler, ö
 - **Kampanya:** bir segmente tek seferlik gönderim; kanal, şablon, zamanlama (alıcının yerel saatine göre gönderim seçeneği), A/B varyantı (kazananı açılma veya tıklamaya göre otomatik seçme), sonuç raporu ve atfedilen gelir.
 - **Akış (journey):** tetikleyici (segmente girme, olay: deneme alındı, paket bitiyor, doğum günü, gelmedi, form gönderildi vb.), adımlar (bekle, koşul dalı, mesaj gönder, etiket veya alan güncelle, görev oluştur, puan ver, webhook), hedef (ör. satın aldı) ve çıkış kuralları. Her kişi için akış durumu saklanır; adımlar kuyrukta idempotent çalışır.
 - Mevcut altı otomasyon kuralı (geri kazanma, paket bitiyor, doğum günü, ilk seans sonrası, rezervasyon hatırlatma, gelmeyene takip) hazır akış şablonları olarak gelir ve mevcut kurallar taşıma sırasında otomatik akışa çevrilir.
+
+**Durum (G2a, yapıldı):** kampanyalar (taslak/planlı/gönderiliyor/gönderildi/iptal, segment anlık görüntüsü, kişi başına benzersiz alıcı ve `campaign:<id>:<kişi>` tekilleştirme anahtarı, BullMQ grup işleri veya kalp atışı, sessiz saatte alıcının sabahına erteleme, kendine test gönderimi, iletildi/açıldı/tıklandı/abonelikten çıktı/dönüştü ve atfedilen gelir istatistikleri); akış motoru (olay, segmente giriş ve zaman tabanlı tarama tetikleyicileri; kişi başına kayıt durumu; her adım idempotent bir iş; bekle, mesaj gönder, dallan, kişiyi güncelle, görev oluştur; hedef çıkışı; tekrar giriş politikası veritabanı indeksiyle); şablon galerisi; eski altı kural silinip akış şablonu ve tarayıcı olarak yeniden yazıldı, kayıtlı kurallar tek işlemde akışa çevrilir ve eski gönderim kayıtları kontrol edildiği için çift gönderim olmaz, `/automation-rules` kullanımdan kaldırılmış sarmalayıcı olarak kaldı. Puan verme adımı sadakat modülüne (G3a) kadar doğrulamada reddedilir. Kalan: kampanyada A/B varyantı ve alıcı yerel saatine göre gönderim, akışta webhook adımı, görsel akış tuvali. Ayrıntılar: `docs/KAMPANYA_VE_AKISLAR.md`.
 
 ### 3.8 Sadakat
 Puan defteri (`LoyaltyLedger`): kazanma kuralları (seansa katılım, satın alma tutarı, tavsiye, doğum günü, rozet), harcama (indirim, ek seans hakkı, hediye), son kullanma politikası (kiracı ayarı). Mevcut tavsiye ödülü ve rozetler puan kazanma kaynağına dönüşür.
@@ -224,7 +230,7 @@ Her madde ayrı PR'dır; her PR kendi e2e testleriyle gelir.
 | G1a | Tamamlandı. Globalleşme: bölge ayarları, para ve vergi, sağlayıcı kayıt defteri, Stripe ve Twilio adaptörleri, uyum paketleri (İYS dahil yeniden yazım) | G0 |
 | G1b | Tamamlandı. CRM ve atıf: Contact (Lead taşıması), ziyaretçi ve temas noktası yakalama, dönüşüm olayları, platform kiracısı (`docs/CRM_VE_ATIF.md`) | G0 |
 | G1c | Tamamlandı. Mesajlaşma motoru: e-posta kanalı (SES), şablonlar, gönderim kontrolleri, izleme, gelen mesajlar ve gelen kutusu (`docs/MESAJLASMA.md`) | G1a |
-| G2a | Segmentler, kampanyalar, akışlar (otomasyon taşıması) | G1b, G1c |
+| G2a | Tamamlandı. Segmentler, kişi düzeyinde ticari izin, kampanyalar, akışlar (otomasyon taşıması), web CRM ekranları (`docs/KAMPANYA_VE_AKISLAR.md`) | G1b, G1c |
 | G2b | Tamamlandı. Reklam entegrasyonu: Meta CAPI, Google Ads dönüşümleri, reklam yapısı ve harcama senkronu, atıf raporları, UTM oluşturucu (`docs/REKLAM_ENTEGRASYONU.md`) | G1b |
 | G2c | Tamamlandı. Sayfa motoru: platform sitesi, sektör ve dil bazlı açılış sayfaları, kurumsal sayfalar, işletme siteleri ve özel alan adı (`docs/SAYFA_MOTORU.md`) | G1b |
 | G3a | Sadakat puanı | G2a |

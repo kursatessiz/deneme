@@ -5,6 +5,7 @@ import { complianceRegionOf } from '@platform/shared';
 import type { ConsentChannelName } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConsentService } from '../../notifications/consent/consent.service';
+import { ContactConsentService } from '../../notifications/consent/contact-consent.service';
 import { IysClientAdapter } from '../../notifications/consent/iys-client.adapter';
 
 const CONSENT_CHANNELS: readonly NotificationChannel[] = ['SMS', 'WHATSAPP', 'EMAIL'];
@@ -31,9 +32,9 @@ export interface OptOutInput {
  * The address-level suppression list plus the consent store (compliance):
  * an unsubscribe, STOP keyword, hard bounce or complaint suppresses every
  * future COMMERCIAL message on that channel to that address. Explicit
- * opt-outs (unsubscribe, STOP) also revoke the member's recorded consent,
- * which ConsentService pushes to İYS for TR; a TR contact without an
- * account is reported to İYS directly.
+ * opt-outs (unsubscribe, STOP) also revoke the member's recorded consent
+ * and the contact's own consent (G2a), which are pushed to İYS for TR; an
+ * address with neither an account nor a contact is reported directly.
  */
 @Injectable()
 export class OptOutService {
@@ -43,6 +44,7 @@ export class OptOutService {
     private readonly prisma: PrismaService,
     private readonly consents: ConsentService,
     private readonly iys: IysClientAdapter,
+    private readonly contactConsents: ContactConsentService,
   ) {}
 
   async isSuppressed(studioId: string, channel: NotificationChannel, address: string | null): Promise<boolean> {
@@ -82,7 +84,12 @@ export class OptOutService {
     const channel = input.channel as ConsentChannelName;
     if (input.userId) {
       await this.consents.revoke(input.studioId, input.userId, channel, input.source);
-    } else if (created && complianceRegionOf(input.countryCode) === 'TR') {
+    }
+    if (input.contactId && channel !== 'CALL') {
+      // Contact-level consent (G2a) is revoked too; its İYS push is skipped
+      // when the member-level revocation above already reports this person.
+      await this.contactConsents.revoke(input.studioId, input.contactId, channel, input.source, { registryHandled: Boolean(input.userId) });
+    } else if (!input.userId && created && complianceRegionOf(input.countryCode) === 'TR') {
       const result = await this.iys.syncConsent({
         recipient: normalizeAddress(input.channel, input.address),
         channel,

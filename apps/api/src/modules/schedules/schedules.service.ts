@@ -362,6 +362,7 @@ export class SchedulesService {
   }
 
   private async emitBookingCreated(studioId: string, booking: { id: string; scheduleId: string; memberId: string }): Promise<void> {
+    await this.crm?.onBookingEvent(studioId, booking.id, 'booking_created');
     await this.webhooks.emit(studioId, 'booking.created', {
       bookingId: booking.id,
       scheduleId: booking.scheduleId,
@@ -794,6 +795,7 @@ export class SchedulesService {
 
     const promoted = booking.schedule.startTime > now ? await this.promoteFromWaitlistSafe(studioId, booking.scheduleId) : 0;
 
+    await this.crm?.onBookingEvent(studioId, updatedBooking.id, 'booking_cancelled');
     await this.webhooks.emit(studioId, 'booking.cancelled', {
       bookingId: updatedBooking.id,
       scheduleId: updatedBooking.scheduleId,
@@ -853,7 +855,7 @@ export class SchedulesService {
       waivePenalty: dto.waivePenalty,
     });
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const transitioned = await tx.booking.updateMany({
         where: { id: booking.id, studioId, status: 'CONFIRMED' },
         data: { status: 'NO_SHOW', penaltyUnits: outcome.penaltyUnits },
@@ -865,6 +867,8 @@ export class SchedulesService {
       const updated = await tx.booking.findUniqueOrThrow({ where: { id: booking.id } });
       return { booking: updated, refundedUnits: outcome.refundUnits, penaltyUnits: outcome.penaltyUnits };
     });
+    await this.crm?.onBookingEvent(studioId, booking.id, 'no_show');
+    return result;
   }
 
   private async refund(tx: Tx, studioId: string, memberPackageId: string | null, units: number) {

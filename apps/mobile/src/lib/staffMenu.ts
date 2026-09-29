@@ -79,6 +79,9 @@ export function buildHesabimMenu(input: StaffMenuInput): MenuItem[] {
     items.push({ key: 'reports', labelKey: 'mAccount.menu.reports', route: '/(app)/hesabim/raporlar' });
     items.push({ key: 'risky-members', labelKey: 'mAccount.menu.riskyMembers', route: '/(app)/hesabim/riskli-uyeler' });
   }
+  if (has(permissions, 'crm.view')) {
+    items.push({ key: 'contacts', labelKey: 'mAccount.menu.contacts', route: '/(app)/hesabim/kisiler' });
+  }
   if (has(permissions, 'inbox.view')) {
     items.push({ key: 'inbox', labelKey: 'mAccount.menu.inbox', route: '/(app)/hesabim/gelen-kutusu' });
   }

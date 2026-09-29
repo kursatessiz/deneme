@@ -4,15 +4,19 @@ import {
   BarChart3,
   Calendar,
   CheckSquare,
+  Contact,
+  Filter,
   Inbox,
   LayoutDashboard,
   Megaphone,
   Package,
+  Send,
   Settings,
   UserCog,
   UserPlus,
   Users,
   Wallet,
+  Workflow,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 
@@ -66,6 +70,10 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   { key: 'reports', label: 'Raporlar', labelKey: 'nav.reports', href: '/raporlar', icon: BarChart3, permissions: ['reports.view'] },
   { key: 'leads', label: 'Adaylar', labelKey: 'nav.leads', href: '/adaylar', icon: UserPlus, permissions: ['leads.view'] },
+  { key: 'contacts', label: 'Kişiler', labelKey: 'nav.contacts', href: '/kisiler', icon: Contact, permissions: ['crm.view'] },
+  { key: 'segments', label: 'Segmentler', labelKey: 'nav.segments', href: '/segmentler', icon: Filter, permissions: ['segments.view'] },
+  { key: 'campaigns', label: 'Kampanyalar', labelKey: 'nav.campaigns', href: '/kampanyalar', icon: Send, permissions: ['campaigns.view'] },
+  { key: 'journeys', label: 'Otomatik akışlar', labelKey: 'nav.journeys', href: '/akislar', icon: Workflow, permissions: ['journeys.view'] },
   { key: 'inbox', label: 'Gelen Kutusu', labelKey: 'nav.inbox', href: '/gelen-kutusu', icon: Inbox, permissions: ['inbox.view'] },
   {
     key: 'ads',

@@ -2,7 +2,7 @@ import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import { SCHEDULER_QUEUE } from './jobs.constants';
-import { AutomationRunnerService, RunOutcome } from '../automations/automation-runner.service';
+import { GrowthHeartbeatService, GrowthHeartbeatResult } from '../growth/growth-heartbeat.service';
 import { DunningService, DunningOutcome } from '../payments/dunning.service';
 import { ConsentService } from '../notifications/consent/consent.service';
 import { ChurnService } from '../churn/churn.service';
@@ -18,7 +18,7 @@ import { AdSpendSyncService, SpendSyncOutcome } from '../ads/spend-sync/ad-spend
 
 export interface SchedulerRunResult {
   runAt: string;
-  automations: RunOutcome[];
+  growth: GrowthHeartbeatResult;
   dunning: DunningOutcome[];
   consentSync: { synced: number; failed: number };
   churn: { studiosProcessed: number; membersScored: number };
@@ -34,8 +34,8 @@ export interface SchedulerRunResult {
 }
 
 /**
- * The single unit of work run every 15 minutes: automation rule evaluation
- * (W10), dunning retries (W6), İYS consent sync (W7) and the daily churn-risk
+ * The single unit of work run every 15 minutes: segments, journeys and
+ * campaigns (G2a, which replaced the W10 automation rules), dunning retries (W6), İYS consent sync (W7) and the daily churn-risk
  * refresh (W12, only studios scored more than 20 hours ago), rating prompts
  * and referral qualification (W15). All are safe
  * to call repeatedly (each guards its own idempotency), so one heartbeat
@@ -57,7 +57,7 @@ export class JobsService {
   }
 
   constructor(
-    private readonly automations: AutomationRunnerService,
+    private readonly growth: GrowthHeartbeatService,
     private readonly dunning: DunningService,
     private readonly consent: ConsentService,
     private readonly churn: ChurnService,
@@ -81,7 +81,7 @@ export class JobsService {
   }
 
   async runAll(now = new Date()): Promise<SchedulerRunResult> {
-    const automations = await this.automations.runDueRules(now);
+    const growth = await this.growth.run(now);
     const dunning = await this.dunning.runDueRenewals(now);
     const consentSync = await this.consent.syncPendingConsents();
     const churn = await this.churn.recomputeStale(now);
@@ -96,7 +96,8 @@ export class JobsService {
     const adSpendSync = await this.adSpendSync.syncAllDueIfStale(now);
 
     this.logger.log(
-      `Scheduler heartbeat at ${now.toISOString()}: ${automations.length} automation rule(s), ` +
+      `Scheduler heartbeat at ${now.toISOString()}: growth ${growth.journeySteps} journey step(s)/${growth.journeysEnrolled} enrolled, ` +
+        `${growth.campaigns.sent} campaign message(s), ${growth.legacyMigrated} legacy rule(s) migrated, ` +
         `${dunning.length} dunning subscription(s), consent sync ${consentSync.synced} synced/${consentSync.failed} failed, ` +
         `churn ${churn.studiosProcessed} studio(s), ${ratingPrompts.prompted} rating prompt(s), ${referrals.evaluated} referral(s), ` +
         `webhooks ${webhooks.succeeded} succeeded/${webhooks.failed} retrying/${webhooks.abandoned} abandoned, ` +
@@ -109,7 +110,7 @@ export class JobsService {
     this.lastRunAt = now;
     return {
       runAt: now.toISOString(),
-      automations,
+      growth,
       dunning,
       consentSync,
       churn,
