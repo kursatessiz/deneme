@@ -10,6 +10,8 @@ export const trFunnels = {
   'funnels.ready.trial-to-member.name': 'Deneme randevusundan üyeye',
   'funnels.ready.trial-to-member.description': 'Deneme randevusu alan kişilerden ilk satın almayı yapanlar.',
   'funnels.ready.visitor-to-member.name': 'Ziyaretçiden üyeye',
+  'funnels.ready.platform_b2b.name': 'Platform B2B: ziyaretçiden ücretli işletmeye',
+  'funnels.ready.platform_b2b.description': 'İlk ziyaret, aday, MQL, SQL, işletme kaydı ve ilk ödeme. Yalnızca platformun kendi pazarlaması içindir.',
   'funnels.ready.visitor-to-member.description': 'Web sitesine ilk ziyaret, aday olma ve ilk satın alma. Web sitesi takibi olan işletmeler içindir.',
 
   'funnels.step.lead': 'Aday',
@@ -20,6 +22,8 @@ export const trFunnels = {
   'funnels.step.subscription_renewed': 'Abonelik yenilendi',
   'funnels.step.studio_signup': 'İşletme kaydı',
   'funnels.step.studio_paid': 'İşletme ilk ödemesi',
+  'funnels.step.stage.MQL': 'MQL (pazarlama nitelikli aday)',
+  'funnels.step.stage.SQL': 'SQL (satış nitelikli aday)',
   'funnels.step.visit': 'İlk ziyaret',
 
   'funnels.col.step': 'Adım',

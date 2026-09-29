@@ -44,7 +44,8 @@ export class FunnelsService {
 
   async list(tenant: TenantContext): Promise<FunnelSummaryDTO[]> {
     const rows = await this.prisma.funnel.findMany({ where: { studioId: tenant.studioId }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
-    const ready: FunnelSummaryDTO[] = READY_MADE_FUNNELS.map((f) => ({
+    const isPlatform = await this.isPlatformStudio(tenant.studioId);
+    const ready: FunnelSummaryDTO[] = READY_MADE_FUNNELS.filter((f) => isPlatform || !f.platformOnly).map((f) => ({
       id: f.id,
       kind: 'READY_MADE',
       name: null,
@@ -84,21 +85,35 @@ export class FunnelsService {
   }
 
   async report(tenant: TenantContext, id: string, range: ReportRange, query: FunnelReportQuery): Promise<FunnelReportDTO> {
-    const funnel = await this.resolve(tenant, id);
     if (query.branchId) assertBranchAccess(tenant, query.branchId);
+    return this.reportFor({ studioId: tenant.studioId, branchIds: tenant.branchIds === null ? null : [...tenant.branchIds] }, id, range, query);
+  }
+
+  /**
+   * The same report for a studio without a tenant context: the platform
+   * marketing dashboard (docs/PAZARLAMA_MODULU.md 3.3) reads the platform
+   * tenant's `platform_b2b` funnel through it. The studioId still filters
+   * every query; there is no branch restriction.
+   */
+  async reportForStudio(studioId: string, id: string, range: ReportRange): Promise<FunnelReportDTO> {
+    return this.reportFor({ studioId, branchIds: null }, id, range, {});
+  }
+
+  private async reportFor(scope: { studioId: string; branchIds: string[] | null }, id: string, range: ReportRange, query: FunnelReportQuery): Promise<FunnelReportDTO> {
+    const funnel = await this.resolve(scope.studioId, id);
     const breakdown = query.breakdown ?? null;
     const empty: FunnelAggregate = { counts: funnel.steps.map(() => 0), medianSeconds: funnel.steps.map(() => null) };
 
     const run = async (from: Date, to: Date, withBreakdown: boolean): Promise<FunnelSqlGroup[]> => {
       const sql = buildFunnelSql({
-        studioId: tenant.studioId,
+        studioId: scope.studioId,
         steps: funnel.steps,
         windowDays: funnel.windowDays,
         from,
         to,
         breakdown: withBreakdown ? breakdown : null,
         branchId: query.branchId,
-        branchIds: tenant.branchIds === null ? null : [...tenant.branchIds],
+        branchIds: scope.branchIds,
       });
       const rows = await this.prisma.$queryRaw<Record<string, unknown>[]>(sql);
       return parseFunnelRows(rows, funnel.steps.length);
@@ -127,9 +142,15 @@ export class FunnelsService {
     return { funnel, from: range.from.toISOString(), to: range.to.toISOString(), breakdown, steps, groups, previous };
   }
 
-  private async resolve(tenant: TenantContext, id: string): Promise<FunnelSummaryDTO> {
+  private async isPlatformStudio(studioId: string): Promise<boolean> {
+    const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { isPlatform: true } });
+    return studio?.isPlatform === true;
+  }
+
+  private async resolve(studioId: string, id: string): Promise<FunnelSummaryDTO> {
     const ready = findReadyMadeFunnel(id);
     if (ready) {
+      if (ready.platformOnly && !(await this.isPlatformStudio(studioId))) throw new NotFoundException('Huni bulunamadı');
       return {
         id: ready.id,
         kind: 'READY_MADE',
@@ -142,10 +163,10 @@ export class FunnelsService {
       };
     }
     if (!UUID_RE.test(id)) throw new NotFoundException('Huni bulunamadı');
-    return toSummary(await this.findOwned(tenant, id));
+    return toSummary(await this.findOwned({ studioId }, id));
   }
 
-  private async findOwned(tenant: TenantContext, id: string): Promise<Funnel> {
+  private async findOwned(tenant: Pick<TenantContext, 'studioId'>, id: string): Promise<Funnel> {
     const row = await this.prisma.funnel.findFirst({ where: { id, studioId: tenant.studioId } });
     if (!row) throw new NotFoundException('Huni bulunamadı');
     return row;

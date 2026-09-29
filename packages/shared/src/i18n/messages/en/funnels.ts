@@ -11,6 +11,8 @@ export const enFunnels: Record<keyof typeof trFunnels, string> = {
   'funnels.ready.trial-to-member.name': 'Trial booking to member',
   'funnels.ready.trial-to-member.description': 'Of the people who booked a trial, those who made a first purchase.',
   'funnels.ready.visitor-to-member.name': 'Visitor to member',
+  'funnels.ready.platform_b2b.name': 'Platform B2B: visitor to paying business',
+  'funnels.ready.platform_b2b.description': 'First visit, lead, MQL, SQL, business sign-up and first payment. Only for the platform\'s own marketing.',
   'funnels.ready.visitor-to-member.description': 'First website visit, becoming a lead and the first purchase. For businesses with website tracking.',
 
   'funnels.step.lead': 'Lead',
@@ -21,6 +23,8 @@ export const enFunnels: Record<keyof typeof trFunnels, string> = {
   'funnels.step.subscription_renewed': 'Subscription renewed',
   'funnels.step.studio_signup': 'Business signed up',
   'funnels.step.studio_paid': 'Business first payment',
+  'funnels.step.stage.MQL': 'MQL (marketing qualified lead)',
+  'funnels.step.stage.SQL': 'SQL (sales qualified lead)',
   'funnels.step.visit': 'First visit',
 
   'funnels.col.step': 'Step',

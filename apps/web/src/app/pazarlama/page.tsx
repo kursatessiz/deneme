@@ -1,12 +1,13 @@
-import { MarketingPlaceholder } from '@/components/marketing/MarketingPlaceholder';
+'use client';
 
-/** Marketing dashboard (M3 fills it; doc 3.3). */
+import { MarketingDashboard } from '@/components/marketing/dashboard/MarketingDashboard';
+import { PlatformPageGuard } from '@/components/marketing/PlatformSession';
+
+/** Marketing dashboard (M3a, docs/PAZARLAMA_MODULU.md 3.3); the API enforces platform.marketing.view. */
 export default function Page() {
   return (
-    <MarketingPlaceholder
-      titleKey="marketing.placeholder.dashboard.title"
-      descriptionKey="marketing.placeholder.dashboard.description"
-      required={['platform.marketing.view']}
-    />
+    <PlatformPageGuard required={['platform.marketing.view']}>
+      <MarketingDashboard />
+    </PlatformPageGuard>
   );
 }

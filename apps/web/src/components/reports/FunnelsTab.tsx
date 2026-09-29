@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { FUNNEL_BREAKDOWNS, compareFunnelSteps, pickDurationUnit } from '@platform/shared';
+import { FUNNEL_BREAKDOWNS, compareFunnelSteps, funnelStepMessageKey, pickDurationUnit } from '@platform/shared';
 import type { FunnelBreakdown, FunnelReportDTO, FunnelStepStatDTO, FunnelSummaryDTO, MessageKey } from '@platform/shared';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
@@ -26,6 +26,7 @@ const READY_MADE_KEYS = {
   'lead-to-member': 'funnels.ready.lead-to-member.name',
   'trial-to-member': 'funnels.ready.trial-to-member.name',
   'visitor-to-member': 'funnels.ready.visitor-to-member.name',
+  platform_b2b: 'funnels.ready.platform_b2b.name',
 } as const satisfies Record<string, MessageKey>;
 
 interface Props {
@@ -54,7 +55,7 @@ export function FunnelsTab({ from, to, branchId, compare }: Props) {
   const selectedFunnelId = selected?.id ?? null;
 
   const funnelName = (f: FunnelSummaryDTO): string => (f.kind === 'READY_MADE' && f.slug ? t(READY_MADE_KEYS[f.slug as keyof typeof READY_MADE_KEYS] ?? 'funnels.title') : (f.name ?? ''));
-  const stepLabel = (key: string): string => t(`funnels.step.${key}` as MessageKey);
+  const stepLabel = (key: string): string => t(funnelStepMessageKey(key) as MessageKey);
   const percent = (ratio: number | null) => (ratio === null ? t('funnels.noValue') : formatPercent(ratio, locale, 1));
   const count = (n: number) => new Intl.NumberFormat(locale).format(n);
   const duration = (seconds: number | null) => {

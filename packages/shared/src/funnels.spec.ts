@@ -11,6 +11,11 @@ import {
   resolveFunnelPath,
   FUNNEL_STEP_KEYS,
   FUNNEL_VISIT_STEP,
+  PLATFORM_B2B_FUNNEL_SLUG,
+  PLATFORM_QUALIFICATION_STAGES,
+  funnelStageKeyOf,
+  funnelStageStep,
+  funnelStepMessageKey,
 } from './funnels';
 import type { FunnelStepKey } from './funnels';
 import { CONVERSION_EVENT_TYPES } from './growth/conversions';
@@ -58,13 +63,45 @@ describe('funnel definitions', () => {
     for (const f of READY_MADE_FUNNELS) {
       expect(f.steps.length).toBeGreaterThanOrEqual(2);
       f.steps.forEach((s, i) => {
-        expect(FUNNEL_STEP_KEYS).toContain(s);
+        if (funnelStageKeyOf(s) === null) expect(FUNNEL_STEP_KEYS).toContain(s);
         if (s === FUNNEL_VISIT_STEP) expect(i).toBe(0);
       });
       expect(f.requiresSiteTracking).toBe(f.steps[0] === FUNNEL_VISIT_STEP);
       expect(findReadyMadeFunnel(f.id)).toBe(f);
     }
     expect(findReadyMadeFunnel('nope')).toBeUndefined();
+  });
+
+  it('platform_b2b is a platform-only ready-made funnel whose MQL and SQL steps are pipeline stages, in order', () => {
+    const funnel = findReadyMadeFunnel(`ready.${PLATFORM_B2B_FUNNEL_SLUG}`);
+    expect(funnel).toBeDefined();
+    expect(funnel?.platformOnly).toBe(true);
+    expect(funnel?.steps).toEqual([FUNNEL_VISIT_STEP, 'lead', 'stage:MQL', 'stage:SQL', 'studio_signup', 'studio_paid']);
+    // Every stage step points at a stage the platform tenant is given.
+    const stageKeys = PLATFORM_QUALIFICATION_STAGES.map((s) => s.key);
+    for (const step of funnel?.steps ?? []) {
+      const key = funnelStageKeyOf(step);
+      if (key !== null) expect(stageKeys).toContain(key);
+    }
+    // No other ready-made funnel is platform only.
+    expect(READY_MADE_FUNNELS.filter((f) => f.platformOnly).map((f) => f.slug)).toEqual([PLATFORM_B2B_FUNNEL_SLUG]);
+  });
+
+  it('stage steps round-trip and tenant funnels never accept them', () => {
+    expect(funnelStageStep('MQL')).toBe('stage:MQL');
+    expect(funnelStageKeyOf('stage:MQL')).toBe('MQL');
+    expect(funnelStageKeyOf('lead')).toBeNull();
+    expect(funnelStepMessageKey('stage:MQL')).toBe('funnels.step.stage.MQL');
+    expect(funnelStepMessageKey('studio_paid')).toBe('funnels.step.studio_paid');
+    expect(CreateFunnelSchema.safeParse({ name: 'x', steps: ['lead', 'stage:MQL'], windowDays: null }).success).toBe(false);
+  });
+
+  it('resolves a path through stage steps like any other step', () => {
+    const steps: FunnelStepKey[] = ['lead', 'stage:MQL', 'stage:SQL', 'studio_paid'];
+    const path = resolveFunnelPath([ev('lead', 0), ev('stage:MQL', 2), ev('stage:SQL', 5), ev('studio_paid', 9)], steps, null);
+    expect(path).toEqual([0, 2 * DAY, 5 * DAY, 9 * DAY]);
+    // Paying before being qualified does not count: the paid step must come after SQL.
+    expect(resolveFunnelPath([ev('lead', 0), ev('studio_paid', 1), ev('stage:MQL', 2)], steps, null)).toEqual([0, 2 * DAY, null, null]);
   });
 });
 
