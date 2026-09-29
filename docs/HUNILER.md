@@ -4,7 +4,7 @@ Kişilerin adım adım ilerleyişini gösterir: her adımda kaç kişi kaldı, �
 
 ## 1. Kavramlar
 
-- **Adım**: bir `ConversionEvent` türü (`CONVERSION_EVENT_TYPES`, `packages/shared/src/growth/conversions.ts`). Hazır hunilerde ek olarak `visit` sözde adımı vardır: kişinin ilk izlenen ziyareti (kişiye bağlı en eski `Touchpoint`). `visit` bir dönüşüm olayı değildir ve kiracı hunilerinde kullanılamaz.
+- **Adım**: bir `ConversionEvent` türü (`CONVERSION_EVENT_TYPES`, `packages/shared/src/growth/conversions.ts`). Hazır hunilerde ek olarak `visit` sözde adımı vardır: kişinin ilk izlenen ziyareti (kişiye bağlı en eski `Touchpoint`). `visit` bir dönüşüm olayı değildir ve kiracı hunilerinde kullanılamaz. Bir de `stage:<anahtar>` sözde adımı vardır (M3a): kişinin satış hattında o anahtarlı aşamaya ilk geçişi (`STAGE_CHANGE` etkinliklerinden, `metadata.to`). Yalnızca hazır hunilerde kullanılır; nitelikli aday (MQL, SQL) gibi adımları koda gömmek yerine kiracının kendi satış hattı aşamalarına bağlar.
 - **Ulaşma**: bir kişi k. adıma, o adımın türünde, (k-1). adıma ulaştığı andan **sonra veya aynı anda** gerçekleşen en erken olay varsa ulaşır. Sıra dışı olaylar (önceki adımdan önce olanlar) sayılmaz. Pencere (`windowDays`) verilmişse olay, önceki adımdan en geç o kadar gün sonra olmalıdır (sınır dahil).
 - **Giriş**: kişinin ilk adımın en erken olayı seçilen tarih aralığında (`from` ve `to` dahil) ise huniye girmiştir. Aralık dışında ilk adımı olan kişiler sayılmaz, bir sonraki adımların aralık kısıtı yoktur (giriş dönemine göre kohort mantığı).
 - **Hariç tutulanlar**: `isTest` işaretli olaylar, test kişileri (`Contact.isTest`) ve başka kişiyle birleştirilmiş kişiler (`mergedIntoId`).
@@ -19,6 +19,7 @@ Kişilerin adım adım ilerleyişini gösterir: her adımda kaç kişi kaldı, �
 | `ready.lead-to-member` | `lead` -> `trial_booked` -> `trial_attended` -> `purchase` | Üye = ilk satın alma (`purchase`) |
 | `ready.trial-to-member` | `trial_booked` -> `purchase` | |
 | `ready.visitor-to-member` | `visit` -> `lead` -> `purchase` | Web sitesi takibi olan işletmeler için (`requiresSiteTracking`); takip verisi yoksa boş durum gösterilir, hata değil |
+| `ready.platform_b2b` | `visit` -> `lead` -> `stage:MQL` -> `stage:SQL` -> `studio_signup` -> `studio_paid` | Yalnızca platform kiracısı (`platformOnly`): diğer kiracıların listesinde görünmez ve raporu 404 döner. MQL ve SQL, platform kiracısının `MQL` ve `SQL` satış hattı aşamalarıdır (varsayılan aşamalara ek olarak `ensurePlatformTenant` oluşturur; süper admin adlarını ve sırasını düzenleyebilir). Pazarlama panosu (`docs/PAZARLAMA_MODULU.md` M3a) bu huniyi okur |
 
 `purchase` olayı, ödeme COMPLETED olduğunda yazılır (deneme paketi dahil; bkz. `docs/CRM_VE_ATIF.md` bölüm 7). Yalnızca tutarı sıfırdan büyük satın almaları "üye" saymak ayrı bir karardır (bölüm 8).
 

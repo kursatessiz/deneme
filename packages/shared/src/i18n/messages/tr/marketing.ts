@@ -27,8 +27,6 @@ export const trMarketing = {
   'marketing.ads.settings': 'Bağlantılar ve UTM',
 
   'marketing.placeholder.soon': 'Bu bölüm sonraki fazda eklenecek.',
-  'marketing.placeholder.dashboard.title': 'Pazarlama panosu',
-  'marketing.placeholder.dashboard.description': 'Huni, maliyet ve kanal sağlığı göstergeleri M3 fazında burada olacak. Şimdilik soldaki menüden kişilere, kampanyalara ve raporlara ulaşabilirsiniz.',
   'marketing.placeholder.approvals.title': 'Onaylar',
   'marketing.placeholder.approvals.description': 'Eşik üstü gönderim ve harcama talepleri M3 fazında burada onaylanacak.',
 } as const satisfies Record<string, string>;

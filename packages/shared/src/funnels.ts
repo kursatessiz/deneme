@@ -22,8 +22,32 @@ export const FUNNEL_MAX_GROUPS = 100;
 
 /** Pseudo step for the visitor -> lead -> member funnel: the contact's first tracked touchpoint. Never a ConversionEvent. */
 export const FUNNEL_VISIT_STEP = 'visit';
+/**
+ * Pipeline stage pseudo step: the contact's first move onto the pipeline stage
+ * with the given key (`stage:MQL`), read from the STAGE_CHANGE activities in
+ * the contact's history. Ready-made funnels only. It is how a funnel names a
+ * qualification step (MQL, SQL) as data instead of code: the stage keys are
+ * the tenant's own pipeline stages.
+ */
+export const FUNNEL_STAGE_STEP_PREFIX = 'stage:';
+export type FunnelStageStepKey = `${typeof FUNNEL_STAGE_STEP_PREFIX}${string}`;
 export const FUNNEL_STEP_KEYS = [...CONVERSION_EVENT_TYPES, FUNNEL_VISIT_STEP] as const;
-export type FunnelStepKey = ConversionEventType | typeof FUNNEL_VISIT_STEP;
+export type FunnelStepKey = ConversionEventType | typeof FUNNEL_VISIT_STEP | FunnelStageStepKey;
+
+export function funnelStageStep(stageKey: string): FunnelStageStepKey {
+  return `${FUNNEL_STAGE_STEP_PREFIX}${stageKey}`;
+}
+
+/** The i18n key of a step's label: `funnels.step.<type>`, or `funnels.step.stage.<stage key>` for a stage step. */
+export function funnelStepMessageKey(step: string): string {
+  const stageKey = funnelStageKeyOf(step);
+  return stageKey === null ? `funnels.step.${step}` : `funnels.step.stage.${stageKey}`;
+}
+
+/** The pipeline stage key of a stage pseudo step, or null for any other step. */
+export function funnelStageKeyOf(step: string): string | null {
+  return step.startsWith(FUNNEL_STAGE_STEP_PREFIX) ? step.slice(FUNNEL_STAGE_STEP_PREFIX.length) : null;
+}
 
 export const FUNNEL_BREAKDOWNS = ['source', 'campaign', 'branch'] as const;
 export type FunnelBreakdown = (typeof FUNNEL_BREAKDOWNS)[number];
@@ -76,9 +100,22 @@ export interface ReadyMadeFunnel {
   windowDays: number | null;
   /** True when the first step comes from the tracked website visits (needs site tracking). */
   requiresSiteTracking: boolean;
+  /** True for funnels that only make sense on the platform tenant (studio_signup, studio_paid); other tenants never see them. */
+  platformOnly?: boolean;
 }
 
 export const READY_MADE_FUNNEL_PREFIX = 'ready.';
+
+/** Slug of the platform's own visitor -> paid studio funnel. */
+export const PLATFORM_B2B_FUNNEL_SLUG = 'platform_b2b';
+/** Pipeline stage keys of the platform tenant that mark a marketing (MQL) and a sales (SQL) qualified contact. */
+export const PLATFORM_MQL_STAGE_KEY = 'MQL';
+export const PLATFORM_SQL_STAGE_KEY = 'SQL';
+/** Extra pipeline stages the platform tenant gets next to DEFAULT_PIPELINE_STAGES so the platform_b2b funnel has its MQL and SQL steps. */
+export const PLATFORM_QUALIFICATION_STAGES: readonly { key: string; name: string; sortOrder: number }[] = [
+  { key: PLATFORM_MQL_STAGE_KEY, name: 'MQL', sortOrder: 10 },
+  { key: PLATFORM_SQL_STAGE_KEY, name: 'SQL', sortOrder: 11 },
+];
 
 export const READY_MADE_FUNNELS: readonly ReadyMadeFunnel[] = [
   {
@@ -101,6 +138,16 @@ export const READY_MADE_FUNNELS: readonly ReadyMadeFunnel[] = [
     steps: [FUNNEL_VISIT_STEP, 'lead', 'purchase'],
     windowDays: null,
     requiresSiteTracking: true,
+  },
+  {
+    // The platform's own B2B funnel (docs/PAZARLAMA_MODULU.md 3.3). MQL and SQL are pipeline stages of the
+    // platform tenant (PLATFORM_QUALIFICATION_STAGES), so what counts as qualified is tenant data.
+    id: `${READY_MADE_FUNNEL_PREFIX}${PLATFORM_B2B_FUNNEL_SLUG}`,
+    slug: PLATFORM_B2B_FUNNEL_SLUG,
+    steps: [FUNNEL_VISIT_STEP, 'lead', funnelStageStep(PLATFORM_MQL_STAGE_KEY), funnelStageStep(PLATFORM_SQL_STAGE_KEY), 'studio_signup', 'studio_paid'],
+    windowDays: null,
+    requiresSiteTracking: true,
+    platformOnly: true,
   },
 ];
 

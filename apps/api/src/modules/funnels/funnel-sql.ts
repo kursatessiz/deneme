@@ -1,5 +1,5 @@
 import { Prisma } from '@platform/database';
-import { FUNNEL_GROUP_DIRECT, FUNNEL_GROUP_NONE, FUNNEL_VISIT_STEP } from '@platform/shared';
+import { FUNNEL_GROUP_DIRECT, FUNNEL_GROUP_NONE, FUNNEL_STAGE_STEP_PREFIX, FUNNEL_VISIT_STEP } from '@platform/shared';
 import type { FunnelAggregate, FunnelBreakdown, FunnelStepKey } from '@platform/shared';
 
 /**
@@ -73,6 +73,19 @@ export function buildFunnelSql(input: FunnelSqlInput): Prisma.Sql {
         GROUP BY t.contact_id`
       : Prisma.empty;
 
+  // Stage pseudo steps (`stage:<key>`): the contact's first move onto that pipeline stage, from its STAGE_CHANGE activities.
+  const hasStageStep = input.steps.some((step) => step.startsWith(FUNNEL_STAGE_STEP_PREFIX));
+  const stageBranch = hasStageStep
+    ? Prisma.sql`
+        UNION ALL
+        SELECT ca.contact_id, s.idx::int AS step, MIN(ca.created_at) AS occurred_at
+        FROM contact_activities ca
+        JOIN unnest(${[...input.steps]}::text[]) WITH ORDINALITY AS s(type, idx) ON s.type = ${FUNNEL_STAGE_STEP_PREFIX}::text || (ca.metadata ->> 'to')
+        JOIN contacts c ON c.id = ca.contact_id
+        WHERE ca.studio_id = ${input.studioId}::uuid AND ca.type = 'STAGE_CHANGE' AND ${filter}
+        GROUP BY ca.contact_id, s.idx`
+    : Prisma.empty;
+
   const ctes: Prisma.Sql[] = [
     Prisma.sql`ev AS (
         SELECT ce.contact_id, s.idx::int AS step, ce.occurred_at
@@ -81,6 +94,7 @@ export function buildFunnelSql(input: FunnelSqlInput): Prisma.Sql {
         JOIN contacts c ON c.id = ce.contact_id
         WHERE ce.studio_id = ${input.studioId}::uuid AND ce.is_test = false AND ${filter}
         ${visitBranch}
+        ${stageBranch}
       )`,
     Prisma.sql`p1 AS (
         SELECT contact_id, MIN(occurred_at) AS t1
