@@ -1,0 +1,20 @@
+/** SMS sender identity block of the integrations hub (M4c): alphanumeric sender id status per provider and Twilio 10DLC status, entered by hand. */
+export const trSmsSender = {
+  'smsSender.title': 'SMS gönderici kimliği',
+  'smsSender.description': 'Alfanümerik gönderici kimliğinin sağlayıcıdaki kayıt durumu ve Twilio için ABD 10DLC marka ve kampanya durumu. Şimdilik elle girilir; sağlayıcıdan otomatik okunmaz.',
+  'smsSender.provider': 'Sağlayıcı',
+  'smsSender.senderId': 'Gönderici kimliği',
+  'smsSender.status': 'Kayıt durumu',
+  'smsSender.active': 'Kullanımda',
+  'smsSender.save': 'Kaydet',
+  'smsSender.status.NOT_STARTED': 'Başlanmadı',
+  'smsSender.status.PENDING': 'Onay bekliyor',
+  'smsSender.status.APPROVED': 'Onaylandı',
+  'smsSender.status.REJECTED': 'Reddedildi',
+  'smsSender.tenDlc.title': 'Twilio 10DLC (ABD)',
+  'smsSender.tenDlc.brand': 'Marka durumu',
+  'smsSender.tenDlc.campaign': 'Kampanya durumu',
+  'smsSender.tenDlc.notEntered': 'Henüz girilmedi',
+  'smsSender.updatedAt': 'Güncellendi: {date}',
+  'smsSender.senderIdHelp': '3-11 karakter, harfle başlamalı; yalnızca harf, rakam ve boşluk.',
+} as const satisfies Record<string, string>;

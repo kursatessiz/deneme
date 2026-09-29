@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import type { HubLeadAdsDTO } from './marketing/lead-ads';
+import { SMS_PROVIDER_KEYS, SMS_REGISTRATION_STATUSES, SmsSenderRegistrationSchema } from './messaging-engine';
+import type { SmsProviderKey, SmsRegistrationStatus } from './messaging-engine';
+import type { WebhookEvent } from './open-platform';
 
 /**
  * Platform integrations hub (docs/PAZARLAMA_MODULU.md 5.1): one summary of
@@ -124,6 +128,55 @@ export interface IntegrationHubDTO {
   emailDomains: EmailSenderDomainDTO[];
   /** Only for super admins; empty for platform members. */
   platformCards: HubPlatformCardDTO[];
+  /** M4c: Meta Lead Ads intake, form mappings and (super admin) the verify token. */
+  leadAds: HubLeadAdsDTO;
+  /** M4c: SMS sender id registration and Twilio 10DLC status. */
+  smsSender: HubSmsSenderDTO;
+  /** M4c: platform event subscriptions and crm.write keys. */
+  automation: HubAutomationDTO;
+}
+
+/** One SMS provider's alphanumeric sender id and its registration status (entered by hand). */
+export interface HubSmsSenderProviderDTO {
+  provider: SmsProviderKey;
+  senderId: string | null;
+  status: SmsRegistrationStatus;
+  updatedAt: string | null;
+  /** The provider the platform tenant sends through today (pinned in messaging settings, else the environment). */
+  active: boolean;
+}
+
+export interface HubSmsSenderDTO {
+  providers: HubSmsSenderProviderDTO[];
+  /** Null until a Twilio 10DLC status was entered. */
+  twilio10dlc: { brandStatus: SmsRegistrationStatus; campaignStatus: SmsRegistrationStatus; updatedAt: string | null } | null;
+}
+
+/** PUT /platform/integrations/sms-sender */
+export const UpdateSmsSenderSchema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('SENDER_ID'),
+      provider: z.enum(SMS_PROVIDER_KEYS),
+      senderId: SmsSenderRegistrationSchema.shape.senderId,
+      status: z.enum(SMS_REGISTRATION_STATUSES),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('TWILIO_10DLC'),
+      brandStatus: z.enum(SMS_REGISTRATION_STATUSES),
+      campaignStatus: z.enum(SMS_REGISTRATION_STATUSES),
+    })
+    .strict(),
+]);
+export type UpdateSmsSenderInput = z.infer<typeof UpdateSmsSenderSchema>;
+
+/** How many active webhook subscriptions each platform event has (Zapier, Make and n8n hooks included). */
+export interface HubAutomationDTO {
+  platformEvents: { event: WebhookEvent; activeSubscriptions: number }[];
+  /** Active API keys that can write contacts (scope crm.write). */
+  crmWriteKeyCount: number;
 }
 
 export const HubUpdateAdConnectionSchema = z.object({

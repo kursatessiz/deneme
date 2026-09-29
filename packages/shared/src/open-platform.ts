@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { CONTACT_CONSENT_CHANNELS, ContactCustomFieldsSchema, normalizeTag } from './crm';
+import { CountryCodeSchema } from './growth/regions';
+import { CONSENT_LEGAL_BASES } from './marketing/consent';
 
 /**
  * The open platform (W18): API keys for the public REST API and outbound
@@ -16,6 +19,8 @@ export const API_KEY_SCOPES = {
   'bookings.write': 'Rezervasyon oluşturma ve iptal etme',
   'members.read': 'Üye telefon numarası dahil üye bilgilerini okuma',
   'webhooks.manage': 'Webhook uç noktalarını yönetme',
+  // M4c: inbound actions of automation tools (Zapier, Make, n8n).
+  'crm.write': 'Kişi oluşturma, etiketleme ve iletişim izni kaydetme',
 } as const;
 
 export type ApiKeyScope = keyof typeof API_KEY_SCOPES;
@@ -50,11 +55,32 @@ export const WEBHOOK_EVENTS = {
   'lead.created': 'Yeni potansiyel müşteri (aday) oluşturuldu',
   'event.registration.created': 'Etkinliğe yeni kayıt oluşturuldu',
   'retail.sale.completed': 'Mağaza satışı tamamlandı',
+  // M4c: platform events, published only for the platform tenant's subscriptions.
+  'studio.signup': 'Yeni bir işletme hesabı oluşturuldu',
+  'studio.paid': 'Bir işletme ilk ödemesini yaptı ve etkinleşti',
+  'studio.trial_expiring': 'Bir işletmenin deneme süresi bitmek üzere',
+  'contact.lifecycle_changed': 'Bir kişinin yaşam döngüsü aşaması değişti',
+  'campaign.sent': 'Bir kampanyanın gönderimi tamamlandı',
 } as const;
 
 export type WebhookEvent = keyof typeof WEBHOOK_EVENTS;
 
 export const ALL_WEBHOOK_EVENTS = Object.keys(WEBHOOK_EVENTS) as WebhookEvent[];
+
+/**
+ * Events about the platform's own business (signups, payments, campaigns of
+ * the platform tenant). They are emitted only for webhook endpoints of the
+ * platform tenant (Studio.isPlatform); other tenants cannot subscribe.
+ */
+export const PLATFORM_WEBHOOK_EVENTS = ['studio.signup', 'studio.paid', 'studio.trial_expiring', 'contact.lifecycle_changed', 'campaign.sent'] as const satisfies readonly WebhookEvent[];
+export type PlatformWebhookEvent = (typeof PLATFORM_WEBHOOK_EVENTS)[number];
+
+export function isPlatformWebhookEvent(event: string): event is PlatformWebhookEvent {
+  return (PLATFORM_WEBHOOK_EVENTS as readonly string[]).includes(event);
+}
+
+/** Events every tenant may subscribe to (the catalogue without the platform events). */
+export const TENANT_WEBHOOK_EVENTS: readonly WebhookEvent[] = ALL_WEBHOOK_EVENTS.filter((e) => !isPlatformWebhookEvent(e));
 
 export function isWebhookEvent(value: string): value is WebhookEvent {
   return Object.prototype.hasOwnProperty.call(WEBHOOK_EVENTS, value);
@@ -182,6 +208,41 @@ export const WEBHOOK_SAMPLE_DATA: Record<WebhookEvent, Record<string, unknown>> 
     currency: 'EUR',
     paymentId: '1b8d3e5f-7a9c-4d2e-8f10-3a4b5c6d7e05',
   },
+  'studio.signup': {
+    studioId: 'b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d11',
+    name: 'Acme Studio',
+    slug: 'acme-studio',
+    countryCode: 'DE',
+    ownerContactId: '6d1f2a3b-4c5d-4e6f-8a7b-9c0d1e2f3a06',
+  },
+  'studio.paid': {
+    studioId: 'b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d11',
+    name: 'Acme Studio',
+    planKey: 'growth',
+    amount: '49.00',
+    currency: 'EUR',
+  },
+  'studio.trial_expiring': {
+    studioId: 'b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d11',
+    name: 'Acme Studio',
+    trialEndsAt: '2026-10-01T09:00:00.000Z',
+    daysLeft: 3,
+  },
+  'contact.lifecycle_changed': {
+    contactId: '6d1f2a3b-4c5d-4e6f-8a7b-9c0d1e2f3a06',
+    from: 'LEAD',
+    to: 'TRIAL',
+    event: 'trial',
+  },
+  'campaign.sent': {
+    campaignId: 'c2d3e4f5-a6b7-4c8d-9e0f-1a2b3c4d5e12',
+    name: 'Autumn offer',
+    channel: 'EMAIL',
+    audience: 1200,
+    sent: 1180,
+    skipped: 15,
+    failed: 5,
+  },
 };
 
 /** A full sample delivery for an event, as the receiving URL would see it. */
@@ -267,3 +328,108 @@ export const UpdateEmbedSettingsSchema = z.object({
   embedAllowedOrigins: z.array(z.string().regex(EMBED_ORIGIN_PATTERN, 'Geçersiz origin (ör. https://ornek.com)')).max(20),
 });
 export type UpdateEmbedSettingsInput = z.infer<typeof UpdateEmbedSettingsSchema>;
+
+// ---------------------------------------------------------------------------
+// Inbound actions for automation tools (M4c, scope crm.write)
+// ---------------------------------------------------------------------------
+
+/** Request header that makes a public write safe to retry; the response is stored for PUBLIC_IDEMPOTENCY_TTL_HOURS. */
+export const PUBLIC_IDEMPOTENCY_HEADER = 'idempotency-key';
+export const PUBLIC_IDEMPOTENCY_TTL_HOURS = 24;
+export const PublicIdempotencyKeySchema = z.string().regex(/^[A-Za-z0-9._:-]{8,128}$/, 'Idempotency-Key 8-128 karakter olmalı (harf, rakam, . _ : -)');
+
+/** Contacts created through the public API carry this manual source channel. */
+export const PUBLIC_API_SOURCE_CHANNEL = 'API';
+
+export const PUBLIC_API_ERROR_CODES = ['IDEMPOTENCY_KEY_REUSED', 'IDEMPOTENCY_IN_PROGRESS', 'CONSENT_BASIS_NOT_ALLOWED', 'CONSENT_CHANNEL_ADDRESS_MISSING', 'CONTACT_NOT_FOUND'] as const;
+export type PublicApiErrorCode = (typeof PUBLIC_API_ERROR_CODES)[number];
+
+const PublicTagSchema = z
+  .string()
+  .max(60)
+  .transform((value, ctx) => {
+    const tag = normalizeTag(value);
+    if (!tag) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Geçersiz etiket' });
+      return z.NEVER;
+    }
+    return tag;
+  });
+
+/** POST /v1/public/contacts: creates the contact, or updates the one that already has this email or phone. */
+export const PublicUpsertContactSchema = z
+  .object({
+    email: z.string().trim().email('Geçersiz e-posta formatı').max(120).optional(),
+    /** E.164, or a national number in the tenant's country. */
+    phone: z.string().trim().min(6).max(30).optional(),
+    firstName: z.string().trim().min(1).max(60).optional(),
+    lastName: z.string().trim().max(60).optional(),
+    /** Split into first and last name when neither is given. */
+    fullName: z.string().trim().min(1).max(121).optional(),
+    locale: z.string().trim().min(2).max(10).optional(),
+    countryCode: CountryCodeSchema.optional(),
+    isBusiness: z.boolean().optional(),
+    tags: z.array(PublicTagSchema).max(20).optional(),
+    customFields: ContactCustomFieldsSchema.optional(),
+    sourceDetail: z.string().trim().max(200).optional(),
+  })
+  .strict()
+  .refine((v) => Boolean(v.email) || Boolean(v.phone), { message: 'Telefon veya e-posta gerekli', path: ['email'] });
+export type PublicUpsertContactInput = z.infer<typeof PublicUpsertContactSchema>;
+
+/** POST /v1/public/contacts/:id/tags */
+export const PublicAddTagsSchema = z.object({ tags: z.array(PublicTagSchema).min(1).max(20) }).strict();
+export type PublicAddTagsInput = z.infer<typeof PublicAddTagsSchema>;
+
+/**
+ * POST /v1/public/contacts/:id/consents: records the contact's consent on
+ * one or more channels under the M3e rules. A CONSENT grant needs the form
+ * version the person saw (recorded as evidence) and, in a double opt-in
+ * region, waits for the confirmation e-mail's link. TR_MERCHANT_EXEMPTION
+ * only applies to a business contact when the platform switch is on;
+ * EXISTING_CUSTOMER is derived at send time and cannot be recorded.
+ */
+export const PublicRecordConsentSchema = z
+  .object({
+    channels: z
+      .array(z.enum(CONTACT_CONSENT_CHANNELS))
+      .min(1)
+      .max(CONTACT_CONSENT_CHANNELS.length)
+      .transform((list) => [...new Set(list)]),
+    granted: z.boolean().default(true),
+    legalBasis: z.enum(CONSENT_LEGAL_BASES).default('CONSENT'),
+    formVersion: z.string().trim().min(1).max(60).optional(),
+    /** Where the person is, when the contact has no country yet (decides double opt-in). */
+    countryCode: CountryCodeSchema.optional(),
+    locale: z.string().trim().min(2).max(10).optional(),
+  })
+  .strict()
+  .refine((v) => !v.granted || v.legalBasis !== 'CONSENT' || Boolean(v.formVersion), {
+    message: 'Onay için form sürümü gerekli',
+    path: ['formVersion'],
+  });
+export type PublicRecordConsentInput = z.infer<typeof PublicRecordConsentSchema>;
+
+/** A contact as the public API returns it: the phone is masked. */
+export interface PublicContactDTO {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  phone: string | null;
+  tags: string[];
+  lifecycleStage: string;
+  createdAt: string;
+}
+
+export interface PublicContactUpsertResultDTO {
+  created: boolean;
+  contact: PublicContactDTO;
+}
+
+export interface PublicConsentResultDTO {
+  contactId: string;
+  channels: { channel: string; status: 'GRANTED' | 'REVOKED'; legalBasis: string | null; pendingConfirmation: boolean; suppressed: boolean }[];
+  /** True when the grant waits for the person to click the confirmation e-mail. */
+  doubleOptIn: boolean;
+}
