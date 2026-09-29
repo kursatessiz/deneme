@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { complianceRegionOf } from '@platform/shared';
+import { COMMERCIAL_SEND_WINDOW, complianceRegionOf } from '@platform/shared';
 import type { ComplianceRegion } from '@platform/shared';
 import type { CanSendInput, CanSendResult } from './compliance.types';
 
 /** Every region sends commercial messages only inside this local-time window (docs section 2.3: TCPA's 08:00-21:00, applied as the platform-wide default quiet hours). */
-const QUIET_HOURS_START = 8;
-const QUIET_HOURS_END = 21;
+const QUIET_HOURS_START = COMMERCIAL_SEND_WINDOW.startHour;
+const QUIET_HOURS_END = COMMERCIAL_SEND_WINDOW.endHour;
 
 /**
  * Region-specific compliance rules for outbound messages

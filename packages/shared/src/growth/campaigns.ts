@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { MESSAGE_CHANNELS_V2 } from './journeys';
 import type { MessageChannelV2 } from './journeys';
+import { CampaignAbTestSchema, CampaignTemplateKeySchema, CampaignVariantsSchema } from './campaign-ab';
+import type { CampaignAbPhase, CampaignAbTestInput, CampaignVariantDTO } from './campaign-ab';
+import { CAMPAIGN_SEND_TIME_MODES, LOCAL_TIME_PATTERN } from './send-time';
+import type { CampaignSendTimeMode } from './send-time';
 
 /**
  * Campaigns (G2a, docs/KAMPANYA_VE_AKISLAR.md): a one-off commercial
@@ -27,7 +31,9 @@ export const CAMPAIGN_BATCH_SIZE = 200;
 /** A recipient held back by quiet hours is retried for this long, then skipped. */
 export const CAMPAIGN_QUIET_HOURS_MAX_DEFER_HOURS = 48;
 
-const TemplateKeySchema = z.string().trim().regex(/^[A-Z][A-Z0-9_]{1,59}$/, 'Geçersiz şablon anahtarı');
+const TemplateKeySchema = CampaignTemplateKeySchema;
+
+const SendTimeLocalSchema = z.string().regex(LOCAL_TIME_PATTERN, 'Saat SS:dd biçiminde olmalı');
 
 export const CreateCampaignSchema = z
   .object({
@@ -36,6 +42,12 @@ export const CreateCampaignSchema = z
     /** Omitted: the tenant's channel order. */
     channel: z.enum(MESSAGE_CHANNELS_V2).optional(),
     templateKey: TemplateKeySchema,
+    /** M3c: A/B test (needs `variants`). */
+    abTest: CampaignAbTestSchema.nullable().optional(),
+    variants: CampaignVariantsSchema.optional(),
+    /** M3c: when each recipient's message goes out. */
+    sendTimeMode: z.enum(CAMPAIGN_SEND_TIME_MODES).optional(),
+    sendTimeLocal: SendTimeLocalSchema.nullable().optional(),
   })
   .strict();
 export type CreateCampaignInput = z.infer<typeof CreateCampaignSchema>;
@@ -46,6 +58,11 @@ export const UpdateCampaignSchema = z
     segmentId: z.string().uuid().optional(),
     channel: z.enum(MESSAGE_CHANNELS_V2).nullable().optional(),
     templateKey: TemplateKeySchema.optional(),
+    /** M3c: null removes the test and its variants; a value needs `variants` (or the stored ones). */
+    abTest: CampaignAbTestSchema.nullable().optional(),
+    variants: CampaignVariantsSchema.optional(),
+    sendTimeMode: z.enum(CAMPAIGN_SEND_TIME_MODES).optional(),
+    sendTimeLocal: SendTimeLocalSchema.nullable().optional(),
   })
   .strict();
 export type UpdateCampaignInput = z.infer<typeof UpdateCampaignSchema>;
@@ -99,6 +116,13 @@ export interface CampaignDTO {
   cancelledAt: string | null;
   /** M3b: the approval request the campaign depends on (platform tenant only). */
   approvalRequestId: string | null;
+  /** M3c */
+  abTest: CampaignAbTestInput | null;
+  abPhase: CampaignAbPhase | null;
+  variants: CampaignVariantDTO[];
+  winnerKey: string | null;
+  sendTimeMode: CampaignSendTimeMode;
+  sendTimeLocal: string | null;
   createdAt: string;
   updatedAt: string;
   stats: CampaignStatsDTO;
@@ -112,6 +136,10 @@ export interface CampaignRecipientDTO {
   reasonCode: string | null;
   channel: MessageChannelV2 | null;
   sentAt: string | null;
+  /** M3c: the A/B variant this recipient gets (null: no test, or still held back). */
+  variantKey: string | null;
+  /** M3c: when the message is due for a recipient scheduled on their own clock. */
+  dueAt: string | null;
 }
 
 export interface CampaignTestSendResultDTO {
