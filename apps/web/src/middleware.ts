@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { EMBED_ORIGIN_PATTERN, LocaleCodeSchema, STUDIO_SLUG_PATTERN } from '@platform/shared';
 import { PAGE_LOCALE_HEADER } from '@/lib/i18n/constants';
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE, accessTokenCookieOptions, refreshTokenCookieOptions } from '@/lib/bff/cookies';
+import { dashboardCsp, generateNonce } from '@/lib/security/csp';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 /** Server-side API base for the session refresh; same variable the BFF uses. */
@@ -122,6 +123,28 @@ const PROTECTED_PATHS = [
   '/admin',
 ];
 
+/** The login page: not protected (no session yet), but still gets the strict dashboard CSP. */
+const LOGIN_PATH = '/giris';
+
+/**
+ * Per-request nonce CSP for the authenticated dashboard/admin panel and the
+ * login page, following the Next.js App Router nonce guidance: the nonce is
+ * set on the request header `x-nonce` (so Next applies it to its own
+ * inline scripts) and on the response's `Content-Security-Policy` header.
+ * Returns the request headers to build any `NextResponse.next({ request: {
+ * headers } })` with, plus the same policy string to also set on whatever
+ * response is ultimately returned (a redirect never needs the request
+ * headers, but still needs the response header).
+ */
+function dashboardCspHeaders(request: NextRequest): { requestHeaders: Headers; csp: string } {
+  const nonce = generateNonce();
+  const csp = dashboardCsp(nonce, process.env.NODE_ENV === 'development');
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-nonce', nonce);
+  requestHeaders.set('Content-Security-Policy', csp);
+  return { requestHeaders, csp };
+}
+
 async function embedCsp(request: NextRequest): Promise<NextResponse> {
   const response = NextResponse.next();
   const slug = request.nextUrl.pathname.split('/')[2];
@@ -168,6 +191,7 @@ export async function middleware(request: NextRequest) {
   const isProtected = PROTECTED_PATHS.some(
     (p) => request.nextUrl.pathname === p || request.nextUrl.pathname.startsWith(`${p}/`),
   );
+  const isLogin = request.nextUrl.pathname === LOGIN_PATH;
   if (isProtected && !request.cookies.get(ACCESS_TOKEN_COOKIE)?.value) {
     // The access cookie expires with the token (1h); a valid refresh cookie
     // silently renews the session instead of sending the user to /giris.
@@ -177,20 +201,33 @@ export async function middleware(request: NextRequest) {
       // Make the new access token visible to this request's server components too.
       request.cookies.set(ACCESS_TOKEN_COOKIE, renewed.accessToken);
       request.cookies.set(REFRESH_TOKEN_COOKIE, renewed.refreshToken);
-      const response = NextResponse.next({ request: { headers: request.headers } });
+      const { requestHeaders, csp } = dashboardCspHeaders(request);
+      const response = NextResponse.next({ request: { headers: requestHeaders } });
+      response.headers.set('Content-Security-Policy', csp);
       response.cookies.set(ACCESS_TOKEN_COOKIE, renewed.accessToken, accessTokenCookieOptions(process.env.NODE_ENV));
       response.cookies.set(REFRESH_TOKEN_COOKIE, renewed.refreshToken, refreshTokenCookieOptions(process.env.NODE_ENV));
       return response;
     }
     const loginUrl = new URL('/giris', request.url);
     loginUrl.searchParams.set('sonra', request.nextUrl.pathname);
-    return NextResponse.redirect(loginUrl);
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    redirectResponse.headers.set('Content-Security-Policy', dashboardCsp(generateNonce(), process.env.NODE_ENV === 'development'));
+    return redirectResponse;
   }
 
-  // Every other page is public (platform site, booking pages, login): the
-  // only place the ad pixel scripts (loaded client-side, gated on consent)
-  // are allowed to run. BFF and route handlers need no page CSP.
-  if (isProtected || request.nextUrl.pathname.startsWith('/api/')) return NextResponse.next();
+  if (isProtected || isLogin) {
+    // The authenticated dashboard/admin panel and the login page: a strict,
+    // per-request nonce CSP (defense in depth against stored XSS).
+    const { requestHeaders, csp } = dashboardCspHeaders(request);
+    const response = NextResponse.next({ request: { headers: requestHeaders } });
+    response.headers.set('Content-Security-Policy', csp);
+    return response;
+  }
+
+  // Every other page is public (platform site, booking pages): the only
+  // place the ad pixel scripts (loaded client-side, gated on consent) are
+  // allowed to run.
+  if (request.nextUrl.pathname.startsWith('/api/')) return NextResponse.next();
   return publicAdsCsp(NextResponse.next({ request: { headers: requestHeadersWithPageLocale(request) } }));
 }
 
