@@ -519,6 +519,16 @@ Ayrıntılar: `docs/BANKA_ODEMELERI.md`.
 | `platform_billing_settings` | Tek satırlık platform ayarı (`id = 'platform'`): tavsiye ödülü türü ve değeri. G5c-1b: tutar ödülü para birimi başına `platform_referral_reward_amounts` tablosundadır; eski tek tutar/para birimi sütunları bir sürüm boyunca yerinde kalır, sonra silinecek | - |
 | `platform_referral_reward_amounts` (G5c-1b) | Tavsiye tutar ödülünün para birimi başına değeri (platform düzeyi); tavsiye eden kendi faturalama para biriminde alır, satır yoksa 1 ücretsiz ay | currency birincil anahtar |
 
+## Hata Raporlama (H1)
+
+Migration `20261015000000_error_reporting`; ayrıntılar `docs/HATA_RAPORLAMA.md`.
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `error_groups` | Platform genelinde tek bir hata: parmak izi (kaynak + tür + normalize mesaj + ilk uygulama çerçevesi) ve sha256 özeti, başlık, durum (OPEN/RESOLVED/IGNORED), sayaçlar (toplam, etkilenen işletme, yaklaşık etkilenen kullanıcı), ilk/son görülme, son sürüm, çözüldüğü sürüm, kritik akış bayrağı, not, son uyarı zamanı | `fingerprint_hash` benzersiz; (last_seen_at) ve (status, last_seen_at) index. Kiracı sütunu yoktur: aynı hata birçok işletmede tek gruptur |
+| `error_events` | Tek bir kayıt (temizlenmiş): kısa hata kodu, kaynak, önem, sürüm, ortam, konum, istek kimliği, `studio_id` (yalnızca kimliği doğrulanmış bağlamdan), `user_id_hash` (tuzlu sha256, ham kimlik asla), mesaj, yığın izi, adımlar (breadcrumbs), HTTP durumu | id = raporlayanın olay kimliği (tekrar gönderim idempotent); grup -> cascade; (group_id, occurred_at), (code), (occurred_at) index; grup başına son 50 kayıt, 30 gün saklama |
+| `error_group_studios` | Grup başına işletme sayaçları: tekrar, ilk/son görülme, son hata kodu (işletme sahibi görünümü ve kesin etkilenen işletme sayısı) | (group_id, studio_id) birincil anahtar; grup ve stüdyo -> cascade; (studio_id, last_seen_at) index |
+
 ## Veritabanı Tarafından Zorunlu Kılınan Kurallar
 
 1. **Rezervasyon Kaynağı Dışlama (Booking Resource Exclusion)** (`booking_resources_no_overlap`): Tek kapasiteli kaynaklar (capacity=1) çakışan aktif rezervasyonlara sahip olamaz. PostgreSQL exclusion constraint (btree_gist) ile (resource_id WITH =, tsrange(start_time, end_time) WITH &&) WHERE is_active AND exclusive üzerinde uygulanır.

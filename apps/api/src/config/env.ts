@@ -113,6 +113,21 @@ export const EnvSchema = z
     /** Test-only deterministic AI provider (web e2e suite). Refused in production. */
     AI_FAKE_PROVIDER: z.enum(['0', '1']).optional(),
 
+    // H1 error reporting (docs/HATA_RAPORLAMA.md).
+    /** Release of this build (the deploy passes RELEASE_TAG, e.g. sha-<commit>). */
+    APP_RELEASE: z
+      .string()
+      .regex(/^[A-Za-z0-9._-]{1,64}$/, 'must be 1-64 characters of letters, digits, dot, dash or underscore')
+      .default('dev'),
+    /** Salt for userIdHash on error events; falls back to a key derived from JWT_SECRET. */
+    ERROR_USER_HASH_SALT: z.string().min(16).optional(),
+    /** Share of client (web/mobile) error events kept, 0..1. */
+    ERROR_CLIENT_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(1),
+    /** Minimum minutes between two alert emails for the same error group. */
+    ERROR_ALERT_COOLDOWN_MINUTES: z.coerce.number().int().min(1).max(10080).default(60),
+    /** 0 turns the super admin alert and digest emails off (errors are still recorded). */
+    ERROR_ALERTS_ENABLED: z.enum(['0', '1']).default('1'),
+
     /** Base URL for JITSI-generated meeting rooms (W19). Must be https. */
     JITSI_BASE_URL: z.string().url().default('https://meet.jit.si'),
   })

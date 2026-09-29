@@ -35,3 +35,4 @@ export * from './report-compare';
 export * from './funnels';
 export * from './payouts';
 export * from './billing';
+export * from './error-reporting';

@@ -119,6 +119,9 @@ export const PERMISSIONS = {
   // G5c-1: the platform subscription itself (activation, plan choice, the
   // business referral page). Owner only: see OWNER_ONLY_PERMISSIONS.
   'billing.manage': 'Platform aboneliğini etkinleştirme, plan seçimi ve işletme tavsiye programı',
+  // H1: the tenant's own error reports (safe message, code, counts; never
+  // stack traces or another tenant's data). Owner only by default.
+  'errors.view': 'İşletmeye ait hata raporlarını görüntüleme',
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
@@ -135,7 +138,7 @@ export function isPermissionKey(value: string): value is PermissionKey {
  * the same time it is added.
  */
 export const PERMISSION_AREAS = {
-  'İşletme ve roller': ['studio.settings.view', 'studio.settings.manage', 'roles.manage', 'staff.manage', 'branches.manage'],
+  'İşletme ve roller': ['studio.settings.view', 'studio.settings.manage', 'roles.manage', 'staff.manage', 'branches.manage', 'errors.view'],
   Üyeler: ['members.view', 'members.contact.view', 'members.health.view', 'members.manage'],
   Katalog: ['catalog.view', 'catalog.manage'],
   Takvim: ['schedule.view', 'schedule.manage'],

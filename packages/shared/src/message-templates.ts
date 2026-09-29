@@ -96,6 +96,39 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplateDefinition[] = [
     whatsappName: 'trial_ending',
   },
   { key: 'TRIAL_RESTRICTED', purpose: 'TRANSACTIONAL', variables: ['firstName', 'studioName'], whatsappName: 'trial_restricted' },
+  /**
+   * H1 error reporting (docs/HATA_RAPORLAMA.md): email-only operational
+   * alerts to super admins, TRANSACTIONAL. The link opens the group in the
+   * super admin panel.
+   */
+  {
+    key: 'ERROR_NEW_GROUP',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'title', 'source', 'release', 'code', 'route', 'link'],
+    whatsappName: 'error_new_group',
+    emailButton: { labelKey: 'msgTpl.ERROR_ALERT.cta', urlVariable: 'link' },
+  },
+  {
+    key: 'ERROR_REGRESSION',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'title', 'source', 'release', 'resolvedInRelease', 'code', 'link'],
+    whatsappName: 'error_regression',
+    emailButton: { labelKey: 'msgTpl.ERROR_ALERT.cta', urlVariable: 'link' },
+  },
+  {
+    key: 'ERROR_CRITICAL',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'title', 'source', 'release', 'code', 'route', 'count', 'link'],
+    whatsappName: 'error_critical',
+    emailButton: { labelKey: 'msgTpl.ERROR_ALERT.cta', urlVariable: 'link' },
+  },
+  {
+    key: 'ERROR_DIGEST',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'events', 'newGroups', 'openGroups', 'regressions', 'topGroups', 'link'],
+    whatsappName: 'error_digest',
+    emailButton: { labelKey: 'msgTpl.ERROR_ALERT.cta', urlVariable: 'link' },
+  },
 ];
 
 export function builtinTemplate(key: string): BuiltinTemplateDefinition | null {

@@ -1,6 +1,8 @@
 'use client';
 
+import { normalizeRoute } from '@platform/shared';
 import { CSRF_HEADER_NAME, CSRF_HEADER_VALUE } from '@/lib/bff/csrf';
+import { addBreadcrumb } from '@/lib/errors/reporter';
 
 export class BffError extends Error {
   constructor(
@@ -36,6 +38,8 @@ export async function bffFetch<T>(
     credentials: 'same-origin',
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
+  // Breadcrumb for error reports: method, route with ids removed, status. Never the body or query.
+  addBreadcrumb('request', `${method} ${normalizeRoute(`/${path.replace(/^\/+/, '')}`)}`, { status: String(res.status) });
 
   if (!res.ok) {
     const data = await res.json().catch(() => null);

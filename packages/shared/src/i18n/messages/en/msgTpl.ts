@@ -46,6 +46,16 @@ export const enMsgTpl = {
   'msgTpl.TRIAL_RESTRICTED.subject': 'Your account is now restricted',
   'msgTpl.TRIAL_RESTRICTED.text': 'Hi {firstName}, the trial of your {studioName} account has ended. Your data is safe and you can still view and export it. Activate your account in the admin panel to take new bookings and sales again.',
 
+  'msgTpl.ERROR_ALERT.cta': 'Open the error',
+  'msgTpl.ERROR_NEW_GROUP.subject': 'New error: {title}',
+  'msgTpl.ERROR_NEW_GROUP.text': 'Hi {firstName}, a new error was seen on the platform. Source: {source}, release: {release}, location: {route}, error code: {code}. Summary: {title}',
+  'msgTpl.ERROR_REGRESSION.subject': 'A resolved error is back: {title}',
+  'msgTpl.ERROR_REGRESSION.text': 'Hi {firstName}, an error marked as resolved in release {resolvedInRelease} was seen again in release {release} and has been reopened. Source: {source}, error code: {code}. Summary: {title}',
+  'msgTpl.ERROR_CRITICAL.subject': 'Error in a critical flow: {title}',
+  'msgTpl.ERROR_CRITICAL.text': 'Hi {firstName}, an error was seen in a critical flow such as sign-in or payments. Source: {source}, release: {release}, location: {route}, occurrences: {count}, error code: {code}. Summary: {title}',
+  'msgTpl.ERROR_DIGEST.subject': 'Daily error digest',
+  'msgTpl.ERROR_DIGEST.text': 'Hi {firstName}, {events} errors were recorded in the last 24 hours, with {newGroups} new error groups and {regressions} reopened groups. Open groups: {openGroups}. Most frequent: {topGroups}',
+
   'msgTpl.email.reasonCommercial': 'You are receiving this email because you agreed to hear from {studioName}.',
   'msgTpl.email.reasonTransactional': 'This email is about your account with {studioName}.',
   'msgTpl.email.unsubscribe': 'Unsubscribe',
