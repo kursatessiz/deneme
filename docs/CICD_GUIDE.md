@@ -11,15 +11,22 @@ içindeki workflow'ları ve `deploy/scripts/` içindeki scriptleri yansıtır.
 flowchart TD
     A[Pull request or push to claude/**] --> B[ci.yml: install, prisma validate, build, typecheck, test, audit, shellcheck, actionlint, docker build check]
     C[Push to main] --> D[release.yml: run ci.yml]
-    D --> E[Build and push api/web images to ghcr.io, SBOM + provenance]
-    E --> F{DEPLOY_ENABLED == 'true'?}
+    D --> E[Build and push api/web images sha-commit to ghcr.io, SBOM + provenance]
+    E --> F{preprod environment: DEPLOY_ENABLED == 'true'?}
     F -- no --> G[Stop: images published, nothing deployed]
-    F -- yes --> H[SSH sync compose/Caddyfile/scripts to /opt/app]
-    H --> I[deploy.sh sha-<commit> on the server]
+    F -- yes --> H[SSH sync compose/Caddyfile/scripts to /opt/app on the preprod server]
+    M[workflow_dispatch: environment=production, tag=sha-commit] --> N[production environment: required reviewers approve]
+    N --> H2[SSH sync to /opt/app on the production server]
+    H --> I[deploy.sh sha-commit]
+    H2 --> I
     I --> J{healthcheck.sh: 3 attempts}
     J -- healthy --> K[Release marked current]
     J -- failing --> L[rollback.sh to previous release]
 ```
+
+Tek image, iki ortam: her commit için image CI'da bir kez build edilir; preprod'da doğrulanan
+aynı `sha-<commit>` image'ı production'a terfi ettirilir. Ortama özgü hiçbir şey image'a gömülmez
+(web'in tarayıcıya verdiği API adresi dahil; bkz. bölüm 5b).
 
 ## 2. `ci.yml` - Continuous Integration
 
@@ -61,34 +68,53 @@ artifact yükleme bunun ötesinde bir izin gerektirmez.
 
 ## 3. `release.yml` - Build, publish, deploy
 
-`main`'e yapılan bir push ile veya manuel olarak (`workflow_dispatch`), zaten yayınlanmış bir
-tag'i yeniden derlemeden yeniden deploy etmek veya geri almak için opsiyonel bir `tag` girdisiyle
-tetiklenir.
+İki tetikleyicisi vardır:
 
-1. **`ci`**: `ci.yml`'i yeniden kullanılabilir bir workflow olarak çalıştırır (bir `tag` girdisi
-   verildiğinde atlanır).
-2. **`publish`**: `api` ve `web` Docker image'larını build eder ve `sha-<commit>` ile `main`
-   etiketleriyle `ghcr.io/<owner>/<repo>/api` ve `ghcr.io/<owner>/<repo>/web` adreslerine
-   push eder. SBOM ve build provenance attestation'ları ekler.
-3. **`deploy`**: yalnızca repository değişkeni `DEPLOY_ENABLED` `'true'` olduğunda, `production`
-   ortamında çalışır. Şunları yapar:
-   - `deploy/docker-compose.prod.yml`, `deploy/caddy/Caddyfile` ve `deploy/scripts/*.sh`
-     dosyalarını SSH üzerinden sunucuda `/opt/app` içine senkronize eder;
-   - sunucuda `deploy.sh sha-<commit>` (veya verilen `tag`) komutunu çalıştırır.
+- **`main`'e push**: CI, image build ve **preprod**'a deploy (preprod ortamında
+  `DEPLOY_ENABLED` `'true'` ise).
+- **`workflow_dispatch`**: `environment` (`preprod` veya `production`) ve `tag`
+  (`sha-<40 karakterlik commit>`) girdileriyle. Production için `tag` zorunludur ve iş yalnızca
+  `main` üzerinden başlatılabilir; production hiçbir zaman build etmez, preprod'da çalışmış
+  image'ı terfi ettirir. Preprod için `tag` boş bırakılırsa bu commit build edilip deploy edilir.
+  Geri almak için de aynı yol kullanılır: önceki `sha-<commit>` tag'ini verin.
 
-Deploy'ları manuel onay arkasında kapı altına almak için GitHub ayarlarında `production`
-ortamına gerekli reviewer'lar (inceleyiciler) ekleyin.
+Job'lar:
 
-### Gerekli secret'lar ve değişkenler
+1. **`plan`**: hedef ortamı, tag'i ve build gerekip gerekmediğini belirler; kuralları
+   (production = tag zorunlu, yalnızca `main`, tag biçimi) burada uygular.
+2. **`ci`**: `ci.yml`'i yeniden kullanılabilir workflow olarak çalıştırır (build yoksa atlanır).
+3. **`publish`**: `api` ve `web` image'larını build eder, `sha-<commit>` ve `main` etiketleriyle
+   `ghcr.io/<owner>/<repo>/api` ve `.../web` adreslerine push eder, SBOM ve build provenance
+   attestation'ı ekler. Ortama özgü build argümanı yoktur.
+4. **`deploy`**: `plan`'ın seçtiği GitHub Environment'ında (`preprod` veya `production`) çalışır;
+   secret'lar ve değişkenler o ortamdan okunur. İlk adım ortamın açık olduğunu doğrular
+   (`DEPLOY_ENABLED == 'true'`, aksi halde bir uyarıyla atlanır) ve `DEPLOY_ENVIRONMENT`
+   değişkeninin ortam adıyla aynı olduğunu kontrol eder (aynı isimli repository seviyesindeki bir
+   secret'ın job'u yanlış sunucuya yöneltmesine karşı koruma). Ardından
+   `deploy/docker-compose.prod.yml`, `deploy/caddy/Caddyfile` ve `deploy/scripts/*.sh`
+   dosyalarını sunucuda `/opt/app` içine senkronize eder ve `deploy.sh <tag>` çalıştırır.
 
-| İsim | Tür | Amaç |
-| --- | --- | --- |
-| `DEPLOY_SSH_KEY` | secret | Sunucuya SSH ile bağlanmak için kullanılan private key |
-| `DEPLOY_SSH_KNOWN_HOSTS` | secret | `ssh-keyscan` çıktısı, güvenilir bir makineden bir kez çalıştırılır; sabitlenmiş (pinned), trust-on-first-use yok |
-| `DEPLOY_USER` | secret | Sunucudaki SSH kullanıcısı |
-| `DEPLOY_HOST` | secret | Sunucu hostname'i veya IP'si |
-| `DEPLOY_ENABLED` | variable | `deploy` job'unun çalışabilmesi için `'true'` olmalıdır |
-| `PRODUCTION_URL` | variable (optional) | GitHub'da ortam URL'si olarak gösterilir |
+Eşzamanlılık ortam başınadır (`release-preprod`, `release-production`): `main`'e yapılan yeni bir
+push, bekleyen bir production deploy'unu asla iptal etmez.
+
+### GitHub Environments, secret'lar ve değişkenler
+
+Settings > Environments altında iki ortam oluşturun: `preprod` ve `production`. Aşağıdakilerin
+hepsi **ortam seviyesinde** tanımlanır (repository seviyesinde değil); eski repository seviyesindeki
+`DEPLOY_*` secret'larını ve `DEPLOY_ENABLED` değişkenini ortamlara taşıdıktan sonra silin.
+
+| İsim | Tür | `preprod` | `production` |
+| --- | --- | --- | --- |
+| `DEPLOY_HOST` | secret | preprod sunucusunun hostname'i/IP'si | production sunucusu |
+| `DEPLOY_USER` | secret | `deploy` (server-init.sh'ın oluşturduğu kullanıcı) | `deploy` |
+| `DEPLOY_SSH_KEY` | secret | yalnızca bu ortama ait deploy private key'i | ayrı bir key |
+| `DEPLOY_SSH_KNOWN_HOSTS` | secret | güvenilir bir makineden bir kez alınan `ssh-keyscan -t ed25519 <host>` çıktısı (TOFU yok) | aynı şekilde |
+| `DEPLOY_ENABLED` | variable | `true` olunca `main`'e her push preprod'a deploy edilir | `true` olunca manuel deploy çalışır |
+| `DEPLOY_ENVIRONMENT` | variable | `preprod` | `production` |
+| `PUBLIC_URL` | variable (opsiyonel) | örn. `https://panel.preprod.<alan-adi>` | örn. `https://panel.<alan-adi>` |
+
+`production` ortamı için ayrıca: **Required reviewers** (en az bir kişi) ve **Deployment
+branches and tags: Selected branches -> `main`**. `preprod` için onay gerekmez.
 
 ## 4. `deploy.sh` - sunucuda neler oluyor
 
@@ -97,9 +123,13 @@ ortamına gerekli reviewer'lar (inceleyiciler) ekleyin.
 1. İki deploy'un aynı anda çalışmaması için bir flock kilidi alır.
 2. Eğer zaten çalışan bir `postgres` konteyneri varsa önce `backup.sh`'ı çalıştırır.
 3. Verilen tag için `api` ve `web` image'larını çeker (asla build etmez).
-4. `postgres` ve `redis`'i başlatır, ardından tek seferlik bir `api` konteyneri içinde
-   `prisma migrate deploy` komutunu çalıştırır. Migration'lar başarısız olursa, deploy trafiği
-   değiştirmeden önce iptal edilir - halihazırda çalışan release hizmet vermeye devam eder.
+4. `postgres` ve `redis`'i başlatır ve healthcheck'lerinin geçmesini bekler
+   (`compose up -d --wait`; boş bir volume'da Postgres'in ilk açılışıyla migration yarışmaz),
+   ardından tek seferlik bir `api` konteyneri içinde `prisma migrate deploy` ve
+   `node dist/cli/bootstrap.js --defaults-only` (eksik platform varsayılanlarını oluşturur, hiçbir
+   satırı güncellemez veya silmez; bkz. bölüm 5b) çalıştırır. Bunlardan biri başarısız olursa,
+   deploy trafiği değiştirmeden önce iptal edilir - halihazırda çalışan release hizmet vermeye
+   devam eder.
 5. Tüm stack'i ayağa kaldırır (`compose up -d --wait`).
 6. `healthcheck.sh`'ı en fazla 3 deneme olacak şekilde çalıştırır. Probe'lar konteynerlerin
    **içinde** çalışır (host'ta port yayınlamaya gerek yoktur): API'nin `/health` endpoint'i
@@ -116,7 +146,10 @@ dönük uyumlu kalmalıdır.
 ## 5. `nightly-deploy.sh` - opsiyonel pull tabanlı alternatif
 
 `release.yml` içindeki SSH tabanlı `deploy` job'una bir alternatif; GitHub Actions'tan push
-edilmek yerine doğrudan sunucuda bir cron job'undan çalıştırılmak üzere tasarlanmıştır:
+edilmek yerine doğrudan sunucuda bir cron job'undan çalıştırılmak üzere tasarlanmıştır
+(`deploy` kullanıcısının crontab'ına, `crontab -e`; root olarak değil). Main'i doğrudan deploy
+ettiği için yalnızca preprod için uygundur; production her zaman onaylı `workflow_dispatch` ile
+deploy edilir:
 
 ```cron
 0 3 * * * /opt/app/scripts/nightly-deploy.sh >> /opt/app/deploy.log 2>&1
@@ -137,13 +170,13 @@ release dizini üzerinde değil, çünkü ikisi de aynı `/opt/app/releases` dur
 Sunucunun GHCR'den image çekebilmesi gerekir. Ya:
 - GitHub organizasyonu/kullanıcısının packages ayarları altında `api` ve `web` paketlerini
   public yapın, ya da
-- sunucuda bir kez `read:packages` kapsamına sahip bir personal access token ile
-  `docker login ghcr.io` çalıştırın.
+- sunucuda `deploy` kullanıcısıyla bir kez `read:packages` kapsamına sahip bir personal access
+  token ile `docker login ghcr.io` çalıştırın.
 
 ## 5a. Yedekler
 
-`deploy/scripts/backup.sh` her gün 02:30'da (`server-init.sh`'ın kurduğu `/etc/cron.d/app-backup`)
-ve her deploy'dan önce çalışır:
+`deploy/scripts/backup.sh` her gün 02:30'da (`server-init.sh`'ın kurduğu `/etc/cron.d/app-backup`,
+`deploy` kullanıcısıyla; ayrıca elle bir cron girdisi eklemeyin) ve her deploy'dan önce çalışır:
 
 1. `pg_dump` çıktısı gzip ile sıkıştırılıp `/opt/app/backups` altına yazılır; yerelde 14 gün tutulur.
 2. `/opt/app/.env` içinde `BACKUP_S3_BUCKET` doluysa dosya sunucuda AES-256 (PBKDF2) ile
@@ -178,6 +211,168 @@ docker compose -f /opt/app/docker-compose.prod.yml start api web
 
 Yerel kopyalar şifresizdir (sunucu diskindedir); geri yüklemede 2. adım atlanır.
 Geri yükleme en az üç ayda bir ayrı bir makinede denenmelidir.
+
+## 5b. Preprod ortamı
+
+Preprod, production'ın birebir kopyası olan ayrı bir sunucudur: aynı `docker-compose.prod.yml`,
+aynı Caddyfile, aynı scriptler ve **aynı image'lar**. Farklar yalnızca `/opt/app/.env`
+değerlerinde ve GitHub `preprod` ortamının secret'larındadır. `main`'e giren her commit önce
+preprod'a gider; production'a yalnızca preprod'da doğrulanmış bir `sha-<commit>` tag'i manuel
+olarak (onaylı) terfi ettirilir.
+
+Web uygulamasının tarayıcıya verdiği API adresi build anında gömülmez: `web` konteyneri
+`PUBLIC_API_URL`'i (compose `https://${API_DOMAIN}` olarak verir) çalışma anında okur ve kök
+layout bunu bir `<meta>` etiketine yazar (`apps/web/src/lib/public-api-url.ts`). Bu yüzden aynı
+image iki ortamda da doğru API'ye bağlanır.
+
+### İlk kurulum (bir kez)
+
+1. **Sunucu.** Ubuntu 24.04 sunucuda, `deploy/scripts/server-init.sh` dosyasını kopyalayıp root
+   olarak (veya kendi sudo kullanıcınızla) çalıştırın:
+
+   ```bash
+   sudo DEPLOY_SSH_PUBKEY="ssh-ed25519 AAAA... preprod-deploy" TIMEZONE=UTC bash server-init.sh deploy
+   ```
+
+   Script `deploy` kullanıcısını oluşturur (docker grubunda, `/opt/app`'in sahibi, yalnızca SSH
+   anahtarıyla giriş), Docker log döndürmeyi (konteyner başına 10 MB x 5) ayarlar, yedek cron'unu
+   `deploy` kullanıcısıyla kurar ve saat dilimini ayarlar (varsayılan UTC). SSH'ta parola girişini
+   ve root girişini **yalnızca** deploy kullanıcısının bir anahtarı olduğunu ve sizin için anahtarla
+   bir yönetici girişi (root'un `authorized_keys`'i veya script'i sudo ile çalıştıran kullanıcı)
+   bulunduğunu doğruladıktan sonra kapatır; aksi halde ne eksik olduğunu yazar ve SSH'a dokunmaz.
+   Root girişi, ayrı bir sudo kullanıcınız yoksa kapatılmaz, yalnızca anahtara kısıtlanır
+   (`prohibit-password`). Script idempotenttir; anahtarı ekledikten sonra tekrar çalıştırın.
+
+   Deploy anahtarını ortam başına ayrı üretin (`ssh-keygen -t ed25519 -f preprod-deploy -N ''`);
+   private key GitHub'daki `preprod` ortamının `DEPLOY_SSH_KEY` secret'ına gider.
+
+2. **GitHub.** `preprod` ortamını ve secret/değişkenlerini bölüm 3'teki tabloya göre oluşturun
+   (`DEPLOY_ENVIRONMENT=preprod`; `DEPLOY_ENABLED`'ı ilk deploy'a hazır olunca `true` yapın).
+   `DEPLOY_SSH_KNOWN_HOSTS` için güvenilir bir makineden `ssh-keyscan -t ed25519 <preprod-host>`
+   çıktısını, sunucu konsolundaki `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` parmak
+   iziyle karşılaştırdıktan sonra kaydedin.
+
+3. **DNS.** Preprod sunucusunun IP'sine işaret eden `A` kayıtları: `WEB_DOMAIN` (örn.
+   `panel.preprod.<alan-adi>`), `API_DOMAIN` (örn. `api.preprod.<alan-adi>`) ve işletme siteleri
+   kullanılacaksa `SITES_DOMAIN` için bir joker kayıt (`*.sites.preprod.<alan-adi>`). Caddy
+   sertifikaları kendisi alır.
+
+4. **`/opt/app/.env`.** `deploy` kullanıcısı olarak repo kökündeki `.env.example`'ı
+   `/opt/app/.env` olarak kopyalayıp doldurun (`chmod 600`). Preprod için:
+   - `SITE_ENV=preprod` (Caddy tüm host'larda `X-Robots-Tag: noindex, nofollow` gönderir ve HSTS
+     `preload` bayrağını kaldırır),
+   - bütün secret'ları (`POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`,
+     `MESSAGING_TRACKING_SECRET`, `INTEGRATION_ENCRYPTION_KEY`, `BACKUP_ENCRYPTION_KEY`, ...)
+     **yeniden üretin**; production değerlerini asla kopyalamayın,
+   - sağlayıcı anahtarları için aşağıdaki tabloya bakın.
+
+5. **GHCR erişimi.** Paketler private ise sunucuda `deploy` kullanıcısıyla bir kez
+   `docker login ghcr.io -u <github-kullanicisi>` çalıştırın (parola yerine yalnızca
+   `read:packages` kapsamlı bir token). Alternatif: paketleri public yapın (bölüm 5).
+
+6. **İlk deploy.** `preprod` ortamında `DEPLOY_ENABLED=true` yapıp `main`'e bir push yapın veya
+   Actions > Release > Run workflow ile `environment=preprod` seçin. `deploy.sh` migration'ları
+   çalıştırır, ardından `bootstrap.js --defaults-only` ile eksik platform verisini oluşturur:
+   platform kiracısı (`isPlatform`) ve sitesinin ana sayfası, planlar ve para birimi başına
+   fiyatları (`plan_prices`), işletme türü şablonları, SMS paketleri, global sözleşme/KVKK
+   metinleri, mesaj şablonları ve rozetler. Bu adım yalnızca eksik olanı oluşturur, hiçbir satırı
+   güncellemez veya silmez; demo işletme, kullanıcı veya parola oluşturmaz. Sonra smoke test
+   (`/health` ve web `/`) çalışır.
+
+7. **İlk süper admin (bir kez, elle).** Sunucuda `deploy` kullanıcısıyla:
+
+   ```bash
+   cd /opt/app
+   docker compose -f docker-compose.prod.yml run --rm --no-deps api \
+     node dist/cli/bootstrap.js \
+     --super-admin-phone +90XXXXXXXXXX \
+     --super-admin-email sahip@<alan-adi> \
+     --super-admin-name "Ad Soyad"
+   ```
+
+   Parola üretilir ve **yalnızca bir kez** ekrana yazılır; hemen bir parola yöneticisine kaydedin.
+   Kendi parolanızı vermek için (en az 12 karakter, dosyaya yazmadan):
+
+   ```bash
+   read -rs BOOTSTRAP_SUPER_ADMIN_PASSWORD && export BOOTSTRAP_SUPER_ADMIN_PASSWORD
+   docker compose -f docker-compose.prod.yml run --rm --no-deps -e BOOTSTRAP_SUPER_ADMIN_PASSWORD api \
+     node dist/cli/bootstrap.js --super-admin-phone ... --super-admin-email ... --super-admin-name "..."
+   unset BOOTSTRAP_SUPER_ADMIN_PASSWORD
+   ```
+
+   Aynı telefonla tekrar çalıştırmak hiçbir şeyi değiştirmez. Başka bir süper admin zaten varsa
+   komut reddeder (çıkış kodu 3) ve `--allow-additional-super-admin` bayrağı olmadan kimseyi
+   eklemez; bu telefon veya e-postayla süper admin olmayan bir kullanıcı varsa o hesaba asla
+   dokunmaz. Telefon E.164 biçiminde (`+` ile) verilmelidir; ülke varsayılmaz.
+
+8. **İlk işletme.** `https://<WEB_DOMAIN>/giris` adresinde süper admin e-postası (veya telefonu) ve
+   parolayla giriş yapın, Süper admin > İşletmeler ekranından işletmeyi oluşturun (işletme türü,
+   plan, ülke, sahip adı ve telefonu). Sahip daveti QR/bağlantı olarak ekranda gösterilir; davet
+   SMS/WhatsApp ile gönderilecekse ilgili sağlayıcının yapılandırılmış olması gerekir.
+
+### Sağlayıcı anahtarları: preprod'da ne yapılmalı
+
+Preprod, `NODE_ENV=production` ile çalışır; bu yüzden production'daki korumalar preprod'da da
+geçerlidir (MOCK ödeme ve MOCK e-fatura devre dışı, SES'siz e-posta başarısız sayılır). Yan etkisi
+olan anahtarlar `.env.example`'da `[SIDE EFFECT]` ile işaretlidir.
+
+| Grup | Preprod önerisi | Sonuç |
+| --- | --- | --- |
+| SMS (`SMS_PROVIDER`, Netgsm/İleti Merkezi/Twilio) | Gerçek sağlayıcının test hesabı veya düşük limitli ayrı bir alt hesap; yalnızca test telefonlarına gönderin | MOCK SMS ile OTP kodu hiçbir yerde görünmez (`OTP_TEST_CODE` production modunda reddedilir), yani **mobil uygulamada telefon + OTP girişi ve üye daveti çalışmaz**. Web panelde parola girişi etkilenmez |
+| WhatsApp (`WHATSAPP_*`) | Boş bırakın veya Meta test numarası | Boşken WhatsApp gönderimleri MOCK gibi davranır (loglar, başarılı sayar) |
+| E-posta (`SES_*`, `AWS_*`, `MESSAGING_TRACKING_SECRET`) | SES sandbox (yalnızca doğrulanmış alıcılara gider); `MESSAGING_TRACKING_SECRET` her ortamda ayrı | SES yoksa e-postalar "yapılandırılmamış" hatasıyla başarısız olur; tracking secret yoksa ticari e-posta gönderilmez |
+| Ödeme (`PAYMENT_PROVIDER`, `STRIPE_*`, `IYZICO_*`, `PAYTR_*`) | `PAYMENT_PROVIDER=STRIPE` ve Stripe **test** anahtarları (`sk_test_...`, test webhook secret'ı); iyzico için sandbox `IYZICO_BASE_URL` | MOCK ödeme production modunda kapalıdır: sağlayıcı yoksa her online ödeme/checkout başarısız olur. Canlı anahtar gerçek kart çeker |
+| e-Fatura (`PARASUT_*`, `ELOGO_*`, `FORIBA_*`, `UYUMSOFT_*`) | Boş bırakın (varsa entegratörün test ortamı) | Boşken fatura kesme "yapılandırılmamış" hatası verir; canlı anahtar yasal fatura keser |
+| İYS (`IYS_*`) | Boş bırakın | MOCK İYS istemcisi kullanılır; canlı anahtar gerçek izin kaydı yapar |
+| Push (`PUSH_PROVIDER`, `EXPO_ACCESS_TOKEN`) | Preprod mobil build'iyle test edilecekse `EXPO` | MOCK iken bildirimler yalnızca loglanır |
+| Yapay zeka (`ANTHROPIC_API_KEY`) | Boş bırakın; gerekirse süper admin ekranından düşük limitli ayrı bir anahtar | Ücretli kullanım |
+| `INTEGRATION_ENCRYPTION_KEY` | Preprod'a özel yeni anahtar | Partner bağlantısı kurulduğunda production'da zorunludur |
+
+### Bootstrap komutu
+
+`apps/api/src/cli/bootstrap.ts` API image'ında `dist/cli/bootstrap.js` olarak bulunur ve
+yalnızca `DATABASE_URL`'e ihtiyaç duyar (compose verir).
+
+| Kullanım | Ne yapar |
+| --- | --- |
+| `node dist/cli/bootstrap.js --defaults-only` | Eksik platform varsayılanlarını oluşturur. Her deploy'da `deploy.sh` çalıştırır |
+| `node dist/cli/bootstrap.js --super-admin-phone ... --super-admin-email ... --super-admin-name "..."` | Varsayılanlar + ilk süper admin (bir kez, elle) |
+| `--allow-additional-super-admin` | Başka bir süper admin varken yenisini eklemeye izin verir |
+| `--help` | Kullanım bilgisi |
+
+Çıkış kodları: `0` başarılı (hiçbir şey değişmediyse de), `2` hatalı argüman, `3` reddedildi
+(zaten süper admin var veya kullanıcı çakışması), `1` beklenmeyen hata. Varsayılan veriler
+`packages/database/src/platform-defaults.ts` içindedir ve geliştirme seed'i de aynı tanımları
+kullanır (tek kaynak). Her adım aynı Postgres advisory lock'u altında bir transaction içinde
+çalışır; iki eşzamanlı çalıştırma birbirini bekler.
+
+**Neden `--defaults-only` her deploy'da çalışıyor?** Yalnızca eksik satırları doğal anahtarla
+(plan anahtarı, şablon anahtarı + kanal + dil, belge türü, ...) oluşturur, hiçbir şeyi
+güncellemez veya silmez: süper adminin değiştirdiği fiyatlar, metinler, yeni belge sürümleri
+korunur; bir planın fiyat para birimleri ve platform sitesinin ana sayfası yalnızca plan veya site
+ilk kez oluşturulurken yazılır, sonradan silinenler geri gelmez. Yeni bir sürümle gelen yeni
+yerleşik mesaj şablonları da böylece veritabanına eklenir. Boş bir ortamda smoke test'in
+(`/` platform ana sayfası) ve ilk işletmenin (plan, işletme türü) ihtiyaç duyduğu veriyi sağlar.
+Kullanıcı oluşturmaz; süper admin adımı her zaman elle ve bir kez yapılır.
+
+### Mobil uygulama (EAS) preprod build'i
+
+`apps/mobile/eas.json` içindeki `preprod` profili (`APP_VARIANT=preprod`) uygulamayı
+"Platform Preprod" adı ve `.preprod` ekli paket kimliğiyle (`com.platform.member.preprod`) build
+eder; production uygulamasının yanına kurulabilir. API adresi repoda tutulmaz: EAS ortam
+değişkeni olarak tanımlanır.
+
+```bash
+eas env:create --environment preview --name EXPO_PUBLIC_API_URL --value https://api.preprod.<alan-adi> --visibility plaintext
+eas env:create --environment production --name EXPO_PUBLIC_API_URL --value https://api.<alan-adi> --visibility plaintext
+eas build --profile preprod --platform android
+```
+
+`preview` ve `preprod` profilleri EAS `preview` ortamını (preprod API'si) kullanır. Preprod veya
+production build'inde `EXPO_PUBLIC_API_URL` https değilse `app.config.ts` build'i durdurur.
+iOS için `.preprod` paket kimliği App Store Connect'te ayrıca kaydedilmelidir.
+`submit.production` altındaki `*_ENV_PLACEHOLDER` değerleri ilk mağaza gönderiminden önce gerçek
+Apple kimlikleriyle değiştirilmelidir.
 
 ## 6. Güvenlik workflow'ları
 

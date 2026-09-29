@@ -50,13 +50,17 @@ kopyası çalıştırılabilir. İlk aşama için 4 GB / 2 vCPU da yeterli olur.
 
 ## 2. Sunucu kurulumu
 
-`deploy/scripts/server-init.sh`, yeni bir sunucu için kurulum referansıdır. Sunucuya
-kopyaladıktan sonra root olarak veya `sudo` ile bir kez çalıştırın:
+`deploy/scripts/server-init.sh`, yeni bir sunucu (preprod veya production) için kurulum
+referansıdır. Sunucuya kopyaladıktan sonra root olarak veya kendi `sudo` kullanıcınızla çalıştırın;
+idempotenttir, tekrar çalıştırmak güvenlidir:
 
 ```bash
-chmod +x server-init.sh
-sudo bash server-init.sh
+sudo DEPLOY_SSH_PUBKEY="ssh-ed25519 AAAA... ci-deploy" TIMEZONE=UTC bash server-init.sh deploy
 ```
+
+Argüman deploy kullanıcısının adıdır (varsayılan `deploy`). `DEPLOY_SSH_PUBKEY` opsiyoneldir;
+anahtar sonradan `~deploy/.ssh/authorized_keys` dosyasına da eklenebilir. `TIMEZONE`
+varsayılanı `UTC`'dir (platform globaldir; her işletmenin saat dilimi veritabanında tutulur).
 
 Yaptıkları:
 1. APT güncellemeleri ve temel araçların kurulumu (`curl`, `git`, `ufw`, `fail2ban` vb.).
@@ -65,8 +69,19 @@ Yaptıkları:
    PostgreSQL ve Redis host ağına asla açılmaz - yalnızca Docker'ın iç ağında
    (`docker-compose.prod.yml` içindeki `internal_net`) çalışırlar.
 4. SSH brute-force koruması için Fail2ban.
-5. Resmi Docker APT deposundan Docker Engine ve Compose eklentisi.
-6. Deployment dizinlerinin oluşturulması.
+5. Resmi Docker APT deposundan Docker Engine ve Compose eklentisi; konteyner logları için
+   döndürme (`json-file`, konteyner başına 10 MB x 5, `/etc/docker/daemon.json`).
+6. Deploy kullanıcısı: `docker` grubunda, `/opt/app`'in sahibi, yalnızca SSH anahtarıyla giriş.
+   CI bu kullanıcıyla bağlanır (`DEPLOY_USER` secret'ı).
+7. Deployment dizinleri (`/opt/app`, `caddy`, `scripts`, `releases`, `backups`) ve günlük yedek
+   cron'u (`/etc/cron.d/app-backup`, 02:30, deploy kullanıcısıyla).
+8. Saat dilimi (`TIMEZONE`, varsayılan UTC).
+9. SSH sıkılaştırma: parola girişi kapatılır ve root girişi kapatılır ya da anahtara kısıtlanır;
+   ama **yalnızca** deploy kullanıcısının bir anahtarı olduğu ve sizin için anahtarla bir yönetici
+   girişi (root'un `authorized_keys`'i veya script'i sudo ile çalıştıran kullanıcı) bulunduğu
+   doğrulandıktan sonra. Aksi halde script ne eksik olduğunu yazar ve SSH ayarlarına dokunmaz;
+   eksik anahtarı ekleyip tekrar çalıştırın. Root girişi, anahtarı olan ayrı bir sudo kullanıcınız
+   yoksa tamamen kapatılmaz (`prohibit-password`).
 
 `server-init.sh`'ı bu rehberden hareketle düzenlemeyin; onu tek doğru kaynak (source of truth)
 olarak kabul edin ve davranışının değişmesi gerekiyorsa script'in kendisini güncelleyin.
@@ -91,23 +106,29 @@ Sunucu tarafındaki uygulama dizini `/opt/app`'tir (`server-init.sh` tarafından
 `deploy/scripts/lib.sh` ile deploy workflow'u tarafından kullanılır). Bir kez kurun:
 
 ```bash
-sudo mkdir -p /opt/app
-sudo chown -R "$USER":"$USER" /opt/app
+sudo -iu deploy
 cd /opt/app
+# repo kökündeki .env.example dosyasını buraya kopyalayın
 cp .env.example .env
+chmod 600 .env
 nano .env
 ```
 
 `.env` dosyasını repository kökündeki şablondan (`.env.example`) doldurun: `IMAGE_REPO`,
 `GIT_REMOTE` (yalnızca `nightly-deploy.sh` için gereklidir), `WEB_DOMAIN`, `API_DOMAIN`,
 `ACME_EMAIL`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET` (32+ karakter, `openssl rand
--hex 32` ile üretin) ve SMS sağlayıcı ayarları. Bu dosyayı asla commit etmeyin.
+-hex 32` ile üretin) ve sağlayıcı ayarları. Opsiyonel anahtarların hepsi gruplanmış ve
+açıklamalı olarak `.env.example`'dadır; gerçek dış yan etkisi olanlar `[SIDE EFFECT]` ile
+işaretlidir. Preprod sunucusunda `SITE_ENV=preprod` ayarlayın ve hangi anahtarların boş ya da
+sandbox kalacağı için `docs/CICD_GUIDE.md` bölüm 5b'ye bakın. Bu dosyayı asla commit etmeyin.
 
 ## 5. İlk deploy
 
-`/opt/app/.env` doldurulduktan sonra önerilen yol, CI'da deploy job'unu etkinleştirip (bkz.
-`DEPLOY_ENABLED` değişkeni ve gereken SSH secret'ları için `docs/CICD_GUIDE.md`) `main`'e push
-yapmak veya `release.yml`'i `workflow_dispatch` ile manuel olarak tetiklemektir.
+`/opt/app/.env` doldurulduktan sonra önerilen yol, sunucunun GitHub ortamında (`preprod` veya
+`production`) deploy'u etkinleştirmektir (`DEPLOY_ENABLED`, `DEPLOY_ENVIRONMENT` ve SSH
+secret'ları için bkz. `docs/CICD_GUIDE.md` bölüm 3). Preprod'a `main`'e her push'ta otomatik,
+production'a yalnızca `release.yml`'in `workflow_dispatch`'i ile ve preprod'da çalışmış bir
+`sha-<commit>` tag'iyle deploy edilir.
 
 Bunun yerine elle deploy etmek için - yalnızca ilk çalıştırma için ya da sorunu doğrudan
 sunucuda teşhis ederken kullanışlıdır - `deploy/docker-compose.prod.yml`, `deploy/caddy/Caddyfile`
@@ -123,21 +144,16 @@ bash scripts/deploy.sh sha-<commit>
 `sha-<commit>`, CI'nın zaten build edip `ghcr.io`'ya push ettiği bir tag olmalıdır. `deploy.sh`
 image'ları çeker, veritabanı migration'larını çalıştırır, stack'i başlatır ve başarısızlık
 durumunda otomatik rollback içeren bir smoke test çalıştırır. Tam sıralama için
-`docs/CICD_GUIDE.md` bölüm 4'e bakın.
+`docs/CICD_GUIDE.md` bölüm 4'e bakın. İlk deploy'dan sonra ilk süper admini bir kez elle
+oluşturun (`node dist/cli/bootstrap.js ...`, bkz. `docs/CICD_GUIDE.md` bölüm 5b adım 7).
 
 ## 6. Otomatik günlük yedeklemeler
 
-`deploy/scripts/backup.sh` için bir cron job ekleyin; bu script veritabanını `pg_dump` ile alır,
-gzip ile sıkıştırıp `/opt/app/backups/` içine koyar ve 14 günden eski dump'ları döndürür (rotate
-eder):
+Ayrı bir cron girdisi eklemeyin: `server-init.sh` günlük yedeği zaten
+`/etc/cron.d/app-backup` olarak kurar (her gün 02:30, deploy kullanıcısıyla, çıktı
+`/opt/app/deploy.log`). `deploy.sh` de her deploy'dan önce bir yedek alır. İkinci bir cron
+girdisi (örneğin `crontab -e` ile) aynı veritabanını gereksiz yere iki kez döker.
 
-```bash
-sudo crontab -e
-```
-
-```cron
-30 3 * * * /bin/bash /opt/app/scripts/backup.sh >> /opt/app/backups/cron.log 2>&1
-```
-
-Object storage'a off-site (site dışı) bir kopya henüz uygulanmadı; bkz. `HANDOVER.md` (bölüm
-6.1) içindeki backlog.
+Yerel kopyalar `/opt/app/backups/` altında 14 gün tutulur. `.env` içinde `BACKUP_S3_BUCKET`
+doluysa her dump şifrelenip S3 uyumlu nesne depolamaya da yüklenir. Kurulum, saklama süresi ve
+geri yükleme adımları: `docs/CICD_GUIDE.md` bölüm 5a.

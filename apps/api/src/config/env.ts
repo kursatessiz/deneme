@@ -173,8 +173,19 @@ export const EnvSchema = z
 
 export type Env = z.infer<typeof EnvSchema>;
 
+/**
+ * An empty value means "not set". docker-compose.prod.yml passes every
+ * optional key as `KEY: ${KEY:-}` (so a key can never be silently missing
+ * from the container), and an unset one arrives as an empty string; without
+ * this, `z.string().min(1).optional()` would reject it and a default would
+ * never apply.
+ */
+export function withoutEmptyValues(raw: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(raw).filter(([, value]) => value !== ''));
+}
+
 export function validateEnv(raw: Record<string, unknown>): Env {
-  const result = EnvSchema.safeParse(raw);
+  const result = EnvSchema.safeParse(withoutEmptyValues(raw));
   if (!result.success) {
     const details = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
     throw new Error(`Invalid environment configuration: ${details}`);

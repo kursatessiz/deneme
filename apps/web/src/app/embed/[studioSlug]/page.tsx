@@ -8,12 +8,12 @@ import { trackingHeaders } from '@/lib/tracking/client';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 import type { ThemeFamilyKey } from '@platform/shared';
+import { publicApiBaseUrl } from '@/lib/public-api-url';
 
 function toThemeFamilyKey(value: string): ThemeFamilyKey {
   return (THEME_FAMILY_KEYS as readonly string[]).includes(value) ? (value as ThemeFamilyKey) : DEFAULT_THEME_FAMILY;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 /** Expo scheme, see apps/mobile/app.json "scheme". */
 const MOBILE_APP_SCHEME = 'platform';
 
@@ -48,7 +48,7 @@ interface ScheduleItem {
 }
 
 async function embedFetch<T>(slug: string, path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}/public/studios/${encodeURIComponent(slug)}/embed/${path}`, {
+  const res = await fetch(`${publicApiBaseUrl()}/public/studios/${encodeURIComponent(slug)}/embed/${path}`, {
     ...init,
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   });
@@ -187,7 +187,7 @@ export default function EmbedBookingPage() {
         ? t('embed.leadInterest.withSchedule', { service: serviceTypeName(selectedSchedule.serviceTypeId), time: formatTime(selectedSchedule.startTime, locale) }) +
           (selectedSchedule.branchId ? t('embed.leadInterest.withBranch', { branch: branchName(selectedSchedule.branchId) }) : '')
         : t('embed.leadInterest.noSchedule');
-      await fetch(`${API_BASE_URL}/public/studios/${encodeURIComponent(slug)}/leads`, {
+      await fetch(`${publicApiBaseUrl()}/public/studios/${encodeURIComponent(slug)}/leads`, {
         method: 'POST',
         // X-PW-VID links this visitor's tracked visits to the new contact (only present after consent).
         headers: { 'Content-Type': 'application/json', ...trackingHeaders() },

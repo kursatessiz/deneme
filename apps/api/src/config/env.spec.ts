@@ -54,4 +54,24 @@ describe('validateEnv', () => {
     expect(validateEnv({ ...prod }).ANTHROPIC_API_KEY).toBeUndefined();
     expect(() => validateEnv({ ...base, ANTHROPIC_API_KEY: 'short' })).toThrow(/ANTHROPIC_API_KEY/);
   });
+
+  it('treats empty values (compose passes unset keys as KEY: ${KEY:-}) as unset', () => {
+    const env = validateEnv({
+      ...base,
+      NETGSM_USER: '',
+      STRIPE_SECRET_KEY: '',
+      PAYMENT_PROVIDER: '',
+      PUSH_PROVIDER: '',
+      JITSI_BASE_URL: '',
+      SMS_PROVIDER_LOW_BALANCE_THRESHOLD: '',
+      INTEGRATION_ENCRYPTION_KEY: '',
+    });
+    expect(env.NETGSM_USER).toBeUndefined();
+    expect(env.STRIPE_SECRET_KEY).toBeUndefined();
+    expect(env.PAYMENT_PROVIDER).toBe('MOCK');
+    expect(env.PUSH_PROVIDER).toBe('MOCK');
+    expect(env.JITSI_BASE_URL).toBe('https://meet.jit.si');
+    expect(env.SMS_PROVIDER_LOW_BALANCE_THRESHOLD).toBe(500);
+    expect(env.INTEGRATION_ENCRYPTION_KEY).toBeUndefined();
+  });
 });

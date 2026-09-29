@@ -7,7 +7,8 @@ import { DnsVerificationService } from './dns.service';
 
 /** Base domain tenant sites are served on as `<slug>.<SITES_DOMAIN>`. */
 export function sitesBaseDomain(): string {
-  return process.env.SITES_DOMAIN ?? process.env.WEB_DOMAIN ?? 'localhost';
+  // `||`: an empty value (compose passes unset keys as '') means unset.
+  return process.env.SITES_DOMAIN || process.env.WEB_DOMAIN || 'localhost';
 }
 
 /** The CNAME target a custom domain must point at (Caddy's public host). */
