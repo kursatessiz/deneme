@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { ChurnListResponseDTO, ChurnMemberSummaryDTO, ChurnRiskLevel, ChurnSummaryDTO } from '@platform/shared';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
-import { useLocale } from '@/components/i18n/I18nProvider';
+import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { PageGuard } from '@/components/common/PageGuard';
 import { PermissionButton } from '@/components/common/PermissionButton';
@@ -13,7 +13,6 @@ import { BranchSelect } from '@/components/common/BranchSelect';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { ChurnSummaryTiles } from '@/components/churn/ChurnSummaryTiles';
 
-const LEVEL_LABEL: Record<string, string> = { HIGH: 'Yüksek', MEDIUM: 'Orta', LOW: 'Düşük' };
 const LEVEL_TONE: Record<string, 'danger' | 'warning' | 'neutral'> = { HIGH: 'danger', MEDIUM: 'warning', LOW: 'neutral' };
 
 const selectStyle: React.CSSProperties = {
@@ -24,6 +23,7 @@ const selectStyle: React.CSSProperties = {
 };
 
 function ContactedDialog({ studioId, member, onClose, onDone }: { studioId: string; member: ChurnMemberSummaryDTO; onClose: () => void; onDone: () => void }) {
+  const t = useT();
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +31,7 @@ function ContactedDialog({ studioId, member, onClose, onDone }: { studioId: stri
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!note.trim()) {
-      setError('Not giriniz');
+      setError(t('churn.contactedDialog.noteRequired'));
       return;
     }
     setSubmitting(true);
@@ -40,23 +40,29 @@ function ContactedDialog({ studioId, member, onClose, onDone }: { studioId: stri
       await bffFetch(`churn/studio/${studioId}/members/${member.memberId}/contacted`, { method: 'POST', studioId, body: { note: note.trim() } });
       onDone();
     } catch (err) {
-      setError(err instanceof BffError ? err.message : 'İşlenemedi');
+      setError(err instanceof BffError ? err.message : t('churn.contactedDialog.errors.saveFailed'));
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <Modal title={`${member.firstName} ${member.lastName} - Görüşüldü`} onClose={onClose}>
+    <Modal title={t('churn.contactedDialog.title', { name: `${member.firstName} ${member.lastName}` })} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-3">
-        <textarea placeholder="Görüşme notu" value={note} onChange={(e) => setNote(e.target.value)} className="w-full text-sm px-3 py-1.5" style={{ ...selectStyle, minHeight: 70 }} />
+        <textarea
+          placeholder={t('churn.contactedDialog.notePlaceholder')}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          className="w-full text-sm px-3 py-1.5"
+          style={{ ...selectStyle, minHeight: 70 }}
+        />
         {error && <p className="text-xs text-red-600">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <PermissionButton type="button" variant="ghost" onClick={onClose}>
-            Vazgeç
+            {t('common.cancel')}
           </PermissionButton>
           <PermissionButton required={['members.manage']} type="submit" variant="primary" disabled={submitting}>
-            {submitting ? 'Kaydediliyor...' : 'Kaydet'}
+            {submitting ? t('common.saving') : t('common.save')}
           </PermissionButton>
         </div>
       </form>
@@ -65,6 +71,7 @@ function ContactedDialog({ studioId, member, onClose, onDone }: { studioId: stri
 }
 
 function ChurnList() {
+  const t = useT();
   const locale = useLocale();
   const { activeStudioId } = useDashboardSession();
   const [level, setLevel] = useState<ChurnRiskLevel | ''>('');
@@ -98,10 +105,11 @@ function ChurnList() {
     const timer = setTimeout(() => {
       bffFetch<ChurnListResponseDTO>(`churn/studio/${activeStudioId}/members?${params.toString()}`, { studioId: activeStudioId })
         .then((res) => setMembers(res.items))
-        .catch((err) => setError(err instanceof BffError ? err.message : 'Riskli üyeler yüklenemedi'))
+        .catch((err) => setError(err instanceof BffError ? err.message : t('churn.errors.loadFailed')))
         .finally(() => setLoading(false));
     }, 250);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStudioId, level, branchId, includeSnoozed, search, reloadKey]);
 
   async function handleSnooze(member: ChurnMemberSummaryDTO, days: number) {
@@ -110,7 +118,7 @@ function ChurnList() {
       await bffFetch(`churn/studio/${activeStudioId}/members/${member.memberId}/snooze`, { method: 'POST', studioId: activeStudioId, body: { days } });
       setReloadKey((k) => k + 1);
     } catch (err) {
-      window.alert(err instanceof BffError ? err.message : 'Ertelenemedi');
+      window.alert(err instanceof BffError ? err.message : t('churn.errors.snoozeFailed'));
     }
   }
 
@@ -120,7 +128,7 @@ function ChurnList() {
       await bffFetch(`churn/studio/${activeStudioId}/recompute`, { method: 'POST', studioId: activeStudioId, body: {} });
       setReloadKey((k) => k + 1);
     } catch (err) {
-      window.alert(err instanceof BffError ? err.message : 'Yeniden hesaplanamadı');
+      window.alert(err instanceof BffError ? err.message : t('churn.errors.recomputeFailed'));
     }
   }
 
@@ -139,18 +147,18 @@ function ChurnList() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-            Riskli üyeler
+            {t('churn.title')}
           </h2>
           <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-            Ayrılma riski yüksek üyeler ve nedenleri
+            {t('churn.subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <a href={exportHref} className="text-xs font-medium px-3 py-1.5" style={{ ...selectStyle, background: 'var(--color-surface-muted)' }}>
-            CSV indir
+            {t('churn.downloadCsv')}
           </a>
           <PermissionButton required={['members.manage']} onClick={handleRecompute}>
-            Yeniden hesapla
+            {t('churn.recompute')}
           </PermissionButton>
         </div>
       </div>
@@ -159,28 +167,28 @@ function ChurnList() {
 
       <div className="flex flex-wrap items-center gap-2">
         <input
-          placeholder="Ad, soyad ara..."
+          placeholder={t('churn.searchPlaceholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="text-sm px-3 py-1.5 flex-1 min-w-[200px]"
           style={selectStyle}
         />
         <select value={level} onChange={(e) => setLevel(e.target.value as ChurnRiskLevel | '')} className="text-xs px-2.5 py-1.5" style={selectStyle}>
-          <option value="">Tüm seviyeler</option>
-          <option value="HIGH">Yüksek</option>
-          <option value="MEDIUM">Orta</option>
-          <option value="LOW">Düşük</option>
+          <option value="">{t('churn.allLevels')}</option>
+          <option value="HIGH">{t('churn.level.HIGH')}</option>
+          <option value="MEDIUM">{t('churn.level.MEDIUM')}</option>
+          <option value="LOW">{t('churn.level.LOW')}</option>
         </select>
         <BranchSelect value={branchId} onChange={setBranchId} />
         <label className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
           <input type="checkbox" checked={includeSnoozed} onChange={(e) => setIncludeSnoozed(e.target.checked)} />
-          Ertelenmişleri de göster
+          {t('churn.showSnoozed')}
         </label>
       </div>
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
-      {!loading && !error && (!members || members.length === 0) && <EmptyState title="Riskli üye bulunamadı" description="Seçili filtrelere uyan üye yok." />}
+      {!loading && !error && (!members || members.length === 0) && <EmptyState title={t('churn.empty.title')} description={t('churn.empty.description')} />}
 
       {!loading && !error && members && members.length > 0 && (
         <div className="space-y-2">
@@ -191,10 +199,10 @@ function ChurnList() {
                   <a href={`/members/${m.memberId}`} className="font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
                     {m.firstName} {m.lastName}
                   </a>
-                  <Badge tone={LEVEL_TONE[m.level]}>{LEVEL_LABEL[m.level]}</Badge>
+                  <Badge tone={LEVEL_TONE[m.level]}>{t(`churn.level.${m.level}`)}</Badge>
                   <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    Puan: {m.score}
-                    {m.previousScore !== null && m.previousScore !== m.score ? ` (önceki ${m.previousScore})` : ''}
+                    {t('churn.score', { score: m.score })}
+                    {m.previousScore !== null && m.previousScore !== m.score ? t('churn.previousScore', { score: m.previousScore }) : ''}
                   </span>
                 </div>
                 <ul className="text-xs mt-1 space-y-0.5" style={{ color: 'var(--color-text-secondary)' }}>
@@ -204,16 +212,16 @@ function ChurnList() {
                 </ul>
                 {m.contactedAt && (
                   <div className="text-[11px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                    Son görüşme: {new Date(m.contactedAt).toLocaleDateString(locale)}
+                    {t('churn.lastContact', { date: new Date(m.contactedAt).toLocaleDateString(locale) })}
                   </div>
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <PermissionButton required={['members.manage']} onClick={() => setContactingMember(m)}>
-                  Görüşüldü
+                  {t('churn.contacted')}
                 </PermissionButton>
                 <PermissionButton required={['members.manage']} onClick={() => handleSnooze(m, 14)}>
-                  14 gün ertele
+                  {t('churn.snooze14')}
                 </PermissionButton>
               </div>
             </div>

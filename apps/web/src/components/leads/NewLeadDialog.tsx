@@ -3,17 +3,9 @@
 import { useState } from 'react';
 import { LeadSource } from '@platform/shared';
 import { bffFetch, BffError } from '@/lib/session/client';
+import { useT } from '@/components/i18n/I18nProvider';
 import { PermissionButton } from '@/components/common/PermissionButton';
 import { Modal } from '@/components/common/Modal';
-
-const SOURCE_LABEL: Record<string, string> = {
-  WEB_FORM: 'Web formu',
-  INSTAGRAM: 'Instagram',
-  WALK_IN: 'Kapıdan gelen',
-  REFERRAL: 'Tavsiye',
-  PHONE: 'Telefon',
-  OTHER: 'Diğer',
-};
 
 const inputStyle: React.CSSProperties = {
   borderRadius: 'var(--radius-input)',
@@ -23,6 +15,7 @@ const inputStyle: React.CSSProperties = {
 };
 
 export function NewLeadDialog({ studioId, onClose, onDone }: { studioId: string; onClose: () => void; onDone: () => void }) {
+  const t = useT();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -34,7 +27,7 @@ export function NewLeadDialog({ studioId, onClose, onDone }: { studioId: string;
     e.preventDefault();
     setError(null);
     if (fullName.trim().length < 2 || phone.trim().length < 6) {
-      setError('Ad soyad ve telefon giriniz');
+      setError(t('leads.newDialog.validation'));
       return;
     }
     setSubmitting(true);
@@ -46,32 +39,50 @@ export function NewLeadDialog({ studioId, onClose, onDone }: { studioId: string;
       });
       onDone();
     } catch (err) {
-      setError(err instanceof BffError ? err.message : 'Aday oluşturulamadı');
+      setError(err instanceof BffError ? err.message : t('leads.newDialog.errors.createFailed'));
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <Modal title="Yeni aday" onClose={onClose}>
+    <Modal title={t('leads.newDialog.title')} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-3">
-        <input placeholder="Ad soyad" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full text-sm px-3 py-1.5" style={inputStyle} />
-        <input placeholder="Telefon" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full text-sm px-3 py-1.5" style={inputStyle} />
-        <input placeholder="E-posta (opsiyonel)" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full text-sm px-3 py-1.5" style={inputStyle} />
+        <input
+          placeholder={t('leads.newDialog.fullNamePlaceholder')}
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          className="w-full text-sm px-3 py-1.5"
+          style={inputStyle}
+        />
+        <input
+          placeholder={t('leads.newDialog.phonePlaceholder')}
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          className="w-full text-sm px-3 py-1.5"
+          style={inputStyle}
+        />
+        <input
+          placeholder={t('leads.newDialog.emailPlaceholder')}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full text-sm px-3 py-1.5"
+          style={inputStyle}
+        />
         <select value={source} onChange={(e) => setSource(e.target.value as LeadSource)} className="w-full text-sm px-3 py-1.5" style={inputStyle}>
           {Object.values(LeadSource).map((s) => (
             <option key={s} value={s}>
-              {SOURCE_LABEL[s] ?? s}
+              {t(`leads.source.${s}`)}
             </option>
           ))}
         </select>
         {error && <p className="text-xs text-red-600">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <PermissionButton type="button" variant="ghost" onClick={onClose}>
-            Vazgeç
+            {t('common.cancel')}
           </PermissionButton>
           <PermissionButton required={['leads.manage']} type="submit" variant="primary" disabled={submitting}>
-            {submitting ? 'Oluşturuluyor...' : 'Oluştur'}
+            {submitting ? t('leads.newDialog.creating') : t('common.create')}
           </PermissionButton>
         </div>
       </form>

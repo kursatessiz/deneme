@@ -3,6 +3,7 @@ import { trAds } from './tr/ads';
 import { trAuth } from './tr/auth';
 import { trCalendar } from './tr/calendar';
 import { trCampaigns } from './tr/campaigns';
+import { trChurn } from './tr/churn';
 import { trJourneys } from './tr/journeys';
 import { trSegments } from './tr/segments';
 import { trCommon } from './tr/common';
@@ -11,6 +12,7 @@ import { trCrm } from './tr/crm';
 import { trFinance } from './tr/finance';
 import { trLanguage } from './tr/language';
 import { trLayout } from './tr/layout';
+import { trLeads } from './tr/leads';
 import { trMessaging } from './tr/messaging';
 import { trMsgTpl } from './tr/msgTpl';
 import { trMMessaging } from './tr/mMessaging';
@@ -31,6 +33,7 @@ import { enAds } from './en/ads';
 import { enAuth } from './en/auth';
 import { enCalendar } from './en/calendar';
 import { enCampaigns } from './en/campaigns';
+import { enChurn } from './en/churn';
 import { enJourneys } from './en/journeys';
 import { enSegments } from './en/segments';
 import { enCommon } from './en/common';
@@ -39,6 +42,7 @@ import { enCrm } from './en/crm';
 import { enFinance } from './en/finance';
 import { enLanguage } from './en/language';
 import { enLayout } from './en/layout';
+import { enLeads } from './en/leads';
 import { enMessaging } from './en/messaging';
 import { enMsgTpl } from './en/msgTpl';
 import { enMMessaging } from './en/mMessaging';
@@ -73,6 +77,7 @@ export const TR_NAMESPACES = [
   trAuth,
   trCalendar,
   trCampaigns,
+  trChurn,
   trJourneys,
   trSegments,
   trCommon,
@@ -81,6 +86,7 @@ export const TR_NAMESPACES = [
   trFinance,
   trLanguage,
   trLayout,
+  trLeads,
   trMessaging,
   trMsgTpl,
   trMAccount,
@@ -104,6 +110,7 @@ export const EN_NAMESPACES = [
   enAuth,
   enCalendar,
   enCampaigns,
+  enChurn,
   enJourneys,
   enSegments,
   enCommon,
@@ -112,6 +119,7 @@ export const EN_NAMESPACES = [
   enFinance,
   enLanguage,
   enLayout,
+  enLeads,
   enMessaging,
   enMsgTpl,
   enMAccount,
