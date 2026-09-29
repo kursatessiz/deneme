@@ -566,6 +566,20 @@ Migration `20261022000000_marketing_approvals` (yalnızca ekleme: `CampaignStatu
 
 M3b'de yalnızca onayla ilgili alanlar (eşikler ve TTL) davranışa sahiptir; tavanlar, otomatik duraklatma, MQL/SQL ve haftalık özet saklanır ve M3a/M3d'de kullanılır. `marketing_insights` ve `contact_consents` değişiklikleri M3d/M3e'dedir.
 
+## Haftalık özet, ısınma planı ve otomatik duraklatma (M3d)
+
+Migration `20261025000000_marketing_insights` (yalnızca ekleme: `ai_task` enum'una bir değer, `marketing_settings` ve `campaigns` üzerinde birer boş olabilir sütun, bir tablo). Ayrıntılar `docs/PAZARLAMA_MODULU.md` (M3d notları).
+
+| Tablo / sütun | Amaç | Kısıtlar |
+|---|---|---|
+| `marketing_insights` | Kiracının (pratikte platform kiracısı) haftalık pazarlama özeti: `period_start` (haftanın pazartesisi, `DATE`, UTC), `period_end` (pazar, dahil), `kpis` (JSON: toplu göstergeler, kişi verisi yok; kişi sayısı 5 altındaki figürler gizli), `summary` (kısa metin), `actions` (JSON: `[{ title, detail, kpiKey }]`, 3-5 eylem), `ai_usage_id` (üretimi ölçen `ai_usage` satırı, düz kimlik, FK yok; model çağrılmayan sakin haftada boş), `created_at` | `(studio_id, period_start)` benzersiz (bir hafta bir kez); `(studio_id, created_at)` index; studio -> cascade |
+| `marketing_settings.email_warmup_plan` | Isınma planı: gönderici alan adının doğrulandığı günden başlayarak günlük e-posta tavanları `[1. gün, 2. gün, ...]` (JSON, en fazla 90 pozitif tam sayı) | boş olabilir: ısınma yok |
+| `campaigns.pause_reason` | Sistem duraklattıysa nedeni (`AUTO_BOUNCE`, `AUTO_COMPLAINT`); elle duraklatmada, sürdürmede ve iptalde boşaltılır | `VARCHAR(40)`, boş olabilir |
+| `campaign_recipients.reason_code` (M3d değeri) | Günlük tavan yüzünden ertelenen alıcıda `DAILY_EMAIL_CAP` / `DAILY_SMS_CAP` (alıcı `PENDING` kalır, `next_attempt_at` ertesi UTC günü) | mevcut sütun, yeni değer |
+| `email_sender_domains.warmup_started_at` (M3d ile yazılır) | SPF, DKIM ve DMARC ilk kez hepsi `VALID` olduğunda yazılır; ısınma planının 1. günü | mevcut sütun |
+
+`ai_usage.task` `MARKETING_WEEKLY_SUMMARY` değerini alır. Bildirim sınırı (24 saatte bir, ayda bir) için ayrı tablo yoktur: `audit_logs` `marketing.alert.sent` satırları (`entity_id` = `fuse:BOUNCE`, `fuse:COMPLAINT`, `ad_cap:<PARA>:<YYYY-MM>`) okunur.
+
 ## İzin dayanağı ve çift onay (M3e)
 
 Migration `20261024000000_consent_legal_basis` (yalnızca ekleme: bir enum, `contact_consents` üzerinde dört boş olabilir sütun, `contacts.is_business`, `marketing_settings` üzerinde iki varsayılanlı sütun ve bir tablo). Mevcut izin satırlarında yeni sütunlar boştur ve `CONSENT` (onaylanmış) sayılır. Kurallar ayarı olan kiracıda (pratikte platform kiracısı; satırı yoksa varsayılanlar) uygulanır; diğer kiracılarda davranış değişmez. Ayrıntılar `docs/PAZARLAMA_MODULU.md` bölüm 6.4 ve M3e notları.
