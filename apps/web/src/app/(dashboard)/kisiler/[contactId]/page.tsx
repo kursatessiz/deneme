@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { X } from 'lucide-react';
-import type { ContactConsentDTO, ContactDetailDTO, ContactFieldDefinitionDTO, LoyaltyBalanceDTO } from '@platform/shared';
+import { CONSENT_CONFIRMATION_DAILY_MAX } from '@platform/shared';
+import type { ConsentResendResultDTO, ContactConsentDTO, ContactDetailDTO, ContactFieldDefinitionDTO, LoyaltyBalanceDTO } from '@platform/shared';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { PageGuard } from '@/components/common/PageGuard';
@@ -16,6 +17,8 @@ import { hasAnyPermission } from '@/lib/nav';
 import { Muted, Notice, Panel, inputClass, inputStyle, errorMessage, useDateFormat } from '@/components/growth/ui';
 import { stageLabel } from '@/components/growth/crm-labels';
 import { useAreaHref } from '@/components/session/AreaBase';
+import { useOptionalPlatformSession } from '@/components/marketing/PlatformSession';
+import { hasAnyPlatformPermission } from '@/lib/marketing-nav';
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -51,9 +54,21 @@ function ConsentRow({
         </span>
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge tone={granted ? 'success' : 'neutral'}>{t(`crm.card.consent.${consent.status}`)}</Badge>
+          {consent.confirmationPending && <Badge tone="warning">{t('crm.card.consent.pending')}</Badge>}
           {consent.suppressed && <Badge tone="warning">{t('crm.card.consent.suppressed')}</Badge>}
         </div>
       </div>
+      {consent.legalBasis && consent.decidedBy === 'contact' && (
+        <Muted>
+          {[
+            t('crm.card.consent.basis', { basis: t(`crm.card.consent.basis.${consent.legalBasis}`) }),
+            consent.confirmedAt ? t('crm.card.consent.confirmedAt', { date: fmt.dateTime(consent.confirmedAt) }) : null,
+            consent.formVersion ? t('crm.card.consent.formVersion', { version: consent.formVersion }) : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </Muted>
+      )}
       <Muted>
         {`${t(`crm.card.consent.decidedBy.${consent.decidedBy}`)}${consent.source ? ` (${consent.source})` : ''}${
           granted && consent.grantedAt ? `, ${fmt.dateTime(consent.grantedAt)}` : !granted && consent.revokedAt ? `, ${fmt.dateTime(consent.revokedAt)}` : ''
@@ -106,6 +121,10 @@ function ContactCard({ contactId }: { contactId: string }) {
   const [taskDue, setTaskDue] = useState('');
   const [loyalty, setLoyalty] = useState<(LoyaltyBalanceDTO & { membershipId: string | null }) | null>(null);
   const canViewLoyalty = hasAnyPermission(['loyalty.view'], permissions, isOwner);
+  // M3e: resending the double opt-in e-mail is a platform marketing action (only in the marketing panel).
+  const platform = useOptionalPlatformSession();
+  const canResend = platform ? hasAnyPlatformPermission(['platform.marketing.manage'], platform.permissions, platform.isSuperAdmin) : false;
+  const [resendNotice, setResendNotice] = useState<string | null>(null);
 
   const base = `crm/studios/${activeStudioId}`;
   const load = useCallback(() => {
@@ -176,6 +195,24 @@ function ContactCard({ contactId }: { contactId: string }) {
               <DetailRow label={t('crm.card.timezone')} value={contact.timezone ?? t('crm.card.none')} />
               <DetailRow label={t('crm.card.owner')} value={contact.ownerName ?? t('crm.card.none')} />
               <DetailRow label={t('crm.card.sourceChannel')} value={contact.sourceChannel ?? t('crm.card.none')} />
+              <DetailRow
+                label={t('crm.card.business')}
+                value={
+                  <span className="inline-flex items-center gap-2">
+                    {t(contact.isBusiness ? 'crm.card.business.yes' : 'crm.card.business.no')}
+                    {canManage && (
+                      <button
+                        type="button"
+                        className="text-xs underline"
+                        style={{ color: 'var(--color-text-secondary)' }}
+                        onClick={() => act(() => bffFetch(`${base}/contacts/${contact.id}`, { method: 'PATCH', studioId: activeStudioId, body: { isBusiness: !contact.isBusiness } }))}
+                      >
+                        {t(contact.isBusiness ? 'crm.card.business.unmark' : 'crm.card.business.mark')}
+                      </button>
+                    )}
+                  </span>
+                }
+              />
               <DetailRow label={t('crm.contacts.col.createdAt')} value={fmt.date(contact.createdAt)} />
               {loyalty && loyalty.enabled && loyalty.membershipId && (
                 <DetailRow label={t('loyalty.contact.balance')} value={t('loyalty.points', { count: loyalty.balance })} />
@@ -253,6 +290,25 @@ function ContactCard({ contactId }: { contactId: string }) {
                 />
               ))}
             </ul>
+            {canResend && contact.consents.some((c) => c.confirmationPending) && (
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    act(async () => {
+                      setResendNotice(null);
+                      const res = await bffFetch<ConsentResendResultDTO>(`platform/marketing/contacts/${contact.id}/resend-confirmation`, { method: 'POST' });
+                      setResendNotice(t('crm.card.consent.resent', { count: res.sentToday }));
+                    })
+                  }
+                  className="text-xs font-medium px-3 py-2"
+                  style={{ ...inputStyle, borderRadius: 'var(--radius-button)' }}
+                >
+                  {t('crm.card.consent.resend')}
+                </button>
+                <Muted>{resendNotice ?? t('crm.card.consent.resendLimit', { max: CONSENT_CONFIRMATION_DAILY_MAX })}</Muted>
+              </div>
+            )}
           </Panel>
         </div>
 

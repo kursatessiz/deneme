@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { resolveBlockText } from '@platform/shared';
+import { leadFormConsentVersion, resolveBlockText } from '@platform/shared';
 import type { BlockDTO, PublicPageContext, Translate } from '@platform/shared';
 import { formatMoney } from '@/lib/money';
 import { LeadFormBlock } from './LeadFormBlock';
@@ -265,8 +265,9 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
     }
 
     case 'lead_form': {
-      const t = text<{ title?: string; submitLabel?: string; consentText?: string }>(block.data, ctx);
-      const cfg = (block.data as { config?: { fields?: string[] } })?.config;
+      const t = text<{ title?: string; submitLabel?: string; consentText?: string; marketingConsentText?: string }>(block.data, ctx);
+      const cfg = (block.data as { config?: { fields?: string[]; marketingConsent?: boolean } })?.config;
+      const marketingText = cfg?.marketingConsent ? t?.marketingConsentText || ctx.t('sites.leadForm.marketingConsent') : null;
       return (
         <section style={{ ...container, borderTop: '1px solid var(--color-border)' }} id={contactAnchorId(ctx.locale)}>
           <LeadFormBlock
@@ -275,6 +276,8 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
             title={t?.title}
             submitLabel={t?.submitLabel}
             consentText={t?.consentText}
+            marketingConsent={marketingText ? { text: marketingText, formVersion: leadFormConsentVersion(ctx.locale, marketingText) } : undefined}
+            locale={ctx.locale}
             i18n={{
               fullName: ctx.t('sites.leadForm.fullName'),
               phone: ctx.t('sites.leadForm.phone'),

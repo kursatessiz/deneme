@@ -746,7 +746,7 @@ export const PublicLeadFormSchema = z.object({
     .regex(/^[A-Za-z0-9._:-]{1,60}$/, 'Geçersiz form sürümü')
     .optional(),
   /** Page language, for the confirmation e-mail. */
-  locale: z.string().trim().regex(/^[a-z]{2}(-[A-Z]{2})?$/).optional(),
+  locale: z.string().trim().regex(/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})?$/).optional(),
   /**
    * Honeypot: a hidden field real visitors never fill in. Deliberately not
    * constrained to be empty here -- rejecting it at validation would answer

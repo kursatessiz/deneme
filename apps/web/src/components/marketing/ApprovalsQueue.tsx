@@ -311,6 +311,20 @@ function ApprovalDrawer({ request, onClose, onChanged }: { request: ApprovalRequ
               {t('marketingApprovals.detail.newCountries')}: {s.newCountries.map((c) => fmt.country(c) ?? c).join(', ')}
             </p>
           )}
+          {s.legalBases && Object.keys(s.legalBases).length > 0 && (
+            <>
+              <p className="text-xs pt-1" style={{ color: 'var(--color-text-muted)' }}>
+                {t('marketingApprovals.detail.legalBases')}
+              </p>
+              <ul className="flex flex-wrap gap-2">
+                {Object.entries(s.legalBases).map(([basis, n]) => (
+                  <li key={basis}>
+                    <Badge>{`${t(`crm.card.consent.basis.${basis}`)}: ${fmt.number(n ?? 0)}`}</Badge>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </Block>
 
         <Block title={t('marketingApprovals.detail.cost')}>

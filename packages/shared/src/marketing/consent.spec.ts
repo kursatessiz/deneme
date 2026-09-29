@@ -20,6 +20,8 @@ import { PRECHECK_FINDING_CODES } from './approvals';
 import { UpdateMarketingSettingsSchema, MARKETING_SETTINGS_DEFAULTS } from './settings';
 import { BASE_MESSAGES, BUNDLED_MESSAGES } from '../i18n/messages';
 import { TRANSLATED_API_ERROR_CODES } from '../billing';
+import { leadFormConsentVersion } from '../sites/blocks';
+import { PublicLeadFormSchema } from '../validators';
 
 const POLICY: ConsentPolicy = { doubleOptInRegions: ['EU', 'UK'], trMerchantExemptionEnabled: false };
 const POLICY_EXEMPT: ConsentPolicy = { ...POLICY, trMerchantExemptionEnabled: true };
@@ -211,5 +213,16 @@ describe('reason codes and translations', () => {
     expect(CONSENT_CONFIRMATION_TOKEN_PATTERN.test('A'.repeat(43))).toBe(true);
     expect(CONSENT_CONFIRMATION_TOKEN_PATTERN.test('A'.repeat(42))).toBe(false);
     expect(CONSENT_CONFIRMATION_TOKEN_PATTERN.test(`${'A'.repeat(42)}=`)).toBe(false);
+  });
+});
+
+describe('lead form consent version', () => {
+  it('is deterministic, changes with the wording and fits the form schema', () => {
+    const a = leadFormConsentVersion('tr', 'Haber ve teklifleri almak istiyorum.');
+    expect(a).toBe(leadFormConsentVersion('tr', 'Haber ve teklifleri almak istiyorum.'));
+    expect(a).toMatch(/^lf-tr-[0-9a-f]{8}$/);
+    expect(leadFormConsentVersion('tr', 'Haber ve teklifleri almak istiyorum!')).not.toBe(a);
+    expect(leadFormConsentVersion('en', 'Haber ve teklifleri almak istiyorum.')).not.toBe(a);
+    expect(PublicLeadFormSchema.shape.formVersion.safeParse(a).success).toBe(true);
   });
 });
