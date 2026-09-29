@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { WebhooksModule } from '../webhooks/webhooks.module';
 import { AuthModule } from '../auth/auth.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { CrmCoreModule } from '../crm/crm-core.module';
@@ -17,7 +18,7 @@ import { EventsJobsService } from './events-jobs.service';
  * global.
  */
 @Module({
-  imports: [AuthModule, PaymentsModule, CrmCoreModule, LoyaltyCoreModule, EventsCoreModule],
+  imports: [AuthModule, PaymentsModule, CrmCoreModule, LoyaltyCoreModule, EventsCoreModule, WebhooksModule],
   controllers: [EventsSelfController, EventsController, EventsPublicController],
   providers: [EventsService, EventRegistrationsService, EventsJobsService, EventsPublicRateLimitGuard],
   exports: [EventsJobsService],

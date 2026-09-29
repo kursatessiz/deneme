@@ -246,7 +246,16 @@ export class RetailSalesService {
       await this.crm?.onPaymentCompleted(studioId, paymentId);
       await this.safeEmit(studioId, 'payment.completed', { paymentId });
     }
-    return { ...(await this.getSale(tenant, saleId)), duplicate: false };
+    const created = await this.getSale(tenant, saleId);
+    // Automation hook (G3c-3): one event per desk sale, with or without a payment row.
+    await this.safeEmit(studioId, 'retail.sale.completed', {
+      saleId,
+      receiptNumber: created.receiptNumber,
+      total: created.total,
+      currency: created.currency,
+      paymentId,
+    });
+    return { ...created, duplicate: false };
   }
 
   // -- Refunds --------------------------------------------------------------
@@ -564,7 +573,7 @@ export class RetailSalesService {
     };
   }
 
-  private async safeEmit(studioId: string, event: 'payment.completed' | 'payment.refunded', payload: Record<string, unknown>): Promise<void> {
+  private async safeEmit(studioId: string, event: 'payment.completed' | 'payment.refunded' | 'retail.sale.completed', payload: Record<string, unknown>): Promise<void> {
     try {
       await this.webhooks.emit(studioId, event, payload);
     } catch (err) {

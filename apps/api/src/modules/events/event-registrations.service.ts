@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, Optional } from '@nestjs/common';
 import { PaymentMethod, PaymentProvider, PaymentStatus, Prisma } from '@platform/database';
 import type { Event, EventRegistration, EventTicketType } from '@platform/database';
 import {
@@ -40,6 +40,7 @@ import { ContactsService } from '../crm/contacts/contacts.service';
 import { AttributionService } from '../crm/attribution/attribution.service';
 import { ConversionService } from '../crm/conversions/conversion.service';
 import { LoyaltyEarnService } from '../loyalty/loyalty-earn.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { assertBranchAccess } from '../branches/branch-access';
 import { toCsv } from '../../common/csv';
@@ -99,6 +100,7 @@ export class EventRegistrationsService {
     private readonly attribution: AttributionService,
     private readonly conversions: ConversionService,
     private readonly loyalty: LoyaltyEarnService,
+    @Optional() private readonly webhooks?: WebhooksService,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -265,6 +267,17 @@ export class EventRegistrationsService {
     } else if (created.status === 'PENDING_PAYMENT') {
       await this.seats.notify(created.id, EVENT_TEMPLATE_KEYS.paymentDue, `event-payment-due:${created.id}`);
     }
+    // Automation hook (G3c-3); best effort, never breaks the registration.
+    await this.webhooks?.emit(studioId, 'event.registration.created', {
+      registrationId: created.id,
+      eventId: created.eventId,
+      ticketTypeId: created.ticketTypeId,
+      status: created.status,
+      memberId: created.memberId,
+      contactId: created.contactId,
+      amountDue: created.amountDue.toFixed(2),
+      currency: created.currency,
+    });
     return { registrationId: created.id, duplicate: false };
   }
 

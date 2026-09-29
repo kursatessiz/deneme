@@ -51,6 +51,10 @@ sayaç, yoksa tek örnek bellek içi sayaç), aşımda `429 Too Many Requests`.
 | `GET /v1/public/bookings?page&pageSize&branchId&scheduleId` | `bookings.read` | Sayfalı liste |
 | `POST /v1/public/bookings` | `bookings.write` | `{ scheduleId, memberPhone, memberPackageId?, resourceIds? }` -- mevcut, aktif bir üye için rezervasyon oluşturur |
 | `POST /v1/public/bookings/:bookingId/cancel` | `bookings.write` | `{ reason? }` |
+| `GET /v1/public/me` | (yalnızca geçerli anahtar) | Bağlantı testi: işletme adı ve anahtarın yetki alanları (`docs/ZAPIER.md`) |
+| `POST /v1/public/hooks` | `webhooks.manage` | REST hook aboneliği: `{ targetUrl, event }` (`docs/ZAPIER.md`) |
+| `DELETE /v1/public/hooks/:id` | `webhooks.manage` | Aboneliği siler |
+| `GET /v1/public/hooks/samples/:event` | (yalnızca geçerli anahtar) | Olay için örnek teslimat yükü |
 
 Rezervasyon kuralları (kapasite, hak/kredi düşümü, iptal politikası) mevcut
 `SchedulesService.bookSession()` / `cancelBooking()` üzerinden **aynen**
@@ -83,7 +87,9 @@ nokta tanımlar: `{ url, events, isActive? }`.
   adresleri reddedilir.
 - Olaylar (`packages/shared/src/open-platform.ts` -> `WEBHOOK_EVENTS`):
   `booking.created`, `booking.cancelled`, `booking.attended`,
-  `member.created`, `payment.completed`, `payment.refunded`.
+  `member.created`, `payment.completed`, `payment.refunded`; G3c-3 ile
+  `lead.created`, `event.registration.created`, `retail.sale.completed`
+  eklendi (yük örnekleri ve Zapier bağlantısı: `docs/ZAPIER.md`).
 - Gizli anahtar (`secret`) yalnızca oluşturma ve `rotate-secret` anında bir
   kez döner.
 
