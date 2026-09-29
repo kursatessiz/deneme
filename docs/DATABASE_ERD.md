@@ -552,6 +552,15 @@ Migration `20261015000000_error_reporting`; ayrıntılar `docs/HATA_RAPORLAMA.md
 | `error_events` | Tek bir kayıt (temizlenmiş): kısa hata kodu, kaynak, önem, sürüm, ortam, konum, istek kimliği, `studio_id` (yalnızca kimliği doğrulanmış bağlamdan), `user_id_hash` (tuzlu sha256, ham kimlik asla), mesaj, yığın izi, adımlar (breadcrumbs), HTTP durumu | id = raporlayanın olay kimliği (tekrar gönderim idempotent); grup -> cascade; (group_id, occurred_at), (code), (occurred_at) index; grup başına son 50 kayıt, 30 gün saklama |
 | `error_group_studios` | Grup başına işletme sayaçları: tekrar, ilk/son görülme, son hata kodu (işletme sahibi görünümü ve kesin etkilenen işletme sayısı) | (group_id, studio_id) birincil anahtar; grup ve stüdyo -> cascade; (studio_id, last_seen_at) index |
 
+## Yedekler (D2)
+
+Migration `20261018000000_backup_runs` (yalnızca ekleme: iki enum, iki tablo); ayrıntılar `docs/YEDEKLER.md`.
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `backup_settings` | Tek satırlık platform ayarı (`id = 'platform'`): günlük zamanlama açık/kapalı, saat (UTC, `SS:DD`), uzak depo saklama günü (0 = kapalı), çalışma kilidi (`lock_run_id`, `locked_at`), son düzenleyen | Kilit koşullu güncellemeyle alınır: aynı anda tek yedek; 3 saatten eski kilit terk edilmiş sayılır |
+| `backup_runs` | API'nin aldığı her yedek: durum (`BackupRunStatus`: RUNNING/SUCCEEDED/FAILED), tetikleyen (`BackupTrigger`: MANUAL/SCHEDULED), başlangıç/bitiş, şifreli boyut, nesne anahtarı, sha256, doğrulama zamanı, hata, isteyen kullanıcı | (started_at) ve (trigger, started_at) index. Kiracı sütunu yoktur (platform verisi, yalnızca süper admin); `requested_by_user_id` yabancı anahtar değildir. Sunucu cron'unun yedekleri burada değil, dosya olarak görünür |
+
 ## Veritabanı Tarafından Zorunlu Kılınan Kurallar
 
 1. **Rezervasyon Kaynağı Dışlama (Booking Resource Exclusion)** (`booking_resources_no_overlap`): Tek kapasiteli kaynaklar (capacity=1) çakışan aktif rezervasyonlara sahip olamaz. PostgreSQL exclusion constraint (btree_gist) ile (resource_id WITH =, tsrange(start_time, end_time) WITH &&) WHERE is_active AND exclusive üzerinde uygulanır.

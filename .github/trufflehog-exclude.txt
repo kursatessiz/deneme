@@ -1,1 +1,2 @@
 (^|/)\.env\.example$
+^apps/api/src/modules/backups/backups\.spec\.ts$

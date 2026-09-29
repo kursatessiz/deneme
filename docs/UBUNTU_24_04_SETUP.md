@@ -149,11 +149,10 @@ oluşturun (`node dist/cli/bootstrap.js ...`, bkz. `docs/CICD_GUIDE.md` bölüm 
 
 ## 6. Otomatik günlük yedeklemeler
 
-Ayrı bir cron girdisi eklemeyin: `server-init.sh` günlük yedeği zaten
-`/etc/cron.d/app-backup` olarak kurar (her gün 02:30, deploy kullanıcısıyla, çıktı
-`/opt/app/deploy.log`). `deploy.sh` de her deploy'dan önce bir yedek alır. İkinci bir cron
-girdisi (örneğin `crontab -e` ile) aynı veritabanını gereksiz yere iki kez döker.
-
-Yerel kopyalar `/opt/app/backups/` altında 14 gün tutulur. `.env` içinde `BACKUP_S3_BUCKET`
-doluysa her dump şifrelenip S3 uyumlu nesne depolamaya da yüklenir. Kurulum, saklama süresi ve
-geri yükleme adımları: `docs/CICD_GUIDE.md` bölüm 5a.
+Yedekler süper admin panelindeki **Yedekler** sayfasından (`/admin/yedekler`) yönetilir: API her
+gün şifreli bir yedeği S3 uyumlu depoya yükler, panel yedekleri listeler, doğrular ve gecikmede
+e-posta ile uyarır. Sunucu tarafında `server-init.sh`, yedek (fallback) olarak
+`/etc/cron.d/app-backup` ile `deploy/scripts/backup.sh`'ı her gün 02:30'da çalıştırır (`deploy` kullanıcısıyla, çıktı `/opt/app/deploy.log`); betik
+`pg_dump` çıktısını gzip ile `/opt/app/backups/` içine koyar, 14 günden eski dump'ları siler ve
+`BACKUP_S3_BUCKET` tanımlıysa şifreli bir kopyayı uzak depoya yükler. Elle ayrı bir crontab
+satırı eklemeyin. Kurulum, ortam değişkenleri ve geri yükleme: `docs/YEDEKLER.md`.

@@ -1,7 +1,7 @@
 /** Super-admin System Health (Sistem Sağlığı) screen. */
 export const trAdminHealth = {
   'adminHealth.title': 'Sistem Sağlığı',
-  'adminHealth.subtitle': 'Veritabanı, kuyruk, zamanlayıcı ve SMS sağlayıcı durumu',
+  'adminHealth.subtitle': 'Veritabanı, kuyruk, zamanlayıcı, SMS sağlayıcı ve yedek durumu',
   'adminHealth.database.title': 'Veritabanı',
   'adminHealth.database.healthy': 'Sağlıklı',
   'adminHealth.database.error': 'Hata',
@@ -23,4 +23,12 @@ export const trAdminHealth = {
   'adminHealth.smsProvider.error': 'Hata',
   'adminHealth.smsProvider.summary': 'Sağlayıcı: {provider} · Bakiye: {balance} · Eşik: {threshold} · Son kontrol: {checkedAt}',
   'adminHealth.smsProvider.neverChecked': 'Henüz kontrol edilmedi (zamanlayıcı ilk çalıştığında eklenir)',
+  'adminHealth.backup.title': 'Veritabanı Yedekleri',
+  'adminHealth.backup.ok': 'Güncel',
+  'adminHealth.backup.stale': 'Gecikmiş',
+  'adminHealth.backup.error': 'Hata',
+  'adminHealth.backup.notConfigured': 'Yapılandırılmamış',
+  'adminHealth.backup.summary': 'Son başarılı yedek: {value} · Eşik: {threshold} saat',
+  'adminHealth.backup.never': 'hiç yok',
+  'adminHealth.backup.link': 'Yedekleri aç',
 } as const satisfies Record<string, string>;

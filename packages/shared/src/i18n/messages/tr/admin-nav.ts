@@ -10,6 +10,7 @@ export const trAdminNav = {
   'adminNav.languages': 'Diller',
   'adminNav.benchmark': 'Karşılaştırma',
   'adminNav.health': 'Sistem Sağlığı',
+  'adminNav.backups': 'Yedekler',
   'adminNav.layout.kicker': 'Platform Yönetimi',
   'adminNav.layout.title': 'Süper Admin Paneli',
   'adminNav.layout.signedInAs': '{firstName} {lastName} olarak oturum açtınız',

@@ -19,6 +19,7 @@ import { AdminBenchmarkService } from './admin-benchmark.service';
 import { AdminHealthController } from './admin-health.controller';
 import { AdminHealthService } from './admin-health.service';
 import { BillingModule } from '../billing/billing.module';
+import { BackupsModule } from '../backups/backups.module';
 
 /**
  * Platform-owner (super-admin) panel: backlog 4.1-4.3. Every controller in
@@ -29,7 +30,7 @@ import { BillingModule } from '../billing/billing.module';
  * here, so tenant-facing modules do not need to import this whole module.
  */
 @Module({
-  imports: [InvitesModule, JobsModule, CrmCoreModule, BillingModule],
+  imports: [InvitesModule, JobsModule, CrmCoreModule, BillingModule, BackupsModule],
   controllers: [
     AdminTenantsController,
     AdminPlansController,

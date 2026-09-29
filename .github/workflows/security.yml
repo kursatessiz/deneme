@@ -44,6 +44,9 @@ jobs:
         with:
           # .env.example files are templates with placeholder credentials;
           # real values live only in the untracked .env on the server.
+          # backups.spec.ts holds a made-up database URL fixture; a PR range
+          # keeps the unannotated line in earlier commits, so a path exclude
+          # is needed (one regex per line, no comments in the file).
           extra_args: --results=verified,unknown --exclude-paths=.github/trufflehog-exclude.txt
 
   workflows:

@@ -112,6 +112,22 @@ services:
       ERROR_CLIENT_SAMPLE_RATE: ${ERROR_CLIENT_SAMPLE_RATE:-}
       ERROR_ALERT_COOLDOWN_MINUTES: ${ERROR_ALERT_COOLDOWN_MINUTES:-}
       ERROR_ALERTS_ENABLED: ${ERROR_ALERTS_ENABLED:-}
+      # D2 backups from the super admin panel (docs/YEDEKLER.md): the same
+      # off-site settings backup.sh uses, and the host backup directory
+      # mounted read-only (listing only).
+      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
+      BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+      BACKUP_S3_REGION: ${BACKUP_S3_REGION:-}
+      BACKUP_S3_PREFIX: ${BACKUP_S3_PREFIX:-db}
+      BACKUP_S3_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY_ID:-}
+      BACKUP_S3_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_ACCESS_KEY:-}
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:-}
+      BACKUP_STALE_HOURS: ${BACKUP_STALE_HOURS:-26}
+      BACKUP_DOWNLOAD_URL_TTL_SECONDS: ${BACKUP_DOWNLOAD_URL_TTL_SECONDS:-}
+      BACKUP_PG_DUMP_PATH: ${BACKUP_PG_DUMP_PATH:-}
+      BACKUP_LOCAL_DIR: /var/backups/app
+    volumes:
+      - ./backups:/var/backups/app:ro
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }

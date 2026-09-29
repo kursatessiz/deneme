@@ -58,6 +58,7 @@ caddy_config/
 
 # Backups (database dumps only; Prisma migrations must stay tracked)
 backups/
+!apps/api/src/modules/backups/
 *.sql.gz
 /*.sql
 !packages/database/prisma/migrations/**/*.sql

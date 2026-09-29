@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import type { BackupStatusDTO } from '@platform/shared';
 import { useBff } from '@/lib/session/use-bff';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { LoadingState, ErrorState } from '@/components/common/DataState';
@@ -11,6 +13,7 @@ interface SystemHealth {
   lastHeartbeatRunAt: string | null;
   failedWebhookDeliveries: number;
   smsProvider: { provider: string; status: string; credits: number | null; threshold: number; checkedAt: string } | null;
+  backup: BackupStatusDTO;
 }
 
 function StatusChip({ ok, label }: { ok: boolean; label: string }) {
@@ -111,6 +114,33 @@ export default function SystemHealthPage() {
             ) : (
               <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{t('adminHealth.smsProvider.neverChecked')}</p>
             )}
+          </div>
+
+          <div className="p-5 border space-y-2 sm:col-span-2" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">{t('adminHealth.backup.title')}</h3>
+              <StatusChip
+                ok={data.backup.status === 'ok' || data.backup.status === 'not_configured'}
+                label={
+                  data.backup.status === 'ok'
+                    ? t('adminHealth.backup.ok')
+                    : data.backup.status === 'stale'
+                      ? t('adminHealth.backup.stale')
+                      : data.backup.status === 'error'
+                        ? t('adminHealth.backup.error')
+                        : t('adminHealth.backup.notConfigured')
+                }
+              />
+            </div>
+            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              {t('adminHealth.backup.summary', {
+                value: data.backup.lastSuccessAt ? new Date(data.backup.lastSuccessAt).toLocaleString(locale) : t('adminHealth.backup.never'),
+                threshold: data.backup.staleAfterHours,
+              })}
+            </p>
+            <Link href="/admin/yedekler" className="text-xs font-medium hover:underline">
+              {t('adminHealth.backup.link')}
+            </Link>
           </div>
         </div>
       )}

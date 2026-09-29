@@ -175,42 +175,42 @@ Sunucunun GHCR'den image çekebilmesi gerekir. Ya:
 
 ## 5a. Yedekler
 
-`deploy/scripts/backup.sh` her gün 02:30'da (`server-init.sh`'ın kurduğu `/etc/cron.d/app-backup`,
-`deploy` kullanıcısıyla; ayrıca elle bir cron girdisi eklemeyin) ve her deploy'dan önce çalışır:
+Yedeklerin tek yönetim ekranı süper admin panelindeki **Yedekler** sayfasıdır (`/admin/yedekler`);
+mimari, uyarılar ve geri yükleme adımları `docs/YEDEKLER.md` belgesindedir. Kısaca:
 
-1. `pg_dump` çıktısı gzip ile sıkıştırılıp `/opt/app/backups` altına yazılır; yerelde 14 gün tutulur.
-2. `/opt/app/.env` içinde `BACKUP_S3_BUCKET` doluysa dosya sunucuda AES-256 (PBKDF2) ile
-   şifrelenir ve S3 uyumlu nesne depolamaya (AWS S3, Cloudflare R2, Backblaze B2, Wasabi vb.)
-   yüklenir, yanında bir SHA-256 dosyasıyla. Ek araç kurulmaz; yükleme curl'ün SigV4 imzasıyla yapılır.
-   Uzak taraftaki saklama süresi bucket'ın yaşam döngüsü (lifecycle) kuralıyla belirlenir
-   (öneri: 35 gün).
-3. Günlük çalıştırmada yükleme başarısız olursa betik hata kodu döndürür ve durum
+1. **API (birincil)**: paneldeki zamanlamaya göre her gün (varsayılan 01:00 UTC) ve "Şimdi yedek al"
+   ile API konteynerinde `pg_dump` (imajdaki PostgreSQL 16 istemcisi) alınır, gzip ve AES-256
+   (PBKDF2) ile şifrelenip S3 uyumlu depoya `db_YYYYMMDD_HHMMSSZ-api.sql.gz.enc` adıyla ve bir
+   `.sha256` dosyasıyla yüklenir, hemen doğrulanır; sonra saklama süresinden eski uzak yedekler
+   silinir (yalnızca en yeni yedek doğrulandıysa).
+2. **Sunucu cron'u (yedek)**: `deploy/scripts/backup.sh` her gün 02:30'da
+   (`server-init.sh`'ın kurduğu `/etc/cron.d/app-backup`) ve her deploy'dan önce çalışır.
+   `pg_dump` çıktısını `/opt/app/backups/db_YYYYMMDD_HHMMSSZ-host.sql.gz` olarak yazar (yerelde
+   14 gün), `BACKUP_S3_BUCKET` doluysa aynı biçimde şifreleyip aynı bucket ve öneke
+   `-host` işaretiyle yükler. Ek araç kurulmaz; yükleme curl'ün SigV4 imzasıyla yapılır.
+   Günlük çalıştırmada yükleme başarısız olursa betik hata kodu döndürür ve durum
    `/opt/app/deploy.log`'a yazılır. Deploy öncesi çalıştırmada yükleme hatası yalnızca uyarıdır:
    geri dönüş için gereken yerel kopyadır ve depolama kesintisi bir sürümü engellememelidir.
+3. Panel iki kaynağın dosyalarını da listeler (sunucu klasörü API'ye salt okunur bağlıdır),
+   doğrular, indirme bağlantısı verir, onaylı siler ve 26 saattir başarılı yedek yoksa süper
+   adminlere e-posta gönderir.
 
-Gerekli ortam değişkenleri `.env.example` içindedir. `BACKUP_ENCRYPTION_KEY` (`openssl rand -hex 32`)
-sunucu dışında da (parola yöneticisi) saklanmalıdır; bu anahtar olmadan uzak yedekler açılamaz.
+Gerekli ortam değişkenleri `.env.example` içindedir; compose bunları API'ye de aktarır.
+`BACKUP_ENCRYPTION_KEY` (`openssl rand -hex 32`) sunucu dışında da (parola yöneticisi)
+saklanmalıdır; bu anahtar olmadan uzak yedekler açılamaz. Uzak taraftaki saklama paneldeki
+"Saklama süresi" ile yönetilir; 0 seçilirse bucket'ın yaşam döngüsü (lifecycle) kuralı geçerlidir
+(öneri: 35 gün).
 
-**Geri yükleme** (önce boş bir veritabanında veya ayrı bir sunucuda deneyin):
+**Geri yükleme**: `docs/YEDEKLER.md`, bölüm 6 (önce `restore_check` veritabanında kuru
+çalıştırma, sonra üretim). Şifre çözme komutu iki kaynak için de aynıdır:
 
 ```bash
-# 1. Uzak kopyayı indirin (sağlayıcının arayüzü veya CLI'ı ile) ve bütünlüğünü doğrulayın
-sha256sum db_YYYYMMDD_HHMMSS.sql.gz.enc   # .sha256 dosyasındaki değerle aynı olmalı
-
-# 2. Şifreyi çözün (anahtar ortamdan okunur, komut satırında görünmez)
-export BACKUP_ENCRYPTION_KEY=...
 openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:BACKUP_ENCRYPTION_KEY \
-  -in db_YYYYMMDD_HHMMSS.sql.gz.enc -out db.sql.gz
-
-# 3. API ve web'i durdurup veritabanına yükleyin
-docker compose -f /opt/app/docker-compose.prod.yml stop api web
-gunzip -c db.sql.gz | docker compose -f /opt/app/docker-compose.prod.yml exec -T postgres \
-  sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
-docker compose -f /opt/app/docker-compose.prod.yml start api web
+  -in db_YYYYMMDD_HHMMSSZ-api.sql.gz.enc -out db.sql.gz
 ```
 
-Yerel kopyalar şifresizdir (sunucu diskindedir); geri yüklemede 2. adım atlanır.
-Geri yükleme en az üç ayda bir ayrı bir makinede denenmelidir.
+Yerel kopyalar şifresizdir (sunucu diskindedir); geri yüklemede şifre çözme adımı atlanır.
+Geri yükleme en az üç ayda bir ayrı bir veritabanında denenmelidir.
 
 ## 5b. Preprod ortamı
 
