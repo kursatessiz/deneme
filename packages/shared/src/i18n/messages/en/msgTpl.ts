@@ -55,6 +55,9 @@ export const enMsgTpl = {
   'msgTpl.ERROR_CRITICAL.text': 'Hi {firstName}, an error was seen in a critical flow such as sign-in or payments. Source: {source}, release: {release}, location: {route}, occurrences: {count}, error code: {code}. Summary: {title}',
   'msgTpl.ERROR_DIGEST.subject': 'Daily error digest',
   'msgTpl.ERROR_DIGEST.text': 'Hi {firstName}, {events} errors were recorded in the last 24 hours, with {newGroups} new error groups and {regressions} reopened groups. Open groups: {openGroups}. Most frequent: {topGroups}',
+  'msgTpl.BACKUP_STALE.subject': 'Database backup overdue',
+  'msgTpl.BACKUP_STALE.text': 'Hi {firstName}, there has been no successful database backup for {hours} hours (threshold: {threshold} hours). Last successful backup: {lastSuccessAt}. Check the Backups screen in the super admin panel, where you can also start a backup right away.',
+  'msgTpl.BACKUP_STALE.cta': 'Open backups',
 
   'msgTpl.email.reasonCommercial': 'You are receiving this email because you agreed to hear from {studioName}.',
   'msgTpl.email.reasonTransactional': 'This email is about your account with {studioName}.',

@@ -17,6 +17,7 @@ const LINKS: ReadonlyArray<{ href: string; labelKey: string }> = [
   { href: '/admin/ai', labelKey: 'adminAi.nav' },
   { href: '/admin/benchmark', labelKey: 'adminNav.benchmark' },
   { href: '/admin/health', labelKey: 'adminNav.health' },
+  { href: '/admin/yedekler', labelKey: 'adminNav.backups' },
   { href: '/admin/hatalar', labelKey: 'adminErrors.nav' },
 ];
 

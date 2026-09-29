@@ -27,6 +27,9 @@ fi
 
 DEPLOY_USER="${1:-${DEPLOY_USER:-deploy}}"
 TIMEZONE="${TIMEZONE:-UTC}"
+# Group that may list /opt/app/backups through the API container's read-only
+# mount (1000 = the api image's "node" user); see docs/YEDEKLER.md.
+BACKUP_READER_GID="${BACKUP_READER_GID:-1000}"
 APP_DIR=/opt/app
 # The account the operator used to get here (sudo), if any.
 ADMIN_USER="${SUDO_USER:-}"
@@ -135,11 +138,16 @@ chmod 600 "${AUTH_KEYS}"
 mkdir -p "${APP_DIR}/caddy" "${APP_DIR}/backups" "${APP_DIR}/scripts" "${APP_DIR}/releases"
 touch "${APP_DIR}/deploy.log"
 chown -R "${DEPLOY_USER}:${DEPLOY_USER}" "${APP_DIR}"
-chmod 700 "${APP_DIR}/backups"
+# Listable (not the dumps themselves) by the API container's group through
+# its read-only mount, so the panel can show host backups (docs/YEDEKLER.md).
+chgrp "${BACKUP_READER_GID}" "${APP_DIR}/backups"
+chmod 750 "${APP_DIR}/backups"
 
-# Daily database backup at 02:30 (local rotation plus encrypted off-site copy
-# when BACKUP_S3_BUCKET is set in /opt/app/.env). Runs as the deploy user so
-# its files stay writable for deploy.sh's pre-deploy backup.
+# Daily host-side database backup at 02:30 (local rotation plus encrypted
+# off-site copy when BACKUP_S3_BUCKET is set in /opt/app/.env). Runs as the
+# deploy user so its files stay writable for deploy.sh's pre-deploy backup.
+# The API also makes a scheduled backup managed from the super admin panel;
+# this cron is the fallback that works even when the API is down.
 cat > /etc/cron.d/app-backup <<CRON
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

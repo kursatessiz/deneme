@@ -2,7 +2,7 @@ import type { trAdminHealth } from '../tr/admin-health';
 
 export const enAdminHealth = {
   'adminHealth.title': 'System Health',
-  'adminHealth.subtitle': 'Database, queue, scheduler and SMS provider status',
+  'adminHealth.subtitle': 'Database, queue, scheduler, SMS provider and backup status',
   'adminHealth.database.title': 'Database',
   'adminHealth.database.healthy': 'Healthy',
   'adminHealth.database.error': 'Error',
@@ -24,4 +24,12 @@ export const enAdminHealth = {
   'adminHealth.smsProvider.error': 'Error',
   'adminHealth.smsProvider.summary': 'Provider: {provider} · Balance: {balance} · Threshold: {threshold} · Last check: {checkedAt}',
   'adminHealth.smsProvider.neverChecked': 'Not checked yet (added when the scheduler first runs)',
+  'adminHealth.backup.title': 'Database Backups',
+  'adminHealth.backup.ok': 'Up to date',
+  'adminHealth.backup.stale': 'Overdue',
+  'adminHealth.backup.error': 'Error',
+  'adminHealth.backup.notConfigured': 'Not configured',
+  'adminHealth.backup.summary': 'Last successful backup: {value} · Threshold: {threshold} hours',
+  'adminHealth.backup.never': 'none',
+  'adminHealth.backup.link': 'Open backups',
 } as const satisfies Record<keyof typeof trAdminHealth, string>;

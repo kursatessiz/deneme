@@ -1,3 +1,4 @@
+import type { BackupStatusDTO } from './backups';
 import { z } from 'zod';
 import { DocumentType, FeatureFlagScope, InviteChannel, NotificationChannel } from './enums';
 import { PhoneSchema } from './validators';
@@ -245,6 +246,8 @@ export interface SystemHealthDTO {
     threshold: number;
     checkedAt: string;
   } | null;
+  /** D2: age of the newest successful backup (docs/YEDEKLER.md). */
+  backup: BackupStatusDTO;
 }
 
 // -- Tenant listing DTOs ------------------------------------------------------
