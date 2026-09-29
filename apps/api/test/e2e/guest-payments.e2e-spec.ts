@@ -1,11 +1,10 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
-import { ValueType, Workbook } from 'exceljs';
-import type { Worksheet } from 'exceljs';
 import { PrismaClient } from '@platform/database';
 import { BUNDLED_MESSAGES } from '@platform/shared';
 import { AppModule } from '../../src/app.module';
+import { parseSheetCells, readZipText } from '../../src/modules/accounting/xlsx/xlsx-test-reader';
 
 /**
  * Guest and walk-in payments in finance, and the XLSX accounting export
@@ -95,12 +94,6 @@ describe('Guest payments and XLSX accounting export (e2e)', () => {
     expect(res.status).toBe(200);
     return res.body as PaymentRow[];
   };
-  const workbookOf = async (body: Buffer): Promise<Workbook> => {
-    const workbook = new Workbook();
-    await workbook.xlsx.load(body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer);
-    return workbook;
-  };
-
   async function cleanup() {
     const contacts = await prisma.contact.findMany({ where: { phone: { startsWith: PREFIX } }, select: { id: true } });
     const contactIds = contacts.map((c) => c.id);
@@ -319,23 +312,29 @@ describe('Guest payments and XLSX accounting export (e2e)', () => {
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toBe(XLSX);
       expect(res.headers['content-disposition']).toMatch(/attachment; filename="accounting-sales-\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.xlsx"/);
-      const workbook = await workbookOf(res.body as Buffer);
-      const sheet = workbook.getWorksheet(currency) as Worksheet;
-      expect(sheet).toBeDefined();
-      expect(sheet.getRow(1).getCell(1).value).toBe('QX Datum');
+      const files = readZipText(res.body as Buffer);
+      const workbookXml = files.get('xl/workbook.xml') as string;
+      const sheetIndex = [...workbookXml.matchAll(/<sheet name="([^"]*)"/g)].map((m) => m[1]).indexOf(currency);
+      expect(sheetIndex).toBeGreaterThanOrEqual(0);
+      const sheetXml = files.get(`xl/worksheets/sheet${sheetIndex + 1}.xml`) as string;
+      expect(sheetXml).not.toMatch(/<f[\s>/]/);
+      const rows = parseSheetCells(sheetXml);
+      const header = rows.get(1) ?? [];
+      expect(header[0].value).toBe('QX Datum');
       // Keys the pack does not translate fall back to the base catalogue.
-      expect(sheet.getRow(1).getCell(10).value).toBe(BUNDLED_MESSAGES.tr['accounting.col.gross']);
-      expect(sheet.getRow(1).font?.bold).toBe(true);
+      expect(header[9].value).toBe(BUNDLED_MESSAGES.tr['accounting.col.gross']);
+      expect(files.get('xl/styles.xml')).toContain('<b/>');
+      expect(header.every((c) => c.s > 0)).toBe(true); // bold header style
 
       let found = false;
-      sheet.eachRow((row, n) => {
-        if (n === 1 || row.getCell(14).value !== ids.walkIn) return;
+      for (const [n, cells] of rows) {
+        if (n === 1 || cells[13]?.value !== ids.walkIn) continue;
         found = true;
-        expect(row.getCell(1).type).toBe(ValueType.Date);
-        expect(row.getCell(10).type).toBe(ValueType.Number);
-        expect(row.getCell(5).type).toBe(ValueType.String);
-        expect(row.getCell(10).formula).toBeUndefined();
-      });
+        expect(cells[0].t).toBe('n'); // date serial
+        expect(cells[9].t).toBe('n');
+        expect(cells[4].t).toBe('inlineStr');
+        expect(cells.every((c) => !c.hasFormula)).toBe(true);
+      }
       expect(found).toBe(true);
     });
 

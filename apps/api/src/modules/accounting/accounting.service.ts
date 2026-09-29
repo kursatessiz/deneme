@@ -120,7 +120,7 @@ export class AccountingService {
       return { format: 'json', filename, body: buildAccountingJson(query.kind, range, query.branchId ?? null, [...rows]) };
     }
     if (query.format === 'xlsx') {
-      const body = await buildAccountingWorkbook({
+      const body = buildAccountingWorkbook({
         columns: columns as readonly AccountingColumn<{ currency: string }>[],
         rows: rows as readonly { currency: string }[],
         t,
