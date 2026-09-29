@@ -1,13 +1,16 @@
 import { z } from 'zod';
 import { CurrencyCodeSchema } from '../growth/regions';
 import { SegmentGroupSchema, type SegmentGroup } from '../growth/segments';
+import { DEFAULT_DOUBLE_OPT_IN_REGIONS, DoubleOptInRegionsSchema } from './consent';
 
 /**
  * Marketing settings of the platform tenant (M3b, docs/PAZARLAMA_MODULU.md
  * 6.2, 7.4), edited by the super admin at /admin/pazarlama-ayarlari. In
  * M3b only the approval fields (self-approval thresholds and the request
  * TTL) have behaviour; caps, auto-pause thresholds, MQL/SQL rules and the
- * weekly summary are stored for M3a/M3d.
+ * weekly summary are stored for M3a/M3d. M3e adds the consent policy: the
+ * regions whose form consents need double opt-in and the TR merchant
+ * exemption switch.
  */
 
 export const MARKETING_SETTINGS_DEFAULTS = {
@@ -26,6 +29,8 @@ export const MARKETING_SETTINGS_DEFAULTS = {
   weeklySummaryEnabled: false,
   weeklySummaryRecipients: [],
   approvalTtlHours: 72,
+  doubleOptInRegions: DEFAULT_DOUBLE_OPT_IN_REGIONS,
+  trMerchantExemptionEnabled: false,
 } as const;
 
 export interface MarketingSettingsDTO {
@@ -46,6 +51,10 @@ export interface MarketingSettingsDTO {
   weeklySummaryEnabled: boolean;
   weeklySummaryRecipients: string[];
   approvalTtlHours: number;
+  /** Compliance region codes (EU, UK, ...) or ISO countries whose form consents need double opt-in. */
+  doubleOptInRegions: string[];
+  /** TR merchant exemption: business contacts may be messaged without prior consent (registered with the registry). */
+  trMerchantExemptionEnabled: boolean;
   updatedByUserId: string | null;
   /** Null while the defaults are in use (no row yet). */
   updatedAt: string | null;
@@ -77,6 +86,8 @@ export const UpdateMarketingSettingsSchema = z
     weeklySummaryEnabled: z.boolean().optional(),
     weeklySummaryRecipients: z.array(z.string().uuid()).max(20).optional(),
     approvalTtlHours: z.number().int().min(1).max(24 * 30).optional(),
+    doubleOptInRegions: DoubleOptInRegionsSchema.optional(),
+    trMerchantExemptionEnabled: z.boolean().optional(),
   })
   .strict();
 export type UpdateMarketingSettingsInput = z.infer<typeof UpdateMarketingSettingsSchema>;

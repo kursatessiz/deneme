@@ -66,6 +66,9 @@ export const enMsgTpl = {
   'msgTpl.MARKETING_APPROVAL_REJECTED.text': 'Hi {firstName}, {deciderName} rejected "{targetName}" and it is back in draft. Reason: {note}',
   'msgTpl.MARKETING_APPROVAL.cta': 'Open approvals',
 
+  'msgTpl.CONSENT_CONFIRMATION.subject': '{studioName}: please confirm your subscription',
+  'msgTpl.CONSENT_CONFIRMATION.text': 'Hi {firstName}, you told us on the {studioName} form (version {formVersion}) that you would like to receive our news and offers. To start the subscription, open the link below within {days} days and confirm. If this was not you, ignore this e-mail; we will not send you marketing messages unless you confirm. Link: {link}',
+  'msgTpl.CONSENT_CONFIRMATION.cta': 'Confirm subscription',
   'msgTpl.email.reasonCommercial': 'You are receiving this email because you agreed to hear from {studioName}.',
   'msgTpl.email.reasonTransactional': 'This email is about your account with {studioName}.',
   'msgTpl.email.unsubscribe': 'Unsubscribe',

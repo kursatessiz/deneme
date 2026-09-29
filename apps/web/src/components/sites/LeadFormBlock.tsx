@@ -29,6 +29,8 @@ export function LeadFormBlock({
   title,
   submitLabel,
   consentText,
+  marketingConsent,
+  locale,
   i18n,
 }: {
   studioSlug: string;
@@ -36,12 +38,20 @@ export function LeadFormBlock({
   title?: string;
   submitLabel?: string;
   consentText?: string;
+  /**
+   * M3e: an optional, never pre-ticked marketing consent box with its
+   * wording and version. In a double opt-in region the API e-mails a
+   * confirmation link before the consent counts.
+   */
+  marketingConsent?: { text: string; formVersion: string };
+  /** Page language, for the confirmation e-mail. */
+  locale?: string;
   /** Chrome text in the page's own locale (packages/shared/src/i18n/messages/{tr,en}/sites.ts), passed down from the server component since this form is client-side. */
   i18n: LeadFormI18n;
 }) {
   const mountedAt = useRef(Date.now());
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
-  const [values, setValues] = useState({ fullName: '', phone: '', email: '', interest: '', website: '', consent: false });
+  const [values, setValues] = useState({ fullName: '', phone: '', email: '', interest: '', website: '', consent: false, marketing: false });
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +69,8 @@ export function LeadFormBlock({
           interest: values.interest || undefined,
           consent: values.consent,
           website: values.website,
+          ...(marketingConsent ? { marketingConsent: values.marketing, formVersion: marketingConsent.formVersion } : {}),
+          ...(locale ? { locale } : {}),
         }),
       });
       setStatus(res.ok ? 'sent' : 'error');
@@ -136,6 +148,12 @@ export function LeadFormBlock({
         <input type="checkbox" required checked={values.consent} onChange={(e) => setValues({ ...values, consent: e.target.checked })} style={{ marginTop: 3 }} />
         <span>{consentText || i18n.defaultConsent}</span>
       </label>
+      {marketingConsent && (
+        <label style={{ display: 'flex', gap: 8, fontSize: 13, alignItems: 'flex-start', color: 'var(--color-text-secondary)' }}>
+          <input type="checkbox" checked={values.marketing} onChange={(e) => setValues({ ...values, marketing: e.target.checked })} style={{ marginTop: 3 }} />
+          <span>{marketingConsent.text}</span>
+        </label>
+      )}
       {status === 'error' && (
         <p role="alert" style={{ color: 'var(--color-danger, #b42318)', fontSize: 13 }}>
           {i18n.error}

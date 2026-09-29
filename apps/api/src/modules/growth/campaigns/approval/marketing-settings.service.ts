@@ -10,6 +10,7 @@ import type {
   UpdateMarketingSettingsInput,
 } from '@platform/shared';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { ContactConsentService } from '../../../notifications/consent/contact-consent.service';
 
 function segmentRule(raw: Prisma.JsonValue | null): SegmentGroup | null {
   if (raw === null) return null;
@@ -26,12 +27,17 @@ function idList(raw: Prisma.JsonValue): string[] {
   return Array.isArray(raw) ? raw.filter((v): v is string => typeof v === 'string') : [];
 }
 
+function regionList(raw: Prisma.JsonValue): string[] {
+  return Array.isArray(raw) ? raw.filter((v): v is string => typeof v === 'string') : [...MARKETING_SETTINGS_DEFAULTS.doubleOptInRegions];
+}
+
 export function toMarketingSettingsDto(row: MarketingSettings | null): MarketingSettingsDTO {
   if (!row) {
     return {
       ...MARKETING_SETTINGS_DEFAULTS,
       monthlyAdSpendCaps: {},
       weeklySummaryRecipients: [],
+      doubleOptInRegions: [...MARKETING_SETTINGS_DEFAULTS.doubleOptInRegions],
       updatedByUserId: null,
       updatedAt: null,
     };
@@ -52,6 +58,8 @@ export function toMarketingSettingsDto(row: MarketingSettings | null): Marketing
     weeklySummaryEnabled: row.weeklySummaryEnabled,
     weeklySummaryRecipients: idList(row.weeklySummaryRecipients),
     approvalTtlHours: row.approvalTtlHours,
+    doubleOptInRegions: regionList(row.doubleOptInRegions),
+    trMerchantExemptionEnabled: row.trMerchantExemptionEnabled,
     updatedByUserId: row.updatedByUserId,
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -67,7 +75,10 @@ const jsonOrNull = (v: SegmentGroup | null): Prisma.InputJsonValue | typeof Pris
  */
 @Injectable()
 export class MarketingSettingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly consents: ContactConsentService,
+  ) {}
 
   async platformStudioId(): Promise<string> {
     const studio = await this.prisma.studio.findFirst({ where: { isPlatform: true }, select: { id: true } });
@@ -118,6 +129,8 @@ export class MarketingSettingsService {
       ...(input.weeklySummaryEnabled !== undefined ? { weeklySummaryEnabled: input.weeklySummaryEnabled } : {}),
       ...(input.weeklySummaryRecipients !== undefined ? { weeklySummaryRecipients: input.weeklySummaryRecipients } : {}),
       ...(input.approvalTtlHours !== undefined ? { approvalTtlHours: input.approvalTtlHours } : {}),
+      ...(input.doubleOptInRegions !== undefined ? { doubleOptInRegions: input.doubleOptInRegions } : {}),
+      ...(input.trMerchantExemptionEnabled !== undefined ? { trMerchantExemptionEnabled: input.trMerchantExemptionEnabled } : {}),
       updatedByUserId: userId,
     };
     const createData = { ...data, studioId } as Prisma.MarketingSettingsUncheckedCreateInput;
@@ -141,6 +154,20 @@ export class MarketingSettingsService {
       });
       return saved;
     });
+    if (!before.trMerchantExemptionEnabled && row.trMerchantExemptionEnabled) {
+      // M3e: switching the TR merchant exemption on records it (and registers with İYS) for the business contacts.
+      const written = await this.consents.applyMerchantExemptionToAll(studioId);
+      await this.prisma.auditLog.create({
+        data: {
+          studioId,
+          userId,
+          action: 'marketing.consent.merchant_exemption_applied',
+          entityType: 'MarketingSettings',
+          entityId: studioId,
+          metadata: { consentsWritten: written } as Prisma.InputJsonValue,
+        },
+      });
+    }
     return { settings: toMarketingSettingsDto(row), recipients: await this.recipients() };
   }
 }

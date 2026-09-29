@@ -1,7 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { MoneyAmountSchema, CurrencyCodeSchema, type MarketingSettingsViewDTO, type UpdateMarketingSettingsInput } from '@platform/shared';
+import {
+  DoubleOptInRegionCodeSchema,
+  MoneyAmountSchema,
+  CurrencyCodeSchema,
+  type MarketingSettingsViewDTO,
+  type UpdateMarketingSettingsInput,
+} from '@platform/shared';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { ErrorState, LoadingState } from '@/components/common/DataState';
 import { InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader } from '@/components/settings/ui';
@@ -22,6 +28,8 @@ interface Form {
   adSpend: Array<{ currency: string; amount: string }>;
   weeklySummaryEnabled: boolean;
   weeklySummaryRecipients: string[];
+  doubleOptInRegions: string[];
+  trMerchantExemptionEnabled: boolean;
 }
 
 function formOf(view: MarketingSettingsViewDTO): Form {
@@ -41,6 +49,8 @@ function formOf(view: MarketingSettingsViewDTO): Form {
     adSpend: Object.entries(s.monthlyAdSpendCaps).map(([currency, amount]) => ({ currency, amount })),
     weeklySummaryEnabled: s.weeklySummaryEnabled,
     weeklySummaryRecipients: s.weeklySummaryRecipients,
+    doubleOptInRegions: s.doubleOptInRegions,
+    trMerchantExemptionEnabled: s.trMerchantExemptionEnabled,
   };
 }
 
@@ -74,6 +84,8 @@ function toInput(form: Form): UpdateMarketingSettingsInput | null {
     monthlyAdSpendCaps: caps,
     weeklySummaryEnabled: form.weeklySummaryEnabled,
     weeklySummaryRecipients: form.weeklySummaryRecipients,
+    doubleOptInRegions: form.doubleOptInRegions,
+    trMerchantExemptionEnabled: form.trMerchantExemptionEnabled,
   };
 }
 
@@ -92,6 +104,8 @@ export default function AdminMarketingSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+  const [regionDraft, setRegionDraft] = useState('');
+  const [regionError, setRegionError] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -112,6 +126,18 @@ export default function AdminMarketingSettingsPage() {
 
   const set = <K extends keyof Form>(key: K, value: Form[K]) => setForm({ ...form, [key]: value });
   const adSpendInvalid = form.adSpend.some((r) => !CurrencyCodeSchema.safeParse(r.currency.trim().toUpperCase()).success || !MoneyAmountSchema.safeParse(r.amount).success);
+
+  function addRegion() {
+    if (!form) return;
+    const parsed = DoubleOptInRegionCodeSchema.safeParse(regionDraft);
+    if (!parsed.success) {
+      setRegionError(true);
+      return;
+    }
+    setRegionError(false);
+    setRegionDraft('');
+    if (!form.doubleOptInRegions.includes(parsed.data)) set('doubleOptInRegions', [...form.doubleOptInRegions, parsed.data]);
+  }
 
   async function save() {
     if (!form) return;
@@ -152,6 +178,58 @@ export default function AdminMarketingSettingsPage() {
           <InputField type="number" label={t('adminMarketingSettings.field.approvalTtlHours')} value={form.approvalTtlHours} onChange={(v) => set('approvalTtlHours', v)} invalid={int(form.approvalTtlHours) === null} />
         </div>
         <CheckField label={t('adminMarketingSettings.field.requireApprovalForSocial')} checked={form.requireApprovalForSocial} onChange={(v) => set('requireApprovalForSocial', v)} />
+      </Section>
+
+      <Section title={t('adminMarketingSettings.consent.title')} description={t('adminMarketingSettings.consent.description')}>
+        <fieldset className="space-y-2">
+          <legend className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+            {t('adminMarketingSettings.consent.doubleOptIn')}
+          </legend>
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            {t('adminMarketingSettings.consent.doubleOptInHint')}
+          </p>
+          {form.doubleOptInRegions.length === 0 && <InlineMessage text={t('adminMarketingSettings.consent.noRegions')} />}
+          <ul className="flex flex-wrap gap-2">
+            {form.doubleOptInRegions.map((code) => (
+              <li
+                key={code}
+                className="inline-flex items-center gap-2 px-2 py-1 text-xs border"
+                style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)', color: 'var(--color-text-primary)' }}
+              >
+                <span className="font-mono">{code}</span>
+                <LinkButton danger onClick={() => set('doubleOptInRegions', form.doubleOptInRegions.filter((c) => c !== code))}>
+                  {t('adminMarketingSettings.consent.removeRegion', { code })}
+                </LinkButton>
+              </li>
+            ))}
+          </ul>
+          <div className="grid grid-cols-[10rem_auto] items-end gap-3">
+            <InputField
+              label={t('adminMarketingSettings.consent.addRegion')}
+              value={regionDraft}
+              placeholder={t('adminMarketingSettings.consent.regionPlaceholder')}
+              onChange={(v) => {
+                setRegionDraft(v.toUpperCase().slice(0, 7));
+                setRegionError(false);
+              }}
+              invalid={regionError}
+            />
+            <div className="pb-1">
+              <SecondaryButton onClick={addRegion}>{t('adminMarketingSettings.consent.addRegion')}</SecondaryButton>
+            </div>
+          </div>
+          {regionError && <InlineMessage tone="error" text={t('adminMarketingSettings.consent.regionInvalid')} />}
+        </fieldset>
+        <div className="space-y-1">
+          <CheckField
+            label={t('adminMarketingSettings.consent.trExemption')}
+            checked={form.trMerchantExemptionEnabled}
+            onChange={(v) => set('trMerchantExemptionEnabled', v)}
+          />
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            {t('adminMarketingSettings.consent.trExemptionHint')}
+          </p>
+        </div>
       </Section>
 
       <Section title={t('adminMarketingSettings.caps.title')} description={t('adminMarketingSettings.caps.description')}>

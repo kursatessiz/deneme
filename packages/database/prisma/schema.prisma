@@ -727,6 +727,7 @@ model Studio {
   segments              Segment[]
   segmentMembers        SegmentMember[]
   contactConsents       ContactConsent[]
+  contactConsentConfirmations ContactConsentConfirmation[]
   campaigns             Campaign[]
   campaignRecipients    CampaignRecipient[]
   campaignVariants      CampaignVariant[]
@@ -2551,6 +2552,9 @@ model Contact {
   notes                 String?               @db.Text
   /// Test traffic: kept, never reported and never sent to ad platforms.
   isTest                Boolean               @default(false) @map("is_test")
+  /// A business (merchant/trader) rather than a private person: the TR
+  /// merchant exemption for commercial messages may apply (M3e).
+  isBusiness            Boolean               @default(false) @map("is_business")
   /// Set on the losing side of a merge; merged rows are hidden everywhere.
   mergedIntoId          String?               @map("merged_into_id") @db.Uuid
   createdAt             DateTime              @default(now()) @map("created_at")
@@ -3050,16 +3054,54 @@ model ContactConsent {
   revokedAt   DateTime?      @map("revoked_at")
   /// Set once the change has been pushed to İYS (TR only).
   iysSyncedAt DateTime?      @map("iys_synced_at")
+  /// Why a commercial message may be sent (M3e). Null on rows written
+  /// before M3e: treated as CONSENT.
+  legalBasis  ConsentLegalBasis? @map("legal_basis")
+  /// Double opt-in: when the person clicked the confirmation link. Only
+  /// time is kept, never the IP address.
+  confirmedAt DateTime?      @map("confirmed_at")
+  /// Double opt-in was required at capture and a confirmation e-mail was
+  /// requested; the consent does not count until confirmedAt is set.
+  confirmationRequestedAt DateTime? @map("confirmation_requested_at")
+  /// Version of the form (consent text) the person agreed to.
+  formVersion String?        @map("form_version") @db.VarChar(60)
   createdAt   DateTime       @default(now()) @map("created_at")
   updatedAt   DateTime       @updatedAt @map("updated_at")
 
-  studio  Studio  @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  studio        Studio                       @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  contact       Contact                      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  confirmations ContactConsentConfirmation[]
 
   @@unique([contactId, channel])
   @@index([studioId, status])
   @@index([iysSyncedAt])
   @@map("contact_consents")
+}
+
+enum ConsentLegalBasis {
+  CONSENT
+  TR_MERCHANT_EXEMPTION
+  EXISTING_CUSTOMER
+}
+
+/// Double opt-in confirmation link (M3e). Only the SHA-256 of the opaque
+/// token is stored; the link is single use and expires after 7 days.
+/// No IP address or device is recorded.
+model ContactConsentConfirmation {
+  id               String    @id @default(uuid()) @db.Uuid
+  studioId         String    @map("studio_id") @db.Uuid
+  contactConsentId String    @map("contact_consent_id") @db.Uuid
+  tokenHash        String    @unique @map("token_hash") @db.VarChar(64)
+  expiresAt        DateTime  @map("expires_at")
+  confirmedAt      DateTime? @map("confirmed_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  studio         Studio         @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  contactConsent ContactConsent @relation(fields: [contactConsentId], references: [id], onDelete: Cascade)
+
+  @@index([contactConsentId, createdAt])
+  @@index([studioId, createdAt])
+  @@map("contact_consent_confirmations")
 }
 
 enum CampaignStatus {
@@ -5753,6 +5795,12 @@ model MarketingSettings {
   /// [userId]
   weeklySummaryRecipients  Json     @default("[]") @map("weekly_summary_recipients")
   approvalTtlHours         Int      @default(72) @map("approval_ttl_hours")
+  /// Compliance region codes (EU, UK, ...) or ISO countries whose form
+  /// consents need double opt-in (M3e). Data, editable by the super admin.
+  doubleOptInRegions       Json     @default("[\"EU\", \"UK\"]") @map("double_opt_in_regions")
+  /// TR merchant exemption: business contacts in TR may receive commercial
+  /// messages without prior consent (registered with İYS, opt-out honoured).
+  trMerchantExemptionEnabled Boolean @default(false) @map("tr_merchant_exemption_enabled")
   updatedByUserId          String?  @map("updated_by_user_id") @db.Uuid
   updatedAt                DateTime @updatedAt @map("updated_at")
 

@@ -734,6 +734,20 @@ export const PublicLeadFormSchema = z.object({
   interest: z.string().trim().max(200).optional(),
   consent: z.literal(true, { errorMap: () => ({ message: 'İletişim izni gereklidir' }) }),
   /**
+   * Separate, optional commercial-message consent (never pre-ticked). M3e:
+   * recorded as CONSENT on the e-mail (when given) and SMS channels; in a
+   * double opt-in region it counts only after the confirmation link.
+   */
+  marketingConsent: z.boolean().optional(),
+  /** Version of the consent text the visitor saw (page engine form). */
+  formVersion: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9._:-]{1,60}$/, 'Geçersiz form sürümü')
+    .optional(),
+  /** Page language, for the confirmation e-mail. */
+  locale: z.string().trim().regex(/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})?$/).optional(),
+  /**
    * Honeypot: a hidden field real visitors never fill in. Deliberately not
    * constrained to be empty here -- rejecting it at validation would answer
    * a bot with a 400 instead of the same constant 202 as a real submission,

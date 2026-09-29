@@ -24,7 +24,7 @@ export class IysClientAdapter implements IysClient {
 
   async syncConsent(request: IysSyncRequest): Promise<IysSyncResult> {
     if (!this.isConfigured) {
-      this.logger.log(`[MOCK IYS] ${request.type} ${request.channel} for ${request.recipient}`);
+      this.logger.log(`[MOCK IYS] ${request.type} ${request.channel} (${request.recipientType ?? 'INDIVIDUAL'}) for ${request.recipient}`);
       return { success: true, transactionId: `mock-iys-${Date.now()}` };
     }
 
@@ -45,6 +45,7 @@ export class IysClientAdapter implements IysClient {
               status: request.type,
               consentDate: request.at,
               source: 'API',
+              recipientType: request.recipientType === 'MERCHANT' ? 'TACIR' : 'BIREYSEL',
             },
           ],
         }),

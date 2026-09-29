@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { ComplianceRegion } from '../growth/regions';
+import type { ConsentLegalBasis } from './consent';
 
 /**
  * Marketing approvals (M3b, docs/PAZARLAMA_MODULU.md 6.1): every outgoing
@@ -52,6 +53,10 @@ export const PRECHECK_FINDING_CODES = [
   'NO_ADDRESS',
   'QUIET_HOURS',
   'FREQUENCY_CAP',
+  // M3e: dropped for their consent legal basis (counts only).
+  'DOUBLE_OPT_IN_PENDING',
+  'NO_LEGAL_BASIS',
+  'TR_EXEMPTION_DISABLED',
 ] as const;
 export type PrecheckFindingCode = (typeof PRECHECK_FINDING_CODES)[number];
 export type PrecheckSeverity = 'warning' | 'info';
@@ -222,6 +227,12 @@ export interface ApprovalSummary {
   emailDomainVerified: boolean;
   thresholds: SelfApprovalThresholds;
   evaluatedAt: string;
+  /**
+   * M3e: sendable recipients per consent legal basis on their first
+   * reachable channel (aggregate counts only). Absent on summaries written
+   * before M3e.
+   */
+  legalBases?: Partial<Record<ConsentLegalBasis, number>>;
   /** Set when a super admin approved their own request. */
   selfApprovedBySuperAdmin?: boolean;
   /** Set on a request cancelled because the content changed after the decision. */

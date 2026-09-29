@@ -16,6 +16,7 @@ export const trSites = {
   'sites.leadForm.submit': 'Gönder',
   'sites.leadForm.sent': 'Teşekkürler, en kısa sürede sizinle iletişime geçeceğiz.',
   'sites.leadForm.error': 'Gönderilemedi, lütfen tekrar deneyin.',
+  'sites.leadForm.marketingConsent': 'Haber, kampanya ve tekliflerin bana e-posta ve SMS ile gönderilmesini istiyorum (isteğe bağlı, istediğim zaman çıkabilirim).',
   'sites.bookingWidget.defaultButton': 'Randevu al',
   'sites.footer.cookiePreferences': 'Çerez tercihleri',
 

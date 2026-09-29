@@ -271,6 +271,10 @@ export const MESSAGE_SEND_REASON_CODES = [
   'PROVIDER_ERROR',
   'NOT_CONFIGURED',
   'RECIPIENT_NOT_FOUND',
+  // M3e consent legal basis (marketing/consent.ts).
+  'DOUBLE_OPT_IN_PENDING',
+  'NO_LEGAL_BASIS',
+  'TR_EXEMPTION_DISABLED',
 ] as const;
 export type MessageSendReasonCode = (typeof MESSAGE_SEND_REASON_CODES)[number];
 

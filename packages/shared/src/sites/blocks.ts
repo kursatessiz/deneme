@@ -181,6 +181,8 @@ export const LeadFormBlockSchema = z
       .object({
         studioSlug: z.string().trim().max(60).optional(),
         fields: z.array(z.enum(LEAD_FORM_FIELDS)).min(2).default(['fullName', 'phone']),
+        /** M3e: show a separate, optional (never pre-ticked) marketing consent box. Off by default. */
+        marketingConsent: z.boolean().optional(),
       })
       .strict()
       .default({ fields: ['fullName', 'phone'] }),
@@ -190,12 +192,30 @@ export const LeadFormBlockSchema = z
           title: ShortText.optional(),
           submitLabel: ShortText.optional(),
           consentText: PlainText.optional(),
+          /** Wording of the marketing consent box; the bundled default is used when empty. */
+          marketingConsentText: PlainText.optional(),
         })
         .strict(),
     ),
   })
   .strict();
 export type LeadFormBlockData = z.infer<typeof LeadFormBlockSchema>;
+
+/**
+ * Version of the marketing consent wording a visitor saw (M3e): the page
+ * language plus a 32-bit FNV-1a hash of the text, so a changed wording
+ * gets a new version without anyone maintaining a counter. Stored on the
+ * consent row and shown in the confirmation e-mail.
+ */
+export function leadFormConsentVersion(locale: string, text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  const lang = locale.replace(/[^A-Za-z-]/g, '').slice(0, 10) || 'x';
+  return `lf-${lang}-${h.toString(16).padStart(8, '0')}`;
+}
 
 // ---------------------------------------------------------------------------
 // booking_widget -- tenant sites only; links to the existing public booking flow.
