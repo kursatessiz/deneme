@@ -1,6 +1,7 @@
 import { trAdminI18n } from './tr/admin-i18n';
 import { trAds } from './tr/ads';
 import { trAuth } from './tr/auth';
+import { trBooking } from './tr/booking';
 import { trCalendar } from './tr/calendar';
 import { trCampaigns } from './tr/campaigns';
 import { trChurn } from './tr/churn';
@@ -31,6 +32,7 @@ import { trSites } from './tr/sites';
 import { enAdminI18n } from './en/admin-i18n';
 import { enAds } from './en/ads';
 import { enAuth } from './en/auth';
+import { enBooking } from './en/booking';
 import { enCalendar } from './en/calendar';
 import { enCampaigns } from './en/campaigns';
 import { enChurn } from './en/churn';
@@ -75,6 +77,7 @@ export const TR_NAMESPACES = [
   trAdminI18n,
   trAds,
   trAuth,
+  trBooking,
   trCalendar,
   trCampaigns,
   trChurn,
@@ -108,6 +111,7 @@ export const EN_NAMESPACES = [
   enAdminI18n,
   enAds,
   enAuth,
+  enBooking,
   enCalendar,
   enCampaigns,
   enChurn,
