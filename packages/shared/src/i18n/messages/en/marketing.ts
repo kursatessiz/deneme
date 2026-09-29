@@ -31,6 +31,4 @@ export const enMarketing = {
   'marketing.placeholder.dashboard.title': 'Marketing dashboard',
   'marketing.placeholder.dashboard.description':
     'Funnel, cost and channel health indicators arrive here in phase M3. For now, use the menu to reach contacts, campaigns and reports.',
-  'marketing.placeholder.approvals.title': 'Approvals',
-  'marketing.placeholder.approvals.description': 'Send and spend requests above the threshold will be approved here in phase M3.',
 } as const satisfies Record<keyof typeof trMarketing, string>;

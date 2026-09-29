@@ -24,6 +24,11 @@ export function usePlatformSession(): PlatformSessionValue {
   return ctx;
 }
 
+/** The marketing panel's platform session, or null on the tenant dashboard (shared screens such as the campaign editor). */
+export function useOptionalPlatformSession(): PlatformSessionValue | null {
+  return useContext(PlatformSessionContext);
+}
+
 /** Platform-permission counterpart of PageGuard, for the panel's own screens. The API guards are the real boundary. */
 export function PlatformPageGuard({ required, children }: { required: readonly PlatformPermissionKey[]; children: React.ReactNode }) {
   const { permissions, isSuperAdmin } = usePlatformSession();

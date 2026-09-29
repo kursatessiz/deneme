@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { MESSAGE_CHANNELS_V2 } from '@platform/shared';
-import type { CampaignDTO, CampaignRecipientDTO, CampaignTestSendResultDTO, MessageTemplateListDTO, SegmentDTO } from '@platform/shared';
+import type { CampaignDTO, CampaignRecipientDTO, CampaignTestSendResultDTO, MessageTemplateListDTO, RequestApprovalResultDTO, SegmentDTO } from '@platform/shared';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { PermissionButton } from '@/components/common/PermissionButton';
@@ -15,13 +15,17 @@ import { bffFetch } from '@/lib/session/client';
 import { hasAnyPermission } from '@/lib/nav';
 import { Field, Muted, Notice, PageHeader, Panel, inputClass, inputStyle, errorMessage, useDateFormat } from './ui';
 import { useAreaHref } from '@/components/session/AreaBase';
+import { useOptionalPlatformSession } from '@/components/marketing/PlatformSession';
+import { hasAnyPlatformPermission } from '@/lib/marketing-nav';
+import { approvalErrorText } from '@/lib/marketing/errors';
 
-const EDITABLE = new Set(['DRAFT', 'SCHEDULED']);
+/** PENDING_APPROVAL only occurs on the platform tenant (M3b); an edit there replaces the approval request. */
+const EDITABLE = new Set(['DRAFT', 'SCHEDULED', 'PENDING_APPROVAL']);
 
 export function campaignStatusTone(status: CampaignDTO['status']): 'neutral' | 'info' | 'success' | 'warning' {
   if (status === 'SENT') return 'success';
   if (status === 'SENDING' || status === 'SCHEDULED') return 'info';
-  if (status === 'CANCELLED') return 'warning';
+  if (status === 'CANCELLED' || status === 'PENDING_APPROVAL' || status === 'PAUSED') return 'warning';
   return 'neutral';
 }
 
@@ -55,6 +59,9 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
   const fmt = useDateFormat();
   const router = useRouter();
   const canManage = hasAnyPermission(['campaigns.manage'], permissions, isOwner);
+  // Marketing panel (platform tenant, M3b): sends go through an approval request instead of "schedule".
+  const platform = useOptionalPlatformSession();
+  const canSend = platform ? hasAnyPlatformPermission(['platform.marketing.send'], platform.permissions, platform.isSuperAdmin) : false;
   const [campaign, setCampaign] = useState<CampaignDTO | null>(null);
   const [segments, setSegments] = useState<SegmentDTO[]>([]);
   const [templateKeys, setTemplateKeys] = useState<string[] | null>(null);
@@ -80,7 +87,7 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
       setSegmentId(c.segmentId);
       setChannel(c.channel ?? '');
       setTemplateKey(c.templateKey);
-      if (c.scheduledAt && c.status === 'SCHEDULED') {
+      if (c.scheduledAt && (c.status === 'SCHEDULED' || c.status === 'PENDING_APPROVAL')) {
         setWhen('later');
         setScheduledAt(toLocalInput(c.scheduledAt));
       }
@@ -145,6 +152,45 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
     if (saved && !campaignId) router.push(areaHref(`/kampanyalar/${saved.id}`));
   }
 
+  /** Platform tenant: save, then submit for approval (self-approved within the thresholds, otherwise pending). */
+  async function requestApproval() {
+    setBusy(true);
+    setNotice(null);
+    const saved = await saveDraft();
+    if (saved) {
+      try {
+        const res = await bffFetch<RequestApprovalResultDTO>(`platform/marketing/campaigns/${saved.id}/request-approval`, {
+          method: 'POST',
+          body: when === 'later' && scheduledAt ? { scheduledAt: new Date(scheduledAt).toISOString() } : {},
+        });
+        setNotice(
+          res.request.status === 'SELF_APPROVED'
+            ? { tone: 'success', text: t('marketingApprovals.campaign.selfApproved') }
+            : { tone: 'info', text: t('marketingApprovals.campaign.pending') },
+        );
+        setCampaign(await bffFetch<CampaignDTO>(`${base}/${saved.id}`, { studioId: activeStudioId }));
+      } catch (err) {
+        setNotice({ tone: 'error', text: approvalErrorText(err, t) });
+      }
+    }
+    setBusy(false);
+    if (saved && !campaignId) router.push(areaHref(`/kampanyalar/${saved.id}`));
+  }
+
+  async function pauseOrResume(action: 'pause' | 'resume') {
+    if (!campaign) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const next = await bffFetch<CampaignDTO>(`platform/marketing/campaigns/${campaign.id}/${action}`, { method: 'POST' });
+      setCampaign(next);
+      setNotice({ tone: 'success', text: t(action === 'pause' ? 'marketingApprovals.campaign.paused' : 'marketingApprovals.campaign.resumed') });
+    } catch (err) {
+      setNotice({ tone: 'error', text: approvalErrorText(err, t) });
+    }
+    setBusy(false);
+  }
+
   async function testSend() {
     setNotice(null);
     const saved = campaign ?? (await saveDraft());
@@ -202,6 +248,17 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
       />
       {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
       {!editable && <Muted>{t('campaigns.locked')}</Muted>}
+      {platform && campaign?.status === 'PENDING_APPROVAL' && (
+        <Notice tone="info">
+          {t('marketingApprovals.campaign.pending')}{' '}
+          {campaign.approvalRequestId && (
+            <Link href={`/pazarlama/onaylar?id=${encodeURIComponent(campaign.approvalRequestId)}`} className="underline">
+              {t('marketingApprovals.campaign.viewRequest')}
+            </Link>
+          )}
+        </Notice>
+      )}
+      {platform && campaign?.status === 'PAUSED' && <Notice tone="info">{t('marketingApprovals.campaign.paused')}</Notice>}
 
       <Panel>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -300,22 +357,49 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
             <PermissionButton required={['campaigns.manage']} onClick={testSend} disabled={busy || !name.trim() || !segmentId || !templateKey}>
               {t('campaigns.action.testSend')}
             </PermissionButton>
-            <PermissionButton
-              required={['campaigns.manage']}
-              variant="primary"
-              onClick={() => run('schedule')}
-              disabled={busy || !name.trim() || !segmentId || !templateKey || (when === 'later' && !scheduledAt)}
-            >
-              {when === 'now' ? t('campaigns.action.sendNow') : t('campaigns.action.schedule')}
-            </PermissionButton>
+            {platform ? (
+              canSend && (
+                <PermissionButton
+                  required={['campaigns.manage']}
+                  variant="primary"
+                  title={t('marketingApprovals.campaign.requestHint')}
+                  onClick={requestApproval}
+                  disabled={busy || campaign?.status === 'PENDING_APPROVAL' || !name.trim() || !segmentId || !templateKey || (when === 'later' && !scheduledAt)}
+                >
+                  {t('marketingApprovals.campaign.requestApproval')}
+                </PermissionButton>
+              )
+            ) : (
+              <PermissionButton
+                required={['campaigns.manage']}
+                variant="primary"
+                onClick={() => run('schedule')}
+                disabled={busy || !name.trim() || !segmentId || !templateKey || (when === 'later' && !scheduledAt)}
+              >
+                {when === 'now' ? t('campaigns.action.sendNow') : t('campaigns.action.schedule')}
+              </PermissionButton>
+            )}
           </div>
+        )}
+        {platform && editable && canManage && (
+          <Muted>{canSend ? t('marketingApprovals.campaign.requestHint') : t('marketingApprovals.campaign.noSendPermission')}</Muted>
+        )}
+        {platform && canSend && campaign && (campaign.status === 'SCHEDULED' || campaign.status === 'SENDING') && (
+          <PermissionButton required={[]} onClick={() => pauseOrResume('pause')} disabled={busy}>
+            {t('marketingApprovals.campaign.pause')}
+          </PermissionButton>
+        )}
+        {platform && canSend && campaign?.status === 'PAUSED' && (
+          <PermissionButton required={[]} variant="primary" onClick={() => pauseOrResume('resume')} disabled={busy}>
+            {t('marketingApprovals.campaign.resume')}
+          </PermissionButton>
         )}
         {campaign?.status === 'DRAFT' && (
           <PermissionButton required={['campaigns.manage']} variant="danger" onClick={remove}>
             {t('campaigns.action.delete')}
           </PermissionButton>
         )}
-        {campaign && (campaign.status === 'SCHEDULED' || campaign.status === 'SENDING') && (
+        {campaign && ['SCHEDULED', 'SENDING', 'PENDING_APPROVAL', 'PAUSED'].includes(campaign.status) && (
           <PermissionButton required={['campaigns.manage']} variant="danger" onClick={cancel}>
             {t('campaigns.action.cancel')}
           </PermissionButton>

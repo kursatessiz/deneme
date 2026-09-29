@@ -1,12 +1,13 @@
-import { MarketingPlaceholder } from '@/components/marketing/MarketingPlaceholder';
+'use client';
 
-/** Approval queue (M3b). */
+import { ApprovalsQueue } from '@/components/marketing/ApprovalsQueue';
+import { PlatformPageGuard } from '@/components/marketing/PlatformSession';
+
+/** Approval queue (M3b): reading needs platform.marketing.view; approve and reject are for super admins (enforced by the API). */
 export default function Page() {
   return (
-    <MarketingPlaceholder
-      titleKey="marketing.placeholder.approvals.title"
-      descriptionKey="marketing.placeholder.approvals.description"
-      required={['platform.marketing.send', 'platform.marketing.approve']}
-    />
+    <PlatformPageGuard required={['platform.marketing.view']}>
+      <ApprovalsQueue />
+    </PlatformPageGuard>
   );
 }

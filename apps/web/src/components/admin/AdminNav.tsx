@@ -15,6 +15,8 @@ const LINKS: ReadonlyArray<{ href: string; labelKey: string }> = [
   { href: '/admin/web-sitesi', labelKey: 'adminNav.webSitesi' },
   { href: '/admin/i18n', labelKey: 'adminNav.languages' },
   { href: '/admin/ai', labelKey: 'adminAi.nav' },
+  // M3b: approval thresholds, caps and weekly summary of the platform's own marketing.
+  { href: '/admin/pazarlama-ayarlari', labelKey: 'adminMarketingSettings.nav' },
   { href: '/admin/benchmark', labelKey: 'adminNav.benchmark' },
   { href: '/admin/health', labelKey: 'adminNav.health' },
   { href: '/admin/yedekler', labelKey: 'adminNav.backups' },
