@@ -21,6 +21,8 @@ const LINKS: ReadonlyArray<{ href: string; labelKey: string }> = [
   { href: '/admin/health', labelKey: 'adminNav.health' },
   { href: '/admin/yedekler', labelKey: 'adminNav.backups' },
   { href: '/admin/hatalar', labelKey: 'adminErrors.nav' },
+  // M3d: who did what (AuditLog) across every tenant.
+  { href: '/admin/denetim', labelKey: 'adminAudit.nav' },
   // M1: platform users, the shared integrations hub and the marketing panel (one console for the owner).
   { href: '/admin/platform-kullanicilari', labelKey: 'adminPlatformUsers.nav' },
   { href: '/admin/entegrasyonlar', labelKey: 'adminPlatformUsers.navIntegrations' },

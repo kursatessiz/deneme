@@ -5,6 +5,8 @@ import {
   DoubleOptInRegionCodeSchema,
   MoneyAmountSchema,
   CurrencyCodeSchema,
+  EmailWarmupPlanSchema,
+  type GenerateInsightResultDTO,
   type MarketingSettingsViewDTO,
   type UpdateMarketingSettingsInput,
 } from '@platform/shared';
@@ -30,6 +32,8 @@ interface Form {
   weeklySummaryRecipients: string[];
   doubleOptInRegions: string[];
   trMerchantExemptionEnabled: boolean;
+  /** Comma separated daily caps of the warm-up days; empty: no warm-up. */
+  emailWarmupPlan: string;
 }
 
 function formOf(view: MarketingSettingsViewDTO): Form {
@@ -51,11 +55,18 @@ function formOf(view: MarketingSettingsViewDTO): Form {
     weeklySummaryRecipients: s.weeklySummaryRecipients,
     doubleOptInRegions: s.doubleOptInRegions,
     trMerchantExemptionEnabled: s.trMerchantExemptionEnabled,
+    emailWarmupPlan: (s.emailWarmupPlan ?? []).join(', '),
   };
 }
 
 const int = (v: string): number | null => (/^\d+$/.test(v.trim()) ? Number(v.trim()) : null);
 const optionalInt = (v: string): number | null | undefined => (v.trim() === '' ? null : (int(v) ?? undefined));
+/** The warm-up plan of the text field: null for an empty field (no warm-up), undefined when it is not a valid plan. */
+function warmupPlanOf(v: string): number[] | null | undefined {
+  if (v.trim() === '') return null;
+  const parsed = EmailWarmupPlanSchema.safeParse(v.split(',').map((part) => (/^\d+$/.test(part.trim()) ? Number(part.trim()) : Number.NaN)));
+  return parsed.success ? parsed.data : undefined;
+}
 const decimal = (v: string): number | null => (/^\d+(\.\d+)?$/.test(v.trim()) ? Number(v.trim()) : null);
 
 /** The PATCH body, or null when a field is invalid (the API validates the same rules with the shared schema). */
@@ -63,7 +74,8 @@ function toInput(form: Form): UpdateMarketingSettingsInput | null {
   const required = [form.selfApproveEmailMax, form.selfApproveSmsMax, form.selfApproveSmsCredits, form.approvalTtlHours].map(int);
   const optional = [form.dailyEmailCap, form.dailySmsCreditCap, form.aiDailyCapCents].map(optionalInt);
   const pct = [form.bounceAutoPausePct, form.complaintAutoPausePct].map(decimal);
-  if (required.some((v) => v === null) || optional.some((v) => v === undefined) || pct.some((v) => v === null || v > 100)) return null;
+  const warmup = warmupPlanOf(form.emailWarmupPlan);
+  if (required.some((v) => v === null) || optional.some((v) => v === undefined) || pct.some((v) => v === null || v > 100) || warmup === undefined) return null;
   const caps: Record<string, string> = {};
   for (const row of form.adSpend) {
     const currency = row.currency.trim().toUpperCase();
@@ -86,14 +98,15 @@ function toInput(form: Form): UpdateMarketingSettingsInput | null {
     weeklySummaryRecipients: form.weeklySummaryRecipients,
     doubleOptInRegions: form.doubleOptInRegions,
     trMerchantExemptionEnabled: form.trMerchantExemptionEnabled,
+    emailWarmupPlan: warmup,
   };
 }
 
 /**
  * Super admin marketing settings (M3b, docs/SUPER_ADMIN.md): self-approval
- * thresholds and request TTL (in force now), daily caps, the monthly ad
- * spend cap per currency, auto-pause rates and the weekly summary (stored
- * for M3d). Same pattern as /admin/ai: one GET, one PATCH, audit logged by
+ * thresholds and request TTL, daily caps with the e-mail warm-up plan, the
+ * monthly ad spend cap per currency, auto-pause rates and the weekly summary
+ * (all enforced since M3d). Same pattern as /admin/ai: one GET, one PATCH, audit logged by
  * the API.
  */
 export default function AdminMarketingSettingsPage() {
@@ -106,6 +119,7 @@ export default function AdminMarketingSettingsPage() {
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const [regionDraft, setRegionDraft] = useState('');
   const [regionError, setRegionError] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -137,6 +151,19 @@ export default function AdminMarketingSettingsPage() {
     setRegionError(false);
     setRegionDraft('');
     if (!form.doubleOptInRegions.includes(parsed.data)) set('doubleOptInRegions', [...form.doubleOptInRegions, parsed.data]);
+  }
+
+  async function generateNow() {
+    setGenerating(true);
+    setMessage(null);
+    try {
+      const result = await bffFetch<GenerateInsightResultDTO>('admin/marketing/insights/generate', { method: 'POST', body: {} });
+      setMessage({ tone: 'success', text: result.created ? t('adminMarketingSettings.weekly.generated') : t('adminMarketingSettings.weekly.alreadyExists') });
+    } catch (err) {
+      setMessage({ tone: 'error', text: err instanceof BffError && err.message ? err.message : t('adminMarketingSettings.weekly.generateFailed') });
+    } finally {
+      setGenerating(false);
+    }
   }
 
   async function save() {
@@ -238,6 +265,15 @@ export default function AdminMarketingSettingsPage() {
           <InputField type="number" label={t('adminMarketingSettings.field.dailySmsCreditCap')} value={form.dailySmsCreditCap} onChange={(v) => set('dailySmsCreditCap', v)} invalid={optionalInt(form.dailySmsCreditCap) === undefined} />
           <InputField type="number" label={t('adminMarketingSettings.field.aiDailyCapCents')} value={form.aiDailyCapCents} onChange={(v) => set('aiDailyCapCents', v)} invalid={optionalInt(form.aiDailyCapCents) === undefined} />
         </div>
+        <InputField
+          label={t('adminMarketingSettings.field.emailWarmupPlan')}
+          hint={t('adminMarketingSettings.warmup.hint')}
+          placeholder={t('adminMarketingSettings.warmup.placeholder')}
+          value={form.emailWarmupPlan}
+          onChange={(v) => set('emailWarmupPlan', v)}
+          invalid={warmupPlanOf(form.emailWarmupPlan) === undefined}
+        />
+        {warmupPlanOf(form.emailWarmupPlan) === undefined && <InlineMessage tone="error" text={t('adminMarketingSettings.warmup.invalid')} />}
       </Section>
 
       <Section title={t('adminMarketingSettings.adSpend.title')} description={t('adminMarketingSettings.adSpend.description')}>
@@ -290,6 +326,14 @@ export default function AdminMarketingSettingsPage() {
             />
           ))}
         </fieldset>
+        <div>
+          <SecondaryButton onClick={generateNow} disabled={generating}>
+            {t('adminMarketingSettings.weekly.generateNow')}
+          </SecondaryButton>
+          <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+            {t('adminMarketingSettings.weekly.generateHint')}
+          </p>
+        </div>
       </Section>
 
       <div className="flex items-center gap-3">
