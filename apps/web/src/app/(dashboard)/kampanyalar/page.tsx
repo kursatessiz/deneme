@@ -11,10 +11,12 @@ import { hasAnyPermission } from '@/lib/nav';
 import { useBff } from '@/lib/session/use-bff';
 import { PageHeader, useDateFormat } from '@/components/growth/ui';
 import { campaignStatusTone } from '@/components/growth/CampaignEditor';
+import { useAreaHref } from '@/components/session/AreaBase';
 
 function CampaignList() {
   const { activeStudioId, permissions, isOwner } = useDashboardSession();
   const t = useT();
+  const areaHref = useAreaHref();
   const fmt = useDateFormat();
   const { data, loading, error } = useBff<{ items: CampaignDTO[] }>(activeStudioId ? `studios/${activeStudioId}/campaigns` : null, activeStudioId);
   const canManage = hasAnyPermission(['campaigns.manage'], permissions, isOwner);
@@ -26,7 +28,7 @@ function CampaignList() {
         subtitle={t('campaigns.subtitle')}
         actions={
           canManage ? (
-            <Link href="/kampanyalar/yeni" className="text-xs font-medium px-3 py-1.5" style={{ background: 'var(--gradient-brand)', color: 'var(--color-on-primary)', borderRadius: 'var(--radius-button)' }}>
+            <Link href={areaHref('/kampanyalar/yeni')} className="text-xs font-medium px-3 py-1.5" style={{ background: 'var(--gradient-brand)', color: 'var(--color-on-primary)', borderRadius: 'var(--radius-button)' }}>
               {t('campaigns.new')}
             </Link>
           ) : undefined
@@ -57,7 +59,7 @@ function CampaignList() {
               {data.items.map((c) => (
                 <tr key={c.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
                   <td className="px-4 py-2.5">
-                    <Link href={`/kampanyalar/${encodeURIComponent(c.id)}`} className="font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                    <Link href={areaHref(`/kampanyalar/${encodeURIComponent(c.id)}`)} className="font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
                       {c.name}
                     </Link>
                   </td>

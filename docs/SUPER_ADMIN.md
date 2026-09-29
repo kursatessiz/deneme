@@ -134,6 +134,127 @@ src/design`'daki nötr semantik renkleri ve ölçüleri doğrudan okur
 `/admin/health`, `/admin/yedekler`. Tarayıcı yalnızca `/api/bff/*` üzerinden konuşur
 (`docs/WEB_PANEL.md`), API'ye doğrudan erişmez.
 
+## Platform kullanıcıları ve pazarlama paneli (M1)
+
+Tasarım: `docs/PAZARLAMA_MODULU.md` (bölüm 2, 3.1-3.2, 5.1, 6.3, 7.1-7.2).
+Bu bölüm uygulanan hali ve tasarımdan sapmaları anlatır.
+
+### Rol modeli
+
+- Platform izin kataloğu `packages/shared/src/platform-permissions.ts`
+  (`PLATFORM_PERMISSIONS`, `PLATFORM_PERMISSION_AREAS`,
+  `DEFAULT_PLATFORM_ROLE_TEMPLATES`, `PLATFORM_TENANT_GRANTS`,
+  `resolvePlatformTenantPermissions`). `User.isSuperAdmin` kök yetkidir,
+  bütün platform izinlerini örtük taşır ve hiçbir tablo üzerinden
+  verilemez; `platform.users.manage` şablonda saklansa bile düşürülür.
+- Tablolar: `platform_role_templates` (+ `_permissions`),
+  `platform_memberships` (kullanıcı başına tek satır, INVITED/ACTIVE/PASSIVE),
+  `platform_access_settings` (tek satır, `require_2fa_for_platform_roles`,
+  varsayılan açık). Migration `20261019000000_platform_access` sistem şablonu
+  `marketing_admin` ("Pazarlama yöneticisi") ve politika satırını da yazar.
+- `PlatformAccessService` (`apps/api/src/modules/platform-access/`) tek
+  yazıcıdır: her platform şablonunu platform kiracısında kilitli bir
+  `RoleTemplate`'e (`platform:<anahtar>`, `isSystem`) aynalar, izinleri
+  `PLATFORM_TENANT_GRANTS` ile türetir; ACTIVE üyelik için platform
+  kiracısında `Membership` yazar, pasifleştirmede aynı işlemde PASSIVE yapar.
+  Eşleme hiçbir zaman `roles.manage`, `staff.manage`,
+  `studio.settings.manage`, `billing.manage`, finans, ödeme, bordro veya
+  muhasebe anahtarı üretmez (birim testli).
+
+### Pazarlama yöneticisi ne yapabilir, ne yapamaz
+
+| Yapabilir | Yapamaz |
+| --- | --- |
+| Platform kiracısında kişi, satış hattı, segment, kampanya, akış, gelen kutusu, şablon, site, rapor, reklam ekranları (`/pazarlama/*`) | Başka bir kiracının hiçbir verisi (`StudioTenantGuard` 403) |
+| Entegrasyon merkezi (`/pazarlama/entegrasyonlar`): reklam bağlantısı durumu, API anahtarı, webhook, gönderen alan adı ve DNS kontrolü | Kiracı CRUD, planlar, faturalama, feature flag, SMS paketi, yapay zeka anahtarı, diller, sağlık, hatalar, zamanlayıcı (tümü `SuperAdminOnly()`) |
+| Kendi iki adımlı doğrulamasını kurma, kurtarma kodu yenileme | `/admin/*` sayfaları (layout `/pazarlama`'ya yönlendirir) |
+| | Rol ve personel yönetimi (`roles.manage`, `staff.manage`), platform kiracısına davet, kişi dışa aktarma (`crm.export`, varsayılan kapalı), platform kullanıcılarını yönetme |
+
+### Uçlar
+
+| Uç | Koruma |
+| --- | --- |
+| `GET/POST/PUT /admin/platform-users[...]` (liste, rol şablonları, davet, rol değiştir, pasifleştir, yeniden etkinleştir, 2FA sıfırla, politika) | `SuperAdminOnly()` |
+| `GET /platform/context` | `PlatformScoped()` + `PlatformAnyAccess()` |
+| `GET/PATCH/POST/DELETE /platform/integrations[...]` | `PlatformScoped()` + `RequirePlatformPermission('platform.integrations.manage')` |
+| `POST /auth/mfa/enroll`, `/enroll/confirm`, `/verify`, `/recovery-codes` | `JwtAuthGuard`; deneme sayısı giriş sınırlayıcısında (`mfa` türü, kullanıcı başına) |
+
+`PlatformPermissionGuard` süper admini geçirir; diğerleri için her istekte
+veritabanından ACTIVE `PlatformMembership` yükler. `StudioTenantGuard`,
+üyelik platform sistem rolündeyse kullanıcının ACTIVE ve o üyeliği gösteren
+`PlatformMembership`'ini ister (aynı sorguda); böylece pasifleştirme bir
+sonraki istekte geçerlidir. Pasifleştirme ayrıca `refreshTokenHash`'i
+siler; erişim token'ı en fazla 1 saat daha yaşar ama platform ve platform
+kiracısı uçlarında işe yaramaz. Kiracı rol ekranları sistem şablonunu
+düzenleyemez, silemez, atayamaz (`403 SYSTEM_ROLE_LOCKED`); normal davet
+yolu platform kiracısını reddeder (`403 PLATFORM_TENANT_INVITE_FORBIDDEN`).
+
+Her işlem `AuditLog`'a yazılır: `platform_user.invited|activated|role_changed|deactivated|reactivated|mfa_reset`
+(`studioId` null, `userId` işlemi yapan, `entityId` hedef kullanıcı),
+`platform_access.settings_updated`, `mfa.enabled`, `mfa.recovery_code_used`,
+`mfa.recovery_codes_regenerated`; entegrasyon merkezi yazmaları
+`integration.<tür>.<işlem>` (`studioId` platform kiracısı,
+`metadata.via = admin|marketing`; süper admin olmayan çağıran her zaman
+`marketing` kaydedilir).
+
+### Davet ve onboarding
+
+`POST /admin/platform-users/invites` telefonla kullanıcıyı bulur veya
+oluşturur (kural 6), `PlatformMembership`'i INVITED yapar ve mevcut
+`InviteToken` akışını `platform_role_template_id` ile kullanır. Web
+tarafında `/j/<token>` sayfası (yeni) OTP, PIN ve onay adımlarını yürütür;
+platform davetinde yalnızca KVKK aydınlatma metni istenir. Kabulde
+`PlatformAccessService.activateInTx` aynı işlemde üyelikleri etkinleştirir.
+
+### İki adımlı doğrulama (TOTP)
+
+- RFC 6238 (HMAC-SHA1, 30 sn, 6 hane, +/-1 adım) kodda, bağımlılıksız
+  (`apps/api/src/modules/auth/mfa/totp.ts`, RFC test vektörleri). Gizli
+  anahtar `CredentialCipher` ile şifreli (üretimde anahtar yoksa kurulum
+  reddedilir), 10 kurtarma kodu yalnızca SHA-256 özetiyle; bir TOTP adımı
+  iki kez kabul edilmez.
+- Adım yükseltme modeli: mevcut girişler (şifre, PIN, SMS kodu) oturum
+  vermeye devam eder; `POST /auth/mfa/verify` `mfa` iddialı yeni token çifti
+  verir (iddia `mfaEnabledAt` zamanına bağlıdır, 2FA sıfırlanınca geçersiz).
+  Yenileme token'ı iddiayı korur.
+- Zorlama: 2FA'sı olan her platform hesabı platform uçlarında ve süper admin
+  uçlarında `mfa` iddiası ister (`403 MFA_REQUIRED`). Politika açıkken 2FA'sı
+  olmayan platform üyeleri reddedilir (`403 MFA_ENROLLMENT_REQUIRED`).
+  2FA'sı olmayan süper admin kilitlenmez (geçiş dönemi): giriş sonrası
+  `/guvenlik/iki-adim` kurulum ekranına yönlendirilir ve `/admin` üstünde
+  hatırlatma görünür.
+- Süper admin bir platform üyesinin 2FA'sını sıfırlayabilir (denetimli);
+  sıfırlama oturumu da düşürür.
+- Platform hesaplarının yenileme token'ı 30 yerine 7 gün geçerlidir.
+
+### Web
+
+- `/admin/platform-kullanicilari`, `/admin/entegrasyonlar` ve AdminNav'da
+  "Pazarlama" bağlantısı; sahip için tek konsol `/admin` kalır.
+- `/pazarlama/*` kabuğu (`apps/web/src/app/pazarlama/layout.tsx`): platform
+  kiracısını `DashboardSessionProvider` ile bağlar, `(dashboard)`
+  sayfalarını yeniden dışa aktarır, bağlantıları `useAreaHref()`
+  (`components/session/AreaBase.tsx`) ile `/pazarlama` altında tutar.
+  Menü `lib/marketing-nav.ts` (platform izinleriyle). Pano, onaylar, takvim,
+  yapay zeka stüdyosu ve marka kiti M2/M3 için yer tutucudur.
+- Entegrasyon merkezi tek bileşendir (`components/integrations/IntegrationHub.tsx`),
+  iki sayfada aynı uçlarla kullanılır; kimlik bilgisi yalnızca son 4
+  karakterle, webhook yalnızca host ile gösterilir.
+
+### Tasarımdan sapmalar
+
+- `RoleTemplate.isSystem` seed'deki varsayılan şablonlarda (resepsiyon,
+  eğitmen) zaten `true` olduğundan kilit yalnızca `platform:` önekli sistem
+  şablonlarına uygulanır; diğer varsayılan şablonlar eskisi gibi
+  düzenlenebilir.
+- 2FA girişte ayrı bir "ara token" adımı yerine adım yükseltme olarak
+  uygulandı (mobil ve mevcut istemciler bozulmadan). SuperAdminGuard 2FA'sı
+  olmayan süper admini geçirir (geçiş dönemi).
+- `SocialConnection` tablosu tasarımda M4'e ait olduğu için eklenmedi.
+- Pano KPI'ları, onay akışı, platform webhook olayları (`studio.signup`
+  vb.) ve doğrulanmamış alan adıyla ticari e-posta engeli M1d/M3 kapsamında
+  sonraki PR'lara bırakıldı; gönderen alan adı kaydı ve DNS durumu hazır.
+
 ## Kapsam dışı / takip maddeleri
 
 - Süper admin taklit etme (impersonation): görevin kendisi kapsam dışı

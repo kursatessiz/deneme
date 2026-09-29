@@ -180,6 +180,18 @@ import { enErrors } from './en/errors';
 import { enAdminErrors } from './en/admin-errors';
 import { enCommunity } from './en/community';
 import { enMCommunity } from './en/mCommunity';
+import { trTwoFactor } from './tr/two-factor';
+import { enTwoFactor } from './en/two-factor';
+import { trAdminPlatformUsers } from './tr/admin-platform-users';
+import { enAdminPlatformUsers } from './en/admin-platform-users';
+import { trPlatformPermissions } from './tr/platform-permissions';
+import { enPlatformPermissions } from './en/platform-permissions';
+import { trMarketing } from './tr/marketing';
+import { enMarketing } from './en/marketing';
+import { trIntegrations } from './tr/integrations';
+import { enIntegrations } from './en/integrations';
+import { trJoinInvite } from './tr/join-invite';
+import { enJoinInvite } from './en/join-invite';
 
 /**
  * Bundled message catalogues. Adding strings:
@@ -285,6 +297,12 @@ export const TR_NAMESPACES = [
   trAdminErrors,
   trCommunity,
   trMCommunity,
+  trTwoFactor,
+  trAdminPlatformUsers,
+  trPlatformPermissions,
+  trMarketing,
+  trIntegrations,
+  trJoinInvite,
 ] as const;
 
 export const EN_NAMESPACES = [
@@ -379,6 +397,12 @@ export const EN_NAMESPACES = [
   enAdminErrors,
   enCommunity,
   enMCommunity,
+  enTwoFactor,
+  enAdminPlatformUsers,
+  enPlatformPermissions,
+  enMarketing,
+  enIntegrations,
+  enJoinInvite,
 ] as const;
 
 type UnionToIntersection<U> = (U extends unknown ? (arg: U) => void : never) extends (arg: infer I) => void

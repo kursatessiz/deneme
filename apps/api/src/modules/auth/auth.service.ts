@@ -8,8 +8,11 @@ import { OtpService } from '../otp/otp.service';
 import { toAppearance, toTenantTheme } from '../appearance/theme-mapping';
 import { LoginThrottleService } from './login-throttle.service';
 import { isStudioBillingStatus } from '@platform/shared';
+import { loadPlatformAccess, requireTwoFactorForPlatformRoles } from './platform-access';
 
 export const PIN_MAX_FAILURES = 5;
+/** Refresh token lifetime of super admins and platform members (tenant users keep 30 days). */
+export const PLATFORM_REFRESH_TTL = '7d';
 export const PIN_LOCK_MS = 15 * 60 * 1000;
 const INVALID_CODE = 'Kod geçersiz veya süresi dolmuş';
 const INVALID_PIN = 'Telefon numarası veya PIN hatalı';
@@ -156,8 +159,11 @@ export class AuthService {
     const isTokenMatch = await bcrypt.compare(incomingRefreshToken, user.refreshTokenHash);
     if (!isTokenMatch) throw new UnauthorizedException('Yenileme jetonu geçersiz');
 
-    // Rotate: the presented refresh token cannot be used again.
-    return this.issueTokens(user.id);
+    // Rotate: the presented refresh token cannot be used again. A session that
+    // passed the TOTP step keeps it, unless 2FA was reset or re-enrolled since.
+    const mfa = (claims as { mfa?: unknown }).mfa;
+    const keepMfa = user.mfaEnabledAt !== null && mfa === user.mfaEnabledAt.getTime();
+    return this.issueTokens(user.id, keepMfa ? user.mfaEnabledAt : null);
   }
 
   async logout(userId: string) {
@@ -165,7 +171,7 @@ export class AuthService {
   }
 
   /** The user plus every active or invited membership with resolved permissions. */
-  async sessionUser(userId: string): Promise<SessionUserDTO> {
+  async sessionUser(userId: string, session: { mfaVerified?: boolean } = {}): Promise<SessionUserDTO> {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
       include: {
@@ -221,6 +227,12 @@ export class AuthService {
       },
     }));
 
+    // M1: platform access and 2FA state for the web shells (/admin, /pazarlama).
+    const access = await loadPlatformAccess(this.prisma, user);
+    const platformStudio = access ? await this.prisma.studio.findFirst({ where: { isPlatform: true }, select: { id: true } }) : null;
+    const mfaEnabled = user.mfaEnabledAt !== null;
+    const enrollmentRequired = Boolean(access) && !mfaEnabled && (user.isSuperAdmin || (await requireTwoFactorForPlatformRoles(this.prisma)));
+
     return {
       id: user.id,
       phone: user.phone,
@@ -232,12 +244,28 @@ export class AuthService {
       memberships,
       appearance: toAppearance(user),
       locale: user.locale,
+      platformAccess: access ? { permissions: access.permissions, platformStudioId: platformStudio?.id ?? null, roleName: access.roleName } : null,
+      mfa: { enabled: mfaEnabled, verified: mfaEnabled && session.mfaVerified === true, enrollmentRequired },
     };
   }
 
-  async issueTokens(userId: string) {
-    const accessToken = this.jwtService.sign({ sub: userId, typ: 'access' }, { expiresIn: '1h' });
-    const refreshToken = this.jwtService.sign({ sub: userId, typ: 'refresh' }, { expiresIn: '30d' });
+  /**
+   * `mfaEnabledAt`: set only right after the TOTP step (MfaService); binds the
+   * `mfa` claim to the current enrolment so a reset invalidates it.
+   */
+  async issueTokens(userId: string, mfaEnabledAt: Date | null = null) {
+    const mfa = mfaEnabledAt ? { mfa: mfaEnabledAt.getTime() } : {};
+    const accessToken = this.jwtService.sign({ sub: userId, typ: 'access', ...mfa }, { expiresIn: '1h' });
+    // Platform-level accounts get a shorter refresh window (docs/PAZARLAMA_MODULU.md 6.3).
+    const account = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { isSuperAdmin: true, platformMembership: { select: { status: true } } },
+    });
+    const isPlatformAccount = Boolean(account?.isSuperAdmin || account?.platformMembership?.status === 'ACTIVE');
+    const refreshToken = this.jwtService.sign(
+      { sub: userId, typ: 'refresh', ...mfa },
+      { expiresIn: isPlatformAccount ? PLATFORM_REFRESH_TTL : '30d' },
+    );
     await this.prisma.user.update({
       where: { id: userId },
       data: { refreshTokenHash: await bcrypt.hash(refreshToken, 10) },

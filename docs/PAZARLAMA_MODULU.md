@@ -1,0 +1,458 @@
+# Pazarlama Modülü ve Pazarlama Yöneticisi Rolü (tasarım)
+
+Durum: taslak, sahip onayı bekliyor. Bağlayıcı üst tasarım `docs/BUYUME_VE_GLOBAL_MIMARI.md`'dir; bu belge ona uyar ve yalnızca platform kiracısının (`Studio.isPlatform`) pazarlamasını tek bir panelden, yapay zeka desteğiyle ve ayrı bir "pazarlama yöneticisi" kullanıcısıyla yönetmeyi tanımlar. İnceleme tarihi: 2026-09-29, `origin/main` (`6d974e1`).
+
+Sahibin isteği: projenin bütün pazarlamasını eşi yönetecek; bu kullanıcı "pazarlama yöneticisi" olacak; e-posta, SMS, WhatsApp, Meta, Google vb. ne gerekiyorsa eklenecek; Zapier, Meta, Google entegrasyonları hem pazarlama panelinden hem süper admin panelinden yönetilebilecek; süper admin paneli dışında yönetim yeri olmayacak (tek konsol); platformun kendi pazarlaması platform kiracısında yürür.
+
+Özet karar:
+- Yeni kod yazmak yerine mevcut büyüme çekirdeği (CRM, segment, kampanya, akış, mesajlaşma, reklam, sayfa motoru, huni, yapay zeka) platform kiracısına **bağlanır**. Eksik olan şey özellik değil, **erişim yolu**: süper admin bugün bu ekranların çoğuna web'den ulaşamıyor (bölüm 1.2).
+- `MARKETING_ADMIN` sabit bir enum değil, **platform izin kataloğu + platform rol şablonu** olarak tasarlanır (CLAUDE.md kural 5). Pazarlama yöneticisi platform kiracısında sistem tarafından yönetilen gerçek bir `Membership` alır; böylece bütün kiracı ekranları ve uçları değişmeden çalışır, kural 6 (kullanıcı global, `studioId` User'da yok) korunur.
+- Tek web alanı `/pazarlama/*`: hem pazarlama yöneticisi hem süper admin aynı sayfaları kullanır; süper admin panelinde "Pazarlama" ve "Entegrasyonlar" girişleri bu sayfalara ve aynı API servislerine gider (tek servis, iki giriş, tek denetim kaydı).
+- Yapay zeka her şeyi taslak olarak üretir; **hiçbir gönderim veya harcama onaysız yapılmaz**. Eşikler ayardır.
+
+---
+
+## 1. Mevcut durum
+
+### 1.1 Platform kiracısında bugün var olan yetenekler
+
+| Yetenek | Kod | Platform kiracısında durum |
+|---|---|---|
+| Platform kiracısı | `packages/database/prisma/schema.prisma` `Studio.isPlatform` (satır ~608), tekil kısmi index (`20260929000000_crm_attribution`), seed `packages/database/prisma/seed.ts` `seedCrm()` | Var, slug `platform`. Hiçbir kullanıcının bu kiracıda üyeliği yok |
+| CRM kişileri, satış hattı, görevler, özel alanlar | `apps/api/src/modules/crm/*`, web `/kisiler`, `/kisiler/[id]`, `/kisiler/satis-hatti` | Veri modeli hazır; platform sitesi formları ve `studio_signup`/`studio_paid` burada kişi üretir |
+| Atıf, temas noktası, dönüşüm olayları | `crm/tracking`, `crm/conversions/conversion.service.ts` (`PLATFORM_ONLY` olaylar, `recordStudioSignup`, `recordStudioPaid`) | Çalışıyor; `studio_signup`, `studio_paid`, `pw_ref` tavsiye atfı yalnızca platform kiracısında |
+| Segmentler | `apps/api/src/modules/growth/segments`, web `/segmentler` | Hazır, kural dili `packages/shared` |
+| Kampanyalar | `growth/campaigns/campaigns.controller.ts` (`studios/:studioId/campaigns`: liste, oluştur, güncelle, `schedule`, `cancel`, `test-send`, `recipients`) | Hazır; A/B varyantı ve alıcı yerel saatine göre gönderim **yok** (`docs/KAMPANYA_VE_AKISLAR.md` satır 64, 141); onay adımı **yok** |
+| Akışlar (journeys) | `growth/journeys`, web `/akislar` | Hazır; webhook adımı ve görsel tuval yok |
+| Mesajlaşma motoru | `messaging/engine/messaging.service.ts` (`MessagingService.send()`), `compliance/compliance.service.ts` (`canSend`), `packages/shared/src/messaging-engine.ts` (STOP/HELP, bölge anahtar kelimeleri), şablonlar, izleme, `/m/u` abonelikten çıkma, `List-Unsubscribe` | Hazır. E-posta **tek global gönderen** (`SES_FROM_ADDRESS`, `docs/MESAJLASMA.md` satır 170); kiracı/marka başına gönderen alan adı ve SPF/DKIM/DMARC durumu **yok** |
+| Gelen kutusu | `messaging/inbox`, web `/gelen-kutusu`, yapay zeka cevap önerisi (`ai/ai-tenant.controller.ts`) | Hazır; atama `Membership` ister |
+| Reklam bağlantıları, CAPI, harcama, rapor | `apps/api/src/modules/ads/*` (`AdConnection`, `ConversionDeliveryDispatcherService`, `AdSpendSyncService`, `naming-check`), web `/ayarlar/reklam`, `/reklam-performansi` | Meta/Google/TikTok için dönüşüm gönderimi ve harcama çekme var; **kampanya oluşturma/düzenleme, Lead Ads, organik gönderi yok**; kimlik bilgisi elle yapıştırılır (OAuth akışı yok, `docs/REKLAM_ENTEGRASYONU.md` bölüm 3) |
+| UTM oluşturucu | `packages/shared` `buildCampaignName()`, `AD_URL_TEMPLATES`, web `/ayarlar/reklam` | `docs/REKLAM_ENTEGRASYONU.md` bölüm 7 "süper admin panelinde platform kiracısı için" diyor, ancak `apps/web/src/app/admin` altında reklam/UTM ekranı **yok** (belge-kod uyuşmazlığı) |
+| Sayfa motoru, açılış sayfaları, formlar | `apps/api/src/modules/sites/*`, web `/admin/web-sitesi` (`SiteEditor variant="platform"`), `dns.service.ts` | Süper admin **yalnızca bu modüle** web'den erişebiliyor (`GET /admin/company-info/platform-studio-id`) |
+| Huniler | `docs/HUNILER.md`, web `/raporlar` "Huniler" sekmesi | Hazır huniler kiracı odaklı (aday -> deneme -> üye); platform için "ziyaretçi -> aday -> `studio_signup` -> `studio_paid`" hazır hunisi **yok** |
+| Yapay zeka çekirdeği | `apps/api/src/modules/ai/*`: `AiService.run()`, `AnthropicAiAdapter`, `FakeAiAdapter`, `ai-writing.service.ts`, `prompts.ts`; görevler `AI_TASKS = ['TRANSLATION','COPYWRITING','REPLY_SUGGESTION']` (`packages/shared/src/ai/models.ts`), taslak türleri `AI_DRAFT_KINDS = ['CAMPAIGN','EMAIL','SMS','PAGE_BLOCK']` (`packages/shared/src/ai/api.ts`) | `POST /studios/:studioId/ai/draft` ve cevap önerisi var; marka kiti, varyant, segment önerisi, gönderim zamanı, haftalık özet, araştırma **yok**. Bütçe `studios.ai_monthly_budget_cents` -> plan -> platform varsayılanı |
+| Deneme, etkinleştirme, B2B tavsiye | `apps/api/src/modules/billing/*` (`platform-billing.service.ts`, `studio-referrals.service.ts`), web `/admin/referrals` | Hazır; tavsiye ayarları süper admin sayfasında |
+| Zapier / Make / n8n | `apps/api/src/modules/public-api/hooks-public.controller.ts`, `webhooks/*`, `api-keys/*`, olay kataloğu `packages/shared/src/open-platform.ts` `WEBHOOK_EVENTS` | REST hook aboneliği hazır; platforma özgü olaylar (`studio.signup`, `studio.paid`, `trial.expiring`) **yok**; web `/ayarlar/entegrasyonlar` üyelik ister |
+| Hata raporlama | `docs/HATA_RAPORLAMA.md`, `/admin/hatalar` | Dönüşüm gönderim ve form hataları burada |
+
+### 1.2 Süper admin bu yeteneklere bugün nasıl ulaşıyor
+
+API katmanı:
+- `/admin/*` uçları `SuperAdminOnly()` = `JwtAuthGuard` + `SuperAdminGuard` (`apps/api/src/modules/auth/decorators/super-admin-only.decorator.ts`, `guards/super-admin.guard.ts`); guard yalnızca `request.user.isSuperAdmin`'e bakar.
+- Kiracı uçları `@StudioScoped()` = `JwtAuthGuard` + `StudioTenantGuard` + `PermissionGuard` + `BillingWriteGuard` (`decorators/require-permission.decorator.ts`). `StudioTenantGuard` (`guards/studio-tenant.guard.ts`) süper admin için üyelik aramadan, var olan **her** kiracıya `ALL_PERMISSIONS` ve `membershipId: null` ile bağlam kurar. Yani API düzeyinde süper admin platform kiracısının bütün pazarlama uçlarını çağırabilir.
+
+Web katmanı:
+- `(dashboard)` grubu `getServerSession()` (`apps/web/src/lib/session/server-session.ts`) ile yalnızca kullanıcının `memberships` listesindeki bir kiracıyı etkin yapabilir; `AuthService.sessionUser()` (`apps/api/src/modules/auth/auth.service.ts` satır ~168) yalnızca gerçek `Membership` satırlarını döner. Süper adminin platform kiracısında üyeliği olmadığından `/kisiler`, `/segmentler`, `/kampanyalar`, `/akislar`, `/gelen-kutusu`, `/reklam-performansi`, `/raporlar`, `/ayarlar/reklam`, `/ayarlar/mesaj-sablonlari`, `/ayarlar/entegrasyonlar` ekranları platform kiracısı için **açılamaz**.
+- `/admin` grubu (`apps/web/src/app/admin/layout.tsx`, `getAdminSession()`), menü `apps/web/src/components/admin/AdminNav.tsx`: kiracılar, planlar, tavsiye, işletme türleri, feature flag, SMS paketleri, içerik, web sitesi, diller, yapay zeka, benchmark, sağlık, hatalar. Platform kiracısına dokunan tek ekran `/admin/web-sitesi`.
+- Kiracı sayfaları etkin kiracıyı `useDashboardSession()` (`apps/web/src/components/session/DashboardSessionProvider.tsx`) üzerinden alır ve BFF'ye `x-studio-id` gönderir (`apps/web/src/lib/session/client.ts`, `app/api/bff/[...path]/route.ts`). Bu, sayfaların başka bir kabukta farklı bir `activeStudioId` ile yeniden kullanılmasına izin veren doğru bir dikiş noktasıdır.
+
+### 1.3 "Tek yerden bütün pazarlama" için boşluklar (dosya/rota düzeyinde)
+
+1. **Web erişimi yok**: platform kiracısının CRM, segment, kampanya, akış, gelen kutusu, reklam, huni, şablon ve entegrasyon ekranları süper admin veya başka bir platform kullanıcısı için açılamıyor (bölüm 1.2). `apps/web/src/lib/nav.ts` `NAV_ITEMS` kiracı menüsüdür, platform bağlamı yok.
+2. **Rol yok**: süper admin dışında platform düzeyinde bir kullanıcı tipi yok. `User.isSuperAdmin` tek bayraktır; `SuperAdminGuard` bilerek izin kontrolü yapmaz. Pazarlama yöneticisine süper admin bayrağı vermek kiracı CRUD, planlar, faturalama, yedek, sağlık, diğer kiracıların verisi dahil her şeyi açar.
+3. **Sistem rol şablonu kilidi yok**: `RoleTemplate.isSystem` alanı var ama `apps/api/src/modules/role-templates/role-templates.service.ts` bu alana göre düzenlemeyi engellemiyor.
+4. **`membershipId: null` sorunu**: süper admin kiracı adına işlem yaptığında `Campaign.createdByMembershipId`, kişi sahibi, görev atanan, gelen kutusu ataması gibi `Membership` referansları boş kalıyor; kim yaptı bilgisi yalnızca `AuditLog.userId`'de.
+5. **Entegrasyon merkezi yok**: yapay zeka anahtarı `/admin/ai`'da, reklam bağlantıları kiracı `/ayarlar/reklam`'da, API anahtarı ve webhook'lar kiracı `/ayarlar/entegrasyonlar`'da, SMS/WhatsApp sağlayıcıları ortam değişkeni ve `messagingSettings`'te, SES ortam değişkeninde. Tek görünüm ve tek denetim akışı yok.
+6. **E-posta alan adı doğrulaması yok**: `docs/BUYUME_VE_GLOBAL_MIMARI.md` bölüm 2.2 "Alan adı doğrulama (SPF, DKIM, DMARC)" diyor; kodda gönderen alan adı modeli ve DNS durum ekranı yok. `sites/dns.service.ts` TXT/CNAME sorgusu için yeniden kullanılabilir.
+7. **Onay akışı yok**: kampanya `schedule` doğrudan gönderime gider; reklam tarafında harcama değiştiren bir işlem zaten yok ama eklenecekse onay gerekecek.
+8. **Kampanya eksikleri**: A/B varyantı, alıcı yerel saatine göre gönderim, gönderim zamanı önerisi yok.
+9. **Çift onay (double opt-in) yok**: `grep doubleOptIn` boş. AB (özellikle Almanya) için rıza ispatı eksik.
+10. **Platform KPI panosu yok**: MQL/SQL, CAC, deneme -> ücretli dönüşüm, kanal ROI tek ekranda değil; parçalar `/reklam-performansi`, `/raporlar`, `/admin/referrals` içinde dağınık ve çoğu platform kiracısı için açılamıyor.
+11. **Yapay zeka pazarlama görevleri yok**: marka kiti, ürün gerçekleri (grounding), varyant üretimi, segment önerisi, haftalık özet, araştırma asistanı.
+12. **Organik sosyal ve Lead Ads yok**: Meta sayfa/Instagram gönderisi, LinkedIn şirket sayfası, Meta Lead Ads senkronu yok.
+13. **Belge uyuşmazlığı**: `docs/REKLAM_ENTEGRASYONU.md` bölüm 7'deki "süper admin panelinde UTM oluşturucu" kodda yok; M1'de ya ekran eklenmeli ya belge düzeltilmeli (öneri: `/pazarlama/reklam` altında gelir, belge güncellenir).
+
+---
+
+## 2. Rol tasarımı
+
+### 2.1 Seçenekler
+
+| Seçenek | Artı | Eksi |
+|---|---|---|
+| A. `User.platformRole` enum (`SUPER_ADMIN`, `MARKETING_ADMIN`, null) | Basit, tek sütun | Kural 5'e aykırı (sabit rol); yeni bir platform rolü (ör. destek, muhasebe) her seferinde enum + guard değişikliği ister; ince ayar (ör. "reklam görsün ama bütçe değiştirmesin") yapılamaz |
+| B. Pazarlama yöneticisine yalnızca platform kiracısında normal bir `Membership` + "Pazarlama" rol şablonu vermek | Sıfır guard değişikliği, bütün ekranlar çalışır | Platform düzeyindeki şeyler (entegrasyon merkezi, yapay zeka ayarları görünümü, onaylar, marka kiti, platform KPI'ları) kiracı izin kataloğunda yok; rolü kimin verdiği ve geri aldığı denetlenemez; kiracı izin kataloğuna platforma özgü anahtar eklemek kataloğu kirletir |
+| C. **Önerilen**: `PlatformRoleTemplate` + `PlatformMembership` (platform izin kataloğu) **ve** bunun sistem tarafından senkron tutulan platform kiracısı `Membership`'i | Kural 5 (izin tabanlı), kural 6 (kullanıcı global; platform yetkisi ayrı tabloda, `User`'da `studioId` yok); kiracı ekranları değişmeden çalışır; `membershipId` referansları dolu; yeni platform rolleri veriyle eklenir | İki kaydın senkron tutulması gerekir (tek servis ve tek işlem ile çözülür) |
+
+Gerekçe: kural 5 "sabit rollere değil izinlere" der; A bunu ihlal eder. B tek başına platform düzeyindeki yetkileri ifade edemez. C, platform yetkisini kendi kataloğunda tutar ve kiracı düzeyindeki işi mevcut `Membership` mekanizmasına bırakır.
+
+`User.isSuperAdmin` olduğu gibi kalır ve kök yetkidir: süper admin bütün platform izinlerine örtük olarak sahiptir, `PlatformMembership` satırı gerekmez, tablo üzerinden süper adminlik **verilemez** (kiracı sahibinin düşürülemez olması kuralının platform karşılığı).
+
+### 2.2 Platform izin kataloğu (`packages/shared/src/platform-permissions.ts`)
+
+Kiracı kataloğundan (`permissions.ts`) ayrı dosya, aynı desen: `PLATFORM_PERMISSIONS`, `PlatformPermissionKey`, `isPlatformPermissionKey`, `PLATFORM_PERMISSION_AREAS`, `DEFAULT_PLATFORM_ROLE_TEMPLATES`. Etiketler Türkçe kalır (mevcut katalog gibi), UI metinleri i18n anahtarıyla gösterilir (`platformPermissions` ad alanı, tr + en).
+
+| Anahtar | Anlamı |
+|---|---|
+| `platform.marketing.view` | Pazarlama panelini, KPI panosunu ve raporları görme |
+| `platform.marketing.manage` | Platform kiracısında CRM, segment, kampanya, akış, şablon, site, huni taslağı hazırlama ve düzenleme |
+| `platform.marketing.send` | Onay eşiğinin altındaki gönderimleri kendi onayıyla başlatma (eşik üstü her zaman onay ister) |
+| `platform.marketing.approve` | Başkasının gönderim/harcama talebini onaylama (varsayılan: yalnızca süper admin) |
+| `platform.inbox.reply` | Platform gelen kutusunda cevap yazma |
+| `platform.ads.view` | Reklam performansı ve harcama |
+| `platform.ads.manage` | Reklam bağlantıları, UTM, adlandırma, Lead Ads eşlemesi, reklam durdurma |
+| `platform.ads.spend` | Bütçe değiştirme, kampanya etkinleştirme talebi (onaya tabi) |
+| `platform.social.publish` | Organik sosyal gönderi planlama (onaya tabi) |
+| `platform.integrations.manage` | Pazarlama entegrasyonları: reklam, sosyal, Zapier/webhook, API anahtarı, e-posta gönderen alan adı |
+| `platform.ai.use` | Yapay zeka stüdyosu (platform kiracısının yapay zeka bütçesinden) |
+| `platform.brand.manage` | Marka kiti ve ürün gerçekleri |
+| `platform.contacts.export` | Platform kişi listesini dışa aktarma (varsayılan kapalı) |
+| `platform.referrals.view` | B2B tavsiye programı raporu (salt okunur) |
+| `platform.users.manage` | Platform kullanıcılarını davet etme ve rol verme (varsayılan: yalnızca süper admin; tabloyla verilemez) |
+
+Kasıtlı olarak katalogda **olmayanlar** (yalnızca `isSuperAdmin`): kiracı CRUD, askıya alma, plan ve fiyatlar, faturalama durumu değişikliği ve zorla etkinleştirme, feature flag, SMS paketi ve kredi yükleme, yapay zeka anahtarı ve modeller, diller, sistem sağlığı, zamanlayıcı tetikleyicileri, hata ayrıntıları, yedek/deploy, benchmark (kiracı kırılımı). Bu uçlar `SuperAdminOnly()` ile kalır ve hiç değişmez.
+
+Varsayılan platform rol şablonu `marketing_admin` ("Pazarlama Yöneticisi"): `platform.marketing.view`, `.manage`, `.send`, `platform.inbox.reply`, `platform.ads.view`, `.manage`, `.spend`, `platform.social.publish`, `platform.integrations.manage`, `platform.ai.use`, `platform.brand.manage`, `platform.referrals.view`. `approve`, `contacts.export`, `users.manage` yok.
+
+### 2.3 Platform izninden kiracı iznine eşleme
+
+`packages/shared/src/platform-permissions.ts` içinde tek eşleme `PLATFORM_TENANT_GRANTS: Record<PlatformPermissionKey, readonly PermissionKey[]>`:
+
+- `platform.marketing.view` -> `crm.view`, `segments.view`, `campaigns.view`, `journeys.view`, `inbox.view`, `reports.view`, `site.view`
+- `platform.marketing.manage` -> `crm.manage`, `segments.manage`, `campaigns.manage`, `journeys.manage`, `funnels.manage`, `site.manage`, `notifications.manage` (mesaj şablonları ve mesajlaşma ayarları)
+- `platform.inbox.reply` -> `inbox.reply`, `inbox.manage`
+- `platform.ads.view` -> `ads.view`; `platform.ads.manage` -> `ads.manage`
+- `platform.integrations.manage` -> `integrations.manage`
+- `platform.ai.use` -> `ai.use`
+- `platform.contacts.export` -> `crm.export`
+
+Hiçbir platform izni `roles.manage`, `staff.manage`, `studio.settings.manage`, `billing.manage`, `finance.*`, `payouts.*` üretmez. `resolvePlatformTenantPermissions(platformPerms)` saf fonksiyondur ve birim testlidir.
+
+### 2.4 Platform kiracısındaki üyelik (senkron)
+
+`PlatformAccessService` (`apps/api/src/modules/platform-access/`) tek yazıcıdır:
+1. Platform kiracısında sistem rol şablonu `platform:<platformRoleKey>` (`isSystem = true`) oluşturur/günceller; izinleri `PLATFORM_TENANT_GRANTS` ile türetilir.
+2. `PlatformMembership` ACTIVE olduğunda aynı işlemde platform kiracısında `Membership` (ACTIVE, bu rol şablonu) yazar; PASSIVE/iptal olduğunda aynı işlemde `Membership.status = PASSIVE`.
+3. Platform rol şablonunun izinleri değişince bağlı sistem rol şablonunu yeniden türetir.
+
+Guard değişiklikleri (savunma derinliği):
+- `StudioTenantGuard`: çözümlenen kiracı `isPlatform` ise ve üyeliğin rol şablonu `isSystem` + `platform:` önekliyse, kullanıcının ACTIVE bir `PlatformMembership`'i olmalı; yoksa 403. (Senkron bozulsa bile erişim platform kaydına bağlı kalır.) Sorgu mevcut `membership.findUnique` include'una eklenir, ek gidiş yok.
+- `RoleTemplatesService`: `isSystem = true` şablonların düzenlenmesi, silinmesi ve bu şablonla davet oluşturulması reddedilir (bugün engellenmiyor, bölüm 1.3 madde 3). `InvitesService` platform kiracısına personel davetini reddeder; platform kullanıcıları yalnızca bölüm 2.6 akışıyla eklenir.
+- `BillingWriteGuard`: değişiklik yok (platform kiracısı `billingStatus = ACTIVE`, faturalama işleri `isPlatform: false` filtreli).
+
+Pazarlama yöneticisinin başka kiracılarda yetkisi yoktur: `StudioTenantGuard` süper admin atlamasını yalnızca `isSuperAdmin` için yapar; pazarlama yöneticisinin tek personel üyeliği platform kiracısındadır. Kişisel olarak bir stüdyonun üyesiyse o üyelik ayrı ve normal kurallarla çalışır (kural 6).
+
+### 2.5 Platform düzeyi uçlar için guard
+
+- `PlatformPermissionGuard` (`apps/api/src/modules/auth/guards/platform-permission.guard.ts`) + dekoratörler `RequirePlatformPermission(...keys)` ve `PlatformScoped()` = `JwtAuthGuard` + `PlatformPermissionGuard`. Kural: `user.isSuperAdmin` ise geç; değilse ACTIVE `PlatformMembership` yükle (her istekte veritabanından, `StudioTenantGuard` gibi), rol şablonunun izinleri gerekenlerin hepsini içermeli. Hiçbir izin beyan etmeyen handler reddedilir (mevcut `PermissionGuard` ile aynı güvenli varsayılan).
+- `request.platform = { userId, isSuperAdmin, permissions, platformStudioId }` (`tenant-context.ts`'e `PlatformContext` tipi). `platformStudioId` sunucuda çözülür (`isPlatform: true`), istemciden alınmaz.
+- `AuthUser`/`/auth/me`: `SessionUserDTO`'ya `platformAccess: { permissions: PlatformPermissionKey[] } | null` eklenir (yalnızca ekleme). Web `/pazarlama` kabuğu bununla menüyü çizer.
+- `SuperAdminGuard` değişmez.
+
+### 2.6 Süper admin rolü nasıl verir ve geri alır
+
+Süper admin paneli: `/admin/platform-kullanicilari` (yeni sayfa, `AdminNav`'a eklenir).
+1. Telefon (E.164) ve ad soyad girilir, platform rol şablonu seçilir (`marketing_admin`).
+2. `POST /admin/platform-users/invites` (`SuperAdminOnly`) mevcut `InviteToken` akışını yeniden kullanır: kullanıcı yoksa telefon OTP ile hesap açar (kural 6: kullanıcı telefonla globaldir). `InviteToken`'a `platformRoleTemplateId` (nullable) eklenir; `studioId` platform kiracısıdır. Kabulde `PlatformAccessService.activate()` çağrılır.
+3. Liste: ad, telefon (maskeli), rol, durum, son giriş, 2FA durumu. İşlemler: rol değiştir, pasifleştir (anında: aynı işlemde `Membership` PASSIVE, `refreshTokenHash = null` ile oturum düşürülür), yeniden etkinleştir.
+4. Her işlem `AuditLog` (`studioId: null`, `entityType: 'platform_membership'`, `action: platform_user.invited|activated|role_changed|deactivated`, `metadata`: eski/yeni rol, çağıran).
+5. İsteğe bağlı: platform rol şablonu düzenleyicisi `/admin/platform-kullanicilari/roller` (izin kutuları `PLATFORM_PERMISSION_AREAS`'tan). Faz 1'de tek varsayılan şablon yeterlidir.
+
+---
+
+## 3. Pazarlama paneli
+
+### 3.1 Kabuk ve erişim
+
+- Yeni rota grubu `apps/web/src/app/pazarlama/` (URL `/pazarlama/*`). `layout.tsx` sunucu tarafında `/auth/me`'den `isSuperAdmin || platformAccess` kontrol eder, platform kiracısı kimliğini `GET /platform/context` ile alır ve `DashboardSessionProvider`'ı `{ activeStudioId: platformStudioId, permissions: <türetilmiş kiracı izinleri>, isOwner: false, currency: <platform kiracısı para birimi> }` ile sarar. Böylece `(dashboard)` sayfaları değişmeden bu kabukta çalışır.
+- Tema: süper admin paneli gibi nötr tokenlar (`AdminTheme` deseni), gradyan yok (kural 10); platform kiracısının marka rengi yalnızca önizlemelerde.
+- Menü `apps/web/src/lib/marketing-nav.ts` içinde `MARKETING_NAV_ITEMS` (platform izin anahtarlarıyla), `filterNavByPermissions` ile aynı mantık. Süper admin hepsini görür.
+- Süper admin paneli: `AdminNav`'a "Pazarlama" (`/pazarlama`) ve "Entegrasyonlar" (`/admin/entegrasyonlar`) eklenir. Böylece sahip için tek konsol `/admin` olarak kalır; pazarlama yöneticisi yalnızca `/pazarlama`'yı görür (`/admin` layout'u onu `/pazarlama`'ya yönlendirir).
+- Sayfa yeniden kullanımı: `/pazarlama/kisiler/page.tsx` gibi dosyalar `(dashboard)` sayfa bileşenini yeniden dışa aktarır. Sayfaların içindeki sabit `href="/kisiler/..."` bağlantıları (şu an ~18 yerde) `useAreaHref()` yardımcısına çevrilir: kabuk bir `basePath` (`''` veya `/pazarlama`) sağlar. Bu tek mekanik PR'dır.
+
+### 3.2 Bilgi mimarisi
+
+| Bölüm | Rota | Kaynak | İzin |
+|---|---|---|---|
+| Pano | `/pazarlama` | Yeni (bölüm 3.3) | `platform.marketing.view` |
+| Onaylar | `/pazarlama/onaylar` | Yeni | `.send` veya `.approve` (kendi talepleri / onay kuyruğu) |
+| İçerik takvimi | `/pazarlama/takvim` | Yeni | `platform.marketing.manage` |
+| Yapay zeka stüdyosu | `/pazarlama/yz-studyo` | Yeni | `platform.ai.use` |
+| Kişiler, satış hattı | `/pazarlama/kisiler`, `/pazarlama/kisiler/satis-hatti` | Mevcut `(dashboard)/kisiler` | `.view` |
+| Segmentler | `/pazarlama/segmentler` | Mevcut | `.view` |
+| Kampanyalar | `/pazarlama/kampanyalar` | Mevcut + A/B + onay | `.view` |
+| Akışlar | `/pazarlama/akislar` | Mevcut | `.view` |
+| Gelen kutusu | `/pazarlama/gelen-kutusu` | Mevcut | `.view` |
+| Mesaj şablonları | `/pazarlama/sablonlar` | Mevcut `ayarlar/mesaj-sablonlari` | `.manage` |
+| Web sitesi ve açılış sayfaları | `/pazarlama/site` | Mevcut `SiteEditor variant="platform"` (süper admin `/admin/web-sitesi` ile aynı bileşen) | `.manage` |
+| Reklam | `/pazarlama/reklam` (performans + UTM + adlandırma + bağlantılar) | Mevcut `reklam-performansi` + `ayarlar/reklam` | `platform.ads.view` |
+| Sosyal | `/pazarlama/sosyal` | Yeni (M4) | `platform.social.publish` |
+| Huniler ve raporlar | `/pazarlama/raporlar` | Mevcut `raporlar` Huniler sekmesi + platform hazır hunisi | `.view` |
+| B2B tavsiye | `/pazarlama/tavsiye` | Mevcut admin raporunun salt okunur görünümü | `platform.referrals.view` |
+| Entegrasyonlar | `/pazarlama/entegrasyonlar` | Yeni merkez (bölüm 5) | `platform.integrations.manage` |
+| Marka kiti | `/pazarlama/marka` | Yeni | `platform.brand.manage` |
+
+Mobil: faz 1'de yok. Tek istisna ucuz olduğu için önerilir: mevcut mobil resepsiyon gelen kutusu platform kiracısı üyeliğiyle zaten çalışır (üyelik gerçek olduğu için başlıktaki kiracı değiştiricide "Platform" görünür). Onay bildirimi push olarak M3'te eklenebilir.
+
+### 3.3 Pazarlama panosu (`/pazarlama`)
+
+Tek API: `GET /platform/marketing/dashboard?from&to&compare=previous` (`PlatformScoped`, `platform.marketing.view`). Tümü toplu sayılardır, kişi verisi dönmez.
+
+- Huni kartları: ziyaretçi -> aday (`lead`) -> MQL -> SQL -> `studio_signup` (deneme) -> `studio_paid`; adım dönüşüm oranı ve medyan süre (mevcut huni sorgusu, yeni hazır huni `platform_b2b`).
+- MQL/SQL tanımı veridir: `MarketingSettings.mqlRule` ve `sqlRule` segment kural dilinde (ör. MQL = form doldurdu + işletme türü seçti; SQL = satış hattında "demo" aşaması). Sabit kod yok.
+- CAC = dönem reklam harcaması (`AdSpendDaily`, para birimi başına) / dönemde `studio_paid` sayısı; CPL; deneme -> ücretli oranı ve medyan süre (`studios.billingStatus` geçişleri + `studio_paid`); kanal ROI = atfedilen `studio_paid` değeri / harcama (mevcut atıf raporu `groupBy=source|campaign`).
+- MRR etkisi: yalnızca `platform.referrals.view` veya süper admin görürse, plan fiyatlarından (açık karar, bölüm 9).
+- Kanal sağlığı: e-posta bounce/şikâyet oranı (son 7/30 gün, `NotificationLog` durumlarından), SMS teslim oranı, yapay zeka bütçesi kullanımı, bekleyen onaylar, bağlantı hataları (`AdConnection.lastError`, dönüşüm gönderim `FAILED` sayısı).
+- Para tutarları `Intl.NumberFormat` ile, para birimi ayrı ayrı (farklı para birimleri toplanmaz, kural 8).
+
+### 3.4 İçerik takvimi (`/pazarlama/takvim`)
+
+Ay/hafta görünümü; öğeler: kampanya (planlı), akış başlangıcı, sosyal gönderi, açılış sayfası yayını, reklam kampanyası başlangıç/bitişi (senkrondan), elle not. Sürükle bırak tarih değiştirme yalnızca `DRAFT`/`PENDING_APPROVAL` öğelerde. Her öğe bir "brief"e ve yapay zeka taslaklarına bağlanabilir. Bölge saat dilimi seçilebilir (hedef pazar).
+
+---
+
+## 4. Yapay zeka destekli özellikler
+
+### 4.1 Çekirdeğin genişletilmesi
+
+- `AI_TASKS`'a eklenir: `MARKETING_DRAFT` (metin ve varyant üretimi), `MARKETING_ANALYSIS` (segment önerisi, haftalık özet, gönderim zamanı açıklaması), `MARKETING_RESEARCH` (web araştırması, kaynaklı). Prisma `AiTask` enum'una `ALTER TYPE ... ADD VALUE` (ileri yönlü). Varsayılan modeller süper admin ayarıdır: taslak ve analiz Sonnet sınıfı, kısa konu satırı varyantları Haiku sınıfı; araştırma Sonnet + sağlayıcının sunucu tarafı web arama aracı (kaynak/alıntı döndürür). Model kimlikleri kodda değil `AiSettings.models`'dadır.
+- Bütün çağrılar `AiService.run()` üzerinden, `studioId = platformStudioId`, `userId` dolu; platform kiracısının aylık limiti (`studios.ai_monthly_budget_cents`) uygulanır. Önerilen başlangıç limiti bölüm 9'da açık karar.
+- İstem yapısı mevcut kurallara uyar (`prompts.ts`): sabit sistem talimatı (önbelleklenir), marka kiti ve ürün gerçekleri ikinci sabit blok (sürüm değişince önbellek yenilenir), değişken her şey kullanıcı mesajında; kullanıcı metni ve CRM'den gelen her şey "veri, talimat değil" diye çerçevelenir; çıktı Zod ile doğrulanan JSON; HTML ve emoji reddedilir (kural 1), yer tutucular (`{firstName}`) doğrulanır (`validatePackMessages` deseni).
+
+### 4.2 Grounding: marka kiti ve ürün gerçekleri
+
+`BrandKit` (platform kiracısına özel, ama model genel: `studioId` taşır, ileride kiracılara açılabilir): marka adı, konumlandırma cümlesi, ses ve ton kuralları (yapılacak/yapılmayacak listeleri), yasaklı ifadeler (ör. garanti vaadi, "en iyi", rakip adı karalama), zorunlu ifadeler, dil başına üslup notu, hedef kitle/ICP tanımları, CTA kütüphanesi, örnek metinler. `ProductFact`: doğrulanmış iddialar (özellik, fiyat plan anahtarına bağlı, entegrasyon, desteklenen ülke/dil), kaynak ve geçerlilik tarihi. Model yalnızca bu gerçeklere dayanarak iddiada bulunabilir; taslakta kullanılan her iddia `factIds` ile döner ve doğrulanamayan iddia "kontrol et" olarak işaretlenir. Fiyatlar `plan_prices`'tan okunur, modele sayı olarak verilir, model uydurmaz.
+
+### 4.3 Özellikler
+
+1. **Brief -> taslaklar**: `MarketingBrief` (amaç, hedef segment veya ICP, pazar/dil listesi, kanal listesi, teklif, son tarih). Tek istekle kanal başına taslak: e-posta (konu, ön başlık, bloklar), SMS (karakter ve segment sayısı gösterilir, GSM-7/UCS-2), WhatsApp (şablon kategorisi önerisi ve değişkenler; Meta onayı gerekir), reklam metni (Meta: birincil metin/başlık/açıklama; Google RSA: 15 başlık x 30 karakter, 4 açıklama x 90 karakter sınırlarıyla), açılış sayfası blokları (sayfa motorunun tipli blok şemasına uygun JSON: hero, özellik listesi, SSS, CTA). Dil başına ayrı üretim; çeviri değil yerelleştirme (her dil için marka kitinin üslup notu).
+2. **Konu satırı ve CTA varyantları + A/B kurulumu**: 3-5 varyant; kampanyaya "A/B testi" eklenir: test payı (ör. %20), varyant sayısı, kazanma ölçütü (tıklama; açılma, Apple Mail Privacy Protection nedeniyle güvenilmez olduğundan varsayılan değil), bekleme süresi, sonra kalan kitleye kazanan. Mevcut kampanya kümesi ve `campaign:<id>:<kişi>` tekilleştirmesi korunur; `CampaignVariant` tablosu (bölüm 7).
+3. **Segment önerisi**: model kişi satırı görmez; `SegmentInsightService` platform kiracısında toplu istatistik çıkarır (yaşam döngüsü, kaynak, ülke, dil, işletme türü özel alanı, son etkileşim aralığı başına sayılar, dönüşüm oranları; 5'ten küçük hücreler bastırılır, benchmark'taki k-anonimlik deseni). Model segment kural dilinde (paylaşılan Zod şeması) öneri + gerekçe döner; kural sunucuda doğrulanır ve önizleme sayısı gösterilir; kaydetmek kullanıcı işidir. Bu, `docs/BUYUME_VE_GLOBAL_MIMARI.md` 3.10'daki "segment tarifinden kural üretme" kalan maddesini de kapatır.
+4. **En iyi gönderim zamanı**: iki katman. (a) Deterministik: kişi başına son 90 gündeki açılma/tıklama saatleri (alıcının yerel saat diliminde) ile saat-gün histogramı; yeterli veri (ör. en az 3 etkileşim) yoksa segment ortalaması, o da yoksa bölge varsayılanı. Kampanyada "alıcı yerel saatine göre" ve "kişiye özel en iyi saat" seçenekleri; sessiz saat ve sıklık sınırı yine `canSend`'de. (b) Yapay zeka yalnızca histogramı açıklar ve kampanya düzeyinde öneri yazar; kişi başına tahmin modelle yapılmaz (maliyet ve PII).
+5. **Haftalık performans özeti**: her pazartesi (zamanlayıcı kalp atışı, platform saat dilimi) toplu KPI'lar (bölüm 3.3 verisi, önceki hafta karşılaştırmalı) modele verilir; çıktı: 5-8 maddelik özet, en fazla 5 önerilen eylem (her biri bir ekrana derin bağlantı: "şu segmente şu kampanyayı taslakla"). Pazarlama yöneticisine ve süper admine uygulama içi bildirim + e-posta (TRANSACTIONAL, mesajlaşma motoru). `MarketingInsight` satırı olarak saklanır; önerilen eylem taslak üretir, asla gönderim yapmaz.
+6. **Rakip ve ICP araştırma asistanı**: soru -> web arama aracıyla kaynaklı cevap; her iddia kaynak URL'siyle; sonuçlar `ResearchNote` olarak kaydedilir ve marka kitine "gerçek" olarak yalnızca insan onayıyla taşınır. Rakip adı reklam veya içerikte kullanılmaz (marka kiti kuralı). Web içeriği veri olarak ele alınır.
+7. **SEO açılış sayfası taslağı**: sektör x dil x teklif için başlık, meta açıklama, H yapısı, SSS (FAQPage), iç bağlantı önerileri, `hreflang` eşleri; çıktı sayfa motoru bloklarına dönüştürülüp **taslak** sayfa olarak kaydedilir (yayın insan işi). URL yapısı `docs/BUYUME_VE_GLOBAL_MIMARI.md` bölüm 5'e uyar.
+8. **Gelen kutusu**: mevcut cevap önerisi aynen (platform kiracısında `inbox.reply` + `ai.use` türetilmiş izinleriyle).
+
+### 4.4 Korkuluklar
+
+- **İnsan onayı**: yapay zeka çıktısı her zaman `AiDraft` (durum `DRAFT`); kampanyaya/şablona/sayfaya aktarım kullanıcı eylemidir; gönderim ve harcama bölüm 6 onayından geçer.
+- **Bütçe**: platform kiracısı limiti + görev başına günlük üst sınır (`MarketingSettings.aiDailyCapCents`), araştırmada istek başına arama sayısı sınırı. Limit dolunca mevcut `AI_MONTHLY_LIMIT_REACHED` kodu.
+- **Kişisel veri**: modele kişi adı, telefon, e-posta, serbest not gönderilmez. Kişiselleştirme yer tutucuyla yapılır (`{firstName}`), değer gönderimde motor tarafından doldurulur. Gelen kutusu önerisi (mevcut) konuşma metnini gönderir; bu tek istisna zaten belgelenmiş durumdadır ve telefon/e-posta desenleri gönderimden önce maskelenir (yeni: `redactPii()` shared yardımcısı). Toplu istatistiklerde küçük hücre bastırma.
+- **Uyum ön kontrolü** (`MarketingPreflightService`): gönderim onayına gitmeden önce kampanya kitlesi `ComplianceService.canSend` kurallarıyla **kuru çalıştırılır** (yeni `dryRun` modu; gerçek gönderim yolunda değişiklik yok): bölge başına alıcı sayısı, izinsiz/İYS reddi/abonelikten çıkmış/bastırılmış sayısı, sessiz saate düşecek sayı ve erteleme, sıklık sınırına takılacak sayı. Ticari e-postada fiziksel adres ve abonelikten çıkma bağlantısı (CAN-SPAM, motor zaten ekliyor) doğrulanır; SMS'te gönderen kimliği ve çıkış talimatı (TCPA/İYS) kontrol edilir. AB alıcıları için rıza kaydı yoksa (veya çift onay istenen ülkelerde onay tamamlanmamışsa) alıcı kitleden düşülür.
+- **Ton ve marka kontrolü**: deterministik kurallar (yasaklı ifadeler, zorunlu ifadeler, uzunluk, büyük harf/ünlem yoğunluğu, emoji yok) + isteğe bağlı model incelemesi ("marka kitine uygun mu", gerekçeli); sonuç onay ekranında gösterilir, engelleyici olan yalnızca deterministik kurallardır.
+- **Kötüye kullanım**: kişiye/rakibe karalama, sağlık vaadi gibi iddialar marka kiti yasak listesinde; model reddi (`AI_REFUSED`) kullanıcıya gösterilir.
+
+---
+
+## 5. Kanallar ve entegrasyonlar
+
+### 5.1 Tek servis, iki giriş
+
+- API: `apps/api/src/modules/platform-marketing/integrations/` içinde `IntegrationHubService` ve `PlatformIntegrationsController` (`/platform/integrations/*`, `PlatformScoped` + `platform.integrations.manage`; süper admin örtük geçer). Servis kendi tablosunu yazmaz; mevcut servisleri platform kiracısı kimliğiyle çağırır: `AdConnectionsService`, `ApiKeysService`, `WebhooksService`, `MessagingSettings`, yeni `SocialConnectionsService`, yeni `EmailDomainsService`. Tek özet uç: `GET /platform/integrations` (her bağlantının durumu, son senkron, son hata, kimlik bilgisinin son 4 karakteri, sahibi olan kullanıcı).
+- Web: bileşen `apps/web/src/components/integrations/IntegrationHub.tsx`; `/pazarlama/entegrasyonlar` ve `/admin/entegrasyonlar` aynı bileşeni aynı uçlarla kullanır. Süper admin sayfası ek olarak yalnızca süper admine ait platform düzeyi kartları gösterir (yapay zeka anahtarı -> `/admin/ai`, SMS sağlayıcı bakiyesi -> `/admin/health`, Stripe/iyzico -> ortam) salt okunur durum olarak.
+- Denetim: her yazma `AuditLog` (`studioId = platformStudioId`, `userId`, `action: integration.<tür>.<işlem>`, `metadata.via: 'marketing'|'admin'`). Kimlik bilgisi hiçbir yanıtta ve logda dönmez (mevcut `CredentialCipher`, `INTEGRATION_ENCRYPTION_KEY`, AES-256-GCM).
+- Kiracı uçları (`/studios/:id/ads/connections`, `/integrations/api-keys`, `/integrations/webhooks`) aynen kalır; hub bunların üstünde bir birleştiricidir, ikinci bir doğruluk kaynağı değildir.
+
+### 5.2 Kanal kanal
+
+| Kanal | Bugün | Faz 1 (M1-M3) | Sonra (M4-M5) | Kimlik doğrulama | Kimlik bilgisi yeri |
+|---|---|---|---|---|---|
+| E-posta (Amazon SES) | Global `SES_FROM_ADDRESS`, SNS bounce/şikâyet, bastırma, `List-Unsubscribe` | `EmailSenderDomain`: platform kiracısı için pazarlama alt alan adı (ör. `news.<alan>`), SES kimliği oluşturma talimatı, **DNS durum ekranı**: SPF (`include:amazonses.com` veya özel MAIL FROM), Easy DKIM 3 CNAME, DMARC TXT (`_dmarc`, en az `p=none`, hedef `quarantine`), özel MAIL FROM MX/TXT; kontrol `sites/dns.service.ts` ile; ticari gönderim ancak üçü de geçerliyse açılır. Ayrı SES configuration set (pazarlama/işlemsel ayrımı). Isınma planı: günlük gönderim tavanı ayarı (ör. 200 ile başlayıp 2 katına), bounce > %2 veya şikâyet > %0,08 olunca kampanyaları otomatik duraklatma | SES v2 API ile kimlik oluşturmayı otomatikleştirme (AWS kimlik bilgisi yine sunucu rolünden) | AWS SDK varsayılan zinciri (kodda sır yok) | Ortam + `EmailSenderDomain` (sır yok, yalnızca DNS kayıtları) |
+| SMS | `ProviderRegistry` (TR Netgsm/İleti Merkezi, diğer Twilio), İYS, STOP/HELP, kredi yalnızca gönderilince düşer | Pano ve onay; B2B hedef kitle için gönderen başlığı (alfanümerik) durumu hub'da | ABD için 10DLC marka/kampanya kaydı durumu (Twilio) | Sağlayıcı API anahtarı | Mevcut ortam/`messagingSettings` |
+| WhatsApp | Cloud API, şablon onay durumu, gelen kutusu, 24 saat kuralı | Yapay zeka şablon taslağı -> Meta onayına gönderim talimatı; onay durumu hub'da | Şablonların Graph API ile doğrudan gönderilmesi | Sistem kullanıcısı token'ı | Mevcut |
+| Meta reklam (FB/IG) | CAPI + Pixel, harcama/yapı senkronu, test modu | Hub'da durum + "bağlantıyı test et"; UTM/adlandırma `/pazarlama/reklam`'da; **reklam durdurma** (yalnızca harcamayı azaltan işlem, onaysız izinli) opsiyonel | **Lead Ads**: sayfa `leadgen` webhook'u + `leads_retrieval`, `pages_manage_ads`, `pages_manage_metadata` izinleri, App Review gerekir; gelen aday -> `Contact` + `lead` dönüşümü (form tüketimi, rıza metni eşlemesi). **Kampanya oluşturma**: M5, onaya bağlı, `PAUSED` durumda oluşturup insan etkinleştirir | M4'te OAuth (Meta Business Login, sistem kullanıcısı token'ı tercih); bugün yapıştırılan token | `AdConnection.encryptedCredentials` |
+| Meta organik (Sayfa + Instagram) | Yok | - | M4: `SocialConnection` + `SocialPost`; Sayfa gönderisi (`pages_manage_posts`), Instagram içerik yayınlama (`instagram_content_publish`, hesap başına 24 saatlik kayan pencerede sınırlı yayın, canlı sınır `content_publishing_limit` ucundan okunur); App Review | OAuth | `SocialConnection.encryptedCredentials` |
+| Google Ads | Çevrimdışı tıklama + gelişmiş dönüşüm, harcama/yapı senkronu | Hub'da durum; dönüşüm eylemi eşleme kontrolü (her `ConversionEventType` için), "kaydediliyor" durumu uyarısı | M5: bütçe değiştirme ve durum (pause/enable) onaylı; kampanya oluşturma yalnızca ihtiyaç kanıtlanırsa. Geliştirici token erişim düzeyleri (Explorer/Basic/Standard) ve günlük işlem sınırları nedeniyle önce raporlama | OAuth 2.0 (refresh token) + developer token; M4'te panelden OAuth akışı | `AdConnection` |
+| TikTok | Events API + harcama | Hub'da durum | Kampanya yönetimi için Marketing API uygulama incelemesi gerekir; ihtiyaç halinde M5 | OAuth (reklamveren yetkilendirmesi) | `AdConnection` |
+| LinkedIn | Atıf parametresi (`li_fat_id`), sabit URL'li UTM | Conversions API adaptörü (mimari belgede "ihtiyaçta açılır"); B2B için en değerli ücretli kanal olabilir | M4: şirket sayfası gönderisi Community Management API (geliştirme -> standart katman, ortaklık onayı, `w_organization_social`); reklam raporlama Advertising API | OAuth 3-legged | `AdConnection` (platform `LINKEDIN` eklenir) / `SocialConnection` |
+| Zapier / Make / n8n | REST hook (`/v1/public/hooks`), API anahtarı, imzalı teslimat, SSRF koruması | Platform olayları kataloğa eklenir: `studio.signup`, `studio.paid`, `studio.trial_expiring`, `contact.lifecycle_changed`, `campaign.sent` (yalnızca platform kiracısında yayınlanır); hub'da platform kiracısının API anahtarları ve abonelikleri; Make "instant trigger" için aynı REST hook uçları (attach = `POST /v1/public/hooks`, detach = `DELETE`) belgelenir | Gelen yön: "kişi oluştur/güncelle" ve "etiket ekle" herkese açık eylem uçları (`crm.write` kapsamı), idempotency anahtarıyla | API anahtarı (Bearer) | Mevcut `ApiKey` (hash), `WebhookEndpoint.secret` |
+| Genel webhook | Personel webhook uçları | Hub'da görünür | Akışta webhook adımı (mimari belgede kalan iş) | HMAC imza | Mevcut |
+
+Kimlik bilgisi girişi faz 1'de mevcut "yapıştır" düzeniyle kalır (en az kod); OAuth akışları M4'te bir `OAuthConnectService` ile (durum parametresi + PKCE, geri dönüş `/platform/integrations/oauth/:provider/callback`, token'lar şifreli, yenileme arka planda) eklenir. Giden HTTP izin listesi (`AD_PLATFORM_ALLOWED_HOSTS`) yeni host'larla genişletilir (`api.linkedin.com`, `graph.instagram.com` gerekiyorsa), başka host'a çıkış yok.
+
+---
+
+## 6. Onay ve güvenlik
+
+### 6.1 Onay akışı
+
+`ApprovalRequest` (bölüm 7) her "dışarı çıkan" eylem için:
+
+| Eylem | Kendi onayıyla (yalnızca `platform.marketing.send` / `.ads.spend`) | Süper admin onayı gerekir |
+|---|---|---|
+| E-posta kampanyası | Kitle <= `selfApproveEmailMax` (öneri 1.000) **ve** ön kontrol temiz **ve** alan adı doğrulaması tam | Eşik üstü, ilk kez kullanılan segment, yeni bir ülke/bölge, ön kontrol uyarısı olan her gönderim |
+| SMS / WhatsApp kampanyası | Kitle <= `selfApproveSmsMax` (öneri 100) ve tahmini kredi <= `selfApproveSmsCredits` | Eşik üstü; ABD alıcısı içeren her SMS |
+| Akış etkinleştirme | Yalnızca TRANSACTIONAL adımlı veya günlük tahmini hacmi eşik altı | Ticari mesaj adımı olan her yeni akış |
+| Organik sosyal gönderi | Evet (marka kontrolü temizse) | Ayar ile hepsi onaya alınabilir |
+| Açılış sayfası yayını | Evet | Fiyat bloğu veya yasal sayfa değişikliği |
+| Reklam bütçesi / etkinleştirme | Hiçbir zaman | Her artış ve her etkinleştirme; durdurma ve azaltma onaysız |
+| Kişi dışa aktarma | - | Her zaman (izin varsayılan kapalı) |
+
+Kurallar:
+- Onaylayan talep edenle aynı kişi olamaz (dört göz). Süper admin kendi talebini onaylayabilir (tek sahip olduğu için), bu `self_approved_by_super_admin` olarak işaretlenir.
+- Onay, talep anındaki içeriğin özetine (`contentHash`: şablon sürümü, segment anlık görüntüsü sayısı, zamanlama) bağlıdır; onaydan sonra içerik değişirse onay düşer.
+- Onay süresi (öneri 72 saat) dolarsa talep `EXPIRED`.
+- Bildirim: süper admine uygulama içi + e-posta (işlemsel), onay/ret sonucu talep edene.
+- Kampanya durum makinesine `PENDING_APPROVAL` eklenir (yalnızca platform kiracısında zorunlu; diğer kiracılar için `MarketingSettings` olmadığından davranış değişmez; ileride kiracılara açılabilir).
+
+### 6.2 Tavanlar ve hız sınırları (`MarketingSettings`, süper admin düzenler)
+
+- Günlük/haftalık ticari e-posta tavanı (ısınma planıyla artan), günlük SMS kredi tavanı, aylık reklam harcama tavanı (para birimi başına; senkrondan gelen gerçek harcama tavanı aşarsa panoda kırmızı uyarı ve süper admine bildirim; M5'te otomatik durdurma seçeneği), aylık yapay zeka bütçesi (platform kiracısı limiti).
+- Otomatik sigortalar: son 24 saatte bounce > %2 veya şikâyet > %0,08 -> e-posta kampanyaları `PAUSED` ve süper admine uyarı (SES, bounce %5 ve şikâyet %0,1 üstünde hesabı incelemeye alır; Gmail/Yahoo toplu gönderici kuralı spam oranını %0,3 altında ister, hedef %0,1).
+- API hız sınırları: yapay zeka uçları kullanıcı başına dakikada 10 (mevcut `AdsRateLimitGuard` deseni), test gönderimi saatte 20, dışa aktarma günde 3.
+
+### 6.3 Denetim ve kimlik
+
+- Her platform pazarlama yazması `AuditLog` (`studioId = platformStudioId`, `userId`); onaylar ayrıca `ApprovalRequest` geçmişi. Süper admin panelinde `/admin/denetim` filtreli görünüm (kullanıcı, eylem, tarih) önerilir (M3).
+- 2FA: platform kullanıcıları için zorunlu öneri. Bugün kodda 2FA yok (giriş telefon OTP + PIN/parola). Öneri: M1'de TOTP (uygulama tabanlı) platform kullanıcıları ve süper admin için zorunlu; M3'te passkey/WebAuthn (kimlik avına dayanıklı; NIST SP 800-63B-4 AAL2 bunu bir seçenek olarak sunmayı ister, OTP kimlik avına dayanıklı değildir). Uygulama: `User.totpSecretEncrypted` (`CredentialCipher`), `PlatformPermissionGuard` ve `SuperAdminGuard` oturum JWT'sinde `mfa: true` bayrağı arar; yoksa 403 `MFA_REQUIRED`. SMS OTP ikinci faktör olarak sayılmaz (zaten birinci faktör).
+- Oturum: platform kullanıcıları için erişim token'ı mevcut 1 saat; yenileme 30 gün yerine 7 gün (ayar).
+- Kişi verisi görünürlüğü: pazarlama yöneticisi platform kiracısının kişilerini (işletme sahipleri, adaylar) görür; bu kişiler için KVKK aydınlatma metninde "pazarlama ekibi" işleme amacı olmalı (bölüm 9). Diğer kiracıların üyelerinin verisini hiçbir şekilde görmez.
+
+### 6.4 Uyum notları (platformun B2B pazarlaması için)
+
+- **TR (KVKK/İYS)**: tacir ve esnafa gönderilen ticari iletiler için önceden onay şartı yoktur ancak ret hakkı kullanılabilir ve adreslerin İYS'ye yüklenmesi gerekir. Öneri: yine de açık onayı varsayılan tutmak (kitle nitelikli olur), İYS kaydını mevcut `tr-consent-registry.adapter.ts` üzerinden yapmak, `ContactConsent`'e `legalBasis` (`CONSENT` | `TR_MERCHANT_EXEMPTION` | `EXISTING_CUSTOMER`) eklemek; muafiyet yalnızca kişi "işletme" olarak işaretliyse ve süper admin ayarı açıksa kullanılır.
+- **AB/UK (GDPR + ePrivacy/UWG)**: Almanya'da UWG §7 B2B için de önceden açık rıza ister ve çift onay fiili standarttır. Öneri: platform sitesi formlarında AB/UK ziyaretçisi için **çift onay** (onay e-postası, tıklanınca `ContactConsent` `confirmedAt`, IP saklanmaz, zaman ve form sürümü saklanır); doğrulanmamış AB kişisi ticari kitleye girmez. Mevcut müşteri için "soft opt-in" (benzer ürün, her mesajda çıkış) `legalBasis = EXISTING_CUSTOMER`.
+- **ABD (CAN-SPAM, TCPA)**: e-postada fiziksel posta adresi ve çıkış (motor ekliyor; çıkış en geç 10 iş gününde uygulanmalı, bizde anında). SMS'te önceden yazılı açık rıza; çıkış "makul her yolla" ve standart anahtar kelimelerle (`STOP, QUIT, REVOKE, OPT OUT, CANCEL, UNSUBSCRIBE, END`) 10 iş günü içinde uygulanmalı; `packages/shared/src/messaging-engine.ts` `REGION_OPT_OUT.US` bunları zaten kapsıyor. Tekli satıcı (one-to-one) rıza kuralı 2025'te iptal edildi, ancak rıza formunda platform adının açıkça yazılması yine önerilir.
+- **Gmail/Yahoo toplu gönderici**: SPF + DKIM + DMARC, RFC 8058 tek tık abonelikten çıkma (motor ekliyor), spam oranı %0,3 altı. Bölüm 5.2'deki alan adı ekranı bunun için vardır.
+
+---
+
+## 7. Veri modeli ve migration'lar
+
+Tüm migration'lar yalnızca ileri yönlü; yalnızca yeni tablo/sütun/enum değeri eklenir (önce genişlet). Kiracıya özgü yeni tablolar `studioId` taşır (kural 4) ve pratikte yalnızca platform kiracısı için yazılır; bu, ileride aynı özellikleri kiracılara açmayı şema değişikliği olmadan mümkün kılar.
+
+### 7.1 Platform rolü (M1, migration `platform_access`)
+
+- `platform_role_templates`: `id`, `key` (benzersiz), `name`, `isSystem`, `createdAt`, `updatedAt`.
+- `platform_role_template_permissions`: `roleTemplateId`, `permissionKey` (`PLATFORM_PERMISSIONS` anahtarı), birincil anahtar ikisi.
+- `platform_memberships`: `id`, `userId` (benzersiz; bir kullanıcının tek platform rolü), `roleTemplateId`, `status` (`INVITED` | `ACTIVE` | `PASSIVE`), `invitedByUserId`, `activatedAt`, `deactivatedAt`, `platformStudioMembershipId` (senkron tutulan `Membership`, nullable), `createdAt`, `updatedAt`. `studioId` yoktur (platform düzeyi).
+- `invite_tokens.platform_role_template_id` (nullable).
+- `users.totp_secret_encrypted` (nullable), `users.mfa_enabled_at` (nullable).
+- Seed/`ensure-platform-defaults`: `marketing_admin` platform rol şablonu.
+
+### 7.2 Entegrasyon ve kanal (M1-M4)
+
+- `email_sender_domains` (M1): `id`, `studioId`, `domain`, `purpose` (`MARKETING` | `TRANSACTIONAL`), `mailFromDomain`, `dkimTokens` (JSON, SES'ten elle girilen veya M5'te API'den), `spfStatus`, `dkimStatus`, `dmarcStatus`, `dmarcPolicy`, `lastCheckedAt`, `lastError`, `warmupStartedAt`, `dailyCap`, `createdAt`, `updatedAt`; benzersiz `(studioId, domain)`.
+- `ad_connections.platform` değer listesine `LINKEDIN` (shared sabiti; sütun zaten `VarChar`).
+- `social_connections` (M4): `id`, `studioId`, `network` (`META_PAGE` | `INSTAGRAM` | `LINKEDIN_ORG`), `externalId`, `displayName`, `status`, `encryptedCredentials`, `credentialLast4`, `scopes`, `tokenExpiresAt`, `lastError`, zaman damgaları.
+- `social_posts` (M4): `id`, `studioId`, `connectionId`, `status` (`DRAFT` | `PENDING_APPROVAL` | `SCHEDULED` | `PUBLISHED` | `FAILED` | `CANCELLED`), `locale`, `text`, `mediaUploadIds` (JSON), `linkUrl` (UTM'li), `scheduledAt`, `publishedAt`, `externalPostId`, `aiDraftId`, `approvalRequestId`, `createdByUserId`.
+- `lead_ads_forms` (M4): `id`, `studioId`, `connectionId`, `externalFormId`, `fieldMapping` (JSON), `consentTextVersion`, `isActive`.
+
+### 7.3 Yapay zeka ve içerik (M2)
+
+- `ai_task` enum'una `MARKETING_DRAFT`, `MARKETING_ANALYSIS`, `MARKETING_RESEARCH`.
+- `brand_kits`: `id`, `studioId` (benzersiz), `version` (her kayıtta artar; önbellek anahtarı), `positioning`, `voiceRules` (JSON: do/dont), `bannedPhrases` (JSON), `requiredPhrases` (JSON), `localeNotes` (JSON, dil -> not), `icps` (JSON), `ctaLibrary` (JSON), `examples` (JSON), `logoUploadId`, `updatedByUserId`, `updatedAt`.
+- `product_facts`: `id`, `studioId`, `key`, `statement` (dil -> metin JSON), `category`, `sourceUrl`, `validUntil`, `isActive`, `updatedByUserId`.
+- `marketing_briefs`: `id`, `studioId`, `title`, `goal`, `segmentId` (nullable), `icpKey`, `locales` (JSON), `channels` (JSON), `offer`, `dueAt`, `status`, `createdByUserId`, zaman damgaları.
+- `ai_drafts`: `id`, `studioId`, `briefId` (nullable), `kind` (`EMAIL` | `SMS` | `WHATSAPP` | `AD_META` | `AD_GOOGLE_RSA` | `AD_LINKEDIN` | `PAGE_BLOCKS` | `SOCIAL_POST` | `SUBJECT_LINES` | `SEO_OUTLINE`), `locale`, `content` (Zod'lu JSON), `factIds` (JSON), `brandCheck` (JSON), `status` (`DRAFT` | `ACCEPTED` | `DISCARDED`), `aiUsageId`, `createdByUserId`, `createdAt`. Kabul edilen taslak hedef nesneye (şablon, sayfa, gönderi) kopyalanır; taslak değişmez kalır (iz).
+- `content_calendar_items`: `id`, `studioId`, `kind` (`CAMPAIGN` | `JOURNEY` | `SOCIAL_POST` | `PAGE` | `AD_FLIGHT` | `NOTE`), `refId` (nullable), `title`, `startsAt`, `endsAt`, `timezone`, `locale`, `briefId`, `ownerUserId`, `status`. Kampanya/gönderi kendi tablosundan okunur; bu tablo yalnızca notlar ve bağlantılar içindir (tekrar veri yok).
+- `research_notes`: `id`, `studioId`, `question`, `answer`, `citations` (JSON: url, başlık, alıntı), `aiUsageId`, `createdByUserId`, `createdAt`.
+
+### 7.4 Kampanya, onay, ayarlar ve içgörü (M3)
+
+- `campaign_status` enum'una `PENDING_APPROVAL` ve `PAUSED`.
+- `campaigns`: `abTest` (JSON: test payı, ölçüt, bekleme), `sendTimeMode` (`FIXED` | `RECIPIENT_LOCAL` | `BEST_TIME`), `approvalRequestId` (nullable), `createdByUserId` (nullable; `membershipId` yanında).
+- `campaign_variants`: `id`, `campaignId`, `key` (`A`, `B`, ...), `templateKey` veya `templateOverrides` (konu/ön başlık), `aiDraftId`, `isWinner`, `stats` önbelleği.
+- `campaign_recipients.variant_key` (nullable).
+- `approval_requests`: `id`, `studioId`, `targetType` (`CAMPAIGN` | `JOURNEY` | `SOCIAL_POST` | `PAGE_PUBLISH` | `AD_BUDGET` | `AD_ACTIVATE` | `EXPORT`), `targetId`, `contentHash`, `summary` (JSON: kitle, bölge dağılımı, maliyet tahmini, ön kontrol sonucu), `status` (`PENDING` | `APPROVED` | `REJECTED` | `EXPIRED` | `CANCELLED` | `SELF_APPROVED`), `requestedByUserId`, `decidedByUserId`, `decisionNote`, `expiresAt`, `createdAt`, `decidedAt`.
+- `marketing_settings`: `studioId` (birincil), `selfApproveEmailMax`, `selfApproveSmsMax`, `selfApproveSmsCredits`, `requireApprovalForSocial`, `dailyEmailCap`, `dailySmsCreditCap`, `monthlyAdSpendCaps` (JSON: para birimi -> tutar, `Decimal` metin), `aiDailyCapCents`, `bounceAutoPausePct`, `complaintAutoPausePct`, `mqlRule`, `sqlRule` (segment kural JSON'u), `weeklySummaryEnabled`, `weeklySummaryRecipients` (userId listesi), `approvalTtlHours`, `updatedByUserId`, `updatedAt`.
+- `marketing_insights`: `id`, `studioId`, `periodStart`, `periodEnd`, `kpis` (JSON), `summary`, `actions` (JSON), `aiUsageId`, `createdAt`.
+- `contact_consents`: `legal_basis`, `confirmed_at` (çift onay), `form_version` (nullable sütunlar).
+
+### 7.5 Değişmeden yeniden kullanılanlar
+
+`Studio`, `Contact`/`ContactActivity`/`PipelineStage`/`ContactTask`, `Visitor`/`Touchpoint`/`ConversionEvent`/`ConversionDelivery`, `Segment`/`SegmentMember`, `Journey*`, `MessageTemplate`, `NotificationLog`, `Conversation*`, `AdConnection`/`AdEntity`/`AdSpendDaily`, `Site`/`Page`/`Block`/`PageVersion`, `Funnel`, `AiSettings`/`AiUsage`, `ApiKey`/`WebhookEndpoint`/`WebhookDelivery`, `AuditLog`, `Membership`/`RoleTemplate` (yalnızca `isSystem` kilidi davranışı eklenir).
+
+---
+
+## 8. Uygulama planı
+
+Her madde ayrı PR'dır (CLAUDE.md: backlog öğesi başına bir PR), her PR `pnpm turbo run build typecheck test`, API e2e ve ilgili web e2e ile gelir; i18n tr + en aynı PR'da; belge güncellemesi (`docs/PAZARLAMA_MODULU.md`, gerekirse `docs/BUYUME_VE_GLOBAL_MIMARI.md` bölüm 6 tablosuna "G6" satırı) aynı PR'da.
+
+### M1: Rol, guard, panel kabuğu, entegrasyon merkezi
+
+Durum: uygulandı (M1a-M1d tek dalda, `feat/m1-platform-marketing-role`); uygulama notları ve sapmalar `docs/SUPER_ADMIN.md` "Platform kullanıcıları ve pazarlama paneli" bölümünde.
+
+| PR | Kapsam | Kabul ölçütleri ve testler | Katman | Tahmini efor |
+|---|---|---|---|---|
+| M1a | Platform izin kataloğu (`packages/shared/src/platform-permissions.ts`, `PLATFORM_TENANT_GRANTS`, testler), migration `platform_access`, `PlatformAccessService`, `PlatformPermissionGuard`, `PlatformScoped()`, `StudioTenantGuard` platform kontrolü, `RoleTemplatesService` sistem şablonu kilidi, `InvitesService` platform kiracısı reddi, `/auth/me` `platformAccess` | Birim: eşleme yalnızca izinli kiracı anahtarlarını üretir, `roles.manage`/`billing.manage` asla; guard: süper admin geçer, PASSIVE platform üyeliği 403, izin eksikse 403, beyan yoksa 403. E2E: pazarlama yöneticisi platform kiracısında `/crm/contacts` 200, başka kiracıda 403, `/admin/tenants` 403, sistem rol şablonu düzenleme 403, pasifleştirmeden sonraki istek 403 | Opus (yetkilendirme/şema) | 3-4 gün |
+| M1b | Süper admin "Platform kullanıcıları" (davet, rol, pasifleştir, denetim), TOTP 2FA zorunluluğu (platform kullanıcıları + süper admin) | E2E: telefonla davet -> OTP -> TOTP kurulumu -> ACTIVE; `mfa` olmadan platform uçları 403 `MFA_REQUIRED`; her işlem `AuditLog` | Opus (kimlik) | 3 gün |
+| M1c | `/pazarlama` kabuğu, `MARKETING_NAV_ITEMS`, `useAreaHref()` ile mevcut sayfaların yeniden kullanımı (kişiler, segmentler, kampanyalar, akışlar, gelen kutusu, şablonlar, site, reklam, raporlar), `AdminNav`'a "Pazarlama"; UTM oluşturucu `/pazarlama/reklam` altında, `docs/REKLAM_ENTEGRASYONU.md` bölüm 7 düzeltmesi | Web e2e: pazarlama yöneticisi girişinde `/pazarlama/kisiler` platform kişilerini listeler, `/admin` -> `/pazarlama` yönlendirmesi; süper admin aynı sayfaları açar; kiracı paneli bağlantıları değişmemiş (regresyon) | Sonnet | 3 gün |
+| M1d | Entegrasyon merkezi: `IntegrationHubService`, `/platform/integrations/*`, `IntegrationHub` bileşeni iki sayfada, `EmailSenderDomain` + DNS kontrolü, platform webhook olayları (`studio.signup`, `studio.paid`, `studio.trial_expiring`, `contact.lifecycle_changed`) | E2E: iki girişten yapılan değişiklik aynı kaydı değiştirir ve `metadata.via` farklı; kimlik bilgisi yanıtta yok; DNS kontrolü sahte çözümleyiciyle SPF/DKIM/DMARC durumlarını doğru hesaplar; doğrulanmamış alan adıyla ticari e-posta kampanyası planlanamaz; yeni olaylar örnek kataloğuyla eşit (`accounting.spec.ts` deseni) | Sonnet | 4 gün |
+
+### M2: Yapay zeka stüdyosu, marka kiti, içerik takvimi
+
+Durum: planlandı (M1 kabuğunda yer tutucu sayfalar var).
+
+| PR | Kapsam | Kabul ölçütleri ve testler | Katman | Efor |
+|---|---|---|---|---|
+| M2a | Marka kiti + ürün gerçekleri (model, API `platform.brand.manage`, ekran) | E2E CRUD, sürüm artışı, denetim | Sonnet | 2 gün |
+| M2b | Yeni AI görevleri, `MarketingAiService` (brief -> çok kanallı taslak, konu/CTA varyantları, SEO taslağı), `redactPii()`, deterministik marka kontrolü, `ai_drafts`, `marketing_briefs`, stüdyo ekranı | Birim: istem oluşturucu kişi verisi içermez (sahte kişilerle test), çıktı Zod doğrulaması, karakter sınırları (RSA 30/90), yer tutucu koruma, yasaklı ifade yakalama. E2E `FakeAiAdapter` ile: taslak kaydı, bütçe aşımında 429, hiçbir mesaj gönderilmez | Sonnet (istem tasarımı incelemesi Opus'a danışılabilir) | 4 gün |
+| M2c | İçerik takvimi | E2E: kampanya ve notlar aynı görünümde, yalnızca taslak sürüklenebilir | Sonnet | 2 gün |
+| M2d | Segment önerisi (`SegmentInsightService`, k-anonim toplu istatistik) ve araştırma asistanı (web arama, kaynaklı) | Birim: 5'ten küçük hücre bastırılır; model çıktısı kural şemasından geçmezse reddedilir; araştırma kaynaksız iddia döndürmez (sahte adaptör) | Sonnet | 3 gün |
+
+### M3: Pano, haftalık özet, onaylar, kampanya geliştirmeleri, uyum
+
+Durum: planlandı.
+
+| PR | Kapsam | Kabul ölçütleri ve testler | Katman | Efor |
+|---|---|---|---|---|
+| M3a | Platform KPI panosu, `platform_b2b` hazır hunisi, MQL/SQL kuralları | E2E kurgulanmış senaryoda CAC, CPL, deneme -> ücretli sayıları; para birimleri ayrı; önceki dönem karşılaştırması | Sonnet | 3 gün |
+| M3b | Onay akışı (`approval_requests`, `marketing_settings`, kampanya `PENDING_APPROVAL`/`PAUSED`, ön kontrol `canSend` dry-run, dört göz, içerik özeti, süre dolumu, bildirimler) | E2E: eşik altı kendi onayı; eşik üstü süper admin onayı olmadan gönderilmez; onaydan sonra şablon değişince onay düşer; talep eden kendi talebini onaylayamaz; ABD SMS her zaman onay | Opus (yetkilendirme ve gönderim yolu) | 4 gün |
+| M3c | Kampanya A/B testi, alıcı yerel saati ve en iyi saat modu | Birim: varyant dağılımı deterministik ve tekil; kazanan seçimi; histogram yedeklemesi. E2E: test payı gönderimi, bekleme sonrası kalan kitleye kazanan, sessiz saat korunur | Sonnet | 4 gün |
+| M3d | Haftalık özet (`marketing_insights`), otomatik sigortalar (bounce/şikâyet duraklatma), günlük tavanlar, denetim görünümü | E2E: kalp atışı pazartesi tek özet üretir (tekil), eşik aşımında kampanya `PAUSED` ve süper admin bildirimi | Sonnet | 3 gün |
+| M3e | Çift onay (AB/UK formları), `legalBasis`, İYS tacir muafiyeti ayarı | E2E: AB kişisi onay tıklamasına kadar ticari kitlede değil; TR işletme kişisi muafiyet kapalıyken kitlede değil | Opus (hukuki etkili gönderim kuralı) | 3 gün |
+
+### M4: Kanal genişletmeleri
+
+Durum: planlandı.
+
+| PR | Kapsam | Kabul ölçütleri | Katman | Efor |
+|---|---|---|---|---|
+| M4a | `OAuthConnectService` (Meta, Google, LinkedIn, TikTok), token yenileme | Durum parametresi doğrulaması, şifreli saklama, süresi dolan token uyarısı | Opus (güvenlik) | 4 gün |
+| M4b | Meta Lead Ads senkronu (webhook + çekme, alan eşleme, rıza metni) | İmzalı webhook doğrulaması, tekil aday, `lead` dönüşümü, izinsiz kişi ticari kitleye girmez | Sonnet | 3 gün |
+| M4c | Organik sosyal: Meta Sayfa + Instagram gönderisi, planlama, onay | Yayın sınırı kontrolü, başarısızlıkta `FAILED` ve yeniden deneme, UTM'li bağlantı | Sonnet | 4 gün |
+| M4d | LinkedIn: Conversions API adaptörü, şirket sayfası gönderisi (erişim onayı alındıysa) | Adaptör sözleşme testleri, izin listesi host'ları | Sonnet | 3 gün |
+
+Harici bağımlılıklar M4'ün takvimini belirler: Meta App Review (Lead Ads, sayfa yayını), LinkedIn Community Management erişimi, TikTok uygulama incelemesi. Başvurular M1 sırasında başlatılmalıdır.
+
+### M5: Sonra
+
+Durum: planlandı.
+
+- Reklam bütçesi ve durum değişikliği (Meta/Google, onaylı; oluşturma `PAUSED`), harcama tavanında otomatik durdurma.
+- SES kimliği ve DKIM'in API ile otomatik kurulumu; SES reputation metriklerinin CloudWatch'tan okunması.
+- Akışta webhook adımı, gelen Zapier eylemleri (`crm.write`).
+- Mobil: onay bildirimi ve onay ekranı.
+- Aynı pazarlama özelliklerinin (marka kiti, stüdyo, onay) kiracılara açılması (şema zaten `studioId`'li).
+
+Toplam kaba efor: M1 ~13 gün, M2 ~11 gün, M3 ~17 gün, M4 ~14 gün (harici onaylar hariç).
+
+---
+
+## 9. Açık kararlar (sahip için)
+
+- Kendi onayı eşikleri: e-postada 1.000 alıcı, SMS/WhatsApp'ta 100 alıcı önerisi uygun mu? Reklam bütçesinde her artış sizin onayınızla mı?
+- İlk kanallar: önerilen sıra e-posta (alan adı doğrulamasıyla) -> LinkedIn/Meta ücretli (mevcut atıfla) -> Lead Ads -> organik sosyal. Hedef pazarlar ve öncelik sırası nedir (TR, AB, ABD)?
+- Pazarlama yöneticisi kiracılar arası anonim benchmark'ı (`/admin/benchmark`, k-anonim) görebilsin mi? Öneri: evet, salt okunur ve yalnızca toplu.
+- B2B tavsiye programı ve gelir (MRR, plan dağılımı) görünürlüğü: salt okunur `platform.referrals.view` verilsin mi? Tavsiye ödül ayarları sizde mi kalsın? (Öneri: ayarlar sizde.)
+- Platform kişi listesini dışa aktarma izni verilsin mi? (Öneri: hayır, gerekirse onaylı tek seferlik.)
+- Yapay zeka aylık bütçesi (platform kiracısı): öneri 50 USD ile başlamak, panodan izleyip ayarlamak.
+- Marka dilleri: tr ve en ile başlıyoruz; hangi diller ne zaman eklenecek? Her dil için ayrı marka tonu notu gerekir.
+- 2FA: TOTP zorunluluğu hem sizin hem pazarlama yöneticisi için kabul mü? Passkey M3'te mi?
+- İYS tacir/esnaf muafiyeti kullanılsın mı, yoksa her zaman açık onay mı? (Öneri: açık onay varsayılan.)
+- AB formlarında çift onay tüm AB için mi, yalnızca Almanya/Avusturya için mi? (Öneri: tüm AB/UK.)
+- KVKK aydınlatma metnine "pazarlama ekibi" ve yapay zeka alt işleyeni (Anthropic) eklenmesi için hukuki metin güncellemesi kimde?
+- Meta, Google Ads (geliştirici token erişim düzeyi), LinkedIn ve TikTok uygulama başvurularını kim yapacak ve hangi işletme hesabıyla?
+- Pazarlama e-postaları için ayrı alt alan adı (ör. `news.<alan>`) kullanılacak mı? (Öneri: evet; işlemsel ve pazarlama itibarı ayrılır.)
+- Haftalık özet kime gitsin: yalnızca pazarlama yöneticisi mi, siz de mi?
+
+---
+
+## Kaynaklar
+
+- Gmail/Yahoo toplu gönderici kuralları: [Mailgun](https://www.mailgun.com/state-of-email-deliverability/chapter/yahoogle-bulk-senders/), [Resend](https://resend.com/blog/gmail-and-yahoo-bulk-sending-requirements-for-2024)
+- Amazon SES itibar eşikleri: [AWS SES FAQ](https://docs.aws.amazon.com/ses/latest/dg/faqs-enforcement.html), [AWS re:Post](https://repost.aws/knowledge-center/ses-reputation-dashboard-bounce-rate), [SES başarı metrikleri](https://docs.aws.amazon.com/ses/latest/dg/success-metrics.html)
+- CAN-SPAM: [FTC rehberi](https://www.ftc.gov/business-guidance/resources/can-spam-act-compliance-guide-business)
+- TCPA: [Eleventh Circuit kararı, MoFo](https://www.mofo.com/resources/insights/250130-eleventh-circuit-vacates-fcc-s-tcpa-one-to-one-consent-rule), [Goodwin, FCC nihai kuralı](https://www.goodwinlaw.com/en/insights/blogs/2025/09/the-fcc-issues-final-rule-formally-eliminating-the-one-to-one-consent-requirement), [BCLP, iptal kuralları](https://www.bclplaw.com/en-US/events-insights-news/the-tcpas-new-opt-out-rules-take-effect-on-april-11-2025-what-does-this-mean-for-businesses.html)
+- İYS tacir/esnaf: [İYS SSS](https://iys.org.tr/iys/sss), [Lexology](https://www.lexology.com/library/detail.aspx?g=1b39fa25-deb4-4090-ba3c-067bba5fbcba)
+- Almanya UWG ve çift onay: [DLA Piper](https://www.dlapiperdataprotection.com/index.html?t=electronic-marketing&c=DE)
+- Meta Lead Ads: [Meta, lead alma](https://developers.facebook.com/documentation/ads-commerce/marketing-api/guides/lead-ads/retrieving), [leadgen webhook](https://developers.facebook.com/docs/graph-api/webhooks/getting-started/webhooks-for-leadgen/)
+- Instagram yayın: [Meta içerik yayınlama](https://developers.facebook.com/docs/instagram-platform/content-publishing/)
+- Google Ads API erişim düzeyleri: [Google](https://developers.google.com/google-ads/api/docs/api-policy/access-levels)
+- LinkedIn Community Management: [Microsoft Learn](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/community-management-overview?view=li-lms-2026-06), [erişim artırma](https://learn.microsoft.com/en-us/linkedin/marketing/increasing-access?view=li-lms-2026-05)
+- TikTok Marketing API: [TikTok](https://business-api.tiktok.com/portal/docs/marketing-api/v1.3)
+- Make instant trigger ve webhook attach/detach: [Make](https://developers.make.com/custom-apps-documentation/app-components/webhooks/dedicated/attached)
+- Gönderim zamanı optimizasyonu: [Iterable](https://support.iterable.com/hc/en-us/articles/360050923471-Send-Time-Optimization)
+- Kimlik avına dayanıklı MFA: [NIST SP 800-63B-4](https://pages.nist.gov/800-63-4/sp800-63b.html)

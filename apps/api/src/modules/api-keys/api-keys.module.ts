@@ -10,6 +10,6 @@ import { ApiKeyRateLimitGuard } from './api-key-rate-limit.guard';
   imports: [AuthModule, RedisModule],
   controllers: [ApiKeysController],
   providers: [ApiKeysService, ApiKeyGuard, ApiKeyRateLimitGuard],
-  exports: [ApiKeyGuard, ApiKeyRateLimitGuard],
+  exports: [ApiKeyGuard, ApiKeyRateLimitGuard, ApiKeysService],
 })
 export class ApiKeysModule {}

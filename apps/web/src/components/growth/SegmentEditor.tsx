@@ -12,11 +12,13 @@ import { bffFetch } from '@/lib/session/client';
 import { hasAnyPermission } from '@/lib/nav';
 import { EMPTY_RULES, SegmentBuilder, SegmentPreview } from './SegmentBuilder';
 import { Field, Muted, Notice, PageHeader, Panel, inputClass, inputStyle, errorMessage, useDateFormat } from './ui';
+import { useAreaHref } from '@/components/session/AreaBase';
 
 /** Create (segment undefined) or edit a segment: rule builder, live preview, members of a static segment. */
 export function SegmentEditor({ segmentId }: { segmentId?: string }) {
   const { activeStudioId, permissions, isOwner } = useDashboardSession();
   const t = useT();
+  const areaHref = useAreaHref();
   const router = useRouter();
   const fmt = useDateFormat();
   const canManage = hasAnyPermission(['segments.manage'], permissions, isOwner);
@@ -76,7 +78,7 @@ export function SegmentEditor({ segmentId }: { segmentId?: string }) {
             ...(kind === 'STATIC' && seedFromRules ? { seedFromRules: true } : {}),
           },
         });
-        router.push(`/segmentler/${created.id}`);
+        router.push(areaHref(`/segmentler/${created.id}`));
       }
     } catch (err) {
       setNotice({ tone: 'error', text: errorMessage(err, t('common.error.generic')) });
@@ -99,7 +101,7 @@ export function SegmentEditor({ segmentId }: { segmentId?: string }) {
     if (!segment) return;
     try {
       await bffFetch(`studios/${activeStudioId}/segments/${segment.id}`, { method: 'DELETE', studioId: activeStudioId });
-      router.push('/segmentler');
+      router.push(areaHref('/segmentler'));
     } catch (err) {
       setNotice({ tone: 'error', text: errorMessage(err, t('common.error.generic')) });
     }
@@ -185,7 +187,7 @@ export function SegmentEditor({ segmentId }: { segmentId?: string }) {
                 <ul className="space-y-1">
                   {members.items.map((m) => (
                     <li key={m.id} className="flex items-center justify-between gap-2 text-sm">
-                      <Link href={`/kisiler/${encodeURIComponent(m.id)}`} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                      <Link href={areaHref(`/kisiler/${encodeURIComponent(m.id)}`)} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
                         {m.fullName}
                       </Link>
                       {segment.kind === 'STATIC' && canManage && (

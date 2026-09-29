@@ -26,6 +26,8 @@ export function AdminTheme() {
       --radius-button: ${radii.md}px;
       --radius-chip: ${radii.full}px;
       --radius-input: ${radii.sm}px;
+      /* Reused tenant screens (marketing panel) paint primary buttons with this; solid here, never a gradient. */
+      --gradient-brand: var(--color-primary);
       background-color: var(--color-background);
       color: var(--color-text-primary);
       min-height: 100vh;

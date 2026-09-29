@@ -12,12 +12,14 @@ import { EmptyState, ErrorState, LoadingState } from '@/components/common/DataSt
 import { bffFetch } from '@/lib/session/client';
 import { PageHeader, inputClass, inputStyle, errorMessage, useDateFormat } from '@/components/growth/ui';
 import { stageLabel } from '@/components/growth/crm-labels';
+import { useAreaHref } from '@/components/session/AreaBase';
 
 const PAGE_SIZE = 25;
 
 function ContactList() {
   const { activeStudioId } = useDashboardSession();
   const t = useT();
+  const areaHref = useAreaHref();
   const fmt = useDateFormat();
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
@@ -73,7 +75,7 @@ function ContactList() {
         title={t('crm.contacts.title')}
         subtitle={t('crm.contacts.subtitle')}
         actions={
-          <Link href="/kisiler/satis-hatti" className="text-xs font-medium px-3 py-1.5" style={{ ...inputStyle, borderRadius: 'var(--radius-button)' }}>
+          <Link href={areaHref('/kisiler/satis-hatti')} className="text-xs font-medium px-3 py-1.5" style={{ ...inputStyle, borderRadius: 'var(--radius-button)' }}>
             {t('crm.contacts.pipelineLink')}
           </Link>
         }
@@ -138,7 +140,7 @@ function ContactList() {
                 {data.items.map((c) => (
                   <tr key={c.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
                     <td className="px-4 py-2.5">
-                      <Link href={`/kisiler/${encodeURIComponent(c.id)}`} className="font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                      <Link href={areaHref(`/kisiler/${encodeURIComponent(c.id)}`)} className="font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
                         {c.fullName}
                       </Link>
                     </td>

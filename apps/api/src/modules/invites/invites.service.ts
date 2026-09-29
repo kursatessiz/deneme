@@ -20,12 +20,15 @@ import { AuthService } from '../auth/auth.service';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import { PlanLimitsService } from '../admin/plan-limits.service';
 import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
-import { isWriteRestricted } from '@platform/shared';
+import { PLATFORM_ACCESS_ERROR_CODES, isPlatformSystemRoleKey, isWriteRestricted } from '@platform/shared';
+import { PlatformAccessService } from '../platform-access/platform-access.service';
 import { billingRestrictedError } from '../auth/guards/billing-write.guard';
 
 export const INVITE_TTL_MS = 72 * 60 * 60 * 1000;
 /** Documents a person must accept to join a studio (latest published version). */
 export const REQUIRED_DOCUMENTS: DocumentType[] = [DocumentType.KVKK_NOTICE, DocumentType.MEMBERSHIP_CONTRACT];
+/** A platform account (M1) is staff of the platform, not a customer: only the privacy notice applies. */
+export const PLATFORM_REQUIRED_DOCUMENTS: DocumentType[] = [DocumentType.KVKK_NOTICE];
 const INVALID_INVITE = 'Davet bulunamadı, süresi dolmuş veya daha önce kullanılmış';
 
 export function hashInviteToken(token: string): string {
@@ -45,6 +48,7 @@ export class InvitesService {
     private readonly auth: AuthService,
     private readonly config: ConfigService,
     private readonly planLimits: PlanLimitsService,
+    private readonly platformAccess: PlatformAccessService,
     @Optional() private readonly crm?: CrmHooksService,
   ) {}
 
@@ -60,6 +64,16 @@ export class InvitesService {
     // on the allow-list), new members do not.
     if (dto.roleKey === 'member' && !tenant.isSuperAdmin && isWriteRestricted(tenant.billingStatus)) {
       throw billingRestrictedError();
+    }
+    // Platform accounts join only through the super admin's platform invite
+    // (docs/PAZARLAMA_MODULU.md 2.6), never through a tenant invite.
+    const studio = await this.prisma.studio.findUnique({ where: { id: tenant.studioId }, select: { isPlatform: true } });
+    if (studio?.isPlatform || isPlatformSystemRoleKey(dto.roleKey)) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: PLATFORM_ACCESS_ERROR_CODES.platformTenantInvite,
+        message: 'Platform kiracısına davet yalnızca süper admin panelinden gönderilir',
+      });
     }
     await this.planLimits.assertWithinLimit(tenant.studioId, dto.roleKey === 'member' ? 'maxActiveMembers' : 'maxStaff');
 
@@ -87,6 +101,31 @@ export class InvitesService {
     return this.buildInvite(studioId, creatorUserId, ownerRoleTemplateId, phone, fullName, channel);
   }
 
+  /**
+   * Super-admin path (M1): an invite into the platform tenant that, once
+   * accepted, activates the invitee's PlatformMembership. The caller has
+   * already created that membership as INVITED.
+   */
+  async createPlatformInvite(opts: {
+    platformStudioId: string;
+    creatorUserId: string;
+    systemRoleTemplateId: string;
+    platformRoleTemplateId: string;
+    phone: string;
+    fullName: string;
+    channel: InviteChannel;
+  }) {
+    return this.buildInvite(
+      opts.platformStudioId,
+      opts.creatorUserId,
+      opts.systemRoleTemplateId,
+      opts.phone,
+      opts.fullName,
+      opts.channel,
+      opts.platformRoleTemplateId,
+    );
+  }
+
   private async buildInvite(
     studioId: string,
     creatorUserId: string,
@@ -94,6 +133,7 @@ export class InvitesService {
     phone: string,
     fullName: string,
     channel: InviteChannel,
+    platformRoleTemplateId: string | null = null,
   ) {
     const token = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
@@ -114,6 +154,7 @@ export class InvitesService {
           tokenHash: hashInviteToken(token),
           channel,
           expiresAt,
+          platformRoleTemplateId,
         },
         include: { studio: { select: { name: true, defaultLocale: true } } },
       });
@@ -141,12 +182,13 @@ export class InvitesService {
 
   async preview(token: string) {
     const invite = await this.findUsable(token);
-    const documents = await this.requiredDocuments(invite.studioId);
+    const documents = await this.requiredDocuments(invite.studioId, Boolean(invite.platformRoleTemplateId));
     return {
       studio: { name: invite.studio.name, logoUrl: invite.studio.logoUrl },
       fullName: invite.fullName,
       phoneMasked: maskPhone(invite.phone),
-      roleName: invite.roleTemplate.name,
+      roleName: invite.platformRoleTemplate?.name ?? invite.roleTemplate.name,
+      isPlatformInvite: Boolean(invite.platformRoleTemplateId),
       expiresAt: invite.expiresAt,
       documents: documents.map((d) => ({ id: d.id, type: d.type, title: d.title, version: d.version, body: d.body })),
     };
@@ -167,8 +209,9 @@ export class InvitesService {
 
   async accept(token: string, dto: AcceptInviteInput, ip: string | null, visitorId: string | null = null) {
     const invite = await this.findUsable(token);
+    const isPlatformInvite = Boolean(invite.platformRoleTemplateId);
 
-    const documents = await this.requiredDocuments(invite.studioId);
+    const documents = await this.requiredDocuments(invite.studioId, isPlatformInvite);
     const accepted = new Set(dto.acceptedDocumentVersionIds);
     if (documents.some((d) => !accepted.has(d.id))) {
       throw new BadRequestException('Devam etmek için sözleşme ve KVKK metinlerini onaylamanız gerekir');
@@ -200,6 +243,15 @@ export class InvitesService {
         create: { phone: invite.phone, firstName, lastName, pinHash, phoneVerifiedAt: now },
         update: { phoneVerifiedAt: now, ...(pinHash ? { pinHash, failedPinAttempts: 0, pinLockedUntil: null } : {}) },
       });
+
+      if (isPlatformInvite) {
+        const membershipId = await this.acceptPlatformInvite(tx, invite, user.id);
+        await tx.consent.createMany({
+          data: documents.map((d) => ({ membershipId, documentVersionId: d.id, acceptedAt: now, device: dto.device ?? null, ip })),
+          skipDuplicates: true,
+        });
+        return { userId: user.id, membershipId };
+      }
 
       const current = await tx.membership.findUnique({
         where: { userId_studioId: { userId: user.id, studioId: invite.studioId } },
@@ -263,7 +315,7 @@ export class InvitesService {
     });
 
     // CRM: a member who finished onboarding becomes (or is linked to) a contact.
-    if (invite.roleTemplate.key === 'member') {
+    if (!isPlatformInvite && invite.roleTemplate.key === 'member') {
       await this.crm?.onMemberJoined(invite.studioId, membershipId, { visitorId });
     }
 
@@ -278,6 +330,7 @@ export class InvitesService {
       include: {
         studio: { select: { name: true, logoUrl: true, isActive: true } },
         roleTemplate: { select: { key: true, name: true } },
+        platformRoleTemplate: { select: { name: true } },
       },
     });
     if (
@@ -292,17 +345,52 @@ export class InvitesService {
     return invite;
   }
 
+  /**
+   * Platform invite acceptance (M1): the invite's platform role becomes the
+   * member's role and PlatformAccessService activates it, writing the
+   * platform tenant membership in this same transaction.
+   */
+  private async acceptPlatformInvite(
+    tx: Prisma.TransactionClient,
+    invite: { id: string; studioId: string; createdByUserId: string; platformRoleTemplateId: string | null },
+    userId: string,
+  ): Promise<string> {
+    const platformRoleTemplateId = invite.platformRoleTemplateId as string;
+    const pm = await tx.platformMembership.findUnique({ where: { userId } });
+    if (pm?.status === 'ACTIVE') throw new ConflictException('Platform üyeliğiniz zaten aktif');
+    if (pm) {
+      await tx.platformMembership.update({ where: { id: pm.id }, data: { roleTemplateId: platformRoleTemplateId } });
+    } else {
+      await tx.platformMembership.create({
+        data: { userId, roleTemplateId: platformRoleTemplateId, status: 'INVITED', invitedByUserId: invite.createdByUserId },
+      });
+    }
+    const { membershipId } = await this.platformAccess.activateInTx(tx, userId);
+    await tx.auditLog.create({
+      data: {
+        studioId: null,
+        userId,
+        action: 'platform_user.activated',
+        entityType: 'platform_membership',
+        entityId: userId,
+        metadata: { inviteId: invite.id, platformRoleTemplateId, invitedByUserId: invite.createdByUserId, via: 'invite' } as Prisma.InputJsonValue,
+      },
+    });
+    return membershipId;
+  }
+
   /** Latest published version per required type; studio text wins over the platform text. */
-  private async requiredDocuments(studioId: string) {
+  private async requiredDocuments(studioId: string, platformInvite = false) {
+    const required = platformInvite ? PLATFORM_REQUIRED_DOCUMENTS : REQUIRED_DOCUMENTS;
     const docs = await this.prisma.documentVersion.findMany({
       where: {
-        type: { in: REQUIRED_DOCUMENTS },
+        type: { in: required },
         publishedAt: { not: null, lte: new Date() },
         OR: [{ studioId }, { studioId: null }],
       },
       orderBy: [{ version: 'desc' }],
     });
-    return REQUIRED_DOCUMENTS.map(
+    return required.map(
       (type) => docs.find((d) => d.type === type && d.studioId === studioId) ?? docs.find((d) => d.type === type),
     ).filter((d): d is NonNullable<typeof d> => Boolean(d));
   }

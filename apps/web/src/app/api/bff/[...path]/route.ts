@@ -12,7 +12,7 @@ import {
   expiredCookieOptions,
   refreshTokenCookieOptions,
 } from '@/lib/bff/cookies';
-import { isLogoutPath, isTokenIssuingPath } from '@/lib/bff/auth-paths';
+import { isLogoutPath, isSessionUpgradePath, isTokenIssuingPath } from '@/lib/bff/auth-paths';
 import { translateApiError } from '@/lib/bff/translate-error';
 import { PW_LOCALE_COOKIE } from '@/lib/i18n/constants';
 import { ERROR_CODE_HEADER, REQUEST_ID_HEADER } from '@platform/shared';
@@ -132,8 +132,8 @@ async function handle(req: NextRequest, context: { params: Promise<{ path: strin
   // auth/login, auth/otp/verify, auth/pin/login: the body carries tokens
   // that must become cookies and never reach the browser as JSON.
   if (isTokenIssuingPath(apiPath) && req.method === 'POST') {
-    const apiRes = await forward(req, apiPath, null, requestBody, requestId);
-    if (!apiRes.ok) return (await toNextResponse(apiRes)).res as NextResponse;
+    const apiRes = await forward(req, apiPath, isSessionUpgradePath(apiPath) ? accessToken : null, requestBody, requestId);
+    if (!apiRes.ok) return (await toNextResponse(apiRes, [], req)).res as NextResponse;
     // Read the tokens from the API's own JSON, then send the browser the
     // same payload without them.
     const json = ((await apiRes.json().catch(() => null)) ?? {}) as Record<string, unknown>;

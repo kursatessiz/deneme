@@ -520,6 +520,23 @@ Ayrıntılar: `docs/BANKA_ODEMELERI.md`.
 
 Erişim kararı yalnızca API'de `CommunityAccessService` ile verilir ve video kütüphanesiyle paylaşılır. Ayrıntılar: `docs/TOPLULUK.md`.
 
+## Platform erişimi ve pazarlama yöneticisi (M1)
+
+Migration `20261019000000_platform_access` (yalnızca ekleme); ayrıntılar `docs/PAZARLAMA_MODULU.md` ve `docs/SUPER_ADMIN.md`.
+
+| Tablo | Amaç | Kısıtlar |
+|---|---|---|
+| `platform_role_templates` | Platform düzeyi izin kümesi: `key`, `name`, `is_system`. Migration `marketing_admin` ("Pazarlama yöneticisi") şablonunu yazar | `key` benzersiz; kiracı sütunu yoktur |
+| `platform_role_template_permissions` | Şablonun platform izin anahtarları (`PLATFORM_PERMISSIONS`) | (role_template_id, permission_key) birincil anahtar; şablon -> cascade |
+| `platform_memberships` | Kullanıcının tek platform rolü: durum (INVITED/ACTIVE/PASSIVE), davet eden, etkinleşme/pasifleşme zamanı, senkron tutulan platform kiracısı üyeliğinin kimliği (`platform_studio_membership_id`, FK yok: tek yazıcı `PlatformAccessService`) | `user_id` benzersiz; user -> cascade; şablon -> restrict; (status) index |
+| `platform_access_settings` | Tek satırlık politika (`id = 'platform'`): `require_2fa_for_platform_roles` (varsayılan true) | - |
+| `user_mfa_recovery_codes` | İki adımlı doğrulama kurtarma kodlarının SHA-256 özeti, tek kullanımlık (`used_at`) | user -> cascade; (user_id) index |
+| `email_sender_domains` | Kiracının (pratikte platform kiracısının) e-posta gönderen alan adı: amaç (MARKETING/TRANSACTIONAL), MAIL FROM alt alan adı, SES DKIM anahtarları (JSON), SPF/DKIM/DMARC durumları (PENDING/VALID/INVALID/MISSING), DMARC politikası, son kontrol ve hata, ısınma ve günlük tavan. Sır içermez | (studio_id, domain) benzersiz; studio -> cascade |
+| `users` (M1 sütunları) | `totp_secret_encrypted` (`CredentialCipher` zarfı), `mfa_enabled_at`, `totp_last_used_step` (aynı TOTP adımı iki kez kabul edilmez) | boş olabilir |
+| `invite_tokens.platform_role_template_id` (M1) | Platform daveti: kabulde bu platform rolü etkinleşir; `studio_id` platform kiracısıdır | platform şablonu -> restrict |
+
+Platform sistem rolü (`role_templates.key = 'platform:<anahtar>'`, `is_system = true`) yalnızca platform kiracısında bulunur; izinleri `PLATFORM_TENANT_GRANTS` ile türetilir ve kiracı rol ekranlarından değiştirilemez.
+
 ## Denetim (Audit)
 
 | Tablo | Amaç | Kısıtlar |
