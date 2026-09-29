@@ -394,7 +394,7 @@ M2 uygulama notları ve sapmalar:
 
 ### M3: Pano, haftalık özet, onaylar, kampanya geliştirmeleri, uyum
 
-Durum: planlandı.
+Durum: M3b uygulandı (`feat/m3b-marketing-approvals`); M3a, M3c, M3d, M3e planlandı. M3b uygulama notları ve sapmalar tablonun altında.
 
 | PR | Kapsam | Kabul ölçütleri ve testler | Katman | Efor |
 |---|---|---|---|---|
@@ -403,6 +403,47 @@ Durum: planlandı.
 | M3c | Kampanya A/B testi, alıcı yerel saati ve en iyi saat modu | Birim: varyant dağılımı deterministik ve tekil; kazanan seçimi; histogram yedeklemesi. E2E: test payı gönderimi, bekleme sonrası kalan kitleye kazanan, sessiz saat korunur | Sonnet | 4 gün |
 | M3d | Haftalık özet (`marketing_insights`), otomatik sigortalar (bounce/şikâyet duraklatma), günlük tavanlar, denetim görünümü | E2E: kalp atışı pazartesi tek özet üretir (tekil), eşik aşımında kampanya `PAUSED` ve süper admin bildirimi | Sonnet | 3 gün |
 | M3e | Çift onay (AB/UK formları), `legalBasis`, İYS tacir muafiyeti ayarı | E2E: AB kişisi onay tıklamasına kadar ticari kitlede değil; TR işletme kişisi muafiyet kapalıyken kitlede değil | Opus (hukuki etkili gönderim kuralı) | 3 gün |
+
+M3b uygulama notları ve sapmalar:
+
+- **Model** (migration `20261022000000_marketing_approvals`, yalnızca ekleme): `campaign_status` enum'una `PENDING_APPROVAL` ve `PAUSED`; `campaigns.approval_request_id` ve `campaigns.created_by_user_id`; `approval_requests` ve `marketing_settings` bölüm 7.4'teki alanlarla (ayrıntı `docs/DATABASE_ERD.md`). `approval_requests.target_id` ve `campaigns.approval_request_id` düz kimliktir (FK yok, M2'deki `exportedCampaignId` gibi). `marketing_insights` (M3d) ve `contact_consents` değişiklikleri (M3e) bu PR'da yok. Paylaşılan tipler `packages/shared/src/marketing/approvals.ts` ve `settings.ts`.
+- **Yalnızca platform kiracısı**: kurallar `studios.is_platform` olan kiracıda uygulanır. Diğer kiracılarda `POST /studios/:id/campaigns/:id/schedule` eskisi gibi doğrudan planlar, onay satırı oluşmaz (E2E ile doğrulandı).
+- **Kampanya durum makinesi** (platform kiracısı):
+  - `DRAFT` -> `request-approval` -> kendi onayıyla `SCHEDULED` ya da `PENDING_APPROVAL`.
+  - `PENDING_APPROVAL` -> onay -> `SCHEDULED` (başlamış bir kampanyada `SENDING`); ret, geri çekme veya süre dolumu -> `DRAFT`.
+  - `SCHEDULED` / `SENDING` -> `pause` -> `PAUSED` -> `resume` -> `SCHEDULED` / `SENDING`. Duraklatılmış kampanya hiçbir koşulda göndermez; gönderim sırasında iki parti arasında durum yeniden okunur.
+  - Onaydan sonra içerik değişirse (düzenleme, şablon değişikliği, segment sayısı değişimi) kampanya `PENDING_APPROVAL`'a döner; eski talep `CANCELLED` olur ve özetine `invalidated: { reason: 'CONTENT_CHANGED', replacedByRequestId }` yazılır, yerine yeni `PENDING` talep açılır. Aynı kampanya için yeniden onay istenirse eski talep `RESUBMITTED` nedeniyle kapanır.
+  - Platform kiracısında kiracı `schedule` ucu her zaman 409 `CAMPAIGN_APPROVAL_REQUIRED` döner; gönderimi yalnızca onay (veya kendi onayı) planlar.
+- **Gönderim yolu**: `CampaignsService.processCampaign` alıcı anlık görüntüsünü almadan önce `CampaignApprovalService.verifyForSend()` çağırır: kampanya `APPROVED`/`SELF_APPROVED` bir talebe bağlı olmalı ve `contentHash` tutmalı. Talep yoksa (ör. M3b öncesi planlanmış platform kampanyası) kampanya `DRAFT`'a döner ve `marketing.approval.missing` denetim kaydı yazılır.
+- **`contentHash`**: şablon sürümleri (anahtara ait etkin kiracı ve global şablon satırlarının gövde, konu, e-posta blokları, WhatsApp adı ve onay durumu), segment kimliği ve anlık üye sayısı, istenen zamanlama, kanal (boşsa işletmenin kanal sırası) ve şablon anahtarının kanonik JSON'unun SHA-256 özeti (`apps/api/src/modules/growth/campaigns/approval/content-hash.ts`). Yerleşik (kodla gelen) şablon metinleri yalnızca sürümle değiştiğinden özete girmez. Dinamik segmentin üye sayısı onay ile gönderim arasında değişirse onay düşer (bilinçli olarak katı).
+- **Ön kontrol** (`CampaignPrecheckService`, gerçek gönderim yolu değişmeden kuru çalıştırma): kitle, ülke ve uyum bölgesi dağılımı, motorun kanal sırasıyla ulaşılabilir kişi ve kanal başına beklenen mesaj, SMS kredisi tahmini (kabul edilen her SMS bir kredi), bulgular. Uyarı (kendi onayını engeller): boş segment, gönderilebilir kişi yok, şablon yok, WhatsApp şablonu onaysız, ticari e-posta için işletme adresi yok, doğrulanmış pazarlama e-posta alan adı yok (SPF, DKIM, DMARC hepsi `VALID`), SMS kredisi yetersiz, SMS kitlesinde ABD alıcısı. Bilgi: izinsiz, abonelikten çıkmış/bastırılmış, adressiz, sessiz saate denk gelen ve sıklık sınırına takılan kişi sayıları.
+- **Kendi onayı matrisi** (`decideSelfApproval`, paylaşılan saf fonksiyon, birim testli): e-posta kitlesi <= `selfApproveEmailMax` ve alan adı doğrulanmış; SMS/WhatsApp kitlesi <= `selfApproveSmsMax` ve tahmini kredi <= `selfApproveSmsCredits`; bunlara ek olarak her zaman süper admin gerektirenler: segment ilk kez (daha önce onaylanmış/kendi onaylı bir talepte yok), kitlede daha önce onaylanan taleplerde görülmemiş bir ülke, ön kontrolde herhangi bir uyarı, ABD alıcısı içeren SMS, PUSH/IN_APP kanalı. Nedenler özet içinde saklanır ve onay ekranında gösterilir.
+- **Dört göz**: onay ve ret yalnızca süper admindedir (`SuperAdminGuard` platform guard'ından sonra). Onaylayan talep eden olamaz; süper admin kendi talebini onaylarsa `SELF_APPROVED` ve `summary.selfApprovedBySuperAdmin = true` yazılır. Geri çekme talep edene veya süper admine açıktır. Onay anında içerik yeniden özetlenir; değiştiyse 409 `APPROVAL_CONTENT_CHANGED` ve yeni talep.
+- **Süre dolumu**: `expiresAt = createdAt + approvalTtlHours` (varsayılan 72). 15 dakikalık kalp atışı (`GrowthHeartbeatService`, kampanya gönderiminden önce) süresi dolan `PENDING` talepleri `EXPIRED` yapar ve kampanyayı `DRAFT`'a döndürür; süresi dolmuş talebe karar 409 döner.
+- **Bildirimler**: mesajlaşma motoru üzerinden işlemsel e-posta + uygulama içi (`IN_APP`, platform kiracısında `notification_logs`): yeni veya yeniden açılan talepte talep eden dışındaki süper adminlere `MARKETING_APPROVAL_REQUESTED`, karar talep edene `MARKETING_APPROVAL_APPROVED` / `MARKETING_APPROVAL_REJECTED`. Metinler `msgTpl` ad alanında tr + en; onay nedenleri alıcının dilinde çevrilir. Bağlantı `PUBLIC_APP_URL/pazarlama/onaylar?id=<talep>`.
+- **Denetim**: her karar ve durum değişikliği platform kiracısında `AuditLog`: `marketing.approval.requested`, `.self_approved`, `.approved`, `.self_approved_by_super_admin`, `.rejected`, `.cancelled`, `.invalidated`, `.expired`, `.missing`; `marketing.campaign.paused`, `.resumed`; ayarlar `marketing.settings.updated`.
+- **Uçlar**:
+
+  | Uç | Yetki |
+  |---|---|
+  | `GET /platform/marketing/approvals?status=&targetId=&limit=` | `platform.marketing.view` |
+  | `GET /platform/marketing/approvals/:id` | `platform.marketing.view` |
+  | `POST /platform/marketing/approvals/:id/approve` (`{ note? }`) | `platform.marketing.approve` + süper admin |
+  | `POST /platform/marketing/approvals/:id/reject` (`{ note }` zorunlu) | `platform.marketing.approve` + süper admin |
+  | `POST /platform/marketing/approvals/:id/cancel` (`{ note? }`) | `platform.marketing.send`; talep eden veya süper admin |
+  | `POST /platform/marketing/campaigns/:id/request-approval` (`{ scheduledAt? }`) | `platform.marketing.send` |
+  | `POST /platform/marketing/campaigns/:id/pause`, `/resume` | `platform.marketing.send` |
+  | `GET` / `PATCH /admin/marketing/settings` | `SuperAdminOnly()` |
+
+  Kararlı hata kodları (`MARKETING_APPROVAL_ERROR_CODES`, web BFF çevirir): `CAMPAIGN_APPROVAL_REQUIRED`, `CAMPAIGN_NOT_REQUESTABLE`, `CAMPAIGN_NOT_PAUSABLE`, `CAMPAIGN_NOT_RESUMABLE`, `APPROVAL_NOT_PENDING`, `APPROVAL_EXPIRED`, `APPROVAL_FOUR_EYES`, `APPROVAL_CONTENT_CHANGED`, `APPROVAL_CANCEL_FORBIDDEN`.
+- **Web**: `/pazarlama/onaylar` (durum filtresi, bekleyen sayısı, ayrıntı çekmecesi: kitle, bölge ve ülke dağılımı, maliyet, bulgular, nedenler; onay/ret yalnızca süper admine, geri çekme talep edene), kampanya ekranında pazarlama panelinde "Onaya gönder" (doğrudan "Şimdi gönder" yerine), `Onay bekliyor` / `Duraklatıldı` rozetleri, duraklat/sürdür, bekleyen talepte gönderim düğmesi devre dışı. Süper admin `/admin/pazarlama-ayarlari`. i18n ad alanları `marketingApprovals`, `adminMarketingSettings` (tr + en). Playwright `apps/web/e2e/marketing-approvals.e2e.ts` (yerelde yalnızca tip denetimi).
+- **Tasarımdan sapmalar ve açık noktalar**:
+  - `platform.marketing.approve` izni katalogda duruyor, ancak M3b'de onay/ret ayrıca `SuperAdminGuard` ister (tasarımdaki "varsayılan: yalnızca süper admin" katı uygulandı). Bu izni süper admin olmayan bir role vermek bugün onay yetkisi açmaz; açılması istenirse guard kaldırılıp dört göz kuralı (zaten serviste) yeterli olur.
+  - Menüdeki "Onaylar" öğesi ve sayfa `platform.marketing.view` ile de açılır (liste ucu bu izni ister); tasarım tablosu `.send` veya `.approve` diyordu.
+  - Maliyet tahmini para birimi başına boş döner: bugün para birimiyle fiyatlanan bir kanal yok (`sms_packages.price` para birimi taşımıyor), SMS maliyeti kredi olarak gösterilir. Kanal fiyatları para birimiyle tutulunca `cost.byCurrency` doldurulacak.
+  - "Yeni bölge" ülke düzeyinde değerlendirilir (bilinmeyen ülke sayılmaz); "ilk kez kullanılan segment" daha önce onaylanmış veya kendi onaylı bir talebin segmenti olmamasıdır.
+  - Talep süresi dolduğunda talep edene bildirim gönderilmez (yalnızca denetim kaydı).
+  - Otomatik bounce/şikâyet duraklatması, günlük tavanların uygulanması ve haftalık özet M3d'dedir; bu PR yalnızca ayarları saklar ve `pause`/`resume` uçlarını sağlar.
 
 ### M4: Kanal genişletmeleri
 
@@ -433,7 +474,9 @@ Toplam kaba efor: M1 ~13 gün, M2 ~11 gün, M3 ~17 gün, M4 ~14 gün (harici ona
 
 ## 9. Açık kararlar (sahip için)
 
-- Kendi onayı eşikleri: e-postada 1.000 alıcı, SMS/WhatsApp'ta 100 alıcı önerisi uygun mu? Reklam bütçesinde her artış sizin onayınızla mı?
+- Kendi onayı eşikleri: e-postada 1.000 alıcı, SMS/WhatsApp'ta 100 alıcı önerisi uygun mu? Reklam bütçesinde her artış sizin onayınızla mı? (M3b bu varsayılanlarla uygulandı; SMS kredi eşiği varsayılanı 100 ve talep süresi 72 saat. `/admin/pazarlama-ayarlari`'ndan değiştirilebilir.)
+- M3b: `platform.marketing.approve` iznine sahip, süper admin olmayan bir kullanıcı da onay verebilsin mi? (Bugün hayır; onay/ret yalnızca süper admin.)
+- M3b: dinamik segmentin üye sayısı onay ile gönderim arasında değişince onay düşüyor; küçük bir tolerans (ör. %5) istenir mi?
 - İlk kanallar: önerilen sıra e-posta (alan adı doğrulamasıyla) -> LinkedIn/Meta ücretli (mevcut atıfla) -> Lead Ads -> organik sosyal. Hedef pazarlar ve öncelik sırası nedir (TR, AB, ABD)?
 - Pazarlama yöneticisi kiracılar arası anonim benchmark'ı (`/admin/benchmark`, k-anonim) görebilsin mi? Öneri: evet, salt okunur ve yalnızca toplu.
 - B2B tavsiye programı ve gelir (MRR, plan dağılımı) görünürlüğü: salt okunur `platform.referrals.view` verilsin mi? Tavsiye ödül ayarları sizde mi kalsın? (Öneri: ayarlar sizde.)

@@ -351,7 +351,7 @@ Atıf raporu (`GET /crm/studios/:studioId/attribution`), `groupBy` seviyesine ka
 | `segments` | Kayıtlı kitle: `DYNAMIC` (kurallar arka planda yeniden hesaplanır) veya `STATIC` (elle); `rules` JSON (`SegmentGroupSchema` ile doğrulanır), `cached_count`, `refreshed_at`, `archived_at` | (studio_id, archived_at) index |
 | `segment_members` | Segmentin güncel üyeleri; `entered_at` `segment_entered` tetikleyicisini besler | PK (segment_id, contact_id); (studio_id, contact_id), (segment_id, entered_at) index |
 | `contact_consents` | Kişi düzeyinde ticari izin (SMS/WhatsApp/e-posta), kaynak ve kanıt notu, İYS senkron zamanı | (contact_id, channel) benzersiz; (studio_id, status), (iys_synced_at) index |
-| `campaigns` | Bir segmente tek seferlik ticari gönderim: kanal (boşsa işletme sırası), şablon anahtarı, durum, zamanlar, kitle sayısı | segment_id -> segments (RESTRICT); (studio_id, status), (status, scheduled_at) index |
+| `campaigns` | Bir segmente tek seferlik ticari gönderim: kanal (boşsa işletme sırası), şablon anahtarı, durum (DRAFT/SCHEDULED/SENDING/SENT/CANCELLED; M3b ile yalnızca platform kiracısında PENDING_APPROVAL ve PAUSED), zamanlar, kitle sayısı | segment_id -> segments (RESTRICT); (studio_id, status), (status, scheduled_at) index |
 | `campaign_recipients` | Kampanyanın alıcı anlık görüntüsü ve kişi başına sonuç (durum, neden kodu, kanal, `notification_log_id`, deneme, sonraki deneme) | (campaign_id, contact_id) benzersiz; (campaign_id, status, next_attempt_at) index |
 | `journeys` | Çok adımlı akış: `definition` JSON (`JourneyDefinitionSchema` + `validateJourneyGraph`), durum, şablon anahtarı, taşınan eski kural (`legacy_rule_id` benzersiz, `legacy_rule_type`), `activated_at` | (studio_id, status), (status) index |
 | `journey_enrollments` | Bir kişinin akıştaki çalışması: geçerli adım, adıma varış, sonraki çalışma, işçi kilidi, tetikleyici değişkenleri, bitiş nedeni | (journey_id, contact_id, trigger_ref) benzersiz (idempotent kayıt); (journey_id, contact_id, lock_key) benzersiz (tekrar giriş politikası); (status, next_run_at) index |
@@ -551,6 +551,18 @@ Migration `20261020000000_marketing_studio` (yalnızca ekleme: `AiTask` enum'una
 | `content_calendar_items` | Takvimdeki plan: başlık, kanal (paylaşılan liste), tarih (`DATE`), durum (`ContentCalendarStatus`: PLANNED/DRAFTED/APPROVED/SENT/CANCELLED), bağlı taslak (`SET NULL`), bağlı kampanya (FK yok), sorumlu kullanıcı (FK yok), not. Buradan hiçbir şey gönderilmez | (studio_id, scheduled_date) index; studio -> cascade |
 
 Araştırma notları ayrı tablo değil, `marketing_drafts.kind = 'RESEARCH_NOTE'` taslaklarıdır (soru, özet, alıntılı maddeler ve kaynaklar varyant içeriğindedir).
+
+## Pazarlama onayları ve ayarları (M3b)
+
+Migration `20261022000000_marketing_approvals` (yalnızca ekleme: `CampaignStatus` enum'una `PENDING_APPROVAL` ve `PAUSED`, iki yeni enum, `campaigns` üzerinde iki boş olabilir sütun, iki tablo). Kurallar yalnızca platform kiracısında (`studios.is_platform`) uygulanır; diğer kiracılarda satır oluşmaz ve kampanya davranışı değişmez. Ayrıntılar `docs/PAZARLAMA_MODULU.md` bölüm 6.1 ve M3b notları.
+
+| Tablo | Amaç | Kısıtlar |
+|---|---|---|
+| `approval_requests` | Dışarı çıkan bir eylem için onay talebi: hedef türü (`ApprovalTargetType`: CAMPAIGN/JOURNEY/SOCIAL_POST/PAGE_PUBLISH/AD_BUDGET/AD_ACTIVATE/EXPORT; bugün yalnızca CAMPAIGN yazılır), hedef kimliği (FK yok), `content_hash` (şablon sürümleri, kitle anlık sayısı, zamanlama ve kanalın SHA-256 özeti), `summary` (JSON: kitle, ülke ve bölge dağılımı, maliyet tahmini, ön kontrol bulguları, onay nedenleri, eşikler; geçersiz kılınan talepte `invalidated`, süper adminin kendi onayında `selfApprovedBySuperAdmin`), durum (`ApprovalRequestStatus`: PENDING/APPROVED/REJECTED/EXPIRED/CANCELLED/SELF_APPROVED), talep eden, karar veren, karar notu, `expires_at`, `decided_at` | (studio_id, status, created_at), (studio_id, target_type, target_id), (status, expires_at) index; studio -> cascade; kullanıcı sütunlarında FK yok |
+| `marketing_settings` | Kiracı başına (pratikte platform kiracısı) pazarlama ayarları: kendi onayı eşikleri (`self_approve_email_max` 1000, `self_approve_sms_max` 100, `self_approve_sms_credits` 100), `approval_ttl_hours` (72), sosyal gönderi onayı, günlük e-posta ve SMS kredi tavanı, para birimi başına aylık reklam harcama tavanı (JSON, ondalık metin), günlük yapay zeka tavanı (sent), otomatik duraklatma oranları (`bounce_auto_pause_pct` 2, `complaint_auto_pause_pct` 0,08; `DECIMAL(6,3)`), MQL/SQL segment kuralları (JSON, boş olabilir), haftalık özet anahtarı ve alıcıları (kullanıcı kimliği listesi), `updated_by_user_id` | `studio_id` birincil anahtar; studio -> cascade. Satır yoksa paylaşılan `MARKETING_SETTINGS_DEFAULTS` geçerlidir |
+| `campaigns` (M3b sütunları) | `created_by_user_id` (üyeliği olmayan süper admin dahil oluşturan kullanıcı), `approval_request_id` (kampanyanın bağlı olduğu güncel talep; düz kimlik, FK yok) | boş olabilir |
+
+M3b'de yalnızca onayla ilgili alanlar (eşikler ve TTL) davranışa sahiptir; tavanlar, otomatik duraklatma, MQL/SQL ve haftalık özet saklanır ve M3a/M3d'de kullanılır. `marketing_insights` ve `contact_consents` değişiklikleri M3d/M3e'dedir.
 
 ## Denetim (Audit)
 
