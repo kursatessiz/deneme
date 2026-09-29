@@ -51,6 +51,8 @@ export const enAdminErrors: Record<keyof typeof trAdminErrors, string> = {
   'adminErrors.detail.events': 'Recent occurrences',
   'adminErrors.detail.noEvents': 'No stored occurrences (records older than 30 days are deleted).',
   'adminErrors.detail.stack': 'Stack trace',
+  'adminErrors.detail.stackResolved': 'Stack trace (resolved with source maps)',
+  'adminErrors.detail.stackRaw': 'Raw stack trace (minified)',
   'adminErrors.detail.noStack': 'No stack trace.',
   'adminErrors.detail.breadcrumbs': 'What happened before',
   'adminErrors.detail.noBreadcrumbs': 'No recorded steps.',

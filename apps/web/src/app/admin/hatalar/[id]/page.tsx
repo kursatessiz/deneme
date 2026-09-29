@@ -183,8 +183,18 @@ export default function AdminErrorDetailPage() {
               <dd>{e.statusCode ?? '-'}</dd>
             </dl>
             <p className="text-sm mt-3 break-all">{e.message}</p>
-            <h4 className="text-xs font-semibold mt-3">{t('adminErrors.detail.stack')}</h4>
-            {e.stack ? <pre className="text-xs overflow-x-auto mt-1 p-2 whitespace-pre" style={{ backgroundColor: 'var(--color-surface-muted)' }}>{e.stack}</pre> : <p className="text-xs">{t('adminErrors.detail.noStack')}</p>}
+            <h4 className="text-xs font-semibold mt-3">{e.symbolicatedStack ? t('adminErrors.detail.stackResolved') : t('adminErrors.detail.stack')}</h4>
+            {e.symbolicatedStack || e.stack ? (
+              <pre className="text-xs overflow-x-auto mt-1 p-2 whitespace-pre" style={{ backgroundColor: 'var(--color-surface-muted)' }}>{e.symbolicatedStack ?? e.stack}</pre>
+            ) : (
+              <p className="text-xs">{t('adminErrors.detail.noStack')}</p>
+            )}
+            {e.symbolicatedStack && e.stack && (
+              <details className="mt-2">
+                <summary className="cursor-pointer text-xs">{t('adminErrors.detail.stackRaw')}</summary>
+                <pre className="text-xs overflow-x-auto mt-1 p-2 whitespace-pre" style={{ backgroundColor: 'var(--color-surface-muted)' }}>{e.stack}</pre>
+              </details>
+            )}
             <h4 className="text-xs font-semibold mt-3">{t('adminErrors.detail.breadcrumbs')}</h4>
             {e.breadcrumbs.length === 0 ? (
               <p className="text-xs">{t('adminErrors.detail.noBreadcrumbs')}</p>

@@ -135,6 +135,12 @@ export const EnvSchema = z
     /** 0 turns the super admin alert and digest emails off (errors are still recorded). */
     ERROR_ALERTS_ENABLED: z.enum(['0', '1']).default('1'),
 
+    // H2 source maps for stack symbolication (docs/HATA_RAPORLAMA.md).
+    /** Token CI and the mobile upload script present to POST /admin/errors/sourcemaps; unset disables uploads. */
+    SOURCEMAP_UPLOAD_TOKEN: z.string().min(32, 'SOURCEMAP_UPLOAD_TOKEN must be at least 32 characters').optional(),
+    /** Directory for uploaded source maps (a volume in production); defaults to a temp directory. */
+    SOURCEMAP_DIR: z.string().min(1).optional(),
+
     // D2 database backups (docs/YEDEKLER.md). The same BACKUP_S3_* settings
     // deploy/scripts/backup.sh uses; an empty value (compose passes "" for
     // unset keys) counts as unset.

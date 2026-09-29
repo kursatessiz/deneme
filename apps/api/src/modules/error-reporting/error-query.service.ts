@@ -65,6 +65,7 @@ function toEvent(e: ErrorEvent, studioNames: Map<string, string>): ErrorEventDTO
     type: e.type,
     message: e.message,
     stack: e.stack,
+    symbolicatedStack: e.symbolicatedStack,
     breadcrumbs: parseBreadcrumbs(e.breadcrumbs),
     statusCode: e.statusCode,
     occurredAt: e.occurredAt.toISOString(),

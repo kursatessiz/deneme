@@ -231,6 +231,8 @@ export interface ErrorEventDTO {
   type: string;
   message: string;
   stack: string | null;
+  /** Stack with original file names and lines, when the release's source maps were known (H2). */
+  symbolicatedStack: string | null;
   breadcrumbs: Breadcrumb[];
   statusCode: number | null;
   occurredAt: string;

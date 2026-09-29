@@ -36,6 +36,7 @@ export * from './funnels';
 export * from './payouts';
 export * from './billing';
 export * from './error-reporting';
+export * from './sourcemaps';
 export * from './community';
 export * from './backups';
 export * from './platform-permissions';

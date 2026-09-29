@@ -14,6 +14,9 @@ import { ErrorReportingJobsService } from './error-reporting-jobs.service';
 import { TelemetryRateLimiter } from './telemetry-rate-limit.service';
 import { TelemetryController } from './telemetry.controller';
 import { AdminErrorsController, StudioErrorsController } from './error-reporting.controllers';
+import { SourcemapsController } from './sourcemaps.controller';
+import { SourcemapStoreService } from './sourcemap-store.service';
+import { SymbolicationService } from './symbolication.service';
 import { TestErrorController } from './test-error.controller';
 import { RequestIdMiddleware } from './request-id.middleware';
 
@@ -31,12 +34,15 @@ import { RequestIdMiddleware } from './request-id.middleware';
     TelemetryController,
     AdminErrorsController,
     StudioErrorsController,
+    SourcemapsController,
     ...(process.env.NODE_ENV === 'test' ? [TestErrorController] : []),
   ],
   providers: [
     ErrorStoreService,
     ErrorAlertsService,
     StorageErrorSink,
+    SourcemapStoreService,
+    SymbolicationService,
     { provide: ERROR_SINKS, useFactory: (storage: StorageErrorSink): ErrorSink[] => [storage], inject: [StorageErrorSink] },
     ErrorCaptureService,
     ErrorQueryService,

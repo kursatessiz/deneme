@@ -51,6 +51,8 @@ export const trAdminErrors = {
   'adminErrors.detail.noEvents': 'Saklanan kayıt yok (30 günden eski kayıtlar silinir).',
   'adminErrors.detail.stack': 'Yığın izi',
   'adminErrors.detail.noStack': 'Yığın izi yok.',
+  'adminErrors.detail.stackResolved': 'Yığın izi (kaynak haritasıyla çözüldü)',
+  'adminErrors.detail.stackRaw': 'Ham yığın izi (küçültülmüş)',
   'adminErrors.detail.breadcrumbs': 'Öncesinde olanlar',
   'adminErrors.detail.noBreadcrumbs': 'Kayıtlı adım yok.',
   'adminErrors.detail.code': 'Hata kodu',
