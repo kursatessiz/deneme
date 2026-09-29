@@ -62,6 +62,13 @@ export const trMsgTpl = {
   'msgTpl.BACKUP_STALE.subject': 'Veritabanı yedeği gecikti',
   'msgTpl.BACKUP_STALE.text': 'Merhaba {firstName}, son {hours} saattir başarılı bir veritabanı yedeği yok (eşik: {threshold} saat). Son başarılı yedek: {lastSuccessAt}. Süper admin panelindeki Yedekler ekranından durumu kontrol edip hemen yedek alabilirsiniz.',
   'msgTpl.BACKUP_STALE.cta': 'Yedekleri aç',
+  'msgTpl.MARKETING_APPROVAL_REQUESTED.subject': 'Onay bekleyen pazarlama gönderimi: {targetName}',
+  'msgTpl.MARKETING_APPROVAL_REQUESTED.text': 'Merhaba {firstName}, {requesterName} "{targetName}" gönderimi için onay istedi. Kitle: {audience} kişi. Onay gerekme nedenleri: {reasons}. Talebi pazarlama panelindeki Onaylar ekranından inceleyip onaylayabilir veya reddedebilirsiniz.',
+  'msgTpl.MARKETING_APPROVAL_APPROVED.subject': 'Gönderiminiz onaylandı: {targetName}',
+  'msgTpl.MARKETING_APPROVAL_APPROVED.text': 'Merhaba {firstName}, "{targetName}" gönderimi {deciderName} tarafından onaylandı ve planlanan zamanda gönderilecek. Not: {note}',
+  'msgTpl.MARKETING_APPROVAL_REJECTED.subject': 'Gönderiminiz reddedildi: {targetName}',
+  'msgTpl.MARKETING_APPROVAL_REJECTED.text': 'Merhaba {firstName}, "{targetName}" gönderimi {deciderName} tarafından reddedildi ve taslağa döndü. Gerekçe: {note}',
+  'msgTpl.MARKETING_APPROVAL.cta': 'Onayları aç',
 
   'msgTpl.email.reasonCommercial': 'Bu e-postayı {studioName} ile iletişim izniniz olduğu için aldınız.',
   'msgTpl.email.reasonTransactional': 'Bu e-posta {studioName} hesabınızla ilgili bir bilgilendirmedir.',

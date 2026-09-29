@@ -254,10 +254,20 @@ platform davetinde yalnızca KVKK aydınlatma metni istenir. Kabulde
 - Pano KPI'ları, onay akışı, platform webhook olayları (`studio.signup`
   vb.) ve doğrulanmamış alan adıyla ticari e-posta engeli M1d/M3 kapsamında
   sonraki PR'lara bırakıldı; gönderen alan adı kaydı ve DNS durumu hazır.
+  M3b ile onay akışı geldi: doğrulanmamış alan adıyla ticari e-posta artık
+  kendi onayıyla gönderilemez, süper admin onayı ister (aşağıdaki M3b
+  notları).
 
 ### M2 notları: yapay zeka ayarları
 
 `/admin/ai` sayfasındaki **Görev başına model** bölümüne üç yeni görev (`MARKETING_DRAFT`, `MARKETING_ANALYSIS`, `MARKETING_RESEARCH`) ve **Pazarlama stüdyosu aylık limiti** alanı eklendi (`PATCH /admin/ai/settings` içinde `marketingAiMonthlyBudgetCents`, varsayılan 5000 = 50 USD, 0 stüdyoyu kapatır). Limit yalnızca süper admin tarafından değiştirilir; pazarlama yöneticisi bu ucu çağıramaz (403). Marka kiti, yapay zeka stüdyosu ve içerik takvimi `/pazarlama/marka`, `/pazarlama/yapay-zeka`, `/pazarlama/takvim` altındadır; süper admin hepsini pazarlama yöneticisiyle aynı uçlardan kullanır (`/platform/marketing/*`) ve her yazma platform kiracısında `AuditLog` satırıdır (`marketing.brand_kit.*`, `marketing.product_fact.*`, `marketing.draft.*`, `marketing.calendar.*`). Ayrıntılar: `docs/PAZARLAMA_MODULU.md` (M2 notları), `docs/YAPAY_ZEKA.md`.
+
+### M3b notları: pazarlama ayarları ve onaylar
+
+- **Sayfa** `/admin/pazarlama-ayarlari` (AdminNav'da `/admin/ai` gibi bağlı, "Pazarlama Ayarları"): kendi onayı eşikleri (e-posta en fazla kişi, SMS/WhatsApp en fazla kişi, en fazla tahmini SMS kredisi), onay talebinin geçerlilik süresi (saat), organik sosyal gönderilerin hepsinin onaya tabi olması, günlük ticari e-posta ve SMS kredi tavanı, günlük yapay zeka tavanı (sent), para birimi başına aylık reklam harcama tavanı (farklı para birimleri toplanmaz), otomatik duraklatma oranları ve haftalık özet (anahtar ve alıcılar; alıcılar yalnızca süper admin veya etkin platform kullanıcısı olabilir).
+- **Uçlar** `GET /admin/marketing/settings` ve `PATCH /admin/marketing/settings` (`SuperAdminOnly()`; gövde paylaşılan `UpdateMarketingSettingsSchema`, bütün alanlar isteğe bağlı). Her değişiklik platform kiracısında `AuditLog` satırıdır (`marketing.settings.updated`, `metadata.changes` alan başına eski ve yeni değer). Pazarlama yöneticisi bu uçları çağıramaz (403).
+- **Bugün davranışı olanlar**: eşikler ve TTL (onay akışı). Tavanlar, otomatik duraklatma ve haftalık özet saklanır, işleri M3d'dedir; MQL/SQL kuralları bu sayfada düzenlenmez (M3a panosu kullanır).
+- **Onaylar**: süper admin onay kuyruğunu pazarlama panelinde `/pazarlama/onaylar` ekranında görür; onay ve ret yalnızca süper admindedir (`POST /platform/marketing/approvals/:id/approve|reject`, `PlatformScoped` + `SuperAdminGuard`). Süper admin kendi talebini onaylayabilir; bu `SELF_APPROVED` ve özet içinde `selfApprovedBySuperAdmin: true` olarak kaydedilir. Yeni talepte süper adminlere işlemsel e-posta ve uygulama içi bildirim gider (`MARKETING_APPROVAL_REQUESTED`), karar talep edene bildirilir (`MARKETING_APPROVAL_APPROVED` / `_REJECTED`). Akışın tamamı `docs/PAZARLAMA_MODULU.md` M3b notlarında.
 
 ## Kapsam dışı / takip maddeleri
 

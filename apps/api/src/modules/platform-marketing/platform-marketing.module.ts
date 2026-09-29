@@ -20,13 +20,23 @@ import { MarketingAiService } from './studio/marketing-ai.service';
 import { MarketingDraftsService } from './studio/marketing-drafts.service';
 import { BrandKitController, ContentCalendarController, MarketingStudioController } from './studio/marketing-studio.controllers';
 import { SegmentInsightService } from './studio/segment-insight.service';
+import { AdminMarketingSettingsController, MarketingApprovalsController, PlatformCampaignsController } from './approvals/marketing-approvals.controllers';
 
 const systemDns: DnsLookup = { resolveTxt, resolveCname, resolveMx };
 
-/** Platform marketing (docs/PAZARLAMA_MODULU.md): M1 the integrations hub, M2 the brand kit, AI studio and content calendar, M3a the KPI dashboard; later phases add approvals here. */
+/** Platform marketing (docs/PAZARLAMA_MODULU.md): M1 the integrations hub, M2 the brand kit, AI studio and content calendar, M3a the KPI dashboard, M3b the approval queue, platform campaign actions and marketing settings (services in GrowthModule, next to the send path). */
 @Module({
   imports: [AuthModule, AdsModule, AiModule, ApiKeysModule, CrmCoreModule, FunnelsModule, GrowthModule, WebhooksModule],
-  controllers: [PlatformIntegrationsController, BrandKitController, MarketingStudioController, ContentCalendarController, MarketingDashboardController],
+  controllers: [
+    PlatformIntegrationsController,
+    BrandKitController,
+    MarketingStudioController,
+    ContentCalendarController,
+    MarketingDashboardController,
+    MarketingApprovalsController,
+    PlatformCampaignsController,
+    AdminMarketingSettingsController,
+  ],
   providers: [
     IntegrationHubService,
     { provide: DNS_LOOKUP, useValue: systemDns },

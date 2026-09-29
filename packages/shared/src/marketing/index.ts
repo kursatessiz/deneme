@@ -4,3 +4,5 @@ export * from './checks';
 export * from './drafts';
 export * from './calendar';
 export * from './dashboard';
+export * from './approvals';
+export * from './settings';

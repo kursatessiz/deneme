@@ -16,6 +16,8 @@ export const enCampaigns: Record<keyof typeof trCampaigns, string> = {
   'campaigns.status.SENDING': 'Sending',
   'campaigns.status.SENT': 'Sent',
   'campaigns.status.CANCELLED': 'Cancelled',
+  'campaigns.status.PENDING_APPROVAL': 'Waiting for approval',
+  'campaigns.status.PAUSED': 'Paused',
   'campaigns.recipient.PENDING': 'Pending',
   'campaigns.recipient.SENT': 'Sent',
   'campaigns.recipient.SKIPPED': 'Skipped',
