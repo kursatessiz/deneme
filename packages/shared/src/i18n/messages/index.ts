@@ -41,6 +41,8 @@ import { trLanguage } from './tr/language';
 import { trLayout } from './tr/layout';
 import { trLeads } from './tr/leads';
 import { trLoyalty } from './tr/loyalty';
+import { trEvents } from './tr/events';
+import { trMEvents } from './tr/mEvents';
 import { trMLeads } from './tr/mLeads';
 import { trMessaging } from './tr/messaging';
 import { trMsgTpl } from './tr/msgTpl';
@@ -118,6 +120,8 @@ import { enLanguage } from './en/language';
 import { enLayout } from './en/layout';
 import { enLeads } from './en/leads';
 import { enLoyalty } from './en/loyalty';
+import { enEvents } from './en/events';
+import { enMEvents } from './en/mEvents';
 import { enMLeads } from './en/mLeads';
 import { enMessaging } from './en/messaging';
 import { enMsgTpl } from './en/msgTpl';
@@ -209,6 +213,8 @@ export const TR_NAMESPACES = [
   trLayout,
   trLeads,
   trLoyalty,
+  trEvents,
+  trMEvents,
   trMessaging,
   trMsgTpl,
   trMAccount,
@@ -289,6 +295,8 @@ export const EN_NAMESPACES = [
   enLayout,
   enLeads,
   enLoyalty,
+  enEvents,
+  enMEvents,
   enMessaging,
   enMsgTpl,
   enMAccount,

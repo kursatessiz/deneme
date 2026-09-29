@@ -17,6 +17,7 @@ export const enNav = {
   'nav.segments': 'Segments',
   'nav.campaigns': 'Campaigns',
   'nav.journeys': 'Journeys',
+  'nav.events': 'Events',
   'nav.inbox': 'Inbox',
   'nav.settings': 'Settings',
 } as const satisfies Record<keyof typeof trNav, string>;

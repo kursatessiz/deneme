@@ -14,6 +14,7 @@ import { InvoicingService } from '../invoicing/invoicing.service';
 import { PaymentProviderRegistry } from './providers/payment-provider.registry';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { PromotionsService } from '../promotions/promotions.service';
+import { EventSeatsService } from '../events/event-seats.service';
 import type { TenantContext } from '../auth/tenant-context';
 import type {
   CancelSubscriptionInput,
@@ -44,7 +45,16 @@ export class PaymentsService {
     private promotions: PromotionsService,
     private webhooks: WebhooksService,
     @Optional() private crm?: CrmHooksService,
+    @Optional() private eventSeats?: EventSeatsService,
   ) {}
+
+  /**
+   * Post-completion work (automatic e-invoice) for a payment another module
+   * recorded as COMPLETED, e.g. an event ticket (G3c-1). Never throws.
+   */
+  async onPaymentCompleted(studioId: string, paymentId: string): Promise<void> {
+    await this.maybeAutoIssueInvoice(studioId, paymentId);
+  }
 
   /**
    * Auto-issues an e-invoice for a just-completed payment, when the studio
@@ -768,10 +778,12 @@ export class PaymentsService {
     if (verification.eventType === 'CHECKOUT_COMPLETED' || verification.eventType === 'CHARGE_SUCCEEDED') {
       const meta = (payment.metadata as { packageDefinitionId?: string; startDate?: string | null } | null) ?? null;
       if (!meta?.packageDefinitionId) {
-        await this.prisma.payment.updateMany({
+        const completed = await this.prisma.payment.updateMany({
           where: { id: payment.id, paymentStatus: PaymentStatus.PENDING },
           data: { paymentStatus: PaymentStatus.COMPLETED },
         });
+        // G3c-1: an event ticket checkout confirms its held registration.
+        if (completed.count === 1) await this.eventSeats?.onPaymentCompleted(payment.id);
         await this.maybeAutoIssueInvoice(payment.studioId, payment.id);
         return { handled: true };
       }
@@ -804,6 +816,7 @@ export class PaymentsService {
         where: { id: payment.id, paymentStatus: PaymentStatus.PENDING },
         data: { paymentStatus: PaymentStatus.FAILED },
       });
+      await this.eventSeats?.onPaymentFailed(payment.id);
       return { handled: true };
     }
 

@@ -104,6 +104,33 @@ export class LoyaltyEarnService {
   }
 
   /**
+   * A member was checked in to an event (G3c-1). ATTENDANCE rules apply
+   * like a session check-in; a rule narrowed to service types does not
+   * match, since an event has no service type. Keyed by the registration.
+   */
+  async onEventAttendance(studioId: string, registrationId: string): Promise<number> {
+    return this.safely(`event attendance ${registrationId}`, async () => {
+      const rules = await this.activeRules(this.prisma, studioId, 'ATTENDANCE');
+      if (!rules) return 0;
+      const registration = await this.prisma.eventRegistration.findFirst({
+        where: { id: registrationId, studioId, status: 'ATTENDED' },
+        select: { member: { select: { membershipId: true, membership: { select: { isPartnerGuest: true } } } } },
+      });
+      if (!registration?.member || registration.member.membership.isPartnerGuest) return 0;
+      const matched = rules.filter((r) => allows(conditionsOf(r).serviceTypeIds, null));
+      return this.credit(null, {
+        studioId,
+        membershipId: registration.member.membershipId,
+        points: matched.reduce((sum, r) => sum + r.points, 0),
+        reason: 'EARN_ATTENDANCE',
+        sourceType: 'event_registration',
+        sourceId: registrationId,
+        rules: matched,
+      });
+    });
+  }
+
+  /**
    * A payment reached COMPLETED. PURCHASE_AMOUNT rules give points per
    * whole unit of the net paid amount in the rule's currency (rule 8: a
    * payment in another currency earns nothing under that rule).

@@ -71,6 +71,20 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplateDefinition[] = [
     variables: ['firstName', 'studioName', 'points', 'expiryDate'],
     whatsappName: 'loyalty_points_expiring',
   },
+  /**
+   * G3c-1 events (docs/ETKINLIKLER.md): about the person's own registration,
+   * never an offer, so all are TRANSACTIONAL.
+   */
+  {
+    key: 'EVENT_REGISTRATION_CONFIRMED',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'studioName', 'eventTitle', 'startTime'],
+    whatsappName: 'event_registration_confirmed',
+  },
+  { key: 'EVENT_REMINDER', purpose: 'TRANSACTIONAL', variables: ['firstName', 'eventTitle', 'startTime'], whatsappName: 'event_reminder' },
+  { key: 'EVENT_CANCELLED', purpose: 'TRANSACTIONAL', variables: ['firstName', 'studioName', 'eventTitle', 'startTime'], whatsappName: 'event_cancelled' },
+  { key: 'EVENT_WAITLIST_PROMOTED', purpose: 'TRANSACTIONAL', variables: ['firstName', 'eventTitle', 'startTime'], whatsappName: 'event_waitlist_promoted' },
+  { key: 'EVENT_PAYMENT_DUE', purpose: 'TRANSACTIONAL', variables: ['firstName', 'eventTitle', 'paymentDueAt'], whatsappName: 'event_payment_due' },
 ];
 
 export function builtinTemplate(key: string): BuiltinTemplateDefinition | null {

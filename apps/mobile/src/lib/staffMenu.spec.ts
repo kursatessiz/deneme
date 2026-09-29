@@ -21,6 +21,14 @@ describe('buildHesabimMenu', () => {
     expect(keys).not.toContain('today-sessions');
   });
 
+  it('members get the events screen; event check-in needs events.checkin and events.view', () => {
+    expect(buildHesabimMenu({ permissions: [], isMember: true, isTrainer: false }).map((m) => m.key)).toContain('events');
+    const reception = buildHesabimMenu({ permissions: ['events.view', 'events.checkin'], isMember: false, isTrainer: false }).map((m) => m.key);
+    expect(reception).toContain('event-check-in');
+    expect(reception).not.toContain('events');
+    expect(buildHesabimMenu({ permissions: ['events.checkin'], isMember: false, isTrainer: false }).map((m) => m.key)).not.toContain('event-check-in');
+  });
+
   it('shows Programım only for a trainer with schedule.view', () => {
     const menu = buildHesabimMenu({ permissions: ['schedule.view'], isMember: false, isTrainer: true });
     expect(menu.map((m) => m.key)).toContain('my-schedule');

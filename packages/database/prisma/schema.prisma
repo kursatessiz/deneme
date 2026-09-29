@@ -710,6 +710,10 @@ model Studio {
   loyaltyAccounts       LoyaltyAccount[]
   loyaltyLedger         LoyaltyLedger[]
   loyaltyRedemptions    LoyaltyRedemption[]
+  events                Event[]
+  eventOccurrences      EventOccurrence[]
+  eventTicketTypes      EventTicketType[]
+  eventRegistrations    EventRegistration[]
 
   @@map("studios")
 }
@@ -741,6 +745,7 @@ model Branch {
   invoices      Invoice[]
   checkInPoints CheckInPoint[]
   kioskDevices  KioskDevice[]
+  events        Event[]
 
   @@unique([studioId, name])
   /// Target of composite foreign keys that pin a row to the branch's studio.
@@ -865,6 +870,8 @@ model Membership {
   loyaltyLedger             LoyaltyLedger[]       @relation("LoyaltyLedgerHolder")
   loyaltyLedgerCreated      LoyaltyLedger[]       @relation("LoyaltyLedgerActor")
   loyaltyRedemptions        LoyaltyRedemption[]   @relation("LoyaltyRedemptionHolder")
+  eventsCreated             Event[]               @relation("EventCreator")
+  eventRegistrationsCreated EventRegistration[]   @relation("EventRegistrationCreator")
 
   @@unique([userId, studioId])
   @@index([studioId, status])
@@ -1019,6 +1026,7 @@ model MemberProfile {
   healthSyncRecords  HealthSyncRecord[]
   healthDailySummaries HealthDailySummary[]
   videoViews         VideoView[]
+  eventRegistrations EventRegistration[]
 
   @@index([studioId])
   @@map("member_profiles")
@@ -1040,6 +1048,7 @@ model TrainerProfile {
   payrollLines   PayrollLine[]
   ratingsReceived SessionRating[]
   videoContents   VideoContent[]
+  eventOccurrences EventOccurrence[] @relation("EventOccurrenceTrainer")
 
   @@index([studioId])
   @@map("trainer_profiles")
@@ -1105,6 +1114,7 @@ model Resource {
   children         Resource[]        @relation("ResourceChildren")
   schedules        SessionSchedule[]
   bookingResources BookingResource[]
+  eventOccurrences EventOccurrence[]
 
   @@index([studioId, resourceTypeId])
   @@map("resources")
@@ -1243,6 +1253,7 @@ model ServiceType {
   interestedContacts    Contact[]
   ratings               SessionRating[]
   videoContents         VideoContent[]
+  eventTicketTypes      EventTicketType[]
 
   @@unique([studioId, name])
   @@map("service_types")
@@ -1333,6 +1344,7 @@ model MemberPackage {
   payments          Payment[]
   waitlistEntries   Waitlist[]
   trialRedemptions  TrialRedemption[]
+  eventRegistrations EventRegistration[]
 
   @@index([studioId, memberId, status])
   @@map("member_packages")
@@ -1680,6 +1692,7 @@ model Payment {
   invoice            Invoice?
   promoRedemption    PromoRedemption?
   giftCardTxs        GiftCardTransaction[]
+  eventRegistration  EventRegistration?
 
   @@index([studioId, paidAt])
   @@index([branchId, paidAt])
@@ -2483,6 +2496,7 @@ model Contact {
   segmentMemberships  SegmentMember[]
   campaignRecipients  CampaignRecipient[]
   journeyEnrollments  JourneyEnrollment[]
+  eventRegistrations  EventRegistration[]
 
   @@index([studioId, lifecycleStage])
   @@index([studioId, pipelineStageId])
@@ -4296,4 +4310,164 @@ model LoyaltyRedemption {
 
   @@index([studioId, membershipId, createdAt])
   @@map("loyalty_redemptions")
+}
+
+// ---------------------------------------------------------------------------
+// G3c-1: events, workshops and multi-session courses (docs/ETKINLIKLER.md)
+// ---------------------------------------------------------------------------
+
+/// An event, workshop or course. `kind`, `status` and `visibility` are keys
+/// from EVENT_KINDS / EVENT_STATUSES / EVENT_VISIBILITIES (shared; CHECK
+/// constraints in the migration). `seatsTaken` counts seat-holding
+/// registrations and only moves through conditional updates
+/// (seats_taken < capacity), so concurrent registrations never oversell.
+model Event {
+  id                    String    @id @default(uuid()) @db.Uuid
+  studioId              String    @map("studio_id") @db.Uuid
+  branchId              String?   @map("branch_id") @db.Uuid
+  title                 String    @db.VarChar(160)
+  description           String?   @db.Text
+  kind                  String    @db.VarChar(10)
+  status                String    @default("DRAFT") @db.VarChar(12)
+  capacity              Int
+  seatsTaken            Int       @default(0) @map("seats_taken")
+  waitlistEnabled       Boolean   @default(false) @map("waitlist_enabled")
+  visibility            String    @default("MEMBERS_ONLY") @db.VarChar(15)
+  coverImageUrl         String?   @map("cover_image_url") @db.Text
+  registrationOpensAt   DateTime? @map("registration_opens_at")
+  registrationClosesAt  DateTime? @map("registration_closes_at")
+  /// First occurrence start / last occurrence end, kept in sync with the occurrences.
+  startsAt              DateTime? @map("starts_at")
+  endsAt                DateTime? @map("ends_at")
+  /// Full refund until this many hours before startsAt, none after.
+  fullRefundHoursBefore Int       @default(24) @map("full_refund_hours_before")
+  publishedAt           DateTime? @map("published_at")
+  cancelledAt           DateTime? @map("cancelled_at")
+  cancellationReason    String?   @map("cancellation_reason") @db.Text
+  completedAt           DateTime? @map("completed_at")
+  createdByMembershipId String?   @map("created_by_membership_id") @db.Uuid
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  studio        Studio              @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  branch        Branch?             @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  createdBy     Membership?         @relation("EventCreator", fields: [createdByMembershipId], references: [id], onDelete: SetNull)
+  occurrences   EventOccurrence[]
+  ticketTypes   EventTicketType[]
+  registrations EventRegistration[]
+
+  @@index([studioId, status, startsAt])
+  @@index([status, endsAt])
+  @@map("events")
+}
+
+/// One dated occurrence of an event (a SINGLE event has one, a SERIES
+/// several). Own table rather than SessionSchedule: see docs/ETKINLIKLER.md.
+model EventOccurrence {
+  id             String    @id @default(uuid()) @db.Uuid
+  studioId       String    @map("studio_id") @db.Uuid
+  eventId        String    @map("event_id") @db.Uuid
+  startsAt       DateTime  @map("starts_at")
+  endsAt         DateTime  @map("ends_at")
+  resourceId     String?   @map("resource_id") @db.Uuid
+  trainerId      String?   @map("trainer_id") @db.Uuid
+  /// Set once the 24-hour reminder went out for this occurrence.
+  reminderSentAt DateTime? @map("reminder_sent_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  studio   Studio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  event    Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  resource Resource?       @relation(fields: [resourceId], references: [id], onDelete: SetNull)
+  trainer  TrainerProfile? @relation("EventOccurrenceTrainer", fields: [trainerId], references: [id], onDelete: SetNull)
+
+  @@index([eventId, startsAt])
+  @@index([studioId, startsAt])
+  @@index([startsAt, reminderSentAt])
+  @@map("event_occurrences")
+}
+
+/// A ticket type of an event: price with its currency, optional quantity
+/// limit and sales window, member-only flag, and optionally payment with
+/// package units (a package covering creditServiceTypeId, creditUnits each).
+model EventTicketType {
+  id                  String    @id @default(uuid()) @db.Uuid
+  studioId            String    @map("studio_id") @db.Uuid
+  eventId             String    @map("event_id") @db.Uuid
+  name                String    @db.VarChar(120)
+  description         String?   @db.Text
+  priceAmount         Decimal   @default(0) @map("price_amount") @db.Decimal(10, 2)
+  currency            String    @db.VarChar(3)
+  quantityLimit       Int?      @map("quantity_limit")
+  soldCount           Int       @default(0) @map("sold_count")
+  salesStartAt        DateTime? @map("sales_start_at")
+  salesEndAt          DateTime? @map("sales_end_at")
+  membersOnly         Boolean   @default(false) @map("members_only")
+  allowMultiple       Boolean   @default(false) @map("allow_multiple")
+  creditServiceTypeId String?   @map("credit_service_type_id") @db.Uuid
+  creditUnits         Int?      @map("credit_units")
+  isActive            Boolean   @default(true) @map("is_active")
+  sortOrder           Int       @default(0) @map("sort_order")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  studio            Studio              @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  event             Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  creditServiceType ServiceType?        @relation(fields: [creditServiceTypeId], references: [id], onDelete: SetNull)
+  registrations     EventRegistration[]
+
+  @@index([eventId, sortOrder])
+  @@index([studioId])
+  @@map("event_ticket_types")
+}
+
+/// A person's registration: a member (memberId) or a CRM contact
+/// (contactId, a guest from the public page). `dedupeKey` makes one live
+/// registration per person and event unique; it is cleared on cancellation
+/// and null for ticket types that allow several registrations.
+model EventRegistration {
+  id                    String    @id @default(uuid()) @db.Uuid
+  studioId              String    @map("studio_id") @db.Uuid
+  eventId               String    @map("event_id") @db.Uuid
+  ticketTypeId          String    @map("ticket_type_id") @db.Uuid
+  memberId              String?   @map("member_id") @db.Uuid
+  contactId             String?   @map("contact_id") @db.Uuid
+  status                String    @db.VarChar(20)
+  source                String    @db.VarChar(10)
+  dedupeKey             String?   @map("dedupe_key") @db.VarChar(80)
+  waitlistPosition      Int?      @map("waitlist_position")
+  amountDue             Decimal   @default(0) @map("amount_due") @db.Decimal(10, 2)
+  amountPaid            Decimal   @default(0) @map("amount_paid") @db.Decimal(10, 2)
+  refundedAmount        Decimal   @default(0) @map("refunded_amount") @db.Decimal(10, 2)
+  currency              String    @db.VarChar(3)
+  paymentId             String?   @unique @map("payment_id") @db.Uuid
+  paymentMethod         String?   @map("payment_method") @db.VarChar(20)
+  paymentLink           String?   @map("payment_link") @db.Text
+  paymentDueAt          DateTime? @map("payment_due_at")
+  memberPackageId       String?   @map("member_package_id") @db.Uuid
+  unitsCharged          Int       @default(0) @map("units_charged")
+  refundedUnits         Int       @default(0) @map("refunded_units")
+  checkedInAt           DateTime? @map("checked_in_at")
+  cancelledAt           DateTime? @map("cancelled_at")
+  cancellationReason    String?   @map("cancellation_reason") @db.Text
+  notes                 String?   @db.Text
+  createdByMembershipId String?   @map("created_by_membership_id") @db.Uuid
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  studio        Studio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  event         Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  ticketType    EventTicketType @relation(fields: [ticketTypeId], references: [id])
+  member        MemberProfile?  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  contact       Contact?        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  payment       Payment?        @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  memberPackage MemberPackage?  @relation(fields: [memberPackageId], references: [id], onDelete: SetNull)
+  createdBy     Membership?     @relation("EventRegistrationCreator", fields: [createdByMembershipId], references: [id], onDelete: SetNull)
+
+  @@unique([eventId, dedupeKey])
+  @@index([studioId, eventId, status])
+  @@index([eventId, status, waitlistPosition])
+  @@index([studioId, status, paymentDueAt])
+  @@index([memberId])
+  @@index([contactId])
+  @@map("event_registrations")
 }
