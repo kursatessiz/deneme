@@ -189,9 +189,9 @@ describe('Funnels G5d-1 (e2e)', () => {
 
   describe('ready-made funnel: lead to member', () => {
     it('counts contacts per step in order, excluding test contacts, test events, out-of-order events and entries outside the range', async () => {
-      const res = await report(T, 'ready:lead-to-member');
+      const res = await report(T, 'ready.lead-to-member');
       expect(res.status).toBe(200);
-      expect(res.body.funnel).toMatchObject({ id: 'ready:lead-to-member', kind: 'READY_MADE', slug: 'lead-to-member', windowDays: null });
+      expect(res.body.funnel).toMatchObject({ id: 'ready.lead-to-member', kind: 'READY_MADE', slug: 'lead-to-member', windowDays: null });
       const steps: StepStat[] = res.body.steps;
       expect(steps.map((s) => s.key)).toEqual(['lead', 'trial_booked', 'trial_attended', 'purchase']);
       // Entered: A, B, C, E, F, J (D is test, G is outside the range, H is in the previous period).
@@ -215,7 +215,7 @@ describe('Funnels G5d-1 (e2e)', () => {
     });
 
     it('takes the median step time and only counts purchases at or after the booking', async () => {
-      const res = await report(T, 'ready:trial-to-member');
+      const res = await report(T, 'ready.trial-to-member');
       expect(res.status).toBe(200);
       // Entered: A(-19), B(-19), C(-14), F(-29); purchase at or after the booking: A, C, F.
       expect(reached(res.body.steps)).toEqual([4, 3]);
@@ -240,7 +240,7 @@ describe('Funnels G5d-1 (e2e)', () => {
 
   describe('breakdowns', () => {
     it('by source uses the first source and puts contacts without one under (direct)', async () => {
-      const res = await report(T, 'ready:lead-to-member', 'breakdown=source');
+      const res = await report(T, 'ready.lead-to-member', 'breakdown=source');
       expect(res.status).toBe(200);
       expect(res.body.breakdown).toBe('source');
       const groups: Group[] = res.body.groups;
@@ -254,7 +254,7 @@ describe('Funnels G5d-1 (e2e)', () => {
     });
 
     it('by campaign groups by campaign id with the campaign name as label', async () => {
-      const res = await report(T, 'ready:lead-to-member', 'breakdown=campaign');
+      const res = await report(T, 'ready.lead-to-member', 'breakdown=campaign');
       expect(res.status).toBe(200);
       const groups: Group[] = res.body.groups;
       const c1 = group(groups, 'c1')!;
@@ -265,7 +265,7 @@ describe('Funnels G5d-1 (e2e)', () => {
     });
 
     it('by branch uses the contact branch and its name', async () => {
-      const res = await report(T, 'ready:lead-to-member', 'breakdown=branch');
+      const res = await report(T, 'ready.lead-to-member', 'breakdown=branch');
       expect(res.status).toBe(200);
       const groups: Group[] = res.body.groups;
       const branch = group(groups, branchId)!;
@@ -275,16 +275,16 @@ describe('Funnels G5d-1 (e2e)', () => {
     });
 
     it('filters by branch and rejects an unknown breakdown', async () => {
-      const res = await report(T, 'ready:lead-to-member', `branchId=${branchId}`);
+      const res = await report(T, 'ready.lead-to-member', `branchId=${branchId}`);
       expect(res.status).toBe(200);
       expect(reached(res.body.steps)).toEqual([1, 1, 1, 1]);
-      expect((await report(T, 'ready:lead-to-member', 'breakdown=nope')).status).toBe(400);
+      expect((await report(T, 'ready.lead-to-member', 'breakdown=nope')).status).toBe(400);
     });
   });
 
   describe('previous-period comparison', () => {
     it('returns the same funnel over the previous same-length window', async () => {
-      const res = await report(T, 'ready:lead-to-member', 'compare=previous');
+      const res = await report(T, 'ready.lead-to-member', 'compare=previous');
       expect(res.status).toBe(200);
       expect(res.body.previous).not.toBeNull();
       expect(Date.parse(res.body.previous.to)).toBe(NOW - 40 * DAY - 1);
@@ -296,7 +296,7 @@ describe('Funnels G5d-1 (e2e)', () => {
 
   describe('ready-made funnel: visitor to member', () => {
     it('starts at the first tracked touchpoint and requires the lead after it', async () => {
-      const res = await report(T, 'ready:visitor-to-member');
+      const res = await report(T, 'ready.visitor-to-member');
       expect(res.status).toBe(200);
       expect(res.body.funnel.requiresSiteTracking).toBe(true);
       // Entered: A (-25), B (-22), J (-10); D is a test contact. J's lead (-20) came before its visit, so it stops.
@@ -307,7 +307,7 @@ describe('Funnels G5d-1 (e2e)', () => {
     });
 
     it('is empty (not an error) for a studio without tracking data', async () => {
-      const res = await report(T2, 'ready:visitor-to-member', 'breakdown=source&compare=previous');
+      const res = await report(T2, 'ready.visitor-to-member', 'breakdown=source&compare=previous');
       expect(res.status).toBe(200);
       expect(reached(res.body.steps)).toEqual([0, 0, 0]);
       expect(res.body.steps[1].rateFromFirst).toBeNull();
@@ -328,7 +328,7 @@ describe('Funnels G5d-1 (e2e)', () => {
       const zen = await as(ownerToken, ZEN).get(`/studios/${ZEN}/funnels`);
       expect(zen.status).toBe(200);
       const ids: string[] = zen.body.items.map((f: { id: string }) => f.id);
-      expect(ids.slice(0, 3)).toEqual(['ready:lead-to-member', 'ready:trial-to-member', 'ready:visitor-to-member']);
+      expect(ids.slice(0, 3)).toEqual(['ready.lead-to-member', 'ready.trial-to-member', 'ready.visitor-to-member']);
       expect(ids).toContain(funnelId);
 
       const t2 = await as(superAdminToken, T2).get(`/studios/${T2}/funnels`);
@@ -372,7 +372,7 @@ describe('Funnels G5d-1 (e2e)', () => {
     });
 
     it('unknown ids are 404 and a malformed id on write is 400', async () => {
-      expect((await report(T, 'ready:nope')).status).toBe(404);
+      expect((await report(T, 'ready.nope')).status).toBe(404);
       expect((await report(T, 'not-a-uuid')).status).toBe(404);
       expect((await report(T, uuid(0xdead))).status).toBe(404);
       expect((await as(ownerToken, ZEN).patch(`/studios/${ZEN}/funnels/not-a-uuid`).send({ name: 'x' })).status).toBe(400);
@@ -393,12 +393,12 @@ describe('Funnels G5d-1 (e2e)', () => {
       // Reception and trainer hold neither permission.
       for (const token of [receptionToken, trainerToken]) {
         expect((await as(token, ZEN).get(`/studios/${ZEN}/funnels`)).status).toBe(403);
-        expect((await as(token, ZEN).get(`/studios/${ZEN}/funnels/ready:lead-to-member/report`)).status).toBe(403);
+        expect((await as(token, ZEN).get(`/studios/${ZEN}/funnels/ready.lead-to-member/report`)).status).toBe(403);
         expect((await as(token, ZEN).post(`/studios/${ZEN}/funnels`).send({ name: 'E2E funnel no', steps: ['lead', 'purchase'] })).status).toBe(403);
       }
       // A role with reports.view only may read but not write.
       expect((await as(viewerToken, ZEN).get(`/studios/${ZEN}/funnels`)).status).toBe(200);
-      expect((await as(viewerToken, ZEN).get(`/studios/${ZEN}/funnels/ready:lead-to-member/report`)).status).toBe(200);
+      expect((await as(viewerToken, ZEN).get(`/studios/${ZEN}/funnels/ready.lead-to-member/report`)).status).toBe(200);
       expect((await as(viewerToken, ZEN).post(`/studios/${ZEN}/funnels`).send({ name: 'E2E funnel no', steps: ['lead', 'purchase'] })).status).toBe(403);
       expect((await as(viewerToken, ZEN).patch(`/studios/${ZEN}/funnels/${uuid(1)}`).send({ name: 'x' })).status).toBe(403);
       expect((await as(viewerToken, ZEN).delete(`/studios/${ZEN}/funnels/${uuid(1)}`)).status).toBe(403);

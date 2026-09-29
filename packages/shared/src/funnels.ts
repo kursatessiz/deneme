@@ -69,7 +69,7 @@ export type FunnelReportQuery = z.infer<typeof FunnelReportQuerySchema>;
 // ---------------------------------------------------------------------------
 
 export interface ReadyMadeFunnel {
-  /** Route id: `ready:<slug>`. */
+  /** Route id: `ready.<slug>` (only characters the web BFF path allows). */
   id: string;
   slug: string;
   steps: readonly FunnelStepKey[];
@@ -78,7 +78,7 @@ export interface ReadyMadeFunnel {
   requiresSiteTracking: boolean;
 }
 
-export const READY_MADE_FUNNEL_PREFIX = 'ready:';
+export const READY_MADE_FUNNEL_PREFIX = 'ready.';
 
 export const READY_MADE_FUNNELS: readonly ReadyMadeFunnel[] = [
   {

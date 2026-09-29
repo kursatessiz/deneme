@@ -12,13 +12,13 @@ Kişilerin adım adım ilerleyişini gösterir: her adımda kaç kişi kaldı, �
 
 ## 2. Hazır huniler (kod, satır değil)
 
-`packages/shared/src/funnels.ts` içindeki `READY_MADE_FUNNELS`; kimlikleri `ready:<slug>`. Adları ve açıklamaları `funnels.ready.<slug>.*` i18n anahtarlarıdır.
+`packages/shared/src/funnels.ts` içindeki `READY_MADE_FUNNELS`; kimlikleri `ready.<slug>`. Adları ve açıklamaları `funnels.ready.<slug>.*` i18n anahtarlarıdır.
 
 | Kimlik | Adımlar | Not |
 |---|---|---|
-| `ready:lead-to-member` | `lead` -> `trial_booked` -> `trial_attended` -> `purchase` | Üye = ilk satın alma (`purchase`) |
-| `ready:trial-to-member` | `trial_booked` -> `purchase` | |
-| `ready:visitor-to-member` | `visit` -> `lead` -> `purchase` | Web sitesi takibi olan işletmeler için (`requiresSiteTracking`); takip verisi yoksa boş durum gösterilir, hata değil |
+| `ready.lead-to-member` | `lead` -> `trial_booked` -> `trial_attended` -> `purchase` | Üye = ilk satın alma (`purchase`) |
+| `ready.trial-to-member` | `trial_booked` -> `purchase` | |
+| `ready.visitor-to-member` | `visit` -> `lead` -> `purchase` | Web sitesi takibi olan işletmeler için (`requiresSiteTracking`); takip verisi yoksa boş durum gösterilir, hata değil |
 
 `purchase` olayı, ödeme COMPLETED olduğunda yazılır (deneme paketi dahil; bkz. `docs/CRM_VE_ATIF.md` bölüm 7). Yalnızca tutarı sıfırdan büyük satın almaları "üye" saymak ayrı bir karardır (bölüm 8).
 
@@ -36,7 +36,7 @@ Hepsi `studios/:studioId/funnels` altındadır (`JwtAuthGuard` + `StudioTenantGu
 | `GET /:id/report?from&to&breakdown=source\|campaign\|branch&compare=previous&branchId` | `reports.view` |
 | `POST /`, `PATCH /:id`, `DELETE /:id` (204) | `funnels.manage` |
 
-- `:id` bir hazır huni kimliği (`ready:...`) veya kiracı huninin UUID'sidir; bilinmeyen kimlik ve başka kiracının huni kimliği 404 döner.
+- `:id` bir hazır huni kimliği (`ready....`) veya kiracı huninin UUID'sidir; bilinmeyen kimlik ve başka kiracının huni kimliği 404 döner.
 - `from`/`to` mevcut `ReportRangeSchema` ile aynıdır: verilmezse son 30 gün, en fazla 366 gün.
 - `compare=previous`: aynı uzunlukta, seçilen aralığın hemen öncesindeki pencere (`previousPeriodWindow`, `packages/shared/src/report-compare.ts`; rapor sayfasındaki karşılaştırma yardımcısıyla aynı kod). Yanıttaki `previous` alanı o dönemin adım istatistiklerini taşır.
 - `breakdown`: `source` = kişinin ilk kaynağı (`Contact.firstSource`: `utm_source`, yoksa reklam platformu, yoksa yönlendiren host; yoksa `(direct)`); `campaign` = ilk kampanya kimliği (`pw_cid`, `utm_id`), yoksa kampanya adı, yoksa `(none)`, etiket olarak kampanya adı; `branch` = kişinin şubesi (`Contact.branchId`), yoksa `(none)`, etiket olarak şube adı. Kırılım, atıf raporuyla tutarlı olsun diye ilk temas özetine dayanır. En fazla 100 satır, girişe göre azalan sırada.
