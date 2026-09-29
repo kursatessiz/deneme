@@ -74,7 +74,8 @@ test('a social account is connected, a post is composed with the length counter 
     await main.getByLabel('Yayın zamanı').fill(`${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}T${pad(at.getHours())}:${pad(at.getMinutes())}`);
     await main.getByRole('button', { name: 'Planla' }).click();
     await expect(main.getByText('Gönderi planlandı.')).toBeVisible();
-    await expect(main.getByText('Planlandı', { exact: true }).first()).toBeVisible();
+    // The status filter also holds a hidden <option>Planlandı</option>; only the visible badge counts.
+    await expect(main.getByText('Planlandı', { exact: true }).locator('visible=true').first()).toBeVisible();
   } finally {
     const posts = await bff<{ items: Array<{ id: string; connectionId: string; status: string }> }>(page, 'GET', `platform/marketing/social-posts?connectionId=${connection.body.id}`);
     for (const post of posts.body?.items ?? []) {
