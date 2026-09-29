@@ -760,6 +760,12 @@ model Studio {
   communityComments     CommunityComment[]
   communityReactions    CommunityReaction[]
   emailSenderDomains    EmailSenderDomain[]
+  brandKit              BrandKit?
+  brandKitLocales       BrandKitLocale[]
+  productFacts          ProductFact[]
+  marketingDrafts       MarketingDraft[]
+  marketingDraftVariants MarketingDraftVariant[]
+  contentCalendarItems  ContentCalendarItem[]
 
   @@map("studios")
 }
@@ -4094,6 +4100,9 @@ enum AiTask {
   TRANSLATION
   COPYWRITING
   REPLY_SUGGESTION
+  MARKETING_DRAFT
+  MARKETING_ANALYSIS
+  MARKETING_RESEARCH
 }
 
 enum AiTranslationJobStatus {
@@ -4125,6 +4134,8 @@ model AiSettings {
   /// Model id -> AiModelPrice overriding the shared price table.
   priceOverrides            Json      @default("{}") @map("price_overrides")
   defaultMonthlyBudgetCents Int       @default(500) @map("default_monthly_budget_cents")
+  /// Monthly cap (cents) of the marketing studio on the platform tenant, checked before every MARKETING_* call.
+  marketingAiMonthlyBudgetCents Int   @default(5000) @map("marketing_ai_monthly_budget_cents")
   lastTestAt                DateTime? @map("last_test_at")
   lastTestOk                Boolean?  @map("last_test_ok")
   lastTestErrorCode         String?   @map("last_test_error_code") @db.VarChar(40)
@@ -5476,4 +5487,172 @@ model EmailSenderDomain {
 
   @@unique([studioId, domain])
   @@map("email_sender_domains")
+}
+
+// ---------------------------------------------------------------------------
+// M2 marketing studio (docs/PAZARLAMA_MODULU.md 4, 7.3): brand kit, product
+// facts, AI studio drafts and the content calendar. Every table carries
+// studioId and is in practice written only for the platform tenant.
+// ---------------------------------------------------------------------------
+
+enum MarketingDraftStatus {
+  DRAFT
+  REVIEWED
+  ARCHIVED
+}
+
+enum ContentCalendarStatus {
+  PLANNED
+  DRAFTED
+  APPROVED
+  SENT
+  CANCELLED
+}
+
+/// Brand kit of a tenant (the platform tenant today): one row per studio; `version` grows on every save.
+model BrandKit {
+  id                String   @id @default(uuid()) @db.Uuid
+  studioId          String   @unique @map("studio_id") @db.Uuid
+  version           Int      @default(1)
+  brandName         String   @map("brand_name") @db.VarChar(80)
+  positioning       String   @default("") @db.VarChar(400)
+  defaultLocale     String   @map("default_locale") @db.VarChar(10)
+  /// { website, linkedin, instagram, facebook, x, youtube } (https URLs).
+  links             Json     @default("{}")
+  /// { EMAIL | SMS | WHATSAPP: { displayName, address, replyTo } }
+  senderIdentities  Json     @default("{}") @map("sender_identities")
+  /// [{ key, name, description }]
+  icps              Json     @default("[]")
+  updatedByUserId   String?  @map("updated_by_user_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  studio  Studio           @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  locales BrandKitLocale[]
+
+  @@map("brand_kits")
+}
+
+/// Voice of the brand in one language: tone notes, do and don't lists, banned phrases and the required disclaimer per channel.
+model BrandKitLocale {
+  id                  String   @id @default(uuid()) @db.Uuid
+  studioId            String   @map("studio_id") @db.Uuid
+  brandKitId          String   @map("brand_kit_id") @db.Uuid
+  locale              String   @db.VarChar(10)
+  toneNotes           String   @default("") @map("tone_notes") @db.Text
+  doList              Json     @default("[]") @map("do_list")
+  dontList            Json     @default("[]") @map("dont_list")
+  bannedPhrases       Json     @default("[]") @map("banned_phrases")
+  /// { EMAIL | SMS | WHATSAPP: text }
+  requiredDisclaimers Json     @default("{}") @map("required_disclaimers")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  studio   Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  brandKit BrandKit @relation(fields: [brandKitId], references: [id], onDelete: Cascade)
+
+  @@unique([brandKitId, locale])
+  @@index([studioId])
+  @@map("brand_kit_locales")
+}
+
+/// A short verified claim the AI may use; the statement is stored per language.
+model ProductFact {
+  id              String    @id @default(uuid()) @db.Uuid
+  studioId        String    @map("studio_id") @db.Uuid
+  key             String    @db.VarChar(60)
+  category        String    @default("general") @db.VarChar(40)
+  /// { locale: statement }
+  statements      Json      @default("{}")
+  sourceUrl       String?   @map("source_url") @db.VarChar(300)
+  validUntil      DateTime? @map("valid_until") @db.Date
+  isActive        Boolean   @default(true) @map("is_active")
+  updatedByUserId String?   @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@unique([studioId, key])
+  @@map("product_facts")
+}
+
+/// One AI studio output for one kind and language. Never sent or published by the studio; variants hold the alternative texts.
+model MarketingDraft {
+  id                 String               @id @default(uuid()) @db.Uuid
+  studioId           String               @map("studio_id") @db.Uuid
+  /// EMAIL, SMS, WHATSAPP, AD_META, AD_GOOGLE_RSA, AD_LINKEDIN, LANDING_BLOCK, SUBJECT_LINES, CTA_VARIANTS, SEO_OUTLINE, SEGMENT_SUGGESTION, RESEARCH_NOTE (shared list).
+  kind               String               @db.VarChar(30)
+  locale             String               @db.VarChar(10)
+  title              String               @db.VarChar(160)
+  status             MarketingDraftStatus @default(DRAFT)
+  /// The brief the draft was generated from (already redacted of contact details).
+  brief              Json?
+  notes              String?              @db.Text
+  /// Product fact keys given to the model.
+  factKeys           Json                 @default("[]") @map("fact_keys")
+  brandKitVersion    Int?                 @map("brand_kit_version")
+  /// A/B setup stub (share, metric, wait, variant ids); stored only.
+  abTest             Json?                @map("ab_test")
+  /// Campaign created by "Kampanyaya aktar"; plain id, the campaign owns its own lifecycle.
+  exportedCampaignId String?              @map("exported_campaign_id") @db.Uuid
+  aiModel            String?              @map("ai_model") @db.VarChar(80)
+  aiCostMicroUsd     Int                  @default(0) @map("ai_cost_micro_usd")
+  createdByUserId    String?              @map("created_by_user_id") @db.Uuid
+  updatedByUserId    String?              @map("updated_by_user_id") @db.Uuid
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+
+  studio        Studio                  @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  variants      MarketingDraftVariant[]
+  calendarItems ContentCalendarItem[]
+
+  @@index([studioId, status, createdAt])
+  @@index([studioId, kind])
+  @@map("marketing_drafts")
+}
+
+model MarketingDraftVariant {
+  id        String    @id @default(uuid()) @db.Uuid
+  studioId  String    @map("studio_id") @db.Uuid
+  draftId   String    @map("draft_id") @db.Uuid
+  position  Int
+  /// A, B, C, ...
+  key       String    @db.VarChar(4)
+  content   Json
+  /// Deterministic brand check result of the current content.
+  issues    Json      @default("[]")
+  editedAt  DateTime? @map("edited_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  studio Studio         @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  draft  MarketingDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+  @@unique([draftId, key])
+  @@index([studioId])
+  @@map("marketing_draft_variants")
+}
+
+/// A planned piece of marketing content on a date. Nothing is sent from here; draftId and campaignId only link.
+model ContentCalendarItem {
+  id              String                @id @default(uuid()) @db.Uuid
+  studioId        String                @map("studio_id") @db.Uuid
+  title           String                @db.VarChar(160)
+  /// EMAIL, SMS, WHATSAPP, AD_META, AD_GOOGLE, AD_LINKEDIN, SOCIAL, BLOG, LANDING, OTHER (shared list).
+  channel         String                @db.VarChar(20)
+  scheduledDate   DateTime              @map("scheduled_date") @db.Date
+  status          ContentCalendarStatus @default(PLANNED)
+  draftId         String?               @map("draft_id") @db.Uuid
+  campaignId      String?               @map("campaign_id") @db.Uuid
+  ownerUserId     String?               @map("owner_user_id") @db.Uuid
+  notes           String?               @db.Text
+  createdByUserId String?               @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+
+  studio Studio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  draft  MarketingDraft? @relation(fields: [draftId], references: [id], onDelete: SetNull)
+
+  @@index([studioId, scheduledDate])
+  @@map("content_calendar_items")
 }

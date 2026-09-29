@@ -466,8 +466,8 @@ Sahip kararı: partner misafiri kendisi stüdyoya katılana kadar mesajlaşma/et
 
 | Tablo | Amaç | Kısıtlar |
 |-------|---------|-------------|
-| `ai_settings` | Tekil platform satırı (`id = 'platform'`): şifreli sağlayıcı anahtarı (`encrypted_api_key`, AES-256-GCM, `INTEGRATION_ENCRYPTION_KEY`) ve son 4 karakteri, görev başına model (`models` JSON), fiyat özelleştirmeleri (`price_overrides` JSON), varsayılan aylık limit (`default_monthly_budget_cents`, 500), son bağlantı testi | tekil kayıt (sabit id); anahtar API yanıtlarında hiç dönmez |
-| `ai_usage` | Her model çağrısı: işletme (platform işlerinde boş), kullanıcı, görev (`AiTask`: TRANSLATION/COPYWRITING/REPLY_SUGGESTION), model, girdi/çıktı/önbellek token'ları, mikro-dolar (1e-6 USD) tahmini maliyet, başarı ve hata kodu, çeviri işi | (studio_id, created_at) index -- aylık limit sorgusu; (created_at) index; studio_id -> studios (cascade silme); translation_job_id -> ai_translation_jobs (set null) |
+| `ai_settings` | Tekil platform satırı (`id = 'platform'`): şifreli sağlayıcı anahtarı (`encrypted_api_key`, AES-256-GCM, `INTEGRATION_ENCRYPTION_KEY`) ve son 4 karakteri, görev başına model (`models` JSON), fiyat özelleştirmeleri (`price_overrides` JSON), varsayılan aylık limit (`default_monthly_budget_cents`, 500), pazarlama stüdyosu aylık limiti (`marketing_ai_monthly_budget_cents`, 5000; M2), son bağlantı testi | tekil kayıt (sabit id); anahtar API yanıtlarında hiç dönmez |
+| `ai_usage` | Her model çağrısı: işletme (platform işlerinde boş), kullanıcı, görev (`AiTask`: TRANSLATION/COPYWRITING/REPLY_SUGGESTION ve M2'de MARKETING_DRAFT/MARKETING_ANALYSIS/MARKETING_RESEARCH), model, girdi/çıktı/önbellek token'ları, mikro-dolar (1e-6 USD) tahmini maliyet, başarı ve hata kodu, çeviri işi | (studio_id, created_at) index -- aylık limit sorgusu; (created_at) index; studio_id -> studios (cascade silme); translation_job_id -> ai_translation_jobs (set null) |
 | `ai_glossary_terms` | Dil başına sözlük: aynen kalacak (translation boş) veya sabit çevrilecek terimler; her çeviri isteğine eklenir | (locale, term) benzersiz; locale -> languages.code (cascade silme) |
 | `ai_translation_jobs` | Arka plan "yapay zeka ile çevir" işi: dil, bölümler, üzerine yazma, durum (`AiTranslationJobStatus`: QUEUED/RUNNING/COMPLETED/FAILED/CANCELLED), toplam/tamamlanan/başarısız/atlanan sayaçları, model, işçi kilidi (`locked_until`), art arda geçici hata sayısı, son hata, iptal zamanı | (locale, created_at) index; (status) index; locale -> languages.code (cascade silme) |
 | `ai_translation_job_items` | İşin anahtar (veya `<grup>.*` çoğul birimi) başına kalemi: durum (`AiTranslationItemStatus`: PENDING/DONE/FAILED/SKIPPED), deneme sayısı (en fazla 2), hata nedeni; devam ettirmenin birimi | (job_id, key) benzersiz; (job_id, status) index; job_id -> ai_translation_jobs (cascade silme) |
@@ -536,6 +536,21 @@ Migration `20261019000000_platform_access` (yalnızca ekleme); ayrıntılar `doc
 | `invite_tokens.platform_role_template_id` (M1) | Platform daveti: kabulde bu platform rolü etkinleşir; `studio_id` platform kiracısıdır | platform şablonu -> restrict |
 
 Platform sistem rolü (`role_templates.key = 'platform:<anahtar>'`, `is_system = true`) yalnızca platform kiracısında bulunur; izinleri `PLATFORM_TENANT_GRANTS` ile türetilir ve kiracı rol ekranlarından değiştirilemez.
+
+## Pazarlama stüdyosu (M2)
+
+Migration `20261020000000_marketing_studio` (yalnızca ekleme: `AiTask` enum'una üç değer, `ai_settings.marketing_ai_monthly_budget_cents`, iki enum ve yedi tablo). Bütün tablolar `studio_id` taşır ve pratikte yalnızca platform kiracısı için yazılır; ayrıntılar `docs/PAZARLAMA_MODULU.md` bölüm 7.3 ve M2 notları.
+
+| Tablo | Amaç | Kısıtlar |
+|---|---|---|
+| `brand_kits` | Kiracı başına tek marka kiti: `version` (her kayıtta ve her ürün gerçeği değişiminde artar; istem önbelleği anahtarı), marka adı, konumlandırma, varsayılan dil, bağlantılar (JSON), kanal başına gönderen kimliği (JSON), hedef kitleler (JSON), `updated_by_user_id` | `studio_id` benzersiz; studio -> cascade |
+| `brand_kit_locales` | Bir dildeki marka sesi: üslup notu, yapılacaklar, yapılmayacaklar, yasaklı ifadeler (JSON listeler) ve kanal başına zorunlu ifade (JSON) | (brand_kit_id, locale) benzersiz; kit ve studio -> cascade |
+| `product_facts` | Yapay zekanın öne sürebileceği kısa doğrulanmış iddia: `key`, kategori, dil -> ifade (JSON), kaynak bağlantısı, geçerlilik sonu (`DATE`), etkin | (studio_id, key) benzersiz; studio -> cascade |
+| `marketing_drafts` | Bir yapay zeka çıktısı: tür (`kind`, paylaşılan liste), dil, başlık, durum (`MarketingDraftStatus`: DRAFT/REVIEWED/ARCHIVED), arındırılmış brief (JSON), kullanılan ürün gerçeği anahtarları, kit sürümü, A/B kurulum taslağı (JSON, yalnızca saklanır), "Kampanyaya aktar" ile oluşan kampanya kimliği (FK yok), model ve mikro-dolar maliyet | (studio_id, status, created_at) ve (studio_id, kind) index; studio -> cascade |
+| `marketing_draft_variants` | Taslağın alternatif metinleri: sıra, anahtar (A, B, ...), içerik (JSON, türe göre Zod'lu), deterministik marka kontrolü sonucu (JSON), düzenlenme zamanı | (draft_id, key) benzersiz; taslak ve studio -> cascade |
+| `content_calendar_items` | Takvimdeki plan: başlık, kanal (paylaşılan liste), tarih (`DATE`), durum (`ContentCalendarStatus`: PLANNED/DRAFTED/APPROVED/SENT/CANCELLED), bağlı taslak (`SET NULL`), bağlı kampanya (FK yok), sorumlu kullanıcı (FK yok), not. Buradan hiçbir şey gönderilmez | (studio_id, scheduled_date) index; studio -> cascade |
+
+Araştırma notları ayrı tablo değil, `marketing_drafts.kind = 'RESEARCH_NOTE'` taslaklarıdır (soru, özet, alıntılı maddeler ve kaynaklar varyant içeriğindedir).
 
 ## Denetim (Audit)
 

@@ -1,12 +1,13 @@
-import { MarketingPlaceholder } from '@/components/marketing/MarketingPlaceholder';
+'use client';
 
-/** Content calendar (M2c). */
+import { ContentCalendar } from '@/components/marketing/ContentCalendar';
+import { PlatformPageGuard } from '@/components/marketing/PlatformSession';
+
+/** Content calendar (M2c); read with platform.marketing.view, change with platform.marketing.manage (enforced by the API). */
 export default function Page() {
   return (
-    <MarketingPlaceholder
-      titleKey="marketing.placeholder.calendar.title"
-      descriptionKey="marketing.placeholder.calendar.description"
-      required={['platform.marketing.manage']}
-    />
+    <PlatformPageGuard required={['platform.marketing.view', 'platform.marketing.manage']}>
+      <ContentCalendar />
+    </PlatformPageGuard>
   );
 }

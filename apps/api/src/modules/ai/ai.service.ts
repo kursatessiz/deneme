@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   estimateCostMicroUsd,
+  isMarketingAiTask,
   resolveModelPrice,
   type AiConnectionTestDTO,
   type AiErrorCode,
@@ -67,7 +68,12 @@ export class AiService {
     const row = await this.settings.getRow();
     const key = await this.settings.getActiveKey(row);
     if (!key) throw new AiError('AI_NOT_CONFIGURED');
-    if (input.studioId) await this.usage.assertWithinBudget(input.studioId, now);
+    if (input.studioId) {
+      // The marketing studio has its own monthly cap (super admin setting), checked before every call;
+      // every other task uses the tenant budget.
+      if (isMarketingAiTask(input.task)) await this.usage.assertWithinMarketingBudget(input.studioId, now);
+      else await this.usage.assertWithinBudget(input.studioId, now);
+    }
 
     const model = (await this.settings.getModels(row))[input.task];
     const price = resolveModelPrice(model, await this.settings.getPriceOverrides(row));

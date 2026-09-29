@@ -24,6 +24,7 @@ export const AI_ERROR_CODES = [
   'AI_REFUSED',
   'AI_INVALID_OUTPUT',
   'AI_ENCRYPTION_UNAVAILABLE',
+  'MARKETING_AI_BUDGET_EXCEEDED',
 ] as const;
 export type AiErrorCode = (typeof AI_ERROR_CODES)[number];
 
@@ -50,6 +51,8 @@ export interface AiSettingsDTO {
   /** Built-in price table merged with the overrides, for display. */
   effectivePrices: Record<string, AiModelPrice>;
   defaultMonthlyBudgetCents: number;
+  /** Monthly cap of the marketing studio on the platform tenant, in cents. */
+  marketingAiMonthlyBudgetCents: number;
   /** QUEUE with Redis (BullMQ), HEARTBEAT otherwise (the 15-minute scheduler picks jobs up). */
   jobMode: 'QUEUE' | 'HEARTBEAT';
 }
@@ -74,6 +77,9 @@ export const UpdateAiSettingsSchema = z
         TRANSLATION: AiModelIdSchema.optional(),
         COPYWRITING: AiModelIdSchema.optional(),
         REPLY_SUGGESTION: AiModelIdSchema.optional(),
+        MARKETING_DRAFT: AiModelIdSchema.optional(),
+        MARKETING_ANALYSIS: AiModelIdSchema.optional(),
+        MARKETING_RESEARCH: AiModelIdSchema.optional(),
       })
       .strict()
       .optional(),
@@ -83,6 +89,8 @@ export const UpdateAiSettingsSchema = z
       .refine((v) => Object.keys(v).length <= 30, 'En fazla 30 model')
       .optional(),
     defaultMonthlyBudgetCents: z.number().int().min(0).max(100_000_000).optional(),
+    /** Monthly cap of the marketing studio on the platform tenant (cents); 0 switches the studio off. */
+    marketingAiMonthlyBudgetCents: z.number().int().min(0).max(100_000_000).optional(),
   })
   .strict();
 export type UpdateAiSettingsInput = z.infer<typeof UpdateAiSettingsSchema>;

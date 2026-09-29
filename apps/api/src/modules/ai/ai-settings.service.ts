@@ -5,6 +5,7 @@ import {
   AI_PRICE_TABLE,
   AI_TASKS,
   DEFAULT_AI_MODELS,
+  DEFAULT_MARKETING_AI_BUDGET_CENTS,
   DEFAULT_TENANT_AI_BUDGET_CENTS,
   AiModelIdSchema,
   AiModelPriceSchema,
@@ -106,6 +107,12 @@ export class AiSettingsService {
     return settings?.defaultMonthlyBudgetCents ?? DEFAULT_TENANT_AI_BUDGET_CENTS;
   }
 
+  /** Monthly cap of the marketing studio on the platform tenant (cents). */
+  async getMarketingBudgetCents(): Promise<number> {
+    const settings = await this.getRow();
+    return settings?.marketingAiMonthlyBudgetCents ?? DEFAULT_MARKETING_AI_BUDGET_CENTS;
+  }
+
   async setKey(actorUserId: string, apiKey: string): Promise<void> {
     if (this.config.get<string>('NODE_ENV') === 'production' && !this.cipher.isConfigured) {
       throw new AiError('AI_ENCRYPTION_UNAVAILABLE');
@@ -156,6 +163,7 @@ export class AiSettingsService {
     if (input.models) data.models = { ...parseModels(row?.models), ...input.models } as Prisma.InputJsonValue;
     if (input.priceOverrides) data.priceOverrides = input.priceOverrides as Prisma.InputJsonValue;
     if (input.defaultMonthlyBudgetCents !== undefined) data.defaultMonthlyBudgetCents = input.defaultMonthlyBudgetCents;
+    if (input.marketingAiMonthlyBudgetCents !== undefined) data.marketingAiMonthlyBudgetCents = input.marketingAiMonthlyBudgetCents;
     await this.prisma.$transaction([
       this.prisma.aiSettings.upsert({
         where: { id: AI_SETTINGS_ID },
@@ -164,6 +172,7 @@ export class AiSettingsService {
           models: (data.models ?? {}) as Prisma.InputJsonValue,
           priceOverrides: (data.priceOverrides ?? {}) as Prisma.InputJsonValue,
           ...(input.defaultMonthlyBudgetCents !== undefined ? { defaultMonthlyBudgetCents: input.defaultMonthlyBudgetCents } : {}),
+          ...(input.marketingAiMonthlyBudgetCents !== undefined ? { marketingAiMonthlyBudgetCents: input.marketingAiMonthlyBudgetCents } : {}),
         },
         update: data,
       }),
@@ -191,6 +200,7 @@ export class AiSettingsService {
       priceOverrides,
       effectivePrices: { ...AI_PRICE_TABLE, ...priceOverrides },
       defaultMonthlyBudgetCents: row?.defaultMonthlyBudgetCents ?? DEFAULT_TENANT_AI_BUDGET_CENTS,
+      marketingAiMonthlyBudgetCents: row?.marketingAiMonthlyBudgetCents ?? DEFAULT_MARKETING_AI_BUDGET_CENTS,
       jobMode,
     };
   }

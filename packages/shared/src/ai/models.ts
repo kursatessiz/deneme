@@ -7,7 +7,7 @@ import { z } from 'zod';
  * API, the super-admin screens and the tests share one definition.
  */
 
-export const AI_TASKS = ['TRANSLATION', 'COPYWRITING', 'REPLY_SUGGESTION'] as const;
+export const AI_TASKS = ['TRANSLATION', 'COPYWRITING', 'REPLY_SUGGESTION', 'MARKETING_DRAFT', 'MARKETING_ANALYSIS', 'MARKETING_RESEARCH'] as const;
 export type AiTask = (typeof AI_TASKS)[number];
 export const AiTaskSchema = z.enum(AI_TASKS);
 
@@ -20,6 +20,9 @@ export const DEFAULT_AI_MODELS: Readonly<Record<AiTask, string>> = Object.freeze
   TRANSLATION: 'claude-sonnet-5',
   COPYWRITING: 'claude-sonnet-5',
   REPLY_SUGGESTION: 'claude-haiku-4-5-20251001',
+  MARKETING_DRAFT: 'claude-sonnet-5',
+  MARKETING_ANALYSIS: 'claude-sonnet-5',
+  MARKETING_RESEARCH: 'claude-sonnet-5',
 });
 
 /** Model ids as the provider names them, e.g. "claude-sonnet-5" or "claude-haiku-4-5-20251001". */
@@ -73,6 +76,19 @@ export const MICRO_USD_PER_CENT = 10_000;
 
 /** Monthly AI budget of a tenant whose plan and override set none: 5 USD. */
 export const DEFAULT_TENANT_AI_BUDGET_CENTS = 500;
+
+/**
+ * The tasks of the platform marketing studio (docs/PAZARLAMA_MODULU.md 4.1).
+ * Their spend on the platform tenant is additionally capped by the platform
+ * setting `marketingAiMonthlyBudgetCents`.
+ */
+export const MARKETING_AI_TASKS = ['MARKETING_DRAFT', 'MARKETING_ANALYSIS', 'MARKETING_RESEARCH'] as const satisfies readonly AiTask[];
+export function isMarketingAiTask(task: string): boolean {
+  return (MARKETING_AI_TASKS as readonly string[]).includes(task);
+}
+
+/** Monthly AI budget of the marketing studio when the super admin set none: 50 USD. */
+export const DEFAULT_MARKETING_AI_BUDGET_CENTS = 5000;
 
 export function resolveModelPrice(model: string, overrides?: Readonly<Record<string, AiModelPrice>> | null): AiModelPrice {
   const own = (table: Readonly<Record<string, AiModelPrice>> | null | undefined, id: string): AiModelPrice | undefined =>
