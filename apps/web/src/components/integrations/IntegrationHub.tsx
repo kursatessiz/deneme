@@ -14,6 +14,9 @@ import {
   type SocialConnectionDTO,
   type SocialConnectionTestDTO,
   type SocialProvider,
+  oauthProviderForAdPlatform,
+  oauthProviderForSocial,
+  type OAuthProvider,
 } from '@platform/shared';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
@@ -25,6 +28,7 @@ import { AutomationSection } from './AutomationSection';
 import { HubTable as Table } from './HubTable';
 import { LeadAdsSection } from './LeadAdsSection';
 import { SmsSenderSection } from './SmsSenderSection';
+import { ConnectionAuthBadges, OAuthSection, useOAuthStart } from './OAuthSection';
 
 const STATUS_TONE: Record<DnsRecordStatus, 'neutral' | 'success' | 'warning' | 'danger'> = {
   PENDING: 'neutral',
@@ -72,6 +76,7 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
   const [rotateId, setRotateId] = useState<string | null>(null);
   const [rotateToken, setRotateToken] = useState('');
 
+  const startOAuth = useOAuthStart(entry);
   const headers = { [INTEGRATION_ENTRY_HEADER]: entry };
   const fmtDate = (iso: string | null) => (iso ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso)) : t('integrations.ads.never'));
 
@@ -102,11 +107,14 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
   if (!data) return <LoadingState />;
 
   const call = (path: string, method: string, body?: unknown) => bffFetch(`platform/integrations/${path}`, { method, body, headers });
+  const oauthReady = (provider: OAuthProvider | null): provider is OAuthProvider => provider !== null && data.oauth.providers.some((p) => p.provider === provider && p.configured);
 
   return (
     <div className="space-y-6">
       <SettingsHeader title={t('integrations.title')} description={t('integrations.subtitle')} />
       {message && <InlineMessage text={message.text} tone={message.ok ? 'success' : 'error'} />}
+
+      <OAuthSection data={data} entry={entry} run={run} fmtDate={fmtDate} />
 
       <Section title={t('integrations.ads.title')}>
         {data.adConnections.length === 0 ? (
@@ -119,6 +127,9 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
               <tr key={a.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
                 <td className="py-2 pr-3">
                   <span className="font-medium">{a.platform}</span> <span style={{ color: 'var(--color-text-secondary)' }}>{a.label}</span>
+                  <span className="block">
+                    <ConnectionAuthBadges auth={a} fmtDate={fmtDate} />
+                  </span>
                 </td>
                 <td className="py-2 pr-3 font-mono text-xs">{a.credentialPreview}</td>
                 <td className="py-2 pr-3 text-xs">{fmtDate(a.lastSyncAt)}</td>
@@ -128,7 +139,17 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
                 <td className="py-2 pr-3">
                   <Toggle label="" checked={a.isTestMode} onChange={(v) => run(() => call(`ads/${a.id}`, 'PATCH', { isTestMode: v }))} />
                 </td>
-                <td className="py-2 text-right">
+                <td className="py-2 text-right space-x-2 whitespace-nowrap">
+                  {oauthReady(oauthProviderForAdPlatform(a.platform)) && (
+                    <SecondaryButton
+                      onClick={() => {
+                        const provider = oauthProviderForAdPlatform(a.platform);
+                        if (provider) run(() => startOAuth(provider, { kind: 'RECONNECT_AD_CONNECTION', connectionId: a.id }));
+                      }}
+                    >
+                      {t('integrationsOAuth.reconnect')}
+                    </SecondaryButton>
+                  )}
                   <SecondaryButton danger onClick={() => window.confirm(t('integrations.confirmDelete')) && run(() => call(`ads/${a.id}`, 'DELETE'))}>
                     {t('integrations.delete')}
                   </SecondaryButton>
@@ -156,6 +177,9 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
                   <span className="block text-xs" style={{ color: 'var(--color-text-muted)' }}>
                     {t(`integrations.social.provider.${c.provider}`)}
                   </span>
+                  <span className="block">
+                    <ConnectionAuthBadges auth={c} fmtDate={fmtDate} />
+                  </span>
                 </td>
                 <td className="py-2 pr-3 font-mono text-xs">{c.credentialPreview}</td>
                 <td className="py-2 pr-3">
@@ -175,6 +199,16 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
                   >
                     {t('integrations.social.test')}
                   </SecondaryButton>
+                  {oauthReady(oauthProviderForSocial(c.provider)) && (
+                    <SecondaryButton
+                      onClick={() => {
+                        const provider = oauthProviderForSocial(c.provider);
+                        if (provider) run(() => startOAuth(provider, { kind: 'RECONNECT_SOCIAL_CONNECTION', connectionId: c.id }));
+                      }}
+                    >
+                      {t('integrationsOAuth.reconnect')}
+                    </SecondaryButton>
+                  )}
                   <SecondaryButton onClick={() => setRotateId(rotateId === c.id ? null : c.id)}>{t('integrations.social.rotate')}</SecondaryButton>
                   <SecondaryButton danger onClick={() => window.confirm(t('integrations.confirmDelete')) && run(() => call(`social/${c.id}`, 'DELETE'))}>
                     {t('integrations.delete')}
