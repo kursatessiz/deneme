@@ -14,6 +14,7 @@ import { ErrorState, LoadingState } from '@/components/common/DataState';
 import { bffFetch } from '@/lib/session/client';
 import { hasAnyPermission } from '@/lib/nav';
 import { Field, Muted, Notice, PageHeader, Panel, inputClass, inputStyle, errorMessage, useDateFormat } from './ui';
+import { useAreaHref } from '@/components/session/AreaBase';
 
 const EDITABLE = new Set(['DRAFT', 'SCHEDULED']);
 
@@ -49,6 +50,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 export function CampaignEditor({ campaignId }: { campaignId?: string }) {
   const { activeStudioId, permissions, isOwner } = useDashboardSession();
   const t = useT();
+  const areaHref = useAreaHref();
   const locale = useLocale();
   const fmt = useDateFormat();
   const router = useRouter();
@@ -140,7 +142,7 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
       setNotice({ tone: 'success', text: t('campaigns.saved') });
     }
     setBusy(false);
-    if (saved && !campaignId) router.push(`/kampanyalar/${saved.id}`);
+    if (saved && !campaignId) router.push(areaHref(`/kampanyalar/${saved.id}`));
   }
 
   async function testSend() {
@@ -163,7 +165,7 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
     if (!campaign) return;
     try {
       await bffFetch(`${base}/${campaign.id}`, { method: 'DELETE', studioId: activeStudioId });
-      router.push('/kampanyalar');
+      router.push(areaHref('/kampanyalar'));
     } catch (err) {
       setNotice({ tone: 'error', text: errorMessage(err, t('common.error.generic')) });
     }
@@ -192,7 +194,7 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
         actions={
           <>
             {campaign && <Badge tone={campaignStatusTone(campaign.status)}>{t(`campaigns.status.${campaign.status}`)}</Badge>}
-            <Link href="/kampanyalar" className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
+            <Link href={areaHref('/kampanyalar')} className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
               {t('campaigns.title')}
             </Link>
           </>
@@ -360,7 +362,7 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
           <ul className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
             {recipients.map((r) => (
               <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5 text-sm">
-                <Link href={`/kisiler/${encodeURIComponent(r.contactId)}`} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                <Link href={areaHref(`/kisiler/${encodeURIComponent(r.contactId)}`)} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
                   {r.fullName}
                 </Link>
                 <span className="flex items-center gap-2">

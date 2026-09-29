@@ -23,6 +23,9 @@ export const PROTECTED_PATHS = [
   '/abonelik',
   '/tavsiye',
   '/admin',
+  // M1: marketing panel and the two-step verification screen.
+  '/pazarlama',
+  '/guvenlik',
 ] as const;
 
 export function isProtectedPath(pathname: string): boolean {

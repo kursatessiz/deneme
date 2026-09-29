@@ -1,0 +1,56 @@
+import type { trAdminPlatformUsers } from '../tr/admin-platform-users';
+
+export const enAdminPlatformUsers = {
+  'adminPlatformUsers.nav': 'Platform users',
+  'adminPlatformUsers.navMarketing': 'Marketing',
+  'adminPlatformUsers.navIntegrations': 'Integrations',
+  'adminPlatformUsers.title': 'Platform users',
+  'adminPlatformUsers.subtitle': "People who run the platform's own marketing. Their roles are granted only on this screen; they cannot access any business's data.",
+  'adminPlatformUsers.loadFailed': 'Platform users could not be loaded.',
+  'adminPlatformUsers.actionFailed': 'The action could not be completed.',
+  'adminPlatformUsers.empty': 'There are no platform users yet.',
+
+  'adminPlatformUsers.invite.title': 'Invite someone',
+  'adminPlatformUsers.invite.description': 'The invitee confirms the account with a phone code, sets a PIN and sets up two-step verification.',
+  'adminPlatformUsers.invite.fullName': 'Full name',
+  'adminPlatformUsers.invite.phone': 'Phone',
+  'adminPlatformUsers.invite.role': 'Platform role',
+  'adminPlatformUsers.invite.channel': 'Delivery',
+  'adminPlatformUsers.invite.channel.SHOWN': 'Show the link',
+  'adminPlatformUsers.invite.channel.SMS': 'Send by SMS',
+  'adminPlatformUsers.invite.channel.WHATSAPP': 'Send by WhatsApp',
+  'adminPlatformUsers.invite.submit': 'Create invite',
+  'adminPlatformUsers.invite.created': 'Invite created. The link is valid until {date}.',
+  'adminPlatformUsers.invite.link': 'Invite link',
+
+  'adminPlatformUsers.col.name': 'Person',
+  'adminPlatformUsers.col.phone': 'Phone',
+  'adminPlatformUsers.col.role': 'Role',
+  'adminPlatformUsers.col.status': 'Status',
+  'adminPlatformUsers.col.mfa': 'Two-step verification',
+  'adminPlatformUsers.col.actions': 'Actions',
+  'adminPlatformUsers.status.INVITED': 'Invited',
+  'adminPlatformUsers.status.ACTIVE': 'Active',
+  'adminPlatformUsers.status.PASSIVE': 'Inactive',
+  'adminPlatformUsers.action.saveRole': 'Save role',
+  'adminPlatformUsers.action.deactivate': 'Deactivate',
+  'adminPlatformUsers.action.reactivate': 'Reactivate',
+  'adminPlatformUsers.action.resetMfa': 'Reset two-step verification',
+  'adminPlatformUsers.confirm.deactivate': 'Platform access for {name} ends immediately. Continue?',
+  'adminPlatformUsers.confirm.resetMfa': '{name} will set up two-step verification again at next sign-in. Continue?',
+  'adminPlatformUsers.done': 'Saved.',
+
+  'adminPlatformUsers.role.title': 'Roles',
+  'adminPlatformUsers.role.permissions': 'Permissions',
+  'adminPlatformUsers.role.system': 'System role',
+
+  'adminPlatformUsers.settings.title': 'Security policy',
+  'adminPlatformUsers.settings.require2fa': 'Require two-step verification for platform roles',
+  'adminPlatformUsers.settings.require2faHint':
+    'While on, platform users without two-step verification cannot open the marketing panel. Super admin accounts are never locked out; they are sent to setup at next sign-in.',
+  'adminPlatformUsers.settings.save': 'Save policy',
+
+  'adminPlatformUsers.error.PLATFORM_ACCESS_DENIED': 'You do not have platform access for this.',
+  'adminPlatformUsers.error.PLATFORM_TENANT_INVITE_FORBIDDEN': 'Invites to the platform tenant are sent only from the super admin panel.',
+  'adminPlatformUsers.error.SYSTEM_ROLE_LOCKED': 'This role is managed by the system and cannot be changed here.',
+} as const satisfies Record<keyof typeof trAdminPlatformUsers, string>;

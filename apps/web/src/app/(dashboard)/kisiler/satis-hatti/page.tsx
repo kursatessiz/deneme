@@ -11,10 +11,12 @@ import { bffFetch } from '@/lib/session/client';
 import { hasAnyPermission } from '@/lib/nav';
 import { Muted, Notice, PageHeader, inputStyle, errorMessage } from '@/components/growth/ui';
 import { stageLabel } from '@/components/growth/crm-labels';
+import { useAreaHref } from '@/components/session/AreaBase';
 
 function PipelineBoard() {
   const { activeStudioId, permissions, isOwner } = useDashboardSession();
   const t = useT();
+  const areaHref = useAreaHref();
   const canManage = hasAnyPermission(['crm.manage'], permissions, isOwner);
   const [stages, setStages] = useState<PipelineStageDTO[] | null>(null);
   const [cards, setCards] = useState<Record<string, ContactDTO[]>>({});
@@ -81,7 +83,7 @@ function PipelineBoard() {
         title={t('crm.pipeline.title')}
         subtitle={t('crm.pipeline.subtitle')}
         actions={
-          <Link href="/kisiler" className="text-xs font-medium px-3 py-1.5" style={{ ...inputStyle, borderRadius: 'var(--radius-button)' }}>
+          <Link href={areaHref('/kisiler')} className="text-xs font-medium px-3 py-1.5" style={{ ...inputStyle, borderRadius: 'var(--radius-button)' }}>
             {t('crm.card.back')}
           </Link>
         }
@@ -129,7 +131,7 @@ function PipelineBoard() {
                     className="p-3 text-sm space-y-2"
                     style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)', cursor: canManage ? 'grab' : 'default' }}
                   >
-                    <Link href={`/kisiler/${encodeURIComponent(contact.id)}`} className="block font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                    <Link href={areaHref(`/kisiler/${encodeURIComponent(contact.id)}`)} className="block font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
                       {contact.fullName}
                     </Link>
                     {contact.ownerName && <Muted>{contact.ownerName}</Muted>}

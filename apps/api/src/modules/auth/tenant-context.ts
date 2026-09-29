@@ -1,4 +1,4 @@
-import type { PermissionKey } from '@platform/shared';
+import type { PermissionKey, PlatformPermissionKey } from '@platform/shared';
 
 /** Authenticated principal attached by JwtStrategy. No tenant data here. */
 export interface AuthUser {
@@ -7,6 +7,19 @@ export interface AuthUser {
   firstName: string;
   lastName: string;
   isSuperAdmin: boolean;
+  /** The user has confirmed a TOTP authenticator (User.mfaEnabledAt). */
+  mfaEnabled?: boolean;
+  /** This access token was issued after the TOTP step (`mfa` claim). */
+  mfaVerified?: boolean;
+}
+
+/** Resolved by PlatformPermissionGuard for @PlatformScoped() routes (docs/PAZARLAMA_MODULU.md 2.5). */
+export interface PlatformContext {
+  userId: string;
+  isSuperAdmin: boolean;
+  permissions: ReadonlySet<PlatformPermissionKey>;
+  /** The platform tenant (Studio.isPlatform), always resolved server-side. */
+  platformStudioId: string;
 }
 
 /** Resolved by StudioTenantGuard for studio-scoped routes. */
@@ -34,6 +47,7 @@ export interface TenantContext {
 export interface AuthenticatedRequest {
   user?: AuthUser;
   tenant?: TenantContext;
+  platform?: PlatformContext;
   params: Record<string, string | undefined>;
   query: Record<string, unknown>;
   body?: unknown;

@@ -9,6 +9,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { AuthService } from '../auth/auth.service';
 import { PlanLimitsService } from '../admin/plan-limits.service';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
+import { PlatformAccessService } from '../platform-access/platform-access.service';
 
 const VALID_TOKEN = 'a'.repeat(43);
 
@@ -17,6 +18,7 @@ describe('InvitesService', () => {
 
   const mockPrisma = {
     roleTemplate: { findUnique: jest.fn() },
+    studio: { findUnique: jest.fn().mockResolvedValue({ isPlatform: false }) },
     membership: { findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn(), create: jest.fn() },
     inviteToken: { updateMany: jest.fn(), create: jest.fn(), findUnique: jest.fn() },
     documentVersion: { findMany: jest.fn() },
@@ -68,6 +70,7 @@ describe('InvitesService', () => {
         { provide: AuthService, useValue: mockAuth },
         { provide: ConfigService, useValue: mockConfig },
         { provide: PlanLimitsService, useValue: { assertWithinLimit: jest.fn() } },
+        { provide: PlatformAccessService, useValue: { activateInTx: jest.fn() } },
       ],
     }).compile();
 
@@ -89,6 +92,23 @@ describe('InvitesService', () => {
         service.create(tenant, creator, { ...baseDto, roleKey: 'owner' } as any),
       ).rejects.toThrow(ForbiddenException);
       expect(mockPrisma.roleTemplate.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.inviteToken.create).not.toHaveBeenCalled();
+    });
+
+    it('staff invite into the platform tenant -> 403 PLATFORM_TENANT_INVITE_FORBIDDEN, no db writes', async () => {
+      const tenant = tenantWith(['members.manage', 'staff.manage']);
+      mockPrisma.studio.findUnique.mockResolvedValueOnce({ isPlatform: true });
+      await expect(service.create(tenant, creator, { ...baseDto, roleKey: 'reception' } as any)).rejects.toMatchObject({
+        response: { code: 'PLATFORM_TENANT_INVITE_FORBIDDEN' },
+      });
+      expect(mockPrisma.inviteToken.create).not.toHaveBeenCalled();
+    });
+
+    it('an invite naming a platform system role -> 403', async () => {
+      const tenant = tenantWith(['members.manage', 'staff.manage']);
+      await expect(service.create(tenant, creator, { ...baseDto, roleKey: 'platform:marketing_admin' } as any)).rejects.toThrow(
+        ForbiddenException,
+      );
       expect(mockPrisma.inviteToken.create).not.toHaveBeenCalled();
     });
 

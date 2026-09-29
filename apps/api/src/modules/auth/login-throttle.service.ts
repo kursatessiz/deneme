@@ -11,6 +11,8 @@ export const LOGIN_FAILURE_WINDOW_SECONDS = 15 * 60;
 const TOO_MANY = 'Çok fazla hatalı giriş denemesi. Lütfen daha sonra tekrar deneyin veya SMS kodu ile giriş yapın';
 
 type Bucket = 'id' | 'ip';
+/** 'mfa': TOTP and recovery code attempts, keyed by user id (M1). */
+export type LoginThrottleKind = 'password' | 'pin' | 'mfa';
 
 /**
  * Brute-force protection for password and PIN login. Only failed attempts
@@ -31,7 +33,7 @@ export class LoginThrottleService {
   constructor(private readonly redis: RedisService) {}
 
   /** Throws 429 when either the identifier or the IP is over its failure budget. */
-  async assertAllowed(kind: 'password' | 'pin', identifier: string, ip: string | null): Promise<void> {
+  async assertAllowed(kind: LoginThrottleKind, identifier: string, ip: string | null): Promise<void> {
     const [byId, byIp] = await Promise.all([
       this.read(this.key(kind, 'id', identifier)),
       ip ? this.read(this.key(kind, 'ip', ip)) : Promise.resolve(0),
@@ -41,15 +43,15 @@ export class LoginThrottleService {
     }
   }
 
-  async recordFailure(kind: 'password' | 'pin', identifier: string, ip: string | null): Promise<void> {
+  async recordFailure(kind: LoginThrottleKind, identifier: string, ip: string | null): Promise<void> {
     await Promise.all([this.increment(this.key(kind, 'id', identifier)), ip ? this.increment(this.key(kind, 'ip', ip)) : Promise.resolve()]);
   }
 
-  async recordSuccess(kind: 'password' | 'pin', identifier: string): Promise<void> {
+  async recordSuccess(kind: LoginThrottleKind, identifier: string): Promise<void> {
     await this.clear(this.key(kind, 'id', identifier));
   }
 
-  private key(kind: 'password' | 'pin', bucket: Bucket, value: string): string {
+  private key(kind: LoginThrottleKind, bucket: Bucket, value: string): string {
     const digest = createHash('sha256').update(value.trim().toLowerCase()).digest('hex').slice(0, 32);
     return `login-fail:${kind}:${bucket}:${digest}`;
   }

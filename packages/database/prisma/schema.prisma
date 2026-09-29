@@ -759,6 +759,7 @@ model Studio {
   communityPosts        CommunityPost[]
   communityComments     CommunityComment[]
   communityReactions    CommunityReaction[]
+  emailSenderDomains    EmailSenderDomain[]
 
   @@map("studios")
 }
@@ -874,6 +875,13 @@ model User {
   partnerGuestOf        PartnerGuest[]
   translationOverridesUpdated TranslationOverride[]
   pageVersionsPublished PageVersion[]
+  /// Platform access and 2FA (M1, docs/PAZARLAMA_MODULU.md 7.1).
+  totpSecretEncrypted   String?               @map("totp_secret_encrypted") @db.Text
+  mfaEnabledAt          DateTime?             @map("mfa_enabled_at")
+  /// Last accepted TOTP time step; a code is never accepted twice.
+  totpLastUsedStep      Int?                  @map("totp_last_used_step")
+  platformMembership    PlatformMembership?
+  mfaRecoveryCodes      UserMfaRecoveryCode[]
 
   @@map("users")
 }
@@ -980,6 +988,9 @@ model InviteToken {
   studio       Studio       @relation(fields: [studioId], references: [id], onDelete: Cascade)
   createdBy    User         @relation("InviteCreatedBy", fields: [createdByUserId], references: [id])
   roleTemplate RoleTemplate @relation(fields: [roleTemplateId], references: [id])
+  /// Set on a platform invite (M1): studioId is then the platform tenant.
+  platformRoleTemplateId String?               @map("platform_role_template_id") @db.Uuid
+  platformRoleTemplate   PlatformRoleTemplate? @relation(fields: [platformRoleTemplateId], references: [id], onDelete: Restrict)
 
   @@index([studioId, phone])
   @@map("invite_tokens")
@@ -5361,4 +5372,108 @@ model BackupRun {
   @@index([startedAt])
   @@index([trigger, startedAt])
   @@map("backup_runs")
+}
+
+// ---------------------------------------------------------------------------
+// M1: platform access (docs/PAZARLAMA_MODULU.md 2, 5.1, 6.3, 7.1-7.2)
+// ---------------------------------------------------------------------------
+
+/// Platform-level permission set. Keys come from PLATFORM_PERMISSIONS in
+/// @platform/shared. System templates are seeded and cannot be deleted.
+/// Super-admin status is never granted through a template.
+model PlatformRoleTemplate {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique @db.VarChar(40)
+  name      String   @db.VarChar(80)
+  isSystem  Boolean  @default(false) @map("is_system")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  permissions PlatformRoleTemplatePermission[]
+  memberships PlatformMembership[]
+  invites     InviteToken[]
+
+  @@map("platform_role_templates")
+}
+
+model PlatformRoleTemplatePermission {
+  roleTemplateId String @map("role_template_id") @db.Uuid
+  permissionKey  String @map("permission_key") @db.VarChar(80)
+
+  roleTemplate PlatformRoleTemplate @relation(fields: [roleTemplateId], references: [id], onDelete: Cascade)
+
+  @@id([roleTemplateId, permissionKey])
+  @@map("platform_role_template_permissions")
+}
+
+/// A user's single platform role. No studioId: platform level. While ACTIVE,
+/// PlatformAccessService keeps a system-locked Membership in the platform
+/// tenant (platformStudioMembershipId, no FK: the service is its only writer).
+model PlatformMembership {
+  id                         String           @id @default(uuid()) @db.Uuid
+  userId                     String           @unique @map("user_id") @db.Uuid
+  roleTemplateId             String           @map("role_template_id") @db.Uuid
+  status                     MembershipStatus @default(INVITED)
+  invitedByUserId            String?          @map("invited_by_user_id") @db.Uuid
+  activatedAt                DateTime?        @map("activated_at")
+  deactivatedAt              DateTime?        @map("deactivated_at")
+  platformStudioMembershipId String?          @map("platform_studio_membership_id") @db.Uuid
+  createdAt                  DateTime         @default(now()) @map("created_at")
+  updatedAt                  DateTime         @updatedAt @map("updated_at")
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleTemplate PlatformRoleTemplate @relation(fields: [roleTemplateId], references: [id])
+
+  @@index([status])
+  @@map("platform_memberships")
+}
+
+/// Single-use 2FA recovery codes; only a SHA-256 hash is stored.
+model UserMfaRecoveryCode {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  String    @map("code_hash") @db.VarChar(128)
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_mfa_recovery_codes")
+}
+
+/// Singleton platform access policy (row id "platform").
+model PlatformAccessSettings {
+  id                         String   @id @default("platform") @db.VarChar(20)
+  require2faForPlatformRoles Boolean  @default(true) @map("require_2fa_for_platform_roles")
+  updatedByUserId            String?  @map("updated_by_user_id") @db.Uuid
+  updatedAt                  DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_access_settings")
+}
+
+/// Sender domain of a tenant (in practice the platform tenant) with the DNS
+/// records SES needs and the result of the last check. No secrets here.
+model EmailSenderDomain {
+  id              String    @id @default(uuid()) @db.Uuid
+  studioId        String    @map("studio_id") @db.Uuid
+  domain          String    @db.VarChar(253)
+  purpose         String    @default("MARKETING") @db.VarChar(20)
+  mailFromDomain  String?   @map("mail_from_domain") @db.VarChar(253)
+  dkimTokens      Json      @default("[]") @map("dkim_tokens")
+  spfStatus       String    @default("PENDING") @map("spf_status") @db.VarChar(12)
+  dkimStatus      String    @default("PENDING") @map("dkim_status") @db.VarChar(12)
+  dmarcStatus     String    @default("PENDING") @map("dmarc_status") @db.VarChar(12)
+  dmarcPolicy     String?   @map("dmarc_policy") @db.VarChar(20)
+  lastCheckedAt   DateTime? @map("last_checked_at")
+  lastError       String?   @map("last_error") @db.VarChar(500)
+  warmupStartedAt DateTime? @map("warmup_started_at")
+  dailyCap        Int?      @map("daily_cap")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@unique([studioId, domain])
+  @@map("email_sender_domains")
 }

@@ -6,6 +6,7 @@ import type { MessageKey, PermissionKey } from '@platform/shared';
 import { useT } from '@/components/i18n/I18nProvider';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { hasAnyPermission } from '@/lib/nav';
+import { useAreaHref } from '@/components/session/AreaBase';
 
 /** `label` defaults to the translated "Loading..." when the caller does not pass its own Turkish copy. */
 export function LoadingState({ label }: { label?: string }) {
@@ -35,10 +36,11 @@ export interface EmptyStateAction {
 function EmptyStateActionLink({ action }: { action: EmptyStateAction }) {
   const t = useT();
   const { permissions, isOwner } = useDashboardSession();
+  const areaHref = useAreaHref();
   if (!hasAnyPermission(action.permissions ?? [], permissions, isOwner)) return null;
   return (
     <Link
-      href={action.href}
+      href={areaHref(action.href)}
       className="text-xs font-medium px-3.5 py-2 mt-4 transition-opacity hover:opacity-90"
       style={{ borderRadius: 'var(--radius-button)', background: 'var(--gradient-brand)', color: 'var(--color-on-primary)' }}
     >

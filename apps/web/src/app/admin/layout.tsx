@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
-import { getAdminSession } from '@/lib/session/admin-session';
+import Link from 'next/link';
+import { getSessionUser, twoFactorRedirect } from '@/lib/session/admin-session';
 import { AdminTheme } from '@/components/admin/AdminTheme';
 import { AdminNav } from '@/components/admin/AdminNav';
 import { getT } from '@/lib/i18n/getT';
@@ -12,8 +13,13 @@ import { getT } from '@/lib/i18n/getT';
  * guard, this is defense in depth for the page shell).
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const user = await getAdminSession();
+  const user = await getSessionUser();
   if (!user) redirect('/giris?sonra=/admin');
+  // M1: a platform member (e.g. the marketing admin) is never a super admin;
+  // their only console is /pazarlama, integrations hub included.
+  if (!user.isSuperAdmin) redirect(user.platformAccess ? '/pazarlama' : '/giris?sonra=/admin');
+  const mfaTarget = twoFactorRedirect(user, '/admin');
+  if (mfaTarget) redirect(mfaTarget);
   const { t } = await getT();
 
   return (
@@ -29,6 +35,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             {t('adminNav.layout.signedInAs', { firstName: user.firstName, lastName: user.lastName })}
           </p>
         </header>
+        {user.mfa?.enrollmentRequired && (
+          <p className="mb-4 text-sm border px-3 py-2" role="status" style={{ borderColor: 'var(--color-warning)', borderRadius: 'var(--radius-card)' }}>
+            {t('twoFactor.setup.required')}{' '}
+            <Link href="/guvenlik/iki-adim?sonra=/admin" className="underline font-medium">
+              {t('twoFactor.setup.start')}
+            </Link>
+          </p>
+        )}
         <AdminNav />
         <main>{children}</main>
       </div>

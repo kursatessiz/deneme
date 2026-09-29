@@ -16,6 +16,7 @@ import {
   PromoCodeKind,
 } from './enums';
 import type { PermissionKey } from './permissions';
+import type { PlatformAccessDTO, SessionMfaDTO } from './platform-permissions';
 import type { AppearancePreference, GradientPresetKey, TenantTheme } from './design/tokens';
 import type { ThemeFamilyKey } from './design/themes';
 
@@ -78,6 +79,10 @@ export interface SessionUserDTO extends UserDTO {
   appearance: AppearancePreference;
   /** The user's own language choice; null follows the active studio's default. */
   locale: string | null;
+  /** Platform-level access (super admin or an ACTIVE platform membership); null for everyone else. */
+  platformAccess?: PlatformAccessDTO | null;
+  /** Two-step verification state of this session (docs/PAZARLAMA_MODULU.md 6.3). */
+  mfa?: SessionMfaDTO;
 }
 
 export interface MemberProfileDTO {

@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@platform/database';
-import { ALL_PERMISSIONS, isOwnerOnlyPermission, resolvePermissions } from '@platform/shared';
+import { ALL_PERMISSIONS, PLATFORM_ACCESS_ERROR_CODES, isOwnerOnlyPermission, isPlatformSystemRoleKey, resolvePermissions } from '@platform/shared';
 import type { AssignRoleTemplateInput, CreateRoleTemplateInput, PermissionKey, RoleTemplateDTO, StaffMembershipDTO, UpdateRoleTemplateInput } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
@@ -57,6 +57,7 @@ export class RoleTemplatesService {
 
   async update(tenant: TenantContext, actorUserId: string, roleTemplateId: string, dto: UpdateRoleTemplateInput): Promise<RoleTemplateDTO> {
     const existing = await this.getOwned(tenant, roleTemplateId);
+    assertNotLocked(existing);
     if (existing.isOwner) {
       throw new BadRequestException('İşletme sahibi rolü değiştirilemez, her zaman tüm izinlere sahiptir');
     }
@@ -98,6 +99,7 @@ export class RoleTemplatesService {
 
   async remove(tenant: TenantContext, actorUserId: string, roleTemplateId: string): Promise<{ deleted: true }> {
     const existing = await this.getOwned(tenant, roleTemplateId);
+    assertNotLocked(existing);
     // The owner role is permanent (CLAUDE.md rule 5); the "member" key is looked
     // up by key elsewhere (e.g. MembersService self-service signup) and must
     // always exist. Other seeded templates (reception, trainer, ...) are only
@@ -151,11 +153,13 @@ export class RoleTemplatesService {
       include: { roleTemplate: true, user: { select: { id: true, firstName: true, lastName: true, phone: true } } },
     });
     if (!membership) throw new NotFoundException('Personel bulunamadı');
+    assertNotLocked(membership.roleTemplate);
     if (membership.roleTemplate.isOwner) {
       throw new BadRequestException('İşletme sahibinin rolü değiştirilemez');
     }
     const target = await this.prisma.roleTemplate.findFirst({ where: { id: dto.roleTemplateId, studioId: tenant.studioId } });
     if (!target) throw new BadRequestException('Rol bulunamadı');
+    assertNotLocked(target);
     if (target.isOwner) {
       throw new BadRequestException('İşletme sahibi rolü atama yoluyla verilemez');
     }
@@ -238,6 +242,28 @@ function toRoleTemplateDTO(role: {
     isSystem: role.isSystem,
     permissions: role.isOwner ? [...ALL_PERMISSIONS] : resolvePermissions({ isOwner: false, permissions: role.permissions.map((p) => p.permissionKey) }),
   };
+}
+
+/**
+ * System-managed platform roles (M1, `platform:<key>` with isSystem): only
+ * PlatformAccessService writes them and their memberships. Tenant role
+ * screens can neither edit, delete nor assign them, and nobody can be moved
+ * off them here, whoever the caller is (super admins included). Seeded
+ * default templates (reception, trainer, ...) also carry isSystem but stay
+ * editable, as before.
+ */
+export function isLockedSystemRole(role: { key: string; isSystem: boolean }): boolean {
+  return role.isSystem && isPlatformSystemRoleKey(role.key);
+}
+
+function assertNotLocked(role: { key: string; isSystem: boolean }): void {
+  if (isLockedSystemRole(role)) {
+    throw new ForbiddenException({
+      statusCode: 403,
+      code: PLATFORM_ACCESS_ERROR_CODES.systemRoleLocked,
+      message: 'Bu rol sistem tarafından yönetilir; süper admin panelindeki platform kullanıcıları ekranından değiştirilir',
+    });
+  }
 }
 
 function dedupe<T>(values: readonly T[]): T[] {

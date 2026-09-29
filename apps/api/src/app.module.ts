@@ -55,6 +55,8 @@ import { validateEnv } from './config/env';
 import { BillingModule } from './modules/billing/billing.module';
 import { ErrorReportingModule } from './modules/error-reporting/error-reporting.module';
 import { CommunityModule } from './modules/community/community.module';
+import { PlatformUsersModule } from './modules/platform-access/platform-users.module';
+import { PlatformMarketingModule } from './modules/platform-marketing/platform-marketing.module';
 
 @Module({
   imports: [
@@ -117,6 +119,8 @@ import { CommunityModule } from './modules/community/community.module';
     PayoutsModule,
     BillingModule,
     CommunityModule,
+    PlatformUsersModule,
+    PlatformMarketingModule,
   ],
 })
 export class AppModule {}
