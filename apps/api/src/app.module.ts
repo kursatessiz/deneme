@@ -46,6 +46,7 @@ import { PlanLimitsModule } from './modules/admin/plan-limits.module';
 import { SitesModule } from './modules/sites/sites.module';
 import { AiModule } from './modules/ai/ai.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
+import { RetailModule } from './modules/retail/retail.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -101,6 +102,7 @@ import { validateEnv } from './config/env';
     SitesModule,
     AiModule,
     LoyaltyModule,
+    RetailModule,
   ],
 })
 export class AppModule {}

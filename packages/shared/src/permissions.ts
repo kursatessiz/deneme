@@ -91,6 +91,14 @@ export const PERMISSIONS = {
   'loyalty.view': 'Sadakat puanı bakiyesini ve hareketlerini görüntüleme',
   'loyalty.manage': 'Sadakat programı ayarları, kazanma kuralları, ödüller ve elle puan düzeltme',
   'loyalty.redeem': 'Üye kartında sadakat ödülü kullandırma',
+
+  // G3c-2: retail and stock. Reception gets view + sell by default so the
+  // front desk can ring up a sale; the catalogue, stock corrections and
+  // refunds stay with the owner unless granted.
+  'retail.view': 'Ürünleri, stok durumunu ve satış geçmişini görüntüleme',
+  'retail.sell': 'Hızlı satış ekranından ürün satma',
+  'retail.manage': 'Ürün kataloğu, fiyatlar ve stok giriş, düzeltme ve transferleri',
+  'retail.refund': 'Ürün satışını iade etme veya iptal etme',
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
@@ -126,6 +134,7 @@ export const PERMISSION_AREAS = {
   'Web sitem': ['site.view', 'site.manage'],
   'Yapay zeka': ['ai.use'],
   Sadakat: ['loyalty.view', 'loyalty.manage', 'loyalty.redeem'],
+  'Perakende ve stok': ['retail.view', 'retail.sell', 'retail.manage', 'retail.refund'],
 } as const satisfies Record<string, readonly PermissionKey[]>;
 
 export type PermissionArea = keyof typeof PERMISSION_AREAS;
@@ -175,6 +184,8 @@ export const DEFAULT_ROLE_TEMPLATES: readonly DefaultRoleTemplate[] = [
       'inbox.manage',
       'loyalty.view',
       'loyalty.redeem',
+      'retail.view',
+      'retail.sell',
     ],
   },
   {

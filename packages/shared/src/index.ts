@@ -28,3 +28,4 @@ export * from './crm';
 export * from './sites';
 export * from './ai';
 export * from './loyalty';
+export * from './retail';

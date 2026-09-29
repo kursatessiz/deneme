@@ -28,6 +28,9 @@ import {
   legacyRuleToJourney,
   legacyTemplateRule,
   winBackSegmentRules,
+  computeCartTotals,
+  defaultRetailTaxRate,
+  formatReceiptNumber,
 } from '@platform/shared';
 import type { BadgeThresholdParams } from '@platform/shared';
 
@@ -44,6 +47,15 @@ const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? 'Demo1234!';
 // Tables in no particular order: TRUNCATE ... CASCADE handles FK order for us.
 const ALL_TABLES = [
   'audit_logs',
+  'sale_refund_lines',
+  'sale_refunds',
+  'sale_lines',
+  'sales',
+  'stock_movements',
+  'stock_levels',
+  'products',
+  'product_categories',
+  'retail_settings',
   'loyalty_redemptions',
   'loyalty_ledger',
   'loyalty_accounts',
@@ -246,6 +258,7 @@ async function main() {
   const platformStudioId = await seedCrm(zen.studioId, flow.studioId);
   await seedGrowth(zen.studioId);
   await seedLoyalty(zen.studioId);
+  await seedRetail(zen.studioId);
   await seedSites(platformStudioId);
 
   printSummary();
@@ -440,6 +453,152 @@ async function seedLoyalty(zenStudioId: string) {
     });
     count('loyalty_accounts');
   }
+}
+
+/**
+ * Demo store for Zen (G3c-2, docs/PERAKENDE.md): three categories, a few
+ * desk products priced in the studio's own currency (never a hard-coded
+ * one), stock received at both branches through the ledger, one product
+ * below its low-stock threshold and one walk-in sale with its receipt
+ * number. Product names and prices are tenant data.
+ */
+async function seedRetail(zenStudioId: string) {
+  const studio = await prisma.studio.findUniqueOrThrow({
+    where: { id: zenStudioId },
+    select: { currency: true, pricesIncludeTax: true, taxRegime: true, invoiceSettings: { select: { defaultVatRate: true } } },
+  });
+  const defaultRate = defaultRetailTaxRate(studio.taxRegime, studio.invoiceSettings ? studio.invoiceSettings.defaultVatRate.toString() : null);
+  const branches = await prisma.branch.findMany({ where: { studioId: zenStudioId, isActive: true }, orderBy: { createdAt: 'asc' } });
+  const owner = await prisma.membership.findFirstOrThrow({ where: { studioId: zenStudioId, roleTemplate: { isOwner: true } }, select: { userId: true } });
+
+  await prisma.retailSettings.create({ data: { studioId: zenStudioId, allowBackorder: false, receiptPrefix: 'S', lastReceiptSeq: 0 } });
+  count('retail_settings');
+
+  const categoryNames = ['İçecekler', 'Aksesuar', 'Beslenme'];
+  const categories: Record<string, string> = {};
+  for (const [index, name] of categoryNames.entries()) {
+    categories[name] = (await prisma.productCategory.create({ data: { studioId: zenStudioId, name, sortOrder: index } })).id;
+    count('product_categories');
+  }
+
+  const products = [
+    { name: 'Su 500 ml', category: 'İçecekler', sku: 'SU-500', barcode: '8690000000017', price: '25.00', cost: '8.00', taxRate: null, threshold: 10, stock: [48, 24] },
+    { name: 'Havlu', category: 'Aksesuar', sku: 'HAVLU-01', barcode: '8690000000024', price: '180.00', cost: '70.00', taxRate: null, threshold: 5, stock: [12, 6] },
+    { name: 'Kaymaz çorap', category: 'Aksesuar', sku: 'CORAP-01', barcode: '8690000000031', price: '250.00', cost: '90.00', taxRate: null, threshold: 5, stock: [3, 10] },
+    { name: 'Protein bar', category: 'Beslenme', sku: 'BAR-01', barcode: '8690000000048', price: '60.00', cost: '25.00', taxRate: '10', threshold: 8, stock: [30, 0] },
+    { name: 'Havlu kiralama', category: 'Aksesuar', sku: 'HAVLU-KIRA', barcode: null, price: '40.00', cost: null, taxRate: null, threshold: null, stock: null },
+  ];
+  const created: { id: string; name: string; sku: string | null; price: string; cost: string | null; taxRate: string | null; tracked: boolean }[] = [];
+  for (const p of products) {
+    const product = await prisma.product.create({
+      data: {
+        studioId: zenStudioId,
+        categoryId: categories[p.category],
+        name: p.name,
+        sku: p.sku,
+        barcode: p.barcode,
+        price: new Prisma.Decimal(p.price),
+        currency: studio.currency,
+        taxRate: p.taxRate ? new Prisma.Decimal(p.taxRate) : null,
+        costPrice: p.cost ? new Prisma.Decimal(p.cost) : null,
+        trackStock: p.stock !== null,
+        lowStockThreshold: p.threshold,
+      },
+    });
+    count('products');
+    created.push({ id: product.id, name: p.name, sku: p.sku, price: p.price, cost: p.cost, taxRate: p.taxRate, tracked: p.stock !== null });
+    if (!p.stock) continue;
+    for (const [index, branch] of branches.entries()) {
+      const quantity = p.stock[index] ?? 0;
+      if (quantity <= 0) continue;
+      await prisma.stockLevel.create({ data: { studioId: zenStudioId, productId: product.id, branchId: branch.id, quantity } });
+      count('stock_levels');
+      await prisma.stockMovement.create({
+        data: {
+          studioId: zenStudioId,
+          productId: product.id,
+          branchId: branch.id,
+          type: 'RECEIVE',
+          quantity,
+          quantityAfter: quantity,
+          reason: 'Açılış stoku',
+          unitCost: p.cost ? new Prisma.Decimal(p.cost) : null,
+          actorUserId: owner.userId,
+        },
+      });
+      count('stock_movements');
+    }
+  }
+
+  // One walk-in sale at the first branch: two waters and a towel rental, cash.
+  const branch = branches[0];
+  const water = created[0];
+  const rental = created[4];
+  const lines = [
+    { product: water, quantity: 2 },
+    { product: rental, quantity: 1 },
+  ];
+  const totals = computeCartTotals({
+    currency: studio.currency,
+    pricesIncludeTax: studio.pricesIncludeTax,
+    lines: lines.map((l) => ({ unitPrice: l.product.price, quantity: l.quantity, taxRate: l.product.taxRate ?? defaultRate })),
+  });
+  const receiptNumber = formatReceiptNumber('S', 1);
+  const sale = await prisma.sale.create({
+    data: {
+      studioId: zenStudioId,
+      branchId: branch.id,
+      receiptSeq: 1,
+      receiptNumber,
+      currency: studio.currency,
+      pricesIncludeTax: studio.pricesIncludeTax,
+      subtotal: new Prisma.Decimal(totals.subtotal),
+      discountTotal: new Prisma.Decimal(totals.discountTotal),
+      netTotal: new Prisma.Decimal(totals.netTotal),
+      taxTotal: new Prisma.Decimal(totals.taxTotal),
+      total: new Prisma.Decimal(totals.total),
+      paymentMethod: PaymentMethod.CASH,
+      soldByUserId: owner.userId,
+    },
+  });
+  count('sales');
+  await prisma.saleLine.createMany({
+    data: lines.map((l, i) => ({
+      studioId: zenStudioId,
+      saleId: sale.id,
+      productId: l.product.id,
+      productName: l.product.name,
+      sku: l.product.sku,
+      stockTracked: l.product.tracked,
+      quantity: l.quantity,
+      unitPrice: new Prisma.Decimal(l.product.price),
+      unitCost: l.product.cost ? new Prisma.Decimal(l.product.cost) : null,
+      taxRate: new Prisma.Decimal(l.product.taxRate ?? defaultRate),
+      netAmount: new Prisma.Decimal(totals.lines[i].netAmount),
+      taxAmount: new Prisma.Decimal(totals.lines[i].taxAmount),
+      total: new Prisma.Decimal(totals.lines[i].total),
+    })),
+  });
+  count('sale_lines');
+  const level = await prisma.stockLevel.update({
+    where: { productId_branchId: { productId: water.id, branchId: branch.id } },
+    data: { quantity: { decrement: 2 } },
+  });
+  await prisma.stockMovement.create({
+    data: {
+      studioId: zenStudioId,
+      productId: water.id,
+      branchId: branch.id,
+      type: 'SALE',
+      quantity: -2,
+      quantityAfter: level.quantity,
+      reference: receiptNumber,
+      saleId: sale.id,
+      actorUserId: owner.userId,
+    },
+  });
+  count('stock_movements');
+  await prisma.retailSettings.update({ where: { studioId: zenStudioId }, data: { lastReceiptSeq: 1 } });
 }
 
 /**

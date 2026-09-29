@@ -511,6 +511,15 @@ export class PaymentsService {
     if (payment.paymentStatus !== PaymentStatus.COMPLETED) {
       throw new BadRequestException('Yalnızca tamamlanmış ödemeler iade edilebilir');
     }
+    // G3c-2: a desk sale's payment is refunded from the sale, which also
+    // returns the stock; refunding it here would leave the sale and stock out of step.
+    if ((await this.prisma.sale.count({ where: { studioId, paymentId: payment.id } })) > 0) {
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'RETAIL_PAYMENT_IS_RETAIL',
+        message: 'Bu ödeme bir ürün satışına aittir; iade satış ekranından yapılır',
+      });
+    }
 
     // Exact decimal arithmetic: money never goes through binary floats.
     const paid = new Prisma.Decimal(payment.amount);

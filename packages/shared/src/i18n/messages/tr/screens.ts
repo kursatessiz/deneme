@@ -29,4 +29,5 @@ export const trScreens = {
   'screens.dashboard.quickActions.sellPackage': 'Paket sat',
   'screens.dashboard.quickActions.recordPayment': 'Ödeme kaydet',
   'screens.dashboard.quickActions.checkIn': 'Check-in',
+  'screens.dashboard.quickActions.quickSale': 'Hızlı satış',
 } as const satisfies Record<string, string>;

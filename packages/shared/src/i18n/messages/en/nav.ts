@@ -10,6 +10,7 @@ export const enNav = {
   'nav.finance': 'Finance',
   'nav.payroll': 'Payroll',
   'nav.reports': 'Reports',
+  'nav.retail': 'Store',
   'nav.leads': 'Leads',
   'nav.ads': 'Ad performance',
   'nav.churn': 'At-Risk Members',

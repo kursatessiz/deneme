@@ -307,13 +307,17 @@ export class PromotionsService {
    * Validates and atomically reserves a promo code redemption inside an
    * in-flight sale transaction. Returns null if no code was supplied.
    * Throws a user-facing error for any invalid/expired/exhausted code.
+   *
+   * `pkgDef` is null for a sale that is not a package (G3c-2 retail
+   * checkout): only codes without a package restriction apply, and a
+   * FREE_UNITS code (which only makes sense on a package) is refused.
    */
   async applyPromoCodeTx(
     tx: Tx,
     studioId: string,
     userId: string,
     code: string,
-    pkgDef: PackageDefinition,
+    pkgDef: PackageDefinition | null,
     basePrice: Prisma.Decimal,
   ): Promise<PromoApplication> {
     const promo = await tx.promoCode.findFirst({ where: { studioId, code: code.trim().toUpperCase(), isActive: true } });
@@ -350,7 +354,7 @@ export class PromotionsService {
   private async validatePromoRulesTx(
     tx: Tx,
     promo: PromoCode,
-    pkgDef: PackageDefinition,
+    pkgDef: PackageDefinition | null,
     basePrice: Prisma.Decimal,
     userId: string,
   ): Promise<{ valid: true } | { valid: false; reason: string }> {
@@ -358,7 +362,10 @@ export class PromotionsService {
     if (promo.restrictedToUserId && promo.restrictedToUserId !== userId) return { valid: false, reason: 'Bu kod başka bir üyeye özeldir' };
     if (promo.validFrom && now < promo.validFrom) return { valid: false, reason: 'Kodun geçerlilik tarihi henüz başlamadı' };
     if (promo.validTo && now > promo.validTo) return { valid: false, reason: 'Kodun süresi dolmuş' };
-    if (promo.applicablePackageDefinitionIds.length > 0 && !promo.applicablePackageDefinitionIds.includes(pkgDef.id)) {
+    if (!pkgDef && (promo.kind === PromoCodeKind.FREE_UNITS || promo.applicablePackageDefinitionIds.length > 0)) {
+      return { valid: false, reason: 'Kod bu satış için geçerli değil' };
+    }
+    if (pkgDef && promo.applicablePackageDefinitionIds.length > 0 && !promo.applicablePackageDefinitionIds.includes(pkgDef.id)) {
       return { valid: false, reason: 'Kod bu paket için geçerli değil' };
     }
     if (promo.minAmount && basePrice.lt(promo.minAmount)) {

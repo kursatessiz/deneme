@@ -28,6 +28,7 @@ export const enMAccount: Record<keyof typeof trMAccount, string> = {
   'mAccount.menu.kiosk': 'Kiosk mode',
   'mAccount.menu.branchSummary': 'Branch summary',
   'mAccount.menu.reports': 'Reports',
+  'mAccount.menu.quickSale': 'Quick sale',
   'mAccount.menu.riskyMembers': 'At-risk members',
   'mAccount.menu.leads': 'Leads',
   'mAccount.menu.businessTheme': 'Business theme',
