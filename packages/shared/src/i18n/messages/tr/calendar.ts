@@ -77,4 +77,7 @@ export const trCalendar = {
   'calendar.detail.status.CANCELLED_LATE': 'Geç iptal',
   'calendar.detail.status.NO_SHOW': 'Gelmedi',
   'calendar.detail.status.WAITLIST': 'Bekleme listesi',
+
+  'calendar.empty.title': 'Bu hafta planlanmış seans yok',
+  'calendar.empty.description': 'Yeni bir seans oluşturduğunuzda burada görünecek.',
 } as const satisfies Record<string, string>;

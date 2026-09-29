@@ -47,4 +47,5 @@ export const enCommon: Record<keyof typeof trCommon, string> = {
   'common.invalidAddress': 'Invalid address',
   'common.invalidOrigin': 'Invalid origin (e.g. https://example.com)',
   'common.invalidLink': 'Invalid link',
+  'common.permissionRequired': 'This action requires the "{permission}" permission.',
 };

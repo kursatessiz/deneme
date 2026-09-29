@@ -23,4 +23,10 @@ export const trScreens = {
   'screens.dashboard.empty.title': 'Henüz veri yok',
   'screens.dashboard.empty.description': 'Şube ve seans verileri geldikçe burada özetlenecek.',
   'screens.dashboard.noAddress': 'Adres tanımlı değil',
+  'screens.dashboard.quickActions.title': 'Hızlı işlemler',
+  'screens.dashboard.quickActions.newSession': 'Yeni seans',
+  'screens.dashboard.quickActions.newMember': 'Yeni üye',
+  'screens.dashboard.quickActions.sellPackage': 'Paket sat',
+  'screens.dashboard.quickActions.recordPayment': 'Ödeme kaydet',
+  'screens.dashboard.quickActions.checkIn': 'Check-in',
 } as const satisfies Record<string, string>;

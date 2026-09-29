@@ -42,7 +42,13 @@ function JourneyList() {
       />
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
-      {!loading && !error && data && data.items.length === 0 && <EmptyState title={t('journeys.empty')} description={t('journeys.emptyHint')} />}
+      {!loading && !error && data && data.items.length === 0 && (
+        <EmptyState
+          title={t('journeys.empty')}
+          description={t('journeys.emptyHint')}
+          action={{ labelKey: 'journeys.new', href: '/akislar/yeni', permissions: ['journeys.manage'] }}
+        />
+      )}
       {!loading && !error && data && data.items.length > 0 && (
         <div className="overflow-x-auto" style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
           <table className="w-full text-sm" aria-label={t('journeys.title')}>

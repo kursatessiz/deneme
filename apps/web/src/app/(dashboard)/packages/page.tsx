@@ -36,7 +36,11 @@ function PackageList() {
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
       {!loading && !error && (!packages || packages.length === 0) && (
-        <EmptyState title={t('packages.empty.title')} description={t('packages.empty.description')} />
+        <EmptyState
+          title={t('packages.empty.title')}
+          description={t('packages.empty.description')}
+          action={{ labelKey: 'packages.empty.action', href: '/ayarlar/isletme', permissions: ['catalog.manage'] }}
+        />
       )}
       {!loading && !error && packages && packages.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
