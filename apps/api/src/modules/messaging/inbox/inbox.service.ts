@@ -244,10 +244,13 @@ export class InboxService {
   async memberChat(tenant: TenantContext): Promise<MemberChatDTO> {
     const contact = await this.memberContact(tenant, false);
     if (!contact) return { conversationId: null, status: null, messages: [] };
-    const conversation = await this.prisma.conversation.findFirst({
-      where: { studioId: tenant.studioId, contactId: contact.id, channel: 'IN_APP' },
-      orderBy: [{ status: 'desc' }, { lastMessageAt: 'desc' }],
-    });
+    // The open conversation if there is one (the one the member's next message
+    // and staff replies go to), else the most recent closed one. Not an
+    // orderBy on status: Postgres sorts enums by declaration order (OPEN, CLOSED).
+    const where = { studioId: tenant.studioId, contactId: contact.id, channel: 'IN_APP' as const };
+    const conversation =
+      (await this.prisma.conversation.findFirst({ where: { ...where, status: 'OPEN' }, orderBy: { lastMessageAt: 'desc' } })) ??
+      (await this.prisma.conversation.findFirst({ where, orderBy: { lastMessageAt: 'desc' } }));
     if (!conversation) return { conversationId: null, status: null, messages: [] };
     const messages = await this.prisma.conversationMessage.findMany({
       where: { conversationId: conversation.id, studioId: tenant.studioId },
