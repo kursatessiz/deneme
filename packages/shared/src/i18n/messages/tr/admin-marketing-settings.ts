@@ -1,0 +1,48 @@
+/** Süper admin pazarlama ayarları (/admin/pazarlama-ayarlari, M3b). */
+export const trAdminMarketingSettings = {
+  'adminMarketingSettings.nav': 'Pazarlama Ayarları',
+  'adminMarketingSettings.title': 'Pazarlama ayarları',
+  'adminMarketingSettings.subtitle': 'Platformun kendi pazarlaması için onay eşikleri, günlük tavanlar ve haftalık özet. Her değişiklik denetim kaydına yazılır.',
+  'adminMarketingSettings.loadFailed': 'Pazarlama ayarları yüklenemedi.',
+  'adminMarketingSettings.save': 'Kaydet',
+  'adminMarketingSettings.saved': 'Ayarlar kaydedildi.',
+  'adminMarketingSettings.invalid': 'Geçersiz değer. Sayıların sıfır veya daha büyük olduğunu kontrol edin.',
+  'adminMarketingSettings.defaults': 'Varsayılan değerler kullanılıyor; henüz kaydedilmedi.',
+  'adminMarketingSettings.updatedAt': 'Son değişiklik: {date}',
+  'adminMarketingSettings.noLimit': 'Boş bırakılırsa sınır yok.',
+
+  'adminMarketingSettings.approval.title': 'Onay eşikleri',
+  'adminMarketingSettings.approval.description': 'Bu sınırların altındaki gönderimleri gönderim yetkisi olan kullanıcı kendi onayıyla başlatabilir. İlk kez kullanılan segment, yeni ülke, ön kontrol uyarısı ve ABD alıcısına SMS her zaman süper admin onayı ister.',
+  'adminMarketingSettings.field.selfApproveEmailMax': 'E-posta: en fazla kişi',
+  'adminMarketingSettings.field.selfApproveSmsMax': 'SMS ve WhatsApp: en fazla kişi',
+  'adminMarketingSettings.field.selfApproveSmsCredits': 'SMS: en fazla tahmini kredi',
+  'adminMarketingSettings.field.approvalTtlHours': 'Onay talebinin geçerlilik süresi (saat)',
+  'adminMarketingSettings.field.requireApprovalForSocial': 'Organik sosyal gönderilerin hepsi onay istesin',
+
+  'adminMarketingSettings.caps.title': 'Günlük tavanlar',
+  'adminMarketingSettings.caps.description': 'Saklanır; uygulanması sonraki aşamada (M3d) gelir.',
+  'adminMarketingSettings.field.dailyEmailCap': 'Günlük ticari e-posta tavanı',
+  'adminMarketingSettings.field.dailySmsCreditCap': 'Günlük SMS kredi tavanı',
+  'adminMarketingSettings.field.aiDailyCapCents': 'Günlük yapay zeka tavanı (ABD doları, sent)',
+
+  'adminMarketingSettings.adSpend.title': 'Aylık reklam harcama tavanı',
+  'adminMarketingSettings.adSpend.description': 'Para birimi başına ayrı tutulur; farklı para birimleri toplanmaz.',
+  'adminMarketingSettings.adSpend.currency': 'Para birimi (ISO 4217)',
+  'adminMarketingSettings.adSpend.amount': 'Aylık tutar',
+  'adminMarketingSettings.adSpend.add': 'Para birimi ekle',
+  'adminMarketingSettings.adSpend.remove': 'Kaldır',
+  'adminMarketingSettings.adSpend.empty': 'Tanımlı tavan yok.',
+  'adminMarketingSettings.adSpend.invalid': 'Para birimi üç büyük harf, tutar en fazla iki ondalıklı pozitif sayı olmalı.',
+
+  'adminMarketingSettings.autoPause.title': 'Otomatik duraklatma eşikleri',
+  'adminMarketingSettings.autoPause.description': 'Son 24 saatte bu oranlar aşılırsa e-posta kampanyaları duraklatılır. Değerler saklanır; otomatik iş sonraki aşamada (M3d) gelir.',
+  'adminMarketingSettings.field.bounceAutoPausePct': 'Geri dönme oranı (%)',
+  'adminMarketingSettings.field.complaintAutoPausePct': 'Şikâyet oranı (%)',
+
+  'adminMarketingSettings.weekly.title': 'Haftalık özet',
+  'adminMarketingSettings.weekly.description': 'Pazartesi günleri gönderilecek performans özeti (M3d). Alıcılar yalnızca platform kullanıcıları olabilir.',
+  'adminMarketingSettings.field.weeklySummaryEnabled': 'Haftalık özeti gönder',
+  'adminMarketingSettings.weekly.recipients': 'Alıcılar',
+  'adminMarketingSettings.weekly.noRecipients': 'Platform kullanıcısı yok.',
+  'adminMarketingSettings.weekly.superAdmin': 'süper admin',
+} as const satisfies Record<string, string>;

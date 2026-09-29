@@ -1,7 +1,7 @@
-import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpStatus, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@platform/database';
 import type { Campaign, CampaignRecipientStatus } from '@platform/database';
-import { CAMPAIGN_BATCH_SIZE, CAMPAIGN_QUIET_HOURS_MAX_DEFER_HOURS, contactDisplayName, nextLocalTime } from '@platform/shared';
+import { CAMPAIGN_BATCH_SIZE, CAMPAIGN_QUIET_HOURS_MAX_DEFER_HOURS, canPauseCampaign, canResumeCampaign, contactDisplayName, nextLocalTime } from '@platform/shared';
 import type {
   CampaignDTO,
   CampaignRecipientDTO,
@@ -18,6 +18,7 @@ import { MessagingService } from '../../messaging/engine/messaging.service';
 import type { TenantContext } from '../../auth/tenant-context';
 import { SegmentsService } from '../segments/segments.service';
 import { GrowthQueueService } from '../growth-queue.service';
+import { CampaignApprovalService, approvalError } from './approval/campaign-approval.service';
 
 const HOUR_MS = 60 * 60 * 1000;
 /** A recipient being sent is leased for this long (concurrent workers). */
@@ -49,6 +50,7 @@ export class CampaignsService {
     private readonly messaging: MessagingService,
     private readonly segments: SegmentsService,
     private readonly queue: GrowthQueueService,
+    private readonly approvals: CampaignApprovalService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -75,7 +77,7 @@ export class CampaignsService {
     return this.toDto(await this.get(studioId, id));
   }
 
-  async create(tenant: TenantContext, input: CreateCampaignInput): Promise<CampaignDTO> {
+  async create(tenant: TenantContext, input: CreateCampaignInput, actorUserId: string | null = null): Promise<CampaignDTO> {
     await this.segments.get(tenant.studioId, input.segmentId);
     const row = await this.prisma.campaign.create({
       data: {
@@ -85,22 +87,32 @@ export class CampaignsService {
         channel: input.channel ?? null,
         templateKey: input.templateKey,
         createdByMembershipId: tenant.membershipId,
+        createdByUserId: actorUserId,
       },
       include: { segment: { select: { name: true } } },
     });
     return this.toDto(row);
   }
 
-  async update(studioId: string, id: string, input: UpdateCampaignInput): Promise<CampaignDTO> {
+  /**
+   * Platform tenant (M3b): a campaign waiting for approval may still be
+   * edited; an edit that changes the approved content (segment, channel,
+   * template) replaces the request with a new PENDING one.
+   */
+  async update(studioId: string, id: string, input: UpdateCampaignInput, actorUserId: string | null = null): Promise<CampaignDTO> {
     const campaign = await this.get(studioId, id);
-    if (campaign.status !== 'DRAFT' && campaign.status !== 'SCHEDULED') throw new ConflictException('Gönderimi başlamış kampanya değiştirilemez');
+    if (campaign.status !== 'DRAFT' && campaign.status !== 'SCHEDULED' && campaign.status !== 'PENDING_APPROVAL') {
+      throw new ConflictException('Gönderimi başlamış kampanya değiştirilemez');
+    }
     if (input.segmentId) await this.segments.get(studioId, input.segmentId);
-    const row = await this.prisma.campaign.update({
+    await this.prisma.campaign.update({
       where: { id: campaign.id },
       data: { name: input.name, segmentId: input.segmentId, channel: input.channel, templateKey: input.templateKey },
-      include: { segment: { select: { name: true } } },
     });
-    return this.toDto(row);
+    if (campaign.approvalRequestId && (await this.approvals.isPlatformStudio(studioId))) {
+      await this.approvals.onCampaignChanged(campaign.id, actorUserId);
+    }
+    return this.detail(studioId, id);
   }
 
   async remove(studioId: string, id: string): Promise<{ deleted: true }> {
@@ -112,6 +124,10 @@ export class CampaignsService {
 
   async schedule(studioId: string, id: string, input: ScheduleCampaignInput, now = new Date()): Promise<CampaignDTO> {
     const campaign = await this.get(studioId, id);
+    // Platform tenant (M3b): only an approval (or a self-approval) schedules a send.
+    if (await this.approvals.isPlatformStudio(studioId)) {
+      throw approvalError(HttpStatus.CONFLICT, 'CAMPAIGN_APPROVAL_REQUIRED', 'Bu kampanya ancak onay talebiyle gönderilebilir');
+    }
     if (campaign.status !== 'DRAFT' && campaign.status !== 'SCHEDULED') throw new ConflictException('Kampanya zaten gönderiliyor veya bitti');
     const scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : now;
     if (scheduledAt.getTime() < now.getTime() - 60_000) throw new BadRequestException('Geçmiş bir zamana planlanamaz');
@@ -124,15 +140,78 @@ export class CampaignsService {
     return this.toDto(updated);
   }
 
-  async cancel(studioId: string, id: string, now = new Date()): Promise<CampaignDTO> {
+  async cancel(studioId: string, id: string, now = new Date(), actorUserId: string | null = null): Promise<CampaignDTO> {
     const campaign = await this.get(studioId, id);
-    if (campaign.status !== 'SCHEDULED' && campaign.status !== 'SENDING' && campaign.status !== 'DRAFT') {
+    if (!['SCHEDULED', 'SENDING', 'DRAFT', 'PENDING_APPROVAL', 'PAUSED'].includes(campaign.status)) {
       throw new ConflictException('Bu kampanya iptal edilemez');
     }
-    await this.prisma.$transaction([
+    const results = await this.prisma.$transaction([
       this.prisma.campaign.update({ where: { id: campaign.id }, data: { status: 'CANCELLED', cancelledAt: now } }),
       this.prisma.campaignRecipient.updateMany({ where: { campaignId: campaign.id, status: 'PENDING' }, data: { status: 'CANCELLED', nextAttemptAt: null } }),
+      // An open approval request of a cancelled campaign is closed with it (M3b).
+      ...(campaign.approvalRequestId
+        ? [
+            this.prisma.approvalRequest.updateMany({
+              where: { id: campaign.approvalRequestId, studioId, status: 'PENDING' },
+              data: { status: 'CANCELLED', decidedAt: now, decidedByUserId: actorUserId },
+            }),
+          ]
+        : []),
     ]);
+    const closed = results[2];
+    if (campaign.approvalRequestId && closed && 'count' in closed && closed.count > 0) {
+      await this.prisma.auditLog.create({
+        data: {
+          studioId,
+          userId: actorUserId,
+          action: 'marketing.approval.cancelled',
+          entityType: 'ApprovalRequest',
+          entityId: campaign.approvalRequestId,
+          metadata: { campaignId: campaign.id, via: 'campaign_cancel' },
+        },
+      });
+    }
+    return this.detail(studioId, id);
+  }
+
+  /** Platform tenant (M3b): a paused campaign never sends; its pending recipients wait. */
+  async pause(studioId: string, id: string, userId: string, now = new Date()): Promise<CampaignDTO> {
+    const campaign = await this.get(studioId, id);
+    if (!canPauseCampaign(campaign.status)) throw approvalError(HttpStatus.CONFLICT, 'CAMPAIGN_NOT_PAUSABLE', 'Yalnızca planlanmış veya gönderilen kampanya duraklatılabilir');
+    await this.prisma.$transaction(async (tx) => {
+      const moved = await tx.campaign.updateMany({ where: { id: campaign.id, status: campaign.status }, data: { status: 'PAUSED' } });
+      if (moved.count === 0) throw approvalError(HttpStatus.CONFLICT, 'CAMPAIGN_NOT_PAUSABLE', 'Kampanyanın durumu değişti');
+      await tx.auditLog.create({
+        data: { studioId, userId, action: 'marketing.campaign.paused', entityType: 'Campaign', entityId: campaign.id, metadata: { from: campaign.status, at: now.toISOString() } },
+      });
+    });
+    return this.detail(studioId, id);
+  }
+
+  /**
+   * Back to SCHEDULED (not started yet: the approval is checked again when it
+   * starts) or SENDING (started: the approval must still match the content,
+   * otherwise it goes to PENDING_APPROVAL with a new request).
+   */
+  async resume(studioId: string, id: string, userId: string, now = new Date()): Promise<CampaignDTO> {
+    const campaign = await this.get(studioId, id);
+    if (!canResumeCampaign(campaign.status)) throw approvalError(HttpStatus.CONFLICT, 'CAMPAIGN_NOT_RESUMABLE', 'Yalnızca duraklatılmış kampanya sürdürülebilir');
+    if (campaign.startedAt && !(await this.approvals.stillValid(campaign, now))) {
+      const request = campaign.approvalRequestId ? await this.prisma.approvalRequest.findFirst({ where: { id: campaign.approvalRequestId, studioId } }) : null;
+      if (request) await this.approvals.invalidate(campaign, request, userId, now);
+      else await this.prisma.campaign.update({ where: { id: campaign.id }, data: { status: 'DRAFT' } });
+      return this.detail(studioId, id);
+    }
+    const next = campaign.startedAt ? 'SENDING' : 'SCHEDULED';
+    await this.prisma.$transaction(async (tx) => {
+      const moved = await tx.campaign.updateMany({ where: { id: campaign.id, status: 'PAUSED' }, data: { status: next } });
+      if (moved.count === 0) throw approvalError(HttpStatus.CONFLICT, 'CAMPAIGN_NOT_RESUMABLE', 'Kampanyanın durumu değişti');
+      await tx.auditLog.create({
+        data: { studioId, userId, action: 'marketing.campaign.resumed', entityType: 'Campaign', entityId: campaign.id, metadata: { to: next, at: now.toISOString() } },
+      });
+    });
+    const at = campaign.scheduledAt && campaign.scheduledAt > now && !campaign.startedAt ? campaign.scheduledAt : now;
+    await this.queue.scheduleCampaign(campaign.id, at);
     return this.detail(studioId, id);
   }
 
@@ -210,10 +289,16 @@ export class CampaignsService {
     if (!campaign) return totals;
 
     if (campaign.status === 'SCHEDULED' && campaign.scheduledAt && campaign.scheduledAt <= now) {
+      // Platform tenant (M3b): the approval must still match the content before anything goes out.
+      let approvedAudience: string[] | null = null;
+      if (await this.approvals.isPlatformStudio(campaign.studioId)) {
+        approvedAudience = await this.approvals.verifyForSend(campaign, now);
+        if (!approvedAudience) return totals;
+      }
       // Only one worker moves SCHEDULED -> SENDING and takes the audience snapshot.
       const claimed = await this.prisma.campaign.updateMany({ where: { id, status: 'SCHEDULED' }, data: { status: 'SENDING', startedAt: now } });
       if (claimed.count === 1) {
-        const contactIds = await this.segments.memberIds(campaign.studioId, campaign.segmentId, now);
+        const contactIds = approvedAudience ?? (await this.segments.memberIds(campaign.studioId, campaign.segmentId, now));
         for (let i = 0; i < contactIds.length; i += 1000) {
           await this.prisma.campaignRecipient.createMany({
             data: contactIds.slice(i, i + 1000).map((contactId) => ({ studioId: campaign!.studioId, campaignId: id, contactId })),
@@ -228,6 +313,11 @@ export class CampaignsService {
     if (campaign.status !== 'SENDING') return totals;
 
     for (let batch = 0; batch < batches; batch += 1) {
+      // A pause (or cancel) between batches stops the send at once.
+      if (batch > 0) {
+        const current = await this.prisma.campaign.findUnique({ where: { id }, select: { status: true } });
+        if (current?.status !== 'SENDING') return totals;
+      }
       const pending = await this.prisma.campaignRecipient.findMany({
         where: { campaignId: id, status: 'PENDING', OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }] },
         include: { contact: { select: { timezone: true } } },
@@ -369,6 +459,7 @@ export class CampaignsService {
       startedAt: c.startedAt?.toISOString() ?? null,
       completedAt: c.completedAt?.toISOString() ?? null,
       cancelledAt: c.cancelledAt?.toISOString() ?? null,
+      approvalRequestId: c.approvalRequestId,
       createdAt: c.createdAt.toISOString(),
       updatedAt: c.updatedAt.toISOString(),
       stats: await this.stats(c),

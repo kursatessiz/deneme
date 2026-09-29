@@ -4,6 +4,7 @@ import { SegmentsService } from './segments/segments.service';
 import { JourneyEngineService } from './journeys/journey-engine.service';
 import { LegacyAutomationMigratorService } from './journeys/legacy-automation-migrator.service';
 import { CampaignsService } from './campaigns/campaigns.service';
+import { CampaignApprovalService } from './campaigns/approval/campaign-approval.service';
 
 export interface GrowthHeartbeatResult {
   legacyMigrated: number;
@@ -14,6 +15,8 @@ export interface GrowthHeartbeatResult {
   journeySteps: number;
   journeysCompleted: number;
   campaigns: { campaigns: number; sent: number; skipped: number; failed: number };
+  /** M3b: approval requests past their TTL marked EXPIRED. */
+  approvalsExpired: number;
   contactConsentSync: { synced: number; failed: number };
 }
 
@@ -22,7 +25,8 @@ export interface GrowthHeartbeatResult {
  * order: convert any remaining legacy automation rule (so the old and the
  * new engine never both send), refresh stale dynamic segments (which fires
  * segment_entered), scan time-based journey triggers, advance due journey
- * enrollments, send due campaign batches, push contact consent changes to
+ * enrollments, expire approval requests past their TTL (M3b), send due
+ * campaign batches, push contact consent changes to
  * İYS. Every step is idempotent, so running it more often is harmless.
  */
 @Injectable()
@@ -32,6 +36,7 @@ export class GrowthHeartbeatService {
     private readonly segments: SegmentsService,
     private readonly journeys: JourneyEngineService,
     private readonly campaigns: CampaignsService,
+    private readonly approvals: CampaignApprovalService,
     private readonly contactConsents: ContactConsentService,
   ) {}
 
@@ -40,6 +45,7 @@ export class GrowthHeartbeatService {
     const segments = await this.segments.refreshStale(now);
     const scan = await this.journeys.scanAll(now);
     const steps = await this.journeys.processDue(now);
+    const approvals = await this.approvals.expireDue(now);
     const campaigns = await this.campaigns.processDue(now);
     const contactConsentSync = await this.contactConsents.syncPending();
     return {
@@ -51,6 +57,7 @@ export class GrowthHeartbeatService {
       journeySteps: steps.advanced,
       journeysCompleted: steps.completed,
       campaigns,
+      approvalsExpired: approvals.expired,
       contactConsentSync,
     };
   }

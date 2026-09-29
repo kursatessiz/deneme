@@ -15,6 +15,8 @@ export const trCampaigns = {
   'campaigns.status.SENDING': 'Gönderiliyor',
   'campaigns.status.SENT': 'Gönderildi',
   'campaigns.status.CANCELLED': 'İptal edildi',
+  'campaigns.status.PENDING_APPROVAL': 'Onay bekliyor',
+  'campaigns.status.PAUSED': 'Duraklatıldı',
   'campaigns.recipient.PENDING': 'Bekliyor',
   'campaigns.recipient.SENT': 'Gönderildi',
   'campaigns.recipient.SKIPPED': 'Atlandı',

@@ -28,6 +28,4 @@ export const enMarketing = {
   'marketing.ads.settings': 'Connections and UTM',
 
   'marketing.placeholder.soon': 'This section arrives in a later phase.',
-  'marketing.placeholder.approvals.title': 'Approvals',
-  'marketing.placeholder.approvals.description': 'Send and spend requests above the threshold will be approved here in phase M3.',
 } as const satisfies Record<keyof typeof trMarketing, string>;

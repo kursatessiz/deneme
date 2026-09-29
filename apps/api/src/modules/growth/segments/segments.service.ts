@@ -150,10 +150,10 @@ export class SegmentsService {
     return toSegmentDto(await this.get(studioId, id));
   }
 
-  /** Archives the segment; refused while a scheduled/sending campaign or a live journey uses it. */
+  /** Archives the segment; refused while a draft, scheduled, sending, pending-approval or paused campaign or a live journey uses it. */
   async archive(studioId: string, id: string): Promise<{ archived: true }> {
     const segment = await this.get(studioId, id);
-    const campaigns = await this.prisma.campaign.count({ where: { studioId, segmentId: segment.id, status: { in: ['DRAFT', 'SCHEDULED', 'SENDING'] } } });
+    const campaigns = await this.prisma.campaign.count({ where: { studioId, segmentId: segment.id, status: { in: ['DRAFT', 'SCHEDULED', 'SENDING', 'PENDING_APPROVAL', 'PAUSED'] } } });
     const journeys = await this.prisma.journey.findMany({ where: { studioId, status: { in: ['ACTIVE', 'PAUSED'] } }, select: { definition: true } });
     const usedByJourney = journeys.some((j) => JSON.stringify(j.definition).includes(segment.id));
     if (campaigns > 0 || usedByJourney) throw new ConflictException('Segment bir kampanya veya akış tarafından kullanılıyor');

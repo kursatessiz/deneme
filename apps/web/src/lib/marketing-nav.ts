@@ -15,7 +15,7 @@ export interface MarketingNavItem {
  */
 export const MARKETING_NAV_ITEMS: readonly MarketingNavItem[] = [
   { key: 'dashboard', labelKey: 'marketing.nav.dashboard', href: '/pazarlama', permissions: ['platform.marketing.view'] },
-  { key: 'approvals', labelKey: 'marketing.nav.approvals', href: '/pazarlama/onaylar', permissions: ['platform.marketing.send', 'platform.marketing.approve'] },
+  { key: 'approvals', labelKey: 'marketing.nav.approvals', href: '/pazarlama/onaylar', permissions: ['platform.marketing.view', 'platform.marketing.send', 'platform.marketing.approve'] },
   { key: 'calendar', labelKey: 'marketing.nav.calendar', href: '/pazarlama/takvim', permissions: ['platform.marketing.view', 'platform.marketing.manage'] },
   { key: 'aiStudio', labelKey: 'marketing.nav.aiStudio', href: '/pazarlama/yapay-zeka', permissions: ['platform.ai.use'] },
   { key: 'contacts', labelKey: 'marketing.nav.contacts', href: '/pazarlama/kisiler', permissions: ['platform.marketing.view'] },
