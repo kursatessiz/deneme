@@ -44,6 +44,10 @@ const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? 'Demo1234!';
 // Tables in no particular order: TRUNCATE ... CASCADE handles FK order for us.
 const ALL_TABLES = [
   'audit_logs',
+  'event_registrations',
+  'event_ticket_types',
+  'event_occurrences',
+  'events',
   'loyalty_redemptions',
   'loyalty_ledger',
   'loyalty_accounts',
@@ -246,6 +250,7 @@ async function main() {
   const platformStudioId = await seedCrm(zen.studioId, flow.studioId);
   await seedGrowth(zen.studioId);
   await seedLoyalty(zen.studioId);
+  await seedEvents(zen.studioId);
   await seedSites(platformStudioId);
 
   printSummary();
@@ -440,6 +445,133 @@ async function seedLoyalty(zenStudioId: string) {
     });
     count('loyalty_accounts');
   }
+}
+
+/**
+ * Demo events for Zen (G3c-1, docs/ETKINLIKLER.md): a public one-off
+ * workshop with a paid ticket and a members-only ticket payable with
+ * package credits, and a members-only four-week course. Titles, ticket
+ * names and prices are tenant data. Two members are already registered for
+ * the workshop (desk payment), so the counters start consistent.
+ */
+async function seedEvents(zenStudioId: string) {
+  const studio = await prisma.studio.findUniqueOrThrow({ where: { id: zenStudioId }, select: { currency: true } });
+  const branch = await prisma.branch.findFirst({ where: { studioId: zenStudioId }, orderBy: { sortOrder: 'asc' } });
+  const serviceType = await prisma.serviceType.findFirst({ where: { studioId: zenStudioId, isActive: true }, orderBy: { createdAt: 'asc' } });
+  const dayMs = 24 * 60 * 60 * 1000;
+  const at = (daysAhead: number, hour: number) => {
+    const d = new Date(Date.now() + daysAhead * dayMs);
+    d.setUTCHours(hour, 0, 0, 0);
+    return d;
+  };
+
+  const workshopStart = at(10, 7);
+  const workshopEnd = at(10, 10);
+  const workshop = await prisma.event.create({
+    data: {
+      studioId: zenStudioId,
+      branchId: branch?.id ?? null,
+      title: 'Hafta sonu atölyesi',
+      description: 'Üç saatlik uygulamalı atölye. Yeni başlayanlar ve deneyimliler için uygundur.',
+      kind: 'SINGLE',
+      status: 'PUBLISHED',
+      capacity: 12,
+      waitlistEnabled: true,
+      visibility: 'PUBLIC',
+      startsAt: workshopStart,
+      endsAt: workshopEnd,
+      fullRefundHoursBefore: 48,
+      publishedAt: new Date(),
+    },
+  });
+  count('events');
+  await prisma.eventOccurrence.create({ data: { studioId: zenStudioId, eventId: workshop.id, startsAt: workshopStart, endsAt: workshopEnd } });
+  count('event_occurrences');
+  const standard = await prisma.eventTicketType.create({
+    data: { studioId: zenStudioId, eventId: workshop.id, name: 'Standart bilet', priceAmount: new Prisma.Decimal(750), currency: studio.currency, sortOrder: 0 },
+  });
+  count('event_ticket_types');
+  await prisma.eventTicketType.create({
+    data: {
+      studioId: zenStudioId,
+      eventId: workshop.id,
+      name: 'Üye bileti',
+      priceAmount: new Prisma.Decimal(600),
+      currency: studio.currency,
+      membersOnly: true,
+      creditServiceTypeId: serviceType?.id ?? null,
+      creditUnits: serviceType ? 1 : null,
+      sortOrder: 1,
+    },
+  });
+  count('event_ticket_types');
+
+  const members = await prisma.memberProfile.findMany({
+    where: { studioId: zenStudioId, membership: { status: MembershipStatus.ACTIVE, isPartnerGuest: false } },
+    orderBy: { createdAt: 'asc' },
+    take: 2,
+    select: { id: true },
+  });
+  for (const member of members) {
+    const payment = await prisma.payment.create({
+      data: {
+        studioId: zenStudioId,
+        memberId: member.id,
+        branchId: branch?.id ?? null,
+        amount: standard.priceAmount,
+        currency: studio.currency,
+        paymentMethod: PaymentMethod.CASH,
+        paymentStatus: PaymentStatus.COMPLETED,
+        metadata: { eventId: workshop.id, ticketTypeId: standard.id },
+      },
+    });
+    count('payments');
+    await prisma.eventRegistration.create({
+      data: {
+        studioId: zenStudioId,
+        eventId: workshop.id,
+        ticketTypeId: standard.id,
+        memberId: member.id,
+        status: 'CONFIRMED',
+        source: 'STAFF',
+        dedupeKey: `m:${member.id}`,
+        amountDue: standard.priceAmount,
+        amountPaid: standard.priceAmount,
+        currency: studio.currency,
+        paymentId: payment.id,
+        paymentMethod: 'CASH',
+      },
+    });
+    count('event_registrations');
+  }
+  await prisma.event.update({ where: { id: workshop.id }, data: { seatsTaken: members.length } });
+  await prisma.eventTicketType.update({ where: { id: standard.id }, data: { soldCount: members.length } });
+
+  const courseOccurrences = [0, 1, 2, 3].map((week) => ({ startsAt: at(7 + week * 7, 16), endsAt: at(7 + week * 7, 17) }));
+  const course = await prisma.event.create({
+    data: {
+      studioId: zenStudioId,
+      branchId: branch?.id ?? null,
+      title: 'Başlangıç kursu (4 hafta)',
+      description: 'Dört hafta boyunca haftada bir buluşan küçük grup kursu.',
+      kind: 'SERIES',
+      status: 'PUBLISHED',
+      capacity: 8,
+      waitlistEnabled: true,
+      visibility: 'MEMBERS_ONLY',
+      startsAt: courseOccurrences[0].startsAt,
+      endsAt: courseOccurrences[courseOccurrences.length - 1].endsAt,
+      fullRefundHoursBefore: 72,
+      publishedAt: new Date(),
+    },
+  });
+  count('events');
+  await prisma.eventOccurrence.createMany({ data: courseOccurrences.map((o) => ({ studioId: zenStudioId, eventId: course.id, ...o })) });
+  count('event_occurrences', courseOccurrences.length);
+  await prisma.eventTicketType.create({
+    data: { studioId: zenStudioId, eventId: course.id, name: 'Kurs ücreti', priceAmount: new Prisma.Decimal(2400), currency: studio.currency },
+  });
+  count('event_ticket_types');
 }
 
 /**

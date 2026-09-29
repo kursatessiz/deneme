@@ -35,6 +35,17 @@ export const trMsgTpl = {
   'msgTpl.LOYALTY_POINTS_EXPIRING.subject': 'Puanlarınızın süresi doluyor',
   'msgTpl.LOYALTY_POINTS_EXPIRING.text': 'Merhaba {firstName}, {studioName} sadakat programındaki {points} puanınızın son kullanım tarihi {expiryDate}. Süresi dolmadan bir ödül için kullanabilirsiniz.',
 
+  'msgTpl.EVENT_REGISTRATION_CONFIRMED.subject': 'Kaydınız onaylandı',
+  'msgTpl.EVENT_REGISTRATION_CONFIRMED.text': 'Merhaba {firstName}, {studioName} bünyesindeki {eventTitle} etkinliğine kaydınız onaylandı. Başlangıç: {startTime}.',
+  'msgTpl.EVENT_REMINDER.subject': 'Etkinlik hatırlatması',
+  'msgTpl.EVENT_REMINDER.text': 'Merhaba {firstName}, kayıtlı olduğunuz {eventTitle} {startTime} saatinde başlayacak.',
+  'msgTpl.EVENT_CANCELLED.subject': 'Etkinlik iptal edildi',
+  'msgTpl.EVENT_CANCELLED.text': 'Merhaba {firstName}, {startTime} tarihli {eventTitle} etkinliği {studioName} tarafından iptal edildi. Ödemeniz veya kullandığınız hak iade edilir.',
+  'msgTpl.EVENT_WAITLIST_PROMOTED.subject': 'Bekleme listesinden yer açıldı',
+  'msgTpl.EVENT_WAITLIST_PROMOTED.text': 'Merhaba {firstName}, bekleme listesinde olduğunuz {eventTitle} etkinliğinde yer açıldı, kaydınız onaylandı. Başlangıç: {startTime}.',
+  'msgTpl.EVENT_PAYMENT_DUE.subject': 'Kaydınız için ödeme bekleniyor',
+  'msgTpl.EVENT_PAYMENT_DUE.text': 'Merhaba {firstName}, {eventTitle} etkinliğinde sizin için bir yer ayrıldı. Yerinizi korumak için ödemeyi {paymentDueAt} tarihine kadar tamamlayın.',
+
   'msgTpl.email.reasonCommercial': 'Bu e-postayı {studioName} ile iletişim izniniz olduğu için aldınız.',
   'msgTpl.email.reasonTransactional': 'Bu e-posta {studioName} hesabınızla ilgili bir bilgilendirmedir.',
   'msgTpl.email.unsubscribe': 'Abonelikten çık',

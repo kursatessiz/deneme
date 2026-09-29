@@ -4,6 +4,7 @@ import { InvoicingModule } from '../invoicing/invoicing.module';
 import { PromotionsModule } from '../promotions/promotions.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
 import { CrmCoreModule } from '../crm/crm-core.module';
+import { EventsCoreModule } from '../events/events-core.module';
 import { PaymentsController } from './payments.controller';
 import { PaymentsWebhookController } from './payments-webhook.controller';
 import { DunningController } from './dunning.controller';
@@ -16,7 +17,7 @@ import { StripePaymentProvider } from './providers/stripe-payment.provider';
 import { PaymentProviderRegistry } from './providers/payment-provider.registry';
 
 @Module({
-  imports: [AuthModule, InvoicingModule, PromotionsModule, WebhooksModule, CrmCoreModule],
+  imports: [AuthModule, InvoicingModule, PromotionsModule, WebhooksModule, CrmCoreModule, EventsCoreModule],
   controllers: [PaymentsController, PaymentsWebhookController, DunningController],
   providers: [
     PaymentsService,

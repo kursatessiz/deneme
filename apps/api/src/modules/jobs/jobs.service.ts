@@ -17,6 +17,7 @@ import { ConversionDeliveryDispatcherService, DispatchOutcome as ConversionDispa
 import { AdSpendSyncService, SpendSyncOutcome } from '../ads/spend-sync/ad-spend-sync.service';
 import { TranslationEngineService } from '../ai/translation/translation-engine.service';
 import { LoyaltyJobsService, LoyaltyHeartbeatResult } from '../loyalty/loyalty-jobs.service';
+import { EventsJobsService, EventsHeartbeatResult } from '../events/events-jobs.service';
 
 export interface SchedulerRunResult {
   runAt: string;
@@ -35,13 +36,14 @@ export interface SchedulerRunResult {
   adSpendSync: SpendSyncOutcome | null;
   aiTranslation: { jobs: number; paused: number };
   loyalty: LoyaltyHeartbeatResult;
+  events: EventsHeartbeatResult;
 }
 
 /**
  * The single unit of work run every 15 minutes: segments, journeys and
  * campaigns (G2a, which replaced the W10 automation rules), dunning retries (W6), İYS consent sync (W7) and the daily churn-risk
  * refresh (W12, only studios scored more than 20 hours ago), rating prompts
- * and referral qualification (W15), loyalty birthdays, expiry and notices (G3a). All are safe
+ * and referral qualification (W15), loyalty birthdays, expiry and notices (G3a), event payment holds, reminders and completion (G3c-1). All are safe
  * to call repeatedly (each guards its own idempotency), so one heartbeat
  * covers them instead of three separate queues - see docs/AUTOMATIONS.md and
  * HANDOVER.md 6c.
@@ -76,6 +78,7 @@ export class JobsService {
     private readonly adSpendSync: AdSpendSyncService,
     private readonly aiTranslation: TranslationEngineService,
     private readonly loyalty: LoyaltyJobsService,
+    private readonly events: EventsJobsService,
     @Optional() @InjectQueue(SCHEDULER_QUEUE) private readonly queue?: Queue,
   ) {}
 
@@ -101,6 +104,7 @@ export class JobsService {
     const conversionDelivery = await this.conversionDelivery.dispatchDue(now);
     const adSpendSync = await this.adSpendSync.syncAllDueIfStale(now);
     const loyalty = await this.loyalty.run(now);
+    const events = await this.events.run(now);
     // Last: AI translation batches may take a while; the other steps are time-sensitive.
     const aiTranslation = await this.aiTranslation.processPending(now);
 
@@ -115,7 +119,8 @@ export class JobsService {
         `${crmLifecycle.lapsed} contact(s) lapsed, conversion delivery ${conversionDelivery.sent} sent/${conversionDelivery.retrying} retrying/${conversionDelivery.failed} failed, ` +
         `ad spend sync ${adSpendSync ? `${adSpendSync.connectionsSynced} connection(s)` : 'skipped (not due)'}, ` +
         `AI translation ${aiTranslation.jobs} job(s)/${aiTranslation.paused} paused, ` +
-        `loyalty ${loyalty.birthdayPoints} birthday point(s)/${loyalty.expiredPoints} expired/${loyalty.expiryNotices} notice(s)`,
+        `loyalty ${loyalty.birthdayPoints} birthday point(s)/${loyalty.expiredPoints} expired/${loyalty.expiryNotices} notice(s), ` +
+        `events ${events.holdsReleased} hold(s) released/${events.promoted} promoted/${events.reminders} reminder(s)/${events.completed} completed`,
     );
 
     this.lastRunAt = now;
@@ -136,6 +141,7 @@ export class JobsService {
       adSpendSync,
       aiTranslation,
       loyalty,
+      events,
     };
   }
 }

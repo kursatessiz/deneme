@@ -91,6 +91,13 @@ export const PERMISSIONS = {
   'loyalty.view': 'Sadakat puanı bakiyesini ve hareketlerini görüntüleme',
   'loyalty.manage': 'Sadakat programı ayarları, kazanma kuralları, ödüller ve elle puan düzeltme',
   'loyalty.redeem': 'Üye kartında sadakat ödülü kullandırma',
+
+  // G3c-1: events, workshops and multi-session courses. Reception gets
+  // view + checkin by default (registrations list and door check-in);
+  // creating, publishing, cancelling and refunds stay with the owner.
+  'events.view': 'Etkinlikleri ve kayıtları görüntüleme, kayıt listesini dışa aktarma',
+  'events.manage': 'Etkinlik oluşturma, yayınlama, iptal etme, bilet ve kayıt yönetimi',
+  'events.checkin': 'Etkinlik kayıtlarında giriş (check-in) ve gelmedi işaretleme',
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
@@ -126,6 +133,7 @@ export const PERMISSION_AREAS = {
   'Web sitem': ['site.view', 'site.manage'],
   'Yapay zeka': ['ai.use'],
   Sadakat: ['loyalty.view', 'loyalty.manage', 'loyalty.redeem'],
+  Etkinlikler: ['events.view', 'events.manage', 'events.checkin'],
 } as const satisfies Record<string, readonly PermissionKey[]>;
 
 export type PermissionArea = keyof typeof PERMISSION_AREAS;
@@ -175,6 +183,8 @@ export const DEFAULT_ROLE_TEMPLATES: readonly DefaultRoleTemplate[] = [
       'inbox.manage',
       'loyalty.view',
       'loyalty.redeem',
+      'events.view',
+      'events.checkin',
     ],
   },
   {

@@ -31,7 +31,7 @@ export const LOYALTY_REASONS = [
 export type LoyaltyReason = (typeof LOYALTY_REASONS)[number];
 
 /** The business record behind a ledger row; (studio, sourceType, sourceId, reason) is unique. */
-export const LOYALTY_SOURCE_TYPES = ['booking', 'payment', 'referral', 'birthday', 'badge', 'manual', 'journey', 'redemption', 'lot'] as const;
+export const LOYALTY_SOURCE_TYPES = ['booking', 'payment', 'referral', 'birthday', 'badge', 'manual', 'journey', 'redemption', 'lot', 'event_registration'] as const;
 export type LoyaltySourceType = (typeof LOYALTY_SOURCE_TYPES)[number];
 
 export const LOYALTY_REWARD_TYPES = ['DISCOUNT_AMOUNT', 'DISCOUNT_PERCENT', 'EXTRA_SESSION_CREDIT', 'GIFT'] as const;
