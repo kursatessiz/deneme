@@ -200,18 +200,21 @@ export function SocialPosts() {
     try {
       let saved = await persist(form);
       openPost(saved);
+      let text: string;
       if (action === 'schedule') {
         const at = fromLocalInput(form.scheduledAt);
         if (!at) return;
         saved = await bffFetch<SocialPostDTO>(`platform/marketing/social-posts/${saved.id}/schedule`, { method: 'POST', body: { scheduledAt: at } });
-        setMessage({ tone: 'success', text: t(saved.status === 'PENDING_APPROVAL' ? 'marketingSocial.composer.approvalRequested' : 'marketingSocial.composer.scheduledOk') });
+        text = t(saved.status === 'PENDING_APPROVAL' ? 'marketingSocial.composer.approvalRequested' : 'marketingSocial.composer.scheduledOk');
       } else if (action === 'publish') {
         saved = await bffFetch<SocialPostDTO>(`platform/marketing/social-posts/${saved.id}/publish-now`, { method: 'POST', body: {} });
-        setMessage({ tone: 'success', text: t(saved.status === 'PENDING_APPROVAL' ? 'marketingSocial.composer.approvalRequested' : 'marketingSocial.composer.published') });
+        text = t(saved.status === 'PENDING_APPROVAL' ? 'marketingSocial.composer.approvalRequested' : 'marketingSocial.composer.published');
       } else {
-        setMessage({ tone: 'success', text: t('marketingSocial.composer.saved') });
+        text = t('marketingSocial.composer.saved');
       }
+      // openPost clears the message, so the outcome is set after the final refresh of the form.
       openPost(saved);
+      setMessage({ tone: 'success', text });
     } catch (err) {
       setMessage({ tone: 'error', text: errorText(err) });
       // A quota answer leaves the post scheduled: show its real state.
