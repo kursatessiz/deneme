@@ -1,10 +1,10 @@
 import { randomBytes } from 'crypto';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@platform/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { assertPublicHttpsHostname } from './ssrf-check';
-import { WEBHOOK_EVENTS, isWebhookEvent } from '@platform/shared';
-import type { CreateWebhookEndpointInput, UpdateWebhookEndpointInput, WebhookEvent } from '@platform/shared';
+import { MAX_REST_HOOKS_PER_STUDIO, WEBHOOK_EVENTS, isWebhookEvent } from '@platform/shared';
+import type { CreateWebhookEndpointInput, SubscribeHookInput, UpdateWebhookEndpointInput, WebhookEvent } from '@platform/shared';
 import type { TenantContext } from '../auth/tenant-context';
 
 function generateSecret(): string {
@@ -67,6 +67,48 @@ export class WebhooksService {
     const updated = await this.prisma.webhookEndpoint.update({ where: { id: endpoint.id }, data: { secret } });
     await this.audit(tenant.studioId, userId, 'webhooks.rotate_secret', id, {});
     return { ...this.toSummary(updated), secret };
+  }
+
+  // ---------------------------------------------------------------------------
+  // REST hooks for automation tools (G3c-3, docs/ZAPIER.md). Same table and
+  // same target validation as the staff endpoints; the caller is an API key,
+  // so the studio comes from the key and the audit row has no user.
+  // ---------------------------------------------------------------------------
+
+  async subscribeRestHook(studioId: string, apiKeyId: string, dto: SubscribeHookInput) {
+    await assertPublicHttpsHostname(dto.targetUrl);
+    const existing = await this.prisma.webhookEndpoint.count({ where: { studioId } });
+    if (existing >= MAX_REST_HOOKS_PER_STUDIO) {
+      throw new ConflictException('Bu işletme için en fazla webhook sayısına ulaşıldı');
+    }
+    const secret = generateSecret();
+    const endpoint = await this.prisma.webhookEndpoint.create({
+      data: { studioId, url: dto.targetUrl, secret, events: [dto.event], isActive: true },
+    });
+    await this.prisma.auditLog
+      .create({
+        data: {
+          studioId,
+          action: 'webhooks.rest_hook.subscribe',
+          entityType: 'WebhookEndpoint',
+          entityId: endpoint.id,
+          metadata: { apiKeyId, event: dto.event, url: dto.targetUrl },
+        },
+      })
+      .catch(() => undefined);
+    return { id: endpoint.id, event: dto.event, targetUrl: endpoint.url, secret, createdAt: endpoint.createdAt };
+  }
+
+  /** The studio filter is the whole authorisation: another studio's hook id is a plain 404. */
+  async unsubscribeRestHook(studioId: string, apiKeyId: string, id: string) {
+    const endpoint = await this.findOwned(studioId, id);
+    await this.prisma.webhookEndpoint.delete({ where: { id: endpoint.id } });
+    await this.prisma.auditLog
+      .create({
+        data: { studioId, action: 'webhooks.rest_hook.unsubscribe', entityType: 'WebhookEndpoint', entityId: id, metadata: { apiKeyId } },
+      })
+      .catch(() => undefined);
+    return { deleted: true };
   }
 
   // ---------------------------------------------------------------------------

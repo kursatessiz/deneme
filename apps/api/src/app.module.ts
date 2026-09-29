@@ -48,6 +48,7 @@ import { AiModule } from './modules/ai/ai.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { EventsModule } from './modules/events/events.module';
 import { RetailModule } from './modules/retail/retail.module';
+import { AccountingModule } from './modules/accounting/accounting.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -105,6 +106,7 @@ import { validateEnv } from './config/env';
     LoyaltyModule,
     EventsModule,
     RetailModule,
+    AccountingModule,
   ],
 })
 export class AppModule {}
