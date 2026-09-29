@@ -4,13 +4,14 @@ import { useState } from 'react';
 import { BadgeKind } from '@platform/shared';
 import type { BadgeDefinitionDTO, BadgeThresholdParams } from '@platform/shared';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { useT } from '@/components/i18n/I18nProvider';
 import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { PageGuard } from '@/components/common/PageGuard';
 import { hasAnyPermission } from '@/lib/nav';
 import { Badge, InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader, TextField, Toggle } from '@/components/settings/ui';
-import { BADGE_KIND_LABELS, defaultThresholdFor, describeThreshold } from '@/lib/settings/badge-threshold';
+import { badgeKindLabel, defaultThresholdFor, describeThreshold } from '@/lib/settings/badge-threshold';
 
 function ThresholdFields({
   threshold,
@@ -19,11 +20,12 @@ function ThresholdFields({
   threshold: BadgeThresholdParams;
   onChange: (t: BadgeThresholdParams) => void;
 }) {
+  const t = useT();
   switch (threshold.kind) {
     case BadgeKind.MILESTONE_SESSIONS:
       return (
         <TextField
-          label="Seans sayısı"
+          label={t('settings.badges.fields.sessionCount')}
           type="number"
           value={String(threshold.sessions)}
           onChange={(v) => onChange({ ...threshold, sessions: Number(v) || 0 })}
@@ -33,13 +35,13 @@ function ThresholdFields({
       return (
         <div className="grid grid-cols-2 gap-3">
           <TextField
-            label="Hafta sayısı"
+            label={t('settings.badges.fields.weekCount')}
             type="number"
             value={String(threshold.weeks)}
             onChange={(v) => onChange({ ...threshold, weeks: Number(v) || 0 })}
           />
           <TextField
-            label="Haftada en az seans"
+            label={t('settings.badges.fields.minSessionsPerWeek')}
             type="number"
             value={String(threshold.minSessionsPerWeek)}
             onChange={(v) => onChange({ ...threshold, minSessionsPerWeek: Number(v) || 0 })}
@@ -49,7 +51,7 @@ function ThresholdFields({
     case BadgeKind.EARLY_BIRD:
       return (
         <TextField
-          label="Saatten önce (0-23)"
+          label={t('settings.badges.fields.beforeHour')}
           type="number"
           value={String(threshold.beforeHour)}
           onChange={(v) => onChange({ ...threshold, beforeHour: Math.min(23, Math.max(0, Number(v) || 0)) })}
@@ -58,7 +60,7 @@ function ThresholdFields({
     case BadgeKind.VARIETY:
       return (
         <TextField
-          label="Farklı hizmet türü sayısı"
+          label={t('settings.badges.fields.distinctServiceTypes')}
           type="number"
           value={String(threshold.distinctServiceTypes)}
           onChange={(v) => onChange({ ...threshold, distinctServiceTypes: Number(v) || 0 })}
@@ -81,6 +83,7 @@ function BadgeEditor({
   onCancel: () => void;
   onSaved: () => void;
 }) {
+  const t = useT();
   const { activeStudioId } = useDashboardSession();
   const [key, setKey] = useState(badge?.key ?? '');
   const [name, setName] = useState(badge?.name ?? '');
@@ -98,11 +101,11 @@ function BadgeEditor({
   const save = async () => {
     setError(null);
     if (!badge && !/^[a-z0-9][a-z0-9-]{1,59}$/.test(key)) {
-      setError('Anahtar küçük harf, rakam ve tire içermelidir (ör. hosgeldin-rozeti)');
+      setError(t('settings.badges.keyFormatError'));
       return;
     }
     if (name.trim().length < 2) {
-      setError('Ad en az 2 karakter olmalıdır');
+      setError(t('settings.badges.nameTooShort'));
       return;
     }
     setSaving(true);
@@ -122,25 +125,30 @@ function BadgeEditor({
       }
       onSaved();
     } catch (err) {
-      setError(err instanceof BffError ? err.message : 'Rozet kaydedilemedi');
+      setError(err instanceof BffError ? err.message : t('settings.badges.errors.saveFailed'));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Section title={badge ? `"${badge.name}" rozetini düzenle` : 'Yeni rozet'} description="Rozetin türünü, adını ve eşik değerlerini belirleyin">
+    <Section title={badge ? t('settings.badges.editTitle', { name: badge.name }) : t('settings.badges.newTitle')} description={t('settings.badges.editDescription')}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl">
-        {!badge && <TextField label="Anahtar" value={key} onChange={setKey} placeholder="ornek-rozet" />}
-        <TextField label="Ad" value={name} onChange={setName} placeholder="Örn. 10 Seans Tamamlandı" />
+        {!badge && <TextField label={t('settings.badges.keyLabel')} value={key} onChange={setKey} placeholder={t('settings.badges.keyPlaceholder')} />}
+        <TextField label={t('settings.badges.nameLabel')} value={name} onChange={setName} placeholder={t('settings.badges.namePlaceholder')} />
       </div>
       <div className="max-w-xl">
-        <TextField label="Açıklama" value={description} onChange={setDescription} placeholder="Üyeye gösterilecek kısa açıklama (opsiyonel)" />
+        <TextField
+          label={t('settings.badges.descriptionLabel')}
+          value={description}
+          onChange={setDescription}
+          placeholder={t('settings.badges.descriptionPlaceholder')}
+        />
       </div>
       {!badge && (
         <label className="block space-y-1 max-w-xs">
           <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            Rozet türü
+            {t('settings.badges.kindLabel')}
           </span>
           <select
             value={kind}
@@ -150,7 +158,7 @@ function BadgeEditor({
           >
             {Object.values(BadgeKind).map((k) => (
               <option key={k} value={k}>
-                {BADGE_KIND_LABELS[k]}
+                {badgeKindLabel(t, k)}
               </option>
             ))}
           </select>
@@ -162,10 +170,10 @@ function BadgeEditor({
       {error && <InlineMessage text={error} tone="error" />}
       <div className="flex gap-2">
         <PrimaryButton onClick={save} disabled={saving}>
-          {saving ? 'Kaydediliyor...' : 'Kaydet'}
+          {saving ? t('common.saving') : t('common.save')}
         </PrimaryButton>
         <SecondaryButton onClick={onCancel} disabled={saving}>
-          Vazgeç
+          {t('common.cancel')}
         </SecondaryButton>
       </div>
     </Section>
@@ -185,6 +193,7 @@ function BadgeCard({
   onToggleActive: () => void;
   onDelete: () => void;
 }) {
+  const t = useT();
   const isGlobal = badge.studioId === null;
   return (
     <div
@@ -196,8 +205,8 @@ function BadgeCard({
           {badge.name}
         </h3>
         <div className="flex items-center gap-1.5">
-          {isGlobal && <Badge tone="primary">Küresel -- salt okunur</Badge>}
-          {!badge.isActive && <Badge tone="neutral">Pasif</Badge>}
+          {isGlobal && <Badge tone="primary">{t('settings.badges.global')}</Badge>}
+          {!badge.isActive && <Badge tone="neutral">{t('settings.badges.inactive')}</Badge>}
         </div>
       </div>
       {badge.description && (
@@ -206,14 +215,14 @@ function BadgeCard({
         </p>
       )}
       <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-        {BADGE_KIND_LABELS[badge.kind]} - {describeThreshold(badge.threshold)}
+        {badgeKindLabel(t, badge.kind)} - {describeThreshold(t, badge.threshold)}
       </p>
       {canEdit && !isGlobal && (
         <div className="flex flex-wrap items-center gap-3 pt-1">
-          <Toggle label="Etkin" checked={badge.isActive} onChange={onToggleActive} />
-          <SecondaryButton onClick={onEdit}>Düzenle</SecondaryButton>
+          <Toggle label={t('settings.badges.activeToggle')} checked={badge.isActive} onChange={onToggleActive} />
+          <SecondaryButton onClick={onEdit}>{t('settings.badges.edit')}</SecondaryButton>
           <SecondaryButton danger onClick={onDelete}>
-            Sil
+            {t('settings.badges.delete')}
           </SecondaryButton>
         </div>
       )}
@@ -222,6 +231,7 @@ function BadgeCard({
 }
 
 function BadgeDefinitions() {
+  const t = useT();
   const { activeStudioId, permissions, isOwner } = useDashboardSession();
   const canEdit = hasAnyPermission(['studio.settings.manage'], permissions, isOwner);
   const { data: badges, loading, error, forbidden } = useBff<BadgeDefinitionDTO[]>(
@@ -244,7 +254,7 @@ function BadgeDefinitions() {
       });
       refresh();
     } catch (err) {
-      setActionError(err instanceof BffError ? err.message : 'Durum güncellenemedi');
+      setActionError(err instanceof BffError ? err.message : t('settings.badges.errors.statusUpdateFailed'));
     }
   };
 
@@ -254,11 +264,11 @@ function BadgeDefinitions() {
       await bffFetch(`gamification/studio/${activeStudioId}/badge-definitions/${badge.id}`, { method: 'DELETE', studioId: activeStudioId });
       refresh();
     } catch (err) {
-      setActionError(err instanceof BffError ? err.message : 'Rozet silinemedi (kazanılmış rozetler yerine pasif hale getirilir)');
+      setActionError(err instanceof BffError ? err.message : t('settings.badges.errors.deleteFailed'));
     }
   };
 
-  if (forbidden) return <ErrorState message="Bu sayfayı görüntüleme yetkiniz yok" />;
+  if (forbidden) return <ErrorState message={t('settings.badges.forbidden')} />;
 
   const globalBadges = (badges ?? []).filter((b) => b.studioId === null);
   const studioBadges = (badges ?? []).filter((b) => b.studioId !== null);
@@ -266,8 +276,8 @@ function BadgeDefinitions() {
   return (
     <div className="space-y-6" key={refreshKey}>
       <div className="flex items-center justify-between">
-        <SettingsHeader title="Rozetler" description="Küresel ve işletmenize özel oyunlaştırma rozetleri" />
-        {canEdit && editing === null && <PrimaryButton onClick={() => setEditing('new')}>Yeni rozet</PrimaryButton>}
+        <SettingsHeader title={t('settings.badges.title')} description={t('settings.badges.description')} />
+        {canEdit && editing === null && <PrimaryButton onClick={() => setEditing('new')}>{t('settings.badges.new')}</PrimaryButton>}
       </div>
 
       {loading && <LoadingState />}
@@ -283,12 +293,12 @@ function BadgeDefinitions() {
 
       {!loading && !error && editing === null && (
         <>
-          {(badges ?? []).length === 0 && <EmptyState title="Rozet bulunamadı" description="Henüz tanımlı rozet yok." />}
+          {(badges ?? []).length === 0 && <EmptyState title={t('settings.badges.empty.title')} description={t('settings.badges.empty.description')} />}
 
           {studioBadges.length > 0 && (
             <div>
               <h4 className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                İşletmenize özel
+                {t('settings.badges.studioSection')}
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {studioBadges.map((b) => (
@@ -308,7 +318,7 @@ function BadgeDefinitions() {
           {globalBadges.length > 0 && (
             <div>
               <h4 className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                Küresel varsayılanlar
+                {t('settings.badges.globalSection')}
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {globalBadges.map((b) => (
