@@ -79,4 +79,7 @@ export const enCalendar = {
   'calendar.detail.status.CANCELLED_LATE': 'Late cancellation',
   'calendar.detail.status.NO_SHOW': 'No-show',
   'calendar.detail.status.WAITLIST': 'Waitlist',
+
+  'calendar.empty.title': 'No sessions scheduled this week',
+  'calendar.empty.description': 'A new session will show up here once you create one.',
 } as const satisfies Record<keyof typeof trCalendar, string>;

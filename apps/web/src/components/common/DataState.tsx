@@ -1,7 +1,11 @@
 'use client';
 
+import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
+import type { MessageKey, PermissionKey } from '@platform/shared';
 import { useT } from '@/components/i18n/I18nProvider';
+import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { hasAnyPermission } from '@/lib/nav';
 
 /** `label` defaults to the translated "Loading..." when the caller does not pass its own Turkish copy. */
 export function LoadingState({ label }: { label?: string }) {
@@ -14,7 +18,42 @@ export function LoadingState({ label }: { label?: string }) {
   );
 }
 
-export function EmptyState({ title, description }: { title?: string; description?: string }) {
+export interface EmptyStateAction {
+  /** Translation key for the button label. */
+  labelKey: MessageKey;
+  href: string;
+  /** Any one of these permissions unlocks the action; owners always see it. Omit for an action anyone on the page may take. */
+  permissions?: readonly PermissionKey[];
+}
+
+/**
+ * The action link's own component, so `useDashboardSession()` is only
+ * called from a subtree that actually mounts when an `action` is passed.
+ * Screens outside the tenant dashboard (e.g. the super admin panel) render
+ * `EmptyState` with no `action` and never reach this hook.
+ */
+function EmptyStateActionLink({ action }: { action: EmptyStateAction }) {
+  const t = useT();
+  const { permissions, isOwner } = useDashboardSession();
+  if (!hasAnyPermission(action.permissions ?? [], permissions, isOwner)) return null;
+  return (
+    <Link
+      href={action.href}
+      className="text-xs font-medium px-3.5 py-2 mt-4 transition-opacity hover:opacity-90"
+      style={{ borderRadius: 'var(--radius-button)', background: 'var(--gradient-brand)', color: 'var(--color-on-primary)' }}
+    >
+      {t(action.labelKey)}
+    </Link>
+  );
+}
+
+/**
+ * Shared empty state for list screens: a title, an optional one-sentence
+ * explanation, and an optional primary action link. The action only
+ * renders when the active membership's permissions unlock it (owners
+ * always see it), so a screen never offers an action the API would reject.
+ */
+export function EmptyState({ title, description, action }: { title?: string; description?: string; action?: EmptyStateAction }) {
   const t = useT();
   return (
     <div
@@ -29,6 +68,7 @@ export function EmptyState({ title, description }: { title?: string; description
           {description}
         </p>
       )}
+      {action && <EmptyStateActionLink action={action} />}
     </div>
   );
 }

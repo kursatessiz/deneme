@@ -4,6 +4,7 @@ export const trPackages = {
   'packages.subtitle': 'Satışa açık seans/kredi paketleri',
   'packages.empty.title': 'Henüz paket tanımı yok',
   'packages.empty.description': 'İşletme ayarlarından yeni bir paket tanımladığınızda burada görünecek.',
+  'packages.empty.action': 'İşletme ayarlarına git',
   'packages.units.one': '{count} birim',
   'packages.units.other': '{count} birim',
   'packages.unlimited': 'Sınırsız',

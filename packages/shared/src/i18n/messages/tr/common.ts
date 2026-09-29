@@ -46,4 +46,5 @@ export const trCommon = {
   'common.invalidAddress': 'Geçersiz adres',
   'common.invalidOrigin': 'Geçersiz origin (ör. https://ornek.com)',
   'common.invalidLink': 'Geçersiz bağlantı',
+  'common.permissionRequired': 'Bu işlem için "{permission}" izni gerekir.',
 } as const satisfies Record<string, string>;

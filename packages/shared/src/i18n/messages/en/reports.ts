@@ -58,4 +58,8 @@ export const enReports = {
   'reports.trainers.col.noShows': 'No-shows',
   'reports.trainers.col.lateCancellations': 'Late cancellations',
   'reports.trainers.col.substitutions': 'Substitutions',
+
+  'reports.compare.toggle': 'Compare with previous period',
+  'reports.compare.previous': 'Previous period: {value}',
+  'reports.compare.noPrevious': 'No data in the previous period',
 } as const satisfies Record<keyof typeof trReports, string>;

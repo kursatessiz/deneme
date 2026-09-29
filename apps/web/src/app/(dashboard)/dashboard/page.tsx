@@ -5,6 +5,7 @@ import { useDashboardSession } from '@/components/session/DashboardSessionProvid
 import { useT } from '@/components/i18n/I18nProvider';
 import { useBff } from '@/lib/session/use-bff';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
+import { QuickActionBar } from '@/components/dashboard/QuickActionBar';
 
 export default function DashboardPage() {
   const t = useT();
@@ -21,6 +22,8 @@ export default function DashboardPage() {
           {t('screens.dashboard.subtitle')}
         </p>
       </div>
+
+      <QuickActionBar />
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}

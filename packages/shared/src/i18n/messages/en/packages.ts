@@ -6,6 +6,7 @@ export const enPackages = {
   'packages.subtitle': 'Session/credit packages available for sale',
   'packages.empty.title': 'No package defined yet',
   'packages.empty.description': 'A new package will show up here once you define one in business settings.',
+  'packages.empty.action': 'Go to business settings',
   'packages.units.one': '{count} unit',
   'packages.units.other': '{count} units',
   'packages.unlimited': 'Unlimited',

@@ -7,7 +7,7 @@ import { useDashboardSession } from '@/components/session/DashboardSessionProvid
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { useBff } from '@/lib/session/use-bff';
-import { LoadingState, ErrorState } from '@/components/common/DataState';
+import { EmptyState, LoadingState, ErrorState } from '@/components/common/DataState';
 import { PageGuard } from '@/components/common/PageGuard';
 import { PermissionButton } from '@/components/common/PermissionButton';
 import { Modal } from '@/components/common/Modal';
@@ -215,7 +215,11 @@ function CalendarScreen() {
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
 
-      {!loading && !error && (
+      {!loading && !error && view === 'week' && schedules.length === 0 && (
+        <EmptyState title={t('calendar.empty.title')} description={t('calendar.empty.description')} />
+      )}
+
+      {!loading && !error && !(view === 'week' && schedules.length === 0) && (
         <div className="flex flex-col lg:flex-row gap-4 items-start">
           <div className="flex-1 min-w-0">
             {view === 'month' ? (
