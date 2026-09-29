@@ -41,6 +41,11 @@ const inputStyle: React.CSSProperties = {
 function EntryRow({ code, entry, onSaved }: { code: string; entry: TranslationEntryDTO; onSaved: (entry: TranslationEntryDTO) => void }) {
   const t = useT();
   const [value, setValue] = useState(entry.effective ?? '');
+  // Rows are keyed by message key, so a value that changes on the server
+  // (an AI job finishing, a pack upload) must replace the local copy.
+  useEffect(() => {
+    setValue(entry.effective ?? '');
+  }, [entry.effective]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dirty = value !== (entry.effective ?? '');
@@ -147,14 +152,14 @@ export default function AdminI18nEditorPage() {
   const params = useParams<{ code: string }>();
   const code = decodeURIComponent(params.code);
 
-  const { data: languages } = useBff<{ items: AdminLanguageDTO[] }>('admin/i18n/languages', null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const { data: languages } = useBff<{ items: AdminLanguageDTO[] }>('admin/i18n/languages', null, refreshKey);
   const language = languages?.items.find((l) => l.code === code);
 
   const [namespace, setNamespace] = useState('');
   const [query, setQuery] = useState('');
   const [onlyMissing, setOnlyMissing] = useState(false);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('');
-  const [refreshKey, setRefreshKey] = useState(0);
   const [version, setVersion] = useState(0);
 
   const search = new URLSearchParams();

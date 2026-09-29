@@ -23,3 +23,10 @@ export interface PassthroughResponseInit {
 export function buildPassthroughResponseInit(apiRes: Response): PassthroughResponseInit {
   return { status: apiRes.status, headers: stripHopByHopHeaders(apiRes.headers) };
 }
+
+/** Statuses whose responses must not carry a body (the Response constructor throws otherwise). */
+const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
+
+export function isNullBodyStatus(status: number): boolean {
+  return NULL_BODY_STATUSES.has(status);
+}

@@ -195,6 +195,21 @@ export class TranslationEngineService {
     return Promise.all(jobs.map((job) => this.toDTO(job)));
   }
 
+  /**
+   * Super-admin "run now": advances one job in this request for up to
+   * `budgetMs`, without running the rest of the scheduler heartbeat. Useful
+   * where there is no Redis queue; the job lock keeps it from running twice.
+   */
+  async runNow(actorUserId: string, jobId: string, budgetMs = 60_000): Promise<TranslationJobDTO> {
+    const job = await this.prisma.aiTranslationJob.findUnique({ where: { id: jobId }, select: { id: true, locale: true } });
+    if (!job) throw new NotFoundException('Çeviri işi bulunamadı.');
+    await this.prisma.auditLog.create({
+      data: { userId: actorUserId, action: 'ai.translation.run', entityType: 'AiTranslationJob', entityId: jobId, metadata: { locale: job.locale } },
+    });
+    await this.processJob(jobId, new Date(Date.now() + budgetMs));
+    return this.get(jobId);
+  }
+
   // -- workers ---------------------------------------------------------------
 
   /** Heartbeat entry point: advances waiting or abandoned jobs until `budgetMs` is used up. */

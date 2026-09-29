@@ -93,6 +93,7 @@ Süper admin (`/admin/ai`, `SuperAdminOnly`):
 | `GET /admin/ai/usage?months=6` | Kullanım panosu |
 | `PUT /admin/ai/tenants/:studioId/limit` | İşletmeye özel aylık limit (`null` kaldırır) |
 | `GET /admin/ai/translation-jobs/:jobId` | Çeviri işi durumu |
+| `POST /admin/ai/translation-jobs/:jobId/run` | Çeviri işini şimdi ilerlet (en fazla 60 saniye; Redis olmayan kurulumlar için) |
 | `POST /admin/ai/translation-jobs/:jobId/cancel` | Çeviri işini iptal et |
 | `POST /admin/i18n/languages/:code/ai-translate` | Çeviri işi başlat |
 | `GET /admin/i18n/languages/:code/ai-translate/jobs` | Dilin son işleri |
@@ -112,7 +113,7 @@ Hata gövdeleri `code` alanı taşır (`AI_NOT_CONFIGURED` 503, `AI_MONTHLY_LIMI
 - Birim testleri gerçek API'yi çağırmaz: gruplama, yer tutucu koruma, çoğul üretimi, limit uygulama, maliyet hesabı, anahtar şifreleme gidiş-dönüşü (`packages/shared/src/ai/ai.spec.ts`, `apps/api/src/modules/ai/**/*.spec.ts`).
 - API e2e (`apps/api/test/e2e/ai.e2e-spec.ts`) sahte adaptörü `overrideProvider` ile enjekte eder.
 - Web e2e yığını API'yi `AI_FAKE_PROVIDER=1` ile başlatır (`apps/web/e2e/ai-translate.e2e.ts`). Bu değişken `NODE_ENV=production` iken hem env doğrulamasında hem modül fabrikasında reddedilir.
-- Yerel geliştirmede Redis yoksa çeviri işini ilerletmek için süper admin olarak `POST /admin/scheduler/run` çağırın.
+- Yerel geliştirmede Redis yoksa çeviri işini ilerletmek için süper admin olarak `POST /admin/ai/translation-jobs/:jobId/run` çağırın (yalnızca o işi çalıştırır) veya tüm zamanlayıcı için `POST /admin/scheduler/run`.
 
 ## Bilinen sınırlar
 

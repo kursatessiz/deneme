@@ -25,7 +25,7 @@ const inputStyle: React.CSSProperties = {
 export default function PlansPage() {
   const locale = useLocale();
   const [refreshKey, setRefreshKey] = useState(0);
-  const { data, loading, error, forbidden } = useBff<{ items: Plan[] }>('admin/plans', null);
+  const { data, loading, error, forbidden } = useBff<{ items: Plan[] }>('admin/plans', null, refreshKey);
   const t = useT();
   const [form, setForm] = useState({ key: '', name: '', priceMonthly: '', maxBranches: '', maxActiveMembers: '', maxStaff: '', aiBudget: '' });
   const [submitting, setSubmitting] = useState(false);

@@ -12,6 +12,9 @@ import { DEMO_PASSWORD } from './support/login';
  * removed at the end.
  */
 
+// Fail a stuck action with its own message instead of the whole-test timeout.
+test.use({ actionTimeout: 15_000 });
+
 const SUPER_ADMIN_PHONE = '+905321000001';
 const FAKE_KEY = 'sk-ant-api03-playwright-fake-key-0000PWKY';
 const CSRF = { 'x-requested-with': 'platform-web' };
@@ -21,6 +24,29 @@ function localCode(): string {
   const letters = 'abcdefghijklmnopqrstuvwxyz';
   const pick = () => letters[Math.floor(Math.random() * letters.length)];
   return `q${'abcdefghijklmnopqrst'[Math.floor(Math.random() * 20)]}${pick()}`;
+}
+
+/**
+ * Calls the BFF with the browser context's cookies. APIRequestContext sends
+ * no Origin header by itself, so it is set to the page's origin, which is
+ * what the BFF's CSRF check expects from the web app.
+ */
+async function bff(page: Page, method: 'GET' | 'POST' | 'DELETE', path: string): Promise<{ status: number; body: unknown }> {
+  const origin = new URL(page.url()).origin;
+  const res = await page.request.fetch(`/api/bff/${path}`, {
+    method,
+    headers: { ...CSRF, origin, 'content-type': 'application/json' },
+    data: method === 'POST' ? {} : undefined,
+    timeout: 30_000,
+  });
+  const text = await res.text();
+  let body: unknown = null;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch {
+    body = text;
+  }
+  return { status: res.status(), body };
 }
 
 async function loginAsSuperAdmin(page: Page): Promise<void> {
@@ -71,25 +97,32 @@ test('the super admin sets the AI key and translates a language section with AI'
     const job = panel.getByTestId('ai-translate-job');
     await expect(job.getByText('Sırada', { exact: true })).toBeVisible();
 
-    // No Redis in this stack: one heartbeat runs the queued job.
-    const beat = await page.request.post('/api/bff/admin/scheduler/run', { headers: CSRF, data: {} });
-    expect(beat.ok()).toBeTruthy();
+    // No Redis in this stack: run the queued job now (the full scheduler
+    // heartbeat would also do it, but runs every other periodic task too).
+    const jobs = await bff(page, 'GET', `admin/i18n/languages/${code}/ai-translate/jobs`);
+    expect(jobs.status).toBe(200);
+    const list = (Array.isArray(jobs.body) ? jobs.body : (jobs.body as { items?: unknown[] }).items ?? []) as { id: string }[];
+    expect(list.length).toBeGreaterThan(0);
+    const run = await bff(page, 'POST', `admin/ai/translation-jobs/${list[0].id}/run`);
+    expect(run.status).toBe(200);
     await expect(job.getByText('Tamamlandı', { exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(job.getByText(/^(\d+) \/ \1 tamamlandı/)).toBeVisible();
 
     // 4. Review: filter the unreviewed AI values, check placeholders, approve.
-    await main.getByLabel('Kaynak', { exact: true }).selectOption('AI_UNREVIEWED');
+    await main.locator('#i18n-source-filter').selectOption('AI_UNREVIEWED');
     const pluralRow = main.getByRole('row').filter({ hasText: 'common.itemCount.other' });
     await expect(pluralRow.getByRole('textbox')).toHaveValue(/\{count\}/);
     await expect(pluralRow.getByText('Yapay zeka, onay bekliyor')).toBeVisible();
     await main.getByRole('button', { name: 'Görünen yapay zeka çevirilerini onayla' }).click();
-    await expect(main.getByText('Yapay zeka, onay bekliyor')).toHaveCount(0);
+    // Scoped to the table: the filter select has an option with the same text.
+    await expect(main.getByRole('table').getByText('Yapay zeka, onay bekliyor')).toHaveCount(0);
 
-    await main.getByLabel('Kaynak', { exact: true }).selectOption('AI');
+    await main.locator('#i18n-source-filter').selectOption('AI');
     await expect(main.getByRole('row').filter({ hasText: 'common.itemCount.other' }).getByText('Yapay zeka', { exact: true })).toBeVisible();
   } finally {
-    await page.request.delete(`/api/bff/admin/i18n/languages/${code}`, { headers: CSRF });
-    await page.request.delete('/api/bff/admin/ai/settings/key', { headers: CSRF });
+    // Best-effort cleanup; never hide the real failure behind a cleanup error.
+    await bff(page, 'DELETE', `admin/i18n/languages/${code}`).catch(() => undefined);
+    await bff(page, 'DELETE', 'admin/ai/settings/key').catch(() => undefined);
   }
 });
 
