@@ -2,16 +2,16 @@
 
 import { useState } from 'react';
 import { useBff } from '@/lib/session/use-bff';
-import { useLocale } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
+import { useLocale, useT } from '@/components/i18n/I18nProvider';
 
 interface Plan {
   id: string;
   key: string;
   name: string;
   priceMonthly: string;
-  limits: { maxBranches?: number; maxActiveMembers?: number; maxStaff?: number; maxSmsPerMonth?: number };
+  limits: { maxBranches?: number; maxActiveMembers?: number; maxStaff?: number; maxSmsPerMonth?: number; aiMonthlyBudgetCents?: number };
   isActive: boolean;
 }
 
@@ -26,7 +26,8 @@ export default function PlansPage() {
   const locale = useLocale();
   const [refreshKey, setRefreshKey] = useState(0);
   const { data, loading, error, forbidden } = useBff<{ items: Plan[] }>('admin/plans', null);
-  const [form, setForm] = useState({ key: '', name: '', priceMonthly: '', maxBranches: '', maxActiveMembers: '', maxStaff: '' });
+  const t = useT();
+  const [form, setForm] = useState({ key: '', name: '', priceMonthly: '', maxBranches: '', maxActiveMembers: '', maxStaff: '', aiBudget: '' });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -47,11 +48,12 @@ export default function PlansPage() {
             ...(form.maxBranches ? { maxBranches: Number(form.maxBranches) } : {}),
             ...(form.maxActiveMembers ? { maxActiveMembers: Number(form.maxActiveMembers) } : {}),
             ...(form.maxStaff ? { maxStaff: Number(form.maxStaff) } : {}),
+            ...(form.aiBudget !== '' ? { aiMonthlyBudgetCents: Math.round(Number(form.aiBudget) * 100) } : {}),
           },
           isActive: true,
         },
       });
-      setForm({ key: '', name: '', priceMonthly: '', maxBranches: '', maxActiveMembers: '', maxStaff: '' });
+      setForm({ key: '', name: '', priceMonthly: '', maxBranches: '', maxActiveMembers: '', maxStaff: '', aiBudget: '' });
       refresh();
     } catch (err) {
       setFormError(err instanceof BffError ? err.message : 'Plan kaydedilemedi');
@@ -85,6 +87,17 @@ export default function PlansPage() {
           <input type="number" placeholder="Max şube" value={form.maxBranches} onChange={(e) => setForm({ ...form, maxBranches: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
           <input type="number" placeholder="Max aktif üye" value={form.maxActiveMembers} onChange={(e) => setForm({ ...form, maxActiveMembers: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
           <input type="number" placeholder="Max personel" value={form.maxStaff} onChange={(e) => setForm({ ...form, maxStaff: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            placeholder={t('adminAi.plan.budget')}
+            aria-label={t('adminAi.plan.budget')}
+            value={form.aiBudget}
+            onChange={(e) => setForm({ ...form, aiBudget: e.target.value })}
+            className="border px-3 py-2 text-sm"
+            style={inputStyle}
+          />
         </div>
         {formError && <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{formError}</p>}
         <button type="submit" disabled={submitting} className="px-4 py-2 text-sm font-medium" style={{ borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
@@ -112,6 +125,13 @@ export default function PlansPage() {
                 <li>Şube: {p.limits.maxBranches ?? 'sınırsız'}</li>
                 <li>Aktif üye: {p.limits.maxActiveMembers ?? 'sınırsız'}</li>
                 <li>Personel: {p.limits.maxStaff ?? 'sınırsız'}</li>
+                <li>
+                  {p.limits.aiMonthlyBudgetCents !== undefined
+                    ? t('adminAi.plan.budgetValue', {
+                        amount: new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(p.limits.aiMonthlyBudgetCents / 100),
+                      })
+                    : t('adminAi.plan.budgetDefault')}
+                </li>
               </ul>
               <button onClick={() => toggleActive(p)} className="text-xs font-medium underline mt-3" style={{ color: 'var(--color-text-secondary)' }}>
                 {p.isActive ? 'Pasifleştir' : 'Etkinleştir'}

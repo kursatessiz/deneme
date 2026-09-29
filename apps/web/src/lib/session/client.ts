@@ -6,6 +6,8 @@ export class BffError extends Error {
   constructor(
     message: string,
     public status: number,
+    /** Stable error code from the API body (e.g. "AI_NOT_CONFIGURED"), when it sends one. */
+    public code: string | null = null,
   ) {
     super(message);
   }
@@ -37,7 +39,8 @@ export async function bffFetch<T>(
 
   if (!res.ok) {
     const data = await res.json().catch(() => null);
-    throw new BffError((data && (data.message as string)) || `İstek başarısız oldu (${res.status})`, res.status);
+    const code = data && typeof data.code === 'string' ? (data.code as string) : null;
+    throw new BffError((data && (data.message as string)) || `İstek başarısız oldu (${res.status})`, res.status, code);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;

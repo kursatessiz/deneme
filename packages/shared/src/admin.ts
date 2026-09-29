@@ -64,6 +64,8 @@ export const PlanLimitsSchema = z
     maxActiveMembers: z.number().int().positive().optional(),
     maxStaff: z.number().int().positive().optional(),
     maxSmsPerMonth: z.number().int().positive().optional(),
+    /** Monthly AI budget in US cents (G3b); 0 turns AI off for the plan's tenants. */
+    aiMonthlyBudgetCents: z.number().int().min(0).optional(),
   })
   .partial();
 export type PlanLimits = z.infer<typeof PlanLimitsSchema>;

@@ -1,12 +1,35 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import type { AdminLanguageDTO, ImportReportDTO, TranslationEntryDTO } from '@platform/shared';
+import { BASE_LOCALE, BASE_MESSAGES, type AdminLanguageDTO, type ImportReportDTO, type TranslationEntryDTO } from '@platform/shared';
 import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, ErrorState } from '@/components/common/DataState';
 import { useT } from '@/components/i18n/I18nProvider';
+import { AiTranslatePanel } from '@/components/admin/AiTranslatePanel';
+import { GlossaryPanel } from '@/components/admin/GlossaryPanel';
+
+type SourceFilter = '' | 'AI_UNREVIEWED' | 'AI' | 'MANUAL' | 'UPLOAD';
+const SOURCE_FILTERS: readonly SourceFilter[] = ['', 'AI_UNREVIEWED', 'AI', 'MANUAL', 'UPLOAD'];
+
+function SourceBadge({ entry }: { entry: TranslationEntryDTO }) {
+  const t = useT();
+  if (!entry.source) return null;
+  const pending = entry.source === 'AI' && entry.reviewedAt === null;
+  return (
+    <span
+      className="inline-block mt-1 mr-1 text-[10px] px-1.5 py-0.5 font-sans"
+      style={{
+        borderRadius: 'var(--radius-chip)',
+        backgroundColor: 'var(--color-surface-muted)',
+        color: pending ? 'var(--color-warning, #b54708)' : 'var(--color-text-secondary)',
+      }}
+    >
+      {pending ? t('adminI18n.source.aiUnreviewed') : t(`adminI18n.source.${entry.source}`)}
+    </span>
+  );
+}
 
 const inputStyle: React.CSSProperties = {
   borderRadius: 'var(--radius-input)',
@@ -21,6 +44,19 @@ function EntryRow({ code, entry, onSaved }: { code: string; entry: TranslationEn
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dirty = value !== (entry.effective ?? '');
+
+  async function approve() {
+    setSaving(true);
+    setError(null);
+    try {
+      await bffFetch(`admin/i18n/languages/${code}/review`, { method: 'POST', body: { keys: [entry.key] } });
+      onSaved({ ...entry, reviewedAt: new Date().toISOString() });
+    } catch (err) {
+      setError(err instanceof BffError ? err.message : t('common.error.generic'));
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function save(nextValue: string | null) {
     setSaving(true);
@@ -43,6 +79,14 @@ function EntryRow({ code, entry, onSaved }: { code: string; entry: TranslationEn
     <tr className="border-b last:border-0 align-top" style={{ borderColor: 'var(--color-border)' }}>
       <td className="px-3 py-2 font-mono text-xs" style={{ color: 'var(--color-text-muted)' }}>
         {entry.key}
+        <div>
+          <SourceBadge entry={entry} />
+          {entry.isPluralExtension && (
+            <span className="inline-block mt-1 text-[10px] font-sans" style={{ color: 'var(--color-text-muted)' }}>
+              {t('adminI18n.editor.pluralExtension')}
+            </span>
+          )}
+        </div>
         {entry.placeholders.length > 0 && (
           <div className="mt-1 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
             {t('adminI18n.editor.placeholders')}: {entry.placeholders.map((p) => `{${p}}`).join(', ')}
@@ -67,6 +111,16 @@ function EntryRow({ code, entry, onSaved }: { code: string; entry: TranslationEn
         )}
       </td>
       <td className="px-3 py-2 text-right whitespace-nowrap">
+        {entry.source === 'AI' && entry.reviewedAt === null && (
+          <button
+            onClick={approve}
+            disabled={saving || dirty}
+            className="text-xs font-medium hover:underline disabled:opacity-40 mr-3"
+            style={{ color: 'var(--color-primary)' }}
+          >
+            {t('adminI18n.editor.approve')}
+          </button>
+        )}
         <button
           onClick={() => save(value)}
           disabled={saving || !dirty}
@@ -99,25 +153,58 @@ export default function AdminI18nEditorPage() {
   const [namespace, setNamespace] = useState('');
   const [query, setQuery] = useState('');
   const [onlyMissing, setOnlyMissing] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [version, setVersion] = useState(0);
 
   const search = new URLSearchParams();
   if (namespace) search.set('namespace', namespace);
   if (query) search.set('q', query);
   if (onlyMissing) search.set('missingOnly', 'true');
+  if (sourceFilter) search.set('source', sourceFilter);
   const entriesPath = `admin/i18n/languages/${code}/entries${search.toString() ? `?${search}` : ''}`;
-  const { data, loading, error } = useBff<{ items: TranslationEntryDTO[] }>(entriesPath, null);
+  const [data, setData] = useState<{ items: TranslationEntryDTO[] } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [entries, setEntries] = useState<TranslationEntryDTO[] | null>(null);
   const items = entries ?? data?.items ?? null;
 
-  const namespaces = useMemo(() => {
-    const set = new Set<string>();
-    for (const entry of data?.items ?? []) {
-      const dot = entry.key.indexOf('.');
-      if (dot > 0) set.add(entry.key.slice(0, dot));
+  // Reloaded when the filters change and when an AI job reports progress (version).
+  useEffect(() => {
+    let cancelled = false;
+    bffFetch<{ items: TranslationEntryDTO[] }>(entriesPath)
+      .then((res) => {
+        if (cancelled) return;
+        setData(res);
+        setEntries(null);
+        setError(null);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof BffError ? err.message : t('common.error.generic'));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [entriesPath, version, t]);
+  const reload = useCallback(() => setVersion((v) => v + 1), []);
+
+  const namespaces = useMemo(() => [...new Set(Object.keys(BASE_MESSAGES).map((k) => k.split('.')[0]))].sort(), []);
+  const unreviewedVisible = (items ?? []).filter((e) => e.source === 'AI' && e.reviewedAt === null).map((e) => e.key);
+  const [approving, setApproving] = useState(false);
+
+  async function approveVisible() {
+    if (unreviewedVisible.length === 0) return;
+    setApproving(true);
+    try {
+      await bffFetch(`admin/i18n/languages/${code}/review`, { method: 'POST', body: { keys: unreviewedVisible } });
+      reload();
+    } finally {
+      setApproving(false);
     }
-    return [...set].sort();
-  }, [data]);
+  }
 
   function onEntrySaved(updated: TranslationEntryDTO) {
     setEntries((prev) => (prev ?? data?.items ?? []).map((e) => (e.key === updated.key ? updated : e)));
@@ -155,7 +242,7 @@ export default function AdminI18nEditorPage() {
       setReport(result);
       if (!dryRun && result.applied) {
         setRefreshKey((k) => k + 1);
-        setEntries(null);
+        reload();
       }
     } catch (err) {
       setUploadError(err instanceof BffError ? err.message : t('adminI18n.upload.blocked'));
@@ -193,6 +280,17 @@ export default function AdminI18nEditorPage() {
         </div>
       </div>
 
+      {code === BASE_LOCALE ? (
+        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          {t('adminI18n.ai.baseLanguage')}
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <AiTranslatePanel code={code} onProgress={reload} />
+          <GlossaryPanel code={code} />
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-3 items-center">
         <select value={namespace} onChange={(e) => setNamespace(e.target.value)} className="px-2 py-1.5 border text-sm" style={inputStyle}>
           <option value="">{t('common.all')}</option>
@@ -213,6 +311,33 @@ export default function AdminI18nEditorPage() {
           <input type="checkbox" checked={onlyMissing} onChange={(e) => setOnlyMissing(e.target.checked)} />
           {t('adminI18n.editor.onlyMissing')}
         </label>
+        <label className="flex items-center gap-1.5 text-xs" htmlFor="i18n-source-filter" style={{ color: 'var(--color-text-secondary)' }}>
+          {t('adminI18n.editor.sourceFilter')}
+          <select
+            id="i18n-source-filter"
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value as SourceFilter)}
+            className="px-2 py-1.5 border text-sm"
+            style={inputStyle}
+          >
+            {SOURCE_FILTERS.map((f) => (
+              <option key={f || 'all'} value={f}>
+                {f === '' ? t('common.all') : f === 'AI_UNREVIEWED' ? t('adminI18n.source.aiUnreviewed') : t(`adminI18n.source.${f}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {unreviewedVisible.length > 0 && (
+          <button
+            type="button"
+            onClick={approveVisible}
+            disabled={approving}
+            className="text-xs font-medium px-3 py-1.5 rounded-lg border disabled:opacity-40"
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-primary)' }}
+          >
+            {t('adminI18n.editor.approveVisible')}
+          </button>
+        )}
       </div>
 
       <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>

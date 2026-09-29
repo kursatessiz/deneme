@@ -79,6 +79,11 @@ export const PERMISSIONS = {
 
   'site.view': 'İşletme web sitesini ve sayfalarını görüntüleme',
   'site.manage': 'İşletme web sitesi sayfalarını düzenleme, yayınlama ve alan adı ayarlama',
+
+  // G3b: drafting campaign, email, SMS and page text and inbox reply
+  // suggestions with AI. Counts against the tenant's monthly AI budget, so
+  // only the owner has it by default.
+  'ai.use': 'Yapay zeka ile metin taslağı ve cevap önerisi oluşturma',
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
@@ -112,6 +117,7 @@ export const PERMISSION_AREAS = {
   Reklam: ['ads.view', 'ads.manage'],
   İçerik: ['content.view', 'content.manage'],
   'Web sitem': ['site.view', 'site.manage'],
+  'Yapay zeka': ['ai.use'],
 } as const satisfies Record<string, readonly PermissionKey[]>;
 
 export type PermissionArea = keyof typeof PERMISSION_AREAS;

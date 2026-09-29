@@ -44,6 +44,11 @@ const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? 'Demo1234!';
 // Tables in no particular order: TRUNCATE ... CASCADE handles FK order for us.
 const ALL_TABLES = [
   'audit_logs',
+  'ai_usage',
+  'ai_translation_job_items',
+  'ai_translation_jobs',
+  'ai_glossary_terms',
+  'ai_settings',
   'health_sync_records',
   'health_daily_summaries',
   'member_health_settings',
@@ -448,7 +453,7 @@ async function createPlans() {
       key: 'starter',
       name: 'Starter',
       priceMonthly: 1490,
-      limits: { maxBranches: 1, maxActiveMembers: 150, maxStaff: 5 },
+      limits: { maxBranches: 1, maxActiveMembers: 150, maxStaff: 5, aiMonthlyBudgetCents: 500 },
     },
   });
   count('plans');
@@ -458,7 +463,7 @@ async function createPlans() {
       key: 'pro',
       name: 'Pro',
       priceMonthly: 3490,
-      limits: { maxBranches: 3, maxActiveMembers: 800, maxStaff: 25 },
+      limits: { maxBranches: 3, maxActiveMembers: 800, maxStaff: 25, aiMonthlyBudgetCents: 2000 },
     },
   });
   count('plans');

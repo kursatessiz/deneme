@@ -8,6 +8,7 @@ import type { CampaignDTO, CampaignRecipientDTO, CampaignTestSendResultDTO, Mess
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { PermissionButton } from '@/components/common/PermissionButton';
+import { AiDraftPanel } from '@/components/ai/AiDraftPanel';
 import { Badge } from '@/components/common/Badge';
 import { ErrorState, LoadingState } from '@/components/common/DataState';
 import { bffFetch } from '@/lib/session/client';
@@ -283,6 +284,12 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
           )}
         </div>
         <Muted>{t('campaigns.compliance')}</Muted>
+        {editable && canManage && (
+          <AiDraftPanel
+            kinds={channel === 'EMAIL' ? ['EMAIL'] : channel === 'SMS' ? ['SMS', 'CAMPAIGN'] : ['CAMPAIGN', 'SMS', 'EMAIL']}
+            hint={t('ai.draft.campaignHint')}
+          />
+        )}
         {editable && canManage && (
           <div className="flex flex-wrap gap-2">
             <PermissionButton required={['campaigns.manage']} onClick={() => run('save')} disabled={busy || !name.trim() || !segmentId || !templateKey}>

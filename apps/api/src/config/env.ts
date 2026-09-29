@@ -106,6 +106,13 @@ export const EnvSchema = z
     /** Shared secret in the Netgsm / İleti Merkezi delivery-report URL. */
     SMS_DLR_WEBHOOK_TOKEN: z.string().min(24).optional(),
 
+    // G3b AI core (docs/YAPAY_ZEKA.md). The super admin normally stores the
+    // Anthropic key encrypted in the database from the AI settings screen;
+    // this env var is only the fallback when no key is stored.
+    ANTHROPIC_API_KEY: z.string().min(20).optional(),
+    /** Test-only deterministic AI provider (web e2e suite). Refused in production. */
+    AI_FAKE_PROVIDER: z.enum(['0', '1']).optional(),
+
     /** Base URL for JITSI-generated meeting rooms (W19). Must be https. */
     JITSI_BASE_URL: z.string().url().default('https://meet.jit.si'),
   })
@@ -134,6 +141,9 @@ export const EnvSchema = z
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['JITSI_BASE_URL'], message: 'must be an https URL' });
     }
     if (env.NODE_ENV !== 'production') return;
+    if (env.AI_FAKE_PROVIDER === '1') {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['AI_FAKE_PROVIDER'], message: 'must not be enabled in production' });
+    }
     if (!env.REDIS_URL) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['REDIS_URL'], message: 'required in production' });
     }

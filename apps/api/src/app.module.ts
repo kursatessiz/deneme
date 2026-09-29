@@ -44,6 +44,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { I18nModule } from './modules/i18n/i18n.module';
 import { PlanLimitsModule } from './modules/admin/plan-limits.module';
 import { SitesModule } from './modules/sites/sites.module';
+import { AiModule } from './modules/ai/ai.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -97,6 +98,7 @@ import { validateEnv } from './config/env';
     AdminModule,
     I18nModule,
     SitesModule,
+    AiModule,
   ],
 })
 export class AppModule {}

@@ -66,6 +66,9 @@ export default defineConfig({
         PUBLIC_APP_URL: baseURL,
         PUBLIC_API_URL: apiURL,
         CORS_ORIGIN: baseURL,
+        // Deterministic fake AI provider for e2e/ai-translate.e2e.ts; the API
+        // refuses it at boot when NODE_ENV=production.
+        AI_FAKE_PROVIDER: '1',
       },
     },
     {
