@@ -196,23 +196,30 @@ function ModelsSection({ settings, onChange }: { settings: AiSettingsDTO; onChan
   const t = useT();
   const [models, setModels] = useState<Record<AiTask, string>>(settings.models);
   const [budget, setBudget] = useState(String(settings.defaultMonthlyBudgetCents / 100));
+  const [marketingBudget, setMarketingBudget] = useState(String(settings.marketingAiMonthlyBudgetCents / 100));
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     setModels(settings.models);
     setBudget(String(settings.defaultMonthlyBudgetCents / 100));
-  }, [settings.models, settings.defaultMonthlyBudgetCents]);
+    setMarketingBudget(String(settings.marketingAiMonthlyBudgetCents / 100));
+  }, [settings.models, settings.defaultMonthlyBudgetCents, settings.marketingAiMonthlyBudgetCents]);
 
   async function save() {
     setBusy(true);
     setMessage(null);
     try {
       const cents = Math.round(Number(budget) * 100);
+      const marketingCents = Math.round(Number(marketingBudget) * 100);
       onChange(
         await bffFetch<AiSettingsDTO>('admin/ai/settings', {
           method: 'PATCH',
-          body: { models, ...(Number.isFinite(cents) && cents >= 0 ? { defaultMonthlyBudgetCents: cents } : {}) },
+          body: {
+            models,
+            ...(Number.isFinite(cents) && cents >= 0 ? { defaultMonthlyBudgetCents: cents } : {}),
+            ...(Number.isFinite(marketingCents) && marketingCents >= 0 ? { marketingAiMonthlyBudgetCents: marketingCents } : {}),
+          },
         }),
       );
       setMessage({ tone: 'success', text: t('adminAi.saved') });
@@ -261,6 +268,27 @@ function ModelsSection({ settings, onChange }: { settings: AiSettingsDTO; onChan
           {t('adminAi.budget.label')}
         </span>
         <input id="ai-default-budget" type="number" min={0} step="0.01" value={budget} onChange={(e) => setBudget(e.target.value)} className="w-full text-sm px-3 py-2" style={inputStyle} />
+      </label>
+      <h4 className="text-xs font-semibold pt-2" style={{ color: 'var(--color-text-primary)' }}>
+        {t('adminAi.marketingBudget.title')}
+      </h4>
+      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+        {t('adminAi.marketingBudget.hint')}
+      </p>
+      <label className="block space-y-1 max-w-xs" htmlFor="ai-marketing-budget">
+        <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+          {t('adminAi.marketingBudget.label')}
+        </span>
+        <input
+          id="ai-marketing-budget"
+          type="number"
+          min={0}
+          step="0.01"
+          value={marketingBudget}
+          onChange={(e) => setMarketingBudget(e.target.value)}
+          className="w-full text-sm px-3 py-2"
+          style={inputStyle}
+        />
       </label>
       <button type="button" onClick={save} disabled={busy} className="px-4 py-2 text-sm font-medium disabled:opacity-40" style={primaryButton}>
         {t('adminAi.save')}

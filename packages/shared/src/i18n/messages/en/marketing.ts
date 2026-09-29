@@ -33,10 +33,4 @@ export const enMarketing = {
     'Funnel, cost and channel health indicators arrive here in phase M3. For now, use the menu to reach contacts, campaigns and reports.',
   'marketing.placeholder.approvals.title': 'Approvals',
   'marketing.placeholder.approvals.description': 'Send and spend requests above the threshold will be approved here in phase M3.',
-  'marketing.placeholder.calendar.title': 'Content calendar',
-  'marketing.placeholder.calendar.description': 'Campaigns, journeys and posts will share one calendar in phase M2.',
-  'marketing.placeholder.aiStudio.title': 'AI studio',
-  'marketing.placeholder.aiStudio.description': 'Multi-channel drafts from a brief arrive in phase M2. AI never sends anything without approval.',
-  'marketing.placeholder.brand.title': 'Brand kit',
-  'marketing.placeholder.brand.description': 'Brand voice, banned phrases and product facts will be edited here in phase M2.',
 } as const satisfies Record<keyof typeof trMarketing, string>;

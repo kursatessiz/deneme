@@ -38,5 +38,6 @@ export const trAi = {
   'ai.error.AI_REFUSED': 'Yapay zeka bu isteği yanıtlamadı.',
   'ai.error.AI_INVALID_OUTPUT': 'Yapay zeka geçerli bir yanıt üretemedi. Tekrar deneyin.',
   'ai.error.AI_ENCRYPTION_UNAVAILABLE': 'Anahtar şifrelenemedi: sunucuda şifreleme anahtarı tanımlı değil.',
+  'ai.error.MARKETING_AI_BUDGET_EXCEEDED': 'Pazarlama yapay zeka bütçesi bu ay doldu. Süper admin limiti artırabilir.',
   'ai.error.generic': 'Yapay zeka isteği başarısız oldu.',
 } as const satisfies Record<string, string>;

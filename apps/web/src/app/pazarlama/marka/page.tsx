@@ -1,12 +1,13 @@
-import { MarketingPlaceholder } from '@/components/marketing/MarketingPlaceholder';
+'use client';
 
-/** Brand kit and product facts (M2a). */
+import { BrandKitEditor } from '@/components/marketing/BrandKitEditor';
+import { PlatformPageGuard } from '@/components/marketing/PlatformSession';
+
+/** Brand kit and product facts (M2a); read with platform.marketing.view, edit with platform.brand.manage (enforced by the API). */
 export default function Page() {
   return (
-    <MarketingPlaceholder
-      titleKey="marketing.placeholder.brand.title"
-      descriptionKey="marketing.placeholder.brand.description"
-      required={['platform.brand.manage']}
-    />
+    <PlatformPageGuard required={['platform.brand.manage', 'platform.marketing.view']}>
+      <BrandKitEditor />
+    </PlatformPageGuard>
   );
 }

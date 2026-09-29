@@ -20,6 +20,19 @@ describe('marketing nav', () => {
     expect(hasAnyPlatformPermission(['platform.brand.manage'], ['platform.ads.view'], false)).toBe(false);
   });
 
+  it('a read-only role sees the brand kit and the calendar but not the AI studio', () => {
+    const keys = filterMarketingNav(MARKETING_NAV_ITEMS, ['platform.marketing.view'], false).map((i) => i.key);
+    expect(keys).toEqual(expect.arrayContaining(['brand', 'calendar']));
+    expect(keys).not.toContain('aiStudio');
+  });
+
+  it('the AI studio and brand kit live at their M2 routes', () => {
+    const href = (key: string) => MARKETING_NAV_ITEMS.find((i) => i.key === key)?.href;
+    expect(href('aiStudio')).toBe('/pazarlama/yapay-zeka');
+    expect(href('brand')).toBe('/pazarlama/marka');
+    expect(href('calendar')).toBe('/pazarlama/takvim');
+  });
+
   it('marks the most specific item active', () => {
     expect(activeMarketingItem(MARKETING_NAV_ITEMS, '/pazarlama')).toBe('dashboard');
     expect(activeMarketingItem(MARKETING_NAV_ITEMS, '/pazarlama/kisiler/abc')).toBe('contacts');
