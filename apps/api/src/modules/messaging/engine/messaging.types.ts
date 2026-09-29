@@ -9,6 +9,12 @@ export type RecipientRef =
   | { phone: string }
   | { email: string };
 
+export interface MessageContentOverrides {
+  subject?: string;
+  preheader?: string;
+  body?: string;
+}
+
 export interface SendMessageInput {
   /** Null only for platform messages to a raw address (login codes). */
   studioId: string | null;
@@ -24,6 +30,13 @@ export interface SendMessageInput {
   /** Template by key (resolved per channel and locale) or a specific tenant/global row. */
   templateKey?: string;
   templateId?: string;
+  /**
+   * Per-send content overrides of the resolved template (campaign A/B
+   * variants): e-mail subject, preheader and body, SMS body. WhatsApp always
+   * sends its approved template and ignores them. Placeholders render
+   * strictly, like the template's own.
+   */
+  overrides?: MessageContentOverrides;
   /** Free text instead of a template (inbox replies, legacy notifications). */
   content?: { subject?: string | null; text: string; data?: Record<string, string> };
   /** Defaults to the contact's, then the user's, then the studio's language. */

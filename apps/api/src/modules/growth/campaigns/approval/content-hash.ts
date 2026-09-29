@@ -31,6 +31,24 @@ export interface CampaignContentInput {
   audienceCount: number;
   /** ISO time asked for, or null for "as soon as approved". */
   schedule: string | null;
+  /** M3c: the A/B setup (test share, metric, wait); omitted or null without a test. */
+  abTest?: { testShare: number; metric: string; waitMinutes: number } | null;
+  /**
+   * M3c: what each variant sends (its template key, text overrides and the
+   * template rows it resolves to). The winner and the stats are chosen while
+   * the send runs and are deliberately not part of the content.
+   */
+  variants?: readonly CampaignVariantFingerprint[];
+  /** M3c: when each recipient is scheduled; omitted or FIXED leaves the hash unchanged. */
+  sendTime?: { mode: string; local: string | null } | null;
+}
+
+export interface CampaignVariantFingerprint {
+  key: string;
+  templateKey: string | null;
+  overrides: { subject?: string; preheader?: string; body?: string } | null;
+  /** Rows of this variant's own template (empty when it uses the campaign's). */
+  templates: readonly TemplateFingerprintRow[];
 }
 
 /** JSON with object keys sorted at every level, so equal content always serialises the same way. */
@@ -48,8 +66,8 @@ function rowKey(r: TemplateFingerprintRow): string {
 }
 
 /** sha256 hex of the canonical fingerprint; independent of row order and object key order. */
-export function campaignContentHash(input: CampaignContentInput): string {
-  const templates = [...input.templates]
+function normaliseRows(rows: readonly TemplateFingerprintRow[]) {
+  return [...rows]
     .sort((a, b) => (rowKey(a) < rowKey(b) ? -1 : rowKey(a) > rowKey(b) ? 1 : 0))
     .map((r) => ({
       channel: r.channel,
@@ -62,6 +80,18 @@ export function campaignContentHash(input: CampaignContentInput): string {
       whatsappStatus: r.whatsappStatus,
       isTransactional: r.isTransactional,
     }));
+}
+
+export function campaignContentHash(input: CampaignContentInput): string {
+  const templates = normaliseRows(input.templates);
+  // The M3c parts only enter the fingerprint when set, so a campaign without a test or a send time mode keeps the hash (and the approval) it had before.
+  const abTest = input.abTest ?? null;
+  const variants = abTest
+    ? [...(input.variants ?? [])]
+        .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+        .map((v) => ({ key: v.key, templateKey: v.templateKey, overrides: v.overrides ?? null, templates: normaliseRows(v.templates) }))
+    : null;
+  const sendTime = input.sendTime && input.sendTime.mode !== 'FIXED' ? { mode: input.sendTime.mode, local: input.sendTime.local } : null;
   const fingerprint = {
     v: 1,
     channel: input.channel,
@@ -71,6 +101,8 @@ export function campaignContentHash(input: CampaignContentInput): string {
     segmentId: input.segmentId,
     audienceCount: input.audienceCount,
     schedule: input.schedule,
+    ...(abTest ? { abTest: { testShare: abTest.testShare, metric: abTest.metric, waitMinutes: abTest.waitMinutes }, variants } : {}),
+    ...(sendTime ? { sendTime } : {}),
   };
   return createHash('sha256').update(canonicalJson(fingerprint)).digest('hex');
 }

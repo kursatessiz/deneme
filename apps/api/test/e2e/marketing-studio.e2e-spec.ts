@@ -349,13 +349,13 @@ describe('Marketing studio (M2) e2e', () => {
       expect(JSON.stringify(fake.requests[0])).not.toContain(PII_EMAIL_DOMAIN);
     });
 
-    it('A/B setup is only stored (no send); variants must belong to the draft', async () => {
+    it('A/B setup is stored on the draft (no send); variants must belong to the draft', async () => {
       const notificationsBefore = await prisma.notificationLog.count({ where: { studioId: PLATFORM } });
       const ok = await as(marketingToken)
         .put(`/platform/marketing/studio/drafts/${smsDraftId}/ab-test`)
         .send({ enabled: true, testSharePercent: 25, metric: 'CLICK', waitHours: 12, variantIds: smsVariantIds.slice(0, 2) });
       expect(ok.status).toBe(200);
-      expect(ok.body.abTest).toMatchObject({ enabled: true, testSharePercent: 25, metric: 'CLICK', waitHours: 12, storedOnly: true });
+      expect(ok.body.abTest).toMatchObject({ enabled: true, testSharePercent: 25, metric: 'CLICK', waitHours: 12 });
       const foreign = (await as(marketingToken).get(`/platform/marketing/studio/drafts/${emailDraftId}`)).body.variants[0].id as string;
       const bad = await as(marketingToken)
         .put(`/platform/marketing/studio/drafts/${smsDraftId}/ab-test`)

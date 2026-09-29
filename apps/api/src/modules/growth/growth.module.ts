@@ -8,6 +8,8 @@ import { SegmentsService } from './segments/segments.service';
 import { SegmentsController } from './segments/segments.controller';
 import { CampaignsService } from './campaigns/campaigns.service';
 import { CampaignsController } from './campaigns/campaigns.controller';
+import { CampaignAbService } from './campaigns/campaign-ab.service';
+import { CampaignSendTimeService } from './campaigns/campaign-send-time.service';
 import { JourneyScannersService } from './journeys/journey-scanners.service';
 import { JourneyEngineService } from './journeys/journey-engine.service';
 import { JourneysService } from './journeys/journeys.service';
@@ -36,6 +38,8 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
     SegmentEvaluatorService,
     SegmentsService,
     CampaignsService,
+    CampaignAbService,
+    CampaignSendTimeService,
     CampaignPrecheckService,
     CampaignApprovalService,
     MarketingSettingsService,
