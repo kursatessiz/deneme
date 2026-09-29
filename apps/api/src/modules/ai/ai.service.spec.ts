@@ -19,6 +19,8 @@ interface State {
   studioBudget: number | null;
   planLimits: Record<string, unknown> | null;
   audit: Array<Record<string, unknown>>;
+  /** marketing_settings.ai_daily_cap_cents of the studio; null: no row or no cap. */
+  aiDailyCapCents?: number | null;
 }
 
 /** Just enough of Prisma for the AI services, kept in memory. */
@@ -33,11 +35,20 @@ function fakePrisma(state: State): PrismaService {
     },
     auditLog: { create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => state.audit.push(data)) },
     aiUsage: {
-      create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => state.usage.push({ ...data, createdAt: new Date() })),
-      aggregate: jest.fn(async ({ where }: { where: { studioId: string } }) => ({
-        _sum: { costMicroUsd: state.usage.filter((u) => u.studioId === where.studioId).reduce((n, u) => n + (u.costMicroUsd as number), 0) },
+      create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
+        state.usage.push({ ...data, createdAt: new Date() });
+        return { id: `usage-${state.usage.length}` };
+      }),
+      aggregate: jest.fn(async ({ where }: { where: { studioId: string; createdAt?: { gte: Date } } }) => ({
+        _sum: {
+          costMicroUsd: state.usage
+            .filter((u) => u.studioId === where.studioId)
+            .filter((u) => !where.createdAt || u.createdAt === undefined || (u.createdAt as Date) >= where.createdAt.gte)
+            .reduce((n, u) => n + (u.costMicroUsd as number), 0),
+        },
       })),
     },
+    marketingSettings: { findUnique: jest.fn(async () => (state.aiDailyCapCents === undefined ? null : { aiDailyCapCents: state.aiDailyCapCents })) },
     studio: { findUnique: jest.fn(async () => ({ aiMonthlyBudgetCents: state.studioBudget })) },
     subscription: { findFirst: jest.fn(async () => (state.planLimits ? { plan: { limits: state.planLimits } } : null)) },
     $transaction: jest.fn(async (ops: Array<Promise<unknown>>) => Promise.all(ops)),
@@ -246,5 +257,57 @@ describe('toPlainText', () => {
   it('leaves no angle brackets behind, even from nested or split tags', () => {
     expect(toPlainText('<b>Merhaba</b> <scr<script>ipt>alert(1)</script>')).not.toMatch(/[<>]/);
     expect(toPlainText('  duz metin  ')).toBe('duz metin');
+  });
+});
+
+describe('marketing daily cap (M3d)', () => {
+  const marketingRequest = { ...request, task: 'MARKETING_DRAFT' as const };
+  const DAY_MS = 86_400_000;
+
+  it('has no daily limit without a cap', async () => {
+    const { ai, settings, adapter } = setup({ aiDailyCapCents: null });
+    await settings.setKey('admin-1', API_KEY);
+    await ai.run(marketingRequest);
+    await ai.run(marketingRequest);
+    expect(adapter.requests).toHaveLength(2);
+  });
+
+  it('stops at the cap with 402 MARKETING_AI_DAILY_CAP_EXCEEDED before the provider is called', async () => {
+    // 2 cents = 20_000 micro-USD; one fake call costs 5_560.
+    const { ai, settings, adapter } = setup({ aiDailyCapCents: 2 });
+    await settings.setKey('admin-1', API_KEY);
+    for (let i = 0; i < 4; i++) await ai.run(marketingRequest);
+    expect(adapter.requests).toHaveLength(4);
+    await expectAiError(ai.run(marketingRequest), 'MARKETING_AI_DAILY_CAP_EXCEEDED', HttpStatus.PAYMENT_REQUIRED);
+    expect(adapter.requests).toHaveLength(4);
+  });
+
+  it('counts only today (UTC): yesterday spend does not use the cap up, and the next day opens it again', async () => {
+    const { ai, settings, state } = setup({ aiDailyCapCents: 1 });
+    await settings.setKey('admin-1', API_KEY);
+    const now = new Date('2026-10-05T12:00:00.000Z');
+    state.usage.push({ studioId: STUDIO, task: 'MARKETING_DRAFT', costMicroUsd: 10_000, createdAt: new Date(now.getTime() - DAY_MS) });
+    await expect(ai.run(marketingRequest, now)).resolves.toBeDefined();
+    state.usage.push({ studioId: STUDIO, task: 'MARKETING_DRAFT', costMicroUsd: 10_000, createdAt: now });
+    await expectAiError(ai.run(marketingRequest, now), 'MARKETING_AI_DAILY_CAP_EXCEEDED', HttpStatus.PAYMENT_REQUIRED);
+    await expect(ai.run(marketingRequest, new Date(now.getTime() + DAY_MS))).resolves.toBeDefined();
+  });
+
+  it('a cap of 0 blocks the day, and the weekly summary task is counted like the other marketing tasks', async () => {
+    const { ai, settings } = setup({ aiDailyCapCents: 0 });
+    await settings.setKey('admin-1', API_KEY);
+    await expectAiError(ai.run({ ...request, task: 'MARKETING_WEEKLY_SUMMARY' as const }), 'MARKETING_AI_DAILY_CAP_EXCEEDED', HttpStatus.PAYMENT_REQUIRED);
+  });
+
+  it('does not apply to the other tasks of the tenant', async () => {
+    const { ai, settings } = setup({ aiDailyCapCents: 0 });
+    await settings.setKey('admin-1', API_KEY);
+    await expect(ai.run(request)).resolves.toBeDefined();
+  });
+
+  it('returns the id of the usage row of the call', async () => {
+    const { ai, settings } = setup();
+    await settings.setKey('admin-1', API_KEY);
+    await expect(ai.run(marketingRequest)).resolves.toMatchObject({ usageId: expect.stringMatching(/^usage-/) });
   });
 });

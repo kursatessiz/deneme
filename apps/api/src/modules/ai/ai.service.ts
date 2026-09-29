@@ -33,6 +33,8 @@ export interface AiRunInput {
 
 export interface AiRunResult extends AiCompletionResult {
   costMicroUsd: number;
+  /** The AiUsage row of this call. */
+  usageId: string;
 }
 
 /**
@@ -71,15 +73,19 @@ export class AiService {
     if (input.studioId) {
       // The marketing studio has its own monthly cap (super admin setting), checked before every call;
       // every other task uses the tenant budget.
-      if (isMarketingAiTask(input.task)) await this.usage.assertWithinMarketingBudget(input.studioId, now);
+      if (isMarketingAiTask(input.task)) {
+        await this.usage.assertWithinMarketingBudget(input.studioId, now);
+        // M3d: the optional per-day cap next to the monthly one (marketing_settings.ai_daily_cap_cents).
+        await this.usage.assertWithinMarketingDailyCap(input.studioId, now);
+      }
       else await this.usage.assertWithinBudget(input.studioId, now);
     }
 
     const model = (await this.settings.getModels(row))[input.task];
     const price = resolveModelPrice(model, await this.settings.getPriceOverrides(row));
-    const meter = async (usage: AiTokenUsage, success: boolean, errorCode: AiErrorCode | null): Promise<number> => {
+    const meter = async (usage: AiTokenUsage, success: boolean, errorCode: AiErrorCode | null): Promise<{ costMicroUsd: number; usageId: string }> => {
       const costMicroUsd = estimateCostMicroUsd(usage, price);
-      await this.usage.record({
+      const usageId = await this.usage.record({
         studioId: input.studioId,
         userId: input.userId,
         task: input.task,
@@ -90,7 +96,7 @@ export class AiService {
         errorCode,
         translationJobId: input.translationJobId ?? null,
       });
-      return costMicroUsd;
+      return { costMicroUsd, usageId };
     };
 
     let result: AiCompletionResult;
@@ -111,8 +117,8 @@ export class AiService {
       }
       throw new AiError(code);
     }
-    const costMicroUsd = await meter(result.usage, true, null);
-    return { ...result, costMicroUsd };
+    const { costMicroUsd, usageId } = await meter(result.usage, true, null);
+    return { ...result, costMicroUsd, usageId };
   }
 
   /** "Test connection": one tiny call on the cheapest configured task, metered as platform usage. */

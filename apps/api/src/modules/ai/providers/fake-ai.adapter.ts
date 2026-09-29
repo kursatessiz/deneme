@@ -101,9 +101,11 @@ export class FakeAiAdapter implements AiProviderAdapter {
       suggestions?: number;
       requiredDisclaimer?: string;
       sources?: Array<{ id: string; text: string }>;
+      metrics?: Array<{ key: string; current: number | null; previous: number | null }>;
     };
     if (req.task === 'MARKETING_ANALYSIS') return this.segments(req.suggestions ?? 2);
     if (req.task === 'MARKETING_RESEARCH') return this.research(req.sources ?? []);
+    if (req.task === 'MARKETING_WEEKLY_SUMMARY') return this.weeklySummary(req.metrics ?? []);
     const n = req.variants ?? 1;
     const disclaimer = req.requiredDisclaimer ? ` ${req.requiredDisclaimer}` : '';
     const variants = Array.from({ length: n }, (_, i) => this.variant(req.kind ?? 'EMAIL', i, disclaimer, i === 0 ? this.marketingAppend : ''));
@@ -171,6 +173,19 @@ export class FakeAiAdapter implements AiProviderAdapter {
       });
     }
     return JSON.stringify({ suggestions: suggestions.slice(0, Math.max(count, this.includeInvalidSegment ? 3 : 1)) });
+  }
+
+  /** Three actions on the first metrics that have a visible value (or any key), so every answer is grounded in the request. */
+  private weeklySummary(metrics: Array<{ key: string; current: number | null; previous: number | null }>): string {
+    const visible = metrics.filter((m) => m.current !== null || m.previous !== null);
+    const keys = (visible.length >= 3 ? visible : metrics).slice(0, 3).map((m) => m.key);
+    while (keys.length < 3) keys.push(keys[0] ?? 'leads');
+    const first = visible[0];
+    const summary = first ? `The week is summarised from ${visible.length} visible figures; ${first.key} is ${first.current ?? 'hidden'} against ${first.previous ?? 'hidden'} the week before.` : 'There is not enough visible data to summarise this week.';
+    return JSON.stringify({
+      summary,
+      actions: keys.map((kpiKey, i) => ({ title: `Review ${kpiKey}`, detail: `Look at what drove ${kpiKey} this week and decide the next step ${i + 1}.`, kpiKey })),
+    });
   }
 
   private research(sources: Array<{ id: string; text: string }>): string {
