@@ -58,9 +58,7 @@ export function isScannedJourneyTrigger(event: JourneyEventTrigger): event is Sc
 }
 
 /** Step types the engine cannot run yet; validation rejects them with a clear reason. */
-export const UNAVAILABLE_JOURNEY_STEP_TYPES = {
-  award_points: 'Puan verme adımı sadakat modülüyle (G3a) etkinleşecek',
-} as const;
+export const UNAVAILABLE_JOURNEY_STEP_TYPES: Readonly<Partial<Record<string, string>>> = {};
 
 const stepId = z.string().regex(/^[a-z][a-z0-9_]{0,39}$/);
 
@@ -201,8 +199,10 @@ export function validateJourneyGraph(definition: JourneyDefinition): string[] {
     if (step.type === 'create_task' && step.assignTo !== 'CONTACT_OWNER' && !step.assigneeId) {
       issues.push(`${id}: görev ataması için assigneeId gerekli`);
     }
-    if (step.type in UNAVAILABLE_JOURNEY_STEP_TYPES) {
-      issues.push(`${id}: ${UNAVAILABLE_JOURNEY_STEP_TYPES[step.type as keyof typeof UNAVAILABLE_JOURNEY_STEP_TYPES]}`);
+    const unavailable = UNAVAILABLE_JOURNEY_STEP_TYPES[step.type];
+    if (unavailable) issues.push(`${id}: ${unavailable}`);
+    if (step.type === 'award_points' && !step.reasonKey.trim()) {
+      issues.push(`${id}: puan verme adımı için açıklama giriniz`);
     }
     for (const next of successors(step)) {
       if (next !== null && !definition.steps[next]) issues.push(`${id} adımı olmayan bir adıma bağlı: ${next}`);

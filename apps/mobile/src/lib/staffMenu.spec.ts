@@ -15,6 +15,7 @@ describe('buildHesabimMenu', () => {
     const keys = menu.map((m) => m.key);
     expect(keys).toContain('home-branch');
     expect(keys).toContain('qr-check-in');
+    expect(keys).toContain('my-points');
     expect(keys).not.toContain('members');
     expect(keys).not.toContain('my-schedule');
     expect(keys).not.toContain('today-sessions');

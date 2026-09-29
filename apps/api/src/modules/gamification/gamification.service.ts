@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { Prisma } from '@platform/database';
 import {
   BadgeKind,
@@ -19,6 +19,7 @@ import {
 } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { LoyaltyEarnService } from '../loyalty/loyalty-earn.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { computeStreakWeeks, countDistinctServiceTypes, countSessionsInLocalMonth, getLocalMonthKey, isEarlyBirdSession } from './gamification-calculations';
 
@@ -38,6 +39,7 @@ export class GamificationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    @Optional() private readonly loyalty?: LoyaltyEarnService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -247,10 +249,15 @@ export class GamificationService {
     }
   }
 
-  /** Idempotent via the unique (memberId, badgeDefinitionId) constraint; returns false on a race. */
+  /**
+   * Idempotent via the unique (memberId, badgeDefinitionId) constraint;
+   * returns false on a race. A new badge is a loyalty earning source (G3a),
+   * keyed by the member_badges row, so it can never earn twice.
+   */
   private async tryAward(studioId: string, memberId: string, badgeDefinitionId: string, sourceRef?: string): Promise<boolean> {
     try {
-      await this.prisma.memberBadge.create({ data: { studioId, memberId, badgeDefinitionId, sourceRef: sourceRef ?? null } });
+      const badge = await this.prisma.memberBadge.create({ data: { studioId, memberId, badgeDefinitionId, sourceRef: sourceRef ?? null } });
+      await this.loyalty?.onBadgeAwarded(studioId, memberId, badge.id, badgeDefinitionId);
       return true;
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') return false;

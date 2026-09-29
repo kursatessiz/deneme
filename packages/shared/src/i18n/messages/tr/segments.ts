@@ -53,6 +53,7 @@ export const trSegments = {
   'segments.group.payment': 'Ödeme',
   'segments.group.attribution': 'Kaynak',
   'segments.group.churn': 'Kaybetme riski',
+  'segments.group.loyalty': 'Sadakat',
   'segments.group.custom': 'Özel alanlar',
   'segments.field.contact.lifecycleStage': 'Yaşam döngüsü aşaması',
   'segments.field.contact.tags': 'Etiketler',

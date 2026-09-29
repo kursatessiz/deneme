@@ -12,6 +12,7 @@ import { PermissionButton } from '@/components/common/PermissionButton';
 import { Badge } from '@/components/common/Badge';
 import { Modal } from '@/components/common/Modal';
 import { PackageSaleDialog } from '@/components/members/PackageSaleDialog';
+import { LoyaltyPanel } from '@/components/loyalty/LoyaltyPanel';
 import { hasAnyPermission } from '@/lib/nav';
 import { bookingStatusLabel, packageStatusLabel, type MemberDetail } from '@/lib/members/types';
 
@@ -303,6 +304,8 @@ function MemberCard() {
         </div>
 
         <div className="space-y-4">
+          <LoyaltyPanel memberId={memberId} />
+
           {(member.bookingsCount ?? 0) >= 0 && (
             <div className="p-4" style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
               <h3 className="text-xs font-semibold mb-2" style={{ color: 'var(--color-text-secondary)' }}>

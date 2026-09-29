@@ -37,6 +37,7 @@ export function buildHesabimMenu(input: StaffMenuInput): MenuItem[] {
     items.push({ key: 'home-branch', labelKey: 'mAccount.menu.homeBranch', route: '/(app)/hesabim/ana-sube' });
     items.push({ key: 'my-payments', labelKey: 'mAccount.menu.myPayments', route: '/(app)/hesabim/odemelerim' });
     items.push({ key: 'my-achievements', labelKey: 'mAccount.menu.myAchievements', route: '/(app)/hesabim/basarilarim' });
+    items.push({ key: 'my-points', labelKey: 'mAccount.menu.myPoints', route: '/(app)/hesabim/puanlarim' });
     items.push({ key: 'refer-friend', labelKey: 'mAccount.menu.referFriend', route: '/(app)/hesabim/arkadasini-getir' });
     items.push({ key: 'health', labelKey: 'mAccount.menu.health', route: '/(app)/hesabim/saglik' });
     items.push({ key: 'chat', labelKey: 'mAccount.menu.chat', route: '/(app)/hesabim/mesajlar' });

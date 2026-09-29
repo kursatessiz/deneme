@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { X } from 'lucide-react';
-import type { ContactConsentDTO, ContactDetailDTO, ContactFieldDefinitionDTO } from '@platform/shared';
+import type { ContactConsentDTO, ContactDetailDTO, ContactFieldDefinitionDTO, LoyaltyBalanceDTO } from '@platform/shared';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { PageGuard } from '@/components/common/PageGuard';
@@ -102,6 +102,8 @@ function ContactCard({ contactId }: { contactId: string }) {
   const [note, setNote] = useState('');
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDue, setTaskDue] = useState('');
+  const [loyalty, setLoyalty] = useState<(LoyaltyBalanceDTO & { membershipId: string | null }) | null>(null);
+  const canViewLoyalty = hasAnyPermission(['loyalty.view'], permissions, isOwner);
 
   const base = `crm/studios/${activeStudioId}`;
   const load = useCallback(() => {
@@ -121,6 +123,14 @@ function ContactCard({ contactId }: { contactId: string }) {
       .then(setFields)
       .catch(() => setFields([]));
   }, [load, activeStudioId, base]);
+
+  useEffect(() => {
+    // G3a: a balance line for members of a running loyalty program; quietly absent otherwise.
+    if (!activeStudioId || !canViewLoyalty) return;
+    bffFetch<LoyaltyBalanceDTO & { membershipId: string | null }>(`studios/${activeStudioId}/loyalty/contacts/${contactId}/balance`, { studioId: activeStudioId })
+      .then(setLoyalty)
+      .catch(() => setLoyalty(null));
+  }, [activeStudioId, canViewLoyalty, contactId]);
 
   async function act(fn: () => Promise<unknown>) {
     setActionError(null);
@@ -165,6 +175,9 @@ function ContactCard({ contactId }: { contactId: string }) {
               <DetailRow label={t('crm.card.owner')} value={contact.ownerName ?? t('crm.card.none')} />
               <DetailRow label={t('crm.card.sourceChannel')} value={contact.sourceChannel ?? t('crm.card.none')} />
               <DetailRow label={t('crm.contacts.col.createdAt')} value={fmt.date(contact.createdAt)} />
+              {loyalty && loyalty.enabled && loyalty.membershipId && (
+                <DetailRow label={t('loyalty.contact.balance')} value={t('loyalty.points', { count: loyalty.balance })} />
+              )}
             </dl>
           </Panel>
 

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { AuthModule } from '../auth/auth.module';
 import { CrmCoreModule } from '../crm/crm-core.module';
+import { LoyaltyCoreModule } from '../loyalty/loyalty-core.module';
 import { SegmentEvaluatorService } from './segments/segment-evaluator.service';
 import { SegmentsService } from './segments/segments.service';
 import { SegmentsController } from './segments/segments.controller';
@@ -22,10 +23,11 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
 /**
  * Segments, campaigns and journeys (G2a, docs/KAMPANYA_VE_AKISLAR.md).
  * MessagingModule, NotificationsModule and ComplianceModule are global;
- * CrmCoreModule gives the CRM hooks and the growth event bus.
+ * CrmCoreModule gives the CRM hooks and the growth event bus;
+ * LoyaltyCoreModule the ledger for the award_points step (G3a).
  */
 @Module({
-  imports: [AuthModule, CrmCoreModule, ...(redisConfigured ? [BullModule.registerQueue({ name: GROWTH_QUEUE })] : [])],
+  imports: [AuthModule, CrmCoreModule, LoyaltyCoreModule, ...(redisConfigured ? [BullModule.registerQueue({ name: GROWTH_QUEUE })] : [])],
   controllers: [SegmentsController, CampaignsController, JourneysController],
   providers: [
     SegmentEvaluatorService,

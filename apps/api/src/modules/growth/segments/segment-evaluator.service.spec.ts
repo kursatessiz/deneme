@@ -76,10 +76,21 @@ describe('SegmentEvaluatorService', () => {
     expect(where.AND).toEqual([{ AND: [{ customFields: { path: ['goal'], equals: 'strength' } }, { customFields: { path: ['visits'], gt: 5 } }] }]);
   });
 
-  it('rejects invalid and unavailable fields before touching the database', async () => {
+  it('answers the loyalty balance (G3a) with a studio-scoped parameterised query', async () => {
+    const { service, prisma } = build();
+    const where = await service.where(STUDIO, { combinator: 'and', rules: [{ field: 'loyalty.pointsBalance', op: 'gte', value: 100 }] }, NOW);
+    expect(where.AND).toEqual([{ AND: [{ id: { in: ['c-1', 'c-2'] } }] }]);
+    const [strings, ...values] = prisma.$queryRaw.mock.calls[0] as unknown as [TemplateStringsArray, ...unknown[]];
+    const sql = Prisma.sql(strings, ...values);
+    expect(sql.sql).toContain('loyalty_accounts');
+    expect(sql.values).toContain(100);
+    expect(sql.values).toContain(STUDIO);
+  });
+
+  it('rejects invalid fields and operators before touching the database', async () => {
     const { service, prisma } = build();
     await expect(service.validate(STUDIO, { combinator: 'and', rules: [{ field: 'contact.nope', op: 'eq', value: 1 }] })).rejects.toBeInstanceOf(BadRequestException);
-    await expect(service.validate(STUDIO, { combinator: 'and', rules: [{ field: 'loyalty.pointsBalance', op: 'gt', value: 1 }] })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.validate(STUDIO, { combinator: 'and', rules: [{ field: 'loyalty.pointsBalance', op: 'contains', value: 1 }] })).rejects.toBeInstanceOf(BadRequestException);
     await expect(service.validate(STUDIO, { combinator: 'and', rules: [{ field: 'contact.x; drop', op: 'eq', value: 1 }] })).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.$queryRaw).not.toHaveBeenCalled();
   });

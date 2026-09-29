@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { LoyaltyCoreModule } from '../loyalty/loyalty-core.module';
 import { RatingsService } from './ratings.service';
 import { RatingsController } from './ratings.controller';
 import { ReferralsService } from './referrals.service';
@@ -11,7 +12,7 @@ import { RatingPromptService } from './rating-prompt.service';
 import { FeedbackAdminController } from './feedback-admin.controller';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, LoyaltyCoreModule],
   controllers: [
     RatingsController,
     ReferralsController,

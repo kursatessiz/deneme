@@ -27,6 +27,7 @@ import type { SegmentEntry } from '../segments/segments.service';
 import { JourneyScannersService, isoWeekKey } from './journey-scanners.service';
 import { GrowthQueueService } from '../growth-queue.service';
 import { dedupeTags } from '../../crm/contacts/contacts.service';
+import { LoyaltyEarnService } from '../../loyalty/loyalty-earn.service';
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -98,6 +99,7 @@ export class JourneyEngineService implements OnModuleInit {
     private readonly scanners: JourneyScannersService,
     private readonly events: GrowthEventsService,
     private readonly queue: GrowthQueueService,
+    private readonly loyalty: LoyaltyEarnService,
   ) {}
 
   onModuleInit(): void {
@@ -378,9 +380,26 @@ export class JourneyEngineService implements OnModuleInit {
         return { kind: 'advance', next: step.next, status: 'DONE' };
       }
 
-      case 'award_points':
-        // Rejected by validation until the loyalty module (G3a) exists; a stored one is skipped.
-        return { kind: 'advance', next: step.next, status: 'SKIPPED', reasonCode: 'NOT_AVAILABLE' };
+      case 'award_points': {
+        // Idempotent per enrollment and step (ledger key journey:<enrollment>:<step>),
+        // so a retried job never awards twice.
+        const outcome = await this.loyalty.awardFromJourney({
+          studioId: enrollment.studioId,
+          contactId: enrollment.contactId,
+          enrollmentId: enrollment.id,
+          stepId,
+          points: step.points,
+          reasonKey: step.reasonKey,
+        });
+        if (outcome.status === 'SKIPPED') return { kind: 'advance', next: step.next, status: 'SKIPPED', reasonCode: outcome.reasonCode };
+        return {
+          kind: 'advance',
+          next: step.next,
+          status: 'DONE',
+          reasonCode: outcome.duplicate ? 'DUPLICATE' : undefined,
+          detail: { points: outcome.points },
+        };
+      }
     }
   }
 

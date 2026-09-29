@@ -236,9 +236,10 @@ export class MembersService {
   async assignPackage(tenant: TenantContext, dto: AssignPackageToMemberInput) {
     const studioId = tenant.studioId;
 
-    const [pkgDef, member] = await Promise.all([
+    const [pkgDef, member, studio] = await Promise.all([
       this.prisma.packageDefinition.findFirst({ where: { id: dto.packageDefinitionId, studioId } }),
       this.prisma.memberProfile.findFirst({ where: { id: dto.memberId, studioId } }),
+      this.prisma.studio.findUniqueOrThrow({ where: { id: studioId }, select: { currency: true } }),
     ]);
     if (!pkgDef) {
       throw new NotFoundException('Paket tanımı bulunamadı');
@@ -272,6 +273,8 @@ export class MembersService {
           memberId: dto.memberId,
           memberPackageId: memberPackage.id,
           amount: dto.paidAmount,
+          // Rule 8: always the studio's currency, never the column default.
+          currency: studio.currency,
           paymentMethod: dto.paymentMethod,
           paymentStatus: 'COMPLETED',
           notes: dto.notes,

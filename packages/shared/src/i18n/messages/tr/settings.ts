@@ -12,6 +12,8 @@ export const trSettings = {
   'settings.hub.business.description': 'İptal politikası, check-in penceresi, bildirim ve oyunlaştırma ayarları',
   'settings.hub.badges.title': 'Rozetler',
   'settings.hub.badges.description': 'Küresel ve işletmenize özel oyunlaştırma rozetlerini yönetin',
+  'settings.hub.loyalty.title': 'Sadakat programı',
+  'settings.hub.loyalty.description': 'Puan kazanma kuralları, ödüller ve son kullanma politikası',
   'settings.hub.site.title': 'Web sitem',
   'settings.hub.site.description': 'İşletme web sitesi sayfaları, alan adı ve yayın ayarları',
   'settings.hub.integrations.title': 'Entegrasyonlar',

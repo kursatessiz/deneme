@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { PermissionKey } from '@platform/shared';
-import { Award, ChevronRight, Globe, KeyRound, Layers, Megaphone, MessageSquareText, Palette, ShieldCheck, Store } from 'lucide-react';
+import { Award, ChevronRight, Gift, Globe, KeyRound, Layers, Megaphone, MessageSquareText, Palette, ShieldCheck, Store } from 'lucide-react';
 import { useT } from '@/components/i18n/I18nProvider';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { hasAnyPermission } from '@/lib/nav';
@@ -65,6 +65,14 @@ const CARDS: SettingsCard[] = [
     descriptionKey: 'settings.hub.badges.description',
     icon: Award,
     permissions: ['reports.view', 'studio.settings.manage'],
+  },
+  {
+    key: 'sadakat',
+    href: '/ayarlar/sadakat',
+    titleKey: 'settings.hub.loyalty.title',
+    descriptionKey: 'settings.hub.loyalty.description',
+    icon: Gift,
+    permissions: ['loyalty.view', 'loyalty.manage'],
   },
   {
     key: 'web-sitem',

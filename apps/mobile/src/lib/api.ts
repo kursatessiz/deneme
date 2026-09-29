@@ -20,12 +20,15 @@ export interface ApiFieldError {
 export class ApiError extends Error {
   readonly status: number;
   readonly fieldErrors?: ApiFieldError[];
+  /** Stable error code from the API body (e.g. "LOYALTY_INSUFFICIENT_BALANCE"), when it sends one. */
+  readonly code?: string;
 
-  constructor(status: number, message: string, fieldErrors?: ApiFieldError[]) {
+  constructor(status: number, message: string, fieldErrors?: ApiFieldError[], code?: string) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.fieldErrors = fieldErrors;
+    this.code = code;
   }
 }
 
@@ -124,8 +127,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }
 
   if (!response.ok) {
-    const errorBody = payload as { message?: string; errors?: ApiFieldError[] } | null;
-    throw new ApiError(response.status, errorBody?.message ?? 'Beklenmeyen bir hata oluştu.', errorBody?.errors);
+    const errorBody = payload as { message?: string; errors?: ApiFieldError[]; code?: unknown } | null;
+    const code = typeof errorBody?.code === 'string' ? errorBody.code : undefined;
+    throw new ApiError(response.status, errorBody?.message ?? 'Beklenmeyen bir hata oluştu.', errorBody?.errors, code);
   }
 
   return payload as T;
