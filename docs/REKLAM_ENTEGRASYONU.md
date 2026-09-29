@@ -96,7 +96,7 @@ TikTok'un temel raporu şu an üst-alt ilişkisini (`parent_external_id`) dönd�
 
 ## 7. UTM oluşturucu ve adlandırma denetimi
 
-Panelde `/ayarlar/reklam` altında (kiracı) ve süper admin panelinde platform kiracısı için: pazar, dil, sektör (`BusinessTypeTemplate`'ten), amaç ve ay seçilir; `buildCampaignName()` ile kampanya adı, `AD_URL_TEMPLATES`'ten platforma göre URL parametre dizgesi ve örnek açılış URL'si üretilir, kopyala düğmeleriyle. Açılış sayfası doğrulaması: sayfa motoru (G2c) henüz platform iniş sayfalarını üretmediği için bu fazda yalnızca yol biçimi doğrulanır, varlık "bilinmiyor" olarak işaretlenir; G2c tamamlandığında gerçek varlık kontrolüne bağlanacaktır.
+Panelde `/ayarlar/reklam` altında (kiracı) ve platform kiracısı için pazarlama panelinde `/pazarlama/reklam/ayarlar` altında (aynı ekran; süper admin de buradan kullanır, M1, `docs/PAZARLAMA_MODULU.md` bölüm 3.2): pazar, dil, sektör (`BusinessTypeTemplate`'ten), amaç ve ay seçilir; `buildCampaignName()` ile kampanya adı, `AD_URL_TEMPLATES`'ten platforma göre URL parametre dizgesi ve örnek açılış URL'si üretilir, kopyala düğmeleriyle. Açılış sayfası doğrulaması: sayfa motoru (G2c) henüz platform iniş sayfalarını üretmediği için bu fazda yalnızca yol biçimi doğrulanır, varlık "bilinmiyor" olarak işaretlenir; G2c tamamlandığında gerçek varlık kontrolüne bağlanacaktır.
 
 "Adlandırma denetimi" (`GET /studios/:studioId/ads/naming-check`), senkronize edilen kampanyalardan adı `CAMPAIGN_NAME_PATTERN`'e uymayanları listeler.
 
