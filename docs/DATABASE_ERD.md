@@ -631,6 +631,19 @@ Migration `20261018000000_backup_runs` (yalnızca ekleme: iki enum, iki tablo); 
 | `backup_settings` | Tek satırlık platform ayarı (`id = 'platform'`): günlük zamanlama açık/kapalı, saat (UTC, `SS:DD`), uzak depo saklama günü (0 = kapalı), çalışma kilidi (`lock_run_id`, `locked_at`), son düzenleyen | Kilit koşullu güncellemeyle alınır: aynı anda tek yedek; 3 saatten eski kilit terk edilmiş sayılır |
 | `backup_runs` | API'nin aldığı her yedek: durum (`BackupRunStatus`: RUNNING/SUCCEEDED/FAILED), tetikleyen (`BackupTrigger`: MANUAL/SCHEDULED), başlangıç/bitiş, şifreli boyut, nesne anahtarı, sha256, doğrulama zamanı, hata, isteyen kullanıcı | (started_at) ve (trigger, started_at) index. Kiracı sütunu yoktur (platform verisi, yalnızca süper admin); `requested_by_user_id` yabancı anahtar değildir. Sunucu cron'unun yedekleri burada değil, dosya olarak görünür |
 
+## Aday reklamları ve otomasyon (M4c)
+
+Migration `20261027000000_lead_ads_automation` (yalnızca ekleme: `ad_connections` üzerinde iki boş olabilir sütun ve dört yeni tablo). Yeni tablolarda `studio_id` düz kimliktir (yabancı anahtar yok; `approval_requests.target_id` gibi); kiracı silme kodda yapılmaz. Ayrıntılar `docs/PAZARLAMA_MODULU.md` (M4c notları).
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `ad_connections.lead_ads_page_id` | Meta bağlantısının aday formlarını aldığı Facebook sayfası; webhook bildirimi sayfa kimliğiyle bağlantıya yönlendirilir. Uygulama sırrı (`appSecret`) şifreli kimlik bilgisi JSON'unun içindedir, düz sütun yoktur | benzersiz (kiracılar arası: bir sayfa iki kiracıyı beslemez) |
+| `ad_connections.lead_ads_subscribed_at` | Sayfa aboneliği (`subscribed_apps`) son görüldüğü an | boş olabilir |
+| `lead_ad_events` | Bir `leadgen` bildirimi ve alım kaydı: `leadgen_id`, `form_id`, `page_id`, `connection_id`, `ad_ids` (JSON: kampanya, reklam kümesi, reklam), `attributes` (eşlenmeyen yanıtlar, JSON), `created_time`, `received_at`, `processed_at`, `contact_id`, `status` (`PENDING`/`RETRY`/`PROCESSED`/`FAILED`), `attempts`, `next_attempt_at` (yeniden deneme ve işlem kilidi), `last_error` | (studio_id, leadgen_id) benzersiz (tekrar gelen bildirim yok sayılır); (studio_id, status, next_attempt_at), (studio_id, received_at) index |
+| `lead_ad_form_mappings` | Form başına soru -> kişi alanı eşlemesi (`mapping` JSON, veri) ve izin sorusunun anahtarı (`consent_question_key`, boşsa formda izin sorusu yok) | (studio_id, form_id) benzersiz |
+| `public_api_idempotency_keys` | Herkese açık yazma uçlarının `Idempotency-Key` kaydı: `key`, `request_hash` (yöntem + yol + gövde), `status` (`IN_PROGRESS`/`DONE`), saklanan yanıt, `expires_at` (24 saat) | (studio_id, key) benzersiz; (expires_at) index; süresi dolan satırlar her talepte silinir |
+| `platform_integration_settings` | Platform genelinde entegrasyon ayarı (tek satır `id = 'platform'`): Meta leadgen doğrulama belirtecinin SHA-256 özeti, son 4 karakteri ve zamanı; yalnızca süper admin yazar | birincil anahtar `id` |
+
 ## Veritabanı Tarafından Zorunlu Kılınan Kurallar
 
 1. **Rezervasyon Kaynağı Dışlama (Booking Resource Exclusion)** (`booking_resources_no_overlap`): Tek kapasiteli kaynaklar (capacity=1) çakışan aktif rezervasyonlara sahip olamaz. PostgreSQL exclusion constraint (btree_gist) ile (resource_id WITH =, tsrange(start_time, end_time) WITH &&) WHERE is_active AND exclusive üzerinde uygulanır.

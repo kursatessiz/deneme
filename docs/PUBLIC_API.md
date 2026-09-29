@@ -19,7 +19,8 @@ oluşturur.
 - Yetki alanları (`scopes`), tek doğruluk kaynağı olarak
   `packages/shared/src/open-platform.ts` içindeki `API_KEY_SCOPES`
   kataloğundan seçilir: `schedules.read`, `bookings.read`, `bookings.write`,
-  `members.read`, `webhooks.manage`.
+  `members.read`, `webhooks.manage`, `crm.write` (M4c: kişi oluşturma, etiket
+  ve iletişim izni kaydı).
 - `expiresAt` isteğe bağlıdır; süresi dolan veya iptal edilen (`revokedAt`)
   anahtar `401 Unauthorized` döner.
 
@@ -55,11 +56,99 @@ sayaç, yoksa tek örnek bellek içi sayaç), aşımda `429 Too Many Requests`.
 | `POST /v1/public/hooks` | `webhooks.manage` | REST hook aboneliği: `{ targetUrl, event }` (`docs/ZAPIER.md`) |
 | `DELETE /v1/public/hooks/:id` | `webhooks.manage` | Aboneliği siler |
 | `GET /v1/public/hooks/samples/:event` | (yalnızca geçerli anahtar) | Olay için örnek teslimat yükü |
+| `POST /v1/public/contacts` | `crm.write` | Kişiyi e-posta veya telefonla oluşturur ya da günceller (bölüm 2.1) |
+| `POST /v1/public/contacts/:id/tags` | `crm.write` | Etiket ekler |
+| `POST /v1/public/contacts/:id/consents` | `crm.write` | Ticari iletişim izni kaydeder veya geri alır |
 
 Rezervasyon kuralları (kapasite, hak/kredi düşümü, iptal politikası) mevcut
 `SchedulesService.bookSession()` / `cancelBooking()` üzerinden **aynen**
 uygulanır; herkese açık API bu servisleri yeniden çağırır, kuralları tekrar
 yazmaz.
+
+### 2.1 Gelen eylemler: kişi, etiket, izin (M4c, `crm.write`)
+
+Zapier, Make ve n8n gibi araçların CRM'e yazması içindir. Aynı API anahtarı
+kimlik doğrulaması ve aynı anahtar başına hız sınırı (dakikada 120) geçerlidir.
+Her sorgu anahtarın işletmesiyle sınırlıdır; başka işletmenin kişisi `404`
+(`CONTACT_NOT_FOUND`) döner. Telefon numarası yanıtta her zaman maskelidir.
+
+**`POST /v1/public/contacts`**: kişiyi oluşturur (`201`) veya aynı e-posta ya da
+telefona sahip mevcut kişiyi günceller (`200`).
+
+```json
+{
+  "email": "grace@example.com",
+  "phone": "+4915112345678",
+  "fullName": "Grace Hopper",
+  "locale": "en",
+  "countryCode": "DE",
+  "isBusiness": false,
+  "tags": ["vip", "zapier"],
+  "customFields": { "company": "Acme" },
+  "sourceDetail": "Typeform spring"
+}
+```
+
+E-posta veya telefondan biri zorunludur. `firstName`/`lastName` yerine
+`fullName` verilebilir (son sözcük soyadı olur); ad hiç verilmezse e-postanın
+yerel kısmı kullanılır. Telefon E.164 veya işletmenin ülkesindeki ulusal
+biçimdir. `customFields` işletmenin tanımlı özel alanlarına karşı doğrulanır
+(tanımsız alan `400`). Güncellemede yalnızca gönderilen alanlar değişir; e-posta
+ve telefon eşleştirme için kullanılır, ezilmez. Kişi satış hattına girmez, `lead`
+dönüşümü veya `lead.created` üretmez; kaynak kanal `API` olarak işaretlenir.
+
+```json
+{ "created": true, "contact": { "id": "6d1f...", "firstName": "Grace", "lastName": "Hopper", "email": "grace@example.com", "phone": "+49 *** *** ** 78", "tags": ["vip", "zapier"], "lifecycleStage": "LEAD", "createdAt": "2026-10-27T10:00:00.000Z" } }
+```
+
+**`Idempotency-Key`** (isteğe bağlı başlık, 8-128 karakter, harf/rakam/`. _ : -`):
+istek 24 saat boyunca saklanır.
+
+| Durum | Sonuç |
+|---|---|
+| Aynı anahtar, aynı yöntem + yol + gövde | Saklanan yanıt aynen (durum kodu dahil) ve `Idempotent-Replayed: true` başlığı; ikinci bir kişi oluşmaz |
+| Aynı anahtar, farklı istek | `422`, `code: IDEMPOTENCY_KEY_REUSED` |
+| Aynı anahtarlı ilk istek hâlâ sürüyor | `409`, `code: IDEMPOTENCY_IN_PROGRESS` |
+| İlk istek hata verdi | Anahtar serbest kalır, düzeltilmiş istek aynı anahtarla gönderilebilir |
+| Biçimi geçersiz anahtar | `400` |
+| 24 saat geçti | Kayıt silinir, anahtar yeniden kullanılabilir |
+
+Anahtar işletme başınadır; başka işletmenin aynı adlı anahtarı ayrıdır. Başlık
+verilmezse aynı gövde her seferinde bir güncelleme olur (kişi zaten tekildir).
+
+**`POST /v1/public/contacts/:id/tags`**: `{ "tags": ["customer"] }` (1-20 etiket;
+küçük harfe çevrilir, boşluklar sadeleşir, geçersiz etiket `400`). Kişi başına en
+fazla 50 etiket; aşımda `422`. Yanıt kişidir.
+
+**`POST /v1/public/contacts/:id/consents`**: ticari iletişim iznini M3e kurallarıyla
+kaydeder (`docs/PAZARLAMA_MODULU.md` 6.4):
+
+```json
+{ "channels": ["EMAIL", "SMS"], "granted": true, "legalBasis": "CONSENT", "formVersion": "typeform-spring-v3", "countryCode": "DE", "locale": "en" }
+```
+
+- `channels`: `EMAIL`, `SMS`, `WHATSAPP`; kişinin o kanal için adresi yoksa `422`
+  (`CONSENT_CHANNEL_ADDRESS_MISSING`).
+- `legalBasis` (varsayılan `CONSENT`): `CONSENT` için `formVersion` zorunludur (kişinin
+  gördüğü metnin sürümü kanıt olarak saklanır). Kişinin ülkesi (kayıtlı ülke, yoksa
+  istekteki `countryCode`, yoksa telefonun ülkesi) işletmenin çift onay bölgelerindeyse
+  izin `pendingConfirmation: true` ile bekler ve kişiye onay e-postası gider; bağlantı
+  tıklanana kadar ticari kitleye girmez. `TR_MERCHANT_EXEMPTION` yalnızca "işletme"
+  işaretli TR kişisinde ve işletmenin tacir muafiyeti ayarı açıkken kaydedilir, aksi
+  halde `409` (`CONSENT_BASIS_NOT_ALLOWED`). `EXISTING_CUSTOMER` gönderim anında
+  müşteri ilişkisinden türetilir ve kaydedilemez (`422`, aynı kod).
+- `granted: false` izni geri alır (her zaman geçerlidir; abonelikten çıkmış bir adresin
+  bastırma kaydı korunur ve `suppressed: true` görünür).
+- Çift onay politikası işletmenin `marketing_settings` satırındadır; satırı olmayan
+  işletmede (platform kiracısı dışındaki varsayılan) çift onay uygulanmaz, davranış
+  M3e öncesiyle aynıdır.
+
+```json
+{ "contactId": "6d1f...", "doubleOptIn": true, "channels": [ { "channel": "EMAIL", "status": "GRANTED", "legalBasis": "CONSENT", "pendingConfirmation": true, "suppressed": false } ] }
+```
+
+Her yazma `AuditLog`'a (`public_api.contact.upsert`, `public_api.contact.tags_add`,
+`public_api.contact.consent`) anahtar kimliğiyle yazılır.
 
 ### Telefon numarası maskeleme
 
@@ -89,7 +178,11 @@ nokta tanımlar: `{ url, events, isActive? }`.
   `booking.created`, `booking.cancelled`, `booking.attended`,
   `member.created`, `payment.completed`, `payment.refunded`; G3c-3 ile
   `lead.created`, `event.registration.created`, `retail.sale.completed`
-  eklendi (yük örnekleri ve Zapier bağlantısı: `docs/ZAPIER.md`).
+  eklendi (yük örnekleri ve Zapier bağlantısı: `docs/ZAPIER.md`). M4c ile
+  platform olayları eklendi: `studio.signup`, `studio.paid`,
+  `studio.trial_expiring`, `contact.lifecycle_changed`, `campaign.sent`. Bunlar
+  yalnızca platform kiracısının (`Studio.isPlatform`) abonelikleri için yayınlanır;
+  başka bir kiracının bu olaylara aboneliği `400` ile reddedilir.
 - Gizli anahtar (`secret`) yalnızca oluşturma ve `rotate-secret` anında bir
   kez döner.
 

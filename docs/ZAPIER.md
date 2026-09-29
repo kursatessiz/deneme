@@ -60,6 +60,16 @@ teslimat `{ event, studioId, occurredAt, data }` zarfıdır.
 | `lead.created` | Personelin aday eklemesi veya herkese açık aday formu (yeni ya da satış hattına yeniden alınan kişi) | `contactId`, `fullName`, `phone`, `email`, `source` |
 | `event.registration.created` | Etkinliğe kayıt (üye, personel veya misafir) | `registrationId`, `eventId`, `ticketTypeId`, `status`, `memberId`, `contactId`, `amountDue`, `currency` |
 | `retail.sale.completed` | Mağaza hızlı satışı | `saleId`, `receiptNumber`, `total`, `currency`, `paymentId` (her yeni satışta dolu) |
+| `studio.signup` (yalnızca platform kiracısı) | Süper adminin yeni işletme oluşturması | `studioId`, `name`, `slug`, `countryCode`, `ownerContactId` (platform CRM'i sahibi tanıyorsa) |
+| `studio.paid` (yalnızca platform kiracısı) | İşletmenin ödemeyle veya ödeme kaydıyla etkinleşmesi | `studioId`, `name`, `planKey`, `amount`, `currency` |
+| `studio.trial_expiring` (yalnızca platform kiracısı) | Deneme bitimine 7, 3 ve 1 gün kala (eşik başına bir kez) | `studioId`, `name`, `trialEndsAt`, `daysLeft` |
+| `contact.lifecycle_changed` (yalnızca platform kiracısı) | Platform kiracısındaki bir kişinin yaşam döngüsü aşamasının değişmesi | `contactId`, `from`, `to`, `event` |
+| `campaign.sent` (yalnızca platform kiracısı) | Platform kampanyasının gönderiminin tamamlanması | `campaignId`, `name`, `channel`, `audience`, `sent`, `skipped`, `failed` |
+
+Platform olayları işletmenin kendi iş olayları değil platformun kendi işidir; yalnızca
+platform kiracısının API anahtarıyla (`/platform/integrations` veya `/pazarlama/entegrasyonlar`'da
+oluşturulan) abone olunabilir. Başka kiracının anahtarıyla abonelik `400` döner ve bu olaylar
+hiçbir zaman başka kiracının aboneliğine kuyruklanmaz.
 
 Örnek yükler `WEBHOOK_SAMPLE_DATA` kataloğundadır (tek doğruluk kaynağı,
 `packages/shared/src/open-platform.ts`); `GET /v1/public/hooks/samples/:event`
@@ -98,8 +108,8 @@ Kapsam dışı olay noktaları (henüz yayın yapmayanlar):
 
 ## Eylemler (Zapier "create" adımları)
 
-Eylemler için yeni uç nokta yoktur; mevcut herkese açık API kullanılır
-(`docs/PUBLIC_API.md` bölüm 2):
+Eylemler mevcut herkese açık API'yi kullanır (`docs/PUBLIC_API.md` bölüm 2;
+gelen kişi eylemleri M4c ile eklendi, aşağıda):
 
 | Eylem | Uç nokta | Yetki alanı |
 |---|---|---|
@@ -109,9 +119,22 @@ Eylemler için yeni uç nokta yoktur; mevcut herkese açık API kullanılır
 | Şubeleri / hizmet türlerini bul | `GET /v1/public/branches`, `GET /v1/public/service-types` | `schedules.read` |
 | Rezervasyonları bul | `GET /v1/public/bookings` | `bookings.read` |
 
-Üye, aday veya satış oluşturma için herkese açık bir uç nokta bulunmaz;
-aday eylemi için herkese açık aday formu (`POST /public/studios/:slug/leads`,
-`docs/LEADS.md`) kullanılabilir.
+Gelen kişi eylemleri (M4c, `crm.write` kapsamı, ayrıntılar `docs/PUBLIC_API.md` bölüm 2.1):
+
+| Eylem | Uç nokta | Yetki alanı |
+|---|---|---|
+| Kişi oluştur veya güncelle (e-posta ya da telefonla, `Idempotency-Key` destekli) | `POST /v1/public/contacts` | `crm.write` |
+| Kişiye etiket ekle | `POST /v1/public/contacts/:id/tags` | `crm.write` |
+| İletişim izni kaydet (dayanak ve form sürümüyle) | `POST /v1/public/contacts/:id/consents` | `crm.write` |
+
+Zapier, aynı adımın yeniden denenmesinde ikinci kayıt oluşmasın diye her çalıştırmada
+sabit bir `Idempotency-Key` (örneğin Zap çalıştırma kimliği) göndermelidir. Üye veya
+satış oluşturma için herkese açık bir uç nokta yoktur.
+
+Make "instant trigger" için aynı REST hook uçlarını kullanır: bağlama (attach)
+`POST /v1/public/hooks`, ayırma (detach) `DELETE /v1/public/hooks/:id`. n8n
+"Webhook" tetikleyicisi de aynı aboneliği kullanır; imza doğrulaması
+`docs/PUBLIC_API.md` bölüm 3'tedir.
 
 ## Zapier Platform arayüzünde elle kurulum
 
@@ -146,3 +169,11 @@ aday eylemi için herkese açık aday formu (`POST /public/studios/:slug/leads`,
   kataloğuyla eşitlik), `apps/api/test/e2e/zapier-hooks.e2e-spec.ts` (anahtar
   zorunlu, tek olaya abonelik, SSRF reddi, silme, örnekler, başka işletme
   anahtarı silemez, `lead.created` ve `retail.sale.completed` teslimat satırı).
+- M4c: gelen eylemler `apps/api/src/modules/public-api/contacts-public.controller.ts`
+  (`PublicContactsService`, `PublicIdempotencyService`); platform olayları
+  `PlatformEventsService` (`apps/api/src/modules/webhooks/platform-events.service.ts`)
+  üzerinden `CrmHooksService`, `PlatformBillingService`, `BillingJobsService`,
+  `ContactsService`/`ConversionService` ve `CampaignsService` tarafından yayınlanır.
+  Testler: `packages/shared/src/marketing/lead-ads.spec.ts`,
+  `apps/api/src/modules/public-api/idempotency.*.spec.ts`,
+  `apps/api/test/e2e/lead-ads-automation.e2e-spec.ts`.

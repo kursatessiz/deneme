@@ -240,6 +240,7 @@ platform davetinde yalnızca KVKK aydınlatma metni istenir. Kabulde
 - Entegrasyon merkezi tek bileşendir (`components/integrations/IntegrationHub.tsx`),
   iki sayfada aynı uçlarla kullanılır; kimlik bilgisi yalnızca son 4
   karakterle, webhook yalnızca host ile gösterilir.
+- M4c: Meta leadgen webhook doğrulama belirteci yalnızca süper adminin görüp değiştirdiği bir ayardır (`GET|PUT /admin/integrations/lead-ads/verify-token`, `/admin/entegrasyonlar` kartı); yalnızca SHA-256 özeti saklanır, düz metin üretilince bir kez gösterilir, değişiklik `AuditLog`'a yazılır.
 
 ### Tasarımdan sapmalar
 

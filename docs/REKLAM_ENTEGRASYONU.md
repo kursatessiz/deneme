@@ -32,6 +32,7 @@ Migration: `20260930000000_ads_integration` (yalnızca ileri yönlü; `packages/
 3. Aynı Pixel için Conversions API erişim anahtarı (**access token**) üretin: Events Manager -> Pixel -> Ayarlar -> Conversions API -> "Access token oluştur".
 4. Domain doğrulaması yapın (Meta Business Manager -> Marka Güvenliği -> Alan Adları): olay eşleştirme kalitesini artırır.
 5. Panelde `/ayarlar/reklam` -> Meta bağlantısı ekleyin: Pixel ID ve access token'ı girin. Test modunu açarsanız Events Manager'ın "Test Olayları" sekmesinde bir kod görürsünüz; bu kodu bağlantının kimlik bilgilerine `testEventCode` olarak ekleyin.
+6. Lead Ads (M4c): aynı bağlantıya Facebook sayfa kimliği ve Meta uygulama sırrı, entegrasyon merkezinden (`/pazarlama/entegrasyonlar`) girilir; uygulama sırrı şifreli kimlik bilgisinin içinde `appSecret` olarak saklanır, hiçbir yanıtta dönmez ve belirteç değiştirilince korunur. Webhook, form eşleme ve izin kuralları `docs/PAZARLAMA_MODULU.md` M4c notlarındadır.
 6. "Bağlantıyı test et" ile erişimi doğrulayın.
 7. İlk gerçek dönüşümden sonra Events Manager'da tarayıcı (Pixel) ve sunucu (CAPI) olaylarının **aynı `event_id` ile tekilleştirildiğini** ("Event Match Quality" yüksek) doğrulayın.
 
