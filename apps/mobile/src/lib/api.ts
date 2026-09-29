@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { TRANSLATED_API_ERROR_CODES } from '@platform/shared';
 
 import { resolveOfflineTranslate } from '../i18n/offlineTranslate';
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from './tokenStore';
@@ -133,7 +134,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   if (!response.ok) {
     const errorBody = payload as { message?: string; errors?: ApiFieldError[]; code?: unknown } | null;
     const code = typeof errorBody?.code === 'string' ? errorBody.code : undefined;
-    const message = errorBody?.message ?? (await resolveOfflineTranslate())('mApiErrors.unexpectedError');
+    // Codes with a shared translation (e.g. BILLING_RESTRICTED) are shown in the app's language.
+    const translatedKey = code ? TRANSLATED_API_ERROR_CODES[code] : undefined;
+    const message = translatedKey
+      ? (await resolveOfflineTranslate())(translatedKey)
+      : errorBody?.message ?? (await resolveOfflineTranslate())('mApiErrors.unexpectedError');
     throw new ApiError(response.status, message, errorBody?.errors, code);
   }
 

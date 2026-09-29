@@ -16,7 +16,7 @@ import type {
   UpdateConversationStatusInput,
 } from '@platform/shared';
 import { CurrentUser, Tenant } from '../../auth/decorators/current-user.decorator';
-import { RequirePermission, SelfService, StudioScoped } from '../../auth/decorators/require-permission.decorator';
+import { RequirePermission, SelfService, StudioScoped, AllowWhenRestricted } from '../../auth/decorators/require-permission.decorator';
 import type { AuthUser, TenantContext } from '../../auth/tenant-context';
 import { ZodBody, ZodQuery } from '../../../common/zod-body.pipe';
 import { InboxService } from './inbox.service';
@@ -117,6 +117,7 @@ export class MemberMessagingController {
   }
 
   @Post('chat')
+  @AllowWhenRestricted()
   @SelfService()
   send(@Tenant() tenant: TenantContext, @ZodBody(MemberChatMessageSchema) body: MemberChatMessageInput) {
     return this.inbox.memberSend(tenant, body.body);
@@ -129,6 +130,7 @@ export class MemberMessagingController {
   }
 
   @Post('in-app/:messageId/read')
+  @AllowWhenRestricted()
   @SelfService()
   markRead(@Tenant() tenant: TenantContext, @CurrentUser() user: AuthUser, @Param('messageId', ParseUUIDPipe) id: string) {
     return this.inbox.markInAppRead(tenant, user.id, id);

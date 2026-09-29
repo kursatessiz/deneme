@@ -102,6 +102,8 @@ Kiracı başına her tanınan kişi tek bir `Contact` satırıdır: aday, deneme
 
 **Durum (G2b, yapıldı):** atıf penceresi artık kiracı ayarı (`Studio.attributionWindowDays`, varsayılan 30, `PATCH /studios/:studioId/ads/settings`); `Touchpoint.advertisingConsent` her temas noktasında saklanır ve reklam platformuna gönderimin tek izin kapısıdır. Kalan: `studio_paid` bağlantısı platform faturalaması eklendiğinde bağlanacak (G3c/faturalama fazı).
 
+**Durum (G5c-1, yapıldı):** `studio_paid` bağlandı: işletme "Hesabı etkinleştir" ile ilk ödemesini yaptığında platform kiracısında, sahibin kişisi üzerine, işletme başına bir kez (kaynak `studio_activation:<studioId>`) plan fiyatı ve para birimiyle kaydedilir; pencere içinde temas yoksa `studio_signup` olayının temas noktasına atfedilir. İzleme sözleşmesine işletmeden işletmeye tavsiye parametresi `pw_ref` eklendi (`touchpoints.ref_code`). Ayrıntılar: `docs/DENEME_VE_ETKINLESTIRME.md`.
+
 ### 3.3 Reklam platformlarına geri bildirim
 `ConversionEvent` bir giden kuyruğuna (outbox) yazılır. Arka plan işi, izin durumuna bakarak şu hedeflere gönderir:
 - **Meta Conversions API:** `event_id` tarayıcı Pixel'i ile aynıdır (çift sayım olmaz); hash'lenmiş e-posta ve telefon, `fbc`, `fbp`.
@@ -179,7 +181,9 @@ Sahibin paylaştığı Momence yönetim paneli kaydından (Eylül 2026) çıkar�
   - **Durum (G5d-1, yapıldı):** hazır huniler (aday -> deneme randevusu -> katıldı -> üye; deneme randevusu -> üye; ziyaretçi -> aday -> üye) kodda, kiracı huniler `funnels` tablosunda (2-6 adım, isteğe bağlı gün penceresi, `funnels.manage`); adım bazında sayı, önceki ve ilk adımdan oran, medyan süre, kaynak/kampanya/şube kırılımı ve önceki dönem karşılaştırması tek SQL sorgusuyla; web `/raporlar` "Huniler" sekmesi. Kalan: CSV dışa aktarma, son temas/doğrusal atıf modelleri. Ayrıntılar: `docs/HUNILER.md`
 - **Banka ödemeleri ve mutabakat:** Ödeme sağlayıcısından (Stripe payout, iyzico/PayTR hakediş) banka hesabına geçen toplu tutarların listesi, içindeki tek tek tahsilatlar, komisyon ve iade kesintileri, muhasebe dışa aktarımı.
 - **Deneme süresi ve etkinleştirme (platform satışı):** Yeni işletmeler için deneme süresi, panelde kalan gün bandı ve "hesabı etkinleştir" akışı, süresi dolunca kısıtlı mod. Etkinleştirme `studio_paid` dönüşümünü üretir (bölüm 3.2).
+  - **Durum (G5c-1, yapıldı):** migration `20261012000000_trial_activation`; faturalama durumu `Studio` üzerinde (`TRIALING`/`ACTIVE`/`PAST_DUE`/`RESTRICTED`/`CANCELLED`, mevcut işletmeler `ACTIVE`), deneme süresi plan başına süper admin verisi (`Plan.trialDays`, varsayılan 14), web'de kalan gün bandı ve `/abonelik` etkinleştirme akışı (mevcut ödeme adaptörü, MOCK anında tamamlanır, gerçek sağlayıcı onayı mevcut webhook adresinden), kalp atışında süre dolumu ve 7/3/1 gün hatırlatmaları (TRANSACTIONAL, tr/en), `@StudioScoped()` zincirinde varsayılan olarak yazmayı reddeden kısıtlı mod ve açık izin listesi, süper adminde durum sütunu, deneme uzatma ve zorla etkinleştirme/kısıtlama (denetim kaydıyla), sahibe özel `billing.manage` izni. Kalan: dönemsel yenileme ve `PAST_DUE` motoru, mobil bant. Ayrıntılar: `docs/DENEME_VE_ETKINLESTIRME.md`.
 - **İşletmeden işletmeye tavsiye programı:** Platformu başka bir işletmeye öneren kiracıya ödül (abonelik kredisi); platform kiracısının CRM ve atıf altyapısını kullanır.
+  - **Durum (G5c-1, yapıldı):** işletme başına platform düzeyi kod ve `?pw_ref=` bağlantısı, platform sitesindeki ziyaretin temas noktasıyla veya süper adminin girdiği kodla atıf, ödül yalnızca tavsiye edilen işletme ödediğinde ve işletme başına bir kez, yalnızca eklenen kredi defteri (`platform_credit_ledger`), ödül türü süper admin ayarı (tutar + para birimi veya ücretsiz ay), kendi kendini tavsiye reddi, kredinin bir sonraki platform ödemesinden düşülmesi; web `/tavsiye` ve süper admin `/admin/referrals`. Kalan: kart parmak izi kontrolü (adaptör desteği yok). Ayrıntılar: `docs/DENEME_VE_ETKINLESTIRME.md`.
 
 ## 4. UTM ve reklam adlandırma standardı
 
@@ -244,7 +248,7 @@ Her madde ayrı PR'dır; her PR kendi e2e testleriyle gelir.
 | G3c | Kısmen tamamlandı. G3c-1: etkinlikler, atölyeler ve çok oturumlu kurslar (`docs/ETKINLIKLER.md`). Kalan: perakende ve stok, muhasebe ve Zapier | G1a |
 | G5a | Kullanıcı deneyimi iyileştirmeleri: global hızlı işlem çubuğu ve hızlı satış, açıklayıcı boş durumlar, raporlarda dönem karşılaştırması, satır içi yetki uyarısı (bölüm 3.11) | G1a |
 | G5b | Topluluk ve erişim katmanları (bölüm 3.11) | G1c |
-| G5c | Uygulama pazarı ve ek modül faturalaması; deneme süresi ve etkinleştirme; işletmeden işletmeye tavsiye (bölüm 3.11) | G2b |
+| G5c | Kısmen tamamlandı. G5c-1: deneme süresi ve etkinleştirme, işletmeden işletmeye tavsiye (`docs/DENEME_VE_ETKINLESTIRME.md`). Kalan: uygulama pazarı ve ek modül faturalaması (bölüm 3.11) | G2b |
 | G5d | Dönüşüm hunileri; banka ödemeleri ve mutabakat (bölüm 3.11) | G2a |
 | G4 | Yayın öncesi sertleştirme: uçtan uca huni testi, güvenlik incelemesi, yük testi, hazırlık (staging) ortamında gerçek sağlayıcılarla deneme | hepsi |
 

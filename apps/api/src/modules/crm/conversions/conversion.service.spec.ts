@@ -133,4 +133,25 @@ describe('ConversionService', () => {
     expect(await build().recordStudioSignup('new-studio', '+905550000000')).toBeNull();
     expect(prisma.conversionEvent.create).not.toHaveBeenCalled();
   });
+
+  it('studio_paid falls back to the touchpoint the studio signup was attributed to', async () => {
+    const PLATFORM = '0b0b0b0b-0000-4000-8000-0000000000ff';
+    prisma.studio.findFirst.mockResolvedValue({ id: PLATFORM });
+    prisma.studio.findUnique.mockResolvedValue({ isPlatform: true });
+    prisma.membership.findFirst.mockResolvedValue({ user: { phone: '+905550000000' } });
+    prisma.contact.findFirst.mockResolvedValue({ id: CONTACT, isTest: false });
+    // No touch inside the window before the payment (a long trial).
+    attribution.lastTouchFor.mockResolvedValue(null);
+    prisma.conversionEvent.findUnique.mockImplementation(({ where }) =>
+      Promise.resolve(
+        where.studioId_sourceKind_sourceId?.sourceKind === 'studio' ? { id: 'ev-signup', attributedTouchpointId: 'tp-signup' } : null,
+      ),
+    );
+    const result = await build().recordStudioPaid('paid-studio', { kind: 'studio_activation', id: 'paid-studio' }, { amount: '1490.00', currency: 'TRY' });
+    expect(result?.created).toBe(true);
+    const data = prisma.conversionEvent.create.mock.calls[0][0].data;
+    expect(data.type).toBe('studio_paid');
+    expect(data.attributedTouchpointId).toBe('tp-signup');
+    expect(data.sourceKind).toBe('studio_activation');
+  });
 });

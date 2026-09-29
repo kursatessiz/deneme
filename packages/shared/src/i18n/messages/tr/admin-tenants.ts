@@ -21,6 +21,7 @@ export const trAdminTenants = {
   'adminTenants.form.ownerFirstName': 'Sahibin adı',
   'adminTenants.form.ownerLastName': 'Sahibin soyadı',
   'adminTenants.form.ownerPhone': 'Sahibin telefonu (05XX...)',
+  'adminTenants.form.referralCode': 'Tavsiye kodu (isteğe bağlı)',
   'adminTenants.form.submit': 'Oluştur ve Davet Gönder',
   'adminTenants.form.submitting': 'Oluşturuluyor...',
   'adminTenants.form.cancel': 'Vazgeç',

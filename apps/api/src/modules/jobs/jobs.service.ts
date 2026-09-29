@@ -18,6 +18,7 @@ import { AdSpendSyncService, SpendSyncOutcome } from '../ads/spend-sync/ad-spend
 import { TranslationEngineService } from '../ai/translation/translation-engine.service';
 import { LoyaltyJobsService, LoyaltyHeartbeatResult } from '../loyalty/loyalty-jobs.service';
 import { EventsJobsService, EventsHeartbeatResult } from '../events/events-jobs.service';
+import { BillingJobsService, BillingHeartbeatResult } from '../billing/billing-jobs.service';
 
 export interface SchedulerRunResult {
   runAt: string;
@@ -37,6 +38,7 @@ export interface SchedulerRunResult {
   aiTranslation: { jobs: number; paused: number };
   loyalty: LoyaltyHeartbeatResult;
   events: EventsHeartbeatResult;
+  billing: BillingHeartbeatResult;
 }
 
 /**
@@ -79,6 +81,7 @@ export class JobsService {
     private readonly aiTranslation: TranslationEngineService,
     private readonly loyalty: LoyaltyJobsService,
     private readonly events: EventsJobsService,
+    private readonly billing: BillingJobsService,
     @Optional() @InjectQueue(SCHEDULER_QUEUE) private readonly queue?: Queue,
   ) {}
 
@@ -105,6 +108,7 @@ export class JobsService {
     const adSpendSync = await this.adSpendSync.syncAllDueIfStale(now);
     const loyalty = await this.loyalty.run(now);
     const events = await this.events.run(now);
+    const billing = await this.billing.run(now);
     // Last: AI translation batches may take a while; the other steps are time-sensitive.
     const aiTranslation = await this.aiTranslation.processPending(now);
 
@@ -120,7 +124,8 @@ export class JobsService {
         `ad spend sync ${adSpendSync ? `${adSpendSync.connectionsSynced} connection(s)` : 'skipped (not due)'}, ` +
         `AI translation ${aiTranslation.jobs} job(s)/${aiTranslation.paused} paused, ` +
         `loyalty ${loyalty.birthdayPoints} birthday point(s)/${loyalty.expiredPoints} expired/${loyalty.expiryNotices} notice(s), ` +
-        `events ${events.holdsReleased} hold(s) released/${events.promoted} promoted/${events.reminders} reminder(s)/${events.completed} completed`,
+        `events ${events.holdsReleased} hold(s) released/${events.promoted} promoted/${events.reminders} reminder(s)/${events.completed} completed, ` +
+        `billing ${billing.restricted} trial(s) restricted/${billing.reminders} reminder(s)`,
     );
 
     this.lastRunAt = now;
@@ -142,6 +147,7 @@ export class JobsService {
       aiTranslation,
       loyalty,
       events,
+      billing,
     };
   }
 }

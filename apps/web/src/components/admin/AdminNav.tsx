@@ -7,6 +7,7 @@ import { useT } from '@/components/i18n/I18nProvider';
 const LINKS: ReadonlyArray<{ href: string; labelKey: string }> = [
   { href: '/admin/tenants', labelKey: 'adminNav.tenants' },
   { href: '/admin/plans', labelKey: 'adminNav.plans' },
+  { href: '/admin/referrals', labelKey: 'adminBilling.nav' },
   { href: '/admin/business-types', labelKey: 'adminNav.businessTypes' },
   { href: '/admin/feature-flags', labelKey: 'adminNav.featureFlags' },
   { href: '/admin/sms-packages', labelKey: 'adminNav.smsPackages' },

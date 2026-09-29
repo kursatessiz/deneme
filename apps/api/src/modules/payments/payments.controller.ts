@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Post } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
-import { StudioScoped, RequirePermission, SelfService } from '../auth/decorators/require-permission.decorator';
+import { StudioScoped, RequirePermission, SelfService, AllowWhenRestricted } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import { ZodBody, ZodQuery } from '../../common/zod-body.pipe';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
@@ -80,6 +80,7 @@ export class PaymentsController {
   // ---------------------------------------------------------------------------
 
   @Post('cards/self')
+  @AllowWhenRestricted()
   @SelfService()
   async addCardSelf(@Tenant() tenant: TenantContext, @ZodBody(CardTokenSchema) body: CardTokenInput) {
     return this.payments.addStoredCardSelf(tenant, body);
@@ -118,6 +119,7 @@ export class PaymentsController {
   }
 
   @Post('subscriptions/:id/cancel/self')
+  @AllowWhenRestricted()
   @SelfService()
   async cancelSubscriptionSelf(
     @Param('id') id: string,

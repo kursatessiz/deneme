@@ -78,7 +78,7 @@ export async function SitePageView({ studioSlug, isPlatform, locale, slugParts }
       ? localBusinessJsonLd({ name: page.context.studioContact.name, url: origin, address: page.context.studioContact.address, phone: page.context.studioContact.phone, email: page.context.studioContact.email })
       : null;
 
-  const offerItems = (page.context.plans ?? []).map((p) => ({ name: p.name, price: p.priceMonthly, currency: 'USD', url: pageUrl }));
+  const offerItems = (page.context.plans ?? []).map((p) => ({ name: p.name, price: p.priceMonthly, currency: p.currency, url: pageUrl }));
 
   return (
     <ThemeRoot tenantTheme={page.theme ?? DEFAULT_TENANT_THEME} appearance={{ themeFamily: null, colorScheme: 'SYSTEM' }}>

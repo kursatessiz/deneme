@@ -111,6 +111,9 @@ export const PERMISSIONS = {
   // G5d-1: viewing funnels reuses reports.view; only creating and editing
   // tenant funnels needs this. Owner only by default.
   'funnels.manage': 'Dönüşüm hunisi oluşturma, düzenleme ve silme',
+  // G5c-1: the platform subscription itself (activation, plan choice, the
+  // business referral page). Owner only: see OWNER_ONLY_PERMISSIONS.
+  'billing.manage': 'Platform aboneliğini etkinleştirme, plan seçimi ve işletme tavsiye programı',
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
@@ -148,6 +151,7 @@ export const PERMISSION_AREAS = {
   Sadakat: ['loyalty.view', 'loyalty.manage', 'loyalty.redeem'],
   Etkinlikler: ['events.view', 'events.manage', 'events.checkin'],
   'Perakende ve stok': ['retail.view', 'retail.sell', 'retail.manage', 'retail.refund'],
+  Abonelik: ['billing.manage'],
 } as const satisfies Record<string, readonly PermissionKey[]>;
 
 export type PermissionArea = keyof typeof PERMISSION_AREAS;
@@ -222,8 +226,19 @@ export const DEFAULT_ROLE_TEMPLATES: readonly DefaultRoleTemplate[] = [
   { key: 'member', name: 'Üye', isOwner: false, permissions: [] },
 ];
 
+/**
+ * Permissions only the tenant owner ever holds. They are never granted
+ * through a role template: resolvePermissions drops them for non-owner
+ * roles even if a row was stored, and the role editor does not offer them.
+ */
+export const OWNER_ONLY_PERMISSIONS: readonly PermissionKey[] = ['billing.manage'];
+
+export function isOwnerOnlyPermission(key: string): boolean {
+  return (OWNER_ONLY_PERMISSIONS as readonly string[]).includes(key);
+}
+
 /** Effective permissions of a role template. */
 export function resolvePermissions(role: { isOwner: boolean; permissions: readonly string[] }): PermissionKey[] {
   if (role.isOwner) return [...ALL_PERMISSIONS];
-  return role.permissions.filter(isPermissionKey);
+  return role.permissions.filter(isPermissionKey).filter((key) => !isOwnerOnlyPermission(key));
 }

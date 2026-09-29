@@ -85,6 +85,17 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplateDefinition[] = [
   { key: 'EVENT_CANCELLED', purpose: 'TRANSACTIONAL', variables: ['firstName', 'studioName', 'eventTitle', 'startTime'], whatsappName: 'event_cancelled' },
   { key: 'EVENT_WAITLIST_PROMOTED', purpose: 'TRANSACTIONAL', variables: ['firstName', 'eventTitle', 'startTime'], whatsappName: 'event_waitlist_promoted' },
   { key: 'EVENT_PAYMENT_DUE', purpose: 'TRANSACTIONAL', variables: ['firstName', 'eventTitle', 'paymentDueAt'], whatsappName: 'event_payment_due' },
+  /**
+   * G5c-1 platform billing (docs/DENEME_VE_ETKINLESTIRME.md): to the
+   * business owner about their own platform account, so TRANSACTIONAL.
+   */
+  {
+    key: 'TRIAL_ENDING',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'studioName', 'daysLeft', 'trialEndDate'],
+    whatsappName: 'trial_ending',
+  },
+  { key: 'TRIAL_RESTRICTED', purpose: 'TRANSACTIONAL', variables: ['firstName', 'studioName'], whatsappName: 'trial_restricted' },
 ];
 
 export function builtinTemplate(key: string): BuiltinTemplateDefinition | null {

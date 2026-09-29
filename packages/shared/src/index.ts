@@ -33,3 +33,4 @@ export * from './retail';
 export * from './accounting';
 export * from './report-compare';
 export * from './funnels';
+export * from './billing';

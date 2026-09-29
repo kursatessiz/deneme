@@ -4,6 +4,7 @@ import { SchedulesService } from '../schedules/schedules.service';
 import { maskPhone } from '@platform/shared';
 import type { PublicCreateBookingInput } from '@platform/shared';
 import type { TenantContext } from '../auth/tenant-context';
+import { assertStudioWritable } from '../auth/guards/billing-write.guard';
 
 /**
  * The read/write logic behind both `/v1/public/*` (API-key authenticated
@@ -158,6 +159,7 @@ export class PublicApiService {
   }
 
   async createBooking(studioId: string, dto: PublicCreateBookingInput) {
+    await assertStudioWritable(this.prisma, studioId);
     const member = await this.resolveMemberByPhone(studioId, dto.memberPhone);
     const tenant = this.toStaffTenant(studioId);
     // SchedulesService.bookSession itself emits the booking.created webhook.

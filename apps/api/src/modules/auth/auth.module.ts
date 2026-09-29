@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { StudioTenantGuard } from './guards/studio-tenant.guard';
 import { PermissionGuard } from './guards/permission.guard';
+import { BillingWriteGuard } from './guards/billing-write.guard';
 import { LoginThrottleService } from './login-throttle.service';
 
 @Module({
@@ -23,7 +24,7 @@ import { LoginThrottleService } from './login-throttle.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, LoginThrottleService, JwtStrategy, StudioTenantGuard, PermissionGuard],
-  exports: [AuthService, StudioTenantGuard, PermissionGuard, PassportModule, JwtModule],
+  providers: [AuthService, LoginThrottleService, JwtStrategy, StudioTenantGuard, PermissionGuard, BillingWriteGuard],
+  exports: [AuthService, StudioTenantGuard, PermissionGuard, BillingWriteGuard, PassportModule, JwtModule],
 })
 export class AuthModule {}
