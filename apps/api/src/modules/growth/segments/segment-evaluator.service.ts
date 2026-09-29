@@ -170,6 +170,8 @@ export class SegmentEvaluatorService {
         return this.idsWhere(await this.aggregateIds(ctx, 'totalSpent', rule));
       case 'contact.birthdayInDays':
         return this.idsWhere(await this.aggregateIds(ctx, 'birthdayInDays', rule));
+      case 'loyalty.pointsBalance':
+        return this.idsWhere(await this.aggregateIds(ctx, 'loyaltyBalance', rule));
       default: {
         const reason = UNAVAILABLE_SEGMENT_FIELDS[rule.field as keyof typeof UNAVAILABLE_SEGMENT_FIELDS];
         throw new BadRequestException(reason ?? `Bu alan henüz desteklenmiyor: ${rule.field}`);
@@ -257,7 +259,7 @@ export class SegmentEvaluatorService {
 
   private async aggregateIds(
     ctx: SegmentEvaluationContext,
-    metric: 'attended30' | 'attendedTotal' | 'noShows30' | 'totalSpent' | 'birthdayInDays',
+    metric: 'attended30' | 'attendedTotal' | 'noShows30' | 'totalSpent' | 'birthdayInDays' | 'loyaltyBalance',
     rule: SegmentCondition,
   ): Promise<string[]> {
     const { studioId, now } = ctx;
@@ -280,6 +282,13 @@ export class SegmentEvaluatorService {
         value = Prisma.sql`(
           SELECT COALESCE(sum(p."amount" - p."refunded_amount"), 0)::float8 FROM "payments" p
           WHERE p."member_id" = mp."id" AND p."studio_id" = ${studioId}::uuid AND p."payment_status" = 'COMPLETED'
+        )`;
+        break;
+      case 'loyaltyBalance':
+        // G3a: the cached balance of the contact's membership (0 without an account).
+        value = Prisma.sql`(
+          SELECT la."balance"::float8 FROM "loyalty_accounts" la
+          WHERE la."membership_id" = c."membership_id" AND la."studio_id" = ${studioId}::uuid
         )`;
         break;
       case 'birthdayInDays': {

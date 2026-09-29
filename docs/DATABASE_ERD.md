@@ -456,6 +456,19 @@ Sahip kararı: partner misafiri kendisi stüdyoya katılana kadar mesajlaşma/et
 
 `studios.ai_monthly_budget_cents` süper adminin işletmeye özel aylık yapay zeka limitidir (boşsa planın `limits.aiMonthlyBudgetCents` değeri, o da yoksa `ai_settings.default_monthly_budget_cents`); 0 yapay zekayı kapatır. Tüm AI tabloları platform verisidir; kiracıya ait tek satır türü `ai_usage`'dır ve `studio_id` taşır. Ayrıntılar: `docs/YAPAY_ZEKA.md`.
 
+## Sadakat puanı (G3a)
+
+| Tablo | Amaç | Kısıtlar |
+|---|---|---|
+| `loyalty_settings` | İşletme başına program ayarı: açık/kapalı, son kullanma (`LoyaltyExpiryMode`: NONE / MONTHS_AFTER_EARN + ay), bildirim günü, üyenin uygulamadan ödül kullanması | PK studio_id -> studios (cascade silme); satır yoksa program kapalı |
+| `loyalty_rules` | Kiracının kazanma kuralı: `kind` (LOYALTY_RULE_KINDS anahtarı), ad, puan, `per_amount` + `currency` (tutar kuralı), `conditions` JSON (hizmet türü, paket tanımı, rozet listeleri), etkinlik | (studio_id, kind, is_active) index |
+| `loyalty_rewards` | Kiracının ödül kataloğu: `type` (LOYALTY_REWARD_TYPES anahtarı), puan bedeli, değer + para birimi (tutar indirimi), yüzde veya hak sayısı, kod geçerlilik günü, etkinlik, üye kullanımı | (studio_id, is_active) index; kullanılmış ödül silinmez (redemptions -> restrict), pasif yapılır |
+| `loyalty_accounts` | Üyelik başına önbellekli bakiye, toplam kazanılan/harcanan, `next_expiry_at` (süre dolumu ipucu), `expiry_notice_for` | membership_id benzersiz (cascade silme); `balance >= 0` CHECK; (studio_id, balance) ve (next_expiry_at) index |
+| `loyalty_ledger` | Yalnızca ekleme yapılan puan defteri: `delta`, `balance_after`, `reason`, `source_type` + `source_id`, kural, parti son kullanma tarihi (`expires_at`), elle düzeltmeyi yapan üyelik, not, ilgili kişi | (studio_id, source_type, source_id, reason) benzersiz (tekillik); `delta <> 0` ve `balance_after >= 0` CHECK; (studio_id, membership_id, created_at) ve (studio_id, expires_at) index; membership -> cascade, oluşturan -> set null |
+| `loyalty_redemptions` | Kullanılan ödül: negatif defter satırı, ödülün o anki adı/türü/değeri/para birimi, üretilen promosyon kodu veya hak eklenen paket | ledger_id benzersiz; promo_code_id -> promo_codes (set null); (studio_id, membership_id, created_at) index |
+
+`promo_codes.restricted_to_user_id` (boş olabilir): sadakat ödülüyle üretilen kodu tek kullanıcıyla sınırlar; boşsa herkes kullanabilir. Bakiye defterden türetilir, hesap satırı aynı işlemde güncellenen bir önbellektir. Ayrıntılar: `docs/SADAKAT.md`.
+
 ## Denetim (Audit)
 
 | Tablo | Amaç | Kısıtlar |

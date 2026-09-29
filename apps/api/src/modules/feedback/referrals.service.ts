@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { Prisma, ReferralStatus as PrismaReferralStatus } from '@platform/database';
 import {
   ListReferralsQueryInput,
@@ -12,6 +12,8 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { generateReferralCode } from './referral-code';
+import { creditActivePackageUnits } from '../members/package-credit';
+import { LoyaltyEarnService } from '../loyalty/loyalty-earn.service';
 
 type ReferralRow = Prisma.ReferralGetPayload<{
   include: {
@@ -22,7 +24,10 @@ type ReferralRow = Prisma.ReferralGetPayload<{
 
 @Injectable()
 export class ReferralsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly loyalty?: LoyaltyEarnService,
+  ) {}
 
   // ---------------------------------------------------------------------
   // Member self-service
@@ -176,7 +181,12 @@ export class ReferralsService {
     await this.grantReward(studioId, referral.id);
   }
 
-  /** Conditional QUALIFIED -> REWARDED, crediting the referrer's active package exactly once. */
+  /**
+   * Conditional QUALIFIED -> REWARDED, crediting the referrer's active
+   * package exactly once. The same transition is the loyalty earning source
+   * (G3a): REFERRAL rules credit points keyed by the referral id, so a
+   * referral never earns twice whoever wins the race.
+   */
   private async grantReward(studioId: string, referralId: string): Promise<void> {
     const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { referralRewardUnits: true } });
     const rewardUnits = studio?.referralRewardUnits ?? 0;
@@ -193,23 +203,14 @@ export class ReferralsService {
       });
       if (transitioned.count === 0) return; // already rewarded by a concurrent call
 
+      const referral = await tx.referral.findUniqueOrThrow({ where: { id: referralId } });
+      await this.loyalty?.onReferralRewardedTx(tx, studioId, referral.id, referral.referrerMemberId);
+
       if (rewardUnits <= 0) return;
 
-      const referral = await tx.referral.findUniqueOrThrow({ where: { id: referralId } });
-      const activePackage = await tx.memberPackage.findFirst({
-        where: { studioId, memberId: referral.referrerMemberId, status: 'ACTIVE', entitlementKind: { in: ['SESSION_COUNT', 'CREDIT'] } },
-        orderBy: { createdAt: 'desc' },
-      });
+      const activePackage = await creditActivePackageUnits(tx, studioId, referral.referrerMemberId, rewardUnits);
       if (!activePackage) return;
 
-      await tx.memberPackage.update({
-        where: { id: activePackage.id },
-        // Relative increments: a concurrent booking deduction must not be lost.
-        data: {
-          totalUnits: activePackage.totalUnits != null ? { increment: rewardUnits } : undefined,
-          remainingUnits: activePackage.remainingUnits != null ? { increment: rewardUnits } : undefined,
-        },
-      });
       await tx.auditLog.create({
         data: {
           studioId,

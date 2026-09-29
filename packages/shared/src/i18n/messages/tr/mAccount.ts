@@ -11,6 +11,7 @@ export const trMAccount = {
   'mAccount.menu.homeBranch': 'Ana şubem',
   'mAccount.menu.myPayments': 'Ödemelerim',
   'mAccount.menu.myAchievements': 'Başarılarım',
+  'mAccount.menu.myPoints': 'Puanlarım',
   'mAccount.menu.referFriend': 'Arkadaşını getir',
   'mAccount.menu.health': 'Sağlık entegrasyonu',
   'mAccount.menu.myCommission': 'Hakedişim',

@@ -18,9 +18,7 @@ export type SegmentKind = (typeof SEGMENT_KINDS)[number];
  * Built-in fields the evaluator cannot answer yet. The shared validator
  * accepts them (the DSL is stable), the API rejects them with this reason.
  */
-export const UNAVAILABLE_SEGMENT_FIELDS: Partial<Record<BuiltInSegmentField, string>> = {
-  'loyalty.pointsBalance': 'Sadakat puanı alanı sadakat modülüyle (G3a) etkinleşecek',
-};
+export const UNAVAILABLE_SEGMENT_FIELDS: Partial<Record<BuiltInSegmentField, string>> = {};
 
 /** Field groups for the segment builder UI; labels are i18n keys segments.field.<field>. */
 export const SEGMENT_FIELD_GROUPS: readonly { key: string; fields: readonly BuiltInSegmentField[] }[] = [
@@ -46,6 +44,7 @@ export const SEGMENT_FIELD_GROUPS: readonly { key: string; fields: readonly Buil
   { key: 'payment', fields: ['payment.totalSpent', 'payment.lastPaidDaysAgo'] },
   { key: 'attribution', fields: ['attribution.firstSource', 'attribution.firstCampaignId', 'attribution.lastSource'] },
   { key: 'churn', fields: ['churn.riskLevel'] },
+  { key: 'loyalty', fields: ['loyalty.pointsBalance'] },
 ];
 
 export function segmentFieldKind(field: string, customFieldKinds: Readonly<Record<string, SegmentFieldKind>> = {}): SegmentFieldKind | null {

@@ -19,6 +19,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { assertBranchAccess } from '../branches/branch-access';
 import { generateGiftCardCode, hashGiftCardCode, last4OfGiftCardCode } from './gift-card-code';
+
+/** Length of the random part of a loyalty reward code ("LOY-" + this many characters). */
+const LOYALTY_CODE_LENGTH = 10;
 import { computePromoDiscount } from './promo-pricing';
 
 type Tx = Prisma.TransactionClient;
@@ -231,6 +234,7 @@ export class PromotionsService {
     userId: string,
   ): Promise<{ valid: true } | { valid: false; reason: string }> {
     const now = new Date();
+    if (promo.restrictedToUserId && promo.restrictedToUserId !== userId) return { valid: false, reason: 'Bu kod başka bir üyeye özeldir' };
     if (promo.validFrom && now < promo.validFrom) return { valid: false, reason: 'Kodun geçerlilik tarihi henüz başlamadı' };
     if (promo.validTo && now > promo.validTo) return { valid: false, reason: 'Kodun süresi dolmuş' };
     if (
@@ -351,6 +355,7 @@ export class PromotionsService {
     userId: string,
   ): Promise<{ valid: true } | { valid: false; reason: string }> {
     const now = new Date();
+    if (promo.restrictedToUserId && promo.restrictedToUserId !== userId) return { valid: false, reason: 'Bu kod başka bir üyeye özeldir' };
     if (promo.validFrom && now < promo.validFrom) return { valid: false, reason: 'Kodun geçerlilik tarihi henüz başlamadı' };
     if (promo.validTo && now > promo.validTo) return { valid: false, reason: 'Kodun süresi dolmuş' };
     if (promo.applicablePackageDefinitionIds.length > 0 && !promo.applicablePackageDefinitionIds.includes(pkgDef.id)) {
@@ -366,6 +371,35 @@ export class PromotionsService {
       if (priorPayments > 0) return { valid: false, reason: 'Kod yalnızca yeni üyeler içindir' };
     }
     return { valid: true };
+  }
+
+  /**
+   * G3a: a single-use discount code for one member, issued inside the
+   * loyalty redemption transaction. It goes through the normal sale flow
+   * (applyPromoCodeTx), so every existing promo rule applies; only the
+   * member it was issued to can use it (restrictedToUserId).
+   */
+  async issueLoyaltyPromoCodeTx(
+    tx: Tx,
+    params: { studioId: string; createdByUserId: string; restrictedToUserId: string; kind: 'PERCENT' | 'FIXED_AMOUNT'; value: Prisma.Decimal; validTo: Date },
+  ): Promise<PromoCode> {
+    return tx.promoCode.create({
+      data: {
+        studioId: params.studioId,
+        code: `LOY-${generateGiftCardCode(LOYALTY_CODE_LENGTH)}`,
+        kind: params.kind === 'PERCENT' ? PromoCodeKind.PERCENT : PromoCodeKind.FIXED_AMOUNT,
+        value: params.value,
+        validFrom: null,
+        validTo: params.validTo,
+        maxRedemptions: 1,
+        perUserLimit: 1,
+        applicablePackageDefinitionIds: [],
+        newMembersOnly: false,
+        restrictedToUserId: params.restrictedToUserId,
+        isActive: true,
+        createdByUserId: params.createdByUserId,
+      },
+    });
   }
 
   async recordPromoRedemption(tx: Tx, studioId: string, userId: string, promoCodeId: string, paymentId: string, discountAmount: Prisma.Decimal) {

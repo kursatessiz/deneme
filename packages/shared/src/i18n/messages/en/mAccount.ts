@@ -12,6 +12,7 @@ export const enMAccount: Record<keyof typeof trMAccount, string> = {
   'mAccount.menu.homeBranch': 'My home branch',
   'mAccount.menu.myPayments': 'My payments',
   'mAccount.menu.myAchievements': 'My achievements',
+  'mAccount.menu.myPoints': 'My points',
   'mAccount.menu.referFriend': 'Refer a friend',
   'mAccount.menu.health': 'Health integration',
   'mAccount.menu.myCommission': 'My commission',

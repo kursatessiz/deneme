@@ -54,6 +54,7 @@ export const enSegments: Record<keyof typeof trSegments, string> = {
   'segments.group.payment': 'Payment',
   'segments.group.attribution': 'Source',
   'segments.group.churn': 'Churn risk',
+  'segments.group.loyalty': 'Loyalty',
   'segments.group.custom': 'Custom fields',
   'segments.field.contact.lifecycleStage': 'Lifecycle stage',
   'segments.field.contact.tags': 'Tags',

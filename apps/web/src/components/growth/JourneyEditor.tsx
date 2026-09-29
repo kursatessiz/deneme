@@ -37,7 +37,7 @@ import { EMPTY_RULES, SegmentBuilder } from './SegmentBuilder';
 import { Field, Muted, Notice, PageHeader, Panel, inputClass, inputStyle, errorMessage, useDateFormat } from './ui';
 
 type StepType = JourneyStep['type'];
-const STEP_TYPES: StepType[] = ['wait', 'send', 'branch', 'update_contact', 'create_task'];
+const STEP_TYPES: StepType[] = ['wait', 'send', 'branch', 'update_contact', 'create_task', 'award_points'];
 
 /** Built-in fields only, for users who cannot read the tenant's custom field catalogue. */
 const FALLBACK_CATALOGUE: SegmentFieldCatalogueDTO = {
@@ -251,7 +251,25 @@ function StepEditor({
       );
       break;
     case 'award_points':
-      body = <Muted>{t('journeys.step.unavailable')}</Muted>;
+      body = (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <Field label={t('journeys.step.points')} htmlFor={f('points')}>
+            <input
+              id={f('points')}
+              type="number"
+              min={1}
+              value={step.points}
+              onChange={(e) => onChange({ ...step, points: Math.max(1, Math.round(Number(e.target.value) || 1)) })}
+              className={inputClass}
+              style={inputStyle}
+            />
+          </Field>
+          <Field label={t('journeys.step.pointsReason')} htmlFor={f('reason')}>
+            <input id={f('reason')} value={step.reasonKey} maxLength={200} onChange={(e) => onChange({ ...step, reasonKey: e.target.value })} className={inputClass} style={inputStyle} />
+          </Field>
+          <NextSelect id={f('next')} label={t('journeys.step.next')} value={step.next} options={otherIds} onChange={(next) => onChange({ ...step, next })} />
+        </div>
+      );
       break;
   }
 

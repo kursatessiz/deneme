@@ -84,6 +84,13 @@ export const PERMISSIONS = {
   // suggestions with AI. Counts against the tenant's monthly AI budget, so
   // only the owner has it by default.
   'ai.use': 'Yapay zeka ile metin taslağı ve cevap önerisi oluşturma',
+
+  // G3a: loyalty points. Reception gets view + redeem by default so the
+  // front desk can show a balance and hand out a reward; rules, rewards and
+  // manual adjustments stay with the owner unless granted.
+  'loyalty.view': 'Sadakat puanı bakiyesini ve hareketlerini görüntüleme',
+  'loyalty.manage': 'Sadakat programı ayarları, kazanma kuralları, ödüller ve elle puan düzeltme',
+  'loyalty.redeem': 'Üye kartında sadakat ödülü kullandırma',
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
@@ -118,6 +125,7 @@ export const PERMISSION_AREAS = {
   İçerik: ['content.view', 'content.manage'],
   'Web sitem': ['site.view', 'site.manage'],
   'Yapay zeka': ['ai.use'],
+  Sadakat: ['loyalty.view', 'loyalty.manage', 'loyalty.redeem'],
 } as const satisfies Record<string, readonly PermissionKey[]>;
 
 export type PermissionArea = keyof typeof PERMISSION_AREAS;
@@ -165,6 +173,8 @@ export const DEFAULT_ROLE_TEMPLATES: readonly DefaultRoleTemplate[] = [
       'inbox.view',
       'inbox.reply',
       'inbox.manage',
+      'loyalty.view',
+      'loyalty.redeem',
     ],
   },
   {

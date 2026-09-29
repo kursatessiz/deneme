@@ -61,6 +61,16 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplateDefinition[] = [
   },
   { key: 'INBOX_HELP_REPLY', purpose: 'TRANSACTIONAL', variables: ['studioName'], whatsappName: 'inbox_help' },
   { key: 'INBOX_OPT_OUT_CONFIRM', purpose: 'TRANSACTIONAL', variables: ['studioName'], whatsappName: 'inbox_opt_out' },
+  /**
+   * G3a: points about to expire. Informational about the member's own
+   * balance, not an offer, so it is sent as TRANSACTIONAL (docs/SADAKAT.md).
+   */
+  {
+    key: 'LOYALTY_POINTS_EXPIRING',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'studioName', 'points', 'expiryDate'],
+    whatsappName: 'loyalty_points_expiring',
+  },
 ];
 
 export function builtinTemplate(key: string): BuiltinTemplateDefinition | null {
