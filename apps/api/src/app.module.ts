@@ -47,6 +47,7 @@ import { SitesModule } from './modules/sites/sites.module';
 import { AiModule } from './modules/ai/ai.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { EventsModule } from './modules/events/events.module';
+import { RetailModule } from './modules/retail/retail.module';
 import { validateEnv } from './config/env';
 
 @Module({
@@ -103,6 +104,7 @@ import { validateEnv } from './config/env';
     AiModule,
     LoyaltyModule,
     EventsModule,
+    RetailModule,
   ],
 })
 export class AppModule {}

@@ -98,6 +98,13 @@ export const PERMISSIONS = {
   'events.view': 'Etkinlikleri ve kayıtları görüntüleme, kayıt listesini dışa aktarma',
   'events.manage': 'Etkinlik oluşturma, yayınlama, iptal etme, bilet ve kayıt yönetimi',
   'events.checkin': 'Etkinlik kayıtlarında giriş (check-in) ve gelmedi işaretleme',
+  // G3c-2: retail and stock. Reception gets view + sell by default so the
+  // front desk can ring up a sale; the catalogue, stock corrections and
+  // refunds stay with the owner unless granted.
+  'retail.view': 'Ürünleri, stok durumunu ve satış geçmişini görüntüleme',
+  'retail.sell': 'Hızlı satış ekranından ürün satma',
+  'retail.manage': 'Ürün kataloğu, fiyatlar ve stok giriş, düzeltme ve transferleri',
+  'retail.refund': 'Ürün satışını iade etme veya iptal etme',
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
@@ -134,6 +141,7 @@ export const PERMISSION_AREAS = {
   'Yapay zeka': ['ai.use'],
   Sadakat: ['loyalty.view', 'loyalty.manage', 'loyalty.redeem'],
   Etkinlikler: ['events.view', 'events.manage', 'events.checkin'],
+  'Perakende ve stok': ['retail.view', 'retail.sell', 'retail.manage', 'retail.refund'],
 } as const satisfies Record<string, readonly PermissionKey[]>;
 
 export type PermissionArea = keyof typeof PERMISSION_AREAS;
@@ -185,6 +193,8 @@ export const DEFAULT_ROLE_TEMPLATES: readonly DefaultRoleTemplate[] = [
       'loyalty.redeem',
       'events.view',
       'events.checkin',
+      'retail.view',
+      'retail.sell',
     ],
   },
   {

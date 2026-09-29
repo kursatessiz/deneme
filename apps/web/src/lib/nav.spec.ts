@@ -1,4 +1,5 @@
 import { filterNavByPermissions, hasAnyPermission, NAV_ITEMS } from './nav';
+import { visibleQuickActions } from './quick-actions';
 
 describe('filterNavByPermissions', () => {
   it('owners see every nav item regardless of their stored permission list', () => {
@@ -66,5 +67,15 @@ describe('hasAnyPermission', () => {
 
   it('denies when none of the required permissions are held', () => {
     expect(hasAnyPermission(['finance.manage'], ['members.view'], false)).toBe(false);
+  });
+});
+
+describe('retail navigation and quick sale', () => {
+  it('shows the store to retail.view and the quick sale action to retail.sell only', () => {
+    expect(filterNavByPermissions(NAV_ITEMS, ['retail.view'], false).map((i) => i.key)).toContain('retail');
+    expect(filterNavByPermissions(NAV_ITEMS, ['schedule.view'], false).map((i) => i.key)).not.toContain('retail');
+    expect(visibleQuickActions(['retail.sell'], false).map((a) => a.key)).toEqual(['quick-sale']);
+    expect(visibleQuickActions(['retail.view'], false).map((a) => a.key)).not.toContain('quick-sale');
+    expect(visibleQuickActions([], true).map((a) => a.key)).toContain('quick-sale');
   });
 });

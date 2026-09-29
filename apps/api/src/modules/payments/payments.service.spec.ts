@@ -50,6 +50,7 @@ describe('PaymentsService - refunds', () => {
         findUniqueOrThrow: jest.fn(),
       },
       auditLog: { create: jest.fn() },
+      sale: { count: jest.fn().mockResolvedValue(0) },
     };
     providers = { get: jest.fn().mockReturnValue({ refund }) };
     service = new PaymentsService(
