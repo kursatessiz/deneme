@@ -92,12 +92,19 @@ export function minorToAmount(minor: bigint, currency: string): string {
   return `${sign}${abs / 100n}.${(abs % 100n).toString().padStart(2, '0')}`;
 }
 
+/** Drops trailing '0' characters with a linear scan (no regex, so no backtracking on long input). */
+function trimTrailingZeros(text: string): string {
+  let end = text.length;
+  while (end > 0 && text.charCodeAt(end - 1) === 48) end -= 1;
+  return text.slice(0, end);
+}
+
 /** Tax percentage as it is printed: trailing zeros trimmed ("20.00" -> "20", "8.50" -> "8.5"). */
 export function formatTaxRate(rate: string | number): string {
   const text = typeof rate === 'number' ? String(rate) : rate.trim();
   const match = DECIMAL_RE.exec(text);
   if (!match || match[1] === '-') throw new Error(`Geçersiz vergi oranı: ${text}`);
-  const fraction = (match[3] ?? '').replace(/0+$/, '');
+  const fraction = trimTrailingZeros(match[3] ?? '');
   return fraction ? `${match[2]}.${fraction}` : match[2];
 }
 

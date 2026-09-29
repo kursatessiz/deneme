@@ -63,6 +63,8 @@ describe('money helpers', () => {
     expect(formatTaxRate('20.00')).toBe('20');
     expect(formatTaxRate('8.50')).toBe('8.5');
     expect(formatTaxRate('0')).toBe('0');
+    expect(formatTaxRate('7.' + '0'.repeat(50000) + '5')).toBe('7.' + '0'.repeat(50000) + '5');
+    expect(formatTaxRate('7.' + '0'.repeat(50000))).toBe('7');
   });
 });
 
