@@ -225,7 +225,7 @@ describe('openssl-compatible encryption', () => {
   const encryptionKey = 'golden-passphrase-0123456789';
 
   it('matches a golden vector produced by openssl enc -aes-256-cbc -pbkdf2 -iter 200000', async () => {
-    // openssl enc ... -S 0102030405060708 -encryptionKey env:K <<< "hello backup" (openssl 3 omits the header when -S is given)
+    // openssl enc ... -S 0102030405060708 -pass env:K <<< "hello backup" (openssl 3 omits the header when -S is given)
     const out = await encryptBuffer(Buffer.from('hello backup\n'), encryptionKey, { salt: Buffer.from('0102030405060708', 'hex') });
     expect(out.subarray(0, 8).equals(OPENSSL_MAGIC)).toBe(true);
     expect(out.subarray(8, 16).toString('hex')).toBe('0102030405060708');
@@ -246,11 +246,11 @@ describe('openssl-compatible encryption', () => {
       const plain = Buffer.from('-- PostgreSQL database dump\nSELECT 1;\n'.repeat(1000));
       writeFileSync(join(dir, 'api.enc'), await encryptBuffer(plain, encryptionKey));
       const env = { ...process.env, BACKUP_ENCRYPTION_KEY: encryptionKey };
-      execFileSync('openssl', ['enc', '-d', '-aes-256-cbc', '-pbkdf2', '-iter', '200000', '-encryptionKey', 'env:BACKUP_ENCRYPTION_KEY', '-in', join(dir, 'api.enc'), '-out', join(dir, 'api.out')], { env });
+      execFileSync('openssl', ['enc', '-d', '-aes-256-cbc', '-pbkdf2', '-iter', '200000', '-pass', 'env:BACKUP_ENCRYPTION_KEY', '-in', join(dir, 'api.enc'), '-out', join(dir, 'api.out')], { env });
       expect(readFileSync(join(dir, 'api.out')).equals(plain)).toBe(true);
 
       writeFileSync(join(dir, 'host.in'), plain);
-      execFileSync('openssl', ['enc', '-aes-256-cbc', '-pbkdf2', '-iter', '200000', '-salt', '-encryptionKey', 'env:BACKUP_ENCRYPTION_KEY', '-in', join(dir, 'host.in'), '-out', join(dir, 'host.enc')], { env });
+      execFileSync('openssl', ['enc', '-aes-256-cbc', '-pbkdf2', '-iter', '200000', '-salt', '-pass', 'env:BACKUP_ENCRYPTION_KEY', '-in', join(dir, 'host.in'), '-out', join(dir, 'host.enc')], { env });
       expect((await decryptBuffer(readFileSync(join(dir, 'host.enc')), encryptionKey)).equals(plain)).toBe(true);
     } finally {
       rmSync(dir, { recursive: true, force: true });
