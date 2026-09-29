@@ -5,6 +5,7 @@ import type { PermissionKey } from './permissions';
 import type { MessageKey } from './i18n/messages';
 import { PLATFORM_ACCESS_TRANSLATED_ERRORS } from './platform-permissions';
 import { MARKETING_APPROVAL_TRANSLATED_ERRORS } from './marketing/approvals';
+import { CONSENT_CONFIRMATION_TRANSLATED_ERRORS } from './marketing/consent';
 
 /**
  * Platform billing of tenants (G5c-1, docs/DENEME_VE_ETKINLESTIRME.md):
@@ -543,4 +544,5 @@ export const TRANSLATED_API_ERROR_CODES: Readonly<Record<string, MessageKey>> = 
   [PLAN_PRICE_UNAVAILABLE_ERROR_CODE]: 'billing.error.PLAN_PRICE_UNAVAILABLE',
   ...PLATFORM_ACCESS_TRANSLATED_ERRORS,
   ...MARKETING_APPROVAL_TRANSLATED_ERRORS,
+  ...CONSENT_CONFIRMATION_TRANSLATED_ERRORS,
 };

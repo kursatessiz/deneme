@@ -45,4 +45,16 @@ export const trAdminMarketingSettings = {
   'adminMarketingSettings.weekly.recipients': 'Alıcılar',
   'adminMarketingSettings.weekly.noRecipients': 'Platform kullanıcısı yok.',
   'adminMarketingSettings.weekly.superAdmin': 'süper admin',
+
+  'adminMarketingSettings.consent.title': 'Ticari ileti izni',
+  'adminMarketingSettings.consent.description': 'Formlardan alınan pazarlama iznine hangi bölgelerde çift onay gerektiğini ve Türkiye tacir muafiyetinin kullanılıp kullanılmayacağını belirler. Abonelikten çıkma her zaman önceliklidir.',
+  'adminMarketingSettings.consent.doubleOptIn': 'Çift onay gereken bölgeler ve ülkeler',
+  'adminMarketingSettings.consent.doubleOptInHint': 'Bölge kodu (EU, UK, US, CA, TR, DEFAULT) veya iki harfli ülke kodu (DE gibi). Bu bölgelerdeki kişi onay e-postasındaki bağlantıya tıklayana kadar ticari kitleye girmez.',
+  'adminMarketingSettings.consent.addRegion': 'Ekle',
+  'adminMarketingSettings.consent.removeRegion': '{code} kaldır',
+  'adminMarketingSettings.consent.regionPlaceholder': 'EU veya DE',
+  'adminMarketingSettings.consent.regionInvalid': 'Geçersiz kod. Bölge kodu veya iki harfli ülke kodu girin.',
+  'adminMarketingSettings.consent.noRegions': 'Çift onay hiçbir bölgede istenmiyor.',
+  'adminMarketingSettings.consent.trExemption': 'Türkiye tacir muafiyetini kullan',
+  'adminMarketingSettings.consent.trExemptionHint': 'Açıkken Türkiye\'deki, işletme olarak işaretli kişiler önceden onay olmadan ticari kitleye girebilir; kayıt İYS\'ye tacir olarak bildirilir ve ret hakkı her zaman uygulanır. Varsayılan kapalıdır; açık onay kitlesi daha niteliklidir.',
 } as const satisfies Record<string, string>;

@@ -206,6 +206,8 @@ import { trIntegrations } from './tr/integrations';
 import { enIntegrations } from './en/integrations';
 import { trJoinInvite } from './tr/join-invite';
 import { enJoinInvite } from './en/join-invite';
+import { trConsentConfirm } from './tr/consent-confirm';
+import { enConsentConfirm } from './en/consent-confirm';
 
 /**
  * Bundled message catalogues. Adding strings:
@@ -324,6 +326,7 @@ export const TR_NAMESPACES = [
   trAdminMarketingSettings,
   trIntegrations,
   trJoinInvite,
+  trConsentConfirm,
 ] as const;
 
 export const EN_NAMESPACES = [
@@ -431,6 +434,7 @@ export const EN_NAMESPACES = [
   enAdminMarketingSettings,
   enIntegrations,
   enJoinInvite,
+  enConsentConfirm,
 ] as const;
 
 type UnionToIntersection<U> = (U extends unknown ? (arg: U) => void : never) extends (arg: infer I) => void

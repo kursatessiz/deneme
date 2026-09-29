@@ -5,6 +5,7 @@ import { LIFECYCLE_STAGES } from './growth/conversions';
 import type { ConversionEventType, LifecycleStage } from './growth/conversions';
 import { CountryCodeSchema } from './growth/regions';
 import type { SegmentFieldKind } from './growth/segments';
+import type { ConsentLegalBasis } from './marketing/consent';
 
 /**
  * CRM contracts (G1b): contacts, pipeline stages, custom fields, tasks and
@@ -123,6 +124,8 @@ const ContactFieldsSchema = z.object({
   sourceDetail: z.string().trim().max(200).optional(),
   notes: z.string().trim().max(2000).optional(),
   isTest: z.boolean().optional(),
+  /** A business rather than a private person (M3e: the TR merchant exemption may apply). */
+  isBusiness: z.boolean().optional(),
 });
 
 /** POST /crm/studios/:studioId/contacts (the studio comes from the route). */
@@ -424,6 +427,7 @@ export interface ContactDTO {
   nextFollowUpAt: string | null;
   notes: string | null;
   isTest: boolean;
+  isBusiness: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -472,6 +476,12 @@ export interface ContactConsentDTO {
   revokedAt: string | null;
   /** The address is on the suppression list (unsubscribe, STOP, bounce, complaint). */
   suppressed: boolean;
+  /** Legal basis of the contact row (M3e); rows before M3e read as CONSENT; null without a contact row. */
+  legalBasis: ConsentLegalBasis | null;
+  /** Double opt-in: a confirmation was requested and not yet clicked. */
+  confirmationPending: boolean;
+  confirmedAt: string | null;
+  formVersion: string | null;
 }
 
 export interface ContactActivityDTO {

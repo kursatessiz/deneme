@@ -69,6 +69,9 @@ export const trMsgTpl = {
   'msgTpl.MARKETING_APPROVAL_REJECTED.subject': 'Gönderiminiz reddedildi: {targetName}',
   'msgTpl.MARKETING_APPROVAL_REJECTED.text': 'Merhaba {firstName}, "{targetName}" gönderimi {deciderName} tarafından reddedildi ve taslağa döndü. Gerekçe: {note}',
   'msgTpl.MARKETING_APPROVAL.cta': 'Onayları aç',
+  'msgTpl.CONSENT_CONFIRMATION.subject': '{studioName}: e-posta aboneliğinizi onaylayın',
+  'msgTpl.CONSENT_CONFIRMATION.text': 'Merhaba {firstName}, {studioName} formunda (sürüm {formVersion}) haber ve tekliflerimizi almak istediğinizi belirttiniz. Aboneliği başlatmak için aşağıdaki bağlantıyı {days} gün içinde açıp onaylayın. Bu isteği siz yapmadıysanız bu e-postayı yok sayın; onaylamadığınız sürece size ticari ileti göndermeyiz. Bağlantı: {link}',
+  'msgTpl.CONSENT_CONFIRMATION.cta': 'Aboneliği onayla',
 
   'msgTpl.email.reasonCommercial': 'Bu e-postayı {studioName} ile iletişim izniniz olduğu için aldınız.',
   'msgTpl.email.reasonTransactional': 'Bu e-posta {studioName} hesabınızla ilgili bir bilgilendirmedir.',

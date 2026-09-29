@@ -46,4 +46,16 @@ export const enAdminMarketingSettings = {
   'adminMarketingSettings.weekly.recipients': 'Recipients',
   'adminMarketingSettings.weekly.noRecipients': 'No platform users.',
   'adminMarketingSettings.weekly.superAdmin': 'super admin',
+
+  'adminMarketingSettings.consent.title': 'Commercial message consent',
+  'adminMarketingSettings.consent.description': 'Sets where marketing consent given on a form needs double opt-in, and whether the Turkish merchant exemption is used. An unsubscribe always wins.',
+  'adminMarketingSettings.consent.doubleOptIn': 'Regions and countries that need double opt-in',
+  'adminMarketingSettings.consent.doubleOptInHint': 'A region code (EU, UK, US, CA, TR, DEFAULT) or a two-letter country code (such as DE). People there stay out of commercial audiences until they click the link in the confirmation e-mail.',
+  'adminMarketingSettings.consent.addRegion': 'Add',
+  'adminMarketingSettings.consent.removeRegion': 'Remove {code}',
+  'adminMarketingSettings.consent.regionPlaceholder': 'EU or DE',
+  'adminMarketingSettings.consent.regionInvalid': 'Invalid code. Enter a region code or a two-letter country code.',
+  'adminMarketingSettings.consent.noRegions': 'No region requires double opt-in.',
+  'adminMarketingSettings.consent.trExemption': 'Use the Turkish merchant exemption',
+  'adminMarketingSettings.consent.trExemptionHint': 'When on, contacts in Turkey marked as a business can join commercial audiences without prior consent; they are registered with IYS as merchants and an opt-out is always honoured. Off by default; an explicit opt-in audience is of higher quality.',
 } as const satisfies Record<keyof typeof trAdminMarketingSettings, string>;
