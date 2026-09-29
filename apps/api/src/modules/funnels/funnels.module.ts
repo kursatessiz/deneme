@@ -8,5 +8,6 @@ import { FunnelsService } from './funnels.service';
   imports: [AuthModule],
   controllers: [FunnelsController],
   providers: [FunnelsService],
+  exports: [FunnelsService],
 })
 export class FunnelsModule {}

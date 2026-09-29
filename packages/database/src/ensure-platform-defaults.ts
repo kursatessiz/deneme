@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import type { BadgeKind as PrismaBadgeKind, DocumentType } from '@prisma/client';
-import { DEFAULT_PIPELINE_STAGES } from '@platform/shared';
+import { DEFAULT_PIPELINE_STAGES, PLATFORM_QUALIFICATION_STAGES } from '@platform/shared';
 import {
   BUSINESS_TYPE_TEMPLATE_DEFAULTS,
   GLOBAL_BADGE_DEFAULTS,
@@ -162,6 +162,12 @@ export async function ensurePlatformTenant(db: PlatformDefaultsDb, bump: Created
     skipDuplicates: true,
   });
   if (stages.count > 0) bump('pipeline_stages', stages.count);
+  // MQL and SQL: the qualification steps of the platform_b2b funnel are pipeline stages (data, editable by the super admin).
+  const qualification = await db.pipelineStage.createMany({
+    data: PLATFORM_QUALIFICATION_STAGES.map((s) => ({ studioId: platformStudioId, key: s.key, name: s.name, kind: 'OPEN' as const, sortOrder: s.sortOrder, isSystem: false })),
+    skipDuplicates: true,
+  });
+  if (qualification.count > 0) bump('pipeline_stages', qualification.count);
 
   // The home page is created only together with the site, so a page the
   // super admin deletes later is never brought back by a re-run.
