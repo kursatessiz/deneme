@@ -20,6 +20,7 @@ import { LoyaltyJobsService, LoyaltyHeartbeatResult } from '../loyalty/loyalty-j
 import { EventsJobsService, EventsHeartbeatResult } from '../events/events-jobs.service';
 import { BillingJobsService, BillingHeartbeatResult } from '../billing/billing-jobs.service';
 import { PayoutsJobsService, PayoutsHeartbeatResult } from '../payouts/payouts-jobs.service';
+import { ErrorReportingJobsService, ErrorReportingHeartbeatResult } from '../error-reporting/error-reporting-jobs.service';
 
 export interface SchedulerRunResult {
   runAt: string;
@@ -41,6 +42,7 @@ export interface SchedulerRunResult {
   events: EventsHeartbeatResult;
   billing: BillingHeartbeatResult;
   payouts: PayoutsHeartbeatResult;
+  errorReporting: ErrorReportingHeartbeatResult;
 }
 
 /**
@@ -85,6 +87,7 @@ export class JobsService {
     private readonly events: EventsJobsService,
     private readonly billing: BillingJobsService,
     private readonly payouts: PayoutsJobsService,
+    private readonly errorReporting: ErrorReportingJobsService,
     @Optional() @InjectQueue(SCHEDULER_QUEUE) private readonly queue?: Queue,
   ) {}
 
@@ -113,6 +116,7 @@ export class JobsService {
     const events = await this.events.run(now);
     const billing = await this.billing.run(now);
     const payouts = await this.payouts.run(now);
+    const errorReporting = await this.errorReporting.run(now);
     // Last: AI translation batches may take a while; the other steps are time-sensitive.
     const aiTranslation = await this.aiTranslation.processPending(now);
 
@@ -131,6 +135,7 @@ export class JobsService {
         `events ${events.holdsReleased} hold(s) released/${events.promoted} promoted/${events.reminders} reminder(s)/${events.completed} completed, ` +
         `billing ${billing.restricted} trial(s) restricted/${billing.reminders} reminder(s), ` +
         `payouts ${payouts.synced} synced/${payouts.payouts} payout(s)/${payouts.failed} failed`,
+        `errors ${errorReporting.purged} event(s) purged/digest ${errorReporting.digestSent ? 'sent' : 'not due'}`,
     );
 
     this.lastRunAt = now;
@@ -154,6 +159,7 @@ export class JobsService {
       events,
       billing,
       payouts,
+      errorReporting,
     };
   }
 }

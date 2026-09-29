@@ -50,6 +50,16 @@ export const trMsgTpl = {
   'msgTpl.TRIAL_RESTRICTED.subject': 'Hesabınız kısıtlı moda geçti',
   'msgTpl.TRIAL_RESTRICTED.text': 'Merhaba {firstName}, {studioName} hesabınızın deneme süresi doldu. Verileriniz güvende; görüntüleyebilir ve dışa aktarabilirsiniz. Yeni randevu ve satış için yönetim panelinden hesabınızı etkinleştirin.',
 
+  'msgTpl.ERROR_ALERT.cta': 'Hatayı aç',
+  'msgTpl.ERROR_NEW_GROUP.subject': 'Yeni hata: {title}',
+  'msgTpl.ERROR_NEW_GROUP.text': 'Merhaba {firstName}, platformda yeni bir hata görüldü. Kaynak: {source}, sürüm: {release}, konum: {route}, hata kodu: {code}. Özet: {title}',
+  'msgTpl.ERROR_REGRESSION.subject': 'Çözülen hata yeniden görüldü: {title}',
+  'msgTpl.ERROR_REGRESSION.text': 'Merhaba {firstName}, {resolvedInRelease} sürümünde çözüldü olarak işaretlenen hata {release} sürümünde yeniden görüldü ve tekrar açıldı. Kaynak: {source}, hata kodu: {code}. Özet: {title}',
+  'msgTpl.ERROR_CRITICAL.subject': 'Kritik akışta hata: {title}',
+  'msgTpl.ERROR_CRITICAL.text': 'Merhaba {firstName}, giriş veya ödeme gibi kritik bir akışta hata görüldü. Kaynak: {source}, sürüm: {release}, konum: {route}, toplam tekrar: {count}, hata kodu: {code}. Özet: {title}',
+  'msgTpl.ERROR_DIGEST.subject': 'Günlük hata özeti',
+  'msgTpl.ERROR_DIGEST.text': 'Merhaba {firstName}, son 24 saatte {events} hata kaydı alındı; {newGroups} yeni hata grubu, {regressions} yeniden açılan grup var. Açık grup sayısı: {openGroups}. En sık görülenler: {topGroups}',
+
   'msgTpl.email.reasonCommercial': 'Bu e-postayı {studioName} ile iletişim izniniz olduğu için aldınız.',
   'msgTpl.email.reasonTransactional': 'Bu e-posta {studioName} hesabınızla ilgili bir bilgilendirmedir.',
   'msgTpl.email.unsubscribe': 'Abonelikten çık',

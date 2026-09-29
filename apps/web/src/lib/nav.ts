@@ -122,6 +122,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
       'integrations.manage',
       'integrations.partners.manage',
       'ads.manage',
+      'errors.view',
     ],
   },
 ];

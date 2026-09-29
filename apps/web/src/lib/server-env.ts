@@ -10,6 +10,11 @@ const ServerEnvSchema = z.object({
   /** Internal (docker-network) base URL of the API, e.g. http://api:4000. No trailing slash. */
   API_INTERNAL_URL: z.string().url().default('http://localhost:4000'),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  /** Release of this build (deploy passes RELEASE_TAG, e.g. sha-<commit>); tags error reports. */
+  APP_RELEASE: z
+    .string()
+    .regex(/^[A-Za-z0-9._-]{1,64}$/)
+    .default('dev'),
 });
 
 export type ServerEnv = z.infer<typeof ServerEnvSchema>;
@@ -24,6 +29,7 @@ export function getServerEnv(): ServerEnv {
   const result = ServerEnvSchema.safeParse({
     API_INTERNAL_URL: process.env.API_INTERNAL_URL,
     NODE_ENV: process.env.NODE_ENV,
+    APP_RELEASE: process.env.APP_RELEASE || undefined,
   });
   if (!result.success) {
     const details = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
