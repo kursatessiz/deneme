@@ -24,3 +24,9 @@ Yalnızca `main` üzerindeki en son sürüm düzeltme alır.
 - OpenSSF Scorecard
 - Build kaynak doğrulaması (provenance attestation) ve SBOM'lara sahip, salt okunur
   bir dosya sisteminde root olmayan bir kullanıcı olarak çalışan container imajları
+- Şifre ve PIN ile girişte kaba kuvvet koruması: yalnızca başarısız denemeler sayılır;
+  hesap tanımlayıcısı (normalize telefon veya e-posta) başına 15 dakikada 10, IP başına
+  50 başarısız denemeden sonra 429 döner. Başarılı giriş sayacı sıfırlar; SMS kodu ile
+  giriş kurtarma yolu olarak açık kalır. PIN için ayrıca hesap kilidi vardır.
+- Uygulama loglarında telefon numaraları maskelenir; SMS içeriği ve kodlar loglanmaz
+  (yalnızca yerel geliştirmede sahte SMS metni görünür).

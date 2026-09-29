@@ -5,6 +5,8 @@ import { OtpPurpose } from '@platform/database';
 import { AuthService, PIN_MAX_FAILURES } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OtpService } from '../otp/otp.service';
+import { RedisService } from '../redis/redis.service';
+import { LoginThrottleService } from './login-throttle.service';
 
 jest.mock('bcrypt', () => ({
   compare: jest.fn(),
@@ -44,6 +46,8 @@ describe('AuthService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: JwtService, useValue: mockJwt },
         { provide: OtpService, useValue: mockOtp },
+        LoginThrottleService,
+        { provide: RedisService, useValue: { getClient: () => null } },
       ],
     }).compile();
 

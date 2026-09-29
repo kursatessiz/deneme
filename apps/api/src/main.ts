@@ -45,6 +45,9 @@ async function bootstrap() {
     SwaggerModule.setup('api/docs', app, document);
   }
 
+  // Run OnModuleDestroy (Prisma, Redis) on SIGTERM so deploys drain cleanly.
+  app.enableShutdownHooks();
+
   const port = config.get<number>('PORT', 4000);
   await app.listen(port, '0.0.0.0');
 

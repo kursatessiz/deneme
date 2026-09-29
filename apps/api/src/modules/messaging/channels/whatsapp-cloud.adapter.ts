@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { maskPhone } from '@platform/shared';
 import { ConfigService } from '@nestjs/config';
 import type { ChannelSendRequest, ChannelSendResult, MessageChannel } from './message-channel.interface';
 import { verifyMetaSignature } from '../webhooks/whatsapp-signature';
@@ -35,7 +36,7 @@ export class WhatsAppCloudAdapter implements MessageChannel {
 
     if (!this.isConfigured()) {
       const what = request.freeForm ? 'free-form text' : `template "${request.whatsappTemplateName}"`;
-      this.logger.log(`[MOCK WHATSAPP] ${request.phone} <- ${what}`);
+      this.logger.log(`[MOCK WHATSAPP] ${maskPhone(request.phone)} <- ${what}`);
       return { success: true, providerMessageId: `mock-wa-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` };
     }
 

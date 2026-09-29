@@ -19,8 +19,8 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(200)
-  async login(@ZodBody(LoginSchema) body: ReturnType<typeof LoginSchema.parse>) {
-    return this.authService.login(body);
+  async login(@ZodBody(LoginSchema) body: ReturnType<typeof LoginSchema.parse>, @Req() req: Request) {
+    return this.authService.login(body, req.ip ?? null);
   }
 
   @Post('otp/request')
@@ -37,8 +37,8 @@ export class AuthController {
 
   @Post('pin/login')
   @HttpCode(200)
-  async pinLogin(@ZodBody(PinLoginSchema) body: ReturnType<typeof PinLoginSchema.parse>) {
-    return this.authService.pinLogin(body.phone, body.pin);
+  async pinLogin(@ZodBody(PinLoginSchema) body: ReturnType<typeof PinLoginSchema.parse>, @Req() req: Request) {
+    return this.authService.pinLogin(body.phone, body.pin, req.ip ?? null);
   }
 
   @Put('pin')
