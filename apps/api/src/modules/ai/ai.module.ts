@@ -54,6 +54,6 @@ export function createAiProviderAdapter(config: ConfigService): AiProviderAdapte
     TranslationEngineService,
     ...(redisConfigured ? [AiProcessor] : []),
   ],
-  exports: [AiService, TranslationEngineService],
+  exports: [AiService, AiUsageService, AiSettingsService, TranslationEngineService],
 })
 export class AiModule {}

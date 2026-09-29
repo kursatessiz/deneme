@@ -39,5 +39,6 @@ export const enAi = {
   'ai.error.AI_REFUSED': 'The AI declined to answer this request.',
   'ai.error.AI_INVALID_OUTPUT': 'The AI did not return a usable answer. Please try again.',
   'ai.error.AI_ENCRYPTION_UNAVAILABLE': 'The key could not be encrypted: no encryption key is configured on the server.',
+  'ai.error.MARKETING_AI_BUDGET_EXCEEDED': 'The marketing AI budget for this month is used up. A super admin can raise the limit.',
   'ai.error.generic': 'The AI request failed.',
 } as const satisfies Record<keyof typeof trAi, string>;

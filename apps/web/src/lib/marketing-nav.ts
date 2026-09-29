@@ -16,8 +16,8 @@ export interface MarketingNavItem {
 export const MARKETING_NAV_ITEMS: readonly MarketingNavItem[] = [
   { key: 'dashboard', labelKey: 'marketing.nav.dashboard', href: '/pazarlama', permissions: ['platform.marketing.view'] },
   { key: 'approvals', labelKey: 'marketing.nav.approvals', href: '/pazarlama/onaylar', permissions: ['platform.marketing.send', 'platform.marketing.approve'] },
-  { key: 'calendar', labelKey: 'marketing.nav.calendar', href: '/pazarlama/takvim', permissions: ['platform.marketing.manage'] },
-  { key: 'aiStudio', labelKey: 'marketing.nav.aiStudio', href: '/pazarlama/yz-studyo', permissions: ['platform.ai.use'] },
+  { key: 'calendar', labelKey: 'marketing.nav.calendar', href: '/pazarlama/takvim', permissions: ['platform.marketing.view', 'platform.marketing.manage'] },
+  { key: 'aiStudio', labelKey: 'marketing.nav.aiStudio', href: '/pazarlama/yapay-zeka', permissions: ['platform.ai.use'] },
   { key: 'contacts', labelKey: 'marketing.nav.contacts', href: '/pazarlama/kisiler', permissions: ['platform.marketing.view'] },
   { key: 'segments', labelKey: 'marketing.nav.segments', href: '/pazarlama/segmentler', permissions: ['platform.marketing.view'] },
   { key: 'campaigns', labelKey: 'marketing.nav.campaigns', href: '/pazarlama/kampanyalar', permissions: ['platform.marketing.view'] },
@@ -28,7 +28,7 @@ export const MARKETING_NAV_ITEMS: readonly MarketingNavItem[] = [
   { key: 'ads', labelKey: 'marketing.nav.ads', href: '/pazarlama/reklam', permissions: ['platform.ads.view'] },
   { key: 'reports', labelKey: 'marketing.nav.reports', href: '/pazarlama/raporlar', permissions: ['platform.marketing.view'] },
   { key: 'integrations', labelKey: 'marketing.nav.integrations', href: '/pazarlama/entegrasyonlar', permissions: ['platform.integrations.manage'] },
-  { key: 'brand', labelKey: 'marketing.nav.brand', href: '/pazarlama/marka', permissions: ['platform.brand.manage'] },
+  { key: 'brand', labelKey: 'marketing.nav.brand', href: '/pazarlama/marka', permissions: ['platform.brand.manage', 'platform.marketing.view'] },
 ];
 
 export function hasAnyPlatformPermission(

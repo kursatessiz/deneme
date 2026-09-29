@@ -31,10 +31,4 @@ export const trMarketing = {
   'marketing.placeholder.dashboard.description': 'Huni, maliyet ve kanal sağlığı göstergeleri M3 fazında burada olacak. Şimdilik soldaki menüden kişilere, kampanyalara ve raporlara ulaşabilirsiniz.',
   'marketing.placeholder.approvals.title': 'Onaylar',
   'marketing.placeholder.approvals.description': 'Eşik üstü gönderim ve harcama talepleri M3 fazında burada onaylanacak.',
-  'marketing.placeholder.calendar.title': 'İçerik takvimi',
-  'marketing.placeholder.calendar.description': 'Kampanya, akış ve gönderi planı M2 fazında tek takvimde görünecek.',
-  'marketing.placeholder.aiStudio.title': 'Yapay zeka stüdyosu',
-  'marketing.placeholder.aiStudio.description': 'Brief ile çok kanallı taslak üretimi M2 fazında eklenecek. Yapay zeka hiçbir şeyi onaysız göndermez.',
-  'marketing.placeholder.brand.title': 'Marka kiti',
-  'marketing.placeholder.brand.description': 'Marka sesi, yasaklı ifadeler ve ürün gerçekleri M2 fazında burada düzenlenecek.',
 } as const satisfies Record<string, string>;

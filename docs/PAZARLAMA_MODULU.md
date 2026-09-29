@@ -167,7 +167,7 @@ Süper admin paneli: `/admin/platform-kullanicilari` (yeni sayfa, `AdminNav`'a e
 | Pano | `/pazarlama` | Yeni (bölüm 3.3) | `platform.marketing.view` |
 | Onaylar | `/pazarlama/onaylar` | Yeni | `.send` veya `.approve` (kendi talepleri / onay kuyruğu) |
 | İçerik takvimi | `/pazarlama/takvim` | Yeni | `platform.marketing.manage` |
-| Yapay zeka stüdyosu | `/pazarlama/yz-studyo` | Yeni | `platform.ai.use` |
+| Yapay zeka stüdyosu | `/pazarlama/yapay-zeka` (M2'de `yz-studyo` yerine bu ad) | Yeni | `platform.ai.use` |
 | Kişiler, satış hattı | `/pazarlama/kisiler`, `/pazarlama/kisiler/satis-hatti` | Mevcut `(dashboard)/kisiler` | `.view` |
 | Segmentler | `/pazarlama/segmentler` | Mevcut | `.view` |
 | Kampanyalar | `/pazarlama/kampanyalar` | Mevcut + A/B + onay | `.view` |
@@ -373,7 +373,7 @@ Durum: uygulandı (M1a-M1d tek dalda, `feat/m1-platform-marketing-role`); uygula
 
 ### M2: Yapay zeka stüdyosu, marka kiti, içerik takvimi
 
-Durum: planlandı (M1 kabuğunda yer tutucu sayfalar var).
+Durum: uygulandı (M2a-M2d tek dalda, `feat/m2-marketing-ai-studio`); uygulama notları ve tasarımdan sapmalar tablonun altında.
 
 | PR | Kapsam | Kabul ölçütleri ve testler | Katman | Efor |
 |---|---|---|---|---|
@@ -381,6 +381,16 @@ Durum: planlandı (M1 kabuğunda yer tutucu sayfalar var).
 | M2b | Yeni AI görevleri, `MarketingAiService` (brief -> çok kanallı taslak, konu/CTA varyantları, SEO taslağı), `redactPii()`, deterministik marka kontrolü, `ai_drafts`, `marketing_briefs`, stüdyo ekranı | Birim: istem oluşturucu kişi verisi içermez (sahte kişilerle test), çıktı Zod doğrulaması, karakter sınırları (RSA 30/90), yer tutucu koruma, yasaklı ifade yakalama. E2E `FakeAiAdapter` ile: taslak kaydı, bütçe aşımında 429, hiçbir mesaj gönderilmez | Sonnet (istem tasarımı incelemesi Opus'a danışılabilir) | 4 gün |
 | M2c | İçerik takvimi | E2E: kampanya ve notlar aynı görünümde, yalnızca taslak sürüklenebilir | Sonnet | 2 gün |
 | M2d | Segment önerisi (`SegmentInsightService`, k-anonim toplu istatistik) ve araştırma asistanı (web arama, kaynaklı) | Birim: 5'ten küçük hücre bastırılır; model çıktısı kural şemasından geçmezse reddedilir; araştırma kaynaksız iddia döndürmez (sahte adaptör) | Sonnet | 3 gün |
+
+M2 uygulama notları ve sapmalar:
+
+- **Modeller** (migration `20261020000000_marketing_studio`): `BrandKit` + `BrandKitLocale` (dil başına ses, yasaklı ifade ve kanal başına zorunlu ifade; bağlantılar, gönderen kimliği ve hedef kitleler kitte) + `ProductFact`; `MarketingDraft` + `MarketingDraftVariant` (tasarımdaki `ai_drafts` ve `marketing_briefs` yerine: brief taslakta JSON, durum DRAFT/REVIEWED/ARCHIVED); `ContentCalendarItem` (tasarımdaki `kind/refId/startsAt/endsAt` yerine kanal, tarih, durum PLANNED/DRAFTED/APPROVED/SENT/CANCELLED, bağlı taslak ve kampanya, sorumlu, not; kampanyalar takvimde kendi tablosundan salt okunur gelir); araştırma notu ayrı tablo değil `RESEARCH_NOTE` türünde taslak. `ai_task` enum'u üç değer aldı; `ai_settings.marketing_ai_monthly_budget_cents` eklendi.
+- **İzinler**: yeni anahtar eklenmedi. Marka kiti okuma `platform.marketing.view`, yazma `platform.brand.manage`; yapay zeka stüdyosu `platform.ai.use`; "Kampanyaya aktar" `platform.ai.use` + `platform.marketing.manage`; takvim okuma `platform.marketing.view`, yazma `platform.marketing.manage` (tasarım takvimi zaten `.manage` altına koyuyordu; ayrı `platform.calendar.manage` gerekmedi). `marketing_admin` şablonu bunların hepsine M1'den beri sahip; süper admin örtük.
+- **Bütçe**: `marketingAiMonthlyBudgetCents` (varsayılan 5000, süper admin `/admin/ai`) her `MARKETING_*` çağrıdan önce `AiService.run()` içinde denetlenir; dolunca HTTP **402** `MARKETING_AI_BUDGET_EXCEEDED` (tasarım metni 429 diyordu; genel işletme limiti hâlâ 429 `AI_MONTHLY_LIMIT_REACHED`). Bu görevler platform kiracısının genel işletme limitine ayrıca takılmaz, aksi halde 5 USD varsayılanı 50 USD'lık pazarlama bütçesini anlamsız kılardı.
+- **Araştırma**: AI çekirdeğinde web arama/çekme olmadığı için "kaynaklı notlar" modu uygulandı (kullanıcı kaynak yapıştırır, alıntılar sunucuda doğrulanır). Ayrıntı `docs/YAPAY_ZEKA.md`.
+- **Segment önerisi**: model yalnızca k-anonim sayıları görür (k = 5); kurallar mevcut segment kural dilinde doğrulanır, boyut 5'ten küçükse gösterilmez; kaydetme kullanıcı işidir (mevcut segment ucu).
+- **Uygulanmayanlar** (sonraki fazlar veya açık karar): taslak içindeki her iddia için `factIds` ile "kontrol et" işaretlemesi (bugün yalnızca kullanılan `factKeys` saklanır), fiyatların `plan_prices`'tan okunması (fiyat gerçeği elle girilir), isteğe bağlı model tabanlı marka incelemesi, WhatsApp şablon kategorisinin Meta'ya gönderilmesi, `MarketingSettings.aiDailyCapCents` (görev başına günlük tavan; yalnızca aylık limit var), sayfa motoruna SEO/açılış bloğu aktarımı ("Kampanyaya aktar" yalnızca e-posta, SMS ve WhatsApp içindir), sürükle-bırak dışında takvimde saat dilimi seçimi. A/B kurulumu yalnızca saklanır; test gönderimi M3c'dedir.
+- **Web**: `/pazarlama/marka`, `/pazarlama/yapay-zeka`, `/pazarlama/takvim` (ay ve hafta görünümü, sürükle-bırak yalnızca PLANNED/DRAFTED/APPROVED öğelerde, tarih alanıyla da taşınır). i18n ad alanları `brandKit`, `marketingStudio`, `contentCalendar` (tr + en). Playwright: `apps/web/e2e/marketing-studio.e2e.ts`.
 
 ### M3: Pano, haftalık özet, onaylar, kampanya geliştirmeleri, uyum
 
@@ -428,7 +438,7 @@ Toplam kaba efor: M1 ~13 gün, M2 ~11 gün, M3 ~17 gün, M4 ~14 gün (harici ona
 - Pazarlama yöneticisi kiracılar arası anonim benchmark'ı (`/admin/benchmark`, k-anonim) görebilsin mi? Öneri: evet, salt okunur ve yalnızca toplu.
 - B2B tavsiye programı ve gelir (MRR, plan dağılımı) görünürlüğü: salt okunur `platform.referrals.view` verilsin mi? Tavsiye ödül ayarları sizde mi kalsın? (Öneri: ayarlar sizde.)
 - Platform kişi listesini dışa aktarma izni verilsin mi? (Öneri: hayır, gerekirse onaylı tek seferlik.)
-- Yapay zeka aylık bütçesi (platform kiracısı): öneri 50 USD ile başlamak, panodan izleyip ayarlamak.
+- Yapay zeka aylık bütçesi (platform kiracısı): M2'de varsayılan 50 USD olarak uygulandı (`marketingAiMonthlyBudgetCents`, süper admin ayarı); panodan izleyip ayarlanacak. Bütçe dolunca 402 mi (uygulanan) 429 mu dönsün?
 - Marka dilleri: tr ve en ile başlıyoruz; hangi diller ne zaman eklenecek? Her dil için ayrı marka tonu notu gerekir.
 - 2FA: TOTP zorunluluğu hem sizin hem pazarlama yöneticisi için kabul mü? Passkey M3'te mi?
 - İYS tacir/esnaf muafiyeti kullanılsın mı, yoksa her zaman açık onay mı? (Öneri: açık onay varsayılan.)

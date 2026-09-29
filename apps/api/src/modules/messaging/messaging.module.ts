@@ -64,6 +64,6 @@ import { MessagingRoutingAdminController, MessagingSettingsController } from './
     MessageTemplatesService,
     { provide: SNS_CERT_FETCHER, useValue: fetchSnsCertificate },
   ],
-  exports: [MessagingService, MessagingChannelRegistry, OptOutService, InboundService, DeliveryStatusService, MessagingUrls],
+  exports: [MessagingService, MessagingChannelRegistry, OptOutService, InboundService, DeliveryStatusService, MessagingUrls, MessageTemplatesService],
 })
 export class MessagingModule {}

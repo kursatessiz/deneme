@@ -187,7 +187,13 @@ import { enAdminPlatformUsers } from './en/admin-platform-users';
 import { trPlatformPermissions } from './tr/platform-permissions';
 import { enPlatformPermissions } from './en/platform-permissions';
 import { trMarketing } from './tr/marketing';
+import { trBrandKit } from './tr/brandKit';
+import { trMarketingStudio } from './tr/marketingStudio';
+import { trContentCalendar } from './tr/contentCalendar';
 import { enMarketing } from './en/marketing';
+import { enBrandKit } from './en/brandKit';
+import { enMarketingStudio } from './en/marketingStudio';
+import { enContentCalendar } from './en/contentCalendar';
 import { trIntegrations } from './tr/integrations';
 import { enIntegrations } from './en/integrations';
 import { trJoinInvite } from './tr/join-invite';
@@ -301,6 +307,9 @@ export const TR_NAMESPACES = [
   trAdminPlatformUsers,
   trPlatformPermissions,
   trMarketing,
+  trBrandKit,
+  trMarketingStudio,
+  trContentCalendar,
   trIntegrations,
   trJoinInvite,
 ] as const;
@@ -401,6 +410,9 @@ export const EN_NAMESPACES = [
   enAdminPlatformUsers,
   enPlatformPermissions,
   enMarketing,
+  enBrandKit,
+  enMarketingStudio,
+  enContentCalendar,
   enIntegrations,
   enJoinInvite,
 ] as const;
