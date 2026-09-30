@@ -521,6 +521,19 @@ export class CampaignApprovalService {
         reasons: summary.reasons.map((r) => t(`marketingApprovals.reason.${r}`)).join(', ') || '-',
         link: this.link(request.id),
       });
+      // M5: a short push so an approver on the go sees the request (the mobile approval screen lists it). Best effort.
+      await this.deliver(
+        request.studioId,
+        admin.id,
+        MARKETING_APPROVAL_TEMPLATE_KEYS.requestedPush,
+        {
+          requesterName: requester ? contactDisplayName(requester) : '-',
+          targetName: summary.target.name,
+          audience: summary.audience.total,
+        },
+        ['PUSH'],
+        { type: 'MARKETING_APPROVAL_REQUESTED', approvalId: request.id },
+      );
     }
   }
 
@@ -536,9 +549,16 @@ export class CampaignApprovalService {
     });
   }
 
-  /** One e-mail and one in-app message; a failure is logged and never fails the decision. */
-  private async deliver(studioId: string, userId: string, templateKey: string, variables: Record<string, string | number>): Promise<void> {
-    for (const channel of ['EMAIL', 'IN_APP'] as const) {
+  /** One e-mail and one in-app message by default (or the given channels); a failure is logged and never fails the decision. */
+  private async deliver(
+    studioId: string,
+    userId: string,
+    templateKey: string,
+    variables: Record<string, string | number>,
+    channels: readonly ('EMAIL' | 'IN_APP' | 'PUSH')[] = ['EMAIL', 'IN_APP'],
+    pushData?: Record<string, string>,
+  ): Promise<void> {
+    for (const channel of channels) {
       try {
         await this.messaging.send({
           studioId,
@@ -549,6 +569,7 @@ export class CampaignApprovalService {
           variables,
           type: templateKey,
           billing: 'EXEMPT',
+          ...(pushData ? { pushData } : {}),
         });
       } catch (err) {
         this.logger.warn(`Approval notice ${templateKey} (${channel}) not sent: ${err instanceof Error ? err.name : 'unknown'}`);
@@ -556,4 +577,3 @@ export class CampaignApprovalService {
     }
   }
 }
-

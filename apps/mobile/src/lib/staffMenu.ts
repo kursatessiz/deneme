@@ -1,4 +1,4 @@
-import type { PermissionKey } from '@platform/shared';
+import type { PermissionKey, PlatformPermissionKey } from '@platform/shared';
 
 export interface MenuItem {
   key: string;
@@ -11,6 +11,11 @@ export interface StaffMenuInput {
   permissions: PermissionKey[];
   isMember: boolean;
   isTrainer: boolean;
+  /**
+   * Platform-level permissions of the signed-in account (GET /platform/context, super admins hold all of them).
+   * They are separate from the membership's studio permissions; empty for everyone else.
+   */
+  platformPermissions?: readonly PlatformPermissionKey[];
 }
 
 function has(permissions: PermissionKey[], key: PermissionKey): boolean {
@@ -24,7 +29,7 @@ function has(permissions: PermissionKey[], key: PermissionKey): boolean {
  * only handles rendering and onPress wiring.
  */
 export function buildHesabimMenu(input: StaffMenuInput): MenuItem[] {
-  const { permissions, isMember, isTrainer } = input;
+  const { permissions, isMember, isTrainer, platformPermissions = [] } = input;
   const items: MenuItem[] = [];
 
   items.push({ key: 'notifications', labelKey: 'mAccount.menu.notifications', route: '/(app)/hesabim/bildirimler' });
@@ -119,6 +124,10 @@ export function buildHesabimMenu(input: StaffMenuInput): MenuItem[] {
   }
   if (has(permissions, 'content.manage')) {
     items.push({ key: 'video-content', labelKey: 'mAccount.menu.videoContent', route: '/(app)/hesabim/video-icerikleri' });
+  }
+  // M5: the platform's own marketing approvals (platform-level permission, not a studio one).
+  if (platformPermissions.includes('platform.marketing.approve')) {
+    items.push({ key: 'marketing-approvals', labelKey: 'mAccount.menu.marketingApprovals', route: '/(app)/hesabim/pazarlama-onaylari' });
   }
 
   return items;

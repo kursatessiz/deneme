@@ -39,6 +39,7 @@ export default function HesabimLayout() {
       <Stack.Screen name="etkinlik" options={{ title: t('mEvents.title') }} />
       <Stack.Screen name="etkinlik-girisi" options={{ title: t('mEvents.checkin.title') }} />
       <Stack.Screen name="hizli-satis" options={{ title: t('mRetail.title') }} />
+      <Stack.Screen name="pazarlama-onaylari" options={{ title: t('mMarketingApprovals.title') }} />
     </Stack>
   );
 }

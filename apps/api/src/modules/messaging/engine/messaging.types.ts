@@ -56,6 +56,8 @@ export interface SendMessageInput {
   billing?: 'WALLET' | 'EXEMPT';
   /** WhatsApp free-form text (inbox reply inside the 24h window). */
   whatsappFreeForm?: boolean;
+  /** PUSH with a template: extra data delivered with the notification (screen to open, ids). Free text uses content.data. */
+  pushData?: Record<string, string>;
   /** Also append the attempt to this inbox conversation as an outgoing message. */
   conversationId?: string;
   authorMembershipId?: string | null;
