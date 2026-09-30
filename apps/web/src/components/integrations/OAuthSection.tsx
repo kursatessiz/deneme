@@ -87,9 +87,9 @@ function useOAuthLanding(): [OAuthResult | null, () => void] {
 
 /**
  * OAuth block of the integrations hub (M4a): the landing banner, one card
- * per provider with its "Connect with ..." form, and, for the super admin,
- * the client settings. The pasted-token forms elsewhere on the hub stay as
- * the fallback.
+ * per provider with its "Connect with ..." form, and, for the super admin
+ * on the admin console entry only, the client settings. The pasted-token
+ * forms elsewhere on the hub stay as the fallback.
  */
 export function OAuthSection({ data, entry, run, fmtDate }: { data: IntegrationHubDTO; entry: IntegrationEntryPoint; run: Run; fmtDate: FmtDate }) {
   const t = useT();
@@ -116,7 +116,7 @@ export function OAuthSection({ data, entry, run, fmtDate }: { data: IntegrationH
           {t('integrationsOAuth.pastedFallback')}
         </p>
       </Section>
-      {data.oauth.clients && <OAuthClientsSection clients={data.oauth.clients} providers={data.oauth.providers} run={run} fmtDate={fmtDate} />}
+      {entry === 'admin' && data.oauth.clients && <OAuthClientsSection clients={data.oauth.clients} providers={data.oauth.providers} run={run} fmtDate={fmtDate} />}
     </>
   );
 }
