@@ -1,10 +1,11 @@
-import { BadRequestException, Body, Controller, HttpCode, HttpException, HttpStatus, Post, Req } from '@nestjs/common';
+import { BadRequestException, Body, Controller, HttpCode, HttpException, HttpStatus, Param, Post, Req } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
-import { ERROR_LIMITS, ErrorBatchSchema, normalizeRoute, sampleEvent } from '@platform/shared';
+import { ERROR_LIMITS, ErrorBatchSchema, ErrorFeedbackSchema, normalizeRoute, sampleEvent, scrubFeedback } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { ErrorCaptureService } from './error-capture.service';
+import { ErrorFeedbackService } from './error-feedback.service';
 import { TELEMETRY_MAX_PER_IP, TELEMETRY_MAX_PER_SESSION, TelemetryRateLimiter } from './telemetry-rate-limit.service';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -31,6 +32,7 @@ export class TelemetryController {
     private readonly jwt: JwtService,
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly feedbackService: ErrorFeedbackService,
   ) {}
 
   @Post('errors')
@@ -78,6 +80,35 @@ export class TelemetryController {
       if (id) accepted++;
     }
     return { accepted };
+  }
+
+  /**
+   * H3: the optional "what were you doing" note of an error screen. Same
+   * anonymous/authenticated rules and rate limits as the batch endpoint; the
+   * text is scrubbed again here and there is no field for an e-mail address.
+   */
+  @Post('errors/:eventId/feedback')
+  @HttpCode(202)
+  async feedback(@Req() req: Request, @Param('eventId') eventId: string, @Body() body: unknown): Promise<{ accepted: true }> {
+    const declared = Number(req.headers['content-length'] ?? 0);
+    if (Number.isFinite(declared) && declared > ERROR_LIMITS.batchBytes) {
+      throw new HttpException('İstek gövdesi çok büyük', HttpStatus.PAYLOAD_TOO_LARGE);
+    }
+    const caller = await this.resolveCaller(req);
+    const bodySession = (body as { sessionId?: unknown } | null)?.sessionId;
+    const sessionId = typeof bodySession === 'string' && bodySession.length <= 64 ? bodySession : null;
+    const sessionKey = caller.userId ? `u:${caller.userId}` : sessionId ? `s:${sessionId}` : null;
+    const ipOk = await this.limiter.consume('ip', req.ip ?? 'unknown', TELEMETRY_MAX_PER_IP);
+    const sessionOk = sessionKey ? await this.limiter.consume('session', sessionKey, TELEMETRY_MAX_PER_SESSION) : true;
+    if (!ipOk || !sessionOk) throw new HttpException('Çok fazla istek', HttpStatus.TOO_MANY_REQUESTS);
+
+    if (!UUID.test(eventId)) throw new BadRequestException('Geçersiz istek');
+    const parsed = ErrorFeedbackSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException('Geçersiz istek');
+    const text = scrubFeedback(parsed.data.feedback);
+    if (!text) throw new BadRequestException('Geçersiz istek');
+    await this.feedbackService.attach(eventId.toLowerCase(), caller.userId, text);
+    return { accepted: true };
   }
 
   private sessionIdOf(body: unknown): string | null {

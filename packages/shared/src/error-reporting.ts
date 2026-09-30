@@ -65,6 +65,10 @@ export const ERROR_ALERT_TEMPLATE_KEYS = {
   regression: 'ERROR_REGRESSION',
   critical: 'ERROR_CRITICAL',
   digest: 'ERROR_DIGEST',
+  /** H3: spike alert to super admins. */
+  spike: 'ERROR_SPIKE',
+  /** H3: opt-in notice to a tenant owner. */
+  ownerNotice: 'ERROR_OWNER_NOTICE',
 } as const;
 export type ErrorAlertKind = 'NEW' | 'REGRESSION' | 'CRITICAL';
 
@@ -233,9 +237,20 @@ export interface ErrorEventDTO {
   stack: string | null;
   /** Stack with original file names and lines, when the release's source maps were known (H2). */
   symbolicatedStack: string | null;
+  /** Source lines around the resolved frames, when the release's source maps carried sourcesContent (H3). */
+  symbolicatedContext: ErrorSourceContextDTO[] | null;
+  /** The user's optional "what were you doing" note, scrubbed (H3). */
+  feedback: string | null;
   breadcrumbs: Breadcrumb[];
   statusCode: number | null;
   occurredAt: string;
+}
+
+export interface ErrorSourceContextDTO {
+  location: string;
+  startLine: number;
+  lines: string[];
+  focus: number;
 }
 
 export interface ErrorGroupDetailDTO extends ErrorGroupSummaryDTO {
@@ -245,6 +260,20 @@ export interface ErrorGroupDetailDTO extends ErrorGroupSummaryDTO {
   releases: Array<{ release: string; count: number; lastSeenAt: string }>;
   studios: Array<{ studioId: string; studioName: string | null; count: number; lastSeenAt: string }>;
   events: ErrorEventDTO[];
+  /** Set when this group was merged into another (H3); its events live in the target now. */
+  mergedIntoId: string | null;
+  /** Fingerprints merged into this group. */
+  aliasCount: number;
+  /** The latest alerts of this group. */
+  alerts: ErrorAlertSummaryDTO[];
+}
+
+export interface ErrorAlertSummaryDTO {
+  id: string;
+  kind: 'SPIKE' | 'NEW_GROUP' | 'REGRESSION';
+  windowCount: number;
+  createdAt: string;
+  acknowledgedAt: string | null;
 }
 
 export interface ErrorGroupListDTO {

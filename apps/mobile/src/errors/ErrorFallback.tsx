@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View, useColorScheme } from 'react-native';
 
 import { BASE_LOCALE, BUNDLED_MESSAGES, createTranslator, radii, resolveTheme, spacing, typography } from '@platform/shared';
 import type { Translate } from '@platform/shared';
 
 import { resolveOfflineTranslate } from '../i18n/offlineTranslate';
-import { reportError } from './runtime';
+import { reportErrorWithId, sendErrorFeedback } from './runtime';
+import { FEEDBACK_MAX_LENGTH } from './reporterCore';
+import type { FeedbackResult } from './reporterCore';
 
 interface ErrorFallbackProps {
   error: unknown;
@@ -30,9 +32,14 @@ export function ErrorFallback({ error, onRetry }: ErrorFallbackProps) {
   const theme = useMemo(() => resolveTheme({ tenant: null, appearance: null, systemMode: scheme === 'dark' ? 'dark' : 'light' }), [scheme]);
   const [t, setT] = useState<Translate>(() => BASE_TRANSLATE);
   const [code, setCode] = useState<string | null>(null);
+  const [eventId, setEventId] = useState<string | null>(null);
+  const [note, setNote] = useState('');
+  const [noteState, setNoteState] = useState<FeedbackResult | 'idle' | 'sending'>('idle');
 
   useEffect(() => {
-    setCode(reportError(error, { severity: 'fatal' }));
+    const reported = reportErrorWithId(error, { severity: 'fatal' });
+    setCode(reported.code);
+    setEventId(reported.eventId);
   }, [error]);
 
   useEffect(() => {
@@ -49,6 +56,11 @@ export function ErrorFallback({ error, onRetry }: ErrorFallbackProps) {
   }, []);
 
   const { colors } = theme;
+  const submitNote = async () => {
+    if (!eventId) return;
+    setNoteState('sending');
+    setNoteState(await sendErrorFeedback(eventId, note));
+  };
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]} accessibilityRole="alert">
       <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mErrors.boundary.title')}</Text>
@@ -59,6 +71,41 @@ export function ErrorFallback({ error, onRetry }: ErrorFallbackProps) {
             {t('mErrors.boundary.code', { code })}
           </Text>
           <Text style={[styles.hint, { color: colors.textSecondary }]}>{t('mErrors.boundary.codeHint')}</Text>
+        </View>
+      ) : null}
+      {eventId ? (
+        <View style={styles.feedback}>
+          {noteState === 'sent' ? (
+            <Text accessibilityRole="text" style={[styles.hint, { color: colors.textSecondary }]}>
+              {t('mErrors.feedback.sent')}
+            </Text>
+          ) : (
+            <>
+              <Text style={[styles.hint, { color: colors.textSecondary }]}>{t('mErrors.feedback.label')}</Text>
+              <TextInput
+                accessibilityLabel={t('mErrors.feedback.label')}
+                value={note}
+                onChangeText={setNote}
+                maxLength={FEEDBACK_MAX_LENGTH}
+                multiline
+                numberOfLines={3}
+                placeholder={t('mErrors.feedback.placeholder')}
+                placeholderTextColor={colors.textSecondary}
+                style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, borderRadius: radii.md }]}
+              />
+              <Text style={[styles.hint, { color: colors.textSecondary }]}>{t('mErrors.feedback.counter', { count: note.length, max: FEEDBACK_MAX_LENGTH })}</Text>
+              {noteState === 'failed' ? <Text style={[styles.hint, { color: colors.textPrimary }]}>{t('mErrors.feedback.failed')}</Text> : null}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('mErrors.feedback.submit')}
+                disabled={noteState === 'sending' || note.trim().length === 0}
+                onPress={submitNote}
+                style={[styles.noteButton, { borderColor: colors.border, borderRadius: radii.md }]}
+              >
+                <Text style={[styles.noteButtonLabel, { color: colors.textPrimary }]}>{t('mErrors.feedback.submit')}</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       ) : null}
       <Pressable
@@ -102,6 +149,29 @@ const styles = StyleSheet.create({
   hint: {
     fontSize: typography.size.sm,
     textAlign: 'center',
+  },
+  feedback: {
+    alignSelf: 'stretch',
+    gap: spacing[2],
+    marginTop: spacing[3],
+  },
+  input: {
+    minHeight: 72,
+    borderWidth: 1,
+    padding: spacing[3],
+    fontSize: typography.size.md,
+    textAlignVertical: 'top',
+  },
+  noteButton: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    paddingHorizontal: spacing[5],
+  },
+  noteButtonLabel: {
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
   },
   button: {
     minHeight: 44,

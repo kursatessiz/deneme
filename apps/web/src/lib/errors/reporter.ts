@@ -1,4 +1,5 @@
 import {
+  ERROR_FEEDBACK_MAX_LENGTH,
   ERROR_LIMITS,
   ErrorDedupeWindow,
   errorCodeFromId,
@@ -37,6 +38,8 @@ let sent = 0;
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 /** error object -> code, so a boundary re-rendering (or StrictMode) shows the same code. */
 const codes = new WeakMap<object, string>();
+/** error object -> event id, for the optional feedback note (H3). */
+const eventIds = new WeakMap<object, string>();
 
 export function configureErrorReporter(options: { release: string; environment: string }): void {
   release = options.release;
@@ -154,9 +157,39 @@ export function reportError(error: unknown, options: { severity?: ErrorSeverity;
     });
     scheduleFlush();
     const code = errorCodeFromId(eventId);
-    if (error && typeof error === 'object') codes.set(error, code);
+    if (error && typeof error === 'object') {
+      codes.set(error, code);
+      eventIds.set(error, eventId);
+    }
     return code;
   } catch {
     return null;
+  }
+}
+
+/** The id of the event reported for this error object, when it was reported from this page. */
+export function eventIdOf(error: unknown): string | null {
+  return error && typeof error === 'object' ? (eventIds.get(error) ?? null) : null;
+}
+
+/**
+ * Sends the optional "what were you doing" note of an error screen (H3). The
+ * text is scrubbed here and again by the API; there is no e-mail field.
+ * Resolves true when the API accepted it. Never throws.
+ */
+export async function sendErrorFeedback(eventId: string, text: string): Promise<boolean> {
+  try {
+    const feedback = truncate(scrubPii(text, ERROR_FEEDBACK_MAX_LENGTH * 4), ERROR_FEEDBACK_MAX_LENGTH).trim();
+    if (!feedback) return false;
+    const base = isProtectedPath(window.location.pathname) ? '/api/bff/telemetry/errors' : '/api/telemetry/errors';
+    const res = await fetch(`${base}/${encodeURIComponent(eventId)}/feedback`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE },
+      credentials: 'same-origin',
+      body: JSON.stringify({ feedback, sessionId: sessionId() }),
+    });
+    return res.ok;
+  } catch {
+    return false;
   }
 }

@@ -1,4 +1,4 @@
-# Hata Yakalama ve Raporlama (H1, H2)
+# Hata Yakalama ve Raporlama (H1, H2, H3)
 
 Platform genelindeki beklenmeyen hataları (API, web, mobil, arka plan işleri) yakalar, kişisel veriyi temizleyerek saklar, gruplar, süper adminlere e-posta ile uyarır ve işletme sahibine kendi işletmesinin hatalarını sade bir görünümle gösterir. H2 mobil yakalamayı (çevrimdışı kuyruk), kaynak haritası (source map) yüklemeyi ve yığın izlerinin sunucuda çözülmesini ekler.
 
@@ -18,10 +18,12 @@ API  global istisna filtresi (yalnızca 5xx)  |  süreç işleyicileri  |  zaman
 ErrorCaptureService  (senkron: temizle, parmak izi, 1 sn tekilleştirme, sınırlı kuyruk; asla hata fırlatmaz)
                             v  arka planda boşaltma
 ErrorSink arayüzü  ->  StorageErrorSink (Postgres)  ->  ErrorAlertsService (e-posta)
+                                                          ->  error_alerts  ->  uyarı hedefleri (imzalı webhook, Slack), işletme sahibi
+Heartbeat (15 dk)  ->  ErrorSpikeService (ani artış)  ->  error_alerts  ->  aynı dağıtım
 ```
 
 - **Yakalama asla isteği bozmaz**: `capture()` yalnızca bellekte işlem yapar ve kuyruğa ekler (üst sınır 500 olay; dolarsa yeni olay düşürülür ve sayılır). Yazma `setImmediate` ile arka planda yapılır, her sink çağrısı ayrı `try/catch` içindedir.
-- **Sink arayüzü** (`apps/api/src/modules/error-reporting/error-sink.ts`): H1'de tek uygulama depolamadır. Sentry gibi harici bir servis ileride yeni bir sink olarak eklenir; yakalama noktaları değişmez. Yeni bağımlılık eklenmedi.
+- **Sink arayüzü** (`apps/api/src/modules/error-reporting/error-sink.ts`): tek uygulama depolamadır. Sentry gibi harici bir servis yeni bir sink olarak eklenir; yakalama noktaları değişmez. Yeni bağımlılık eklenmedi. Uyarı hedefleri ayrı bir arayüzdür (`AlertSink`, aşağıdaki H3 bölümü).
 - **API 5xx**: `ErrorCaptureFilter` (APP_FILTER) yalnızca 5xx'i kaydeder, sonra Nest'in varsayılan işleyişine bırakır; yanıt gövdesi aynı kalır (`{ statusCode: 500, message: 'Internal server error' }`), yanıta yalnızca `x-error-code` başlığı eklenir. 4xx (`HttpException`) kaydedilmez. Sağlayıcı webhook'larının (ödeme, SMS, e-posta) kendi merkezi `catch`'i yoktur; beklenmeyen hataları bu filtre ile kaydedilir, ödeme rotaları kritik akış sayılır.
 - **Süreç düzeyi**: `uncaughtException` ve `unhandledRejection` kaydedilir, kayıt en fazla 2 sn beklenir, ardından Node'un varsayılan sonucu korunur (hata yazdırılır, süreç 1 koduyla çıkar; konteyner yeniden başlatır). Yalnızca `main.ts` içinde kurulur, testlerde değil.
 - **Arka plan işleri**: `SchedulerProcessor` her çalıştırmaya yeni bir istek kimliği verir; hata `job` kaynağıyla kaydedilir ve BullMQ'nun yeniden deneme davranışı için tekrar fırlatılır. Süper adminin elle tetiklediği `POST /admin/scheduler/run` bir HTTP isteği olduğu için 5xx filtresinden geçer.
@@ -109,7 +111,7 @@ Toplu gönderim: istek başına en fazla 20 olay ve 64 KB.
 
 Tarayıcı tarafında tıklama adımlarına alan değerleri ve bağlantı metinleri (çoğu zaman kişi adıdır) yazılmaz; yalnızca etiket öğesi, rol, düğme metni veya `aria-label` ve bağlantının kimliksiz rotası. İstek adımlarında gövde ve sorgu dizesi yoktur.
 
-Tarayıcı ve sunucu aynı kodu kullanır ve kod doğrusal zamanlıdır: iç içe veya bitişik sınırsız niceleyicili düzenli ifade yoktur, her tarayıcı tek geçiştir. Testte 200-400 bin karakterlik saldırgan girdiler süre sınırıyla denenir (`error-reporting.spec.ts`). Not: Nest'in kendi `ExceptionsHandler` log satırı hatayı ham haliyle yazmaya devam eder (değiştirilmedi); saklanan olaylar ve e-postalar temizlenmiş metni taşır.
+Tarayıcı ve sunucu aynı kodu kullanır ve kod doğrusal zamanlıdır: iç içe veya bitişik sınırsız niceleyicili düzenli ifade yoktur, her tarayıcı tek geçiştir. Testte 200-400 bin karakterlik saldırgan girdiler süre sınırıyla denenir (`error-reporting.spec.ts`). Nest'in kendi `ExceptionsHandler` log satırı da (H3) aynı temizleyiciden geçer; ayrıntı aşağıda.
 
 ## Alma ucu (POST /telemetry/errors)
 
@@ -171,8 +173,80 @@ Mesajlaşma motoru üzerinden, TRANSACTIONAL şablonlarla, e-postası olan tüm 
 - H2 birim: `apps/api/src/modules/error-reporting/sourcemap-decoder.spec.ts` (VLQ bilinen değerler ve gidiş-dönüş, elle yapılmış haritada bilinen eşleme, V8/Hermes/Firefox çerçeveleri, depo, saklama temizliği), `sourcemap-token.spec.ts`, `packages/shared/src/sourcemaps.spec.ts`; mobil `apps/mobile/src/errors/*.spec.ts` (kuyruk sınırı ve sıralı boşaltma sahte depolamayla, yeniden deneme ve tek zamanlayıcı, PII temizleme, `ErrorBoundary`).
 - H2 API e2e: `apps/api/test/e2e/error-sourcemaps.e2e-spec.ts` (belirteçli/belirteçsiz yükleme, boyut sınırları, doğrulama, bilinen ve bilinmeyen sürümde çözümleme, platform ayrımı, saklama temizliği).
 
+## H3: ani artış, uyarı hedefleri, birleştirme, geri bildirim
+
+Migration `20261029000000_error_alerts` (yalnızca genişletme: yeni tablolar ve boş bırakılabilir sütunlar). Paylaşılan sözleşme `packages/shared/src/error-alerts.ts`; her kural orada saf fonksiyondur ve `error-alerts.spec.ts` ile sınanır.
+
+### Ani artış (spike) tespiti
+
+- **Sayaç**: her olay, grubunun UTC'ye hizalı 15 dakikalık kovasına yazılır (`error_group_buckets`). Grup başına en son 50 olay saklandığı için (olay tablosu doğru bir taban vermez) ayrı bir sayaç tablosu kullanılır; heartbeat 48 saatten eski kovaları siler.
+- **Karşılaştırma** (`ErrorSpikeService`, 15 dakikalık heartbeat adımı): son tamamlanan kova ve içinde bulunulan kova, grubun kendi önceki 24 saatlik (96 kova) tabanıyla `detectSpike()` ile karşılaştırılır. Taban ortalaması, grubun var olduğu kova sayısına bölünür (genç bir grup 96'ya seyreltilmez).
+  - Pencerede `minWindowCount`'tan az kayıt varsa hiçbir zaman ani artış değildir.
+  - **Yeni grup** (pencerede ilk görüldü) ve **ince taban** (24 saatte `minBaselineEvents`'ten az kayıt) yalnızca `absoluteFloor` üstünde ani artış sayılır.
+  - Aksi halde eşik `max(minWindowCount, ceil(taban ortalaması x ratio))`.
+- **Bekleme (cooldown)**: bir grup, son ani artış uyarısının pencere başlangıcından en az `cooldownMinutes` sonraki bir pencerede yeniden uyarılır (olay zamanı ekseninde; uzun bir olay her 15 dakikada bildirim üretmez). Aynı grup, tür ve pencere için tek satır (benzersiz anahtar). `IGNORED` ve birleştirilmiş gruplar uyarmaz. `ERROR_ALERTS_ENABLED=0` hepsini kapatır.
+- **`error_alerts` satırı**: grup, tür (`SPIKE`, `NEW_GROUP`, `REGRESSION`), pencere, sayılar (pencere, taban toplamı ve ortalaması, eşik), `notifiedAt`, `acknowledgedAt`, `acknowledgedByUserId`. `NEW_GROUP` ve `REGRESSION` satırları mevcut e-posta yolundan (bekleme penceresini talep eden) geçince yazılır; regresyon tanımı H1'deki gibidir (çözülmüş grubun, çözüldüğü sürümden farklı bir sürümde yeni olay alması). `CRITICAL` yalnızca e-postadır.
+- **Bildirim** (`ErrorAlertNotifier`): `ERROR_SPIKE` e-postası süper adminlere (mevcut uyarı yolu), yapılandırılmış uyarı hedefleri, kiracı sahibi bildirimi. Adımlar birbirinden yalıtılmıştır.
+- **API** (`@SuperAdminOnly`): `GET /admin/errors/alerts` (tür, onay durumu, grup filtresi), `POST /admin/errors/alerts/:id/acknowledge` (ilk onay korunur, `error_alert.acknowledge` denetim kaydı). Web: `/admin/hatalar/uyarilar`.
+
+### Ayarlar (süper admin)
+
+`error_settings` tekil satırı (`id = platform`), `GET/PATCH /admin/errors/settings`, web `/admin/hatalar/ayarlar`. Eşikler veridir, kodda sabit değildir.
+
+| Ayar | Varsayılan | Sınır |
+|------|-----------|-------|
+| `spike.enabled` | açık | |
+| `spike.ratio` (taban ortalamasının katı) | 5 | 1,5 - 100 |
+| `spike.minWindowCount` | 10 | 1 - 100000 |
+| `spike.minBaselineEvents` (24 saat) | 20 | 0 - 1000000 |
+| `spike.absoluteFloor` | 50 | 1 - 1000000 |
+| `cooldownMinutes` | 60 (satır yokken `ERROR_ALERT_COOLDOWN_MINUTES`) | 5 - 1440 |
+| `webhook.url`, `webhook.secret`, `webhook.enabled` | yok | url https, secret en az 16 karakter |
+| `slack.url`, `slack.enabled` | yok | `https://hooks.slack.com/services/...` |
+
+Webhook adresi, imza anahtarı ve Slack adresi `CredentialCipher` ile şifrelenir (`INTEGRATION_ENCRYPTION_KEY`; üretimde yoksa kaydedilemez); yanıtta yalnızca webhook host'u ve anahtarın son 4 hanesi döner. Denetim kaydı hangi bölümün değiştiğini yazar, değerleri asla.
+
+### Uyarı hedefleri
+
+`AlertSink` arayüzü (`alert-sinks/alert-sink.ts`): `kind`, `isActive()`, `deliver(notification)`. Bir alert satırı etkin her hedefe `error_alert_deliveries` satırıyla dağıtılır; hedefe giden özet (`ErrorAlertNotification`) temizlenmiş grup başlığı, kaynak, sürüm, hata kodu, sayılar ve panel bağlantısıdır: yığın, mesaj, kullanıcı verisi yoktur.
+
+- **İmzalı webhook** (`WebhookAlertSink`): gövde `{ "event": "error.alert", "version": 1, "alert": { id, kind, groupId, title, source, release, code, windowCount, baselineMean, threshold, affectedStudioCount, occurredAt, link } }`, üst bilgi `X-Signature: t=<unix>,v1=<hmac-sha256("t.gövde")>` (genel webhook'larla aynı imza, doğrulama örneği `docs/PUBLIC_API.md`) ve `X-Platform-Event: error.alert`.
+- **Slack** (`SlackAlertSink`): gelen webhook; başlık, özet, dört bilgi alanı ve panele düğme. Metinler `adminErrors.alert.*` anahtarlarındandır, başlık `&`, `<`, `>` kaçırılarak yazılır (`buildSlackAlertPayload`).
+- **Dış erişim** (`AlertHttpClient`, e2e'de değiştirilen tek nokta): yalnızca https, 5 sn zaman aşımı, yönlendirme izlenmez. Slack için host izin listesi `ERROR_ALERT_SINK_ALLOWED_HOSTS` (`hooks.slack.com`, `packages/shared`) kayıtta ve her gönderimde denetlenir. Genel webhook'un sabit host'u yoktur; webhooks modülünün SSRF koruması (`resolvePublicHttpsAddresses`) kayıtta ve teslimatta çalışır, bağlantı doğrulanan adrese sabitlenir (DNS rebinding).
+- **Yeniden deneme**: ilk deneme hemen; başarısızlıkta webhook geri çekilme çizelgesiyle (30 sn, 2 dk, 10 dk, 30 dk, 1 sa; toplam 6 deneme) heartbeat'te tekrarlanır, sonra `ABANDONED`. 5xx, 429, 408 ve ağ hataları tekrar denenir; diğer 4xx kesindir. Teslimat, denemeden önce koşullu güncellemeyle talep edilir (iki heartbeat aynısını göndermez). Hatalar yalnızca hedef adı ve durum kodu/hata sınıfıyla loglanır; gövde, adres, yanıt gövdesi asla yazılmaz.
+- **Sentry benzeri hedef yapılmadı** (yeni bağımlılık yok). Eklemek için: (1) `ERROR_ALERT_SINKS`'e tür ekleyin, (2) `AlertSink`'i uygulayın (`isActive` kendi şifreli ayarını okur, `deliver` özeti servisin olay API'sine `AlertHttpClient` ile gönderir; sabit host'u `ERROR_ALERT_SINK_ALLOWED_HOSTS`'a yazın), (3) `ErrorReportingModule`'deki `ALERT_SINKS` fabrikasına ekleyin. Yakalama ve uyarı üretimi değişmez. Ham olay göndermek isteyen bir Sentry hedefi ayrıca `ErrorSink` (`error-sink.ts`) olarak yazılır ve `ERROR_SINKS` listesine girer.
+
+### Grup birleştirme
+
+`POST /admin/errors/groups/:id/merge` gövde `{ "targetId": "<uuid>" }` (`@SuperAdminOnly`). Tek işlemde: olaylar, uyarılar, ani artış kovaları (toplanır) ve işletme sayaçları hedefe taşınır; hedefin sayaçları (toplam, ilk/son görülme, son sürüm, kritik, yaklaşık kullanıcı) güncellenir; açık bir grup çözülmüş bir hedefe katılırsa hedef yeniden açılır; kaynak `merged_into_id` ile işaretlenir ve listeden düşer; kaynağın parmak izi `error_group_aliases`'a hedefin takma adı olarak yazılır. Yeni olaylarda önce takma ad, sonra grup parmak izi aranır ve birleştirme zinciri canlı gruba kadar izlenir (`resolveGroup`, `followMergeChain`); hedef sonradan birleştirilirse takma adlar da taşınır, böylece hep canlı gruba işaret eder. Kendine, zaten birleştirilmiş gruba veya birleştirilmiş hedefe birleştirme 409, bilinmeyen grup 404. Denetim: `error_group.merge`. Birleştirme geri alınamaz. Bilinen sınır: birleştirme anında yazılmakta olan bir olay kaynak grupta kalabilir (kaynak detay sayfası hâlâ açılır).
+
+### İşletme sahibine bildirim
+
+`error_studio_settings.owner_notify` (varsayılan kapalı; satır yok = kapalı). `GET /studios/:studioId/errors/settings` (`errors.view`), `PATCH` (`studio.settings.manage`, denetim `error_studio_settings.update`); web `/ayarlar/hatalar` üstünde bir onay kutusu. Açıksa `NEW_GROUP` ve `SPIKE` uyarısında etkilenen işletmenin sahibine (ilk aktif sahip üyeliği) yalnızca e-posta ile `ERROR_OWNER_NOTICE` gider: mesaj, yığın veya iç ayrıntı yok, yalnızca işletme adı, hata kodu ve `/ayarlar/hatalar` bağlantısı; tr ve en şablon. Grup ve işletme başına 24 saatte en fazla bir e-posta: gönderim `error_group_studios.owner_notified_at` üzerinde koşullu güncellemeyle talep edilir. `NEW_GROUP` için işletme, olayın kimlik doğrulanmış bağlamındaki işletmedir (kimliksiz olay işletme sahibine bildirim üretmez); `SPIKE` için pencere başından beri o grubu gören işletmeler.
+
+### Kullanıcı geri bildirimi
+
+`POST /telemetry/errors/:eventId/feedback`, gövde `{ "feedback": "...", "sessionId"?: "..." }` (en fazla 1000 karakter gelir, temizlendikten sonra en fazla 500 karakter saklanır). Kimliksiz/kimlikli kuralları, 64 KB sınırı ve IP (60) / oturum (20) hız sınırları hata toplu gönderimiyle aynıdır. Metin `scrubFeedback` ile (kontrol karakterleri, `scrubPii`) temizlenir; e-posta veya iletişim alanı yoktur. Olay bir kullanıcıya aitse (`user_id_hash`) yalnızca o kullanıcı not ekleyebilir, aksi halde ve bilinmeyen olayda aynı 404 döner (kimlikler yoklanamaz); not bir kez yazılır (ikincisi 409). `error_events.feedback` sütununda durur, süper admin olay sayfasında görünür. Web `ErrorScreen` ve mobil `ErrorFallback` isteğe bağlı "Ne yapıyordunuz?" kutusunu gösterir (500 karakter sayacı, `errors.feedback.*`, `mErrors.feedback.*`); herkese açık sayfalar `/api/telemetry/errors/[eventId]/feedback` route'unu, oturumlu sayfalar BFF'yi kullanır. Mobilde olay henüz sunucuya ulaşmadıysa (çevrimdışı kuyruk) not 404 alır ve "iletilemedi" görünür; not isteğe bağlı olduğundan kuyruğa alınmaz.
+
+### Yığın bağlamı (`sourcesContent`)
+
+Kayıtlı harita `sourcesContent` taşıyorsa, çözülen ilk 3 uygulama çerçevesi (node_modules dışı) için özgün satırın bir üstü, kendisi ve bir altı `error_events.symbolicated_context` (JSON) sütununa yazılır: `{ location, startLine, lines, focus }`. Satırlar 200 karaktere kesilir ve `scrubPii`'den geçer. Ham yığın (`stack`) ve çözülmüş yığın metni değişmez. Süper admin olay sayfası bağlamı tek aralıklı (monospace) blokta, hedef satır `>` ile işaretli gösterir. Harita önbelleği (6 harita) artık `sourcesContent`'i de bellekte tutar; 10 MB harita sınırıyla en kötü durum yaklaşık 60 MB'tır.
+
+### Nest `ExceptionsHandler` log satırı
+
+Nest'in varsayılan filtresi yakalanmamış istisnayı `ExceptionsHandler` bağlamında ham mesaj ve yığınla loglar. `RequestContextLogger.error` bu bağlamdaki satırları `scrubPii`'den geçirir (mesaj 1000, yığın 8000 karaktere kesilir; ayrıştırıcı hataları gövde parçası alıntılayabildiği için) ve yalnızca bu bağlam etkilenir. Saklanan olaylar ve e-postalar zaten temizlenmiş metni taşır.
+
+### JSC ve yakalanmayan Promise reddi
+
+Expo varsayılan olarak Hermes kullanır; Hermes'te `enablePromiseRejectionTracker` ile yakalanır. JSC'de bu izleyici yoktur ve yeni bağımlılık eklenmediği için yakalanmayan Promise reddi bilinçli bir sınır olarak bırakıldı; JSC'ye geçilirse önce bu sınır yeniden değerlendirilmelidir. Geliştirme modunda React Native'in kendi izleyicisi (LogBox) kalır.
+
+### Testler
+
+- Birim: `packages/shared/src/error-alerts.spec.ts` (ani artış matematiği ve kenar durumları, birleştirme zinciri, Slack ve webhook gövdesi, izin listesi, geri bildirim temizleme, bağlam çıkarma), `apps/api/src/modules/error-reporting/error-alerts.spec.ts` (ExceptionsHandler log temizleme, takma ad çözümleme, sink imzası ve host denetimi), `sourcemap-decoder.spec.ts` (bağlam), mobil `feedback.spec.ts`.
+- API e2e: `apps/api/test/e2e/error-alerts.e2e-spec.ts` (bekleme içinde tek, sonra yine ani artış uyarısı; regresyon; birleştirme ve takma ad; imzalı webhook ve 5xx'te yeniden deneme ve vazgeçme; sahibe günde bir e-posta ve yalnızca onaylıysa; geri bildirim, hız sınırı ve temizleme; bağlam satırları). Playwright: `apps/web/e2e/error-alerts.e2e.ts` (yalnızca tip denetimi).
+
 ## Kalan işler
 
-- **H2 (yapıldı)**: mobil yakalama ve çevrimdışı kuyruk, web ve mobil kaynak haritası hattı, sunucuda yığın izi çözümleme.
-- **H2'den kalanlar (H3'e)**: ani artış (spike) tespiti ve kullanıcı geri bildirimi; mobil gömülü (mağaza) derlemenin Hermes haritasının EAS Build çıktısından otomatik yüklenmesi (şimdilik `--dist` ile elle); mobil için CI'da otomatik yükleme (EAS sırrı gerektirir, sahip kararı); JSC'de yakalanmayan Promise reddi; çözülmüş yığında kaynak satırı bağlamı (`sourcesContent`).
-- **H3**: Sentry (veya benzeri) sink'i, Slack/webhook uyarıları, grup birleştirme, işletme sahibine hata bildirimi, Nest `ExceptionsHandler` log satırının da temizlenmesi.
+- **H1, H2, H3 yapıldı.** H3: ani artış tespiti, imzalı webhook ve Slack uyarı hedefleri (`AlertSink` arayüzü), grup birleştirme, işletme sahibine isteğe bağlı bildirim, kullanıcı geri bildirimi, yığında `sourcesContent` bağlamı, `ExceptionsHandler` log temizleme.
+- **Bilinçli olarak yapılmayanlar**: Sentry benzeri hedef (bağımlılık; `AlertSink` ile eklenir, bkz. yukarı), JSC'de yakalanmayan Promise reddi (yukarıdaki not), mobil Hermes haritasının EAS Build çıktısından otomatik yüklenmesi (şimdilik `--dist` ile elle) ve mobil için CI'da otomatik yükleme (EAS sırrı gerektirir, sahip kararı).
+- **Sahip kararı bekleyenler**: uyarı hedeflerinin gerçek Slack/webhook adreslerinin girilmesi (`/admin/hatalar/ayarlar`); ani artış eşiklerinin gerçek trafikle gözden geçirilmesi (varsayılanlar: 5 kat, en az 10 kayıt, yeni grup için 50).

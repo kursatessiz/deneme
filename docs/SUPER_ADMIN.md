@@ -289,3 +289,16 @@ platform davetinde yalnızca KVKK aydınlatma metni istenir. Kabulde
   push/e-posta bildirim kanalı yok.
 - Rol/yetki ekranı ve tema seçimi (backlog 2.3) ve finans (2.4) bu işten
   ayrıdır.
+
+## Hata raporlama ekranları (H1-H3)
+
+Hepsi `@SuperAdminOnly()`; ayrıntı `docs/HATA_RAPORLAMA.md`.
+
+| Ekran | Ne yapar |
+|-------|----------|
+| `/admin/hatalar` | Hata grupları: kaynak, durum, sürüm, işletme filtresi; hata koduyla arama. Birleştirilmiş gruplar listelenmez |
+| `/admin/hatalar/[id]` | Yığın (çözülmüşse kaynak bağlamı satırlarıyla), adımlar, kullanıcı geri bildirimi, sürümler, işletmeler, son uyarılar; çöz, yok say, yeniden aç, not, başka bir gruba birleştir (hedef grup kimliği) |
+| `/admin/hatalar/uyarilar` | Ani artış, yeni grup ve regresyon uyarıları; tür ve onay filtresi, hedef teslimat durumu, onaylama |
+| `/admin/hatalar/ayarlar` | Ani artış eşikleri, grup başına bekleme süresi, imzalı webhook (adres, imza anahtarı) ve Slack (gelen webhook adresi); değerler şifrelenir ve tekrar gösterilmez |
+
+Tenant sahibi kendi işletmesi için `/ayarlar/hatalar` üstünden yeni grup ve ani artışta e-posta bildirimini açıp kapatır (varsayılan kapalı).

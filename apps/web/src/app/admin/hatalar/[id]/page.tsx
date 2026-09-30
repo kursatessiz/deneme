@@ -30,6 +30,7 @@ export default function AdminErrorDetailPage() {
   const [release, setRelease] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [mergeTarget, setMergeTarget] = useState('');
 
   useEffect(() => {
     if (data) setNote(data.note ?? '');
@@ -41,11 +42,11 @@ export default function AdminErrorDetailPage() {
   if (!data) return null;
 
   const dateTime = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'medium' });
-  const act = async (path: string, body: unknown, done?: string) => {
+  const act = async (path: string, body: unknown, done?: string, fullPath?: string) => {
     setBusy(true);
     setMessage(null);
     try {
-      await bffFetch(`admin/errors/${data.id}/${path}`, { method: path === 'note' ? 'PATCH' : 'POST', body });
+      await bffFetch(fullPath ?? `admin/errors/${data.id}/${path}`, { method: path === 'note' ? 'PATCH' : 'POST', body });
       setMessage(done ?? null);
       setRefreshKey((k) => k + 1);
     } catch (err) {
@@ -80,6 +81,15 @@ export default function AdminErrorDetailPage() {
           </p>
         )}
       </div>
+
+      {data.mergedIntoId && (
+        <p className="text-sm">
+          {t('adminErrors.detail.mergedInto')}{' '}
+          <Link href={`/admin/hatalar/${data.mergedIntoId}`} className="underline">
+            {t('adminErrors.detail.mergedIntoOpen')}
+          </Link>
+        </p>
+      )}
 
       <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 p-5 border" style={card}>
         {facts.map(([label, value]) => (
@@ -126,6 +136,33 @@ export default function AdminErrorDetailPage() {
         )}
       </section>
 
+      {!data.mergedIntoId && (
+        <section aria-label={t('adminErrors.detail.merge')} className="flex flex-wrap items-center gap-3">
+          <input
+            aria-label={t('adminErrors.detail.mergeTarget')}
+            placeholder={t('adminErrors.detail.mergeTarget')}
+            value={mergeTarget}
+            onChange={(e) => setMergeTarget(e.target.value)}
+            className="border px-3 py-2 text-sm w-96 font-mono"
+            style={inputStyle}
+          />
+          <button
+            type="button"
+            disabled={busy || mergeTarget.trim().length === 0}
+            onClick={() => act('merge', { targetId: mergeTarget.trim() }, t('adminErrors.detail.mergeDone'), `admin/errors/groups/${data.id}/merge`)}
+            className="px-4 py-2 text-sm font-medium border"
+            style={secondary}
+          >
+            {t('adminErrors.detail.mergeConfirm')}
+          </button>
+          {data.aliasCount > 0 && (
+            <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              {t('adminErrors.detail.aliases', { count: data.aliasCount })}
+            </span>
+          )}
+        </section>
+      )}
+
       <section className="space-y-2">
         <label htmlFor="error-group-note" className="block text-sm font-semibold">
           {t('adminErrors.detail.note')}
@@ -164,6 +201,21 @@ export default function AdminErrorDetailPage() {
         </section>
       </div>
 
+      <section>
+        <h3 className="text-sm font-semibold mb-2">{t('adminErrors.detail.alerts')}</h3>
+        {data.alerts.length === 0 ? (
+          <p className="text-sm">{t('adminErrors.detail.noAlerts')}</p>
+        ) : (
+          <ul className="text-xs space-y-1">
+            {data.alerts.map((a) => (
+              <li key={a.id}>
+                {t(`adminErrors.alert.kind.${a.kind}`)} - {dateTime.format(new Date(a.createdAt))}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <section className="space-y-3">
         <h3 className="text-sm font-semibold">{t('adminErrors.detail.events')}</h3>
         {data.events.length === 0 && <p className="text-sm">{t('adminErrors.detail.noEvents')}</p>}
@@ -183,11 +235,32 @@ export default function AdminErrorDetailPage() {
               <dd>{e.statusCode ?? '-'}</dd>
             </dl>
             <p className="text-sm mt-3 break-all">{e.message}</p>
+            {e.feedback && (
+              <>
+                <h4 className="text-xs font-semibold mt-3">{t('adminErrors.detail.feedback')}</h4>
+                <p className="text-sm mt-1 whitespace-pre-wrap break-words" data-testid="error-feedback">
+                  {e.feedback}
+                </p>
+              </>
+            )}
             <h4 className="text-xs font-semibold mt-3">{e.symbolicatedStack ? t('adminErrors.detail.stackResolved') : t('adminErrors.detail.stack')}</h4>
             {e.symbolicatedStack || e.stack ? (
               <pre className="text-xs overflow-x-auto mt-1 p-2 whitespace-pre" style={{ backgroundColor: 'var(--color-surface-muted)' }}>{e.symbolicatedStack ?? e.stack}</pre>
             ) : (
               <p className="text-xs">{t('adminErrors.detail.noStack')}</p>
+            )}
+            {e.symbolicatedContext && e.symbolicatedContext.length > 0 && (
+              <>
+                <h4 className="text-xs font-semibold mt-3">{t('adminErrors.detail.context')}</h4>
+                {e.symbolicatedContext.map((c) => (
+                  <div key={c.location} className="mt-1">
+                    <p className="text-xs font-mono break-all">{c.location}</p>
+                    <pre className="text-xs font-mono overflow-x-auto mt-1 p-2 whitespace-pre" style={{ backgroundColor: 'var(--color-surface-muted)' }}>
+                      {c.lines.map((line, i) => `${String(c.startLine + i).padStart(5)}${i === c.focus ? ' >' : '  '} ${line}`).join('\n')}
+                    </pre>
+                  </div>
+                ))}
+              </>
             )}
             {e.symbolicatedStack && e.stack && (
               <details className="mt-2">
