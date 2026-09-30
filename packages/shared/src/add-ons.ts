@@ -361,6 +361,8 @@ export interface StudioAddOnDTO {
   purchaseBlockedReason: AddOnBlockReason | null;
   /** True when the tenant can start the free trial now (never used, purchasable, trial length above zero). */
   trialAvailable: boolean;
+  /** ACTIVE but the renewal charge is past due (retries running): the owner can pay now with activate. */
+  paymentOverdue: boolean;
 }
 
 export interface StudioAddOnListDTO {

@@ -37,6 +37,7 @@ import type { WebhookVerificationResult } from '../payments/providers/payment-pr
 import { ConversionService } from '../crm/conversions/conversion.service';
 import { StudioReferralsService } from './studio-referrals.service';
 import { PlatformEventsService } from '../webhooks/platform-events.service';
+import { toLocalizedText } from './add-ons/admin-add-ons.service';
 import type { TenantContext } from '../auth/tenant-context';
 
 type Tx = Prisma.TransactionClient;
@@ -148,7 +149,7 @@ export class PlatformBillingService implements OnModuleInit {
   async listPayments(studioId: string): Promise<PlatformPaymentDTO[]> {
     const rows = await this.prisma.platformBillingPayment.findMany({
       where: { studioId },
-      include: { plan: { select: { key: true } } },
+      include: { plan: { select: { key: true } }, studioAddOn: { select: { addOn: { select: { key: true, name: true } } } } },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
@@ -245,7 +246,7 @@ export class PlatformBillingService implements OnModuleInit {
   async handleWebhook(provider: PaymentProvider, verification: WebhookVerificationResult): Promise<RoutedWebhookResult | null> {
     if (!verification.providerReference) return null;
     const payment = await this.prisma.platformBillingPayment.findFirst({
-      where: { provider, providerReference: verification.providerReference },
+      where: { provider, providerReference: verification.providerReference, studioAddOnId: null },
     });
     if (!payment) return null;
     if (payment.status !== 'PENDING') return { handled: true, alreadyProcessed: true };
@@ -427,11 +428,13 @@ export class PlatformBillingService implements OnModuleInit {
   private async complete(paymentId: string, provider: PaymentProvider | null, providerReference: string | null, now = new Date()): Promise<void> {
     const payment = await this.prisma.$transaction(async (tx) => {
       const moved = await tx.platformBillingPayment.updateMany({
-        where: { id: paymentId, status: 'PENDING' },
+        where: { id: paymentId, status: 'PENDING', planId: { not: null } },
         data: { status: 'COMPLETED', paidAt: now, ...(provider ? { provider, providerReference } : {}) },
       });
       if (moved.count === 0) return null;
       const row = await tx.platformBillingPayment.findUniqueOrThrow({ where: { id: paymentId }, include: { plan: true } });
+      // Add-on payments (no plan) are settled by AddOnChargeService and never match the update above.
+      if (!row.planId || !row.plan) return null;
       const studio = await tx.studio.findUniqueOrThrow({ where: { id: row.studioId }, select: { billingStatus: true } });
       const from = this.statusOf(studio.billingStatus);
       if (from !== 'ACTIVE') {
@@ -549,7 +552,10 @@ export class PlatformBillingService implements OnModuleInit {
   }
 
   private async activationResult(paymentId: string, pending: boolean, checkoutUrl: string | null): Promise<ActivateStudioResultDTO> {
-    const row = await this.prisma.platformBillingPayment.findUniqueOrThrow({ where: { id: paymentId }, include: { plan: { select: { key: true } } } });
+    const row = await this.prisma.platformBillingPayment.findUniqueOrThrow({
+      where: { id: paymentId },
+      include: { plan: { select: { key: true } }, studioAddOn: { select: { addOn: { select: { key: true, name: true } } } } },
+    });
     const studio = await this.prisma.studio.findUniqueOrThrow({ where: { id: row.studioId }, select: { billingStatus: true } });
     return { status: this.statusOf(studio.billingStatus), pending, checkoutUrl, payment: toPaymentDto(row) };
   }
@@ -577,10 +583,11 @@ function toCurrentPlanDto(plan: PricedPlan, currency: PlatformBillingCurrency): 
   };
 }
 
-function toPaymentDto(row: PlatformBillingPayment & { plan: { key: string } }): PlatformPaymentDTO {
+function toPaymentDto(row: PlatformBillingPayment & { plan: { key: string } | null; studioAddOn?: { addOn: { key: string; name: Prisma.JsonValue } } | null }): PlatformPaymentDTO {
   return {
     id: row.id,
-    planKey: row.plan.key,
+    planKey: row.plan?.key ?? null,
+    addOn: row.studioAddOn ? { key: row.studioAddOn.addOn.key, name: toLocalizedText(row.studioAddOn.addOn.name) } : null,
     listAmount: row.listAmount.toFixed(2),
     creditAmount: row.creditAmount.toFixed(2),
     creditMonths: row.creditMonths,

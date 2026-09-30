@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { FeatureFlagScope, Prisma } from '@platform/database';
 import type { SetFeatureFlagInput } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { resolveFeatureForStudio } from '../billing/add-ons/effective-feature';
 
 /**
  * Single resolver for feature flags, used both by the admin API (to list
@@ -9,7 +10,10 @@ import { PrismaService } from '../prisma/prisma.service';
  * Resolution order (see FeatureFlag doc comment in schema.prisma):
  * TENANT > BUSINESS_TYPE > GLOBAL. The most specific row that exists wins,
  * even if it is `enabled: false` (an explicit tenant override can turn a
- * globally-on feature off, and vice versa).
+ * globally-on feature off, and vice versa). Since G5c-2 an entitling add-on
+ * row of the tenant (ACTIVE, TRIALING before its end, CANCELLED before its
+ * period end) turns the flag on between the TENANT row and the other scopes
+ * (see billing/add-ons/effective-feature.ts).
  *
  * `businessTypeTemplateId`/`studioId` are nullable and part of the
  * compound unique key (`@@unique([key, scope, businessTypeTemplateId,
@@ -23,25 +27,7 @@ export class FeatureFlagsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async isFeatureEnabled(studioId: string, key: string): Promise<boolean> {
-    const studio = await this.prisma.studio.findUnique({
-      where: { id: studioId },
-      select: { businessTypeTemplateId: true },
-    });
-
-    const [tenantFlag, businessTypeFlag, globalFlag] = await Promise.all([
-      this.prisma.featureFlag.findFirst({ where: { key, scope: FeatureFlagScope.TENANT, studioId } }),
-      studio?.businessTypeTemplateId
-        ? this.prisma.featureFlag.findFirst({
-            where: { key, scope: FeatureFlagScope.BUSINESS_TYPE, businessTypeTemplateId: studio.businessTypeTemplateId },
-          })
-        : Promise.resolve(null),
-      this.prisma.featureFlag.findFirst({ where: { key, scope: FeatureFlagScope.GLOBAL } }),
-    ]);
-
-    if (tenantFlag) return tenantFlag.enabled;
-    if (businessTypeFlag) return businessTypeFlag.enabled;
-    if (globalFlag) return globalFlag.enabled;
-    return false;
+    return resolveFeatureForStudio(this.prisma, studioId, key);
   }
 
   async list() {

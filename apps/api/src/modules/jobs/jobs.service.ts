@@ -155,7 +155,7 @@ export class JobsService {
         `AI translation ${aiTranslation.jobs} job(s)/${aiTranslation.paused} paused, ` +
         `loyalty ${loyalty.birthdayPoints} birthday point(s)/${loyalty.expiredPoints} expired/${loyalty.expiryNotices} notice(s), ` +
         `events ${events.holdsReleased} hold(s) released/${events.promoted} promoted/${events.reminders} reminder(s)/${events.completed} completed, ` +
-        `billing ${billing.restricted} trial(s) restricted/${billing.reminders} reminder(s), ` +
+        `billing ${billing.restricted} trial(s) restricted/${billing.reminders} reminder(s)/add-ons ${billing.addOns.expired} expired/${billing.addOns.renewed} renewed/${billing.addOns.failed} failed, ` +
         `payouts ${payouts.synced} synced/${payouts.payouts} payout(s)/${payouts.failed} failed`,
         `errors ${errorReporting.purged} event(s) purged/digest ${errorReporting.digestSent ? 'sent' : 'not due'}, ` +
         `backups ${backups.scheduled.reason.toLowerCase()}/status ${backups.status}${backups.staleAlertSent ? '/alert sent' : ''}, ` +

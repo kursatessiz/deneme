@@ -139,6 +139,9 @@ const ALL_TABLES = [
   'studios',
   'sms_packages',
   'plan_prices',
+  'studio_add_ons',
+  'add_on_prices',
+  'add_ons',
   'platform_referral_reward_amounts',
   'plans',
   'business_type_templates',
@@ -194,6 +197,7 @@ async function main() {
   // and message templates: the same definitions the production bootstrap
   // command uses (packages/database/src/platform-defaults.ts).
   const catalog = await ensureCatalogDefaults(prisma, count);
+  await seedAddOnCatalogue();
   const businessTypeTemplates = pick(catalog.businessTypeTemplateIds, ['pilates_studio', 'personal_training', 'physiotherapy']);
   const plans = pick(catalog.planIds, ['starter', 'pro']);
   const kvkkDoc = { id: pick(catalog.documentIds, [DocumentType.KVKK_NOTICE])[DocumentType.KVKK_NOTICE] };
@@ -243,6 +247,76 @@ async function main() {
 // ---------------------------------------------------------------------------
 // W7: messaging - SMS wallets, global message templates, sample consent
 // ---------------------------------------------------------------------------
+
+/**
+ * Add-on marketplace examples (G5c-2): three add-ons for feature flag keys of
+ * the FEATURE_FLAGS catalogue. Development data only (never part of the
+ * production bootstrap). Note: no module checks these flags yet, so trying
+ * one has no visible effect until a module is gated by its flag.
+ */
+async function seedAddOnCatalogue() {
+  const examples = [
+    {
+      key: 'gamification-plus',
+      name: { tr: 'Rozet ve Seri', en: 'Badges and Streaks' },
+      description: {
+        tr: 'Üyeleriniz için rozet, seri ve aylık hedefler ekleyin.',
+        en: 'Add badges, streaks and monthly goals for your members.',
+      },
+      promoVideoUrl: 'https://example.com/videos/gamification',
+      featureFlagKey: 'gamification',
+      trialDays: 14,
+      sortOrder: 10,
+      prices: { TRY: [149, 1490], USD: [5, 50], EUR: [5, 50], GBP: [4, 40] },
+    },
+    {
+      key: 'churn-radar',
+      name: { tr: 'Kayıp Riski Radarı', en: 'Churn Risk Radar' },
+      description: {
+        tr: 'Ayrılma ihtimali yüksek üyeleri erken görün ve harekete geçin.',
+        en: 'Spot members likely to leave early and act on it.',
+      },
+      promoVideoUrl: null,
+      featureFlagKey: 'churn_risk',
+      trialDays: 7,
+      sortOrder: 20,
+      prices: { TRY: [249, 2490], EUR: [9, 90] },
+    },
+    {
+      key: 'video-library',
+      name: { tr: 'Video Kütüphanesi', en: 'Video Library' },
+      description: {
+        tr: 'Kayıtlı ve canlı video içeriklerini üyelerinize sunun.',
+        en: 'Offer recorded and live video content to your members.',
+      },
+      promoVideoUrl: 'https://example.com/videos/library',
+      featureFlagKey: 'video_content',
+      trialDays: 14,
+      sortOrder: 30,
+      prices: { TRY: [349, 3490], USD: [12, 120], EUR: [11, 110], GBP: [10, 100] },
+    },
+  ] as const;
+  for (const e of examples) {
+    await prisma.addOn.create({
+      data: {
+        key: e.key,
+        name: e.name,
+        description: e.description,
+        promoVideoUrl: e.promoVideoUrl,
+        screenshotUrls: [],
+        featureFlagKey: e.featureFlagKey,
+        trialDays: e.trialDays,
+        isPublished: true,
+        sortOrder: e.sortOrder,
+        prices: {
+          create: Object.entries(e.prices).map(([currency, [monthly, yearly]]) => ({ currency, priceMonthly: monthly, priceYearly: yearly })),
+        },
+      },
+    });
+    count('add_ons');
+    count('add_on_prices', Object.keys(e.prices).length);
+  }
+}
 
 async function seedMessaging(studioIds: { zen: string; flow: string; guc: string; denge: string }) {
   // Every tenant already gets an SmsWallet in scaffoldTenant(); top it up so
