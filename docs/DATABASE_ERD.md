@@ -651,6 +651,19 @@ Migration `20261015000000_error_reporting`; ayrıntılar `docs/HATA_RAPORLAMA.md
 | `error_events` | Tek bir kayıt (temizlenmiş): kısa hata kodu, kaynak, önem, sürüm, ortam, konum, istek kimliği, `studio_id` (yalnızca kimliği doğrulanmış bağlamdan), `user_id_hash` (tuzlu sha256, ham kimlik asla), mesaj, yığın izi, adımlar (breadcrumbs), HTTP durumu | id = raporlayanın olay kimliği (tekrar gönderim idempotent); grup -> cascade; (group_id, occurred_at), (code), (occurred_at) index; grup başına son 50 kayıt, 30 gün saklama |
 | `error_group_studios` | Grup başına işletme sayaçları: tekrar, ilk/son görülme, son hata kodu (işletme sahibi görünümü ve kesin etkilenen işletme sayısı) | (group_id, studio_id) birincil anahtar; grup ve stüdyo -> cascade; (studio_id, last_seen_at) index |
 
+### H3 eklemeleri
+
+Migration `20261029000000_error_alerts` (yalnızca genişletme); ayrıntılar `docs/HATA_RAPORLAMA.md`. Mevcut tablolara boş bırakılabilir sütunlar: `error_groups.merged_into_id` (kendine yabancı anahtar, set null; birleştirilen grup), `error_events.feedback` (en fazla 500 karakter, temizlenmiş kullanıcı notu), `error_events.symbolicated_context` (JSON, çözülmüş çerçevelerin özgün kaynak satırları), `error_group_studios.owner_notified_at` (sahibe son e-posta).
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `error_group_aliases` | Birleştirilen grubun parmak izi özeti -> hedef grup; yeni olaylar hedefe düşer | `fingerprint_hash` birincil anahtar; grup -> cascade; (group_id) index. Her zaman canlı gruba işaret eder |
+| `error_group_buckets` | Grup başına 15 dakikalık (UTC hizalı) olay sayacı: ani artış tabanı | (group_id, bucket_start) birincil anahtar; grup -> cascade; (bucket_start) index; 48 saatten eskisi heartbeat ile silinir |
+| `error_alerts` | Bir grubun uyarısı: tür (SPIKE/NEW_GROUP/REGRESSION), pencere, pencere sayısı, taban toplamı ve ortalaması, eşik, `notified_at`, `acknowledged_at`, `acknowledged_by_user_id` (yabancı anahtar değil) | (group_id, kind, window_start) benzersiz; grup -> cascade; (group_id, created_at) ve (created_at) index |
+| `error_alert_deliveries` | Bir uyarının bir hedefe (WEBHOOK/SLACK) teslimatı: durum (PENDING/SUCCEEDED/ABANDONED), deneme, sonraki deneme, son HTTP durumu, hata sınıfı (gövde ve adres asla) | uyarı -> cascade; (status, next_attempt_at) ve (alert_id) index |
+| `error_settings` | Platform hata uyarısı ayarları (tekil satır `platform`): ani artış eşikleri (JSON), bekleme dakikası, `CredentialCipher` ile şifreli webhook adresi/imza anahtarı/Slack adresi, webhook host'u ve anahtarın son 4 hanesi, hedef açık/kapalı | Kiracı sütunu yoktur (yalnızca süper admin); adresler ve anahtar asla döndürülmez |
+| `error_studio_settings` | İşletmenin hata bildirimi tercihi: `owner_notify` (varsayılan kapalı) | `studio_id` birincil anahtar; stüdyo -> cascade |
+
 ## Yedekler (D2)
 
 Migration `20261018000000_backup_runs` (yalnızca ekleme: iki enum, iki tablo); ayrıntılar `docs/YEDEKLER.md`.

@@ -38,6 +38,7 @@ export * from './billing';
 export * from './add-on-errors';
 export * from './add-ons';
 export * from './error-reporting';
+export * from './error-alerts';
 export * from './sourcemaps';
 export * from './community';
 export * from './backups';

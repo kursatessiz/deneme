@@ -3,7 +3,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { ConfigService } from '@nestjs/config';
 import { SOURCEMAP_LIMITS, normalizeSourcemapPath, sourcemapPathCandidates } from '@platform/shared';
-import { decodeVlq, originalPositionFor, parseFrame, parseSourceMap, symbolicateStack } from './sourcemap-decoder';
+import { decodeVlq, originalPositionFor, parseFrame, parseSourceMap, symbolicateStack, symbolicateStackDetailed } from './sourcemap-decoder';
 import type { RawSourceMap } from './sourcemap-decoder';
 import { SourcemapStoreError, SourcemapStoreService } from './sourcemap-store.service';
 import { SymbolicationService } from './symbolication.service';
@@ -97,14 +97,14 @@ describe('decodeVlq', () => {
 
 describe('originalPositionFor', () => {
   it('resolves the mapping that starts at or before the column', () => {
-    expect(originalPositionFor(MAP, 1, 0)).toEqual({ source: 'src/app.ts', line: 1, column: 0, name: 'fail' });
-    expect(originalPositionFor(MAP, 1, 14)).toEqual({ source: 'src/app.ts', line: 2, column: 2, name: null });
-    expect(originalPositionFor(MAP, 1, 25)).toEqual({ source: 'src/app.ts', line: 2, column: 8, name: 'Error' });
-    expect(originalPositionFor(MAP, 1, 999)).toEqual({ source: 'src/app.ts', line: 2, column: 20, name: null });
+    expect(originalPositionFor(MAP, 1, 0)).toEqual({ source: 'src/app.ts', sourceIndex: 0, line: 1, column: 0, name: 'fail' });
+    expect(originalPositionFor(MAP, 1, 14)).toEqual({ source: 'src/app.ts', sourceIndex: 0, line: 2, column: 2, name: null });
+    expect(originalPositionFor(MAP, 1, 25)).toEqual({ source: 'src/app.ts', sourceIndex: 0, line: 2, column: 8, name: 'Error' });
+    expect(originalPositionFor(MAP, 1, 999)).toEqual({ source: 'src/app.ts', sourceIndex: 0, line: 2, column: 20, name: null });
   });
 
   it('carries the relative state across generated lines', () => {
-    expect(originalPositionFor(MAP, 2, 5)).toEqual({ source: 'src/util.ts', line: 10, column: 4, name: null });
+    expect(originalPositionFor(MAP, 2, 5)).toEqual({ source: 'src/util.ts', sourceIndex: 1, line: 10, column: 4, name: null });
   });
 
   it('returns null before the first mapping, on an unmapped line and for a malformed map', () => {
@@ -225,7 +225,7 @@ describe('SourcemapStoreService and SymbolicationService', () => {
     expect((await store.save({ platform: 'web', release: 'sha-1', path: '_next/static/chunks/app.js', mapText })).replaced).toBe(true);
 
     const stack = 'TypeError: x\n    at a (https://app.test/_next/static/chunks/app.js:1:26)';
-    expect(await symbolication.symbolicate({ source: 'web', release: 'sha-1', stack })).toContain('at Error (src/app.ts:2:9)');
+    expect((await symbolication.symbolicate({ source: 'web', release: 'sha-1', stack }))?.stack).toContain('at Error (src/app.ts:2:9)');
   });
 
   it('does not resolve for an unknown release, another platform or a non-client source', async () => {
@@ -257,5 +257,43 @@ describe('SourcemapStoreService and SymbolicationService', () => {
     expect(await store.find('web', 'old', ['a.js'])).toBeNull();
     expect(await store.find('web', 'new', ['a.js'])).not.toBeNull();
     await expect(fs.stat(join(dir, 'web', 'old'))).rejects.toThrow();
+  });
+});
+
+describe('source context (sourcesContent)', () => {
+  const APP_SOURCE = ['export function fail(msg) {', '  throw new Error(msg);', '}'].join('\n');
+  const withContent: RawSourceMap = { ...MAP, sourcesContent: [APP_SOURCE, null] };
+  const stack = 'Error: x\n    at a (https://app.test/app.js:1:15)\n    at b (https://app.test/app.js:2:6)';
+
+  it('keeps sourcesContent when parsing and drops non-string entries', () => {
+    const parsed = parseSourceMap(JSON.stringify({ ...MAP, sourcesContent: [APP_SOURCE, 5, null] }));
+    expect(parsed?.sourcesContent).toEqual([APP_SOURCE, null, null]);
+    expect(parseSourceMap(JSON.stringify(MAP))?.sourcesContent).toBeUndefined();
+  });
+
+  it('adds the lines around the resolved frame and leaves the stack text as it was', async () => {
+    const plain = await symbolicateStack(stack, async () => MAP);
+    const detailed = await symbolicateStackDetailed(stack, async () => withContent);
+    expect(detailed?.stack).toBe(plain);
+    expect(detailed?.context[0]).toEqual({
+      location: 'src/app.ts:2:3',
+      startLine: 1,
+      lines: ['export function fail(msg) {', '  throw new Error(msg);', '}'],
+      focus: 1,
+    });
+  });
+
+  it('has no context when the map embeds no sources, or the source is null', async () => {
+    expect((await symbolicateStackDetailed(stack, async () => MAP))?.context).toEqual([]);
+    // Frame 2 maps to src/util.ts, whose content is null in the fixture.
+    const utilStack = 'Error: x\n    at c (https://app.test/app.js:2:6)';
+    expect((await symbolicateStackDetailed(utilStack, async () => withContent))?.context).toEqual([]);
+  });
+
+  it('never returns context for node_modules frames and caps the number of frames', async () => {
+    const vendor: RawSourceMap = { ...withContent, sources: ['webpack://_N_E/./node_modules/lib/index.js', 'webpack://_N_E/./src/util.ts'] };
+    expect((await symbolicateStackDetailed(stack, async () => vendor))?.context).toEqual([]);
+    const many = ['Error: x', ...Array.from({ length: 8 }, () => '    at a (https://app.test/app.js:1:15)')].join('\n');
+    expect((await symbolicateStackDetailed(many, async () => withContent))?.context).toHaveLength(3);
   });
 });

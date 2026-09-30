@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import type { Translate } from '@platform/shared';
-import { reportError } from '@/lib/errors/reporter';
+import { eventIdOf, reportError } from '@/lib/errors/reporter';
+import { ErrorFeedbackBox } from './ErrorFeedbackBox';
 
 /**
  * The friendly error screen of error.tsx and global-error.tsx: reports the
@@ -11,10 +12,12 @@ import { reportError } from '@/lib/errors/reporter';
  */
 export function ErrorScreen({ error, reset, t }: { error: Error & { digest?: string }; reset: () => void; t: Translate }) {
   const [code, setCode] = useState<string | null>(null);
+  const [eventId, setEventId] = useState<string | null>(null);
 
   useEffect(() => {
     // The digest links a server-rendering error to the server log line.
     setCode(reportError(error, { severity: 'fatal', extra: error.digest ? `digest ${error.digest}` : undefined }));
+    setEventId(eventIdOf(error));
   }, [error]);
 
   return (
@@ -36,6 +39,7 @@ export function ErrorScreen({ error, reset, t }: { error: Error & { digest?: str
             </p>
           </div>
         )}
+        {eventId && <ErrorFeedbackBox eventId={eventId} t={t} />}
         <div className="flex flex-wrap gap-3 pt-2">
           <button
             type="button"

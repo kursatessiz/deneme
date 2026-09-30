@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import type { ErrorEventRecord } from '@platform/shared';
 import { CAPTURE_QUEUE_LIMIT, ErrorCaptureService } from './error-capture.service';
 import { ErrorAlertsService } from './error-alerts.service';
+import { ErrorAlertMailer } from './error-alert-mailer.service';
 import type { ErrorSink } from './error-sink';
 import type { RecordedError } from './error-store.service';
 import { resolveRequestId, runWithRequestContext } from './request-context';
@@ -114,7 +115,15 @@ describe('ErrorAlertsService', () => {
       auditLog: { create: async () => ({}) },
     };
     const messaging = { send: async (input: { templateKey: string }) => (sent.push(input.templateKey), { success: true }) };
-    const service = new ErrorAlertsService(prisma as never, config({ ERROR_ALERT_COOLDOWN_MINUTES: 60 }), messaging as never);
+    const created: string[] = [];
+    const service = new ErrorAlertsService(
+      prisma as never,
+      config({}),
+      new ErrorAlertMailer(prisma as never, messaging as never),
+      { getCooldownMinutes: async () => 60 } as never,
+      { create: async (input: { kind: string }) => (created.push(input.kind), null) } as never,
+      {} as never,
+    );
 
     const results = await Promise.all([service.onRecorded(recorded()), service.onRecorded(recorded()), service.onRecorded(recorded({ critical: true }))]);
     expect(results.filter(Boolean)).toHaveLength(1);
@@ -123,10 +132,12 @@ describe('ErrorAlertsService', () => {
     lastAlertAt = new Date(Date.now() - 61 * 60 * 1000);
     expect(await service.onRecorded(recorded({ isNew: false, critical: true }))).toBe('CRITICAL');
     expect(sent).toEqual(['ERROR_NEW_GROUP', 'ERROR_CRITICAL']);
+    // A new group also becomes a stored alert (once: the second send was a critical repeat, not a new group).
+    expect(created).toEqual(['NEW_GROUP']);
   });
 
   it('sends nothing when alerts are switched off', async () => {
-    const service = new ErrorAlertsService({} as never, config({ ERROR_ALERTS_ENABLED: '0' }), {} as never);
+    const service = new ErrorAlertsService({} as never, config({ ERROR_ALERTS_ENABLED: '0' }), {} as never, {} as never, {} as never, {} as never);
     expect(await service.onRecorded(recorded())).toBeNull();
   });
 });

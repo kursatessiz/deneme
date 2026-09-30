@@ -1,11 +1,13 @@
 import {
   ClientErrorEventSchema,
+  ERROR_FEEDBACK_MAX_LENGTH,
   ERROR_LIMITS,
   ErrorDedupeWindow,
   errorCodeFromId,
   errorFingerprint,
   normalizeRoute,
   sampleEvent,
+  scrubFeedback,
   scrubPii,
   truncate,
 } from '@platform/shared';
@@ -50,6 +52,8 @@ export interface ReportOptions {
 export interface ReportResult {
   /** The 8-character code to show the user; null when the event was deduplicated, sampled out or over the cap. */
   code: string | null;
+  /** The event id, for the optional feedback note (H3); null exactly when `code` is. */
+  eventId: string | null;
   /** Resolves once the event is on disk (a fatal crash may follow immediately). */
   persisted: Promise<void>;
 }
@@ -119,6 +123,7 @@ export function createMobileReporter(deps: ReporterDeps) {
   const sessionId = randomUuid(random);
   /** error object -> code, so a boundary re-rendering shows the same code and reports once. */
   const codes = new WeakMap<object, string>();
+  const eventIds = new WeakMap<object, string>();
   let reported = 0;
   let flushTimer: unknown = null;
   let retryTimer: unknown = null;
@@ -153,9 +158,11 @@ export function createMobileReporter(deps: ReporterDeps) {
   }
 
   function report(error: unknown, options: ReportOptions = {}): ReportResult {
-    const none: ReportResult = { code: null, persisted: Promise.resolve() };
+    const none: ReportResult = { code: null, eventId: null, persisted: Promise.resolve() };
     try {
-      if (error && typeof error === 'object' && codes.has(error)) return { code: codes.get(error) ?? null, persisted: Promise.resolve() };
+      if (error && typeof error === 'object' && codes.has(error)) {
+        return { code: codes.get(error) ?? null, eventId: eventIds.get(error) ?? null, persisted: Promise.resolve() };
+      }
       const described = describe(error);
       const type = truncate(scrubPii(described.type, ERROR_LIMITS.typeLength) || 'Error', ERROR_LIMITS.typeLength);
       const rawMessage = options.extra ? `${described.message} (${options.extra})` : described.message;
@@ -185,10 +192,13 @@ export function createMobileReporter(deps: ReporterDeps) {
       if (!parsed.success) return none;
       const event: ClientErrorEvent = parsed.data;
       const code = errorCodeFromId(event.eventId);
-      if (error && typeof error === 'object') codes.set(error, code);
+      if (error && typeof error === 'object') {
+        codes.set(error, code);
+        eventIds.set(error, event.eventId);
+      }
       const persisted = queue.enqueue(event);
       scheduleFlush();
-      return { code, persisted };
+      return { code, eventId: event.eventId, persisted };
     } catch {
       return none;
     }
@@ -198,3 +208,27 @@ export function createMobileReporter(deps: ReporterDeps) {
 }
 
 export type MobileReporter = ReturnType<typeof createMobileReporter>;
+
+/** Sends one feedback note; resolves true when the API accepted it. Implemented by runtime.ts. */
+export type FeedbackSender = (eventId: string, body: { feedback: string; sessionId?: string }) => Promise<boolean>;
+
+export type FeedbackResult = 'sent' | 'empty' | 'failed';
+
+/** Longest note the box accepts (the API cuts at the same length). */
+export const FEEDBACK_MAX_LENGTH = ERROR_FEEDBACK_MAX_LENGTH;
+
+/**
+ * The optional "what were you doing" note of the error screen (H3): scrubbed
+ * with the shared scrubber before it leaves the device (the API scrubs again),
+ * cut to 500 characters, never empty. There is no e-mail or contact field.
+ * A failure is reported, not retried or queued: the note is optional.
+ */
+export async function submitErrorFeedback(eventId: string, text: string, send: FeedbackSender, sessionId?: string): Promise<FeedbackResult> {
+  const feedback = scrubFeedback(text);
+  if (!feedback) return 'empty';
+  try {
+    return (await send(eventId, { feedback, ...(sessionId ? { sessionId } : {}) })) ? 'sent' : 'failed';
+  } catch {
+    return 'failed';
+  }
+}

@@ -131,6 +131,21 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplateDefinition[] = [
     emailButton: { labelKey: 'msgTpl.ERROR_ALERT.cta', urlVariable: 'link' },
   },
   {
+    key: 'ERROR_SPIKE',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'title', 'source', 'release', 'code', 'windowCount', 'baselineMean', 'threshold', 'link'],
+    whatsappName: 'error_spike',
+    emailButton: { labelKey: 'msgTpl.ERROR_ALERT.cta', urlVariable: 'link' },
+  },
+  /** H3: opt-in e-mail to a tenant owner about an error affecting their users; no message, stack or internals. */
+  {
+    key: 'ERROR_OWNER_NOTICE',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'studioName', 'code', 'link'],
+    whatsappName: 'error_owner_notice',
+    emailButton: { labelKey: 'msgTpl.ERROR_OWNER_NOTICE.cta', urlVariable: 'link' },
+  },
+  {
     key: 'ERROR_DIGEST',
     purpose: 'TRANSACTIONAL',
     variables: ['firstName', 'events', 'newGroups', 'openGroups', 'regressions', 'topGroups', 'link'],
