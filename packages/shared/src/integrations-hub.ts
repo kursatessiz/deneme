@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { HubSocialConnectionDTO } from './marketing/social';
 import type { HubLeadAdsDTO } from './marketing/lead-ads';
+import type { HubConnectionAuthDTO, HubOAuthDTO } from './marketing/oauth';
 import { SMS_PROVIDER_KEYS, SMS_REGISTRATION_STATUSES, SmsSenderRegistrationSchema } from './messaging-engine';
 import type { SmsProviderKey, SmsRegistrationStatus } from './messaging-engine';
 import type { WebhookEvent } from './open-platform';
@@ -75,7 +76,7 @@ export const CreateEmailSenderDomainSchema = z.object({
 });
 export type CreateEmailSenderDomainInput = z.infer<typeof CreateEmailSenderDomainSchema>;
 
-export interface HubAdConnectionDTO {
+export interface HubAdConnectionDTO extends HubConnectionAuthDTO {
   id: string;
   platform: string;
   label: string;
@@ -137,6 +138,8 @@ export interface IntegrationHubDTO {
   smsSender: HubSmsSenderDTO;
   /** M4c: platform event subscriptions and crm.write keys. */
   automation: HubAutomationDTO;
+  /** M4a: OAuth providers (configured or not, redirect URI) and, for the super admin, the masked client settings. */
+  oauth: HubOAuthDTO;
 }
 
 /** One SMS provider's alphanumeric sender id and its registration status (entered by hand). */

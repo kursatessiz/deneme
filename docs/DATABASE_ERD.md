@@ -682,6 +682,20 @@ Migration `20261027000000_lead_ads_automation` (yalnızca ekleme: `ad_connection
 | `public_api_idempotency_keys` | Herkese açık yazma uçlarının `Idempotency-Key` kaydı: `key`, `request_hash` (yöntem + yol + gövde), `status` (`IN_PROGRESS`/`DONE`), saklanan yanıt, `expires_at` (24 saat) | (studio_id, key) benzersiz; (expires_at) index; süresi dolan satırlar her talepte silinir |
 | `platform_integration_settings` | Platform genelinde entegrasyon ayarı (tek satır `id = 'platform'`): Meta leadgen doğrulama belirtecinin SHA-256 özeti, son 4 karakteri ve zamanı; yalnızca süper admin yazar | birincil anahtar `id` |
 
+## OAuth ile hesap bağlama (M4a)
+
+Migration `20261028000000_oauth_connect` (yalnızca ekleme: `SocialConnectionStatus` enum'una `REAUTH_REQUIRED`, `ad_connections`, `social_connections` ve `platform_integration_settings` üzerinde varsayılanlı ya da boş olabilir sütunlar, bir yeni tablo). Mevcut bağlantılar `auth_method = 'PASTED'` olur ve değişmeden çalışır. `oauth_states.studio_id` ve `target_id` düz kimliktir (yabancı anahtar yok). Ayrıntılar `docs/PAZARLAMA_MODULU.md` (M4a notları).
+
+| Tablo | Amaç | Kısıtlar |
+|-------|---------|-------------|
+| `oauth_states` | Başlatılmış bir OAuth yetkilendirmesi: `state_hash` (ham state'in SHA-256'sı; ham değer yalnızca tarayıcı yönlendirmesinde taşınır), `encrypted_code_verifier` (PKCE, `CredentialCipher`; sağlayıcı PKCE almıyorsa boş), `studio_id`, `user_id`, `provider` (`META`/`GOOGLE`/`LINKEDIN`), `target_kind` (`NEW_AD_CONNECTION`/`NEW_SOCIAL_CONNECTION`/`RECONNECT_AD_CONNECTION`/`RECONNECT_SOCIAL_CONNECTION`), `target_id`, `target_params` (yeni bağlantının herkese açık alanları, sır yok), `return_to` (`marketing`/`admin`), `expires_at` (10 dakika), `used_at` (tek kullanım) | `state_hash` benzersiz; (expires_at), (studio_id, created_at) index; kullanılmış ve süresi dolmuş satırlar 24 saat sonra kalp atışında silinir |
+| `ad_connections.auth_method`, `social_connections.auth_method` | `PASTED` (varsayılan, elle girilen anahtar) veya `OAUTH` | `VARCHAR(10)`, varsayılan `'PASTED'`; (auth_method, next_refresh_at) index |
+| `*.oauth_provider`, `*.token_expires_at`, `*.encrypted_refresh_token` | OAuth sağlayıcısı, jetonun bitişi (varsa), şifreli refresh token (`CredentialCipher`) | boş olabilir; jeton yapıştırılınca temizlenir |
+| `*.refresh_attempts`, `*.next_refresh_at` | Arka plan yenilemesinin geri çekilme sayacı ve sıradaki bakış zamanı (bitişten 24 saat önce ya da süresiz Google grant'ı için günlük) | `refresh_attempts` varsayılan 0; `next_refresh_at` boşsa yenilenmez |
+| `ad_connections.connected_by_user_id` | OAuth onayını tamamlayan kullanıcı (sosyal bağlantılarda sütun M4b'den beri vardı) | boş olabilir, düz kimlik |
+| `ad_connections.status`, `social_connections.status` | Yeni değer `REAUTH_REQUIRED`: yenileme kalıcı olarak başarısız; teslimat ve senkron atlar, hub yeniden bağlanma ister | reklam: `VARCHAR` (`AD_CONNECTION_STATUSES`), sosyal: enum |
+| `platform_integration_settings.oauth_clients` | Sağlayıcı başına OAuth istemci ayarı (yalnızca süper admin): şifreli blob (istemci kimliği, sırrı, Meta yapılandırma kimliği, Google geliştirici anahtarı) ve maskeli meta (son 4 karakterler, kapsamlar, zaman, düzenleyen) | JSONB, varsayılan `{}` |
+
 ## Veritabanı Tarafından Zorunlu Kılınan Kurallar
 
 1. **Rezervasyon Kaynağı Dışlama (Booking Resource Exclusion)** (`booking_resources_no_overlap`): Tek kapasiteli kaynaklar (capacity=1) çakışan aktif rezervasyonlara sahip olamaz. PostgreSQL exclusion constraint (btree_gist) ile (resource_id WITH =, tsrange(start_time, end_time) WITH &&) WHERE is_active AND exclusive üzerinde uygulanır.

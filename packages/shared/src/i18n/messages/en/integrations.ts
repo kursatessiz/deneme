@@ -81,6 +81,7 @@ export const enIntegrations = {
   'integrations.social.lastError': 'Last error',
   'integrations.social.status.CONNECTED': 'Connected',
   'integrations.social.status.ERROR': 'Error',
+  'integrations.social.status.REAUTH_REQUIRED': 'Needs reconnecting',
   'integrations.social.provider.META_PAGE': 'Facebook Page',
   'integrations.social.provider.INSTAGRAM': 'Instagram',
   'integrations.social.provider.LINKEDIN_ORG': 'LinkedIn organization page',

@@ -11,4 +11,7 @@ module.exports = {
   // (bookings, package unit balances). Running specs one at a time keeps
   // the shared seed data deterministic across the whole suite.
   maxWorkers: 1,
+  // In-band means one process boots a Nest application per spec file and
+  // the heap grows with the number of files; the test:e2e script therefore
+  // raises Node's heap limit (see package.json).
 };

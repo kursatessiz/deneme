@@ -11,7 +11,8 @@ import type { ConversionEventType } from './conversions';
 export const AD_CONNECTION_PLATFORMS = ['META', 'GOOGLE', 'TIKTOK'] as const;
 export type AdConnectionPlatform = (typeof AD_CONNECTION_PLATFORMS)[number];
 
-export const AD_CONNECTION_STATUSES = ['DISCONNECTED', 'CONNECTED', 'ERROR'] as const;
+/** REAUTH_REQUIRED (M4a): an OAuth token could not be refreshed; delivery and sync skip the connection until it is reconnected. */
+export const AD_CONNECTION_STATUSES = ['DISCONNECTED', 'CONNECTED', 'ERROR', 'REAUTH_REQUIRED'] as const;
 export type AdConnectionStatus = (typeof AD_CONNECTION_STATUSES)[number];
 
 /** Pinned API versions: bump in one place when a platform deprecates the old one. */
@@ -130,6 +131,10 @@ export interface AdConnectionDTO {
   credentialLast4: string | null;
   lastSyncAt: string | null;
   lastError: string | null;
+  /** M4a: PASTED (entered by hand) or OAUTH (connected through the provider's consent screen). */
+  authMethod: 'PASTED' | 'OAUTH';
+  /** M4a: expiry of the stored OAuth token, when the provider gave one. */
+  tokenExpiresAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
