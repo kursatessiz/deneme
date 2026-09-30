@@ -3,94 +3,191 @@
 
 # Platform
 
-Üyelik ve randevu tabanlı işletmeler için çok kiracılı (multi-tenant) bir SaaS platformu. İlk
-müşteriler iki bağımsız pilates/reformer stüdyosu olsa da platform pilatese özgü değildir: seans,
-kapasite sınırlı kaynaklar ve seans veya kredi bazlı fiyatlandırma etrafında kurulmuş her türlü
-işe uyacak şekilde tasarlanmıştır (kişisel antrenörlük, fizyoterapi, yoga, spa, dövüş sanatları,
-yüzme okulları, tenis/padel kortları, müzik ve dil kursları, çocuk aktivite merkezleri, ortak
-çalışma alanları). Kalıcı bir ürün adı henüz seçilmedi; bu depo ve dokümanlarında ürün "Platform"
-olarak anılır. Ürünün tam tanımı ve iş listesi (backlog) için `HANDOVER.md` dosyasına
-bakın.
+Üyelik ve randevu tabanlı işletmeler için çok kiracılı (multi-tenant) bir SaaS platformu.
+Seans, kapasite sınırlı kaynak ve seans veya kredi bazlı fiyatlandırma etrafında kurulmuş her
+işe uyar: pilates ve reformer stüdyoları (ilk dikey), kişisel antrenörlük, fizyoterapi, yoga,
+spa, dövüş sanatları, yüzme okulları, tenis ve padel kortları, müzik ve dil kursları, çocuk
+aktivite merkezleri, ortak çalışma alanları. Yeni bir sektör kod değişikliği değil, süper
+adminin tanımladığı bir iş türü şablonudur.
+
+Kalıcı ürün adı henüz seçilmedi; depo ve dokümanlarda ürün "Platform" olarak anılır. Geliştirme
+kuralları `CLAUDE.md`, devir notları ve backlog `HANDOVER.md` dosyasındadır. Dokümantasyonun
+tamamı Türkçedir; kod, tanımlayıcılar ve commit mesajları İngilizcedir.
+
+## Neler var
+
+Üç uygulama ve iki paylaşılan paketten oluşan bir Turborepo monorepo'su. Tüm stack TypeScript'tir.
+
+- **API (`apps/api`, NestJS 11)**: kimlik doğrulama (telefon OTP, PIN, şifre, TOTP 2FA), izin
+  tabanlı yetkilendirme, çok şubeli işletme ve kaynak kataloğu, takvim ve rezervasyon (bekleme
+  listesi, iptal politikası, eğitmen ikamesi, yer seçimi), üyeler ve paketler (seans, süre ve
+  kredi bazlı haklar, dondurma, aile hesabı), ödemeler ve faturalama (Stripe, iyzico ve PayTR
+  adaptörleri, banka havalesi, e-Arşiv entegratör soyutlaması, hakediş bordrosu, muhasebe dışa
+  aktarımı, perakende ve stok), mesajlaşma motoru (e-posta, SMS, WhatsApp, push; kanal sırası ve
+  fallback, bölgesel uyum ve İYS), CRM (kişiler, satış hattı, segmentler, kampanyalar, akışlar,
+  reklam atıfı, dönüşüm hunileri), sadakat ve oyunlaştırma, etkinlikler, topluluk, video, sağlık
+  entegrasyonu, herkese açık API ve webhook'lar, Zapier, partner platformları, yapay zeka
+  çekirdeği, platform pazarlama modülü (marka kiti, yapay zeka stüdyosu, onaylar, sosyal yayın,
+  Lead Ads, OAuth ile hesap bağlama), hata yakalama ve raporlama, yedek yönetimi, uygulama
+  pazarı (ek modüller) ve süper admin uçları.
+- **Web paneli (`apps/web`, Next.js 15 App Router)**: işletme paneli (takvim, üyeler, paketler,
+  yoklama, finans, raporlar, CRM, kampanyalar, mağaza, etkinlikler, topluluk, ayarlar), süper
+  admin paneli (`/admin`: kiracılar, planlar, iş türleri, feature flag'ler, içerik, SMS
+  paketleri, benchmark, sistem sağlığı, hatalar, yedekler, pazarlama, entegrasyonlar, uygulama
+  pazarı, denetim), platform sitesi ve kiracı siteleri (sayfa motoru), herkese açık rezervasyon
+  ve gömülü widget. API'ye yalnızca BFF proxy üzerinden erişir.
+- **Mobil uygulama (`apps/mobile`, Expo)**: üye, eğitmen, resepsiyon ve sahip için tek
+  uygulama; navigasyon rol ve izinlerden üretilir, tablet için iki panelli düzen, QR ile üye
+  kaydı ve check-in, takvim aboneliği ve ana ekran widget'ları, EAS build profilleri.
+- **`packages/shared`**: tipler, Zod şemaları, enum'lar, izin kataloğu, tasarım tokenları ve
+  dört tema ailesi, i18n mesajları (Türkçe ve İngilizce), saf iş kuralları.
+- **`packages/database`**: Prisma şeması, yalnızca ileri yönlü migration'lar, geliştirme seed'i.
+
+Ayrıntılı işleyiş her modülün kendi dokümanındadır (aşağıdaki liste).
 
 ## Monorepo yapısı
 
 ```
 .
 ├── apps/
-│   ├── api/                    # NestJS 11 REST API, BullMQ queues, WebSocket
-│   ├── web/                    # Next.js 15 (App Router) admin panel and booking pages
-│   └── mobile/                 # Expo (React Native) client - currently a skeleton
+│   ├── api/                    # NestJS 11 REST API, BullMQ, WebSocket, Swagger
+│   ├── web/                    # Next.js 15 (App Router): işletme paneli, süper admin, siteler
+│   └── mobile/                 # Expo (React Native), Expo Router: tek uygulama, tüm roller
 ├── packages/
-│   ├── shared/                 # Shared TypeScript types, Zod schemas, enums
-│   └── database/               # Prisma schema, migrations, seed
+│   ├── shared/                 # Tipler, Zod şemaları, enum'lar, izinler, tasarım, i18n
+│   └── database/               # Prisma şeması, migration'lar, seed
 ├── deploy/
-│   ├── docker/                 # Multi-stage production Dockerfiles
-│   ├── docker-compose.prod.yml # Production compose stack
-│   ├── docker-compose.dev.yml  # Local Postgres + Redis for development
-│   ├── caddy/                  # Caddyfile (automatic Let's Encrypt SSL)
-│   └── scripts/                # Server bootstrap, deploy, backup, rollback scripts
-├── docs/
-│   ├── UBUNTU_24_04_SETUP.md   # Server bootstrap and first deploy
-│   ├── CICD_GUIDE.md           # CI/CD pipeline, secrets, agentic workflows
-│   └── DATABASE_ERD.md         # Database schema overview
-├── .github/workflows/          # CI, release, security and agentic workflows
-├── CLAUDE.md                   # Development standards and architecture rules
-└── turbo.json                  # Turborepo configuration
+│   ├── docker/                 # Çok aşamalı üretim Dockerfile'ları
+│   ├── docker-compose.prod.yml # Üretim compose yığını
+│   ├── docker-compose.dev.yml  # Yerel geliştirme için Postgres ve Redis
+│   ├── caddy/                  # Caddyfile (otomatik Let's Encrypt)
+│   └── scripts/                # Sunucu kurulumu, deploy, yedek, rollback, kaynak haritası yükleme
+├── docs/                       # Tüm modül ve işletim dokümanları (Türkçe)
+├── .github/workflows/          # CI, release, güvenlik ve ajan workflow'ları
+├── CLAUDE.md                   # Geliştirme standartları ve mimari kurallar
+├── HANDOVER.md                 # Devir notları, kararlar ve backlog
+└── turbo.json                  # Turborepo yapılandırması
 ```
 
 ## Yerel geliştirme
 
-Gereksinimler: Node.js 20+ (22 önerilir), pnpm ve yerel Postgres/Redis için Docker.
+Gereksinimler: Node.js 22, pnpm ve yerel Postgres ile Redis için Docker.
 
 ```bash
-# 1. Install dependencies
-pnpm install
+# 1. Bağımlılıkları kur
+pnpm install --frozen-lockfile
 
-# 2. Start local Postgres and Redis
+# 2. Yerel Postgres ve Redis'i başlat
 docker compose -f deploy/docker-compose.dev.yml up -d
 
-# 3. Configure the API environment
+# 3. API ortam değişkenlerini hazırla
 cp apps/api/.env.example apps/api/.env
 
-# 4. Push the Prisma schema to the local database
-pnpm --filter @platform/database exec prisma db push
+# 4. Migration'ları uygula ve geliştirme verisini yükle
+#    (packages/database DATABASE_URL'i ortamdan okur; apps/api/.env ile aynı değer)
+export DATABASE_URL="postgresql://app_user:dev_password@localhost:5432/app_dev?schema=public"
+pnpm db:migrate
+pnpm db:seed
 
-# 5. Run every app in development mode
+# 5. Tüm uygulamaları geliştirme modunda çalıştır
 pnpm dev
 ```
 
-- Web admin paneli: http://localhost:3000
+- Web paneli: http://localhost:3000
 - API Swagger dokümantasyonu: http://localhost:4000/api/docs
-- API health check: http://localhost:4000/health
+- API sağlık kontrolü: http://localhost:4000/health
+
+Seed verisi iki örnek işletme, platform kiracısı ve demo kullanıcılar oluşturur; demo giriş
+bilgileri `packages/database/prisma/seed.ts` içindedir. Mobil uygulama için `docs/MOBILE_APP.md`.
 
 ## Ortak scriptler
 
-| Command | Description |
+| Komut | Açıklama |
 | --- | --- |
-| `pnpm dev` | Run all apps in development mode (Turborepo) |
-| `pnpm build` | Build all apps and packages |
-| `pnpm lint` | Lint all workspaces |
-| `pnpm typecheck` | Type-check all workspaces |
-| `pnpm test` | Run unit tests |
-| `pnpm db:generate` | Generate the Prisma client |
-| `pnpm db:migrate` | Run Prisma migrations |
-| `pnpm db:seed` | Seed the database |
+| `pnpm dev` | Tüm uygulamaları geliştirme modunda çalıştırır (Turborepo) |
+| `pnpm build` | Tüm uygulama ve paketleri derler |
+| `pnpm typecheck` | Tüm workspace'lerde tip denetimi |
+| `pnpm test` | Birim testleri |
+| `pnpm --filter @platform/api test:e2e` | API uçtan uca testleri (Postgres gerekir) |
+| `pnpm --filter @platform/web test:e2e` | Web paneli tarayıcı testleri (Playwright) |
+| `pnpm db:generate` | Prisma istemcisini üretir |
+| `pnpm db:migrate` | Migration'ları uygular (geliştirme) |
+| `pnpm db:seed` | Geliştirme verisini yükler |
+| `pnpm audit --audit-level high` | Bağımlılık zafiyet denetimi |
+
+Her değişiklik push edilmeden önce `pnpm install --frozen-lockfile`, `pnpm turbo run build
+typecheck test`, taze bir veritabanında migration ve seed, API e2e paketi ve `pnpm audit`
+yerelde geçmelidir (`CLAUDE.md`).
+
+## CI/CD ve güvenlik
+
+- `ci.yml`: build, typecheck, birim testleri, API e2e (Postgres servisi), web Playwright e2e,
+  Docker imaj derlemesi, script ve workflow lint'i.
+- `release.yml`: imajlar CI'da derlenip GHCR'ye push edilir (`sha-<commit>`), sunucu yalnızca
+  imaj çeker; `deploy/scripts/deploy.sh` yedek, migration, smoke test ve otomatik rollback yapar.
+- Güvenlik: CodeQL, dependency review, gizli bilgi taraması, zizmor, actionlint, OpenSSF
+  Scorecard, Dependabot. Tüm GitHub Action'ları commit SHA'sına sabitlidir.
+- Ajan workflow'ları (`claude-*.yml`) maliyet kademelidir ve `CLAUDE_AGENTS_ENABLED`
+  değişkeni açılana kadar pasiftir. Ayrıntılar: `docs/CICD_GUIDE.md`.
 
 ## Durum
 
-- `apps/web` mock veriden render ediliyor ve henüz API'ye bağlanmadı.
-- `apps/mobile` bir iskelet (tek bir `App.tsx`), henüz çalışan bir istemci değil.
-- `apps/api` çekirdek modülleri dışında test kapsamı düşük.
+Backlog'daki tüm planlı modüller (`HANDOVER.md` bölüm 6, 6b, 6c ve büyüme, pazarlama, hata
+raporlama, ön üretim maddeleri) main'de birleşmiş durumdadır. Bekleyenler:
 
-Planlanan çalışmalar için `HANDOVER.md` (backlog, bölüm 6) dosyasına bakın; bu, `SessionType`
-gibi pilatese özgü alanları kiracı tarafından yapılandırılabilir hizmet türleri lehine
-kaldıracak şema revizyonunu da içerir. 
+- Sahibin kararına bağlı maddeler: nihai ürün adı ve tema, sunucu ve alan adı, sağlayıcı
+  hesapları ve uygulama başvuruları (Meta, Google Ads, LinkedIn, TikTok, iyzico, PayTR, SES,
+  Netgsm), Apple ve Google mağaza hesapları, GitHub Environments sırları. Liste `HANDOVER.md`
+  bölüm 7'dedir.
+- Gerçek sağlayıcı hesabı olmadan doğrulanamayan adaptörler (e-fatura entegratörleri, partner
+  platformları, OAuth ile hesap bağlama, SES kimlik kurulumu) yerelde sahte sağlayıcılarla test
+  edilmiştir; canlı doğrulama ön üretim ortamında yapılır.
 
 ## Dokümantasyon
 
+Kurulum ve işletim
 - Sunucu kurulumu ve ilk deploy: [`docs/UBUNTU_24_04_SETUP.md`](docs/UBUNTU_24_04_SETUP.md)
-- CI/CD pipeline, secret'lar ve agentic workflow'lar: [`docs/CICD_GUIDE.md`](docs/CICD_GUIDE.md)
-- Veritabanı şeması genel bakışı: [`docs/DATABASE_ERD.md`](docs/DATABASE_ERD.md)
-- Potansiyel müşteri hattı ve web formu: [`docs/LEADS.md`](docs/LEADS.md)
-- Çoklu dil (i18n): [`docs/I18N.md`](docs/I18N.md)
-- Güvenlik politikası ve zafiyet bildirimi: [`SECURITY.md`](SECURITY.md)
+- CI/CD, ortamlar, sırlar, ön üretim ve ajan workflow'ları: [`docs/CICD_GUIDE.md`](docs/CICD_GUIDE.md)
+- Veritabanı yedekleri: [`docs/YEDEKLER.md`](docs/YEDEKLER.md)
+- Hata yakalama ve raporlama: [`docs/HATA_RAPORLAMA.md`](docs/HATA_RAPORLAMA.md)
+- Güvenlik politikası: [`SECURITY.md`](SECURITY.md)
+
+Mimari
+- Veritabanı şeması: [`docs/DATABASE_ERD.md`](docs/DATABASE_ERD.md)
+- Web paneli mimarisi: [`docs/WEB_PANEL.md`](docs/WEB_PANEL.md)
+- Mobil uygulama: [`docs/MOBILE_APP.md`](docs/MOBILE_APP.md), takvim ve widget'lar: [`docs/MOBILE_WIDGETS.md`](docs/MOBILE_WIDGETS.md)
+- Süper admin paneli: [`docs/SUPER_ADMIN.md`](docs/SUPER_ADMIN.md)
+- Çoklu dil: [`docs/I18N.md`](docs/I18N.md)
+- Büyüme ve global mimari (bağlayıcı tasarım): [`docs/BUYUME_VE_GLOBAL_MIMARI.md`](docs/BUYUME_VE_GLOBAL_MIMARI.md)
+
+İşletme modülleri
+- Ödemeler: [`docs/PAYMENTS.md`](docs/PAYMENTS.md), banka ödemeleri ve mutabakat: [`docs/BANKA_ODEMELERI.md`](docs/BANKA_ODEMELERI.md)
+- e-Arşiv ve e-Fatura: [`docs/INVOICING.md`](docs/INVOICING.md), muhasebe dışa aktarımı: [`docs/MUHASEBE.md`](docs/MUHASEBE.md)
+- Eğitmen hakediş bordrosu: [`docs/PAYROLL.md`](docs/PAYROLL.md)
+- Perakende ve stok: [`docs/PERAKENDE.md`](docs/PERAKENDE.md)
+- Etkinlikler, atölyeler ve kurslar: [`docs/ETKINLIKLER.md`](docs/ETKINLIKLER.md)
+- Check-in kiosku ve QR: [`docs/CHECKIN.md`](docs/CHECKIN.md)
+- Raporlar: [`docs/REPORTS.md`](docs/REPORTS.md), dönüşüm hunileri: [`docs/HUNILER.md`](docs/HUNILER.md)
+- Ayrılma riski: [`docs/CHURN.md`](docs/CHURN.md)
+- Sadakat puanı: [`docs/SADAKAT.md`](docs/SADAKAT.md), oyunlaştırma: [`docs/GAMIFICATION.md`](docs/GAMIFICATION.md)
+- Puan, Google yorumu ve arkadaşını getir: [`docs/FEEDBACK_REFERRAL.md`](docs/FEEDBACK_REFERRAL.md)
+- Topluluk ve erişim katmanları: [`docs/TOPLULUK.md`](docs/TOPLULUK.md)
+- Video: [`docs/VIDEO.md`](docs/VIDEO.md), sağlık entegrasyonu: [`docs/HEALTH_INTEGRATION.md`](docs/HEALTH_INTEGRATION.md)
+- Partner platformları: [`docs/PARTNERS.md`](docs/PARTNERS.md)
+- Deneme süresi, etkinleştirme ve işletmeden işletmeye tavsiye: [`docs/DENEME_VE_ETKINLESTIRME.md`](docs/DENEME_VE_ETKINLESTIRME.md)
+- Uygulama pazarı (ek modüller): [`docs/UYGULAMA_PAZARI.md`](docs/UYGULAMA_PAZARI.md)
+
+Mesajlaşma, CRM ve pazarlama
+- Mesajlaşma motoru: [`docs/MESAJLASMA.md`](docs/MESAJLASMA.md) (W7 kanal notları: [`docs/MESSAGING.md`](docs/MESSAGING.md))
+- CRM ve atıf: [`docs/CRM_VE_ATIF.md`](docs/CRM_VE_ATIF.md)
+- Segmentler, kampanyalar ve akışlar: [`docs/KAMPANYA_VE_AKISLAR.md`](docs/KAMPANYA_VE_AKISLAR.md)
+- Reklam entegrasyonu: [`docs/REKLAM_ENTEGRASYONU.md`](docs/REKLAM_ENTEGRASYONU.md)
+- Sayfa motoru (platform ve kiracı siteleri): [`docs/SAYFA_MOTORU.md`](docs/SAYFA_MOTORU.md)
+- Yapay zeka çekirdeği: [`docs/YAPAY_ZEKA.md`](docs/YAPAY_ZEKA.md)
+- Pazarlama modülü ve pazarlama yöneticisi rolü: [`docs/PAZARLAMA_MODULU.md`](docs/PAZARLAMA_MODULU.md)
+
+Açık platform
+- API anahtarları, herkese açık API ve webhook'lar: [`docs/PUBLIC_API.md`](docs/PUBLIC_API.md)
+- Zapier ve REST hook araçları: [`docs/ZAPIER.md`](docs/ZAPIER.md)
+
+Kullanımdan kaldırılan dokümanlar (yalnızca geçmiş için): [`docs/AUTOMATIONS.md`](docs/AUTOMATIONS.md) (yerine akışlar), [`docs/LEADS.md`](docs/LEADS.md) (yerine CRM).
