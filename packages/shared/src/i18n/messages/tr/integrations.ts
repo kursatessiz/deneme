@@ -79,6 +79,7 @@ export const trIntegrations = {
   'integrations.social.lastError': 'Son hata',
   'integrations.social.status.CONNECTED': 'Bağlı',
   'integrations.social.status.ERROR': 'Hata',
+  'integrations.social.status.REAUTH_REQUIRED': 'Yeniden bağlanmalı',
   'integrations.social.provider.META_PAGE': 'Facebook sayfası',
   'integrations.social.provider.INSTAGRAM': 'Instagram',
   'integrations.social.provider.LINKEDIN_ORG': 'LinkedIn şirket sayfası',

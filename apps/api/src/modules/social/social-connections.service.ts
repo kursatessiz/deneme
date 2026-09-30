@@ -1,10 +1,12 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, type SocialConnection } from '@platform/database';
 import {
+  OAUTH_PROVIDERS,
   SOCIAL_ACTIVE_STATUSES,
   SocialCredentialsSchema,
   maskSecretPreview,
   type CreateSocialConnectionInput,
+  type OAuthProvider,
   type SocialConnectionDTO,
   type SocialConnectionTestDTO,
   type SocialCredentials,
@@ -22,7 +24,8 @@ export function socialError(code: string, message: string): ConflictException {
 
 /**
  * Social connections of a tenant (the platform tenant today). Credentials
- * are pasted tokens for now (OAuth is M4a): encrypted with CredentialCipher,
+ * are pasted tokens or, since M4a, come from the OAuth flow
+ * (platform-marketing/oauth): either way encrypted with CredentialCipher,
  * never returned; every DTO carries only a masked tail. The hub audits the
  * writes (integration.social.*); the publishing service reads the
  * decrypted credential through credentialsOf().
@@ -81,6 +84,13 @@ export class SocialConnectionsService {
               credentialLast4: input.credentials.accessToken.slice(-4),
               status: 'CONNECTED' as const,
               lastError: null,
+              // M4a: a pasted token replaces any OAuth grant; the refresh job leaves it alone.
+              authMethod: 'PASTED',
+              oauthProvider: null,
+              tokenExpiresAt: null,
+              encryptedRefreshToken: null,
+              refreshAttempts: 0,
+              nextRefreshAt: null,
             }
           : {}),
       },
@@ -138,8 +148,17 @@ export class SocialConnectionsService {
       lastError: row.lastError,
       credentialPreview: maskSecretPreview(row.credentialLast4),
       connectedByUserId: row.connectedByUserId,
+      authMethod: row.authMethod === 'OAUTH' ? 'OAUTH' : 'PASTED',
+      oauthProvider: oauthProviderOf(row.oauthProvider),
+      tokenExpiresAt: row.tokenExpiresAt?.toISOString() ?? null,
+      reauthRequired: row.status === 'REAUTH_REQUIRED',
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
   }
+}
+
+/** The stored provider name as an OAuthProvider, or null (pasted connections, unknown values). */
+export function oauthProviderOf(value: string | null): OAuthProvider | null {
+  return OAUTH_PROVIDERS.find((p) => p === value) ?? null;
 }

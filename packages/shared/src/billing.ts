@@ -6,6 +6,7 @@ import type { MessageKey } from './i18n/messages';
 import { PLATFORM_ACCESS_TRANSLATED_ERRORS } from './platform-permissions';
 import { MARKETING_APPROVAL_TRANSLATED_ERRORS } from './marketing/approvals';
 import { SOCIAL_TRANSLATED_ERRORS } from './marketing/social';
+import { OAUTH_TRANSLATED_ERRORS } from './marketing/oauth';
 import { CONSENT_CONFIRMATION_TRANSLATED_ERRORS } from './marketing/consent';
 
 /**
@@ -546,5 +547,6 @@ export const TRANSLATED_API_ERROR_CODES: Readonly<Record<string, MessageKey>> = 
   ...PLATFORM_ACCESS_TRANSLATED_ERRORS,
   ...MARKETING_APPROVAL_TRANSLATED_ERRORS,
   ...SOCIAL_TRANSLATED_ERRORS,
+  ...OAUTH_TRANSLATED_ERRORS,
   ...CONSENT_CONFIRMATION_TRANSLATED_ERRORS,
 };

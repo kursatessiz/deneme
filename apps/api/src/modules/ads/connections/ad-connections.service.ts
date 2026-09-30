@@ -24,7 +24,7 @@ import { CredentialCipher } from '../../../common/crypto/credential-cipher';
  * is the public "AW-XXXXXXXXX" tag id (not a secret), used only to load
  * gtag on public pages -- never the OAuth credentials.
  */
-function pixelOrDatasetIdOf(platform: AdConnectionPlatform, credentials: AdConnectionCredentials): string | null {
+export function pixelOrDatasetIdOf(platform: AdConnectionPlatform, credentials: AdConnectionCredentials): string | null {
   if (platform === 'META') return (credentials as { pixelId: string }).pixelId;
   if (platform === 'GOOGLE') return (credentials as GoogleCredentials).conversionId;
   if (platform === 'TIKTOK') return (credentials as { pixelCode: string }).pixelCode;
@@ -123,6 +123,8 @@ export class AdConnectionsService {
                 pixelOrDatasetId: pixelOrDatasetIdOf(platform, credentials),
                 status: 'CONNECTED',
                 lastError: null,
+                // M4a: a credential typed in by hand replaces any OAuth grant; the refresh job leaves it alone.
+                ...PASTED_CREDENTIAL_RESET,
               }
             : {}),
         },
@@ -189,6 +191,16 @@ export class AdConnectionsService {
   }
 }
 
+/** Columns that describe an OAuth grant, cleared when a person pastes a credential instead (M4a). */
+export const PASTED_CREDENTIAL_RESET = {
+  authMethod: 'PASTED',
+  oauthProvider: null,
+  tokenExpiresAt: null,
+  encryptedRefreshToken: null,
+  refreshAttempts: 0,
+  nextRefreshAt: null,
+} as const;
+
 function toDto(row: {
   id: string;
   platform: string;
@@ -201,6 +213,8 @@ function toDto(row: {
   credentialLast4: string;
   lastSyncAt: Date | null;
   lastError: string | null;
+  authMethod: string;
+  tokenExpiresAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }): AdConnectionDTO {
@@ -216,6 +230,8 @@ function toDto(row: {
     credentialLast4: row.credentialLast4,
     lastSyncAt: row.lastSyncAt?.toISOString() ?? null,
     lastError: row.lastError,
+    authMethod: row.authMethod === 'OAUTH' ? 'OAUTH' : 'PASTED',
+    tokenExpiresAt: row.tokenExpiresAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
