@@ -20,14 +20,18 @@ import {
   remainingCap,
   utcDayStart,
   utcMonthStart,
+  type AdCapPauseDTO,
+  type AdSpendCapHealth,
   type AdSpendCapStatus,
   type DashboardHealth,
   type EffectiveEmailCap,
   type FuseReason,
+  type Translate,
 } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MarketingNoticeService } from './approval/marketing-notice.service';
 import { MarketingSettingsService } from './approval/marketing-settings.service';
+import { AdCapAutoPauseService, type AdCapPauseRunResult } from './ad-cap-auto-pause.service';
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 86_400_000;
@@ -42,9 +46,18 @@ export interface FuseRunResult {
   alertsSent: number;
 }
 
+export interface AdSpendCapRunResult {
+  alerts: number;
+  /** M5: campaigns paused / failed to pause by the auto-pause in this run (0 while the setting is off). */
+  adCapPaused: number;
+  adCapPauseFailed: number;
+}
+
 export interface MarketingGuardsResult {
   fuse: FuseRunResult;
   adSpendAlerts: number;
+  adCapPaused: number;
+  adCapPauseFailed: number;
 }
 
 /**
@@ -63,6 +76,7 @@ export class MarketingGuardsService {
     private readonly prisma: PrismaService,
     private readonly settings: MarketingSettingsService,
     private readonly notices: MarketingNoticeService,
+    private readonly adCapPause: AdCapAutoPauseService,
   ) {}
 
   async platformStudioId(): Promise<string | null> {
@@ -73,8 +87,8 @@ export class MarketingGuardsService {
   /** Heartbeat step: the fuse first (so a paused campaign does not send in the same run), then the ad spend cap. */
   async run(now: Date): Promise<MarketingGuardsResult> {
     const fuse = await this.runFuse(now);
-    const adSpendAlerts = await this.runAdSpendCaps(now);
-    return { fuse, adSpendAlerts };
+    const caps = await this.runAdSpendCapsDetailed(now);
+    return { fuse, adSpendAlerts: caps.alerts, adCapPaused: caps.adCapPaused, adCapPauseFailed: caps.adCapPauseFailed };
   }
 
   // ---------------------------------------------------------------------------
@@ -249,6 +263,16 @@ export class MarketingGuardsService {
   // Monthly ad spend cap
   // ---------------------------------------------------------------------------
 
+  /** The caps with, per currency, whether auto-pause is on and the campaigns paused for it this month (dashboard block, M5). */
+  async adSpendCapsHealth(studioId: string, now: Date): Promise<AdSpendCapHealth[]> {
+    const [caps, config] = await Promise.all([this.adSpendCaps(studioId, now), this.settings.get(studioId)]);
+    if (caps.length === 0) return [];
+    const pauses = await this.adCapPause.listForMonth(studioId, now);
+    const byCurrency = new Map<string, AdCapPauseDTO[]>();
+    for (const pause of pauses) byCurrency.set(pause.currency, [...(byCurrency.get(pause.currency) ?? []), pause]);
+    return caps.map((c) => ({ ...c, autoPause: config.adCapAutoPause, pauses: byCurrency.get(c.currency) ?? [] }));
+  }
+
   /** Month-to-date spend of the campaign level rows (a campaign's spend already includes its ad sets and ads) against the caps, per currency. */
   async adSpendCaps(studioId: string, now: Date): Promise<AdSpendCapStatus[]> {
     const config = await this.settings.get(studioId);
@@ -262,29 +286,65 @@ export class MarketingGuardsService {
     return adSpendCapStatuses(config.monthlyAdSpendCaps, spent);
   }
 
-  /** Alerts the super admins once per month per currency whose spend passed its cap. No automatic ad pause (M5). */
+  /** Alerts the super admins once per month per currency whose spend passed its cap; returns how many alerts went out. */
   async runAdSpendCaps(now: Date): Promise<number> {
+    return (await this.runAdSpendCapsDetailed(now)).alerts;
+  }
+
+  /**
+   * For every currency over its cap: with `adCapAutoPause` on, pauses the
+   * active campaigns first (M5, AdCapAutoPauseService), then alerts the super
+   * admins once per month and currency; the alert says what was done. With the
+   * setting off nothing is paused and the alert says so.
+   */
+  async runAdSpendCapsDetailed(now: Date): Promise<AdSpendCapRunResult> {
     const studioId = await this.platformStudioId();
-    if (!studioId) return 0;
-    let sent = 0;
+    const result: AdSpendCapRunResult = { alerts: 0, adCapPaused: 0, adCapPauseFailed: 0 };
+    if (!studioId) return result;
+    const autoPause = (await this.settings.get(studioId)).adCapAutoPause;
     for (const status of await this.adSpendCaps(studioId, now)) {
       if (!status.exceeded) continue;
+      let pause: AdCapPauseRunResult | null = null;
+      if (autoPause) {
+        try {
+          pause = await this.adCapPause.run(studioId, status, now);
+        } catch (err) {
+          // A failing platform must never stop the alert or the rest of the heartbeat.
+          this.logger.error(`Ad cap auto-pause failed for ${status.currency}: ${err instanceof Error ? err.message : 'unknown'}`);
+        }
+      }
+      if (pause) {
+        result.adCapPaused += pause.paused;
+        result.adCapPauseFailed += pause.failed;
+      }
       const alerted = await this.notices.alertSuperAdminsOnce({
         studioId,
         key: adSpendAlertKey(status.currency, now),
         since: utcMonthStart(now),
         now,
         templateKey: MARKETING_GUARD_TEMPLATE_KEYS.adCapExceeded,
-        variablesFor: (_t, locale) => ({
+        variablesFor: (t, locale) => ({
           currency: status.currency,
           spent: formatMoney({ amount: status.spent, currency: status.currency }, locale),
           cap: formatMoney({ amount: status.cap, currency: status.currency }, locale),
           month: new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(now),
+          action: this.adCapAction(t, autoPause, pause),
           link: this.notices.link(),
         }),
       });
-      if (alerted) sent += 1;
+      if (alerted) result.alerts += 1;
     }
-    return sent;
+    return result;
+  }
+
+  /** The sentence of the cap alert that says what the system did about the exceeded cap. */
+  private adCapAction(t: Translate, autoPause: boolean, pause: AdCapPauseRunResult | null): string {
+    if (!autoPause) return t('marketingGuards.adCap.manual');
+    if (!pause) return t('marketingGuards.adCap.error');
+    const parts: string[] = [];
+    if (pause.paused > 0) parts.push(t('marketingGuards.adCap.paused', { count: pause.paused }));
+    if (pause.failed > 0) parts.push(t('marketingGuards.adCap.failed', { count: pause.failed }));
+    if (pause.skippedPlatforms.length > 0) parts.push(t('marketingGuards.adCap.unsupported', { platforms: pause.skippedPlatforms.join(', ') }));
+    return parts.length > 0 ? parts.join(' ') : t('marketingGuards.adCap.nothingToPause');
   }
 }

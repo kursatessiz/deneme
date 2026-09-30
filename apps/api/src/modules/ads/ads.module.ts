@@ -8,6 +8,7 @@ import { AdConnectionsController } from './connections/ad-connections.controller
 import { AdConnectionTestService } from './connections/ad-connection-test.service';
 import { ConversionDeliveryDispatcherService } from './delivery/conversion-delivery-dispatcher.service';
 import { AdSpendSyncService } from './spend-sync/ad-spend-sync.service';
+import { AdCampaignPauseService } from './campaign-control/ad-campaign-pause.service';
 import { AdSpendSyncController } from './spend-sync/ad-spend-sync.controller';
 import { PublicAdsConfigController } from './public-ads-config.controller';
 
@@ -28,7 +29,8 @@ import { PublicAdsConfigController } from './public-ads-config.controller';
     AdConnectionTestService,
     ConversionDeliveryDispatcherService,
     AdSpendSyncService,
+    AdCampaignPauseService,
   ],
-  exports: [ConversionDeliveryDispatcherService, AdSpendSyncService, AdConnectionsService, AdsHttpClient],
+  exports: [ConversionDeliveryDispatcherService, AdSpendSyncService, AdConnectionsService, AdsHttpClient, AdCampaignPauseService],
 })
 export class AdsModule {}

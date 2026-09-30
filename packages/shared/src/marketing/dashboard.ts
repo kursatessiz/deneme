@@ -7,6 +7,7 @@ import { compareKpi } from '../report-compare';
 import { medianOf } from '../funnels';
 import { redactPii } from './privacy';
 import { AdSpendCapStatusSchema, FUSE_REASONS } from './guards';
+import { AdCapPauseSchema } from './ad-cap-pause';
 
 /**
  * Platform marketing dashboard (M3a, docs/PAZARLAMA_MODULU.md 3.3). One
@@ -230,6 +231,13 @@ export type SmsHealthWindow = z.infer<typeof SmsHealthWindowSchema>;
 export const AI_BUDGET_LEVELS = ['ok', 'warning', 'exceeded'] as const;
 export type AiBudgetLevel = (typeof AI_BUDGET_LEVELS)[number];
 
+/** M5: a monthly cap row of the dashboard: the status, whether auto-pause is on, and the campaigns paused for it this month. */
+export const AdSpendCapHealthSchema = AdSpendCapStatusSchema.extend({
+  autoPause: z.boolean(),
+  pauses: z.array(AdCapPauseSchema).max(100),
+});
+export type AdSpendCapHealth = z.infer<typeof AdSpendCapHealthSchema>;
+
 export const DashboardHealthSchema = z
   .object({
     email: z.array(EmailHealthWindowSchema),
@@ -271,7 +279,7 @@ export const DashboardHealthSchema = z
       })
       .strict(),
     /** M3d: month-to-date ad spend against the monthly caps, per currency (only currencies with a cap). */
-    adSpendCaps: z.array(AdSpendCapStatusSchema),
+    adSpendCaps: z.array(AdSpendCapHealthSchema),
     connections: z
       .object({
         errorCount: z.number().int().min(0),

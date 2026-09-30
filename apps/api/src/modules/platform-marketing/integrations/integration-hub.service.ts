@@ -1,4 +1,4 @@
-import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@platform/database';
 import {
@@ -12,8 +12,6 @@ import {
   type CreateApiKeyInput,
   type CreateEmailSenderDomainInput,
   type CreateSocialConnectionInput,
-  type DnsRecordStatus,
-  type EmailDomainPurpose,
   type EmailSenderDomainDTO,
   type HubAutomationDTO,
   type HubMessagingChannelDTO,
@@ -38,9 +36,10 @@ import { SocialConnectionsService, oauthProviderOf } from '../../social/social-c
 import { LeadAdsAdminService } from '../../lead-ads/lead-ads-admin.service';
 import { OAuthConnectService } from '../oauth/oauth-connect.service';
 import type { PlatformContext, TenantContext } from '../../auth/tenant-context';
-import { checkEmailDomainDns, expectedEmailDomainRecords, type DnsLookup } from './email-domain-dns';
+import { DNS_LOOKUP } from './email-domain-dns';
+import { EmailDomainService, toEmailDomainDto } from './email-domain.service';
 
-export const DNS_LOOKUP = Symbol('DNS_LOOKUP');
+export { DNS_LOOKUP };
 
 type HubKind = 'ads' | 'api_key' | 'webhook' | 'email_domain' | 'social' | 'lead_ads' | 'sms_sender';
 
@@ -65,7 +64,7 @@ export class IntegrationHubService {
     private readonly social: SocialConnectionsService,
     private readonly leadAds: LeadAdsAdminService,
     private readonly oauth: OAuthConnectService,
-    @Inject(DNS_LOOKUP) private readonly dns: DnsLookup,
+    private readonly emailDomains: EmailDomainService,
   ) {}
 
   async summary(platform: PlatformContext): Promise<IntegrationHubDTO> {
@@ -116,7 +115,7 @@ export class IntegrationHubService {
         failureCount: h.failureCount,
       })),
       messaging: this.messagingChannels(studio.messagingSettings),
-      emailDomains: domains.map((d) => this.toDomainDto(d)),
+      emailDomains: domains.map((d) => toEmailDomainDto(d, this.emailDomains.sesRegion())),
       platformCards: platform.isSuperAdmin ? await this.platformCards() : [],
       leadAds,
       smsSender: this.smsSender(studio.messagingSettings),
@@ -216,7 +215,7 @@ export class IntegrationHubService {
         await this.auditTx(tx, platform, via, 'email_domain', 'create', created.id, { domain: dto.domain, purpose: dto.purpose });
         return created;
       });
-      return this.toDomainDto(row);
+      return toEmailDomainDto(row, this.emailDomains.sesRegion());
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         throw new ConflictException('Bu alan adı zaten ekli');
@@ -225,32 +224,14 @@ export class IntegrationHubService {
     }
   }
 
-  /** Looks the records up now and stores the result; a commercial send may use the domain once SPF, DKIM and DMARC are all VALID. */
+  /**
+   * Looks the records up now and stores the result; a commercial send may use the domain once SPF, DKIM and DMARC are all VALID.
+   * M5: DKIM (and the identity verification status) come from SES when credentials are configured.
+   */
   async checkEmailDomain(platform: PlatformContext, via: IntegrationEntryPoint, id: string): Promise<EmailSenderDomainDTO> {
     const domain = await this.findDomain(platform, id);
-    const result = await checkEmailDomainDns(this.domainConfig(domain), this.dns);
-    const row = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.emailSenderDomain.update({
-        where: { id: domain.id },
-        data: {
-          spfStatus: result.spfStatus,
-          dkimStatus: result.dkimStatus,
-          dmarcStatus: result.dmarcStatus,
-          dmarcPolicy: result.dmarcPolicy,
-          lastCheckedAt: new Date(),
-          lastError: result.error,
-          // M3d: the first time SPF, DKIM and DMARC are all valid starts the warm-up plan (marketing_settings.email_warmup_plan).
-          ...(!domain.warmupStartedAt && result.spfStatus === 'VALID' && result.dkimStatus === 'VALID' && result.dmarcStatus === 'VALID' ? { warmupStartedAt: new Date() } : {}),
-        },
-      });
-      await this.auditTx(tx, platform, via, 'email_domain', 'check', domain.id, {
-        spf: result.spfStatus,
-        dkim: result.dkimStatus,
-        dmarc: result.dmarcStatus,
-      });
-      return updated;
-    });
-    return this.toDomainDto(row, result.records);
+    const outcome = await this.emailDomains.check(domain, (tx, result) => this.auditTx(tx, platform, via, 'email_domain', 'check', domain.id, { spf: result.spf, dkim: result.dkim, dmarc: result.dmarc }));
+    return toEmailDomainDto(outcome.row, this.emailDomains.sesRegion(), outcome.records);
   }
 
   async removeEmailDomain(platform: PlatformContext, via: IntegrationEntryPoint, id: string): Promise<{ id: string }> {
@@ -393,57 +374,6 @@ export class IntegrationHubService {
       { key: 'smsBalance', configured: Boolean(sms && sms !== 'MOCK'), href: '/admin/health' },
       { key: 'payments', configured: Boolean(payment && payment !== 'MOCK'), href: '/admin/health' },
     ];
-  }
-
-  private domainConfig(d: { domain: string; mailFromDomain: string | null; dkimTokens: Prisma.JsonValue }) {
-    const tokens = Array.isArray(d.dkimTokens) ? d.dkimTokens.filter((t): t is string => typeof t === 'string') : [];
-    return { domain: d.domain, mailFromDomain: d.mailFromDomain, dkimTokens: tokens, sesRegion: this.config.get<string>('SES_REGION') ?? null };
-  }
-
-  private toDomainDto(
-    d: {
-      id: string;
-      domain: string;
-      purpose: string;
-      mailFromDomain: string | null;
-      dkimTokens: Prisma.JsonValue;
-      spfStatus: string;
-      dkimStatus: string;
-      dmarcStatus: string;
-      dmarcPolicy: string | null;
-      lastCheckedAt: Date | null;
-      lastError: string | null;
-      dailyCap: number | null;
-      createdAt: Date;
-    },
-    checked?: EmailSenderDomainDTO['expectedRecords'],
-  ): EmailSenderDomainDTO {
-    const spf = d.spfStatus as DnsRecordStatus;
-    const dkim = d.dkimStatus as DnsRecordStatus;
-    const dmarc = d.dmarcStatus as DnsRecordStatus;
-    const records =
-      checked ??
-      expectedEmailDomainRecords(this.domainConfig(d)).map((r) => ({
-        ...r,
-        // Without a fresh lookup the stored aggregate status is the best we know.
-        status: r.kind === 'SPF' ? spf : r.kind === 'DKIM' ? dkim : r.kind === 'DMARC' ? dmarc : r.status,
-      }));
-    return {
-      id: d.id,
-      domain: d.domain,
-      purpose: d.purpose as EmailDomainPurpose,
-      mailFromDomain: d.mailFromDomain,
-      spfStatus: spf,
-      dkimStatus: dkim,
-      dmarcStatus: dmarc,
-      dmarcPolicy: d.dmarcPolicy,
-      verified: spf === 'VALID' && dkim === 'VALID' && dmarc === 'VALID',
-      expectedRecords: records,
-      lastCheckedAt: d.lastCheckedAt?.toISOString() ?? null,
-      lastError: d.lastError,
-      dailyCap: d.dailyCap,
-      createdAt: d.createdAt.toISOString(),
-    };
   }
 
   private async findDomain(platform: PlatformContext, id: string) {

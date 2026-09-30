@@ -34,6 +34,8 @@ export const enAdminMarketingSettings = {
   'adminMarketingSettings.adSpend.remove': 'Remove',
   'adminMarketingSettings.adSpend.empty': 'No cap defined.',
   'adminMarketingSettings.adSpend.invalid': 'The currency must be three capital letters and the amount a positive number with at most two decimals.',
+  'adminMarketingSettings.field.adCapAutoPause': 'Pause ads automatically when the cap is exceeded',
+  'adminMarketingSettings.adSpend.autoPauseHint': 'While off, exceeding a cap only shows a red warning on the dashboard and notifies the super admins. While on, the next heartbeat pauses the active campaigns on the ad platforms (Meta and Google Ads) that spent in the exceeded currency. Pausing only reduces spend; the system never resumes a campaign by itself, you do that on the ad platform. Each campaign is paused at most once per month and every pause is written to the audit log.',
 
   'adminMarketingSettings.autoPause.title': 'Auto-pause thresholds',
   'adminMarketingSettings.autoPause.description': 'E-mail campaigns are paused automatically when these rates are exceeded over the last 24 hours, and the super admins are alerted (at most once per 24 hours per reason). Resuming campaigns is done by hand.',

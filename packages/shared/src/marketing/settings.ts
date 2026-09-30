@@ -33,6 +33,7 @@ export const MARKETING_SETTINGS_DEFAULTS = {
   doubleOptInRegions: DEFAULT_DOUBLE_OPT_IN_REGIONS,
   trMerchantExemptionEnabled: false,
   emailWarmupPlan: null,
+  adCapAutoPause: false,
 } as const;
 
 export interface MarketingSettingsDTO {
@@ -59,6 +60,8 @@ export interface MarketingSettingsDTO {
   trMerchantExemptionEnabled: boolean;
   /** Daily e-mail caps of the first days after the sender domain was verified ([day 1, day 2, ...]); null: no warm-up. */
   emailWarmupPlan: number[] | null;
+  /** M5, opt-in: an exceeded monthly ad spend cap pauses the platform tenant's active campaigns on the platforms that spent (never resumed automatically). */
+  adCapAutoPause: boolean;
   updatedByUserId: string | null;
   /** Null while the defaults are in use (no row yet). */
   updatedAt: string | null;
@@ -93,6 +96,7 @@ export const UpdateMarketingSettingsSchema = z
     doubleOptInRegions: DoubleOptInRegionsSchema.optional(),
     trMerchantExemptionEnabled: z.boolean().optional(),
     emailWarmupPlan: EmailWarmupPlanSchema.nullable().optional(),
+    adCapAutoPause: z.boolean().optional(),
   })
   .strict();
 export type UpdateMarketingSettingsInput = z.infer<typeof UpdateMarketingSettingsSchema>;

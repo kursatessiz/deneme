@@ -25,6 +25,7 @@ import { PayoutsJobsService, PayoutsHeartbeatResult } from '../payouts/payouts-j
 import { ErrorReportingJobsService, ErrorReportingHeartbeatResult } from '../error-reporting/error-reporting-jobs.service';
 import { SocialPublishingService, type SocialHeartbeatResult } from '../social/social-publishing.service';
 import { OAuthRefreshService, type OAuthRefreshResult } from '../platform-marketing/oauth/oauth-refresh.service';
+import { EmailDomainService, type EmailDomainHeartbeatResult } from '../platform-marketing/integrations/email-domain.service';
 import { BackupsJobsService } from '../backups/backups.module';
 import type { BackupsHeartbeatResult } from '../backups/backups.module';
 
@@ -57,6 +58,8 @@ export interface SchedulerRunResult {
   socialPublishing: SocialHeartbeatResult;
   /** M4a: OAuth tokens refreshed, retrying or needing a reconnect; old OAuth states purged. */
   oauthRefresh: OAuthRefreshResult;
+  /** M5: sender domains re-checked (DKIM from SES when configured, DNS otherwise). */
+  emailDomains: EmailDomainHeartbeatResult;
 }
 
 /**
@@ -107,6 +110,7 @@ export class JobsService {
     private readonly backups: BackupsJobsService,
     private readonly socialPublishing: SocialPublishingService,
     private readonly oauthRefresh: OAuthRefreshService,
+    private readonly emailDomains: EmailDomainService,
     @Optional() @InjectQueue(SCHEDULER_QUEUE) private readonly queue?: Queue,
   ) {}
 
@@ -141,6 +145,8 @@ export class JobsService {
     const billing = await this.billing.run(now);
     const payouts = await this.payouts.run(now);
     const socialPublishing = await this.socialPublishing.processDue(now);
+    // M5: after the OAuth refresh; reads the SES identity status (or DNS) of the platform's sender domains.
+    const emailDomains = await this.emailDomains.processDue(now);
     const errorReporting = await this.errorReporting.run(now);
     // Only starts the daily backup in the background; the run itself does not block the heartbeat.
     const backups = await this.backups.run(now);
@@ -166,7 +172,8 @@ export class JobsService {
         `errors ${errorReporting.purged} event(s) purged/digest ${errorReporting.digestSent ? 'sent' : 'not due'}, ` +
         `backups ${backups.scheduled.reason.toLowerCase()}/status ${backups.status}${backups.staleAlertSent ? '/alert sent' : ''}, ` +
         `social ${socialPublishing.published} published/${socialPublishing.retrying} retrying/${socialPublishing.deferred} deferred/${socialPublishing.failed} failed, ` +
-        `oauth ${oauthRefresh.refreshed} refreshed/${oauthRefresh.retrying} retrying/${oauthRefresh.reauthRequired} reauth required`,
+        `oauth ${oauthRefresh.refreshed} refreshed/${oauthRefresh.retrying} retrying/${oauthRefresh.reauthRequired} reauth required, ` +
+        `email domains ${emailDomains.checked} checked/${emailDomains.failed} failed`,
     );
 
     this.lastRunAt = now;
@@ -196,6 +203,7 @@ export class JobsService {
       backups,
       socialPublishing,
       oauthRefresh,
+      emailDomains,
     };
   }
 }

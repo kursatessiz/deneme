@@ -684,6 +684,7 @@ model Studio {
   adConnections         AdConnection[]
   adEntities            AdEntity[]
   adSpendDaily          AdSpendDaily[]
+  adCapPauses           AdCapPause[]
   invoiceSettings       InvoiceSettings?
   invoiceCounters       InvoiceCounter[]
   invoices              Invoice[]
@@ -5593,6 +5594,10 @@ model EmailSenderDomain {
   lastError       String?   @map("last_error") @db.VarChar(500)
   warmupStartedAt DateTime? @map("warmup_started_at")
   dailyCap        Int?      @map("daily_cap")
+  /// M5: when the SES identity was created or fetched through the API (null: DNS tokens entered by hand).
+  sesProvisionedAt DateTime? @map("ses_provisioned_at")
+  /// M5: SES identity verification status (SES_VERIFICATION_STATUSES in @platform/shared), null until read from SES.
+  sesVerificationStatus String? @map("ses_verification_status") @db.VarChar(20)
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
@@ -5853,6 +5858,9 @@ model MarketingSettings {
   /// M3d: optional warm-up plan for the daily e-mail cap: [cap of day 1, cap of day 2, ...] counted from the
   /// day the sender domain was verified; null: no warm-up.
   emailWarmupPlan          Json?    @map("email_warmup_plan")
+  /// M5: opt-in. When on and a monthly ad spend cap is exceeded, the heartbeat pauses the platform tenant's
+  /// active campaigns on the ad platforms with spend in that currency (pause only, never resume).
+  adCapAutoPause           Boolean  @default(false) @map("ad_cap_auto_pause")
   updatedByUserId          String?  @map("updated_by_user_id") @db.Uuid
   updatedAt                DateTime @updatedAt @map("updated_at")
 
@@ -6355,4 +6363,40 @@ model OauthState {
   @@index([expiresAt])
   @@index([studioId, createdAt])
   @@map("oauth_states")
+}
+
+// ---------------------------------------------------------------------------
+// M5: ad spend cap auto-pause (docs/PAZARLAMA_MODULU.md, M5)
+// ---------------------------------------------------------------------------
+
+/// One row per external ad campaign paused (or failed to be paused) by the
+/// ad spend cap auto-pause, per month: the unique key makes the pause
+/// idempotent. Written only for the platform tenant. Never resumed by the
+/// system; a person resumes the campaign in the ad platform.
+model AdCapPause {
+  id                 String    @id @default(uuid()) @db.Uuid
+  studioId           String    @map("studio_id") @db.Uuid
+  /// One of AD_CONNECTION_PLATFORMS.
+  platform           String    @db.VarChar(10)
+  campaignExternalId String    @map("campaign_external_id") @db.VarChar(80)
+  campaignName       String    @map("campaign_name") @db.VarChar(250)
+  /// UTC month, yyyy-MM.
+  monthKey           String    @map("month_key") @db.VarChar(7)
+  currency           String    @db.VarChar(3)
+  /// Month-to-date spend and the cap at the moment of the pause, in `currency`.
+  spentAmount        Decimal   @map("spent_amount") @db.Decimal(14, 4)
+  capAmount          Decimal   @map("cap_amount") @db.Decimal(14, 4)
+  /// One of AD_CAP_PAUSE_STATUSES (PAUSED | FAILED).
+  status             String    @db.VarChar(10)
+  attempts           Int       @default(1)
+  lastError          String?   @map("last_error") @db.VarChar(500)
+  pausedAt           DateTime? @map("paused_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@unique([studioId, platform, campaignExternalId, monthKey])
+  @@index([studioId, monthKey])
+  @@map("ad_cap_pauses")
 }

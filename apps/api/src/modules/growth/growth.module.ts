@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { AuthModule } from '../auth/auth.module';
+import { AdsModule } from '../ads/ads.module';
 import { CrmCoreModule } from '../crm/crm-core.module';
 import { LoyaltyCoreModule } from '../loyalty/loyalty-core.module';
 import { PlatformEventsModule } from '../webhooks/platform-events.module';
@@ -24,6 +25,7 @@ import { CampaignPrecheckService } from './campaigns/approval/campaign-precheck.
 import { MarketingSettingsService } from './campaigns/approval/marketing-settings.service';
 import { MarketingNoticeService } from './campaigns/approval/marketing-notice.service';
 import { MarketingGuardsService } from './campaigns/marketing-guards.service';
+import { AdCapAutoPauseService } from './campaigns/ad-cap-auto-pause.service';
 
 /** Same rule as JobsModule: BullMQ only when REDIS_URL is a real process env var (see jobs.module.ts). */
 const redisConfigured = Boolean(process.env.REDIS_URL);
@@ -35,7 +37,7 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
  * LoyaltyCoreModule the ledger for the award_points step (G3a).
  */
 @Module({
-  imports: [AuthModule, CrmCoreModule, LoyaltyCoreModule, PlatformEventsModule, ...(redisConfigured ? [BullModule.registerQueue({ name: GROWTH_QUEUE })] : [])],
+  imports: [AuthModule, AdsModule, CrmCoreModule, LoyaltyCoreModule, PlatformEventsModule, ...(redisConfigured ? [BullModule.registerQueue({ name: GROWTH_QUEUE })] : [])],
   controllers: [SegmentsController, CampaignsController, JourneysController],
   providers: [
     SegmentEvaluatorService,
@@ -48,6 +50,7 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
     MarketingSettingsService,
     MarketingNoticeService,
     MarketingGuardsService,
+    AdCapAutoPauseService,
     JourneyScannersService,
     JourneyEngineService,
     JourneysService,

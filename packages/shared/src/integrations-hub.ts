@@ -51,6 +51,10 @@ export interface EmailSenderDomainDTO {
   lastCheckedAt: string | null;
   lastError: string | null;
   dailyCap: number | null;
+  /** M5: when the SES identity was created or fetched through the API; null when the tokens were entered by hand. */
+  sesProvisionedAt: string | null;
+  /** M5: the identity's verification status as last read from SES (SES_IDENTITY_STATUSES); null until read. */
+  sesVerificationStatus: string | null;
   createdAt: string;
 }
 

@@ -1,5 +1,7 @@
 import type { DnsRecordStatus, ExpectedDnsRecordDTO } from '@platform/shared';
 
+export const DNS_LOOKUP = Symbol('DNS_LOOKUP');
+
 /**
  * Pure evaluation of an email sender domain's DNS against what Amazon SES
  * needs (docs/PAZARLAMA_MODULU.md 5.2): SPF on the MAIL FROM domain (or the

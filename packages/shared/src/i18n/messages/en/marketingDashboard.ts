@@ -116,6 +116,12 @@ export const enMarketingDashboard = {
   'marketingDashboard.adCap.title': 'Monthly ad spend cap',
   'marketingDashboard.adCap.line': 'This month {spent} of {cap}',
   'marketingDashboard.adCap.exceeded': 'Cap exceeded',
+  'marketingDashboard.adCap.autoPauseOn': 'Auto-pause is on',
+  'marketingDashboard.adCap.autoPauseOff': 'Auto-pause is off',
+  'marketingDashboard.adCap.pausedTitle': 'Campaigns paused this month because of the cap',
+  'marketingDashboard.adCap.pausedLine': '{name} ({platform}), {date}: spend {spent}, cap {cap}',
+  'marketingDashboard.adCap.failedLine': '{name} ({platform}) could not be paused, attempts {attempts}: {error}',
+  'marketingDashboard.adCap.reason': 'Reason: monthly ad spend cap exceeded',
 
   'marketingDashboard.connections.title': 'Connection errors',
   'marketingDashboard.connections.none': 'No connection errors.',
