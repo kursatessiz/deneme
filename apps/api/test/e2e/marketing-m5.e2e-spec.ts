@@ -64,7 +64,7 @@ class FakeAds {
   });
   readonly postJson = jest.fn(async (platform: string, url: string, _headers: Record<string, string>, body: unknown) => {
     this.posts.push({ platform, url, body });
-    if (url.includes('oauth2.googleapis.com')) return { ok: true, status: 200, body: { access_token: 'e2e-access-token' } };
+    if (new URL(url).hostname === 'oauth2.googleapis.com') return { ok: true, status: 200, body: { access_token: 'e2e-access-token' } };
     return { ok: true, status: 200, body: { results: [{}] } };
   });
   readonly getJson = jest.fn(async (_platform: string, url: string) => {
