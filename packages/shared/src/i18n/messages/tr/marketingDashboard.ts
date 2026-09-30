@@ -115,6 +115,12 @@ export const trMarketingDashboard = {
   'marketingDashboard.adCap.title': 'Aylık reklam harcama tavanı',
   'marketingDashboard.adCap.line': 'Bu ay {spent} / {cap}',
   'marketingDashboard.adCap.exceeded': 'Tavan aşıldı',
+  'marketingDashboard.adCap.autoPauseOn': 'Otomatik duraklatma açık',
+  'marketingDashboard.adCap.autoPauseOff': 'Otomatik duraklatma kapalı',
+  'marketingDashboard.adCap.pausedTitle': 'Bu ay tavan nedeniyle duraklatılan kampanyalar',
+  'marketingDashboard.adCap.pausedLine': '{name} ({platform}), {date}: harcama {spent}, tavan {cap}',
+  'marketingDashboard.adCap.failedLine': '{name} ({platform}) duraklatılamadı, deneme sayısı {attempts}: {error}',
+  'marketingDashboard.adCap.reason': 'Neden: aylık reklam harcama tavanı aşıldı',
 
   'marketingDashboard.connections.title': 'Bağlantı hataları',
   'marketingDashboard.connections.none': 'Bağlantı hatası yok.',

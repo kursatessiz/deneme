@@ -89,6 +89,7 @@ import { trAdminBilling } from './tr/admin-billing';
 import { trAddOns } from './tr/addOns';
 import { trAdminAddOns } from './tr/admin-add-ons';
 import { trMAddOns } from './tr/mAddOns';
+import { trMMarketingApprovals } from './tr/mMarketingApprovals';
 import { trErrors } from './tr/errors';
 import { trAdminErrors } from './tr/admin-errors';
 import { trCommunity } from './tr/community';
@@ -184,6 +185,7 @@ import { enAdminBilling } from './en/admin-billing';
 import { enAddOns } from './en/addOns';
 import { enAdminAddOns } from './en/admin-add-ons';
 import { enMAddOns } from './en/mAddOns';
+import { enMMarketingApprovals } from './en/mMarketingApprovals';
 import { enErrors } from './en/errors';
 import { enAdminErrors } from './en/admin-errors';
 import { enCommunity } from './en/community';
@@ -335,6 +337,7 @@ export const TR_NAMESPACES = [
   trAddOns,
   trAdminAddOns,
   trMAddOns,
+  trMMarketingApprovals,
   trErrors,
   trAdminErrors,
   trCommunity,
@@ -454,6 +457,7 @@ export const EN_NAMESPACES = [
   enAddOns,
   enAdminAddOns,
   enMAddOns,
+  enMMarketingApprovals,
   enErrors,
   enAdminErrors,
   enCommunity,
