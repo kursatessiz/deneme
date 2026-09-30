@@ -636,6 +636,10 @@ Onay `approval_requests` satırıdır (`target_type = SOCIAL_POST`, `content_has
 | `platform_credit_ledger` | Yalnızca ekleme yapılan abonelik kredisi defteri (ödül +, kullanım -, ters kayıt) | idempotency_key benzersiz; tutar veya ay dolu olmalı (CHECK) |
 | `platform_billing_settings` | Tek satırlık platform ayarı (`id = 'platform'`): tavsiye ödülü türü ve değeri. G5c-1b: tutar ödülü para birimi başına `platform_referral_reward_amounts` tablosundadır; eski tek tutar/para birimi sütunları bir sürüm boyunca yerinde kalır, sonra silinecek | - |
 | `platform_referral_reward_amounts` (G5c-1b) | Tavsiye tutar ödülünün para birimi başına değeri (platform düzeyi); tavsiye eden kendi faturalama para biriminde alır, satır yoksa 1 ücretsiz ay | currency birincil anahtar |
+| `add_ons` (G5c-2) | Uygulama pazarı kataloğu (platform verisi): `key` benzersiz, ad ve açıklama dil başına JSON, tanıtım videosu, ekran görüntüleri, `feature_flag_key`, deneme günü (CHECK 0-90), yayın, sıra | (is_published, sort_order) index |
+| `add_on_prices` (G5c-2) | Ek modülün para birimi başına aylık ve yıllık fiyatı (CHECK: platform para birimleri, pozitif tutar) | (add_on_id, currency) benzersiz; ek modül -> cascade |
+| `studio_add_ons` (G5c-2) | İşletmenin ek modül denemesi veya aboneliği: durum (CHECK TRIALING/ACTIVE/CANCELLED/EXPIRED), dönem, deneme ve dönem tarihleri, `price_snapshot` JSON, uyarı ve yeniden deneme alanları | (studio_id, add_on_id) benzersiz; (status, current_period_end), (add_on_id, status) index; işletme -> cascade, ek modül -> restrict |
+| `platform_billing_payments.studio_add_on_id` (G5c-2) | Ek modül ödemesinin aboneliği; `plan_id` artık boş olabilir, CHECK plan veya ek modülden birinin dolu olmasını ister | studio_add_on_id index; set null |
 
 ## Hata Raporlama (H1)
 
