@@ -35,22 +35,27 @@ Ortak çekirdek: Seans + kapasiteli Kaynak + Hak (seans/süre/kredi) + Eğitmen 
 - Tasarım: tasarım token'ları `packages/shared/src/design` altında; gradient yalnızca belirlenmiş yerlerde; jenerik "AI dashboard" görünümünden kaçınılır. Sahip referans ekran görüntülerini `docs/design-refs/` altına koyacak (Mobbin, Refero, Mariana Tek / Momence üye uygulamaları).
 - Build sunucuda değil CI'da; sunucu (Ubuntu 24.04, 6 GB / 4 vCPU / 60 GB) yalnızca image çeker.
 
-## 4. Mevcut kod durumu (24 Eylül 2026)
+## 4. Mevcut kod durumu (30 Eylül 2026)
 
-Var olanlar: Turborepo + pnpm monorepo (`@platform/*`), NestJS API (auth, schedules, trainers, members, notifications, health; Zod ile env doğrulama; `/health` PostgreSQL + Redis kontrolü), Next.js paneli (dashboard, takvim, üyeler, eğitmenler, paketler, `[studioSlug]/book`) mock veriyle, Prisma şeması + iki stüdyolu seed, Expo SDK 57 iskeleti.
+Bölüm 6, 6b ve 6c'deki tüm backlog maddeleri ile büyüme (G0-G5), pazarlama (M1-M5), hata raporlama (H1-H3) ve ön üretim (D1-D2) işleri main'de birleşmiş durumdadır; her satırın "Yapıldı / Kalan" notu bölüm 6c tablosunda, ayrıntılar `docs/` altındaki modül dokümanlarındadır. Kod durumu özetle:
 
-CI/CD ve güvenlik (çalışır ve yerelde uçtan uca test edildi):
-- `ci.yml`, `release.yml` (GHCR image, SBOM, provenance, SSH deploy), `deploy/scripts/deploy.sh` (yedek, migrate, smoke test, otomatik rollback), `nightly-deploy.sh` (cron ile pull tabanlı alternatif). Sunucuda build yok.
-- CodeQL, dependency review, TruffleHog, zizmor, actionlint, OpenSSF Scorecard, Dependabot (7 gün bekleme, major'lar ayrı PR). Tüm action'lar SHA ile sabitli.
-- Ajan workflow'ları (maliyet kademeli): Haiku issue etiketleme ve CI hata teşhisi; Haiku/Sonnet PR inceleme (diff boyutuna göre); `@claude` Sonnet, `/opus` ile Opus. `CLAUDE_AGENTS_ENABLED` değişkeni ve API anahtarı eklenene kadar pasif.
+- API: 60'tan fazla NestJS modülü, 70 uçtan uca test paketi (CI'da Postgres ile), birim testleri; Zod ile env doğrulama; tek 15 dakikalık kalp atışı (`JobsService.runAll`) tüm zamanlanmış işleri çalıştırır.
+- Web: işletme paneli, süper admin paneli, platform ve kiracı siteleri, herkese açık rezervasyon ve gömülü widget; API'ye yalnızca BFF proxy ile; 38 Playwright senaryosu CI'da koşar.
+- Mobil: tek Expo uygulaması, tüm roller, tablet düzeni, EAS profilleri; mağaza yayını sahibin hesaplarını bekliyor.
+- Veritabanı: 61 ileri yönlü migration, geliştirme seed'i (iki işletme, platform kiracısı, demo kullanıcılar).
+- i18n: Türkçe ve İngilizce, 117 mesaj ad alanı; eksik İngilizce derleme hatasıdır.
+- CI/CD ve güvenlik: `ci.yml`, `release.yml`, CodeQL, dependency review, gizli bilgi taraması, zizmor, actionlint, Scorecard, Dependabot; tüm action'lar SHA ile sabitli; ajan workflow'ları `CLAUDE_AGENTS_ENABLED` açılana kadar pasif.
 
-Eksikler: canlı güvenlik senaryoları (23 senaryo, yerelde geçti) Jest e2e testine çevrilip CI'da Postgres ile koşmalı; mobil iskelet; SMS/WhatsApp sağlayıcı yok; test kapsamı düşük. Süper-admin paneli backlog 4.1-4.3 ile eklendi (bkz. bölüm 6, `docs/SUPER_ADMIN.md`).
+Gerçek sağlayıcı hesabı gerektiren adaptörler (e-fatura entegratörleri, partner platformları, Meta/Google/LinkedIn OAuth, SES kimlik kurulumu, iyzico/PayTR) yerelde sahte sağlayıcılarla doğrulandı; canlı doğrulama ön üretimde yapılacak (`docs/CICD_GUIDE.md` 5b).
 
-Sahibin yapması gereken GitHub ayarları: `docs/CICD_GUIDE.md` "Repository settings" bölümü.
+Çalışma yöntemi (bu oturumlarda oturmuş hat): her backlog öğesi izole bir worktree'de çalışan ve maliyet kademesine göre seçilen (Haiku/Sonnet/Opus) bir ajana verilir; koordinatör dalı main üzerine birleştirir, tam yerel doğrulamayı (install, build/typecheck/test, taze DB migrate + drift + seed, API e2e iki kez, audit) geçirir, Türkçe PR açar, 21 CI kontrolü yeşilken merge eder. Backlog öğesi başına bir PR.
 
-Açık teknik sorular:
-- Redis politikası `noeviction` olarak değiştirildi (W10): BullMQ kuyruk anahtarları silinmez; önbellek ve hız sınırı anahtarları TTL ile yazıldığı için bellek dolmaz.
-- `NEXT_PUBLIC_API_URL` build anında gömülür sorunu 2.1 ile çözüldü: web paneli artık BFF proxy kullanıyor (`apps/web/src/app/api/bff/[...path]/route.ts`, sunucu-taraflı `API_INTERNAL_URL`); kimliksiz herkese açık istemci çağrıları (embed, aday formu, izleme) API adresini D1'den beri çalışma anında `PUBLIC_API_URL`'den alıyor, `NEXT_PUBLIC_API_URL` yalnızca yerel geliştirme yedeği. Detaylar: `docs/WEB_PANEL.md`.
+Sahibin yapması gereken GitHub ayarları: `docs/CICD_GUIDE.md` "Repository settings" bölümü. Sahibin kararına bağlı açık maddeler: bölüm 7 ve #117-#120 PR açıklamaları.
+
+Açık teknik notlar:
+- Redis politikası `noeviction` (W10): BullMQ kuyruk anahtarları silinmez; önbellek ve hız sınırı anahtarları TTL ile yazılır.
+- `NEXT_PUBLIC_API_URL` build anında gömülmez: web paneli BFF proxy kullanır, herkese açık istemci çağrıları API adresini çalışma anında `PUBLIC_API_URL`'den alır (`docs/WEB_PANEL.md`).
+- API e2e paketi tek süreçte koşar ve dosya sayısıyla birlikte bellek kullanır; `test:e2e` betiği Node yığın sınırını 6 GB'a çıkarır. Paket 100 dosyayı geçince yığın veya bellek sızıntısı yeniden değerlendirilmelidir.
 
 ## 5. Şema değişiklikleri (mevcut `schema.prisma` üzerinde)
 
@@ -227,12 +232,30 @@ Sahip, bölüm 6b'deki tüm maddelerin turnike ve kapı entegrasyonu hariç uygu
 
 Kapsam dışı: turnike ve kapı entegrasyonu.
 
-## 7. Sahibin sağlayacağı girdiler (henüz gelmedi)
-- Tasarım referans ekran görüntüleri (3–4 ekran: ana, takvim, üye kartı, rezervasyon)
-- İki stüdyonun gerçek hizmet türü / paket / eğitmen ücret / iptal kuralı listesi
-- Ürün adı ve domain
-- SMS sağlayıcı ve WhatsApp Cloud API hesap bilgileri (env olarak, repoya değil)
-- Anthropic API anahtarı (G3b): süper admin panelinde Yapay Zeka sayfasına yapıştırılır, repoya veya env dosyasına değil; üretimde `INTEGRATION_ENCRYPTION_KEY` tanımlı olmalıdır (`docs/YAPAY_ZEKA.md`)
+## 7. Sahibin sağlayacağı girdiler ve kararlar
+
+Kod tarafında bekleyen iş kalmadı; aşağıdakiler sahibin hesabını, kararını veya sırrını gerektirir. Sır ve anahtarlar repoya değil, GitHub Environments'a veya süper admin paneline girilir.
+
+Ürün ve marka
+- Nihai ürün adı, repo adı, alan adı ve alt alan adları (panel, API, pazarlama e-postası için `news.<alan>` gibi ayrı alt alan adı önerilir); paket adları `@platform/*` kalabilir.
+- Tema ailesi, logo ve gradyan seçimi (`docs/design-refs/` altına referans ekran görüntüleri).
+- İki işletmenin gerçek hizmet türü, paket, eğitmen ücreti ve iptal kuralı listesi (seed yerine ilk kurulum verisi).
+
+Altyapı (`docs/CICD_GUIDE.md` 3 ve 5b, `docs/UBUNTU_24_04_SETUP.md`)
+- Üretim ve ön üretim sunucuları, DNS, GHCR erişimi, yedek nesne depolama kovası.
+- GitHub Environments sırları ve değişkenleri (`SSH_*`, `DATABASE_URL`, `JWT_SECRET`, `INTEGRATION_ENCRYPTION_KEY`, `PUBLIC_API_URL`, `SOURCEMAP_UPLOAD_TOKEN` ve dokümandaki tam liste); `CLAUDE_AGENTS_ENABLED` ve Anthropic anahtarı (ajan workflow'ları için).
+- Mobil: Apple ve Google geliştirici hesapları, bundle kimliği, EAS sırrı ve mobil kaynak haritası yüklemesinin CI otomasyonu.
+
+Sağlayıcı hesapları ve başvurular
+- Ödeme: Stripe, iyzico, PayTR (sandbox ve canlı anahtarlar); e-fatura entegratörü seçimi ve kimlik bilgileri.
+- Mesajlaşma: Netgsm veya İleti Merkezi, WhatsApp Cloud API, Amazon SES (SES için `ses:CreateEmailIdentity`, `ses:GetEmailIdentity`, `ses:PutEmailIdentityMailFromAttributes` izinleri), İYS.
+- Reklam ve sosyal: Meta App Review ve Business Verification, Google Ads geliştirici token düzeyi, LinkedIn ürün onayı, TikTok Marketing API (`docs/PAZARLAMA_MODULU.md`).
+- Anthropic API anahtarı: süper admin panelinde Yapay Zeka sayfasına yapıştırılır (`docs/YAPAY_ZEKA.md`).
+
+Ürün kararları (ayrıntı ve öneriler ilgili PR açıklamalarında: #106-#120)
+- Pazarlama: kendi onayı eşikleri, süper admin olmayan onaycılar, kiracılara açılma, reklam bütçesi değişikliği ve kampanya oluşturma kapsamı, ani artış eşikleri, Slack veya webhook uyarı adresleri.
+- Uygulama pazarı: hangi modüllerin bayrakla kapatılacağı, mevcut işletmelerin korunması, saklı kartla otomatik yenileme, ek modül vergisi ve faturası.
+- Hukuk: soft opt-in bölge tablosu ve "mevcut müşteri" tanımı, KVKK aydınlatma metnine pazarlama ekibi ve yapay zeka alt işleyeninin eklenmesi, TR tacir muafiyeti.
 
 ## 8. Claude Code'a başlangıç komutu
 
