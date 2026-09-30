@@ -114,6 +114,9 @@ export function buildHesabimMenu(input: StaffMenuInput): MenuItem[] {
   if (has(permissions, 'integrations.partners.manage')) {
     items.push({ key: 'partners', labelKey: 'mAccount.menu.partners', route: '/(app)/hesabim/partner-platformlar' });
   }
+  if (has(permissions, 'billing.manage')) {
+    items.push({ key: 'add-ons', labelKey: 'mAccount.menu.addOns', route: '/(app)/hesabim/uygulamalar' });
+  }
   if (has(permissions, 'content.manage')) {
     items.push({ key: 'video-content', labelKey: 'mAccount.menu.videoContent', route: '/(app)/hesabim/video-icerikleri' });
   }

@@ -92,6 +92,7 @@ describe('buildHesabimMenu', () => {
         'integrations.manage',
         'integrations.partners.manage',
         'content.manage',
+        'billing.manage',
         'commissions.view.all',
       ],
       isMember: true,
@@ -102,5 +103,12 @@ describe('buildHesabimMenu', () => {
     for (const item of menu) {
       expect(item.route.startsWith('/(app)/')).toBe(true);
     }
+  });
+
+  it('shows the read-only add-ons screen only with billing.manage', () => {
+    const owner = buildHesabimMenu({ permissions: ['billing.manage'], isMember: false, isTrainer: false });
+    expect(owner.map((m) => m.key)).toContain('add-ons');
+    const staff = buildHesabimMenu({ permissions: ['members.view'], isMember: false, isTrainer: false });
+    expect(staff.map((m) => m.key)).not.toContain('add-ons');
   });
 });

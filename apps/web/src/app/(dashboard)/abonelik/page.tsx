@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { localizedText } from '@platform/shared';
 import type { ActivateStudioResultDTO, PlatformPaymentDTO, StudioBillingDTO } from '@platform/shared';
 import { PageGuard } from '@/components/common/PageGuard';
 import { ErrorState, LoadingState } from '@/components/common/DataState';
@@ -200,7 +201,7 @@ function BillingPage() {
                 {payments.data.items.map((p) => (
                   <tr key={p.id} className="border-t" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}>
                     <td className="px-3 py-2">{formatDate(p.paidAt ?? p.createdAt, locale)}</td>
-                    <td className="px-3 py-2">{p.planKey}</td>
+                    <td className="px-3 py-2">{p.addOn ? t('addOns.payments.line', { name: localizedText(p.addOn.name, locale) }) : p.planKey ?? '-'}</td>
                     <td className="px-3 py-2">{formatMoney(p.amount, p.currency, locale)}</td>
                     <td className="px-3 py-2">
                       <CreditSummary credit={{ amounts: Number(p.creditAmount) > 0 ? [{ currency: p.currency, amount: p.creditAmount }] : [], months: p.creditMonths }} />
