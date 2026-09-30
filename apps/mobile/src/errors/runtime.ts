@@ -7,8 +7,8 @@ import type { BreadcrumbType } from '@platform/shared';
 
 import { ApiError, apiRequest } from '../lib/api';
 import { appBreadcrumbs } from './breadcrumbs';
-import { createMobileReporter } from './reporterCore';
-import type { ReportOptions, ReportResult } from './reporterCore';
+import { createMobileReporter, submitErrorFeedback } from './reporterCore';
+import type { FeedbackResult, ReportOptions, ReportResult } from './reporterCore';
 import type { SendResult } from './queue';
 
 /**
@@ -73,6 +73,29 @@ const reporter = createMobileReporter({
 /** Records an error; returns the short code to show the user (null when deduplicated or capped). Never throws. */
 export function reportError(error: unknown, options: ReportOptions = {}): string | null {
   return reporter.report(error, options).code;
+}
+
+/** Like reportError, with the event id the feedback note is attached to (H3). */
+export function reportErrorWithId(error: unknown, options: ReportOptions = {}): { code: string | null; eventId: string | null } {
+  const { code, eventId } = reporter.report(error, options);
+  return { code, eventId };
+}
+
+/** Sends the optional feedback note of an error screen (H3): anonymous or signed in, like the error batch. */
+export function sendErrorFeedback(eventId: string, text: string): Promise<FeedbackResult> {
+  return submitErrorFeedback(
+    eventId,
+    text,
+    async (id, body) => {
+      try {
+        await apiRequest(`/telemetry/errors/${encodeURIComponent(id)}/feedback`, { method: 'POST', body, studioId: activeStudioId ?? undefined });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    reporter.sessionId,
+  );
 }
 
 export function addBreadcrumb(type: BreadcrumbType, message: string, data?: Record<string, string>): void {
