@@ -533,7 +533,7 @@ Migration `20261019000000_platform_access` (yalnızca ekleme); ayrıntılar `doc
 | `platform_memberships` | Kullanıcının tek platform rolü: durum (INVITED/ACTIVE/PASSIVE), davet eden, etkinleşme/pasifleşme zamanı, senkron tutulan platform kiracısı üyeliğinin kimliği (`platform_studio_membership_id`, FK yok: tek yazıcı `PlatformAccessService`) | `user_id` benzersiz; user -> cascade; şablon -> restrict; (status) index |
 | `platform_access_settings` | Tek satırlık politika (`id = 'platform'`): `require_2fa_for_platform_roles` (varsayılan true) | - |
 | `user_mfa_recovery_codes` | İki adımlı doğrulama kurtarma kodlarının SHA-256 özeti, tek kullanımlık (`used_at`) | user -> cascade; (user_id) index |
-| `email_sender_domains` | Kiracının (pratikte platform kiracısının) e-posta gönderen alan adı: amaç (MARKETING/TRANSACTIONAL), MAIL FROM alt alan adı, SES DKIM anahtarları (JSON), SPF/DKIM/DMARC durumları (PENDING/VALID/INVALID/MISSING), DMARC politikası, son kontrol ve hata, ısınma ve günlük tavan. Sır içermez | (studio_id, domain) benzersiz; studio -> cascade |
+| `email_sender_domains` | Kiracının (pratikte platform kiracısının) e-posta gönderen alan adı: amaç (MARKETING/TRANSACTIONAL), MAIL FROM alt alan adı, SES DKIM anahtarları (JSON, elle veya M5'te SES API'sinden), SES kimliğinin API ile kurulma zamanı ve doğrulama durumu (M5), SPF/DKIM/DMARC durumları (PENDING/VALID/INVALID/MISSING), DMARC politikası, son kontrol ve hata, ısınma ve günlük tavan. Sır içermez | (studio_id, domain) benzersiz; studio -> cascade |
 | `users` (M1 sütunları) | `totp_secret_encrypted` (`CredentialCipher` zarfı), `mfa_enabled_at`, `totp_last_used_step` (aynı TOTP adımı iki kez kabul edilmez) | boş olabilir |
 | `invite_tokens.platform_role_template_id` (M1) | Platform daveti: kabulde bu platform rolü etkinleşir; `studio_id` platform kiracısıdır | platform şablonu -> restrict |
 
@@ -742,3 +742,14 @@ Migration `20261028000000_oauth_connect` (yalnızca ekleme: `SocialConnectionSta
 - Kiracı verisi sorguları studio_id ile filtrelenmelidir; SUPER_ADMIN kapsamlamayı atlar.
 - Migration'lar yalnızca ileri yönlüdür (forward-only): önce genişlet sonra daralt; asla yıkıcı değil.
 - Kiracı verisi üzerindeki index'ler, bir kiracı içinde verimli tarama için önce studio_id içerir (örn. (studio_id, start_time, end_time)).
+
+## Reklam tavanı otomatik duraklatma ve SES kimliği (M5)
+
+Migration `20261031000000_marketing_m5` (yalnızca ekleme: `marketing_settings` üzerinde bir varsayılanlı, `email_sender_domains` üzerinde iki boş olabilir sütun ve bir tablo). Ayrıntılar `docs/PAZARLAMA_MODULU.md` (M5 notları).
+
+| Tablo / sütun | Amaç | Kısıtlar |
+|---|---|---|
+| `marketing_settings.ad_cap_auto_pause` | Aylık reklam harcama tavanı aşılınca platform kiracısının etkin kampanyalarını duraklatma anahtarı (opsiyonel) | varsayılan `false` |
+| `email_sender_domains.ses_provisioned_at` | SES kimliğinin API ile oluşturulduğu veya alındığı zaman | boş olabilir: DKIM anahtarları elle girildi |
+| `email_sender_domains.ses_verification_status` | SES kimliğinin doğrulama durumu (`PENDING`, `SUCCESS`, `FAILED`, `TEMPORARY_FAILURE`, `NOT_STARTED`), SES'ten son okunan | `VARCHAR(20)`, boş olabilir |
+| `ad_cap_pauses` | Tavan nedeniyle duraklatılan (veya duraklatılamayan) harici reklam kampanyası, ay başına bir satır: `platform`, `campaign_external_id`, `campaign_name`, `month_key` (UTC `yyyy-MM`), `currency`, o anki `spent_amount` ve `cap_amount` (`DECIMAL(14,4)`), `status` (`PAUSED` veya `FAILED`), `attempts`, `last_error`, `paused_at`. Yalnızca platform kiracısı için yazılır; sistem kampanyayı asla sürdürmez | `(studio_id, platform, campaign_external_id, month_key)` benzersiz (ayda bir duraklatma); `(studio_id, month_key)` index; studio -> cascade |
