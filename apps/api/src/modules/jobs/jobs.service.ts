@@ -24,6 +24,7 @@ import { BillingJobsService, BillingHeartbeatResult } from '../billing/billing-j
 import { PayoutsJobsService, PayoutsHeartbeatResult } from '../payouts/payouts-jobs.service';
 import { ErrorReportingJobsService, ErrorReportingHeartbeatResult } from '../error-reporting/error-reporting-jobs.service';
 import { SocialPublishingService, type SocialHeartbeatResult } from '../social/social-publishing.service';
+import { OAuthRefreshService, type OAuthRefreshResult } from '../platform-marketing/oauth/oauth-refresh.service';
 import { BackupsJobsService } from '../backups/backups.module';
 import type { BackupsHeartbeatResult } from '../backups/backups.module';
 
@@ -54,6 +55,8 @@ export interface SchedulerRunResult {
   backups: BackupsHeartbeatResult;
   /** M4b: due organic social posts published, retried, deferred or failed. */
   socialPublishing: SocialHeartbeatResult;
+  /** M4a: OAuth tokens refreshed, retrying or needing a reconnect; old OAuth states purged. */
+  oauthRefresh: OAuthRefreshResult;
 }
 
 /**
@@ -103,6 +106,7 @@ export class JobsService {
     private readonly errorReporting: ErrorReportingJobsService,
     private readonly backups: BackupsJobsService,
     private readonly socialPublishing: SocialPublishingService,
+    private readonly oauthRefresh: OAuthRefreshService,
     @Optional() @InjectQueue(SCHEDULER_QUEUE) private readonly queue?: Queue,
   ) {}
 
@@ -125,6 +129,8 @@ export class JobsService {
     const joinReminders = await this.joinReminders.sendDueReminders(now);
     const smsProviderBalance = await this.smsProviderBalance.checkIfDue(now);
     const crmLifecycle = await this.crm.sweepLapsed(now);
+    // M4a: before the steps that call ad and social APIs, so they use a fresh token.
+    const oauthRefresh = await this.oauthRefresh.processDue(now);
     const conversionDelivery = await this.conversionDelivery.dispatchDue(now);
     const adSpendSync = await this.adSpendSync.syncAllDueIfStale(now);
     // M3d: after the spend sync, so the week's ad spend is in when the summary is written.
@@ -159,7 +165,8 @@ export class JobsService {
         `payouts ${payouts.synced} synced/${payouts.payouts} payout(s)/${payouts.failed} failed`,
         `errors ${errorReporting.purged} event(s) purged/digest ${errorReporting.digestSent ? 'sent' : 'not due'}, ` +
         `backups ${backups.scheduled.reason.toLowerCase()}/status ${backups.status}${backups.staleAlertSent ? '/alert sent' : ''}, ` +
-        `social ${socialPublishing.published} published/${socialPublishing.retrying} retrying/${socialPublishing.deferred} deferred/${socialPublishing.failed} failed`,
+        `social ${socialPublishing.published} published/${socialPublishing.retrying} retrying/${socialPublishing.deferred} deferred/${socialPublishing.failed} failed, ` +
+        `oauth ${oauthRefresh.refreshed} refreshed/${oauthRefresh.retrying} retrying/${oauthRefresh.reauthRequired} reauth required`,
     );
 
     this.lastRunAt = now;
@@ -188,6 +195,7 @@ export class JobsService {
       errorReporting,
       backups,
       socialPublishing,
+      oauthRefresh,
     };
   }
 }

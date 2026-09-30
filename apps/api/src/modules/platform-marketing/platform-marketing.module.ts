@@ -28,10 +28,17 @@ import { SocialPostsService } from './social/social-posts.service';
 import { PlatformMarketingContactsController } from './consent/marketing-consent.controller';
 import { AdminMarketingInsightsController, MarketingInsightsController } from './insights/marketing-insights.controllers';
 import { MarketingInsightsService } from './insights/marketing-insights.service';
+import { CredentialCipher } from '../../common/crypto/credential-cipher';
+import { AdminOAuthClientsController, OAuthCallbackController, OAuthConnectController } from './oauth/oauth-connect.controller';
+import { OAuthClientSettingsService } from './oauth/oauth-client-settings.service';
+import { OAuthConnectService } from './oauth/oauth-connect.service';
+import { OAuthProviderClient } from './oauth/oauth-provider.client';
+import { OAuthCallbackRateLimitGuard, OAuthStartRateLimitGuard } from './oauth/oauth-rate-limit.guard';
+import { OAuthRefreshService } from './oauth/oauth-refresh.service';
 
 const systemDns: DnsLookup = { resolveTxt, resolveCname, resolveMx };
 
-/** Platform marketing (docs/PAZARLAMA_MODULU.md): M1 the integrations hub, M2 the brand kit, AI studio and content calendar, M3a the KPI dashboard, M3b the approval queue, platform campaign actions and marketing settings (services in GrowthModule, next to the send path), M3e the double opt-in resend, M3d the weekly summary (heartbeat via JobsService) and the audit view (in AdminModule), M4b organic social posts (connections and publishing live in SocialModule). */
+/** Platform marketing (docs/PAZARLAMA_MODULU.md): M1 the integrations hub, M2 the brand kit, AI studio and content calendar, M3a the KPI dashboard, M3b the approval queue, platform campaign actions and marketing settings (services in GrowthModule, next to the send path), M3e the double opt-in resend, M3d the weekly summary (heartbeat via JobsService) and the audit view (in AdminModule), M4b organic social posts (connections and publishing live in SocialModule), M4a OAuth connect (start, public callback, super admin client settings, token refresh on the heartbeat). */
 @Module({
   imports: [AuthModule, AdsModule, AiModule, ApiKeysModule, CrmCoreModule, FunnelsModule, GrowthModule, SocialModule, WebhooksModule, LeadAdsModule],
   controllers: [
@@ -47,6 +54,9 @@ const systemDns: DnsLookup = { resolveTxt, resolveCname, resolveMx };
     MarketingInsightsController,
     AdminMarketingInsightsController,
     SocialPostsController,
+    OAuthConnectController,
+    OAuthCallbackController,
+    AdminOAuthClientsController,
   ],
   providers: [
     IntegrationHubService,
@@ -60,7 +70,14 @@ const systemDns: DnsLookup = { resolveTxt, resolveCname, resolveMx };
     MarketingDashboardService,
     MarketingInsightsService,
     SocialPostsService,
+    CredentialCipher,
+    OAuthClientSettingsService,
+    OAuthProviderClient,
+    OAuthConnectService,
+    OAuthRefreshService,
+    OAuthStartRateLimitGuard,
+    OAuthCallbackRateLimitGuard,
   ],
-  exports: [MarketingInsightsService],
+  exports: [MarketingInsightsService, OAuthRefreshService],
 })
 export class PlatformMarketingModule {}

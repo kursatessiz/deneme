@@ -15,7 +15,7 @@ interface AdConnectionRow {
   id: string;
   platform: AdConnectionPlatform;
   label: string;
-  status: 'DISCONNECTED' | 'CONNECTED' | 'ERROR';
+  status: 'DISCONNECTED' | 'CONNECTED' | 'ERROR' | 'REAUTH_REQUIRED';
   externalAccountId: string;
   isTestMode: boolean;
   credentialLast4: string | null;
@@ -214,7 +214,7 @@ function ConnectionsSection() {
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <Badge tone={c.status === 'CONNECTED' ? 'primary' : c.status === 'ERROR' ? 'danger' : 'neutral'}>
+                <Badge tone={c.status === 'CONNECTED' ? 'primary' : c.status === 'ERROR' || c.status === 'REAUTH_REQUIRED' ? 'danger' : 'neutral'}>
                   {t(`ads.connections.status.${c.status}` as never)}
                 </Badge>
                 <SecondaryButton onClick={() => test(c.id)}>{t('ads.connections.testConnection')}</SecondaryButton>

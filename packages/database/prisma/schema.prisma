@@ -2851,6 +2851,20 @@ model AdConnection {
   leadAdsPageId       String?  @unique @map("lead_ads_page_id") @db.VarChar(40)
   /// M4c: last time the page's app subscription was seen active (subscribed_apps check).
   leadAdsSubscribedAt DateTime? @map("lead_ads_subscribed_at")
+  /// M4a: PASTED (entered by hand) or OAUTH (INTEGRATION_AUTH_METHODS in @platform/shared).
+  authMethod          String    @default("PASTED") @map("auth_method") @db.VarChar(10)
+  /// M4a: OAUTH_PROVIDERS value the token came from (null for pasted credentials).
+  oauthProvider       String?   @map("oauth_provider") @db.VarChar(16)
+  /// M4a: expiry of the stored OAuth token, when the provider gave one.
+  tokenExpiresAt      DateTime? @map("token_expires_at")
+  /// M4a: refresh token, CredentialCipher-encrypted (Google keeps a copy inside the credentials the adapter reads).
+  encryptedRefreshToken String? @map("encrypted_refresh_token") @db.Text
+  /// M4a: user who completed the OAuth consent.
+  connectedByUserId   String?   @map("connected_by_user_id") @db.Uuid
+  /// M4a: transient refresh failures in a row (backoff), reset on success.
+  refreshAttempts     Int       @default(0) @map("refresh_attempts")
+  /// M4a: when the heartbeat looks at the token next (null: never).
+  nextRefreshAt       DateTime? @map("next_refresh_at")
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
@@ -2858,6 +2872,7 @@ model AdConnection {
 
   @@unique([studioId, platform, label])
   @@index([studioId, status])
+  @@index([authMethod, nextRefreshAt])
   @@map("ad_connections")
 }
 
@@ -5905,6 +5920,7 @@ enum SocialProvider {
 enum SocialConnectionStatus {
   CONNECTED
   ERROR
+  REAUTH_REQUIRED
 }
 
 enum SocialPostStatus {
@@ -5932,6 +5948,18 @@ model SocialConnection {
   status               SocialConnectionStatus @default(CONNECTED)
   lastError            String?                @map("last_error") @db.Text
   connectedByUserId    String?                @map("connected_by_user_id") @db.Uuid
+  /// M4a: PASTED or OAUTH (INTEGRATION_AUTH_METHODS in @platform/shared).
+  authMethod           String                 @default("PASTED") @map("auth_method") @db.VarChar(10)
+  /// M4a: OAUTH_PROVIDERS value the token came from (null for pasted tokens).
+  oauthProvider        String?                @map("oauth_provider") @db.VarChar(16)
+  /// M4a: expiry of the stored token, when it has one (Meta page tokens from a long-lived user token do not).
+  tokenExpiresAt       DateTime?              @map("token_expires_at")
+  /// M4a: refresh token, CredentialCipher-encrypted.
+  encryptedRefreshToken String?               @map("encrypted_refresh_token") @db.Text
+  /// M4a: transient refresh failures in a row (backoff), reset on success.
+  refreshAttempts      Int                    @default(0) @map("refresh_attempts")
+  /// M4a: when the heartbeat looks at the token next (null: never).
+  nextRefreshAt        DateTime?              @map("next_refresh_at")
   createdAt            DateTime               @default(now()) @map("created_at")
   updatedAt            DateTime               @updatedAt @map("updated_at")
 
@@ -5940,6 +5968,7 @@ model SocialConnection {
 
   @@unique([studioId, provider, externalId])
   @@index([studioId, status])
+  @@index([authMethod, nextRefreshAt])
   @@map("social_connections")
 }
 
@@ -6065,6 +6094,8 @@ model PlatformIntegrationSettings {
   leadgenVerifyTokenHash   String?   @map("leadgen_verify_token_hash") @db.VarChar(64)
   leadgenVerifyTokenLast4  String?   @map("leadgen_verify_token_last4") @db.VarChar(4)
   leadgenVerifyTokenSetAt  DateTime? @map("leadgen_verify_token_set_at")
+  /// M4a: per OAuth provider { encrypted (CredentialCipher JSON of client id, secret and extras), clientIdLast4, clientSecretLast4, scopes, configIdSet, developerTokenLast4, updatedAt, updatedByUserId }.
+  oauthClients             Json      @default("{}") @map("oauth_clients")
   updatedByUserId          String?   @map("updated_by_user_id") @db.Uuid
   updatedAt                DateTime  @updatedAt @map("updated_at")
 
@@ -6152,4 +6183,38 @@ model StudioAddOn {
   @@index([status, currentPeriodEnd])
   @@index([addOnId, status])
   @@map("studio_add_ons")
+}
+
+// ---------------------------------------------------------------------------
+// M4a: OAuth connect (docs/PAZARLAMA_MODULU.md 5.2)
+// ---------------------------------------------------------------------------
+
+/// One started OAuth authorization. The raw state travels only in the
+/// browser redirect; the row keeps its SHA-256. Single use (used_at),
+/// valid for OAUTH_STATE_TTL_MINUTES, bound to the tenant, the user, the
+/// provider and the target (new connection with its public fields, or the
+/// id of the connection to reconnect). The PKCE verifier, where the
+/// provider takes one, is CredentialCipher-encrypted because it has to be
+/// sent to the token endpoint. studio_id and target_id are plain ids.
+model OauthState {
+  id                    String    @id @default(uuid()) @db.Uuid
+  studioId              String    @map("studio_id") @db.Uuid
+  userId                String    @map("user_id") @db.Uuid
+  provider              String    @db.VarChar(16)
+  stateHash             String    @unique @map("state_hash") @db.VarChar(64)
+  encryptedCodeVerifier String?   @map("encrypted_code_verifier") @db.Text
+  /// One of OAUTH_TARGET_KINDS in @platform/shared.
+  targetKind            String    @map("target_kind") @db.VarChar(32)
+  targetId              String?   @map("target_id") @db.Uuid
+  /// Public fields of a new connection (label, account id, pixel id, ...); never a secret.
+  targetParams          Json      @default("{}") @map("target_params")
+  /// 'marketing' | 'admin': which fixed hub path the browser returns to.
+  returnTo              String    @map("return_to") @db.VarChar(16)
+  expiresAt             DateTime  @map("expires_at")
+  usedAt                DateTime? @map("used_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+
+  @@index([expiresAt])
+  @@index([studioId, createdAt])
+  @@map("oauth_states")
 }
