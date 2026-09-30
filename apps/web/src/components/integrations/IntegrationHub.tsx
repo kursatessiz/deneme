@@ -17,6 +17,8 @@ import {
   oauthProviderForAdPlatform,
   oauthProviderForSocial,
   type OAuthProvider,
+  type SesProvisionProvider,
+  type SesProvisionResultDTO,
 } from '@platform/shared';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
@@ -75,6 +77,8 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
   const [socialHost, setSocialHost] = useState<'graph.facebook.com' | 'graph.instagram.com'>('graph.facebook.com');
   const [rotateId, setRotateId] = useState<string | null>(null);
   const [rotateToken, setRotateToken] = useState('');
+  /** M5: the sender domain provisioned through SES in this session, and whether SES answered or the mock did. */
+  const [provisioned, setProvisioned] = useState<{ id: string; provider: SesProvisionProvider } | null>(null);
 
   const startOAuth = useOAuthStart(entry);
   const headers = { [INTEGRATION_ENTRY_HEADER]: entry };
@@ -300,6 +304,16 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
             domain={d}
             fmtDate={fmtDate}
             onCheck={() => run(() => call(`email-domains/${d.id}/check`, 'POST'))}
+            onProvision={
+              entry === 'admin'
+                ? () =>
+                    run(async () => {
+                      const res = await bffFetch<SesProvisionResultDTO>(`admin/marketing/sender-domains/${d.id}/provision`, { method: 'POST', headers });
+                      setProvisioned({ id: d.id, provider: res.provider });
+                    })
+                : undefined
+            }
+            provisioned={provisioned?.id === d.id ? provisioned.provider : null}
             onDelete={() => window.confirm(t('integrations.confirmDelete')) && run(() => call(`email-domains/${d.id}`, 'DELETE'))}
           />
         ))}
@@ -465,11 +479,16 @@ function EmailDomainCard({
   domain,
   fmtDate,
   onCheck,
+  onProvision,
+  provisioned,
   onDelete,
 }: {
   domain: EmailSenderDomainDTO;
   fmtDate: (iso: string | null) => string;
   onCheck: () => void;
+  /** Only on the super admin panel (M5): create or fetch the SES identity and store its DKIM keys. */
+  onProvision?: () => void;
+  provisioned: SesProvisionProvider | null;
   onDelete: () => void;
 }) {
   const t = useT();
@@ -480,6 +499,11 @@ function EmailDomainCard({
         <span className="font-medium">{domain.domain}</span>
         <Badge>{t(`integrations.email.purpose.${domain.purpose}` as MessageKey)}</Badge>
         <Badge tone={domain.verified ? 'success' : 'warning'}>{domain.verified ? t('integrations.email.verified') : t('integrations.email.notVerified')}</Badge>
+        {domain.sesVerificationStatus && (
+          <Badge tone={domain.sesVerificationStatus === 'SUCCESS' ? 'success' : 'warning'}>
+            {t('integrations.email.ses.status', { status: t(`integrations.email.ses.verification.${domain.sesVerificationStatus}` as MessageKey) })}
+          </Badge>
+        )}
         {domain.lastCheckedAt && (
           <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
             {t('integrations.email.lastChecked', { date: fmtDate(domain.lastCheckedAt) })}
@@ -499,7 +523,11 @@ function EmailDomainCard({
         ))}
       </Table>
       {domain.lastError && <InlineMessage text={domain.lastError} tone="error" />}
-      <div className="flex gap-2">
+      {provisioned && <InlineMessage text={t(provisioned === 'MOCK' ? 'integrations.email.ses.mock' : 'integrations.email.ses.done')} />}
+      <div className="flex flex-wrap gap-2">
+        {onProvision && (
+          <SecondaryButton onClick={onProvision}>{t('integrations.email.ses.provision')}</SecondaryButton>
+        )}
         <SecondaryButton onClick={onCheck}>{t('integrations.email.check')}</SecondaryButton>
         <SecondaryButton danger onClick={onDelete}>
           {t('integrations.delete')}

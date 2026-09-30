@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { resolveCname, resolveMx, resolveTxt } from 'dns/promises';
 import { AuthModule } from '../auth/auth.module';
 import { AdsModule } from '../ads/ads.module';
@@ -12,7 +13,11 @@ import { WebhooksModule } from '../webhooks/webhooks.module';
 import { LeadAdsModule } from '../lead-ads/lead-ads.module';
 import { MarketingDashboardController } from './dashboard/marketing-dashboard.controller';
 import { MarketingDashboardService } from './dashboard/marketing-dashboard.service';
-import { DNS_LOOKUP, IntegrationHubService } from './integrations/integration-hub.service';
+import { IntegrationHubService } from './integrations/integration-hub.service';
+import { DNS_LOOKUP } from './integrations/email-domain-dns';
+import { EmailDomainService } from './integrations/email-domain.service';
+import { AdminSenderDomainsController } from './integrations/admin-sender-domains.controller';
+import { AwsSesIdentityClient, MockSesIdentityClient, SES_IDENTITY_PORT, type SesIdentityPort } from './integrations/ses-identity.port';
 import { PlatformIntegrationsController } from './integrations/platform-integrations.controller';
 import type { DnsLookup } from './integrations/email-domain-dns';
 import { BrandKitService } from './studio/brand-kit.service';
@@ -50,6 +55,7 @@ const systemDns: DnsLookup = { resolveTxt, resolveCname, resolveMx };
     MarketingApprovalsController,
     PlatformCampaignsController,
     AdminMarketingSettingsController,
+    AdminSenderDomainsController,
     PlatformMarketingContactsController,
     MarketingInsightsController,
     AdminMarketingInsightsController,
@@ -61,6 +67,16 @@ const systemDns: DnsLookup = { resolveTxt, resolveCname, resolveMx };
   providers: [
     IntegrationHubService,
     { provide: DNS_LOOKUP, useValue: systemDns },
+    {
+      // Real SES only when the configuration the e-mail adapter needs is present; otherwise the deterministic mock (refused in production by the service).
+      provide: SES_IDENTITY_PORT,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService): SesIdentityPort => {
+        const region = config.get<string>('SES_REGION');
+        return region && config.get<string>('SES_FROM_ADDRESS') ? new AwsSesIdentityClient(region, config.get<string>('SES_CONFIGURATION_SET')) : new MockSesIdentityClient();
+      },
+    },
+    EmailDomainService,
     BrandKitService,
     SegmentInsightService,
     MarketingDraftsService,
@@ -78,6 +94,6 @@ const systemDns: DnsLookup = { resolveTxt, resolveCname, resolveMx };
     OAuthStartRateLimitGuard,
     OAuthCallbackRateLimitGuard,
   ],
-  exports: [MarketingInsightsService, OAuthRefreshService],
+  exports: [MarketingInsightsService, OAuthRefreshService, EmailDomainService],
 })
 export class PlatformMarketingModule {}
