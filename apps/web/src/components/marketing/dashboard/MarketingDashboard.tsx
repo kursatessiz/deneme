@@ -656,6 +656,30 @@ export function MarketingDashboard() {
                         {t('marketingDashboard.adCap.exceeded')}
                       </span>
                     )}
+                    <span className="ml-2 text-xs font-normal" style={muted}>
+                      {t(c.autoPause ? 'marketingDashboard.adCap.autoPauseOn' : 'marketingDashboard.adCap.autoPauseOff')}
+                    </span>
+                    {c.pauses.length > 0 && (
+                      <div className="mt-1 font-normal" style={{ color: 'var(--color-text-primary)' }}>
+                        <p className="text-xs font-semibold">{t('marketingDashboard.adCap.pausedTitle')}</p>
+                        <ul className="space-y-0.5">
+                          {c.pauses.map((p) => (
+                            <li key={`${p.platform}:${p.campaignExternalId}`} className="text-xs">
+                              {p.status === 'PAUSED' && p.pausedAt
+                                ? t('marketingDashboard.adCap.pausedLine', {
+                                    name: p.campaignName,
+                                    platform: p.platform,
+                                    date: new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(p.pausedAt)),
+                                    spent: fmtMoney({ amount: p.spent, currency: p.currency }),
+                                    cap: fmtMoney({ amount: p.cap, currency: p.currency }),
+                                  })
+                                : t('marketingDashboard.adCap.failedLine', { name: p.campaignName, platform: p.platform, attempts: p.attempts, error: p.lastError ?? '-' })}
+                              {p.status === 'PAUSED' && <span style={muted}> {t('marketingDashboard.adCap.reason')}</span>}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
