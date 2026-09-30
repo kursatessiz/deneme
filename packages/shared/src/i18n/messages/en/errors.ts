@@ -31,4 +31,16 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.status.OPEN': 'Open',
   'errors.status.RESOLVED': 'Resolved',
   'errors.status.IGNORED': 'Ignored',
+
+  'errors.feedback.label': 'What were you doing? (optional)',
+  'errors.feedback.placeholder': 'Briefly describe what you did before you saw the error. Do not include an e-mail address or phone number.',
+  'errors.feedback.counter': '{count} / {max}',
+  'errors.feedback.submit': 'Send',
+  'errors.feedback.sent': 'Thank you, your note was sent.',
+  'errors.feedback.failed': 'Your note could not be sent. You can try again in a moment.',
+  'errors.owner.notify.title': 'E-mail notification',
+  'errors.owner.notify.description': 'You get an e-mail when a new error group or a sudden increase in errors affects your users. You receive at most one e-mail per error per day.',
+  'errors.owner.notify.toggle': 'Receive error notifications by e-mail',
+  'errors.owner.notify.saved': 'Your notification preference was saved.',
+  'errors.owner.notify.failed': 'The preference could not be saved.',
 };

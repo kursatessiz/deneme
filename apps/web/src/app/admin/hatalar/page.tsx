@@ -56,6 +56,14 @@ export default function AdminErrorsPage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold">{t('adminErrors.title')}</h2>
+        <nav aria-label={t('adminErrors.title')} className="flex gap-4 text-sm mt-2">
+          <Link href="/admin/hatalar/uyarilar" className="hover:underline">
+            {t('adminErrors.tabs.alerts')}
+          </Link>
+          <Link href="/admin/hatalar/ayarlar" className="hover:underline">
+            {t('adminErrors.tabs.settings')}
+          </Link>
+        </nav>
         <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
           {t('adminErrors.subtitle')}
         </p>

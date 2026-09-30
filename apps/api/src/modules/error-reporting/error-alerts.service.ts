@@ -3,8 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { ERROR_ALERT_TEMPLATE_KEYS, truncate } from '@platform/shared';
 import type { ErrorAlertKind } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
-import { MessagingService } from '../messaging/engine/messaging.service';
 import type { RecordedError } from './error-store.service';
+import { ErrorAlertMailer } from './error-alert-mailer.service';
+import { ErrorAlertNotifier } from './error-alert-notifier.service';
+import { ErrorAlertRecordsService } from './error-alert-records.service';
+import { ErrorSettingsService } from './error-settings.service';
 
 const HOUR_MS = 60 * 60 * 1000;
 const DIGEST_INTERVAL_MS = 23 * HOUR_MS;
@@ -21,8 +24,11 @@ export interface DigestResult {
  * Email-only alerts to super admins through the messaging engine
  * (TRANSACTIONAL templates ERROR_*): a new group, a regression, or any
  * error on a critical flow. Each group alerts at most once per cooldown
- * window: the send is claimed with a conditional update of lastAlertAt, so
- * concurrent writers cannot both send. Ignored groups never alert.
+ * window (the platform setting, ERROR_ALERT_COOLDOWN_MINUTES until it is
+ * saved): the send is claimed with a conditional update of lastAlertAt, so
+ * concurrent writers cannot both send. Ignored groups never alert. A new
+ * group or a regression also becomes an error_alerts row (H3) that is fanned
+ * out to the alert sinks and, for a new group, the opted-in tenant owner.
  */
 @Injectable()
 export class ErrorAlertsService {
@@ -31,15 +37,14 @@ export class ErrorAlertsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
-    private readonly messaging: MessagingService,
+    private readonly mailer: ErrorAlertMailer,
+    private readonly settings: ErrorSettingsService,
+    private readonly records: ErrorAlertRecordsService,
+    private readonly notifier: ErrorAlertNotifier,
   ) {}
 
   private get enabled(): boolean {
     return this.config.get<string>('ERROR_ALERTS_ENABLED') !== '0';
-  }
-
-  private get cooldownMs(): number {
-    return (this.config.get<number>('ERROR_ALERT_COOLDOWN_MINUTES') ?? 60) * 60 * 1000;
   }
 
   /** Which alert (if any) this occurrence deserves; a regression outranks a critical flow, which outranks a new group. */
@@ -56,11 +61,12 @@ export class ErrorAlertsService {
     const kind = ErrorAlertsService.kindFor({ ...recorded, status: recorded.group.status });
     if (!kind) return null;
 
+    const cooldownMs = (await this.settings.getCooldownMinutes()) * 60 * 1000;
     const claimed = await this.prisma.errorGroup.updateMany({
       where: {
         id: recorded.group.id,
         status: { not: 'IGNORED' },
-        OR: [{ lastAlertAt: null }, { lastAlertAt: { lt: new Date(now.getTime() - this.cooldownMs) } }],
+        OR: [{ lastAlertAt: null }, { lastAlertAt: { lt: new Date(now.getTime() - cooldownMs) } }],
       },
       data: { lastAlertAt: now },
     });
@@ -90,7 +96,20 @@ export class ErrorAlertsService {
         metadata: { kind, templateKey, recipients, code: recorded.code },
       },
     });
+    await this.recordAlert(recorded, now);
     return kind;
+  }
+
+  /** The stored alert of a new group or a regression, fanned out to the sinks and the tenant owner. */
+  private async recordAlert(recorded: RecordedError, now: Date): Promise<void> {
+    const kind = recorded.regression ? 'REGRESSION' : recorded.isNew ? 'NEW_GROUP' : null;
+    if (!kind) return;
+    try {
+      const alert = await this.records.create({ groupId: recorded.group.id, kind, windowStart: now, windowEnd: now, windowCount: 1 });
+      if (alert) await this.notifier.publish(alert, { emailAdmins: false, studioIds: recorded.studioId ? [recorded.studioId] : [], now });
+    } catch (err) {
+      this.logger.warn(`Error alert record failed for group ${recorded.group.id}: ${err instanceof Error ? err.name : 'unknown'}`);
+    }
   }
 
   /**
@@ -110,8 +129,8 @@ export class ErrorAlertsService {
     const since = new Date(now.getTime() - 24 * HOUR_MS);
     const [events, newGroups, openGroups, regressions, top] = await Promise.all([
       this.prisma.errorEvent.count({ where: { occurredAt: { gte: since } } }),
-      this.prisma.errorGroup.count({ where: { firstSeenAt: { gte: since } } }),
-      this.prisma.errorGroup.count({ where: { status: 'OPEN' } }),
+      this.prisma.errorGroup.count({ where: { firstSeenAt: { gte: since }, mergedIntoId: null } }),
+      this.prisma.errorGroup.count({ where: { status: 'OPEN', mergedIntoId: null } }),
       this.prisma.auditLog.count({ where: { action: 'error_group.regressed', createdAt: { gte: since } } }),
       this.prisma.errorEvent.groupBy({
         by: ['groupId'],
@@ -161,29 +180,7 @@ export class ErrorAlertsService {
   }
 
   /** Returns how many super admins the engine accepted the email for. */
-  private async sendToSuperAdmins(templateKey: string, variables: Record<string, string | number>): Promise<number> {
-    const admins = await this.prisma.user.findMany({
-      where: { isSuperAdmin: true, isActive: true, email: { not: null } },
-      select: { id: true },
-    });
-    let accepted = 0;
-    for (const admin of admins) {
-      try {
-        const result = await this.messaging.send({
-          studioId: null,
-          recipient: { userId: admin.id },
-          channel: 'EMAIL',
-          purpose: 'TRANSACTIONAL',
-          templateKey,
-          variables,
-          type: templateKey,
-          billing: 'EXEMPT',
-        });
-        if (result.success) accepted++;
-      } catch (err) {
-        this.logger.warn(`Error alert ${templateKey} could not be sent: ${err instanceof Error ? err.name : 'unknown'}`);
-      }
-    }
-    return accepted;
+  private sendToSuperAdmins(templateKey: string, variables: Record<string, string | number>): Promise<number> {
+    return this.mailer.sendToSuperAdmins(templateKey, variables);
   }
 }

@@ -21,8 +21,8 @@ export class StorageErrorSink implements ErrorSink {
   ) {}
 
   async write(event: ErrorEventRecord): Promise<void> {
-    const symbolicatedStack = await this.symbolication.symbolicate(event);
-    const recorded = await this.store.record(event, symbolicatedStack);
+    const symbolicated = await this.symbolication.symbolicate(event);
+    const recorded = await this.store.record(event, symbolicated?.stack ?? null, symbolicated?.context ?? []);
     if (!recorded) return;
     try {
       await this.alerts.onRecorded(recorded);

@@ -79,4 +79,9 @@ export const enMsgTpl = {
   'msgTpl.email.reasonCommercial': 'You are receiving this email because you agreed to hear from {studioName}.',
   'msgTpl.email.reasonTransactional': 'This email is about your account with {studioName}.',
   'msgTpl.email.unsubscribe': 'Unsubscribe',
+  'msgTpl.ERROR_SPIKE.subject': 'Error spike: {title}',
+  'msgTpl.ERROR_SPIKE.text': 'Hi {firstName}, an error group is spiking. {windowCount} events in the last 15 minutes (baseline mean {baselineMean} per 15 minutes, threshold {threshold}). Source: {source}, release: {release}, error code: {code}. Summary: {title}',
+  'msgTpl.ERROR_OWNER_NOTICE.subject': 'An error was seen in your business',
+  'msgTpl.ERROR_OWNER_NOTICE.text': 'Hi {firstName}, an error affecting users of {studioName} was seen and has been passed to our team. If you contact support, share this error code: {code}. You can see the details on the Error reports page in Settings.',
+  'msgTpl.ERROR_OWNER_NOTICE.cta': 'Open error reports',
 } as const satisfies Record<keyof typeof trMsgTpl, string>;
