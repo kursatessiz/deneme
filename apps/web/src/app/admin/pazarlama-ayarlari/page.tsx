@@ -28,6 +28,8 @@ interface Form {
   bounceAutoPausePct: string;
   complaintAutoPausePct: string;
   adSpend: Array<{ currency: string; amount: string }>;
+  /** M5: pause the active campaigns of the platforms that spent when a cap is exceeded. */
+  adCapAutoPause: boolean;
   weeklySummaryEnabled: boolean;
   weeklySummaryRecipients: string[];
   doubleOptInRegions: string[];
@@ -51,6 +53,7 @@ function formOf(view: MarketingSettingsViewDTO): Form {
     bounceAutoPausePct: String(s.bounceAutoPausePct),
     complaintAutoPausePct: String(s.complaintAutoPausePct),
     adSpend: Object.entries(s.monthlyAdSpendCaps).map(([currency, amount]) => ({ currency, amount })),
+    adCapAutoPause: s.adCapAutoPause,
     weeklySummaryEnabled: s.weeklySummaryEnabled,
     weeklySummaryRecipients: s.weeklySummaryRecipients,
     doubleOptInRegions: s.doubleOptInRegions,
@@ -94,6 +97,7 @@ function toInput(form: Form): UpdateMarketingSettingsInput | null {
     bounceAutoPausePct: pct[0]!,
     complaintAutoPausePct: pct[1]!,
     monthlyAdSpendCaps: caps,
+    adCapAutoPause: form.adCapAutoPause,
     weeklySummaryEnabled: form.weeklySummaryEnabled,
     weeklySummaryRecipients: form.weeklySummaryRecipients,
     doubleOptInRegions: form.doubleOptInRegions,
@@ -299,6 +303,12 @@ export default function AdminMarketingSettingsPage() {
         ))}
         {adSpendInvalid && <InlineMessage tone="error" text={t('adminMarketingSettings.adSpend.invalid')} />}
         <SecondaryButton onClick={() => set('adSpend', [...form.adSpend, { currency: '', amount: '' }])}>{t('adminMarketingSettings.adSpend.add')}</SecondaryButton>
+        <div className="space-y-1">
+          <CheckField label={t('adminMarketingSettings.field.adCapAutoPause')} checked={form.adCapAutoPause} onChange={(v) => set('adCapAutoPause', v)} />
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            {t('adminMarketingSettings.adSpend.autoPauseHint')}
+          </p>
+        </div>
       </Section>
 
       <Section title={t('adminMarketingSettings.autoPause.title')} description={t('adminMarketingSettings.autoPause.description')}>

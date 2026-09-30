@@ -172,6 +172,13 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplateDefinition[] = [
     whatsappName: 'marketing_approval_requested',
     emailButton: { labelKey: 'msgTpl.MARKETING_APPROVAL.cta', urlVariable: 'link' },
   },
+  /** M5: short push to the approvers when a request is created (the mobile approval screen opens from it). */
+  {
+    key: 'MARKETING_APPROVAL_REQUESTED_PUSH',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'requesterName', 'targetName', 'audience'],
+    whatsappName: 'marketing_approval_requested_push',
+  },
   {
     key: 'MARKETING_APPROVAL_APPROVED',
     purpose: 'TRANSACTIONAL',
@@ -208,7 +215,7 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplateDefinition[] = [
   {
     key: 'MARKETING_AD_CAP_EXCEEDED',
     purpose: 'TRANSACTIONAL',
-    variables: ['firstName', 'currency', 'spent', 'cap', 'month', 'link'],
+    variables: ['firstName', 'currency', 'spent', 'cap', 'month', 'action', 'link'],
     whatsappName: 'marketing_ad_cap_exceeded',
     emailButton: { labelKey: 'msgTpl.MARKETING_GUARD.cta', urlVariable: 'link' },
   },

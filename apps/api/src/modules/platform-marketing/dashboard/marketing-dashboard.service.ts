@@ -260,7 +260,7 @@ export class MarketingDashboardService {
       this.prisma.approvalRequest.count({ where: { studioId, status: 'PENDING', expiresAt: { gt: now } } }),
       this.guards.capsHealth(studioId, now),
       this.guards.autoPauseState(studioId),
-      this.guards.adSpendCaps(studioId, now),
+      this.guards.adSpendCapsHealth(studioId, now),
     ]);
     const [errorCount, connections, failedDeliveries] = await Promise.all([
       this.prisma.adConnection.count({ where: { studioId, lastError: { not: null } } }),

@@ -38,6 +38,7 @@ export const enMAccount: Record<keyof typeof trMAccount, string> = {
   'mAccount.menu.automations': 'Automated messages',
   'mAccount.menu.integrations': 'Integrations',
   'mAccount.menu.addOns': 'Apps',
+  'mAccount.menu.marketingApprovals': 'Marketing approvals',
   'mAccount.menu.partners': 'Partner platforms',
   'mAccount.menu.videoContent': 'Video content',
   'mAccount.menu.chat': 'Message the studio',

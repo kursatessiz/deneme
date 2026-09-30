@@ -33,6 +33,8 @@ export const trAdminMarketingSettings = {
   'adminMarketingSettings.adSpend.remove': 'Kaldır',
   'adminMarketingSettings.adSpend.empty': 'Tanımlı tavan yok.',
   'adminMarketingSettings.adSpend.invalid': 'Para birimi üç büyük harf, tutar en fazla iki ondalıklı pozitif sayı olmalı.',
+  'adminMarketingSettings.field.adCapAutoPause': 'Tavan aşılınca reklamları otomatik duraklat',
+  'adminMarketingSettings.adSpend.autoPauseHint': 'Kapalıyken tavan aşımı yalnızca panoda kırmızı uyarı ve süper admin bildirimi üretir. Açıkken, tavanı aşan para biriminde harcama yapan reklam platformlarındaki (Meta ve Google Ads) etkin kampanyalar bir sonraki nabızda duraklatılır. Duraklatma harcamayı yalnızca azaltır; sistem kampanyayı asla kendiliğinden sürdürmez, bunu reklam platformunda siz yaparsınız. Her kampanya ayda bir kez duraklatılır ve denetim kaydına yazılır.',
 
   'adminMarketingSettings.autoPause.title': 'Otomatik duraklatma eşikleri',
   'adminMarketingSettings.autoPause.description': 'Son 24 saatte bu oranlar aşılırsa e-posta kampanyaları otomatik duraklatılır ve süper adminlere uyarı gider (neden başına 24 saatte en fazla bir kez). Kampanyaları sürdürmek elle yapılır.',

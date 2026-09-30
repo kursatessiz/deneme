@@ -111,4 +111,15 @@ describe('buildHesabimMenu', () => {
     const staff = buildHesabimMenu({ permissions: ['members.view'], isMember: false, isTrainer: false });
     expect(staff.map((m) => m.key)).not.toContain('add-ons');
   });
+
+  it('shows the marketing approvals screen only with the platform permission platform.marketing.approve', () => {
+    const approver = buildHesabimMenu({ permissions: [], isMember: false, isTrainer: false, platformPermissions: ['platform.marketing.view', 'platform.marketing.approve'] });
+    expect(approver.map((m) => m.key)).toContain('marketing-approvals');
+    expect(approver.find((m) => m.key === 'marketing-approvals')?.route).toBe('/(app)/hesabim/pazarlama-onaylari');
+    const viewer = buildHesabimMenu({ permissions: [], isMember: false, isTrainer: false, platformPermissions: ['platform.marketing.view'] });
+    expect(viewer.map((m) => m.key)).not.toContain('marketing-approvals');
+    // A studio permission never stands in for the platform one.
+    const owner = buildHesabimMenu({ permissions: ['billing.manage', 'campaigns.manage'], isMember: false, isTrainer: false });
+    expect(owner.map((m) => m.key)).not.toContain('marketing-approvals');
+  });
 });

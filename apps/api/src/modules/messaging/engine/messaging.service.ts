@@ -427,7 +427,7 @@ export class MessagingService {
         const devices = await this.push.sendToUser(userId, {
           title: msg.subject ?? studio?.name ?? '',
           body: msg.text,
-          data: input.content?.data,
+          data: input.pushData ?? input.content?.data,
         });
         return {
           provider: 'EXPO',

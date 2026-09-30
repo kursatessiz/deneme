@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { useT } from '../../../src/i18n';
+import { usePlatformAccess } from '../../../src/lib/platformContext';
 import { buildHesabimMenu } from '../../../src/lib/staffMenu';
 import { useSession } from '../../../src/lib/session';
 import { radii, spacing, typography, useThemeColors } from '../../../src/theme';
@@ -36,10 +37,12 @@ export default function HesabimScreen() {
   const { user, memberships, activeMembership, signOut } = useSession();
   const isMember = Boolean(activeMembership?.memberProfileId);
   const isTrainer = Boolean(activeMembership?.trainerProfileId);
+  const platform = usePlatformAccess(user?.isSuperAdmin ?? false);
   const menu = buildHesabimMenu({
     permissions: activeMembership?.permissions ?? [],
     isMember,
     isTrainer,
+    platformPermissions: platform.permissions,
   });
   const [isSigningOut, setIsSigningOut] = useState(false);
 

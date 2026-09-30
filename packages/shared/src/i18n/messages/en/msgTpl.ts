@@ -64,6 +64,8 @@ export const enMsgTpl = {
   'msgTpl.BACKUP_STALE.cta': 'Open backups',
   'msgTpl.MARKETING_APPROVAL_REQUESTED.subject': 'Marketing send waiting for approval: {targetName}',
   'msgTpl.MARKETING_APPROVAL_REQUESTED.text': 'Hi {firstName}, {requesterName} asked for approval to send "{targetName}". Audience: {audience} people. Why it needs approval: {reasons}. Review the request on the Approvals screen of the marketing panel to approve or reject it.',
+  'msgTpl.MARKETING_APPROVAL_REQUESTED_PUSH.subject': 'Approval needed: {targetName}',
+  'msgTpl.MARKETING_APPROVAL_REQUESTED_PUSH.text': '{requesterName} asked for approval of this send. Audience: {audience} people. Tap to review.',
   'msgTpl.MARKETING_APPROVAL_APPROVED.subject': 'Your send was approved: {targetName}',
   'msgTpl.MARKETING_APPROVAL_APPROVED.text': 'Hi {firstName}, {deciderName} approved "{targetName}"; it will go out at the planned time. Note: {note}',
   'msgTpl.MARKETING_APPROVAL_REJECTED.subject': 'Your send was rejected: {targetName}',
@@ -74,7 +76,7 @@ export const enMsgTpl = {
   'msgTpl.MARKETING_EMAIL_FUSE_TRIPPED.subject': 'E-mail campaigns paused automatically: {reason}',
   'msgTpl.MARKETING_EMAIL_FUSE_TRIPPED.text': 'Hi {firstName}, the {reason} rate over the last 24 hours reached {rate} (threshold: {threshold}). To protect the sender reputation, {campaigns} e-mail campaign(s) were paused. Once the cause is fixed you can resume them from the marketing panel.',
   'msgTpl.MARKETING_AD_CAP_EXCEEDED.subject': 'Monthly ad spend cap exceeded: {currency}',
-  'msgTpl.MARKETING_AD_CAP_EXCEEDED.text': 'Hi {firstName}, ad spend in {currency} for {month} reached {spent} and passed the monthly cap of {cap}. Ads are not stopped automatically; review the campaigns on the ad platform.',
+  'msgTpl.MARKETING_AD_CAP_EXCEEDED.text': 'Hi {firstName}, ad spend in {currency} for {month} reached {spent} and passed the monthly cap of {cap}. {action}',
   'msgTpl.MARKETING_GUARD.cta': 'Open the marketing dashboard',
 
   'msgTpl.CONSENT_CONFIRMATION.subject': '{studioName}: please confirm your subscription',
