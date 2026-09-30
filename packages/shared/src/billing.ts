@@ -4,6 +4,7 @@ import { CurrencyCodeSchema } from './growth/regions';
 import type { PermissionKey } from './permissions';
 import type { MessageKey } from './i18n/messages';
 import { PLATFORM_ACCESS_TRANSLATED_ERRORS } from './platform-permissions';
+import { ADD_ON_TRANSLATED_ERRORS } from './add-on-errors';
 import { MARKETING_APPROVAL_TRANSLATED_ERRORS } from './marketing/approvals';
 import { SOCIAL_TRANSLATED_ERRORS } from './marketing/social';
 import { OAUTH_TRANSLATED_ERRORS } from './marketing/oauth';
@@ -467,7 +468,10 @@ export interface StudioBillingDTO {
 
 export interface PlatformPaymentDTO {
   id: string;
-  planKey: string;
+  /** Null on an add-on payment (G5c-2); those carry `addOn` instead. */
+  planKey: string | null;
+  /** The add-on this payment is for (G5c-2), null on a plan payment. */
+  addOn: { key: string; name: Record<string, string> } | null;
   listAmount: string;
   creditAmount: string;
   creditMonths: number;
@@ -544,6 +548,7 @@ export const TRANSLATED_API_ERROR_CODES: Readonly<Record<string, MessageKey>> = 
   [PAYOUT_ERROR_CODES.unknownProvider]: 'payouts.error.PAYOUT_UNKNOWN_PROVIDER',
   [BILLING_CURRENCY_LOCKED_ERROR_CODE]: 'billing.error.BILLING_CURRENCY_LOCKED',
   [PLAN_PRICE_UNAVAILABLE_ERROR_CODE]: 'billing.error.PLAN_PRICE_UNAVAILABLE',
+  ...ADD_ON_TRANSLATED_ERRORS,
   ...PLATFORM_ACCESS_TRANSLATED_ERRORS,
   ...MARKETING_APPROVAL_TRANSLATED_ERRORS,
   ...SOCIAL_TRANSLATED_ERRORS,

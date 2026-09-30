@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { PermissionKey } from '@platform/shared';
-import { AlertTriangle, Award, ChevronRight, Gift, Globe, KeyRound, Layers, Megaphone, MessageSquareText, Palette, ShieldCheck, Store, UsersRound } from 'lucide-react';
+import { AlertTriangle, Award, ChevronRight, Gift, Globe, KeyRound, Layers, Megaphone, MessageSquareText, Palette, Puzzle, ShieldCheck, Store, UsersRound } from 'lucide-react';
 import { useT } from '@/components/i18n/I18nProvider';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { hasAnyPermission } from '@/lib/nav';
@@ -105,6 +105,14 @@ const CARDS: SettingsCard[] = [
     descriptionKey: 'settings.hub.ads.description',
     icon: Megaphone,
     permissions: ['ads.manage'],
+  },
+  {
+    key: 'uygulamalar',
+    href: '/ayarlar/uygulamalar',
+    titleKey: 'settings.hub.addOns.title',
+    descriptionKey: 'settings.hub.addOns.description',
+    icon: Puzzle,
+    permissions: ['billing.manage'],
   },
   {
     key: 'hatalar',

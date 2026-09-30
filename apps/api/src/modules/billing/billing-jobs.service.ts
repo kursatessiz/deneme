@@ -3,6 +3,9 @@ import { BILLING_TEMPLATE_KEYS, TRIAL_REMINDER_DAYS, dueTrialReminder, planPrice
 import { PrismaService } from '../prisma/prisma.service';
 import { MessagingService } from '../messaging/engine/messaging.service';
 import { PlatformEventsService } from '../webhooks/platform-events.service';
+import { notifyStudioOwner } from './owner-notifier';
+import { AddOnJobsService } from './add-ons/add-ons-jobs.service';
+import type { AddOnHeartbeatResult } from './add-ons/add-ons-jobs.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const BATCH = 200;
@@ -10,6 +13,8 @@ const BATCH = 200;
 export interface BillingHeartbeatResult {
   restricted: number;
   reminders: number;
+  /** G5c-2: add-on trial notices, expiries and renewal charges. */
+  addOns: AddOnHeartbeatResult;
 }
 
 /**
@@ -24,6 +29,10 @@ export interface BillingHeartbeatResult {
  * spends the tenant's SMS credits. TRIAL_ENDING carries the trial plan's
  * monthly price in the studio's billing currency as {planPrice} (G5c-1b)
  * when the plan is offered in that currency.
+ *
+ * G5c-2: the same heartbeat also runs the add-on marketplace jobs
+ * (AddOnJobsService): trial notices, expiry of ended trials and cancelled
+ * periods, and renewal charges with dunning.
  */
 @Injectable()
 export class BillingJobsService {
@@ -32,13 +41,15 @@ export class BillingJobsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly messaging: MessagingService,
+    private readonly addOnJobs: AddOnJobsService,
     @Optional() private readonly platformEvents?: PlatformEventsService,
   ) {}
 
   async run(now = new Date()): Promise<BillingHeartbeatResult> {
     const restricted = await this.restrictExpired(now);
     const reminders = await this.sendReminders(now);
-    return { restricted, reminders };
+    const addOns = await this.addOnJobs.run(now);
+    return { restricted, reminders, addOns };
   }
 
   async restrictExpired(now: Date): Promise<number> {
@@ -129,30 +140,8 @@ export class BillingJobsService {
     await this.platformEvents.emit('studio.trial_expiring', { studioId, name: studio?.name ?? null, trialEndsAt: trialEndsAt.toISOString(), daysLeft });
   }
 
-  /** Best effort: the first owner membership that is ACTIVE; nothing when the owner has not joined yet. */
-  private async notifyOwner(studioId: string, templateKey: string, idempotencyKey: string, variables: Record<string, string | number>): Promise<boolean> {
-    try {
-      const owner = await this.prisma.membership.findFirst({
-        where: { studioId, status: 'ACTIVE', roleTemplate: { isOwner: true } },
-        orderBy: { createdAt: 'asc' },
-        select: { id: true, studio: { select: { name: true } } },
-      });
-      if (!owner) return false;
-      const result = await this.messaging.send({
-        studioId,
-        recipient: { membershipId: owner.id },
-        purpose: 'TRANSACTIONAL',
-        templateKey,
-        variables: { studioName: owner.studio.name, ...variables },
-        idempotencyKey,
-        billing: 'EXEMPT',
-        type: templateKey,
-      });
-      return result.success && !result.duplicate;
-    } catch (err) {
-      this.logger.warn(`Billing notice ${templateKey} for ${studioId} failed: ${err instanceof Error ? err.message : String(err)}`);
-      return false;
-    }
+  private notifyOwner(studioId: string, templateKey: string, idempotencyKey: string, variables: Record<string, string | number>): Promise<boolean> {
+    return notifyStudioOwner({ prisma: this.prisma, messaging: this.messaging, logger: this.logger }, studioId, templateKey, idempotencyKey, variables);
   }
 }
 

@@ -45,6 +45,7 @@ kiracının kendi izin sistemi üzerinden, `StudioTenantGuard` ile olur.
 | Kiracılar | `GET /admin/tenants`, `GET /admin/tenants/:id`, `POST /admin/tenants`, `POST /admin/tenants/:id/suspend`, `POST /admin/tenants/:id/reactivate`, `POST /admin/tenants/:id/plan` | Oluşturma: stüdyo + varsayılan rol şablonları (`DEFAULT_ROLE_TEMPLATES`) + deneme aboneliği + sahip daveti (`InvitesService.createOwnerInvite`, mevcut davet/onboarding akışını yeniden kullanır) |
 | Planlar | `GET /admin/plans`, `POST /admin/plans`, `POST /admin/plans/:key/activate`, `POST /admin/plans/:key/deactivate` | `limits`: `maxBranches`, `maxActiveMembers`, `maxStaff`, `maxSmsPerMonth` (JSON, `packages/shared` `PlanLimitsSchema`) |
 | İşletme türü şablonları | `GET /admin/business-type-templates`, `POST /admin/business-type-templates`, `POST /admin/business-type-templates/:key/apply-to-tenant/:studioId` | `defaults.serviceTypeNames` / `defaults.resourceTypeNames` mevcut seed formatıyla aynı; "uygula" eksik olanları oluşturur, var olanı asla değiştirmez |
+| Uygulama pazarı (G5c-2) | `GET /admin/add-ons`, `POST /admin/add-ons`, `PATCH /admin/add-ons/:id`, `PUT /admin/add-ons/:id/prices`, `GET /admin/add-ons/revenue` | Ek modül kataloğu (dil başına ad ve açıklama, video, ekran görüntüleri, açtığı bayrak, deneme günü, yayın, para birimi başına fiyat); fiyatsız yayınlanamaz; her yazma denetim kaydıyla (`add_on.create/update/prices`); gelir para birimi başına. `docs/UYGULAMA_PAZARI.md` |
 | Feature flag'ler | `GET /admin/feature-flags`, `GET /admin/feature-flags/catalog`, `POST /admin/feature-flags` | Çözümleme: TENANT > BUSINESS_TYPE > GLOBAL (`FeatureFlagsService.isFeatureEnabled`) |
 | SMS paketleri | `GET /admin/sms-packages`, `POST /admin/sms-packages`, `POST /admin/sms-packages/:key/activate`, `POST /admin/sms-packages/:key/deactivate` | |
 | Manuel SMS kredi yükleme | `POST /sms-wallet/top-up` (mevcut uç nokta, artık `SuperAdminOnly()`) | Her yükleme `AuditLog`'a yazılır |
@@ -83,7 +84,8 @@ uygulamak sonraki bir iş kalemidir.
 ## Feature flag çözümleyici
 
 `FeatureFlagsService.isFeatureEnabled(studioId, key)` tek doğruluk
-kaynağıdır; başka hiçbir modül kendi flag mantığını yazmamalıdır.
+kaynağıdır (G5c-2: açık TENANT satırından sonra, işletmenin erişimi olan
+bir ek modül satırı bayrağı açar; bkz. `docs/UYGULAMA_PAZARI.md` bölüm 4); başka hiçbir modül kendi flag mantığını yazmamalıdır.
 `FEATURE_FLAGS` kataloğu (`packages/shared/src/admin.ts`) bilinen
 anahtarları belgeler; `FeatureFlag.key` serbest metin olduğundan yeni bir
 anahtar eklemek şema değişikliği gerektirmez.
@@ -131,7 +133,7 @@ kullanıcısı `isSuperAdmin` olduğunda görünür. Kiracı temasını kullanma
 (CLAUDE.md kural 10: süper admin bir kiracı değildir); `packages/shared/
 src/design`'daki nötr semantik renkleri ve ölçüleri doğrudan okur
 (`AdminTheme` bileşeni), gradyan içermez. Sayfalar: `/admin/tenants`,
-`/admin/plans`, `/admin/business-types`, `/admin/feature-flags`,
+`/admin/plans`, `/admin/uygulama-pazari` (G5c-2), `/admin/business-types`, `/admin/feature-flags`,
 `/admin/sms-packages`, `/admin/content`, `/admin/benchmark`,
 `/admin/health`, `/admin/yedekler`, `/admin/denetim` (M3d). Tarayıcı yalnızca `/api/bff/*` üzerinden konuşur
 (`docs/WEB_PANEL.md`), API'ye doğrudan erişmez.
