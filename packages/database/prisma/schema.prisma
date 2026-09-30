@@ -749,6 +749,7 @@ model Studio {
   eventTicketTypes      EventTicketType[]
   eventRegistrations    EventRegistration[]
   billingPayments       PlatformBillingPayment[]
+  studioAddOns          StudioAddOn[]
   platformCredits       PlatformCreditLedger[]
   referralsMade         StudioReferral[]     @relation("StudioReferralReferrer")
   referredBy            StudioReferral?      @relation("StudioReferralReferred")
@@ -4941,7 +4942,10 @@ model Funnel {
 model PlatformBillingPayment {
   id                String           @id @default(uuid()) @db.Uuid
   studioId          String           @map("studio_id") @db.Uuid
-  planId            String           @map("plan_id") @db.Uuid
+  /// Null on an add-on payment (G5c-2, then studioAddOnId is set).
+  planId            String?          @map("plan_id") @db.Uuid
+  /// The add-on subscription this payment is for (G5c-2), null on a plan payment.
+  studioAddOnId     String?          @map("studio_add_on_id") @db.Uuid
   /// Plan price for the period before credits.
   listAmount        Decimal          @map("list_amount") @db.Decimal(10, 2)
   /// Referral credit applied to this charge (same currency).
@@ -4963,11 +4967,13 @@ model PlatformBillingPayment {
   updatedAt         DateTime         @updatedAt @map("updated_at")
 
   studio        Studio                 @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  plan          Plan                   @relation(fields: [planId], references: [id])
+  plan          Plan?                  @relation(fields: [planId], references: [id], onDelete: Restrict)
+  studioAddOn   StudioAddOn?           @relation(fields: [studioAddOnId], references: [id], onDelete: SetNull)
   creditEntries PlatformCreditLedger[]
 
   @@unique([provider, providerReference])
   @@index([studioId, createdAt])
+  @@index([studioAddOnId])
   @@map("platform_billing_payments")
 }
 
@@ -6109,6 +6115,89 @@ model PlatformIntegrationSettings {
   updatedAt                DateTime  @updatedAt @map("updated_at")
 
   @@map("platform_integration_settings")
+}
+
+/// Add-on marketplace catalogue (G5c-2, docs/UYGULAMA_PAZARI.md): platform
+/// data set by the super admin, no code per add-on. Name and description are
+/// per-locale JSON objects ({ "tr": "...", "en": "..." }). An add-on unlocks
+/// one feature flag key for the tenants that try or buy it.
+model AddOn {
+  id             String   @id @default(uuid()) @db.Uuid
+  key            String   @unique @db.VarChar(60)
+  name           Json
+  description    Json
+  promoVideoUrl  String?  @map("promo_video_url") @db.VarChar(500)
+  /// string[] of https URLs.
+  screenshotUrls Json     @default("[]") @map("screenshot_urls")
+  featureFlagKey String   @map("feature_flag_key") @db.VarChar(80)
+  trialDays      Int      @default(14) @map("trial_days")
+  isPublished    Boolean  @default(false) @map("is_published")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  prices       AddOnPrice[]
+  studioAddOns StudioAddOn[]
+
+  @@index([isPublished, sortOrder])
+  @@map("add_ons")
+}
+
+/// One price of an add-on per platform billing currency
+/// (PLATFORM_BILLING_CURRENCIES in @platform/shared). No row for a currency
+/// means the add-on is shown but not purchasable in it.
+model AddOnPrice {
+  id           String   @id @default(uuid()) @db.Uuid
+  addOnId      String   @map("add_on_id") @db.Uuid
+  currency     String   @db.VarChar(3)
+  priceMonthly Decimal  @map("price_monthly") @db.Decimal(10, 2)
+  priceYearly  Decimal  @map("price_yearly") @db.Decimal(10, 2)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  addOn AddOn @relation(fields: [addOnId], references: [id], onDelete: Cascade)
+
+  @@unique([addOnId, currency])
+  @@map("add_on_prices")
+}
+
+/// A tenant's trial or subscription of an add-on (one row per tenant and
+/// add-on, so the free trial can be used only once). status is
+/// TRIALING | ACTIVE | CANCELLED | EXPIRED (ADD_ON_STATUSES in @platform/shared,
+/// CHECK constraint in the migration). A row unlocks its feature flag while
+/// TRIALING before trialEndsAt, ACTIVE, or CANCELLED before currentPeriodEnd.
+model StudioAddOn {
+  id                   String    @id @default(uuid()) @db.Uuid
+  studioId             String    @map("studio_id") @db.Uuid
+  addOnId              String    @map("add_on_id") @db.Uuid
+  status               String    @default("TRIALING") @db.VarChar(12)
+  /// MONTH | YEAR once bought, null while trialing.
+  billingInterval      String?   @map("billing_interval") @db.VarChar(5)
+  trialStartedAt       DateTime? @map("trial_started_at")
+  trialEndsAt          DateTime? @map("trial_ends_at")
+  activatedAt          DateTime? @map("activated_at")
+  cancelledAt          DateTime? @map("cancelled_at")
+  /// End of the paid period (or of the trial when cancelled while trialing).
+  currentPeriodEnd     DateTime? @map("current_period_end")
+  /// { currency, priceMonthly, priceYearly, interval, amount }: what the tenant was quoted; renewals charge this, so a later catalogue price change never surprises a running subscription.
+  priceSnapshot        Json?     @map("price_snapshot")
+  /// Set once when the "trial ends in 3 days" notice was sent.
+  trialReminderSentAt  DateTime? @map("trial_reminder_sent_at")
+  /// Consecutive failed renewal charges; reset by a successful one.
+  renewalFailures      Int       @default(0) @map("renewal_failures")
+  /// Dunning: do not retry the renewal before this moment.
+  nextRenewalAttemptAt DateTime? @map("next_renewal_attempt_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  studio   Studio                   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  addOn    AddOn                    @relation(fields: [addOnId], references: [id])
+  payments PlatformBillingPayment[]
+
+  @@unique([studioId, addOnId])
+  @@index([status, currentPeriodEnd])
+  @@index([addOnId, status])
+  @@map("studio_add_ons")
 }
 
 // ---------------------------------------------------------------------------

@@ -25,6 +25,7 @@ export default function HesabimLayout() {
       <Stack.Screen name="riskli-uyeler" options={{ title: t('mAccount.menu.riskyMembers') }} />
       <Stack.Screen name="arkadasini-getir" options={{ title: t('mAccount.menu.referFriend') }} />
       <Stack.Screen name="entegrasyonlar" options={{ title: t('mAccount.menu.integrations') }} />
+      <Stack.Screen name="uygulamalar" options={{ title: t('mAddOns.title') }} />
       <Stack.Screen name="partner-platformlar" options={{ title: t('mAccount.menu.partners') }} />
       <Stack.Screen name="saglik" options={{ title: t('mAccount.menu.health') }} />
       <Stack.Screen name="saglik-ozet" options={{ title: t('mScreens.healthSummary') }} />

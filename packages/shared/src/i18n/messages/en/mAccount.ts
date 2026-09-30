@@ -37,6 +37,7 @@ export const enMAccount: Record<keyof typeof trMAccount, string> = {
   'mAccount.menu.businessTheme': 'Business theme',
   'mAccount.menu.automations': 'Automated messages',
   'mAccount.menu.integrations': 'Integrations',
+  'mAccount.menu.addOns': 'Apps',
   'mAccount.menu.partners': 'Partner platforms',
   'mAccount.menu.videoContent': 'Video content',
   'mAccount.menu.chat': 'Message the studio',
