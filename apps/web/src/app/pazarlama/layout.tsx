@@ -35,7 +35,7 @@ export default async function MarketingLayout({ children }: { children: React.Re
       <div className="max-w-6xl mx-auto px-4 py-8">
         <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="uppercase ui-strong ui-caption">
+            <p className="ui-eyebrow ui-strong ui-caption">
               {t('marketing.layout.kicker')}
             </p>
             <h1 className="mt-1 ui-title">{t('marketing.layout.title')}</h1>

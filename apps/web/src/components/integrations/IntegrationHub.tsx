@@ -136,7 +136,7 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
                     <ConnectionAuthBadges auth={a} fmtDate={fmtDate} />
                   </span>
                 </Td>
-                <Td className="font-mono ui-small">{a.credentialPreview}</Td>
+                <Td className="ui-mono ui-small">{a.credentialPreview}</Td>
                 <Td className="ui-small">{fmtDate(a.lastSyncAt)}</Td>
                 <Td className="ui-text-error ui-small">
                   {a.lastError ?? ''}
@@ -186,7 +186,7 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
                     <ConnectionAuthBadges auth={c} fmtDate={fmtDate} />
                   </span>
                 </Td>
-                <Td className="font-mono ui-small">{c.credentialPreview}</Td>
+                <Td className="ui-mono ui-small">{c.credentialPreview}</Td>
                 <Td>
                   <Badge tone={c.status === 'CONNECTED' ? 'success' : 'danger'}>{t(`integrations.social.status.${c.status}`)}</Badge>
                 </Td>
@@ -349,7 +349,7 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
         {newKeyPlaintext && (
           <div className="space-y-1">
             <p>{t('integrations.apiKeys.createdOnce')}</p>
-            <code className="ui-panel block p-2 break-all ui-small font-mono">
+            <code className="ui-panel block p-2 break-all ui-small ui-mono">
               {newKeyPlaintext}
             </code>
           </div>
@@ -363,8 +363,8 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
             {data.apiKeys.map((k) => (
               <Tr key={k.id}>
                 <Td>{k.name}</Td>
-                <Td className="font-mono ui-small">{k.prefix}</Td>
-                <Td className="font-mono ui-small">{k.scopes.join(', ')}</Td>
+                <Td className="ui-mono ui-small">{k.prefix}</Td>
+                <Td className="ui-mono ui-small">{k.scopes.join(', ')}</Td>
                 <Td className="ui-small">{fmtDate(k.lastUsedAt)}</Td>
                 <Td className="text-right">
                   {k.revokedAt ? (
@@ -447,7 +447,7 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
               <Badge tone={m.configured ? 'success' : 'warning'}>
                 {m.configured ? t('integrations.messaging.configured') : t('integrations.messaging.notConfigured')}
               </Badge>
-              {m.provider && <span className="font-mono ui-caption">{m.provider}</span>}
+              {m.provider && <span className="ui-mono ui-caption">{m.provider}</span>}
             </li>
           ))}
         </ul>
@@ -515,8 +515,8 @@ function EmailDomainCard({
         {domain.expectedRecords.map((r) => (
           <Tr key={`${r.kind}-${r.name}`}>
             <Td className="ui-small">{r.type}</Td>
-            <Td className="font-mono break-all ui-small">{r.name}</Td>
-            <Td className="font-mono break-all ui-small">{r.value}</Td>
+            <Td className="ui-mono break-all ui-small">{r.name}</Td>
+            <Td className="ui-mono break-all ui-small">{r.value}</Td>
             <Td>
               <Badge tone={STATUS_TONE[r.status]}>{statusLabel(r.status)}</Badge>
             </Td>

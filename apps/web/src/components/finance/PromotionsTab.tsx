@@ -210,7 +210,7 @@ function GiftCardsSection() {
             <Tbody>
               {cards.map((g) => (
                 <Tr key={g.id}>
-                  <Td className="font-mono ui-caption">**** {g.last4}</Td>
+                  <Td className="ui-mono ui-caption">**** {g.last4}</Td>
                   <Td>{g.recipientName ?? '-'}</Td>
                   <Td>{formatMoney(g.initialAmount)}</Td>
                   <Td className="ui-strong">{formatMoney(g.balance)}</Td>

@@ -13,7 +13,7 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
   const t = useT();
   return (
     <Section title={t('twoFactor.recovery.title')} description={t('twoFactor.recovery.note')}>
-      <ul className="grid grid-cols-2 gap-1 font-mono text-sm" aria-label={t('twoFactor.recovery.title')}>
+      <ul className="grid grid-cols-2 gap-1 ui-mono text-sm" aria-label={t('twoFactor.recovery.title')}>
         {codes.map((c) => (
           <li key={c}>{c}</li>
         ))}

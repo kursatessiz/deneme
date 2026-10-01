@@ -521,7 +521,7 @@ function Templates() {
               <Tbody>
                 {rows.map((row) => (
                   <Tr key={`${row.key}-${row.channel}-${row.locale}`}>
-                    <Td className="font-mono ui-caption">{row.key}</Td>
+                    <Td className="ui-mono ui-caption">{row.key}</Td>
                     <Td>{t(`messaging.channel.${row.channel}`)}</Td>
                     <Td>{row.locale}</Td>
                     <Td>{row.isTransactional ? t('messaging.templates.purpose.transactional') : t('messaging.templates.purpose.commercial')}</Td>

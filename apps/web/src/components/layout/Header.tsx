@@ -83,7 +83,7 @@ export function Header({
       className="h-16 px-6 flex items-center justify-between gap-4 sticky top-0 z-30"
       style={{ backgroundColor: 'var(--pui-bg)', borderBottom: 'var(--pui-border-width) solid var(--pui-border)' }}
     >
-      <span className="ui-text-muted capitalize truncate">{today}</span>
+      <span className="ui-text-muted ui-capitalize truncate">{today}</span>
 
       <div className="flex items-center gap-2">
         {branches.length > 1 && (

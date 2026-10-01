@@ -67,7 +67,7 @@ export default function PublicBookingPage() {
         ) : (
           <div>
             <div className="text-center mb-6">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-sky-500 bg-sky-50 dark:bg-sky-950/60 px-3 py-1 rounded-full border border-sky-200 dark:border-sky-900/60">
+              <span className="text-[10px] font-bold ui-eyebrow tracking-wider text-sky-500 bg-sky-50 dark:bg-sky-950/60 px-3 py-1 rounded-full border border-sky-200 dark:border-sky-900/60">
                 {t('booking.badge')}
               </span>
               <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-3">

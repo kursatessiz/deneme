@@ -42,7 +42,7 @@ function ErrorList() {
               <Td className="tabular-nums">{new Intl.NumberFormat(locale).format(g.count)}</Td>
               <Td className="whitespace-nowrap">{dateTime.format(new Date(g.firstSeenAt))}</Td>
               <Td className="whitespace-nowrap">{dateTime.format(new Date(g.lastSeenAt))}</Td>
-              <Td className="font-mono">{g.lastCode ?? '-'}</Td>
+              <Td className="ui-mono">{g.lastCode ?? '-'}</Td>
               <Td>{t(`errors.status.${g.status}`)}</Td>
             </Tr>
           ))}

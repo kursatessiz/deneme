@@ -363,7 +363,7 @@ export function PayoutsView() {
                   <Tr key={p.id}>
                     <Td className="whitespace-nowrap">{day.format(new Date(p.arrivalDate))}</Td>
                     <Td>{t(`payouts.provider.${p.provider}`)}</Td>
-                    <Td className="font-mono ui-caption break-all">{p.providerPayoutId}</Td>
+                    <Td className="ui-mono ui-caption break-all">{p.providerPayoutId}</Td>
                     <Td>
                       <Badge tone={PAYOUT_STATUS_TONE[p.status]}>{t(`payouts.status.${p.status}`)}</Badge>
                     </Td>

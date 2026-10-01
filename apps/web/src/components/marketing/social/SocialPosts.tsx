@@ -437,7 +437,7 @@ export function SocialPosts() {
             <ul className="space-y-1">
               {form.media.map((url, index) => (
                 <li key={`${url}-${index}`} className="flex items-center justify-between gap-2 ui-caption">
-                  <span className="truncate font-mono">{url}</span>
+                  <span className="truncate ui-mono">{url}</span>
                   {canManage && editable && <LinkButton onClick={() => setForm({ ...form, media: form.media.filter((_, i) => i !== index) })}>{t('marketingSocial.composer.mediaRemove')}</LinkButton>}
                 </li>
               ))}
@@ -465,7 +465,7 @@ export function SocialPosts() {
           )}
 
           <div className="space-y-1" aria-label={t('marketingSocial.brandCheck.title')}>
-            <h4 className="uppercase ui-strong ui-caption">
+            <h4 className="ui-eyebrow ui-strong ui-caption">
               {t('marketingSocial.brandCheck.title')}
             </h4>
             {!current ? (
@@ -483,7 +483,7 @@ export function SocialPosts() {
 
           {current && (
             <div className="space-y-2 pt-3 ui-rule">
-              <h4 className="uppercase ui-strong ui-caption">
+              <h4 className="ui-eyebrow ui-strong ui-caption">
                 {t('marketingSocial.approval.title')}
               </h4>
               {!current.approval ? (

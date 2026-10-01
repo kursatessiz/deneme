@@ -64,7 +64,7 @@ function RoleEditor({ role, onCancel, onSaved }: { role: RoleTemplateDTO | null;
       <div className="grid gap-4">
         {AREA_GROUPS.map((group) => (
           <div key={group.area}>
-            <h4 className="ui-caption ui-strong uppercase mb-2">{group.area}</h4>
+            <h4 className="ui-caption ui-strong ui-eyebrow mb-2">{group.area}</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
               {group.permissions.map((p) => (
                 <Checkbox key={p.key} label={p.label} checked={selected.has(p.key)} onChange={() => toggle(p.key)} />

@@ -449,7 +449,7 @@ export function BrandKitEditor() {
                   const expired = f.validUntil !== null && f.validUntil < today;
                   return (
                     <Tr key={f.id} className="align-top">
-                      <Td className="font-mono ui-small">{f.key}</Td>
+                      <Td className="ui-mono ui-small">{f.key}</Td>
                       <Td className="ui-small">{f.category}</Td>
                       <Td>{f.statements[form.defaultLocale] ?? Object.values(f.statements)[0] ?? ''}</Td>
                       <Td className="ui-small">

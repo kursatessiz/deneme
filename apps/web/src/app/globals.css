@@ -655,6 +655,28 @@
     font-size: calc(var(--pui-font-size) * 0.857);
   }
 
+  /* T4: a selectable row (plan choice) that frames itself in the brand color while its radio is checked. */
+  .ui-choice {
+    padding: calc(var(--pui-space) * 3) calc(var(--pui-space) * 4);
+    border: var(--pui-border-width) solid var(--pui-border);
+    border-radius: var(--pui-radius);
+    cursor: pointer;
+  }
+
+  .ui-choice:has(input:checked) {
+    border-color: var(--pui-theme);
+  }
+
+  /* T4: small spaced capitals for a group label, and a capitalized first letter for locale dates. */
+  .ui-eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .ui-capitalize {
+    text-transform: capitalize;
+  }
+
   /* Only the two gradient slots of the design system (packages/shared GRADIENT_SLOTS). */
   .ui-gradient-member-card,
   .ui-gradient-package-card {
