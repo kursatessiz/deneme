@@ -118,6 +118,7 @@ işe yaradığı yerde `forwardRef` kullanılır. Ortak sözlük `types.ts` içi
 |---------|---------------|-----|
 | `Button` | `pui-btn` + stil + renk | `variant` solid/soft/outline/link, `tone` yedi rol, `size` sm/md, `loading`, `icon`, `iconOnly` (aria-label ile), `block` |
 | `LinkButton` | `pui-btn` + stil + renk | Next `Link`, buton görünümlü gezinme |
+| `AnchorButton` | `pui-btn` + stil + renk | Düz `<a>`, buton görünümlü dosya indirme ve harici bağlantı (Next yönlendiricisinden geçmez) |
 | `Card`, `CardHeader`, `CardContent` | `pui-card`, `pui-card-header`, `pui-card-content` | Kart içinde kart yok |
 | `Badge` | `pui-badge pui-soft pui-muted` (varsayılan) | Durum etiketi |
 | `Chip`, `ChipButton` | `pui-chip pui-rounded-full` | Etiket ve filtre; `ChipButton` `aria-pressed` taşır |
@@ -147,6 +148,20 @@ Kitin şekillerine eklenen birkaç yardımcı sınıf (`ui-btn-sm`, `ui-btn-icon
 `ui-skeleton`, `ui-empty`, `ui-nav-link`, `ui-gradient-member-card`,
 `ui-gradient-package-card`) `apps/web/src/app/globals.css` içinde `ui`
 katmanında tanımlıdır; yalnızca token'ları kullanırlar.
+
+T2a'da eklenen yardımcı sınıflar (hepsi `ui` katmanında, yalnızca token'larla):
+
+| Sınıf | Ne için |
+|-------|---------|
+| `ui-text-error`, `ui-text-success`, `ui-text-warn`, `ui-text-theme` | Rol rengiyle metin (satır içi hata, tutar değişimi). `ui-caption`'dan sonra tanımlıdır, birlikte kullanılabilir |
+| `ui-strong` | Yarı kalın (600) metin |
+| `ui-panel` | Soluk zeminli, köşeli iç blok (not, önizleme, çubuk izi); kart içinde kart yerine kullanılır |
+| `ui-rule`, `ui-divide` | Tek bir üst çizgi; ya da alt öğeler arasında ince çizgi (`List` ile) |
+| `ui-card-link` | Tamamı bağlantı olan kart (ayarlar ana sayfası); üzerine gelince soluk zemin |
+| `ui-alert` | Hata kutusu (`ErrorState`): hata renginde metin ve çizgi |
+| `ui-bar-fill` | Grafik çubuğu dolgusu: `--pui-theme` zemin, `--pui-on-theme` metin; genişlik satır içi verilir |
+| `ui-heat`, `ui-heat-cell` | Isı haritası: `--ui-heat` (yüzde) satır içi verilir, marka rengi soluk zeminle karışır |
+| `ui-cal`, `ui-cal-gutter`, `ui-cal-head`, `ui-cal-hour`, `ui-cal-col`, `ui-cal-line`, `ui-cal-chip`, `ui-cal-month`, `ui-cal-weekhead`, `ui-cal-cell`, `ui-cal-mini` | Takvim ızgarası (gün/hafta/ay). `data-load` (`full`, `busy`, `normal`) seansı doluluğa göre boyar, `data-selected`, `data-cancelled`, `data-drop`, `data-outside` durumları |
 
 `components/common` (Badge, Modal, Tabs, DataState, PermissionButton,
 Forbidden, DateRangeFilter, BranchSelect) ve `components/settings/ui.tsx` bu
@@ -264,9 +279,16 @@ programı, şubeler), üye listesi, üye kartı, takvim kabuğu (araç çubuğu,
 filtreler, yan panel), `/ayarlar/gorunum` ve `components/common` +
 `components/settings/ui.tsx` üzerinden onları kullanan her ekran.
 
-Sonraki fazlarda kalan ekranlar (finans, raporlar, ayarlar alt sayfaları,
-pazarlama, süper admin alt sayfaları, sayfa motoru blokları, takvim ızgarası
-ve formları) bileşen kütüphanesine taşınır ve Tailwind renk/köşe/gölge
+T2a'da tenant panelinin operasyon ekranları taşındı: ayarlar ana sayfası ve
+tüm alt sayfaları (`web-sitem` içindeki `SiteEditor` hariç), finans (ödemeler,
+faturalar, giderler, promosyonlar, banka ödemeleri, bordro, muhasebe dışa
+aktarımı), raporlar, takvim ızgarası (gün/hafta/ay) ve seans formları,
+yoklama, paketler, antrenörler, paket satış diyaloğu, sadakat paneli ve
+düşük stok bileşeni.
+
+Sonraki fazlarda kalan ekranlar (CRM ve pazarlama, mağaza, etkinlikler,
+topluluk, abonelik, süper admin alt sayfaları, sayfa motoru blokları)
+bileşen kütüphanesine taşınır ve Tailwind renk/köşe/gölge
 sınıflarından arındırılır; o zamana kadar eski `--color-*` takma adları
 üzerinden yeni paleti alırlar. Mobil uygulama (yazı tipi Inter'e geçiş dahil)
 T5'te taşınır; T1'de mobilde yalnızca paylaşılan tip değişikliklerinin
