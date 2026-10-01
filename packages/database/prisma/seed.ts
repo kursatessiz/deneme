@@ -2929,6 +2929,11 @@ async function seedArticles(platformStudioId: string, zenStudioId: string): Prom
       },
     ],
   });
+
+  // Demo data was last changed when it was published, so dateModified and the sitemap lastmod read
+  // naturally (Prisma's @updatedAt always writes the current time on create).
+  await prisma.$executeRaw`UPDATE articles SET updated_at = published_at WHERE published_at IS NOT NULL`;
+  await prisma.$executeRaw`UPDATE article_locales SET updated_at = a.published_at FROM articles a WHERE article_locales.article_id = a.id AND a.published_at IS NOT NULL`;
 }
 
 main()
