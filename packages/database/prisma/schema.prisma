@@ -776,6 +776,8 @@ model Studio {
   marketingInsights     MarketingInsight[]
   socialConnections     SocialConnection[]
   socialPosts           SocialPost[]
+  articles              Article[]
+  articleTags           ArticleTag[]
 
   @@map("studios")
 }
@@ -898,6 +900,7 @@ model User {
   totpLastUsedStep      Int?                  @map("totp_last_used_step")
   platformMembership    PlatformMembership?
   mfaRecoveryCodes      UserMfaRecoveryCode[]
+  articlesAuthored      Article[]
 
   @@map("users")
 }
@@ -4035,6 +4038,13 @@ enum DomainVerificationStatus {
   FAILED
 }
 
+/// S2b: lifecycle of a blog article (docs/SAYFA_MOTORU.md "Yazılar / blog").
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
 model Site {
   id             String   @id @default(uuid()) @db.Uuid
   studioId       String   @unique @map("studio_id") @db.Uuid
@@ -4045,9 +4055,11 @@ model Site {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  studio  Studio       @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  pages   Page[]
-  domains SiteDomain[]
+  studio      Studio       @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  pages       Page[]
+  domains     SiteDomain[]
+  articles    Article[]
+  articleTags ArticleTag[]
 
   @@map("sites")
 }
@@ -6399,4 +6411,93 @@ model AdCapPause {
   @@unique([studioId, platform, campaignExternalId, monthKey])
   @@index([studioId, monthKey])
   @@map("ad_cap_pauses")
+}
+
+// ---------------------------------------------------------------------------
+// S2b: blog articles on the page engine (docs/SAYFA_MOTORU.md "Yazılar / blog")
+// ---------------------------------------------------------------------------
+
+/// One article of a site. Text lives per locale in ArticleLocale; publishing is
+/// status + publishedAt (no version snapshots).
+model Article {
+  id            String        @id @default(uuid()) @db.Uuid
+  siteId        String        @map("site_id") @db.Uuid
+  /// Mirrors Site.studioId so every tenant query filters by studio (CLAUDE.md rule 4).
+  studioId      String        @map("studio_id") @db.Uuid
+  status        ArticleStatus @default(DRAFT)
+  /// Byline shown to readers; free text so a guest author needs no user account.
+  authorName    String        @map("author_name") @db.VarChar(120)
+  authorUserId  String?       @map("author_user_id") @db.Uuid
+  coverImageUrl String?       @map("cover_image_url") @db.Text
+  /// First publication time; kept when an archived article is published again.
+  publishedAt   DateTime?     @map("published_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  site    Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  studio  Studio           @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  author  User?            @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+  locales ArticleLocale[]
+  tags    ArticleTagLink[]
+
+  @@index([siteId, status, publishedAt])
+  @@index([studioId])
+  @@map("articles")
+}
+
+model ArticleLocale {
+  id             String   @id @default(uuid()) @db.Uuid
+  articleId      String   @map("article_id") @db.Uuid
+  /// Denormalized from Article.siteId so (site, locale, slug) can be unique.
+  siteId         String   @map("site_id") @db.Uuid
+  locale         String   @db.VarChar(10)
+  slug           String   @db.VarChar(160)
+  title          String   @db.VarChar(200)
+  excerpt        String?  @db.VarChar(500)
+  /// Plain text with the article markup subset (packages/shared/src/sites/article-markup.ts); never HTML.
+  body           String   @db.Text
+  seoTitle       String?  @map("seo_title") @db.VarChar(200)
+  seoDescription String?  @map("seo_description") @db.VarChar(400)
+  ogImageUrl     String?  @map("og_image_url") @db.Text
+  /// Computed from the body on every write.
+  readingMinutes Int      @default(1) @map("reading_minutes")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, locale])
+  @@unique([siteId, locale, slug])
+  @@map("article_locales")
+}
+
+/// A site's article tag: one locale-neutral slug, a label per locale (JSON object locale -> label).
+model ArticleTag {
+  id        String   @id @default(uuid()) @db.Uuid
+  siteId    String   @map("site_id") @db.Uuid
+  studioId  String   @map("studio_id") @db.Uuid
+  slug      String   @db.VarChar(80)
+  labels    Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  site     Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  studio   Studio           @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  articles ArticleTagLink[]
+
+  @@unique([siteId, slug])
+  @@index([studioId])
+  @@map("article_tags")
+}
+
+model ArticleTagLink {
+  articleId String @map("article_id") @db.Uuid
+  tagId     String @map("tag_id") @db.Uuid
+
+  article Article    @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  tag     ArticleTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, tagId])
+  @@index([tagId])
+  @@map("article_tag_links")
 }
