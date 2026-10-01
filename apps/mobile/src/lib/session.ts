@@ -7,7 +7,7 @@ import type { MembershipDTO, SessionUserDTO } from '@platform/shared';
 import { apiRequest } from './api';
 import { clearTokens, getAccessToken, setTokens } from './tokenStore';
 import { registerPushDevice, unregisterPushDevice } from './push';
-import { clearWidgetsForSignedOutState, refreshWidgets } from '../widgets';
+import { clearWidgetsForSignedOutState, refreshWidgets, updateWidgetBrand } from '../widgets';
 
 interface OtpVerifyResponse {
   accessToken: string;
@@ -148,6 +148,12 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactEle
 
   const memberships = user?.memberships ?? [];
   const activeMembership = memberships.find((m) => m.studioId === activeStudioId) ?? null;
+
+  // The Android widget has no theme context of its own: hand it the active studio's primary color.
+  const widgetPrimary = activeMembership?.theme.themePrimary ?? null;
+  useEffect(() => {
+    if (user) void updateWidgetBrand(widgetPrimary);
+  }, [user, widgetPrimary]);
 
   const value = useMemo<SessionContextValue>(
     () => ({

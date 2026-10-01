@@ -5,7 +5,7 @@ import { apiRequest } from '../lib/api';
 import { getAccessToken } from '../lib/tokenStore';
 import { toWidgetDisplayModel } from './format';
 import { resolveWidgetTranslation } from './locale';
-import { saveWidgetSummary, clearWidgetSummary } from './store';
+import { saveWidgetSummary, clearWidgetSummary, saveWidgetBrand, loadWidgetBrand } from './store';
 import type { WidgetSummaryData } from './types';
 
 /**
@@ -32,9 +32,25 @@ export async function refreshWidgets(): Promise<void> {
   }
 }
 
+/**
+ * Remembers the active studio's primary color for the Android widget and
+ * redraws the widgets when it changed. Called by the session whenever the
+ * active studio (or its theme) changes.
+ */
+export async function updateWidgetBrand(primary: string | null): Promise<void> {
+  try {
+    if ((await loadWidgetBrand()) === primary) return;
+    await saveWidgetBrand(primary);
+    await refreshWidgets();
+  } catch {
+    // Best-effort, like every widget refresh.
+  }
+}
+
 export async function clearWidgetsForSignedOutState(): Promise<void> {
   try {
     await clearWidgetSummary();
+    await saveWidgetBrand(null);
     await pushToNativeWidgets(null);
   } catch {
     // ignore
@@ -74,6 +90,6 @@ async function pushToNativeWidgets(data: WidgetSummaryData | null): Promise<void
     updateIosWidget(display);
   } else if (Platform.OS === 'android') {
     const { updateAndroidWidgets } = await import('./android/nextSessionWidget');
-    await updateAndroidWidgets(display);
+    await updateAndroidWidgets(display, await loadWidgetBrand());
   }
 }
