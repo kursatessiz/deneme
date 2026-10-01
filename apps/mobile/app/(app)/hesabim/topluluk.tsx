@@ -185,7 +185,7 @@ export default function ToplulukScreen() {
               onPress={() => toggleLike(post)}
               style={styles.action}
             >
-              <Text style={[fonts.bodyStrong, { color: post.likedByMe ? c.primary : c.textSecondary }]}>
+              <Text style={[fonts.bodyStrong, { color: post.likedByMe ? c.primaryText : c.textSecondary }]}>
                 {post.likedByMe ? t('mCommunity.unlike') : t('mCommunity.like')} ({t('mCommunity.likes', { count: post.likeCount })})
               </Text>
             </Pressable>

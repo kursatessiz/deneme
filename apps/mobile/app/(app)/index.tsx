@@ -91,7 +91,7 @@ function PendingRatingCard({ prompt }: { prompt: PendingRatingPromptDTO }) {
         {prompt.serviceTypeName}
         {prompt.trainerName ? ` - ${prompt.trainerName}` : ''}
       </Text>
-      <Text style={[styles.rateText, fonts.bodyMedium, { color: c.primary }]}>{t('mHome.rate')}</Text>
+      <Text style={[styles.rateText, fonts.bodyMedium, { color: c.primaryText }]}>{t('mHome.rate')}</Text>
     </Card>
   );
 }

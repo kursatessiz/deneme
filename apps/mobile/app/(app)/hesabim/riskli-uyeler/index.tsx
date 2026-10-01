@@ -118,7 +118,7 @@ export default function RiskliUyelerScreen() {
               onPress={() => markContacted(m.memberId)}
               style={[styles.contactButton, { borderColor: c.primary, opacity: busyMemberId === m.memberId ? 0.6 : 1 }]}
             >
-              <Text style={[fonts.bodyStrong, { color: c.primary }]}>
+              <Text style={[fonts.bodyStrong, { color: c.primaryText }]}>
                 {alreadyContactedToday ? t('mRiskyMembers.contactedToday') : t('mRiskyMembers.markContacted')}
               </Text>
             </Pressable>

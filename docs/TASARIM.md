@@ -81,6 +81,46 @@ Mevcut aile izinli olmayan bir aileye ayarlanamaz; `perfect` dışına geçerken
 gradyan anahtarı yeni ailenin ilk anahtarına çekilir. Her kayıt
 `tenant.theme_families.update` olarak denetim kaydına yazılır.
 
+## 1b. Marka renginde otomatik kontrast düzeltmesi (D7)
+
+Sahibin kararı: işletme birincil rengini seçtiğinde kontrast eşiğinin altında
+kalan parçalar kendiliğinden ayarlanır; sahibe uyarı gösterilmez. Kural
+`packages/shared/src/design/brand.ts` içindeki saf `deriveBrandPalette(primaryHex,
+{ mode?, background? })` fonksiyonundadır (WCAG 2 göreli parlaklık ve kontrast
+oranı; eşik `MIN_TEXT_CONTRAST = 4.5`). Döndürdüğü değerler:
+
+| Alan | Anlamı |
+|------|--------|
+| `primary` | Düz yüzeylerde (birincil buton, üye kartı, paket kartı) kullanılan renk. Beyaz veya yakın siyah yazı 4,5:1'e ulaşıyorsa sahibin rengi aynen kalır; ikisi de ulaşamıyorsa OKLCH açıklığı küçük adımlarla (0,005) yazı renginin yakın olduğu yöne kaydırılır. Kayma en çok `SOLID_MAX_LIGHTNESS_SHIFT = 0,18`dir; ton ve doygunluk korunur (sRGB dışına çıkarsa yalnızca doygunluk azaltılır) |
+| `onPrimary` | `primary` üzerindeki yazı: beyaz okunaklıysa beyaz, değilse yakın siyah `#111827` (`palette.ink[900]`, saf siyah değil) |
+| `primaryHover` | Düz yüzeyin üzerine gelme hali: yazıyla kontrastı artıran uca (beyaz yazı altında siyaha, koyu yazı altında beyaza) yüzde 12 karışım; uçlarda yön döner; yazı kontrastı 4,5:1'in (veya düz yüzeyin kendi değerinin) altına düşmez |
+| `primaryMuted` | Birincil rengin sayfa rengiyle karışımı (yüzde 40): devre dışı düz yüzey ve tonlar. Süs amaçlıdır, yazı garantisi yoktur |
+| `primarySubtleBg` | Birincil rengin sayfaya yüzde 12 karışımı: rozet ve seçili satır zemini |
+| `primaryText` | Bağlantı ve vurgu yazısı: sahibin renginden başlar, açık sayfada koyulaşır, koyu sayfada açılır; hem sayfa zemininde hem `primarySubtleBg` üzerinde 4,5:1'e ulaşır. Yazı için kayma sınırı daha geniştir (0,7), çünkü eşik zorunludur; ton yine korunur |
+
+Katı kısım (`primary`, `onPrimary`, `primaryHover`) kipten bağımsızdır; `primaryText`,
+`primaryMuted` ve `primarySubtleBg` açık ve koyu sayfa rengine göre ayrı üretilir.
+`resolveTheme()` her iki kipin paletini `theme.brand` içinde, etkin kipinkini
+`theme.colors` içinde (`primary`, `onPrimary`, `primaryHover`, `primaryMuted`,
+`primarySubtleBg`, `primaryText`) verir; gradyan düzeltilmiş `primary` renginden
+türetilir. `themeCssVariables()` şunları yayar: `--pui-theme` (düzeltilmiş düz renk),
+`--pui-on-theme`, `--pui-theme-hover`, `--pui-theme-muted`, `--pui-theme-subtle`,
+`--pui-theme-text` (açık/koyu çifti) ve eski adlar `--color-primary-text`,
+`--color-primary-hover`. `globals.css` bunları kitin `pui-solid pui-theme:hover`
+durumuna ve soft/outline/link yazısına (`--pui-ink`) ve `ui-text-theme` sınıfına
+bağlar. Mobil `useTheme()` üzerinden aynı değerleri okur; bağlantı ve vurgu yazıları
+`colors.primaryText`, düz zeminler `colors.primary` / `colors.onPrimary` kullanır.
+
+Kit varsayılan rengi (`#0092cd`, koyu modda `#07b6f0`) görsel referans olduğu için
+aynen korunur (üzerindeki yazı sayfa rengidir); bu durumda yalnızca vurgu yazısı
+ve hover değerleri türetilir. İşletme ayarları ekranları (web `ayarlar/gorunum`,
+mobil `hesabim/isletme-temasi`) artık uyarı göstermez: kısa bir not
+(`themeDesign.contrast.note`), düğme ve bağlantı yazısı örneği ve renk
+düzeltildiyse uygulanan renk (`themeDesign.contrast.adjusted`) görünür. Birim
+testleri `packages/shared/src/design/brand.spec.ts` içindedir (örnek renk tablosu
+ve renk tonu, doygunluk ve açıklık ızgarası taraması: oran, ton kayması en çok 6 derece,
+açıklık kayması sınırı).
+
 ## 2. Token'lar ve tek doğruluk kaynağı
 
 Token'lar `packages/shared/src/design` içinde yaşar ve iki platform için
@@ -95,7 +135,8 @@ tektir:
 - `tokens.ts`: `palette`, `semanticColors`, `spacing`, `radii`, `typography`,
   `GRADIENT_SLOTS`, şemalar (`TenantThemeSchema`, `AppearancePreferenceSchema`),
   `resolveTheme()`, `themeCssVariables()`, `brandGradient()`, `onColor()`,
-  `contrastRatio()`.
+  `contrastRatio()`. Marka paleti ve kontrast düzeltmesi `brand.ts` içindedir
+  (`deriveBrandPalette()`).
 
 | Token | Açık | Koyu | CSS değişkeni |
 |-------|------|------|---------------|

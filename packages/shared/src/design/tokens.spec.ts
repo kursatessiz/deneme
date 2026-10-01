@@ -248,6 +248,6 @@ describe('design tokens (Perfect UI)', () => {
 
   it('picks a readable text color on tenant primaries', () => {
     expect(onColor('#1d4e89')).toBe(palette.white);
-    expect(onColor('#e3c9a0')).toBe(palette.ink[950]);
+    expect(onColor('#e3c9a0')).toBe(palette.ink[900]);
   });
 });

@@ -118,7 +118,7 @@ function Contacts() {
     <View style={styles.pane}>
       {!isTablet ? (
         <Pressable accessibilityRole="button" onPress={() => setSelected(null)} style={styles.back}>
-          <Text style={[fonts.bodyStrong, { color: c.primary }]}>{t('mAccount.contacts.back')}</Text>
+          <Text style={[fonts.bodyStrong, { color: c.primaryText }]}>{t('mAccount.contacts.back')}</Text>
         </Pressable>
       ) : null}
       <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{selected.fullName}</Text>

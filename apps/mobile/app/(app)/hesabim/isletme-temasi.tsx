@@ -2,7 +2,7 @@ import { Redirect } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import { THEME_FAMILY_KEYS, THEME_FAMILY_NOT_ALLOWED, gradientKeyForFamily, onColor } from '@platform/shared';
+import { THEME_FAMILY_KEYS, THEME_FAMILY_NOT_ALLOWED, gradientKeyForFamily, resolveTheme } from '@platform/shared';
 import type { TenantTheme, TenantThemeView } from '@platform/shared';
 
 import { ChoiceRow } from '../../../src/components/ChoiceRow';
@@ -53,6 +53,8 @@ export default function IsletmeTemasiScreen() {
   }
 
   const colorValid = HEX.test(draft.themePrimary);
+  // The pair the apps will actually use: the same resolution as the live theme, in the current mode.
+  const preview = resolveTheme({ tenant: draft, appearance: { colorScheme: theme.mode === 'dark' ? 'DARK' : 'LIGHT' }, systemMode: theme.mode });
   // The picker lists the families the super admin allowed; it appears only when there is a choice.
   const pickable = THEME_FAMILY_KEYS.filter((key) => (draft.allowedThemeFamilies ?? []).includes(key));
 
@@ -135,8 +137,17 @@ export default function IsletmeTemasiScreen() {
       />
 
       {colorValid ? (
-        <View style={[styles.preview, { backgroundColor: draft.themePrimary, borderRadius: radii.sm }]}>
-          <Text style={[fonts.bodyMedium, { color: onColor(draft.themePrimary) }]}>{t('mTheme.primaryColor', { color: draft.themePrimary })}</Text>
+        <View style={styles.previewGroup}>
+          <View style={[styles.preview, { backgroundColor: preview.colors.primary, borderRadius: radii.sm }]}>
+            <Text style={[fonts.bodyMedium, { color: preview.colors.onPrimary }]}>{t('themeDesign.contrast.solid')}</Text>
+          </View>
+          <Text style={[fonts.bodyStrong, { color: preview.colors.primaryText }]}>{t('themeDesign.contrast.link')}</Text>
+          <Text style={[styles.note, fonts.body, { color: c.textMuted }]}>{t('themeDesign.contrast.note')}</Text>
+          {preview.colors.primary.toLowerCase() !== draft.themePrimary.toLowerCase() ? (
+            <Text style={[styles.note, fonts.body, { color: c.textSecondary }]}>
+              {t('themeDesign.contrast.adjusted', { color: preview.colors.primary.toUpperCase() })}
+            </Text>
+          ) : null}
         </View>
       ) : null}
 
@@ -150,6 +161,8 @@ export default function IsletmeTemasiScreen() {
 const styles = StyleSheet.create({
   lead: { fontSize: typography.size.sm, marginBottom: spacing[4] },
   family: { marginBottom: spacing[4] },
-  preview: { minHeight: TOUCH_TARGET, alignItems: 'center', justifyContent: 'center', marginBottom: spacing[4] },
+  previewGroup: { marginBottom: spacing[4], gap: spacing[2] },
+  note: { fontSize: typography.size.xs },
+  preview: { minHeight: TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' },
   message: { fontSize: typography.size.sm, marginBottom: spacing[3] },
 });

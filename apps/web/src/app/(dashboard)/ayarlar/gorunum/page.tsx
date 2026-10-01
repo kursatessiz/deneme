@@ -12,7 +12,7 @@ import { LoadingState, ErrorState } from '@/components/common/DataState';
 import { PageGuard } from '@/components/common/PageGuard';
 import { hasAnyPermission } from '@/lib/nav';
 import { InlineMessage, PrimaryButton, Section, SettingsHeader, TextField } from '@/components/settings/ui';
-import { previewCssVariables } from '@/lib/settings/theme-preview';
+import { previewCssVariables, previewThemeFromForm } from '@/lib/settings/theme-preview';
 import { Button } from '@/components/ui/Button';
 import { Radio } from '@/components/ui/Radio';
 
@@ -25,6 +25,9 @@ const HEX = /^#[0-9a-fA-F]{6}$/;
 function ThemePreview({ form }: { form: TenantThemeView }) {
   const t = useT();
   const vars = previewCssVariables(form);
+  // Shown only when the automatic correction moved the color the owner typed.
+  const solid = previewThemeFromForm(form).colors.primary;
+  const applied = HEX.test(form.themePrimary) && solid.toLowerCase() !== form.themePrimary.toLowerCase() ? solid : null;
   return (
     <div className="pui-card" data-pui-mode="light" style={{ ...(vars as React.CSSProperties), colorScheme: 'light' }}>
       <div className="pui-card-content gap-4">
@@ -43,8 +46,15 @@ function ThemePreview({ form }: { form: TenantThemeView }) {
             {t('settings.appearance.preview.remaining')}
           </span>
         </div>
-        <Button className="justify-self-start">{t('settings.appearance.preview.primaryButton')}</Button>
+        <div className="flex items-center gap-4">
+          <Button>{t('settings.appearance.preview.primaryButton')}</Button>
+          <span className="ui-text-theme ui-strong">{t('themeDesign.contrast.link')}</span>
+        </div>
         <p>{t('settings.appearance.preview.bodyText')}</p>
+        <div className="ui-panel grid gap-1">
+          <p className="ui-caption ui-text-muted">{t('themeDesign.contrast.note')}</p>
+          {applied && <p className="ui-caption">{t('themeDesign.contrast.adjusted', { color: applied.toUpperCase() })}</p>}
+        </div>
       </div>
     </div>
   );

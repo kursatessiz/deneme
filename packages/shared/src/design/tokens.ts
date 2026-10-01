@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { ON_BRAND_DARK, ON_BRAND_LIGHT, deriveBrandPalette, deriveHover, wcagContrast } from './brand';
+import type { BrandPalette } from './brand';
 import {
   COLOR_SCHEME_PREFERENCES,
   DEFAULT_THEME_FAMILY,
@@ -174,7 +176,7 @@ export function brandGradient(primary: string): GradientPreset {
 export function onGradient(gradient: GradientPreset): string {
   const [from] = gradient.stops;
   const to = gradient.stops[gradient.stops.length - 1];
-  return contrastRatio(palette.white, from) >= 3 && contrastRatio(palette.white, to) >= 4.5 ? palette.white : palette.ink[950];
+  return contrastRatio(palette.white, from) >= 3 && contrastRatio(palette.white, to) >= 4.5 ? palette.white : ON_BRAND_DARK;
 }
 
 /** CSS value for web. Mobile passes `brandGradient(primary).stops` to its gradient component. */
@@ -196,7 +198,22 @@ export interface TenantThemeInput {
 export interface ResolvedTheme {
   family: ThemeFamily;
   mode: ColorMode;
-  colors: ThemeColors & { primary: string; onPrimary: string };
+  /**
+   * `primary` is the brand color as used on solid surfaces, already corrected
+   * for contrast (see brand.ts); `onPrimary` the text on it; the rest are
+   * the other values of the brand palette for this mode.
+   */
+  colors: ThemeColors & {
+    primary: string;
+    onPrimary: string;
+    primaryHover: string;
+    primaryMuted: string;
+    primarySubtleBg: string;
+    /** Link and accent text: reaches 4.5:1 on the page background. */
+    primaryText: string;
+  };
+  /** The brand palette of both modes (web emits it as light-dark() pairs). */
+  brand: Record<ColorMode, BrandPalette>;
   roles: PerfectRoleColors;
   /** Derived from the primary color; only for GRADIENT_SLOTS. */
   gradient: GradientPreset;
@@ -230,13 +247,35 @@ export function resolveTheme(params: {
   const isDefaultPrimary =
     family.key === DEFAULT_THEME_FAMILY &&
     (!valid || tenant.themePrimary.toLowerCase() === DEFAULT_TENANT_THEME.themePrimary.toLowerCase());
-  const primary = isDefaultPrimary || !valid ? family.roles[mode].theme : tenant.themePrimary;
+  // The brand color the owner picked; the kit's own pair stands in for an invalid or default value.
+  const chosen = valid ? tenant.themePrimary : family.roles.light.theme;
+  const brandOf = (m: ColorMode): BrandPalette => {
+    const background = family.colors[m].background;
+    if (!isDefaultPrimary) return deriveBrandPalette(chosen, { mode: m, background });
+    // The kit default keeps its own light/dark pair and the page color as text on it (the visual reference);
+    // only the accent variants are derived from it.
+    const kit = family.roles[m].theme;
+    const onKit = family.colors[m].background;
+    return { ...deriveBrandPalette(kit, { mode: m, background }), primary: kit, onPrimary: onKit, primaryHover: deriveHover(kit, onKit) };
+  };
+  const brand = { light: brandOf('light'), dark: brandOf('dark') };
+  const current = brand[mode];
   return {
     family,
     mode,
-    colors: { ...family.colors[mode], primary, onPrimary: isDefaultPrimary ? family.colors[mode].background : onColor(primary) },
-    roles: { ...family.roles[mode], theme: primary },
-    gradient: brandGradient(valid ? tenant.themePrimary : DEFAULT_TENANT_THEME.themePrimary),
+    colors: {
+      ...family.colors[mode],
+      primary: current.primary,
+      onPrimary: current.onPrimary,
+      primaryHover: current.primaryHover,
+      primaryMuted: current.primaryMuted,
+      primarySubtleBg: current.primarySubtleBg,
+      primaryText: current.primaryText,
+    },
+    brand,
+    roles: { ...family.roles[mode], theme: current.primary },
+    // The gradient starts from the corrected solid color so the cards and buttons agree.
+    gradient: brandGradient(isDefaultPrimary ? DEFAULT_TENANT_THEME.themePrimary : current.primary),
     logoUrl: tenant.logoUrl ?? null,
     isDefaultPrimary,
   };
@@ -259,7 +298,10 @@ function pair(family: ThemeFamily, pick: (colors: ThemeColors, roles: PerfectRol
  */
 export function themeCssVariables(theme: ResolvedTheme): Record<string, string> {
   const f = theme.family;
-  const brand = theme.isDefaultPrimary ? pair(f, (_c, r) => r.theme) : theme.colors.primary;
+  const lightDark = (light: string, dark: string): string => (light === dark ? light : `light-dark(${light}, ${dark})`);
+  const b = theme.brand;
+  // The solid brand color is mode independent for a custom primary; the kit default keeps its light/dark pair.
+  const brand = lightDark(b.light.primary, b.dark.primary);
   const flatSurface = (['light', 'dark'] as const).every((m) => f.colors[m].surface === f.colors[m].background);
   const vars: Record<string, string> = {
     '--pui-bg': pair(f, (c) => c.background),
@@ -278,7 +320,12 @@ export function themeCssVariables(theme: ResolvedTheme): Record<string, string> 
     '--pui-font-size': `${PERFECT_UI_TOKENS.fontSize / 16}rem`,
     '--pui-border-width': `${PERFECT_UI_TOKENS.borderWidth}px`,
     // Text on the brand color: the kit uses the page color; a tenant color gets a contrast-checked one.
-    '--pui-on-theme': theme.isDefaultPrimary ? 'var(--pui-bg)' : theme.colors.onPrimary,
+    '--pui-on-theme': theme.isDefaultPrimary ? 'var(--pui-bg)' : b.light.onPrimary,
+    '--pui-theme-hover': lightDark(b.light.primaryHover, b.dark.primaryHover),
+    '--pui-theme-muted': lightDark(b.light.primaryMuted, b.dark.primaryMuted),
+    '--pui-theme-subtle': lightDark(b.light.primarySubtleBg, b.dark.primarySubtleBg),
+    // Link and accent text of the brand color: corrected to 4.5:1 on the page of each mode.
+    '--pui-theme-text': lightDark(b.light.primaryText, b.dark.primaryText),
     '--color-background': 'var(--pui-bg)',
     '--color-surface': flatSurface ? 'var(--pui-bg)' : pair(f, (c) => c.surface),
     '--color-surface-muted': 'var(--pui-bg-muted)',
@@ -289,6 +336,8 @@ export function themeCssVariables(theme: ResolvedTheme): Record<string, string> 
     '--color-text-muted': 'var(--pui-text-muted)',
     '--color-primary': 'var(--pui-theme)',
     '--color-on-primary': 'var(--pui-on-theme)',
+    '--color-primary-text': 'var(--pui-theme-text)',
+    '--color-primary-hover': 'var(--pui-theme-hover)',
     '--color-success': 'var(--pui-success)',
     '--color-warning': 'var(--pui-warn)',
     '--color-danger': 'var(--pui-error)',
@@ -316,18 +365,10 @@ export function themePuiMode(colorScheme: AppearancePreference['colorScheme'] | 
 
 /** WCAG relative luminance contrast ratio between two #RRGGBB colors. */
 export function contrastRatio(a: string, b: string): number {
-  const lum = (hex: string) => {
-    const [r, g, bl] = [1, 3, 5].map((i) => {
-      const c = parseInt(hex.slice(i, i + 2), 16) / 255;
-      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-    });
-    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
-  };
-  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
-  return (hi + 0.05) / (lo + 0.05);
+  return wcagContrast(a, b);
 }
 
-/** Text color for content on top of a tenant's primary color. */
+/** Text color for content on top of a tenant's primary color: white, or near-black when white is not readable. */
 export function onColor(background: string): string {
-  return contrastRatio(background, palette.white) >= 4.5 ? palette.white : palette.ink[950];
+  return contrastRatio(background, ON_BRAND_LIGHT) >= 4.5 ? ON_BRAND_LIGHT : ON_BRAND_DARK;
 }
