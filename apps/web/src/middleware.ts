@@ -20,8 +20,8 @@ const SITES_BASE_DOMAIN = process.env.SITES_DOMAIN || process.env.WEB_DOMAIN || 
  * serving the dashboard, admin panel and the platform's own site exactly as
  * before.
  */
-/** These resolve the host for themselves (see sitemap.xml/robots.txt route handlers), so they are never rewritten. */
-const HOST_AWARE_PATHS = ['/sitemap.xml', '/robots.txt'];
+/** These resolve the host for themselves (see sitemap.xml/robots.txt/og route handlers), so they are never rewritten. */
+const HOST_AWARE_PATHS = ['/sitemap.xml', '/robots.txt', '/og'];
 
 /** Adds PAGE_LOCALE_HEADER for a `/<locale>/...` path; any client-sent value is dropped first. */
 function requestHeadersWithPageLocale(request: NextRequest): Headers {

@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { DEFAULT_TENANT_THEME } from '@platform/shared';
+import { DEFAULT_TENANT_THEME, PRODUCT_NAME } from '@platform/shared';
+import { toOgLocale } from '@/lib/seo/og-locale';
 import { fetchPublicPage } from '@/lib/sites/api';
 import { siteOrigin, sitePath } from '@/lib/sites/origin';
 import { pickPageVariant } from '@/lib/sites/ab';
@@ -24,23 +25,37 @@ export async function buildSiteMetadata(studioSlug: string, isPlatform: boolean,
   const languages: Record<string, string> = {};
   for (const l of page.allLocales) languages[l.locale] = `${origin}${pathFor(l.locale, l.slug)}`;
 
+  const title = page.localeMeta.seoTitle ?? undefined;
+  const description = page.localeMeta.seoDescription ?? undefined;
+  const url = `${origin}${pathFor(locale, slug)}`;
+  // The page's own image when set, otherwise the generated card (app/og/route.tsx).
+  const ogImage = page.localeMeta.ogImageUrl
+    ? { url: page.localeMeta.ogImageUrl }
+    : { url: `${origin}/og?${new URLSearchParams({ locale, ...(slug ? { slug } : {}) }).toString()}`, width: 1200, height: 630, alt: title };
+  const siteName = isPlatform ? PRODUCT_NAME : (page.context.studioContact?.name ?? page.context.companyInfo?.legalName ?? undefined);
+
   return {
-    title: page.localeMeta.seoTitle ?? undefined,
-    description: page.localeMeta.seoDescription ?? undefined,
+    title,
+    description,
     alternates: {
-      canonical: `${origin}${pathFor(locale, slug)}`,
+      canonical: url,
       languages,
     },
     openGraph: {
-      title: page.localeMeta.seoTitle ?? undefined,
-      description: page.localeMeta.seoDescription ?? undefined,
-      images: page.localeMeta.ogImageUrl ? [page.localeMeta.ogImageUrl] : undefined,
-      url: `${origin}${pathFor(locale, slug)}`,
+      type: 'website',
+      siteName,
+      locale: toOgLocale(locale),
+      alternateLocale: page.allLocales.filter((l) => l.locale !== locale).map((l) => toOgLocale(l.locale)),
+      title,
+      description,
+      images: [ogImage],
+      url,
     },
     twitter: {
       card: 'summary_large_image',
-      title: page.localeMeta.seoTitle ?? undefined,
-      description: page.localeMeta.seoDescription ?? undefined,
+      title,
+      description,
+      images: [ogImage.url],
     },
   };
 }
