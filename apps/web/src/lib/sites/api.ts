@@ -1,5 +1,6 @@
 import { apiInternalBaseUrl } from '@/lib/server-env';
-import type { PublicPageDTO, SitemapPageEntry } from '@platform/shared';
+import type { PublicPageDTO, SitemapPageEntry, SitemapResponseDTO } from '@platform/shared';
+import { originForHost, siteOrigin } from './origin';
 
 /**
  * Server-only reads of the page engine's public rendering data
@@ -19,18 +20,18 @@ export async function fetchPublicPage(studioSlug: string, locale: string, slug: 
   return (await res.json()) as PublicPageDTO;
 }
 
-export async function fetchSitemapEntries(studioSlug: string): Promise<SitemapPageEntry[]> {
+export async function fetchSitemapEntries(studioSlug: string): Promise<SitemapResponseDTO> {
   // Used by sitemap.xml; an unreachable API yields an empty list rather
   // than an error page.
   try {
     const res = await fetch(`${apiInternalBaseUrl()}/public/sites/${encodeURIComponent(studioSlug)}/sitemap-entries`, {
       next: { revalidate: PAGE_REVALIDATE_SECONDS },
     });
-    if (!res.ok) return [];
-    const data = (await res.json()) as { items: SitemapPageEntry[] };
-    return data.items;
+    if (!res.ok) return { items: [], defaultLocale: null };
+    const data = (await res.json()) as { items: SitemapPageEntry[]; defaultLocale?: string | null };
+    return { items: data.items, defaultLocale: data.defaultLocale ?? null };
   } catch {
-    return [];
+    return { items: [], defaultLocale: null };
   }
 }
 
@@ -46,14 +47,41 @@ export async function resolveHost(host: string, apiBaseUrl: string): Promise<Res
   return (await res.json()) as ResolvedHost;
 }
 
-/** Host -> studioSlug for a Node runtime route handler (sitemap.xml/robots.txt), same rule as middleware.tenantSiteRewrite. */
-export async function studioSlugForHost(host: string): Promise<{ studioSlug: string; isPlatform: boolean }> {
+/** Node runtime variant of resolveHost: cached like the other page-engine reads, so metadata and render share one lookup. */
+async function resolveHostCached(host: string): Promise<ResolvedHost | null> {
+  try {
+    const res = await fetch(`${apiInternalBaseUrl()}/public/sites/resolve?host=${encodeURIComponent(host)}`, { next: { revalidate: PAGE_REVALIDATE_SECONDS } });
+    if (!res.ok) return null;
+    return (await res.json()) as ResolvedHost;
+  } catch {
+    return null;
+  }
+}
+
+export interface HostSite {
+  studioSlug: string;
+  isPlatform: boolean;
+  /** Canonical origin for this request: the verified custom domain itself, otherwise the platform or `<slug>.<base domain>` origin. */
+  origin: string;
+  isCustomDomain: boolean;
+}
+
+/**
+ * Host -> studio for a Node runtime route handler or page (sitemap.xml, robots.txt, og, canonical URLs),
+ * same rule as middleware.tenantSiteRewrite. A host that is neither the base domain, a subdomain of it nor
+ * a VERIFIED custom domain (the API only resolves verified ones) falls back to the platform site.
+ */
+export async function studioSlugForHost(host: string): Promise<HostSite> {
   const base = process.env.SITES_DOMAIN || process.env.WEB_DOMAIN || 'localhost';
   const bareHost = host.split(':')[0].toLowerCase();
-  if (!bareHost || bareHost === base || bareHost === 'localhost' || bareHost === '127.0.0.1') return { studioSlug: 'platform', isPlatform: true };
-  if (bareHost.endsWith(`.${base}`)) return { studioSlug: bareHost.slice(0, -`.${base}`.length), isPlatform: false };
-  const resolved = await resolveHost(bareHost, apiInternalBaseUrl());
-  return resolved ? { studioSlug: resolved.studioSlug, isPlatform: false } : { studioSlug: 'platform', isPlatform: true };
+  const platform: HostSite = { studioSlug: 'platform', isPlatform: true, origin: siteOrigin('platform', true), isCustomDomain: false };
+  if (!bareHost || bareHost === base || bareHost === 'localhost' || bareHost === '127.0.0.1') return platform;
+  if (bareHost.endsWith(`.${base}`)) {
+    const studioSlug = bareHost.slice(0, -`.${base}`.length);
+    return { studioSlug, isPlatform: false, origin: siteOrigin(studioSlug, false), isCustomDomain: false };
+  }
+  const resolved = await resolveHostCached(bareHost);
+  return resolved ? { studioSlug: resolved.studioSlug, isPlatform: false, origin: originForHost(bareHost), isCustomDomain: true } : platform;
 }
 
 /**
@@ -75,5 +103,26 @@ export async function fetchPlatformBrand(): Promise<{ themePrimary: string | nul
     };
   } catch {
     return { themePrimary: null, logoUrl: null };
+  }
+}
+
+export interface BookingStudio {
+  name: string;
+  logoUrl: string | null;
+}
+
+/** Studio name and logo for the public booking page's metadata (the same unauthenticated embed config the page reads). Null when unknown or unreachable. */
+export async function fetchBookingStudio(slug: string): Promise<BookingStudio | null> {
+  try {
+    const res = await fetch(`${apiInternalBaseUrl()}/public/studios/${encodeURIComponent(slug)}/embed/config`, {
+      next: { revalidate: PAGE_REVALIDATE_SECONDS },
+      signal: AbortSignal.timeout(2000),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { name?: unknown; logoUrl?: unknown };
+    if (typeof body.name !== 'string') return null;
+    return { name: body.name, logoUrl: typeof body.logoUrl === 'string' ? body.logoUrl : null };
+  } catch {
+    return null;
   }
 }

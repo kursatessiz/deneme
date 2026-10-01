@@ -63,8 +63,8 @@ Rota yapısı (`apps/web/src/app/[locale]/[[...slug]]/page.tsx`, platform sitesi
 
 - Yalnızca yayınlanan (`PUBLISHED`) diller render edilir; olmayan veya yayınlanmamış bir dil/slug kombinasyonu 404'tür (`resolvePageLocale`, `packages/shared/src/sites/site.ts`).
 - Sayfalar her istekte render edilir (`dynamic = 'force-dynamic'`): kök layout sayfa dilini (`x-pw-page-locale` başlığı, middleware URL'nin ilk parçasından koyar) ve çerezleri okur, A/B varyantı çereze bağlıdır. API yanıtları yine önbelleklidir (300 saniyelik `fetch` yeniden doğrulaması ve yayınlamada etiketle temizleme), bu yüzden istek başına maliyet yalnızca render'dır. `<html lang>` her zaman sayfanın URL'deki dilidir.
-- `hreflang`, `canonical`, Open Graph/Twitter etiketleri ve `Organization`/`LocalBusiness`/`FAQPage`/`Offer` JSON-LD `apps/web/src/lib/sites/jsonld.ts` ve `SitePage.tsx`'te üretilir; `hreflang` yalnızca o sayfanın yayınlanmış dil varyantları için yazılır.
-- `sitemap.xml` ve `robots.txt` (`apps/web/src/app/sitemap.xml/route.ts`, `.../robots.txt/route.ts`) istek host'una göre platform veya ilgili işletme sitesi için üretilir.
+- `hreflang`, `canonical`, Open Graph/Twitter etiketleri ve JSON-LD (`Organization`, `LocalBusiness`, `WebSite`, `BreadcrumbList`, `FAQPage`, `SoftwareApplication`, `Product` + `Offer`) `apps/web/src/lib/sites/jsonld.ts` ve `SitePage.tsx`'te üretilir; `hreflang` yalnızca o sayfanın yayınlanmış dil varyantları için yazılır ve sitenin varsayılan dilindeki varyanta (yoksa ilk varyanta) işaret eden bir `x-default` içerir. İstek host'u doğrulanmış bir özel alan adıysa canonical ve alternatifler o host'u kullanır. Ayrıntılar: `docs/SEO.md`.
+- `sitemap.xml` ve `robots.txt` (`apps/web/src/app/sitemap.xml/route.ts`, `.../robots.txt/route.ts`) istek host'una göre platform veya ilgili işletme sitesi için üretilir. `sitemap.xml` her dil varyantı için ayrı bir `<url>` yazar ve her biri sayfanın tam `hreflang` kümesini (`x-default` dahil) taşır; platform sitesinde `/` de listelenir. `robots.txt` dizinlenmeyen yollar için `Disallow` satırları içerir (`docs/SEO.md`).
 - `/` T1'den beri kodla yazılmış ürün açılış sayfasıdır (`apps/web/src/app/page.tsx`); sayfa motorunun platform sitesi `/tr` ve `/en` altında yaşar. Kökün sayfa motoruna devredilip devredilmeyeceği sahibin kararını bekler (`docs/TASARIM.md`).
 
 ### Tasarım dili (T6)
@@ -120,7 +120,7 @@ Herkese açık, kimliksiz uçlar (`apps/api/src/modules/sites/public-sites.contr
 |---|---|
 | `GET /public/sites/resolve?host=` | Web middleware'i: bir Host başlığı hangi siteye ait |
 | `GET /public/sites/:studioSlug/pages?locale=&slug=` | Bir sayfanın yayınlanmış tek dil hali; yayınlanmamış/bilinmeyen 404 |
-| `GET /public/sites/:studioSlug/sitemap-entries` | `sitemap.xml` için yayınlanmış sayfa listesi |
+| `GET /public/sites/:studioSlug/sitemap-entries` | `sitemap.xml` için yayınlanmış sayfa listesi (`items`) ve sitenin varsayılan dili (`defaultLocale`) |
 | `GET /public/domains/ask?domain=` | Caddy on-demand TLS "ask" uç noktası; hız sınırlıdır (`SitesPublicRateLimitGuard`), yalnızca aktif bir kiracının doğrulanmış özel alan adı veya `<slug>.<SITES_DOMAIN>` alt alan adı için 200 döner, başka her şey 404 |
 
 ## 7. Özel alan adları

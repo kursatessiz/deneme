@@ -32,7 +32,8 @@ export class PublicSitesController {
 
   @Get('public/sites/:studioSlug/sitemap-entries')
   async sitemapEntries(@Param('studioSlug') studioSlug: string) {
-    return { items: await this.publicSites.sitemapEntries(studioSlug) };
+    const [items, defaultLocale] = await Promise.all([this.publicSites.sitemapEntries(studioSlug), this.publicSites.siteDefaultLocale(studioSlug)]);
+    return { items, defaultLocale };
   }
 
   /**

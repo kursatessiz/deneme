@@ -7,6 +7,11 @@ import {
   buildHreflangAlternates,
   buildSitemapXml,
   buildRobotsTxt,
+  buildLocalizedSitemapEntries,
+  isNonIndexablePath,
+  isProtectedPath,
+  NON_INDEXABLE_PATH_PREFIXES,
+  PROTECTED_PATHS,
   isValidDomain,
   expectedDnsRecords,
   HeroBlockSchema,
@@ -90,6 +95,83 @@ describe('sites/sitemap', () => {
 
   it('builds robots.txt with a sitemap reference', () => {
     expect(buildRobotsTxt('https://x.com/sitemap.xml')).toContain('Sitemap: https://x.com/sitemap.xml');
+  });
+});
+
+describe('sites/hreflang and localized sitemap entries', () => {
+  const path = (locale: string, slug: string) => (slug ? `/${locale}/${slug}` : `/${locale}`);
+
+  it('adds x-default pointing at the site default locale variant', () => {
+    const out = buildHreflangAlternates(
+      [{ locale: 'tr', slug: '' }, { locale: 'en', slug: '' }],
+      path,
+      'en',
+    );
+    expect(out).toEqual({ tr: '/tr', en: '/en', 'x-default': '/en' });
+  });
+
+  it('falls back to the first variant when the page lacks the default locale', () => {
+    const out = buildHreflangAlternates([{ locale: 'en', slug: 'about' }], path, 'tr');
+    expect(out['x-default']).toBe('/en/about');
+  });
+
+  it('omits x-default when no default locale is given (legacy callers)', () => {
+    expect(buildHreflangAlternates([{ locale: 'tr', slug: '' }], path)).toEqual({ tr: '/tr' });
+  });
+
+  it('emits one url per locale, each with the full alternate set', () => {
+    const entries = buildLocalizedSitemapEntries(
+      [
+        { pageId: 'p1', locale: 'tr', slug: 'pilates', updatedAt: '2026-01-01T00:00:00.000Z' },
+        { pageId: 'p1', locale: 'en', slug: 'pilates-studio', updatedAt: '2026-01-02T00:00:00.000Z' },
+        { pageId: 'p2', locale: 'tr', slug: '', updatedAt: '2026-01-03T00:00:00.000Z' },
+      ],
+      'tr',
+      (locale, slug) => `https://x.com${path(locale, slug)}`,
+    );
+    expect(entries.map((e) => e.loc)).toEqual(['https://x.com/tr/pilates', 'https://x.com/en/pilates-studio', 'https://x.com/tr']);
+    expect(entries[0].alternates).toEqual({
+      tr: 'https://x.com/tr/pilates',
+      en: 'https://x.com/en/pilates-studio',
+      'x-default': 'https://x.com/tr/pilates',
+    });
+    expect(entries[1].alternates).toBe(entries[0].alternates);
+    expect(entries[1].lastModified).toBe('2026-01-02T00:00:00.000Z');
+    const xml = buildSitemapXml(entries);
+    expect(xml.match(/<url>/g)).toHaveLength(3);
+    expect(xml).toContain('hreflang="x-default"');
+  });
+});
+
+describe('sites/indexing', () => {
+  it('disallows every non-indexable prefix in robots.txt and keeps public content allowed', () => {
+    const txt = buildRobotsTxt('https://x.com/sitemap.xml');
+    expect(txt).toContain('Allow: /\n');
+    for (const p of NON_INDEXABLE_PATH_PREFIXES) {
+      expect(txt).toContain(`Disallow: ${p}/\n`);
+      expect(txt).toContain(`Disallow: ${p}$\n`);
+    }
+    expect(txt).toContain('Disallow: /giris/');
+    expect(txt).toContain('Disallow: /m/u/');
+    expect(txt.trimEnd().endsWith('Sitemap: https://x.com/sitemap.xml')).toBe(true);
+  });
+
+  it('matches whole path segments only', () => {
+    expect(isNonIndexablePath('/members')).toBe(true);
+    expect(isNonIndexablePath('/members/42')).toBe(true);
+    expect(isNonIndexablePath('/membership-plans')).toBe(false);
+    expect(isNonIndexablePath('/j/abc')).toBe(true);
+    expect(isNonIndexablePath('/m/u/abc')).toBe(true);
+    expect(isNonIndexablePath('/api/bff/x')).toBe(true);
+    expect(isNonIndexablePath('/tr/pilates')).toBe(false);
+    expect(isNonIndexablePath('/booking/studio/book')).toBe(false);
+    expect(isNonIndexablePath('/')).toBe(false);
+  });
+
+  it('keeps the protected list a subset of the non-indexable list', () => {
+    for (const p of PROTECTED_PATHS) expect(isNonIndexablePath(p)).toBe(true);
+    expect(isProtectedPath('/giris')).toBe(false);
+    expect(isProtectedPath('/admin/plans')).toBe(true);
   });
 });
 

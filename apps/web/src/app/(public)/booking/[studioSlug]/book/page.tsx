@@ -140,7 +140,7 @@ export default function PublicBookingPage() {
               <div className="flex items-center gap-3">
                 {config?.logoUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={config.logoUrl} alt="" className="h-8 object-contain" />
+                  <img src={config.logoUrl} alt="" height={32} decoding="async" className="h-8 object-contain" />
                 )}
                 <h1 className="ui-title">{config?.name ?? t('booking.defaultTitle')}</h1>
               </div>

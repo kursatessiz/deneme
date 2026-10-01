@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { EMBED_ORIGIN_PATTERN, LocaleCodeSchema, STUDIO_SLUG_PATTERN } from '@platform/shared';
+import { EMBED_ORIGIN_PATTERN, LocaleCodeSchema, NOINDEX_ROBOTS_VALUE, STUDIO_SLUG_PATTERN, isNonIndexablePath } from '@platform/shared';
 import { PAGE_LOCALE_HEADER } from '@/lib/i18n/constants';
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE, accessTokenCookieOptions, refreshTokenCookieOptions } from '@/lib/bff/cookies';
 import { dashboardCsp, generateNonce } from '@/lib/security/csp';
@@ -20,8 +20,8 @@ const SITES_BASE_DOMAIN = process.env.SITES_DOMAIN || process.env.WEB_DOMAIN || 
  * serving the dashboard, admin panel and the platform's own site exactly as
  * before.
  */
-/** These resolve the host for themselves (see sitemap.xml/robots.txt route handlers), so they are never rewritten. */
-const HOST_AWARE_PATHS = ['/sitemap.xml', '/robots.txt'];
+/** These resolve the host for themselves (see sitemap.xml/robots.txt/og route handlers), so they are never rewritten. */
+const HOST_AWARE_PATHS = ['/sitemap.xml', '/robots.txt', '/og'];
 
 /** Adds PAGE_LOCALE_HEADER for a `/<locale>/...` path; any client-sent value is dropped first. */
 function requestHeadersWithPageLocale(request: NextRequest): Headers {
@@ -168,7 +168,14 @@ async function embedCsp(request: NextRequest): Promise<NextResponse> {
  * server-side in `(dashboard)/layout.tsx` via `GET /auth/me`; this check is
  * cheap and only about routing, not authorization.
  */
-export async function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest): Promise<NextResponse> {
+  const response = await route(request);
+  // Header-level noindex covers client-component pages, route handlers and redirects, where page metadata cannot reach (docs/SEO.md).
+  if (isNonIndexablePath(request.nextUrl.pathname)) response.headers.set('X-Robots-Tag', NOINDEX_ROBOTS_VALUE);
+  return response;
+}
+
+async function route(request: NextRequest): Promise<NextResponse> {
   const tenantRewrite = await tenantSiteRewrite(request);
   if (tenantRewrite) return publicAdsCsp(tenantRewrite);
 
@@ -222,7 +229,9 @@ export const config = {
   matcher: [
     // Runs on every request (except static assets) so a tenant subdomain or
     // custom domain is rewritten whatever path it requests; the protected-path
-    // and embed-CSP checks below still only act on their own paths.
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    // and embed-CSP checks below still only act on their own paths. The generated
+    // icons, the web manifest and the Open Graph image (app/icon.tsx, apple-icon.tsx,
+    // manifest.ts, opengraph-image.tsx) are root assets and skip the middleware.
+    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|(?:icon|apple-icon|opengraph-image)(?:/|$)).*)',
   ],
 };

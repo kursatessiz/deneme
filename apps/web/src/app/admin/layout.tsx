@@ -1,3 +1,5 @@
+import type { Metadata } from 'next';
+import { noindexMetadata } from '@/lib/seo/noindex';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { PRODUCT_NAME } from '@platform/shared';
@@ -7,6 +9,10 @@ import { AdminNav } from '@/components/admin/AdminNav';
 import { Avatar } from '@/components/ui/Avatar';
 import { getT } from '@/lib/i18n/getT';
 import { fetchPlatformBrand } from '@/lib/sites/api';
+
+export async function generateMetadata(): Promise<Metadata> {
+  return noindexMetadata('seo.panel.title');
+}
 
 /**
  * `/admin` route group: the super-admin (platform owner) panel, backlog

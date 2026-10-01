@@ -1,3 +1,5 @@
+import type { Metadata } from 'next';
+import { noindexMetadata } from '@/lib/seo/noindex';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import type { BranchDTO } from '@platform/shared';
@@ -9,6 +11,10 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { DashboardSessionProvider } from '@/components/session/DashboardSessionProvider';
 import { BillingBanner } from '@/components/billing/BillingBanner';
+
+export async function generateMetadata(): Promise<Metadata> {
+  return noindexMetadata('seo.panel.title');
+}
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession();

@@ -1,3 +1,5 @@
+import type { Metadata } from 'next';
+import { noindexMetadata } from '@/lib/seo/noindex';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AdminTheme } from '@/components/admin/AdminTheme';
@@ -8,6 +10,10 @@ import { MarketingNav } from '@/components/marketing/MarketingNav';
 import { getPlatformContext, getSessionUser, twoFactorRedirect } from '@/lib/session/admin-session';
 import { getT } from '@/lib/i18n/getT';
 import { fetchPlatformBrand } from '@/lib/sites/api';
+
+export async function generateMetadata(): Promise<Metadata> {
+  return noindexMetadata('seo.panel.title');
+}
 
 /**
  * `/pazarlama/*`: the platform's own marketing panel (docs/PAZARLAMA_MODULU.md

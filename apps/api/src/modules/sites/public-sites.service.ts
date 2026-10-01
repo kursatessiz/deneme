@@ -88,6 +88,12 @@ export class PublicSitesService {
     };
   }
 
+  /** The site's default locale, for the sitemap's x-default alternates; null when the studio has no site. */
+  async siteDefaultLocale(studioSlug: string): Promise<string | null> {
+    const studio = await this.prisma.studio.findFirst({ where: { slug: studioSlug, isActive: true }, select: { site: { select: { defaultLocale: true } } } });
+    return studio?.site?.defaultLocale ?? null;
+  }
+
   async sitemapEntries(studioSlug: string): Promise<SitemapPageEntry[]> {
     const studio = await this.prisma.studio.findFirst({ where: { slug: studioSlug, isActive: true }, select: { site: { select: { id: true } } } });
     if (!studio?.site) return [];

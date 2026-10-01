@@ -25,7 +25,7 @@ export function Avatar({ name, src, tone = 'theme', className }: AvatarProps) {
     <span className={cx('ui-avatar', look('solid', tone), className)} aria-hidden="true">
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element -- tenant or user image on an arbitrary host
-        <img src={src} alt="" />
+        <img src={src} alt="" width={32} height={32} loading="lazy" decoding="async" />
       ) : (
         initialsOf(name)
       )}
