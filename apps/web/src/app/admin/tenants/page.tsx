@@ -7,15 +7,15 @@ import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataSt
 import { useT } from '@/components/i18n/I18nProvider';
 import { TenantBillingActions } from '@/components/admin/TenantBillingActions';
 import type { TenantListItemDTO } from '@platform/shared';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
 
 type TenantListItem = TenantListItemDTO;
-
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  borderColor: 'var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
 
 /** Countries with explicit region defaults (packages/shared countryDefaultsOf); any other ISO code is also
  * accepted by the API and falls back to USD/UTC/NONE/en, completed later from the studio's region settings. */
@@ -59,62 +59,44 @@ function CreateTenantForm({ onCreated }: { onCreated: () => void }) {
 
   if (!open) {
     return (
-      <button
-        onClick={() => setOpen(true)}
-        className="px-4 py-2 text-sm font-medium"
-        style={{ borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
-      >
+      <Button onClick={() => setOpen(true)} className="justify-self-start">
         {t('adminTenants.createButton')}
-      </button>
+      </Button>
     );
   }
 
   return (
-    <form
-      onSubmit={submit}
-      className="p-5 border space-y-3"
-      style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}
-    >
-      <h3 className="text-sm font-semibold">{t('adminTenants.form.title')}</h3>
-      <div className="grid grid-cols-2 gap-3">
-        <input required placeholder={t('adminTenants.form.name')} value={form.name} onChange={set('name')} className="border px-3 py-2 text-sm" style={inputStyle} />
-        <input required placeholder={t('adminTenants.form.slug')} value={form.slug} onChange={set('slug')} className="border px-3 py-2 text-sm" style={inputStyle} />
-        <input
-          required
-          placeholder={t('adminTenants.form.businessType')}
-          value={form.businessTypeTemplateKey}
-          onChange={set('businessTypeTemplateKey')}
-          className="border px-3 py-2 text-sm"
-          style={inputStyle}
-        />
-        <input required placeholder={t('adminTenants.form.plan')} value={form.planKey} onChange={set('planKey')} className="border px-3 py-2 text-sm" style={inputStyle} />
-        <select required value={form.countryCode} onChange={set('countryCode')} className="border px-3 py-2 text-sm" style={inputStyle}>
-          {COUNTRY_CODES.map((code) => (
-            <option key={code} value={code}>
-              {t(`adminTenants.country.${code}`)}
-            </option>
-          ))}
-        </select>
-        <input required placeholder={t('adminTenants.form.ownerFirstName')} value={form.ownerFirstName} onChange={set('ownerFirstName')} className="border px-3 py-2 text-sm" style={inputStyle} />
-        <input required placeholder={t('adminTenants.form.ownerLastName')} value={form.ownerLastName} onChange={set('ownerLastName')} className="border px-3 py-2 text-sm" style={inputStyle} />
-        <input required placeholder={t('adminTenants.form.ownerPhone')} value={form.ownerPhone} onChange={set('ownerPhone')} className="border px-3 py-2 text-sm" style={inputStyle} />
-        <input placeholder={t('adminTenants.form.referralCode')} value={form.referralCode} onChange={set('referralCode')} className="border px-3 py-2 text-sm" style={inputStyle} />
-      </div>
-      {error && <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{error}</p>}
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={submitting}
-          className="px-4 py-2 text-sm font-medium"
-          style={{ borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
-        >
-          {submitting ? t('adminTenants.form.submitting') : t('adminTenants.form.submit')}
-        </button>
-        <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('adminTenants.form.cancel')}
-        </button>
-      </div>
-    </form>
+    <Card as="section">
+      <form onSubmit={submit} className="pui-card-content">
+        <h3 className="ui-heading">{t('adminTenants.form.title')}</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input required placeholder={t('adminTenants.form.name')} value={form.name} onChange={set('name')} />
+          <Input required placeholder={t('adminTenants.form.slug')} value={form.slug} onChange={set('slug')} />
+          <Input required placeholder={t('adminTenants.form.businessType')} value={form.businessTypeTemplateKey} onChange={set('businessTypeTemplateKey')} />
+          <Input required placeholder={t('adminTenants.form.plan')} value={form.planKey} onChange={set('planKey')} />
+          <Select required value={form.countryCode} onChange={set('countryCode')}>
+            {COUNTRY_CODES.map((code) => (
+              <option key={code} value={code}>
+                {t(`adminTenants.country.${code}`)}
+              </option>
+            ))}
+          </Select>
+          <Input required placeholder={t('adminTenants.form.ownerFirstName')} value={form.ownerFirstName} onChange={set('ownerFirstName')} />
+          <Input required placeholder={t('adminTenants.form.ownerLastName')} value={form.ownerLastName} onChange={set('ownerLastName')} />
+          <Input required placeholder={t('adminTenants.form.ownerPhone')} value={form.ownerPhone} onChange={set('ownerPhone')} />
+          <Input placeholder={t('adminTenants.form.referralCode')} value={form.referralCode} onChange={set('referralCode')} />
+        </div>
+        {error && <p className="ui-caption ui-text-error">{error}</p>}
+        <div className="flex gap-2">
+          <Button type="submit" disabled={submitting}>
+            {submitting ? t('adminTenants.form.submitting') : t('adminTenants.form.submit')}
+          </Button>
+          <Button variant="link" tone="surface" onClick={() => setOpen(false)}>
+            {t('adminTenants.form.cancel')}
+          </Button>
+        </div>
+      </form>
+    </Card>
   );
 }
 
@@ -152,55 +134,43 @@ export default function TenantsPage() {
   ];
 
   return (
-    <div className="space-y-6" key={refreshKey}>
-      <div>
-        <h2 className="text-xl font-bold">{t('adminTenants.title')}</h2>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('adminTenants.subtitle')}
-        </p>
-      </div>
+    <div className="grid gap-6" key={refreshKey}>
+      <PageHeader title={t('adminTenants.title')} description={t('adminTenants.subtitle')} />
 
       <CreateTenantForm onCreated={refresh} />
-      {actionError && <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{actionError}</p>}
+      {actionError && <p className="ui-caption ui-text-error">{actionError}</p>}
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
       {!loading && !error && (!data || data.items.length === 0) && <EmptyState title={t('adminTenants.empty')} />}
       {!loading && !error && data && data.items.length > 0 && (
-        <div className="overflow-x-auto border" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)' }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
+        <Card className="overflow-x-auto">
+          <Table>
+            <Thead>
+              <Tr>
                 {columns.map((h, i) => (
-                  <th key={i} className="text-left px-3 py-2 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                    {h}
-                  </th>
+                  <Th key={i}>{h}</Th>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </Tr>
+            </Thead>
+            <Tbody>
               {data.items.map((tenant) => (
-                <tr key={tenant.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
-                  <td className="px-3 py-2 font-medium">{tenant.name}</td>
-                  <td className="px-3 py-2" style={{ color: 'var(--color-text-muted)' }}>{tenant.slug}</td>
-                  <td className="px-3 py-2">{tenant.businessTypeTemplateKey ?? '-'}</td>
-                  <td className="px-3 py-2">{tenant.planKey ?? '-'} {tenant.subscriptionStatus ? `(${tenant.subscriptionStatus})` : ''}</td>
-                  <td className="px-3 py-2">{tenant.branchCount}</td>
-                  <td className="px-3 py-2">{tenant.activeMemberCount}</td>
-                  <td className="px-3 py-2">{tenant.staffCount}</td>
-                  <td className="px-3 py-2">
-                    <span
-                      className="px-2 py-0.5 text-xs font-medium"
-                      style={{
-                        borderRadius: 'var(--radius-chip)',
-                        backgroundColor: tenant.isActive ? 'var(--color-surface-muted)' : 'var(--color-danger)',
-                        color: tenant.isActive ? 'var(--color-text-secondary)' : 'var(--color-on-primary)',
-                      }}
-                    >
+                <Tr key={tenant.id}>
+                  <Td className="ui-strong">{tenant.name}</Td>
+                  <Td className="ui-text-muted">{tenant.slug}</Td>
+                  <Td>{tenant.businessTypeTemplateKey ?? '-'}</Td>
+                  <Td>
+                    {tenant.planKey ?? '-'} {tenant.subscriptionStatus ? `(${tenant.subscriptionStatus})` : ''}
+                  </Td>
+                  <Td>{tenant.branchCount}</Td>
+                  <Td>{tenant.activeMemberCount}</Td>
+                  <Td>{tenant.staffCount}</Td>
+                  <Td>
+                    <Badge tone={tenant.isActive ? 'muted' : 'error'} variant={tenant.isActive ? 'soft' : 'solid'}>
                       {tenant.isActive ? t('adminTenants.status.active') : t('adminTenants.status.suspended')}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 align-top">
+                    </Badge>
+                  </Td>
+                  <Td className="align-top">
                     <TenantBillingActions
                       studioId={tenant.id}
                       status={tenant.billingStatus}
@@ -210,17 +180,17 @@ export default function TenantsPage() {
                       billingCurrencyOverride={tenant.billingCurrencyOverride}
                       onChanged={refresh}
                     />
-                  </td>
-                  <td className="px-3 py-2">
-                    <button onClick={() => toggleActive(tenant)} className="text-xs font-medium underline" style={{ color: 'var(--color-text-secondary)' }}>
+                  </Td>
+                  <Td>
+                    <Button variant="link" tone="surface" size="sm" onClick={() => toggleActive(tenant)}>
                       {tenant.isActive ? t('adminTenants.suspend') : t('adminTenants.reactivate')}
-                    </button>
-                  </td>
-                </tr>
+                    </Button>
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Tbody>
+          </Table>
+        </Card>
       )}
     </div>
   );

@@ -5,6 +5,10 @@ import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { useT } from '@/components/i18n/I18nProvider';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 interface BusinessType {
   id: string;
@@ -13,13 +17,6 @@ interface BusinessType {
   enabledModules: string[];
   isActive: boolean;
 }
-
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  borderColor: 'var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
 
 export default function BusinessTypesPage() {
   const t = useT();
@@ -62,39 +59,40 @@ export default function BusinessTypesPage() {
   if (forbidden) return <EmptyState title={t('adminBusinessTypes.accessDenied')} />;
 
   return (
-    <div className="space-y-6" key={refreshKey}>
-      <div>
-        <h2 className="text-xl font-bold">{t('adminBusinessTypes.title')}</h2>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('adminBusinessTypes.subtitle')}
-        </p>
-      </div>
+    <div className="grid gap-6" key={refreshKey}>
+      <PageHeader title={t('adminBusinessTypes.title')} description={t('adminBusinessTypes.subtitle')} />
 
-      <form onSubmit={submit} className="p-5 border space-y-3" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-        <h3 className="text-sm font-semibold">{t('adminBusinessTypes.form.title')}</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <input required placeholder={t('adminBusinessTypes.form.key')} value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
-          <input required placeholder={t('adminBusinessTypes.form.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
-          <input placeholder={t('adminBusinessTypes.form.serviceTypes')} value={form.serviceTypeNames} onChange={(e) => setForm({ ...form, serviceTypeNames: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
-          <input placeholder={t('adminBusinessTypes.form.resourceTypes')} value={form.resourceTypeNames} onChange={(e) => setForm({ ...form, resourceTypeNames: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
-          <input placeholder={t('adminBusinessTypes.form.enabledModules')} value={form.enabledModules} onChange={(e) => setForm({ ...form, enabledModules: e.target.value })} className="border px-3 py-2 text-sm col-span-2" style={inputStyle} />
-        </div>
-        {formError && <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{formError}</p>}
-        <button type="submit" disabled={submitting} className="px-4 py-2 text-sm font-medium" style={{ borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
-          {submitting ? t('adminBusinessTypes.form.submitting') : t('adminBusinessTypes.form.submit')}
-        </button>
-      </form>
+      <Card as="section">
+        <form onSubmit={submit} className="pui-card-content">
+          <h3 className="ui-heading">{t('adminBusinessTypes.form.title')}</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input required placeholder={t('adminBusinessTypes.form.key')} value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} />
+            <Input required placeholder={t('adminBusinessTypes.form.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <Input placeholder={t('adminBusinessTypes.form.serviceTypes')} value={form.serviceTypeNames} onChange={(e) => setForm({ ...form, serviceTypeNames: e.target.value })} />
+            <Input placeholder={t('adminBusinessTypes.form.resourceTypes')} value={form.resourceTypeNames} onChange={(e) => setForm({ ...form, resourceTypeNames: e.target.value })} />
+            <Input className="sm:col-span-2" placeholder={t('adminBusinessTypes.form.enabledModules')} value={form.enabledModules} onChange={(e) => setForm({ ...form, enabledModules: e.target.value })} />
+          </div>
+          {formError && <p className="ui-caption ui-text-error">{formError}</p>}
+          <Button type="submit" disabled={submitting} className="justify-self-start">
+            {submitting ? t('adminBusinessTypes.form.submitting') : t('adminBusinessTypes.form.submit')}
+          </Button>
+        </form>
+      </Card>
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
       {!loading && !error && data && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {data.items.map((bt) => (
-            <div key={bt.id} className="p-5 border" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-              <h3 className="text-sm font-semibold">{bt.name}</h3>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>{bt.key}</p>
-              <p className="text-xs mt-2" style={{ color: 'var(--color-text-secondary)' }}>{t('adminBusinessTypes.modules', { modules: bt.enabledModules.join(', ') || '-' })}</p>
-            </div>
+            <Card key={bt.id}>
+              <CardContent>
+                <div className="grid gap-1">
+                  <h3 className="ui-heading">{bt.name}</h3>
+                  <p className="ui-caption">{bt.key}</p>
+                </div>
+                <p className="ui-small">{t('adminBusinessTypes.modules', { modules: bt.enabledModules.join(', ') || '-' })}</p>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}

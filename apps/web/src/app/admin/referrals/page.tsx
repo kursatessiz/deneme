@@ -7,14 +7,13 @@ import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { EmptyState, ErrorState, LoadingState } from '@/components/common/DataState';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
-
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  borderColor: 'var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
-const card: React.CSSProperties = { borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' };
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
+import { StatTile } from '@/components/ui/StatTile';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
 
 function RewardSettingForm({ current, onSaved }: { current: ReferralRewardSetting; onSaved: () => void }) {
   const t = useT();
@@ -57,47 +56,42 @@ function RewardSettingForm({ current, onSaved }: { current: ReferralRewardSettin
   };
 
   return (
-    <form onSubmit={save} className="p-5 border space-y-3" style={card}>
-      <div>
-        <h3 className="text-sm font-semibold">{t('adminBilling.settings.title')}</h3>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('adminBilling.settings.description')}
-        </p>
-      </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <select aria-label={t('adminBilling.settings.kind')} value={kind} onChange={(e) => setKind(e.target.value as ReferralRewardKind)} className="border px-3 py-2 text-sm" style={inputStyle}>
-          <option value="FREE_MONTHS">{t('adminBilling.settings.kind.FREE_MONTHS')}</option>
-          <option value="AMOUNT">{t('adminBilling.settings.kind.AMOUNT')}</option>
-        </select>
-        {kind === 'AMOUNT' ? (
-          <>
-            {PLATFORM_BILLING_CURRENCIES.map((c) => (
-              <input
-                key={c}
-                inputMode="decimal"
-                aria-label={t('adminBilling.settings.amountIn', { currency: c })}
-                placeholder={t('adminBilling.settings.amountIn', { currency: c })}
-                value={amounts[c]}
-                onChange={(e) => setAmounts({ ...amounts, [c]: e.target.value })}
-                className="border px-3 py-2 text-sm w-36"
-                style={inputStyle}
-              />
-            ))}
-          </>
-        ) : (
-          <input required type="number" min={1} max={12} aria-label={t('adminBilling.settings.months')} placeholder={t('adminBilling.settings.months')} value={months} onChange={(e) => setMonths(e.target.value)} className="border px-3 py-2 text-sm w-24" style={inputStyle} />
-        )}
-        <button type="submit" disabled={busy} className="px-4 py-2 text-sm font-medium" style={{ borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
-          {t('adminBilling.settings.save')}
-        </button>
-      </div>
-      {kind === 'AMOUNT' && (
-        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          {t('adminBilling.settings.amountsHint')}
-        </p>
-      )}
-      {message && <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>{message}</p>}
-    </form>
+    <Card as="section">
+      <form onSubmit={save} className="pui-card-content">
+        <div className="grid gap-1">
+          <h3 className="ui-heading">{t('adminBilling.settings.title')}</h3>
+          <p className="ui-caption">{t('adminBilling.settings.description')}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <Select aria-label={t('adminBilling.settings.kind')} value={kind} onChange={(e) => setKind(e.target.value as ReferralRewardKind)} className="w-auto">
+            <option value="FREE_MONTHS">{t('adminBilling.settings.kind.FREE_MONTHS')}</option>
+            <option value="AMOUNT">{t('adminBilling.settings.kind.AMOUNT')}</option>
+          </Select>
+          {kind === 'AMOUNT' ? (
+            <>
+              {PLATFORM_BILLING_CURRENCIES.map((c) => (
+                <Input
+                  key={c}
+                  inputMode="decimal"
+                  aria-label={t('adminBilling.settings.amountIn', { currency: c })}
+                  placeholder={t('adminBilling.settings.amountIn', { currency: c })}
+                  value={amounts[c]}
+                  onChange={(e) => setAmounts({ ...amounts, [c]: e.target.value })}
+                  className="w-36"
+                />
+              ))}
+            </>
+          ) : (
+            <Input required type="number" min={1} max={12} aria-label={t('adminBilling.settings.months')} placeholder={t('adminBilling.settings.months')} value={months} onChange={(e) => setMonths(e.target.value)} className="w-24" />
+          )}
+          <Button type="submit" disabled={busy}>
+            {t('adminBilling.settings.save')}
+          </Button>
+        </div>
+        {kind === 'AMOUNT' && <p className="ui-caption">{t('adminBilling.settings.amountsHint')}</p>}
+        {message && <p className="ui-caption">{message}</p>}
+      </form>
+    </Card>
   );
 }
 
@@ -111,64 +105,48 @@ export default function AdminReferralsPage() {
   if (forbidden) return <EmptyState title={t('adminPlans.accessDenied')} />;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold">{t('adminBilling.referrals.title')}</h2>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('adminBilling.referrals.subtitle')}
-        </p>
-      </div>
+    <div className="grid gap-6">
+      <PageHeader title={t('adminBilling.referrals.title')} description={t('adminBilling.referrals.subtitle')} />
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
       {data && (
         <>
           <RewardSettingForm current={data.reward} onSaved={() => setRefreshKey((k) => k + 1)} />
-          <dl className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {(['signedUp', 'rewarded', 'rejected'] as const).map((key) => (
-              <div key={key} className="p-4 border" style={card}>
-                <dt className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                  {t(`adminBilling.referrals.totals.${key}`)}
-                </dt>
-                <dd className="text-2xl font-semibold">{data.totals[key]}</dd>
-              </div>
+              <StatTile key={key} label={t(`adminBilling.referrals.totals.${key}`)} value={data.totals[key]} />
             ))}
-          </dl>
+          </div>
           {data.items.length === 0 ? (
             <EmptyState title={t('adminBilling.referrals.empty')} />
           ) : (
-            <div className="overflow-x-auto border" style={card}>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
+            <Card className="overflow-x-auto">
+              <Table>
+                <Thead>
+                  <Tr>
                     {(['referrer', 'referred', 'code', 'source', 'status', 'date'] as const).map((col) => (
-                      <th key={col} className="text-left px-3 py-2 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                        {t(`adminBilling.referrals.col.${col}`)}
-                      </th>
+                      <Th key={col}>{t(`adminBilling.referrals.col.${col}`)}</Th>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
+                  </Tr>
+                </Thead>
+                <Tbody>
                   {data.items.map((r) => (
-                    <tr key={r.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
-                      <td className="px-3 py-2 font-medium">{r.referrerStudioName}</td>
-                      <td className="px-3 py-2">{r.referredStudioName}</td>
-                      <td className="px-3 py-2 font-mono text-xs">{r.code}</td>
-                      <td className="px-3 py-2">{t(`adminBilling.referrals.source.${r.source}`)}</td>
-                      <td className="px-3 py-2">
+                    <Tr key={r.id}>
+                      <Td className="ui-strong">{r.referrerStudioName}</Td>
+                      <Td>{r.referredStudioName}</Td>
+                      <Td className="ui-mono">{r.code}</Td>
+                      <Td>{t(`adminBilling.referrals.source.${r.source}`)}</Td>
+                      <Td>
                         {t(`billing.referral.status.${r.status}`)}
-                        {r.rejectReason && (
-                          <span className="block text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                            {t(`billing.referral.reject.${r.rejectReason}`)}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">{new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(r.createdAt))}</td>
-                    </tr>
+                        {r.rejectReason && <span className="block ui-caption">{t(`billing.referral.reject.${r.rejectReason}`)}</span>}
+                      </Td>
+                      <Td>{new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(r.createdAt))}</Td>
+                    </Tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </Tbody>
+              </Table>
+            </Card>
           )}
         </>
       )}
