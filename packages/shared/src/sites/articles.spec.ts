@@ -53,6 +53,14 @@ describe('sites/article-markup', () => {
     }
   });
 
+  it('parses hostile bracket runs in linear time', () => {
+    const hostile = `${'['.repeat(20000)}x${'[\\](!'.repeat(20000)}`;
+    const started = Date.now();
+    const nodes = parseArticleInline(hostile);
+    expect(Date.now() - started).toBeLessThan(500);
+    expect(nodes.every((node) => node.type === 'text')).toBe(true);
+  });
+
   it('never passes HTML through: tags stay literal text', () => {
     const blocks = parseArticleBody('<script>alert(1)</script> **<b>x</b>**');
     expect(blocks).toEqual([
