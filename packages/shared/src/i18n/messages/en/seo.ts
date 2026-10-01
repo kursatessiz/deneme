@@ -8,4 +8,10 @@ export const enSeo: Record<keyof typeof trSeo, string> = {
   'seo.panel.title': 'Management panel | {product}',
   'seo.booking.title': '{studio} | {booking}',
   'seo.booking.description': 'Online booking for {studio}: choose a service and a time that suits you.',
+  'seo.llms.pages': 'Pages',
+  'seo.llms.blog': 'Blog',
+  'seo.llms.services': 'Services',
+  'seo.llms.booking': 'Booking',
+  'seo.llms.bookingLink': 'Book online',
+  'seo.llms.tenantSummary': '{name}: services and online booking',
 };

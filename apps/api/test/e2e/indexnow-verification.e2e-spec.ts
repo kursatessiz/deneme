@@ -150,7 +150,7 @@ describe('Sites: IndexNow and search verification (e2e)', () => {
 
       const ok = await owner().patch(`/sites/studio/${ZEN}`).send({ seo: { googleSiteVerification: `g-token-${suffix}-abc`, bingSiteVerification: 'BING0123456789ABCDEF' } });
       expect(ok.status).toBe(200);
-      expect(ok.body.seo).toEqual({ googleSiteVerification: `g-token-${suffix}-abc`, bingSiteVerification: 'BING0123456789ABCDEF' });
+      expect(ok.body.seo).toEqual({ googleSiteVerification: `g-token-${suffix}-abc`, bingSiteVerification: 'BING0123456789ABCDEF', aiCrawlers: 'allow' });
       expect((await owner().get(`/sites/studio/${ZEN}`)).body.seo.googleSiteVerification).toBe(`g-token-${suffix}-abc`);
 
       const pub = await request(server).get(`/public/sites/${ZEN_SLUG}/settings`);
@@ -164,7 +164,20 @@ describe('Sites: IndexNow and search verification (e2e)', () => {
     it('keeps a field that is not sent and clears one that is sent empty', async () => {
       const res = await owner().patch(`/sites/studio/${ZEN}`).send({ seo: { bingSiteVerification: '' } });
       expect(res.status).toBe(200);
-      expect(res.body.seo).toEqual({ googleSiteVerification: `g-token-${suffix}-abc`, bingSiteVerification: null });
+      expect(res.body.seo).toEqual({ googleSiteVerification: `g-token-${suffix}-abc`, bingSiteVerification: null, aiCrawlers: 'allow' });
+    });
+
+    it('stores the AI crawler policy (default allow) and rejects unknown values', async () => {
+      expect((await request(server).get(`/public/sites/${ZEN_SLUG}/settings`)).body.aiCrawlers).toBe('allow');
+      expect((await owner().patch(`/sites/studio/${ZEN}`).send({ seo: { aiCrawlers: 'deny' } })).status).toBe(400);
+      const blocked = await owner().patch(`/sites/studio/${ZEN}`).send({ seo: { aiCrawlers: 'block' } });
+      expect(blocked.status).toBe(200);
+      expect(blocked.body.seo.aiCrawlers).toBe('block');
+      expect((await request(server).get(`/public/sites/${ZEN_SLUG}/settings`)).body.aiCrawlers).toBe('block');
+      const allowed = await owner().patch(`/sites/studio/${ZEN}`).send({ seo: { aiCrawlers: 'allow' } });
+      expect(allowed.body.seo.aiCrawlers).toBe('allow');
+      // Another tenant keeps the default.
+      expect((await request(server).get('/public/sites/flow-pilates-wellness/settings')).body.aiCrawlers).toBe('allow');
     });
 
     it('is refused without site.manage and across tenants', async () => {

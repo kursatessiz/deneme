@@ -33,11 +33,20 @@ describe('sites/seo settings', () => {
   it('falls back per field when the stored JSON is malformed', () => {
     expect(parseSiteSeoSettings(undefined)).toEqual(DEFAULT_SITE_SEO_SETTINGS);
     expect(parseSiteSeoSettings([])).toEqual(DEFAULT_SITE_SEO_SETTINGS);
-    expect(parseSiteSeoSettings({ googleSiteVerification: '<b>', bingSiteVerification: 'goodtoken123', indexNowKey: 'short' })).toEqual({
+    expect(parseSiteSeoSettings({ googleSiteVerification: '<b>', bingSiteVerification: 'goodtoken123', indexNowKey: 'short', aiCrawlers: 'maybe' })).toEqual({
       googleSiteVerification: null,
       bingSiteVerification: 'goodtoken123',
+      aiCrawlers: 'allow',
       indexNowKey: null,
     });
+  });
+
+  it('defaults the AI crawler policy to allow and accepts block', () => {
+    expect(DEFAULT_SITE_SEO_SETTINGS.aiCrawlers).toBe('allow');
+    expect(parseSiteSeoSettings({ aiCrawlers: 'block' }).aiCrawlers).toBe('block');
+    expect(UpdateSiteSeoSettingsSchema.safeParse({ aiCrawlers: 'block' }).success).toBe(true);
+    expect(UpdateSiteSeoSettingsSchema.safeParse({ aiCrawlers: 'deny' }).success).toBe(false);
+    expect(mergeSiteSeoSettings(DEFAULT_SITE_SEO_SETTINGS, { aiCrawlers: 'block' }).aiCrawlers).toBe('block');
   });
 
   it('merges only the fields that are given and can clear one', () => {

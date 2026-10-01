@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AI_CRAWLER_POLICIES, DEFAULT_AI_CRAWLER_POLICY, type AiCrawlerPolicy } from './robots';
 
 /**
  * Per-site search settings (S3, docs/SEO.md). Stored in `Site.seoSettings` (JSON) so a new setting needs no
@@ -27,6 +28,8 @@ export const SEO_INDEXNOW_FLAG = 'seo.indexnow';
 export interface SiteSeoSettings {
   googleSiteVerification: string | null;
   bingSiteVerification: string | null;
+  /** `block` adds Disallow rules for the AI crawlers to robots.txt and turns llms.txt off (default allow). */
+  aiCrawlers: AiCrawlerPolicy;
   /** Generated on first IndexNow use; never edited by hand. */
   indexNowKey: string | null;
 }
@@ -34,6 +37,7 @@ export interface SiteSeoSettings {
 export const DEFAULT_SITE_SEO_SETTINGS: SiteSeoSettings = {
   googleSiteVerification: null,
   bingSiteVerification: null,
+  aiCrawlers: DEFAULT_AI_CRAWLER_POLICY,
   indexNowKey: null,
 };
 
@@ -42,11 +46,13 @@ export const UpdateSiteSeoSettingsSchema = z
   .object({
     googleSiteVerification: SearchVerificationTokenSchema.optional(),
     bingSiteVerification: SearchVerificationTokenSchema.optional(),
+    aiCrawlers: z.enum(AI_CRAWLER_POLICIES).optional(),
   })
   .strict();
 export type UpdateSiteSeoSettingsInput = z.infer<typeof UpdateSiteSeoSettingsSchema>;
 
 const TokenOrNull = z.string().regex(/^[A-Za-z0-9_-]{8,100}$/).nullable().catch(null);
+const AiCrawlerPolicyOrDefault = z.enum(AI_CRAWLER_POLICIES).catch(DEFAULT_AI_CRAWLER_POLICY);
 const IndexNowKeyOrNull = z.string().regex(INDEXNOW_KEY_PATTERN).nullable().catch(null);
 
 /** Reads the stored JSON; a missing, malformed or hand-edited value falls back to the default for that field only. */
@@ -55,6 +61,7 @@ export function parseSiteSeoSettings(raw: unknown): SiteSeoSettings {
   return {
     googleSiteVerification: TokenOrNull.parse(source.googleSiteVerification ?? null),
     bingSiteVerification: TokenOrNull.parse(source.bingSiteVerification ?? null),
+    aiCrawlers: AiCrawlerPolicyOrDefault.parse(source.aiCrawlers ?? DEFAULT_AI_CRAWLER_POLICY),
     indexNowKey: IndexNowKeyOrNull.parse(source.indexNowKey ?? null),
   };
 }
@@ -65,5 +72,6 @@ export function mergeSiteSeoSettings(current: SiteSeoSettings, update: UpdateSit
     ...current,
     ...(update.googleSiteVerification !== undefined ? { googleSiteVerification: update.googleSiteVerification } : {}),
     ...(update.bingSiteVerification !== undefined ? { bingSiteVerification: update.bingSiteVerification } : {}),
+    ...(update.aiCrawlers !== undefined ? { aiCrawlers: update.aiCrawlers } : {}),
   };
 }

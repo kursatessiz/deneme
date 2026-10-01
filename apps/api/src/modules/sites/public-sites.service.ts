@@ -114,6 +114,7 @@ export class PublicSitesService {
       canonicalOrigin: canonicalOriginOf({ isPlatform: studio.isPlatform, slug: studio.slug, primaryDomain: studio.site.primaryDomain, domains: studio.site.domains }),
       googleSiteVerification: seo.googleSiteVerification,
       bingSiteVerification: seo.bingSiteVerification,
+      aiCrawlers: seo.aiCrawlers,
     };
   }
 

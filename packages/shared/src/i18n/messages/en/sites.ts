@@ -98,4 +98,8 @@ export const enSites: Record<keyof typeof trSites, string> = {
   'sites.editor.seo.submit': 'Save',
   'sites.editor.seo.saved': 'Search engine settings saved',
   'sites.editor.seo.saveFailed': 'Search engine settings could not be saved',
+  'sites.editor.seo.aiCrawlers': 'AI crawlers',
+  'sites.editor.seo.aiCrawlers.allow': 'Allow (default)',
+  'sites.editor.seo.aiCrawlers.block': 'Block',
+  'sites.editor.seo.aiCrawlers.hint': 'When blocked, robots.txt disallows the whole site for these crawlers and llms.txt is not published: {agents}. Search engine crawlers are not affected.',
 } as const;

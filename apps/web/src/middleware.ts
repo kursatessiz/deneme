@@ -7,7 +7,7 @@ import { isProtectedPath } from '@/lib/security/protected-paths';
 import { tenantRewritePath } from '@/lib/sites/tenant-path';
 import { blogPagingRewrite } from '@/lib/sites/blog-paging';
 import { isVariantPage } from '@/lib/sites/variant-pages';
-import { indexNowKeyFromPath } from '@/lib/sites/indexnow-key';
+import { ORIGINAL_HOST_HEADER, indexNowKeyFromPath } from '@/lib/sites/indexnow-key';
 import { apiOrigin, serverPublicApiUrl } from '@/lib/public-api-url';
 
 /** Server-side API base (docker network) for host resolution, session refresh and the embed CSP; same variable the BFF uses. */
@@ -24,8 +24,8 @@ const SITES_BASE_DOMAIN = process.env.SITES_DOMAIN || process.env.WEB_DOMAIN || 
  * serving the dashboard, admin panel and the platform's own site exactly as
  * before.
  */
-/** These resolve the host for themselves (see sitemap.xml/robots.txt/og route handlers), so they are never rewritten. */
-const HOST_AWARE_PATHS = ['/sitemap.xml', '/robots.txt', '/og'];
+/** These resolve the host for themselves (see sitemap.xml/robots.txt/llms.txt/og route handlers), so they are never rewritten. */
+const HOST_AWARE_PATHS = ['/sitemap.xml', '/robots.txt', '/llms.txt', '/og'];
 
 /** Adds PAGE_LOCALE_HEADER for a `/<locale>/...` path; any client-sent value is dropped first. */
 function requestHeadersWithPageLocale(request: NextRequest): Headers {
@@ -201,7 +201,10 @@ async function route(request: NextRequest): Promise<NextResponse> {
   if (indexNowKey) {
     const url = request.nextUrl.clone();
     url.pathname = `/indexnow-key/${indexNowKey}`;
-    return NextResponse.rewrite(url);
+    // The rewrite target is served as a different URL; the handler needs the host the visitor asked for.
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set(ORIGINAL_HOST_HEADER, request.headers.get('host') ?? '');
+    return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
   }
 
   const tenantRewrite = await tenantSiteRewrite(request);

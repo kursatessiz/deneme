@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { INDEXNOW_KEY_PATTERN, siteCacheTag } from '@platform/shared';
 import { apiInternalBaseUrl } from '@/lib/server-env';
 import { studioSlugForHost } from '@/lib/sites/api';
+import { ORIGINAL_HOST_HEADER } from '@/lib/sites/indexnow-key';
 
 /**
  * IndexNow key file (docs/SEO.md "IndexNow"): `https://<host>/<key>.txt` answers the key itself for the site that
@@ -13,7 +14,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest, { params }: { params: Promise<{ key: string }> }): Promise<Response> {
   const { key } = await params;
   if (!INDEXNOW_KEY_PATTERN.test(key)) return new Response('Not found', { status: 404 });
-  const site = await studioSlugForHost(request.headers.get('host') ?? '');
+  const site = await studioSlugForHost(request.headers.get(ORIGINAL_HOST_HEADER) ?? request.headers.get('host') ?? '');
   let stored: string | null = null;
   try {
     const res = await fetch(`${apiInternalBaseUrl()}/public/sites/${encodeURIComponent(site.studioSlug)}/indexnow-key`, {

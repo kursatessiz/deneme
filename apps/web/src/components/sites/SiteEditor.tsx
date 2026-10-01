@@ -47,7 +47,7 @@ interface SiteRow {
   defaultLocale: string;
   enabledLocales: string[];
   domains: Array<{ id: string; domain: string; status: string; verificationToken: string }>;
-  seo: { googleSiteVerification: string | null; bingSiteVerification: string | null };
+  seo: { googleSiteVerification: string | null; bingSiteVerification: string | null; aiCrawlers: 'allow' | 'block' };
 }
 
 const BLOCK_TEMPLATE: Record<BlockType, unknown> = {

@@ -23,7 +23,7 @@ Tüm kullanıcıya görünen metinler i18n anahtarıdır (`seo.*` ad alanı, `pa
 
 Dizinlenmemesi gereken yolların tek kaynağı `packages/shared/src/sites/indexing.ts` dosyasındaki `NON_INDEXABLE_PATH_PREFIXES` listesidir (korunan panel yolları `PROTECTED_PATHS` ve herkese açık ama dizinlenmemesi gerekenler `NON_INDEXABLE_PUBLIC_PATHS`). Üç yerde aynı liste kullanılır:
 
-1. `buildRobotsTxt()` her önek için `Disallow: /yol/` ve `Disallow: /yol$` satırı yazar, `Allow: /` ve `Sitemap:` satırını korur. Birim testi: `packages/shared/src/sites/sites.spec.ts`.
+1. `buildRobotsTxt()` (`packages/shared/src/sites/robots.ts`) her önek için `Disallow: /yol/` ve `Disallow: /yol$` satırı yazar, `Allow: /` ve `Sitemap:` satırını korur. Birim testi: `packages/shared/src/sites/robots.spec.ts` ve `sites.spec.ts`.
 2. Middleware (`apps/web/src/middleware.ts`) listedeki her yolun yanıtına `X-Robots-Tag: noindex, nofollow` ekler. Bu, istemci bileşeni olan sayfaları, route handler'ları (`/api`, `/m/c/<token>`) ve yönlendirmeleri de kapsar.
 3. Sunucu layout'ları `robots: { index: false, follow: false }` metadata'sı verir (`noindexMetadata()`, `apps/web/src/lib/seo/noindex.ts`) ve tarafsız, çevrilmiş bir başlık koyar (`seo.login.title`, `seo.token.title`, `seo.panel.title`).
 
@@ -166,6 +166,21 @@ Sayfa veya yazı yayınlandığında ve yayından kaldırıldığında değişen
 - **Kayıt**: her gönderim `AuditLog` satırıdır (`indexnow.submitted` veya `indexnow.rejected`; host, adres sayısı, HTTP durumu).
 - **Yük**: `buildIndexNowPayload()` (`packages/shared/src/sites/indexnow.ts`) gövdeyi kurar: `host`, `key`, `keyLocation`, yalnızca o host'un adresleri, tekilleştirilmiş, en fazla 10 000.
 - **Testler**: `packages/shared/src/sites/seo-settings.spec.ts` (yük, ayar şeması), `indexnow-submitter.service.spec.ts` (çıkış, test ortamı, yeniden deneme), `lib/sites/indexnow-key.spec.ts` ve `lib/seo/verification.spec.ts` (web), `apps/api/test/e2e/indexnow-verification.e2e-spec.ts` (bayrak açıkken yayında iş kuyruğa girer, kapalıyken girmez; doğrulama kodları, anahtar).
+
+## 14. llms.txt (S3)
+
+`/llms.txt` ([llmstxt.org](https://llmstxt.org)) dil modellerine sitenin ne olduğunu ve ana içeriğinin nerede durduğunu söyleyen bir Markdown dosyasıdır. Host'a duyarlı route handler (`app/llms.txt/route.ts`, `lib/sites/llms.ts`) platform alan adında platform sitesi, işletme alt alan adında veya doğrulanmış özel alan adında işletme sitesi için üretir; yalnızca site zaten yayınladığı veriyi kullanır:
+
+- **Dil**: ziyaretçinin dili (`pw_locale` çerezi, sonra Accept-Language) sitenin yayınlandığı dillerle sınırlanır (kök yönlendirmesiyle aynı kural, `negotiateRootLocale`), yanıt `Vary: Accept-Language, Cookie` taşır.
+- **Platform**: ad (`PRODUCT_NAME`), açıklama (`seo.root.description`, istek dilinde), "Sayfalar" (ana sayfa önce, en fazla 20 yayınlı sayfa; başlık `seoTitle`, açıklama `seoDescription`), yazısı olan dillerde blog dizini.
+- **İşletme**: ad ve özet (ana sayfanın SEO açıklaması, yoksa `seo.llms.tenantSummary`), aynı sayfa ve blog bölümleri, "Hizmetler" (herkese açık yapılandırmadan `GET /public/studios/:slug/embed/service-types`, en fazla 30; açıklama yoksa süre) ve "Randevu" (platform alan adındaki herkese açık rezervasyon sayfası `/booking/<slug>/book`).
+- **Güvenlik**: dosya `buildLlmsTxt()` (`packages/shared/src/sites/llms.ts`) ile kurulur; kiracı verisi tek satıra indirilir, `[` `]` atılır, bağlantı hedefi yalnızca boşluksuz, parantezsiz mutlak http(s) adresi olabilir. Bölüm başlıkları `seo.llms.*` i18n anahtarlarıdır.
+- **Politika**: site yapay zeka tarayıcılarını engellediyse (bölüm 15) `llms.txt` yayınlanmaz (404); iki dosya birbiriyle çelişmez.
+- **Test**: `packages/shared/src/sites/llms.spec.ts`.
+
+## 15. Yapay zeka tarayıcı politikası (S3)
+
+Site ayarı `aiCrawlers: 'allow' | 'block'` (`Site.seoSettings`, varsayılan `allow`). `block` iken `robots.txt` GPTBot, ClaudeBot, CCBot, Google-Extended, PerplexityBot, Bytespider ve anthropic-ai için `Disallow: /` içeren bir grup ekler (`User-agent: *` kurallarından önce, tek grupta yedi `User-agent` satırı); arama motoru tarayıcıları (Googlebot, Bingbot) etkilenmez. Platform sitesinin politikası platform alan adının `robots.txt` dosyasını, işletmenin politikası kendi host'unun dosyasını belirler. Ayar süper admin "Web sitesi" ve kiracı "Web sitem" ekranlarındaki "Arama motoru doğrulaması" bölümünde seçilir. Kural tek yerdedir: `buildRobotsTxt(sitemapUrl, { aiCrawlers })` (`packages/shared/src/sites/robots.ts`, test `robots.spec.ts`). Not: `robots.txt` yalnızca uyan tarayıcılar için bir istektir, teknik bir engel değildir.
 
 ## 17. Açık işler
 

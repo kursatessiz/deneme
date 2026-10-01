@@ -149,7 +149,7 @@ export class SitesService {
       defaultLocale: site.defaultLocale,
       enabledLocales: site.enabledLocales,
       domains: site.domains.map(toDomainDto),
-      seo: (({ googleSiteVerification, bingSiteVerification }) => ({ googleSiteVerification, bingSiteVerification }))(parseSiteSeoSettings(site.seoSettings)),
+      seo: (({ googleSiteVerification, bingSiteVerification, aiCrawlers }) => ({ googleSiteVerification, bingSiteVerification, aiCrawlers }))(parseSiteSeoSettings(site.seoSettings)),
     };
   }
 }

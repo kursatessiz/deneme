@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { isReservedPageSlug, type ArticleSitemapEntry } from './articles';
 import type { PoweredByDTO } from '../branding';
 import { UpdateSiteSeoSettingsSchema, type SiteSeoSettings } from './seo-settings';
+import type { AiCrawlerPolicy } from './robots';
 
 /**
  * Page engine core contracts (docs/SAYFA_MOTORU.md). `Site` -> `Page` ->
@@ -155,7 +156,7 @@ export interface SiteDTO {
   enabledLocales: string[];
   domains: SiteDomainDTO[];
   /** Search settings (S3); the IndexNow key is internal and not part of the DTO. */
-  seo: Pick<SiteSeoSettings, 'googleSiteVerification' | 'bingSiteVerification'>;
+  seo: Pick<SiteSeoSettings, 'googleSiteVerification' | 'bingSiteVerification' | 'aiCrawlers'>;
 }
 
 // ---------------------------------------------------------------------------
@@ -247,6 +248,8 @@ export interface PublicSiteSettingsDTO extends PoweredByDTO {
   /** Search Console / Bing verification tokens rendered as meta tags (S3); null when not set. */
   googleSiteVerification: string | null;
   bingSiteVerification: string | null;
+  /** AI crawler policy of the site: drives robots.txt and llms.txt (S3). */
+  aiCrawlers: AiCrawlerPolicy;
   /**
    * The site's one canonical origin, independent of the request host so cached pages stay correct (ISR): the
    * verified primary custom domain, else the earliest verified one, else `<slug>.<base domain>`; the platform

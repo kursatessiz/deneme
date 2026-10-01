@@ -106,4 +106,8 @@ export const trSites = {
   'sites.editor.seo.submit': 'Kaydet',
   'sites.editor.seo.saved': 'Arama motoru ayarları kaydedildi',
   'sites.editor.seo.saveFailed': 'Arama motoru ayarları kaydedilemedi',
+  'sites.editor.seo.aiCrawlers': 'Yapay zeka tarayıcıları',
+  'sites.editor.seo.aiCrawlers.allow': 'İzin ver (varsayılan)',
+  'sites.editor.seo.aiCrawlers.block': 'Engelle',
+  'sites.editor.seo.aiCrawlers.hint': 'Engellenirse robots.txt şu tarayıcılara tüm siteyi yasaklar ve llms.txt yayınlanmaz: {agents}. Arama motoru tarayıcıları etkilenmez.',
 } as const satisfies Record<string, string>;

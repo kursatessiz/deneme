@@ -33,6 +33,7 @@ export async function fetchSiteSettings(studioSlug: string): Promise<PublicSiteS
     canonicalOrigin: siteOrigin(studioSlug, studioSlug === 'platform'),
     googleSiteVerification: null,
     bingSiteVerification: null,
+    aiCrawlers: 'allow',
   };
   try {
     const res = await fetch(`${apiInternalBaseUrl()}/public/sites/${encodeURIComponent(studioSlug)}/settings`, {
