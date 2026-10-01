@@ -28,6 +28,20 @@ export const EVENT_INCLUDE = {
 
 export type EventWithDetails = Prisma.EventGetPayload<{ include: typeof EVENT_INCLUDE }>;
 
+/** The public listing also needs the branch (where, which zone); the studio itself is the fallback. */
+export const PUBLIC_EVENT_INCLUDE = {
+  ...EVENT_INCLUDE,
+  branch: { select: { name: true, address: true, timezone: true } },
+} satisfies Prisma.EventInclude;
+
+export type PublicEventWithDetails = Prisma.EventGetPayload<{ include: typeof PUBLIC_EVENT_INCLUDE }>;
+
+export interface PublicEventStudio {
+  name: string;
+  address: string | null;
+  timezone: string;
+}
+
 /** Prisma include for everything an EventRegistrationDTO shows. */
 export const REGISTRATION_INCLUDE = {
   ticketType: { select: { name: true } },
@@ -105,7 +119,7 @@ export function toEventDTO(e: EventWithDetails, waitlistCount: number, now = new
   };
 }
 
-export function toPublicEventDTO(e: EventWithDetails, registrationOpen: boolean, now = new Date()): PublicEventDTO {
+export function toPublicEventDTO(e: PublicEventWithDetails, studio: PublicEventStudio, registrationOpen: boolean, now = new Date()): PublicEventDTO {
   return {
     id: e.id,
     title: e.title,
@@ -121,6 +135,8 @@ export function toPublicEventDTO(e: EventWithDetails, registrationOpen: boolean,
     ticketTypes: e.ticketTypes
       .filter((t) => t.isActive && !t.membersOnly)
       .map((t) => ({ id: t.id, name: t.name, description: t.description, priceAmount: money(t.priceAmount), currency: t.currency, onSale: ticketOnSale(t, now) })),
+    timezone: e.branch?.timezone ?? studio.timezone,
+    location: e.branch ? { name: e.branch.name, address: e.branch.address ?? studio.address } : { name: studio.name, address: studio.address },
   };
 }
 

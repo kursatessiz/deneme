@@ -267,8 +267,8 @@ Süper admin paneli, pazarlama paneli, güvenlik ekranları ve davet sayfası
 `AdminTheme` ile kit varsayılanlarını alır (işletme yok); süper admin ve
 pazarlama düzenleri platform kiracısının (`slug: platform`) birincil rengini
 `fetchPlatformBrand()` ile geçirir ve işletim sistemi modunu izler. Giriş
-sayfası ve `/` açılış sayfası kit varsayılanlarıyla, işletim sistemi
-moduyla çalışır.
+sayfası kit varsayılanlarıyla, işletim sistemi moduyla çalışır; `/` artık
+sayfa motorunun platform ana sayfasına yönlenir.
 
 Kullanıcı modunu iki yerden değiştirir: üst bardaki kullanıcı menüsündeki
 "Koyu mod" anahtarı (`PUT /me/appearance`, ardından sayfa yenilenir) ve
@@ -309,7 +309,7 @@ işletme rengine geçti.
 
 `apps/web/e2e/screenshots.e2e.ts` CI'daki web e2e işinde çalışır ve şu
 ekranların 1440x900, tam sayfa PNG'lerini açık ve koyu modda
-`apps/web/screenshots/<ad>-<mod>.png` olarak kaydeder: açılış (`landing`),
+`apps/web/screenshots/<ad>-<mod>.png` olarak kaydeder: ana sayfa (`landing`, `/` yönlendirmesini izler),
 giriş (`login`), genel bakış (`dashboard`), takvim (`calendar`), üye listesi
 (`members`), bir üye kartı (`member-card`), ayarlar (`settings`), süper admin
 genel bakış (`admin-home`), işletmeler (`admin-tenants`), pazarlama panosu

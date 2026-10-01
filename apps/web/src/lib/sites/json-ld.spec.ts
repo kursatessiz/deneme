@@ -1,6 +1,7 @@
 import { serializeJsonLd } from './json-ld';
 import {
   breadcrumbJsonLd,
+  eventJsonLd,
   faqPageJsonLd,
   localBusinessJsonLd,
   organizationJsonLd,
@@ -86,5 +87,59 @@ describe('faq, products and software application', () => {
     expect(app).toMatchObject({ '@type': 'SoftwareApplication', applicationCategory: 'BusinessApplication' });
     expect(app).toHaveProperty('offers');
     expect(softwareApplicationJsonLd({ name: 'Platform', url: 'https://p.test' })).not.toHaveProperty('offers');
+  });
+});
+
+describe('eventJsonLd', () => {
+  const base = {
+    name: 'Workshop',
+    url: 'https://zen.example.test/events/workshop-1',
+    startDate: '2026-10-10T10:00:00+03:00',
+    endDate: '2026-10-10T13:00:00+03:00',
+    location: { name: 'Zen Studio', address: 'Main Street 1, Istanbul' },
+    organizer: { name: 'Zen Studio', url: 'https://zen.example.test' },
+    offers: [{ name: 'Standard', price: '750.00', currency: 'TRY', url: 'https://zen.example.test/events/workshop-1', available: true }],
+  };
+
+  it('emits the Event shape with offset dates, place, organizer and offers', () => {
+    const doc = eventJsonLd({ ...base, description: 'A workshop.', imageUrl: 'https://cdn.test/w.png' });
+    expect(doc).toMatchObject({
+      '@type': 'Event',
+      name: 'Workshop',
+      startDate: '2026-10-10T10:00:00+03:00',
+      endDate: '2026-10-10T13:00:00+03:00',
+      eventStatus: 'https://schema.org/EventScheduled',
+      eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+      image: ['https://cdn.test/w.png'],
+      location: { '@type': 'Place', name: 'Zen Studio', address: 'Main Street 1, Istanbul' },
+      organizer: { '@type': 'Organization', name: 'Zen Studio' },
+      offers: [{ '@type': 'Offer', price: '750.00', priceCurrency: 'TRY', availability: 'https://schema.org/InStock' }],
+    });
+  });
+
+  it('marks a sold out ticket and omits empty optional fields', () => {
+    const doc = eventJsonLd({ ...base, endDate: null, location: { name: 'Zen Studio' }, offers: [{ ...base.offers[0], available: false }] });
+    expect(doc).not.toHaveProperty('endDate');
+    expect(doc).not.toHaveProperty('image');
+    expect(doc).not.toHaveProperty('description');
+    expect(doc.location).not.toHaveProperty('address');
+    expect(doc.offers?.[0].availability).toBe('https://schema.org/SoldOut');
+  });
+
+  it('lists the sessions of a multi-session event as subEvent', () => {
+    const doc = eventJsonLd({
+      ...base,
+      occurrences: [
+        { startDate: '2026-10-10T10:00:00+03:00', endDate: '2026-10-10T11:00:00+03:00' },
+        { startDate: '2026-10-17T10:00:00+03:00', endDate: '2026-10-17T11:00:00+03:00' },
+      ],
+    });
+    expect(doc.subEvent).toHaveLength(2);
+    expect(eventJsonLd({ ...base, occurrences: [{ startDate: base.startDate, endDate: base.endDate }] })).not.toHaveProperty('subEvent');
+  });
+
+  it('is safe to serialize into a script tag', () => {
+    const out = serializeJsonLd(eventJsonLd({ ...base, name: '</script>' }));
+    expect(out).not.toContain('<');
   });
 });

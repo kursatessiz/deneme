@@ -114,3 +114,59 @@ export function softwareApplicationJsonLd(params: { name: string; url: string; o
     ...(params.offers && params.offers.length > 0 ? { offers: params.offers.map(offerOf) } : {}),
   };
 }
+
+export interface EventJsonLdInput {
+  name: string;
+  url: string;
+  description?: string | null;
+  imageUrl?: string | null;
+  /** ISO 8601 with the zone offset (zoned-time.zonedIsoString). */
+  startDate: string;
+  endDate?: string | null;
+  location: { name: string; address?: string | null };
+  organizer: { name: string; url: string };
+  offers: readonly { name: string; price: string; currency: string; url: string; available: boolean }[];
+  /** The dated sessions of a multi-session event (course, series), each with its own offset. */
+  occurrences?: readonly { startDate: string; endDate: string }[];
+}
+
+/**
+ * schema.org Event for a published public event (docs/SEO.md). Only PUBLISHED events reach the public pages,
+ * so the status is always EventScheduled; the events module has no online mode, hence an offline attendance
+ * mode. The address stays a free-text string, as the studio and branch address fields are.
+ */
+export function eventJsonLd(input: EventJsonLdInput) {
+  return {
+    '@context': CONTEXT,
+    '@type': 'Event',
+    name: input.name,
+    url: input.url,
+    startDate: input.startDate,
+    ...(input.endDate ? { endDate: input.endDate } : {}),
+    eventStatus: 'https://schema.org/EventScheduled',
+    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    ...(input.description ? { description: input.description } : {}),
+    ...(input.imageUrl ? { image: [input.imageUrl] } : {}),
+    location: {
+      '@type': 'Place',
+      name: input.location.name,
+      ...(input.location.address ? { address: input.location.address } : {}),
+    },
+    organizer: { '@type': 'Organization', name: input.organizer.name, url: input.organizer.url },
+    ...(input.offers.length > 0
+      ? {
+          offers: input.offers.map((offer) => ({
+            '@type': 'Offer',
+            name: offer.name,
+            price: offer.price,
+            priceCurrency: offer.currency,
+            url: offer.url,
+            availability: offer.available ? 'https://schema.org/InStock' : 'https://schema.org/SoldOut',
+          })),
+        }
+      : {}),
+    ...(input.occurrences && input.occurrences.length > 1
+      ? { subEvent: input.occurrences.map((o) => ({ '@type': 'Event', name: input.name, startDate: o.startDate, endDate: o.endDate })) }
+      : {}),
+  };
+}

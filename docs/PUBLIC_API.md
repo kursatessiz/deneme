@@ -46,7 +46,7 @@ sayaç, yoksa tek örnek bellek içi sayaç), aşımda `429 Too Many Requests`.
 
 | Uç nokta | Yetki alanı | Açıklama |
 |---|---|---|
-| `GET /v1/public/branches` | `schedules.read` | Aktif şubeler |
+| `GET /v1/public/branches` | `schedules.read` | Aktif şubeler; `timezone` etkin saat dilimidir (şubenin kendisi, yoksa işletmeninki) |
 | `GET /v1/public/service-types` | `schedules.read` | Aktif hizmet türleri |
 | `GET /v1/public/schedules?from&to&branchId` | `schedules.read` | Tarih aralığı en fazla 31 gün |
 | `GET /v1/public/bookings?page&pageSize&branchId&scheduleId` | `bookings.read` | Sayfalı liste |
@@ -316,6 +316,8 @@ içermez** ve hiçbir zaman üye, katılımcı veya rezervasyon verisi döndürm
 (bkz. `PublicApiService.listSchedules` içindeki alan listesi ve
 `apps/api/test/e2e/public-api.e2e-spec.ts` "embed widget" bloğu). `/v1/public/*`'ın
 API-anahtarlı üçüncü taraf entegrasyon API'sinden kasıtlı olarak ayrıdır.
+
+Saat dilimi: `.../config` işletmenin `timezone` alanını, `.../branches` her şube için etkin `timezone` değerini (şubenin kendi dilimi, yoksa işletmeninki; asla null değildir) verir. Herkese açık rezervasyon sayfası ve widget, bir seansın tarih ve saatini ziyaretçinin değil seansın şubesinin saat diliminde biçimler (`Intl.DateTimeFormat` + `timeZone`, `apps/web/src/lib/zoned-time.ts`) ve gün grubu başına kısa dilim adını (`timeZoneName: 'short'`) gösterir; böylece yurt dışındaki bir ziyaretçi yanılmaz.
 
 Sayfa: `apps/web/src/app/embed/[studioSlug]/page.tsx`, işletmenin
 `resolveTheme()`/`themeCssVariables()` ile hesaplanan temasını (logo, ana

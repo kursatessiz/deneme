@@ -19,12 +19,14 @@ function escapeXml(value: string): string {
 /**
  * One sitemap entry per published locale variant of every page, each carrying the
  * page's full hreflang set (every variant plus x-default), as search engines require
- * the alternate set to be reciprocal on every URL.
+ * the alternate set to be reciprocal on every URL. `homeXDefaultUrl` replaces the
+ * x-default of the home page (slug empty) with a fixed URL, the origin root.
  */
 export function buildLocalizedSitemapEntries(
   items: readonly SitemapPageEntry[],
   defaultLocale: string | null,
   toUrl: (locale: string, slug: string) => string,
+  options: { homeXDefaultUrl?: string } = {},
 ): SitemapEntry[] {
   const byPage = new Map<string, SitemapPageEntry[]>();
   for (const item of items) {
@@ -34,7 +36,8 @@ export function buildLocalizedSitemapEntries(
   }
   const entries: SitemapEntry[] = [];
   for (const group of byPage.values()) {
-    const alternates = buildHreflangAlternates(group, toUrl, defaultLocale);
+    const isHome = group.some((variant) => variant.slug === '');
+    const alternates = buildHreflangAlternates(group, toUrl, defaultLocale, isHome ? options.homeXDefaultUrl : undefined);
     for (const variant of group) entries.push({ loc: toUrl(variant.locale, variant.slug), lastModified: variant.updatedAt, alternates });
   }
   return entries;

@@ -31,7 +31,9 @@ export async function buildSiteMetadata(studioSlug: string, isPlatform: boolean,
   const page = await fetchPublicPage(studioSlug, locale, slug);
   if (!page) return {};
   const origin = await requestSiteOrigin(studioSlug, isPlatform);
-  const languages = buildHreflangAlternates(page.allLocales, (l, sl) => `${origin}${pathFor(l, sl)}`, page.defaultLocale);
+  // The platform home page's x-default is the origin root, which redirects to the visitor's locale (app/route.ts).
+  const xDefaultUrl = isPlatform && page.page.kind === 'HOME' && slug === '' ? `${origin}/` : null;
+  const languages = buildHreflangAlternates(page.allLocales, (l, sl) => `${origin}${pathFor(l, sl)}`, page.defaultLocale, xDefaultUrl);
 
   const title = page.localeMeta.seoTitle ?? undefined;
   const description = page.localeMeta.seoDescription ?? undefined;

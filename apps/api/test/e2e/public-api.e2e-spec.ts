@@ -411,13 +411,33 @@ describe('Public API and webhooks (e2e)', () => {
       const config = await request(server).get(`/public/studios/zen-reformer-pilates/embed/config`);
       expect(config.status).toBe(200);
       expect(config.body.name).toBeTruthy();
+      expect(typeof config.body.timezone).toBe('string');
 
       const branches = await request(server).get(`/public/studios/zen-reformer-pilates/embed/branches`);
       expect(branches.status).toBe(200);
+      // Every branch reports an effective zone: its own, otherwise the studio's.
+      for (const branch of branches.body as { timezone: string | null }[]) {
+        expect(typeof branch.timezone).toBe('string');
+      }
 
       const serviceTypes = await request(server).get(`/public/studios/zen-reformer-pilates/embed/service-types`);
       expect(serviceTypes.status).toBe(200);
       expect(serviceTypes.body.some((s: { id: string }) => s.id === matServiceTypeId)).toBe(true);
+    });
+
+    it('branches expose the effective time zone: the branch own zone, else the studio zone', async () => {
+      const studio = await prisma.studio.findUniqueOrThrow({ where: { id: ZEN }, select: { timezone: true } });
+      const own = await prisma.branch.create({ data: { studioId: ZEN, name: 'W18 tz own', timezone: 'Asia/Tokyo', sortOrder: 9001 } });
+      const inherited = await prisma.branch.create({ data: { studioId: ZEN, name: 'W18 tz inherited', timezone: null, sortOrder: 9002 } });
+      try {
+        const res = await request(server).get(`/public/studios/zen-reformer-pilates/embed/branches`);
+        expect(res.status).toBe(200);
+        const byId = new Map((res.body as { id: string; timezone: string }[]).map((b) => [b.id, b.timezone]));
+        expect(byId.get(own.id)).toBe('Asia/Tokyo');
+        expect(byId.get(inherited.id)).toBe(studio.timezone);
+      } finally {
+        await prisma.branch.deleteMany({ where: { id: { in: [own.id, inherited.id] } } });
+      }
     });
 
     it('the schedules listing never includes member, attendee or booking data', async () => {
