@@ -1,29 +1,23 @@
 import type { Config } from 'tailwindcss';
 
+/**
+ * Tailwind is kept for layout only (flex, grid, gap, padding, width). Colors,
+ * borders, radii, shadows and type come from Perfect UI (docs/TASARIM.md):
+ * there is no custom color scale here on purpose. Preflight is off because
+ * its unlayered reset would beat the kit's cascade layers; the minimal reset
+ * lives in globals.css inside `@layer reset`.
+ */
 const config: Config = {
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
+  corePlugins: {
+    preflight: false,
+  },
   theme: {
-    extend: {
-      colors: {
-        brand: {
-          50: '#f0fdf4',
-          100: '#dcfce7',
-          500: '#22c55e',
-          600: '#16a34a',
-          700: '#15803d',
-        },
-        studio: {
-          dark: '#0f172a',
-          surface: '#1e293b',
-          border: '#334155',
-          accent: '#38bdf8',
-        },
-      },
-    },
+    extend: {},
   },
   plugins: [],
 };

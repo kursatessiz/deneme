@@ -10,6 +10,10 @@ import { useBff } from '@/lib/session/use-bff';
 import { EmptyState, LoadingState, ErrorState } from '@/components/common/DataState';
 import { PageGuard } from '@/components/common/PageGuard';
 import { PermissionButton } from '@/components/common/PermissionButton';
+import { ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/common/Modal';
 import { CalendarBoard, MonthGrid } from '@/components/calendar/CalendarBoard';
 import { SessionForm } from '@/components/calendar/SessionForm';
@@ -99,116 +103,87 @@ function CalendarScreen() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-            {t('calendar.title')}
-          </h2>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-            {start.toLocaleDateString(locale)} - {new Date(end.getTime() - 1).toLocaleDateString(locale)}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <PermissionButton required={['attendance.manage']} variant="secondary" onClick={() => router.push('/attendance')}>
-            {t('calendar.todayAttendance')}
-          </PermissionButton>
-          <PermissionButton required={['schedule.manage']} variant="primary" onClick={() => setShowCreate(true)}>
-            {t('calendar.newSession')}
-          </PermissionButton>
-        </div>
-      </div>
+    <div className="grid gap-4">
+      <PageHeader
+        title={t('calendar.title')}
+        description={`${start.toLocaleDateString(locale)} - ${new Date(end.getTime() - 1).toLocaleDateString(locale)}`}
+        actions={
+          <>
+            <PermissionButton required={['attendance.manage']} variant="secondary" onClick={() => router.push('/attendance')}>
+              {t('calendar.todayAttendance')}
+            </PermissionButton>
+            <PermissionButton required={['schedule.manage']} variant="primary" onClick={() => setShowCreate(true)}>
+              {t('calendar.newSession')}
+            </PermissionButton>
+          </>
+        }
+      />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex" style={{ borderRadius: 'var(--radius-button)', border: '1px solid var(--color-border)', overflow: 'hidden' }}>
-          {(['day', 'week', 'month'] as CalendarView[]).map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              className="text-xs font-medium px-3 py-1.5"
-              style={{
-                backgroundColor: view === v ? 'var(--color-primary)' : 'var(--color-surface)',
-                color: view === v ? 'var(--color-on-primary)' : 'var(--color-text-secondary)',
-              }}
-            >
-              {viewLabel[v]}
-            </button>
-          ))}
-        </div>
-        <button
-          onClick={() => setAnchor((a) => stepAnchor(view, a, -1))}
-          className="text-xs px-2.5 py-1.5"
-          style={{ borderRadius: 'var(--radius-button)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
-        >
-          {t('calendar.nav.previous')}
-        </button>
-        <button
-          onClick={() => setAnchor(new Date())}
-          className="text-xs px-2.5 py-1.5"
-          style={{ borderRadius: 'var(--radius-button)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
-        >
-          {t('calendar.nav.today')}
-        </button>
-        <button
-          onClick={() => setAnchor((a) => stepAnchor(view, a, 1))}
-          className="text-xs px-2.5 py-1.5"
-          style={{ borderRadius: 'var(--radius-button)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
-        >
-          {t('calendar.nav.next')}
-        </button>
+      <div className="pui-card">
+        <div className="flex flex-wrap items-center gap-2 p-3">
+          <div className="pui-group-row">
+            {(['day', 'week', 'month'] as CalendarView[]).map((v) => (
+              <Button
+                key={v}
+                size="sm"
+                variant={view === v ? 'solid' : 'outline'}
+                tone={view === v ? 'theme' : 'surface'}
+                aria-pressed={view === v}
+                onClick={() => setView(v)}
+              >
+                {viewLabel[v]}
+              </Button>
+            ))}
+          </div>
+          <div className="pui-group-row">
+            <Button size="sm" variant="outline" tone="surface" onClick={() => setAnchor((a) => stepAnchor(view, a, -1))} icon={<ChevronLeft className="ui-icon" aria-hidden="true" />}>
+              {t('calendar.nav.previous')}
+            </Button>
+            <Button size="sm" variant="outline" tone="surface" onClick={() => setAnchor(new Date())}>
+              {t('calendar.nav.today')}
+            </Button>
+            <Button size="sm" variant="outline" tone="surface" onClick={() => setAnchor((a) => stepAnchor(view, a, 1))}>
+              {t('calendar.nav.next')}
+              <ChevronRight className="ui-icon" aria-hidden="true" />
+            </Button>
+          </div>
 
-        <select
-          className="text-xs px-2.5 py-1.5 ml-auto"
-          style={{ borderRadius: 'var(--radius-input)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}
-          value={branchFilter}
-          onChange={(e) => setBranchFilter(e.target.value)}
-        >
-          <option value="">{t('calendar.filter.allBranches')}</option>
-          {branches?.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
-        <select
-          className="text-xs px-2.5 py-1.5"
-          style={{ borderRadius: 'var(--radius-input)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}
-          value={resourceFilter}
-          onChange={(e) => setResourceFilter(e.target.value)}
-        >
-          <option value="">{t('calendar.filter.allResources')}</option>
-          {resources?.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name}
-            </option>
-          ))}
-        </select>
-        <select
-          className="text-xs px-2.5 py-1.5"
-          style={{ borderRadius: 'var(--radius-input)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}
-          value={trainerFilter}
-          onChange={(e) => setTrainerFilter(e.target.value)}
-        >
-          <option value="">{t('calendar.filter.allTrainers')}</option>
-          {trainers?.map((tr) => (
-            <option key={tr.id} value={tr.id}>
-              {tr.firstName} {tr.lastName}
-            </option>
-          ))}
-        </select>
-        <select
-          className="text-xs px-2.5 py-1.5"
-          style={{ borderRadius: 'var(--radius-input)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}
-          value={serviceTypeFilter}
-          onChange={(e) => setServiceTypeFilter(e.target.value)}
-        >
-          <option value="">{t('calendar.filter.allServiceTypes')}</option>
-          {serviceTypes?.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+          <div className="flex flex-wrap items-center gap-2 ml-auto">
+            <Filter className="ui-icon ui-text-muted" aria-hidden="true" />
+            <Select className="ui-btn-sm" value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)}>
+              <option value="">{t('calendar.filter.allBranches')}</option>
+              {branches?.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </Select>
+            <Select className="ui-btn-sm" value={resourceFilter} onChange={(e) => setResourceFilter(e.target.value)}>
+              <option value="">{t('calendar.filter.allResources')}</option>
+              {resources?.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </Select>
+            <Select className="ui-btn-sm" value={trainerFilter} onChange={(e) => setTrainerFilter(e.target.value)}>
+              <option value="">{t('calendar.filter.allTrainers')}</option>
+              {trainers?.map((tr) => (
+                <option key={tr.id} value={tr.id}>
+                  {tr.firstName} {tr.lastName}
+                </option>
+              ))}
+            </Select>
+            <Select className="ui-btn-sm" value={serviceTypeFilter} onChange={(e) => setServiceTypeFilter(e.target.value)}>
+              <option value="">{t('calendar.filter.allServiceTypes')}</option>
+              {serviceTypes?.map((st) => (
+                <option key={st.id} value={st.id}>
+                  {st.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+        </div>
       </div>
 
       {dragError && <ErrorState message={dragError} />}

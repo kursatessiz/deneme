@@ -78,6 +78,7 @@ apps/mobile/*.keystore
 # Playwright
 apps/web/playwright-report/
 apps/web/test-results/
+apps/web/screenshots/
 apps/web/blob-report/
 
 # Local source map store of a bare API run (production uses SOURCEMAP_DIR)

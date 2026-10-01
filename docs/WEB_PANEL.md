@@ -97,24 +97,31 @@ zaman her şeyi görür.
 
 ## Tema
 
+Tasarım sistemi Perfect UI'dır; token'lar, bileşen kütüphanesi ve kurallar
+için bkz. `docs/TASARIM.md`. Özet:
+
 `(dashboard)/layout.tsx`, aktif üyeliğin `theme` alanını (işletmenin
-`themeFamily`/`themePrimary`/`gradientPresetKey`/`logoUrl`) ve kullanıcının
-`appearance` tercihini (`GET /auth/me` yanıtındaki `appearance`, W3'teki
-`GET /me/appearance` ile aynı veri) `ThemeRoot` bileşenine geçirir. `ThemeRoot`
-istemci tarafında `resolveTheme()`/`themeCssVariables()` (packages/shared)
-çağırır, `prefers-color-scheme` değişikliklerini dinler ve sonucu CSS
-custom property olarak yalnızca dashboard alt ağacına uygular -- herkese açık
-rezervasyon sayfası ve embed widget'ı kendi temasını kendi kiracısından
-çözer. Dört tema ailesinin (Stüdyo Noir, Nefes, Saha, Atölye) yazı tipleri
-`@fontsource` paketlerinden gelir (`apps/web/src/app/(dashboard)/fonts.css`),
-derlemeye gömülür; derleme sırasında ağ erişimi, çalışma zamanında Google
-Fonts isteği yoktur. Türkçe karakterler (latin-ext) aynı yazı tipiyle
-görüntülenir, tarayıcı yalnızca sayfada kullanılan karakter aralıklarını
-indirir. Aktif ailenin yazı tipi adları `apps/web/src/lib/fonts.ts`'den
-seçilir. Gradyan yalnızca uygulama başlık bandında (`Sidebar`), paket
-kartında (`packages` sayfası ve üye kartındaki aktif paket kartları) ve
-birincil butonda (`PermissionButton` `variant="primary"`) kullanılır; başka
-hiçbir yerde gradyan yoktur.
+`themePrimary`/`logoUrl`'si; saklanan `themeFamily` ve `gradientPresetKey`
+kabul edilir ama çizimi değiştirmez) ve kullanıcının `appearance` tercihini
+(`GET /auth/me` yanıtındaki `appearance`, `GET /me/appearance` ile aynı veri)
+`ThemeRoot` bileşenine geçirir. `ThemeRoot` `resolveTheme()`/
+`themeCssVariables()` (packages/shared) ile `--pui-*` değişkenlerini (işletme
+rengi `--pui-theme`) ve eski `--color-*` takma adlarını yalnızca dashboard alt
+ağacına uygular; modu sarmalayıcıda `data-pui-mode` ve `color-scheme` ile
+taşır (sistem seçiminde işletim sistemini izler). Herkese açık rezervasyon
+sayfası ve embed widget'ı kendi temasını kendi kiracısından çözer; süper
+admin ve pazarlama panelleri `AdminTheme` ile kit varsayılanlarını ve
+platform kiracısının rengini alır.
+
+Kit CSS'i `app/layout.tsx` içinde bir kez, `globals.css`'ten sonra içe
+aktarılır (katman sırası `globals.css`'in ilk satırındadır); Tailwind
+preflight'ı kapalıdır ve yalnızca yerleşim için kullanılır. Yazı tipi Inter
+`@fontsource/inter` ile derlemeye gömülür (latin ve latin-ext, 400-700);
+derleme sırasında ağ erişimi, çalışma zamanında Google Fonts isteği yoktur.
+Gradyan yalnızca üye kartı ve paket kartında (`ui-gradient-member-card`,
+`ui-gradient-package-card`) kullanılır; birincil butonlar ve kabuk düzdür.
+Üst bardaki kullanıcı menüsünde "Koyu mod" anahtarı (`PUT /me/appearance`)
+vardır; çıkış butonu menünün dışında, her zaman görünür kalır.
 
 ## Takvim, üye kartı, paket satışı, yoklama (W2.2)
 
@@ -263,10 +270,12 @@ sadece bildirim kanalları bölümünü gösterir).
   sahibi rolü salt okunur ve her zaman tüm izinlere sahiptir (CLAUDE.md kural
   5); `member` anahtarı `MembersService` içinde sabit arandığından silinemez.
 - `ayarlar/gorunum/` -- işletme teması (`studio.settings.view`/`manage`):
-  aile, logo, birincil renk, aileye ait gradyan seçimi; `lib/settings/theme-preview.ts`
-  `resolveTheme()`'i doğrudan kullanarak kaydedilmeden önce canlı önizleme
-  üretir. Kişisel görünüm (aile geçersiz kılma + açık/koyu/sistem) herkese
-  açıktır (`/me/appearance`).
+  logo ve birincil renk (renk seçici + #RRGGBB alanı); `lib/settings/theme-preview.ts`
+  `resolveTheme()`'i doğrudan kullanarak kaydedilmeden önce üye kartı, paket
+  kartı ve düz birincil butonla canlı önizleme üretir. Saklanan aile ve
+  gradyan anahtarı değiştirilmeden geri gönderilir. Kişisel görünüm (açık /
+  koyu / cihazla aynı) herkese açıktır (`/me/appearance`); aile seçimi T1'de
+  arayüzden kalktı.
 - `ayarlar/subeler/` -- şube CRUD, personelin şube erişimi, son 30 gün şube
   özeti (`branches.manage` / `reports.view`).
 - `ayarlar/isletme/` -- yalnızca uç noktası var olan ayarlar bölüm bölüm:

@@ -7,6 +7,7 @@ import { PlatformSessionProvider } from '@/components/marketing/PlatformSession'
 import { MarketingNav } from '@/components/marketing/MarketingNav';
 import { getPlatformContext, getSessionUser, twoFactorRedirect } from '@/lib/session/admin-session';
 import { getT } from '@/lib/i18n/getT';
+import { fetchPlatformBrand } from '@/lib/sites/api';
 
 /**
  * `/pazarlama/*`: the platform's own marketing panel (docs/PAZARLAMA_MODULU.md
@@ -26,10 +27,11 @@ export default async function MarketingLayout({ children }: { children: React.Re
 
   const { t } = await getT();
   const context = await getPlatformContext();
+  const brand = await fetchPlatformBrand();
 
   return (
     <div className="admin-root">
-      <AdminTheme />
+      <AdminTheme primary={brand.themePrimary} />
       <div className="max-w-6xl mx-auto px-4 py-8">
         <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
           <div>

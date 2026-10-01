@@ -1,49 +1,26 @@
-import { palette, semanticColors, radii } from '@platform/shared';
+import { PERFECT_UI_TOKENS, resolveTheme, themeCssVariables } from '@platform/shared';
 
 /**
- * The super-admin panel is platform chrome, not a tenant: CLAUDE.md rule 10
- * says nothing outside the four tenant theme families/gradients gets
- * themed, so this reads the same neutral, non-gradient design tokens
- * (packages/shared/src/design) directly instead of inventing web-only
- * colors, and never renders a gradient.
+ * The super-admin panel (and the other platform chrome: marketing panel,
+ * security screens, invite landing) is not a tenant subtree, so it gets the
+ * Perfect UI defaults straight from packages/shared/src/design: kit
+ * neutrals following the OS light/dark setting, and the platform tenant's
+ * primary color when the layout passes it (see fetchPlatformBrand).
  */
-export function AdminTheme() {
+export function AdminTheme({ primary }: { primary?: string | null }) {
+  const vars = themeCssVariables(resolveTheme({ tenant: primary ? { themePrimary: primary } : null, appearance: { colorScheme: 'SYSTEM' }, systemMode: 'light' }));
+  const declarations = Object.entries(vars)
+    .map(([name, value]) => `${name}: ${value};`)
+    .join('\n      ');
   const css = `
     .admin-root {
-      --color-background: ${semanticColors.light.background};
-      --color-surface: ${semanticColors.light.surface};
-      --color-surface-muted: ${semanticColors.light.surfaceMuted};
-      --color-border: ${semanticColors.light.border};
-      --color-text-primary: ${semanticColors.light.textPrimary};
-      --color-text-secondary: ${semanticColors.light.textSecondary};
-      --color-text-muted: ${semanticColors.light.textMuted};
-      --color-primary: ${palette.ink[900]};
-      --color-on-primary: ${palette.white};
-      --color-danger: ${palette.danger};
-      --color-success: ${palette.success};
-      --color-warning: ${palette.warning};
-      --radius-card: ${radii.lg}px;
-      --radius-button: ${radii.md}px;
-      --radius-chip: ${radii.full}px;
-      --radius-input: ${radii.sm}px;
-      /* Reused tenant screens (marketing panel) paint primary buttons with this; solid here, never a gradient. */
-      --gradient-brand: var(--color-primary);
-      background-color: var(--color-background);
-      color: var(--color-text-primary);
+      ${declarations}
+      color-scheme: light dark;
+      background-color: var(--pui-bg);
+      color: var(--pui-text);
+      font-family: ${PERFECT_UI_TOKENS.fontFamily};
+      font-size: var(--pui-font-size);
       min-height: 100vh;
-    }
-    @media (prefers-color-scheme: dark) {
-      .admin-root {
-        --color-background: ${semanticColors.dark.background};
-        --color-surface: ${semanticColors.dark.surface};
-        --color-surface-muted: ${semanticColors.dark.surfaceMuted};
-        --color-border: ${semanticColors.dark.border};
-        --color-text-primary: ${semanticColors.dark.textPrimary};
-        --color-text-secondary: ${semanticColors.dark.textSecondary};
-        --color-text-muted: ${semanticColors.dark.textMuted};
-        --color-primary: ${palette.ink[100]};
-        --color-on-primary: ${palette.ink[950]};
-      }
     }
   `;
   // eslint-disable-next-line react/no-danger

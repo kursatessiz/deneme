@@ -1,25 +1,52 @@
 /**
- * Theme families. A tenant picks the default family for its apps; each user
- * may override the family and the light/dark mode on their own device. The
- * tenant's brand (primary color, gradient preset, logo) always stays the
- * tenant's, whichever family renders it.
+ * Design language. The product renders one visual language, Perfect UI
+ * (https://perfectui.dev, MIT). The four former theme families (noir, nefes,
+ * saha, atolye) were retired in T1; their keys may still be stored on studios
+ * and users, so every lookup is tolerant and maps them to the single family.
+ *
+ * The tenant's brand (primary color, logo) always stays the tenant's; the
+ * user only chooses light, dark or system.
  */
 
-export const THEME_FAMILY_KEYS = ['noir', 'nefes', 'saha', 'atolye'] as const;
+export const THEME_FAMILY_KEYS = ['perfect'] as const;
 export type ThemeFamilyKey = (typeof THEME_FAMILY_KEYS)[number];
+
+/**
+ * Keys that may be stored in the database. The legacy keys are still accepted
+ * by the API and kept as stored (no migration), but render as `perfect`.
+ */
+export const LEGACY_THEME_FAMILY_KEYS = ['noir', 'nefes', 'saha', 'atolye'] as const;
+export const STORED_THEME_FAMILY_KEYS = [...THEME_FAMILY_KEYS, ...LEGACY_THEME_FAMILY_KEYS] as const;
+export type StoredThemeFamilyKey = (typeof STORED_THEME_FAMILY_KEYS)[number];
 
 export const COLOR_SCHEME_PREFERENCES = ['SYSTEM', 'LIGHT', 'DARK'] as const;
 export type ColorSchemePreference = (typeof COLOR_SCHEME_PREFERENCES)[number];
 export type ColorMode = 'light' | 'dark';
 
+/** Neutral colors of one mode, in the names the apps have always used. */
 export interface ThemeColors {
+  /** Page background (`--pui-bg`). */
   background: string;
+  /** Card and panel background; the kit draws cards on the page color. */
   surface: string;
+  /** `--pui-bg-muted`: card headers, addons, striped rows. */
   surfaceMuted: string;
+  /** `--pui-bg-emphasis`: pressed and selected neutrals. */
+  surfaceEmphasis: string;
   border: string;
   textPrimary: string;
+  /** The kit has no secondary text token; this is the text color at 80%. */
   textSecondary: string;
   textMuted: string;
+}
+
+/** Semantic color roles of Perfect UI, one value per mode. */
+export interface PerfectRoleColors {
+  theme: string;
+  success: string;
+  warn: string;
+  error: string;
+  muted: string;
 }
 
 export interface GradientPreset {
@@ -44,7 +71,7 @@ export interface ThemeFamily {
   label: string;
   description: string;
   recommendedFor: string;
-  /** Google Fonts css2 family query used by web, e.g. "Manrope:wght@400;600;800". */
+  /** Web fonts are self-hosted through @fontsource; kept for reference only. */
   googleFonts: readonly string[];
   fonts: { display: ThemeFont; body: ThemeFont };
   radii: { card: number; button: number; chip: number; input: number };
@@ -54,231 +81,134 @@ export interface ThemeFamily {
   /** Display type is set wide (font-stretch) where the platform supports it. */
   wideDisplay: boolean;
   colors: Record<ColorMode, ThemeColors>;
+  roles: Record<ColorMode, PerfectRoleColors>;
+  /** The gradient of the default brand color; tenants get one derived from their primary. */
   gradients: readonly [GradientPreset, ...GradientPreset[]];
 }
 
-const grad = (key: string, label: string, from: string, to: string): GradientPreset => ({
-  key,
-  label,
-  angle: 135,
-  stops: [from, to],
-});
+/**
+ * Perfect UI tokens, exactly as `@chrissgon/perfectui` 1.0.0
+ * dist/css/core.css (`light-dark(light, dark)` pairs). Web reads them as
+ * `--pui-*` variables, mobile reads the hex values.
+ */
+export const PERFECT_UI_TOKENS = {
+  colors: {
+    light: {
+      bg: '#ffffff',
+      bgMuted: '#f3f4f6',
+      bgEmphasis: '#e5e7eb',
+      text: '#000000',
+      textMuted: '#676d7b',
+      border: '#d1d5db',
+      theme: '#0092cd',
+      success: '#16a34a',
+      warn: '#d97706',
+      error: '#dc2626',
+      muted: '#6b7280',
+    },
+    dark: {
+      bg: '#000000',
+      bgMuted: '#111827',
+      bgEmphasis: '#1f2937',
+      text: '#ffffff',
+      textMuted: '#9ca3af',
+      border: '#374151',
+      theme: '#07b6f0',
+      success: '#22c55e',
+      warn: '#f59e0b',
+      error: '#ef4444',
+      muted: '#9ca3af',
+    },
+  },
+  /** px; `--pui-radius: .375rem`. Cards use 1.5x. */
+  radius: 6,
+  /** px; `--pui-space: .25rem`. Every gap and padding is a multiple of it. */
+  space: 4,
+  /** px; `--pui-font-size: .875rem`. */
+  fontSize: 14,
+  /** px; `--pui-border-width: 1px`. */
+  borderWidth: 1,
+  /** px; Lucide icons at 16px with the stroke bound to the text color. */
+  iconSize: 16,
+  fontFamily: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+} as const;
+
+export type PerfectUiColorToken = keyof (typeof PERFECT_UI_TOKENS)['colors']['light'];
+
+const L = PERFECT_UI_TOKENS.colors.light;
+const D = PERFECT_UI_TOKENS.colors.dark;
 
 export const THEME_FAMILIES = {
-  noir: {
-    key: 'noir',
-    label: 'Stüdyo Noir',
-    description: 'Ciddi, premium ve editoryal. Siyah beyaz zemin, tek güçlü vurgu rengi, ince çizgili kartlar.',
-    recommendedFor: 'Premium pilates ve reformer, PT stüdyoları, dövüş sanatları',
-    googleFonts: ['Schibsted Grotesk:wght@600;800', 'Figtree:wght@400;600'],
+  perfect: {
+    key: 'perfect',
+    label: 'Perfect UI',
+    description: 'Flat, quiet and legible: one typeface (Inter), hairline cards and the business color.',
+    recommendedFor: 'Every business type',
+    googleFonts: ['Inter:wght@400;500;600;700'],
     fonts: {
       display: {
-        web: '"Schibsted Grotesk", system-ui, sans-serif',
-        native: { regular: 'SchibstedGrotesk_600SemiBold', strong: 'SchibstedGrotesk_800ExtraBold' },
-        weight: '800',
-        letterSpacing: -0.01,
-      },
-      body: {
-        web: '"Figtree", system-ui, sans-serif',
-        native: { regular: 'Figtree_400Regular', strong: 'Figtree_600SemiBold' },
-        weight: '400',
-        letterSpacing: 0,
-      },
-    },
-    radii: { card: 12, button: 24, chip: 999, input: 12 },
-    cardBorder: true,
-    cardShadow: 'none',
-    wideDisplay: false,
-    colors: {
-      light: {
-        background: '#FAFAF8',
-        surface: '#FFFFFF',
-        surfaceMuted: '#F0EFEC',
-        border: '#E4E2DC',
-        textPrimary: '#17160F',
-        textSecondary: '#5F5C54',
-        textMuted: '#7A776E',
-      },
-      dark: {
-        background: '#0E0E0C',
-        surface: '#171613',
-        surfaceMuted: '#201F1B',
-        border: '#2A2825',
-        textPrimary: '#F5F3EE',
-        textSecondary: '#B3AFA4',
-        textMuted: '#8A867B',
-      },
-    },
-    gradients: [
-      grad('noir-kiremit', 'Kiremit', '#C8443C', '#7E2A24'),
-      grad('noir-zumrut', 'Zümrüt', '#1F6F5C', '#123D33'),
-      grad('noir-gece', 'Gece mavisi', '#2B4C7E', '#17304F'),
-      grad('noir-kehribar', 'Kehribar', '#B8860B', '#6B4D08'),
-      grad('noir-grafit', 'Grafit', '#4A4A4A', '#141414'),
-    ],
-  },
-  nefes: {
-    key: 'nefes',
-    label: 'Nefes',
-    description: 'Sakin ve iyileştirici. Sıcak kırık beyaz, yumuşak köşeler, serif başlıklarla samimi bir ton.',
-    recommendedFor: 'Yoga, wellness ve spa, fizyoterapi, müzik ve dil kursları',
-    googleFonts: ['Fraunces:wght@600', 'Nunito Sans:wght@400;700'],
-    fonts: {
-      display: {
-        web: '"Fraunces", Georgia, serif',
-        native: { regular: 'Fraunces_600SemiBold', strong: 'Fraunces_600SemiBold' },
-        weight: '600',
-        letterSpacing: 0,
-      },
-      body: {
-        web: '"Nunito Sans", system-ui, sans-serif',
-        native: { regular: 'NunitoSans_400Regular', strong: 'NunitoSans_700Bold' },
-        weight: '400',
-        letterSpacing: 0,
-      },
-    },
-    radii: { card: 20, button: 20, chip: 999, input: 16 },
-    cardBorder: false,
-    cardShadow: 'soft',
-    wideDisplay: false,
-    colors: {
-      light: {
-        background: '#FBF8F4',
-        surface: '#FFFFFF',
-        surfaceMuted: '#F3EEE6',
-        border: '#E8E0D3',
-        textPrimary: '#2B271F',
-        textSecondary: '#655C4D',
-        textMuted: '#7D7462',
-      },
-      dark: {
-        background: '#14130F',
-        surface: '#1D1B16',
-        surfaceMuted: '#262319',
-        border: '#2E2B23',
-        textPrimary: '#F6F1E6',
-        textSecondary: '#BDB39D',
-        textMuted: '#948B75',
-      },
-    },
-    gradients: [
-      grad('nefes-adacayi', 'Adaçayı', '#6E8B6B', '#3F5A3D'),
-      grad('nefes-seftali', 'Şeftali', '#E8A87C', '#C0703F'),
-      grad('nefes-gok', 'Gökyüzü', '#7C9CBF', '#4A6C8C'),
-      grad('nefes-lavanta', 'Lavanta', '#B79FC9', '#7C5F94'),
-      grad('nefes-bugday', 'Buğday', '#D9C08A', '#A67C3D'),
-    ],
-  },
-  saha: {
-    key: 'saha',
-    label: 'Saha',
-    description: 'Enerjik ve performans odaklı. Keskin köşeler, geniş başlıklar, yüksek kontrastlı durum etiketleri.',
-    recommendedFor: 'Tenis ve padel kortları, yüzme okulları, grup fitness, çocuk spor merkezleri',
-    googleFonts: ['Archivo:wdth,wght@125,800', 'IBM Plex Sans:wght@400;600'],
-    fonts: {
-      display: {
-        web: '"Archivo", system-ui, sans-serif',
-        native: { regular: 'Archivo_700Bold', strong: 'Archivo_800ExtraBold' },
-        weight: '800',
-        letterSpacing: 0.005,
-      },
-      body: {
-        web: '"IBM Plex Sans", system-ui, sans-serif',
-        native: { regular: 'IBMPlexSans_400Regular', strong: 'IBMPlexSans_600SemiBold' },
-        weight: '400',
-        letterSpacing: 0,
-      },
-    },
-    radii: { card: 8, button: 8, chip: 6, input: 8 },
-    cardBorder: false,
-    cardShadow: 'none',
-    wideDisplay: true,
-    colors: {
-      light: {
-        background: '#FFFFFF',
-        surface: '#F2F4F3',
-        surfaceMuted: '#E1E5E3',
-        border: '#E1E5E3',
-        textPrimary: '#131816',
-        textSecondary: '#4F5B57',
-        textMuted: '#66726E',
-      },
-      dark: {
-        background: '#0C0F0E',
-        surface: '#151A18',
-        surfaceMuted: '#1E2523',
-        border: '#1E2523',
-        textPrimary: '#F1F4F2',
-        textSecondary: '#B4BDB7',
-        textMuted: '#8F9891',
-      },
-    },
-    gradients: [
-      grad('saha-turuncu', 'Turuncu', '#E8622C', '#B8401A'),
-      grad('saha-yesil', 'Çim', '#1FA37A', '#0D6B4C'),
-      grad('saha-mavi', 'Havuz', '#2B74B9', '#164A78'),
-      grad('saha-sari', 'Sarı', '#E8B92C', '#A87808'),
-      grad('saha-komur', 'Kömür', '#4C4C4C', '#0F0F0F'),
-    ],
-  },
-  atolye: {
-    key: 'atolye',
-    label: 'Atölye',
-    description: 'Sıcak, güven veren, her sektöre uyan. Bol boşluk, orta köşe, tek yazı ailesi.',
-    recommendedFor: 'Fizyoterapi, coworking, kurslar ve güçlü bir kimliği olmayan her işletme',
-    googleFonts: ['Manrope:wght@400;600;800'],
-    fonts: {
-      display: {
-        web: '"Manrope", system-ui, sans-serif',
+        web: PERFECT_UI_TOKENS.fontFamily,
+        // Mobile keeps its bundled faces until phase T5 moves it to Inter.
         native: { regular: 'Manrope_600SemiBold', strong: 'Manrope_800ExtraBold' },
-        weight: '800',
+        weight: '700',
         letterSpacing: -0.01,
       },
       body: {
-        web: '"Manrope", system-ui, sans-serif',
+        web: PERFECT_UI_TOKENS.fontFamily,
         native: { regular: 'Manrope_400Regular', strong: 'Manrope_600SemiBold' },
         weight: '400',
         letterSpacing: 0,
       },
     },
-    radii: { card: 16, button: 16, chip: 999, input: 12 },
+    radii: {
+      card: PERFECT_UI_TOKENS.radius * 1.5,
+      button: PERFECT_UI_TOKENS.radius,
+      chip: 9999,
+      input: PERFECT_UI_TOKENS.radius,
+    },
     cardBorder: true,
-    cardShadow: 'soft',
+    cardShadow: 'none',
     wideDisplay: false,
     colors: {
       light: {
-        background: '#F7F6F4',
-        surface: '#FFFFFF',
-        surfaceMuted: '#ECEAE6',
-        border: '#ECEAE6',
-        textPrimary: '#262319',
-        textSecondary: '#5E594D',
-        textMuted: '#777163',
+        background: L.bg,
+        surface: L.bg,
+        surfaceMuted: L.bgMuted,
+        surfaceEmphasis: L.bgEmphasis,
+        border: L.border,
+        textPrimary: L.text,
+        textSecondary: '#333333',
+        textMuted: L.textMuted,
       },
       dark: {
-        background: '#121110',
-        surface: '#1B1A17',
-        surfaceMuted: '#252420',
-        border: '#2A2824',
-        textPrimary: '#F3F1EC',
-        textSecondary: '#B9B3A5',
-        textMuted: '#948E80',
+        background: D.bg,
+        surface: D.bg,
+        surfaceMuted: D.bgMuted,
+        surfaceEmphasis: D.bgEmphasis,
+        border: D.border,
+        textPrimary: D.text,
+        textSecondary: '#cccccc',
+        textMuted: D.textMuted,
       },
     },
-    gradients: [
-      grad('atolye-orman', 'Orman', '#2F6F5E', '#173D33'),
-      grad('atolye-kil', 'Kil', '#C0572A', '#8A3D1C'),
-      grad('atolye-lacivert', 'Lacivert', '#3A5A8C', '#1F3654'),
-      grad('atolye-toprak', 'Toprak', '#8A6D3A', '#5C481F'),
-      grad('atolye-duman', 'Duman', '#6B6B6B', '#252525'),
-    ],
+    roles: {
+      light: { theme: L.theme, success: L.success, warn: L.warn, error: L.error, muted: L.muted },
+      dark: { theme: D.theme, success: D.success, warn: D.warn, error: D.error, muted: D.muted },
+    },
+    gradients: [{ key: 'perfect-brand', label: 'Perfect UI', angle: 135, stops: ['#0092cd', '#005c81'] }],
   },
 } as const satisfies Record<ThemeFamilyKey, ThemeFamily>;
 
-export const DEFAULT_THEME_FAMILY: ThemeFamilyKey = 'atolye';
+export const DEFAULT_THEME_FAMILY: ThemeFamilyKey = 'perfect';
 
+/** Any key, including a legacy or unknown one, resolves to the single family. */
 export function getThemeFamily(key: string | null | undefined): ThemeFamily {
   return (THEME_FAMILY_KEYS as readonly string[]).includes(key ?? '')
     ? THEME_FAMILIES[key as ThemeFamilyKey]
     : THEME_FAMILIES[DEFAULT_THEME_FAMILY];
+}
+
+/** True for every key the API stores, current or legacy. */
+export function isStoredThemeFamilyKey(value: string | null | undefined): value is StoredThemeFamilyKey {
+  return !!value && (STORED_THEME_FAMILY_KEYS as readonly string[]).includes(value);
 }
