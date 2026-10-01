@@ -142,6 +142,10 @@ yoksa yükleme bildirimle atlanır ve dağıtım etkilenmez; adım `continue-on-
 `sourcemaps_data` volume'unda 30 gün tutulur. `release.yml`'in `deploy` job'una `packages: read` izni
 eklendi (imajı çekmek için); başka yeni izin veya action yok.
 
+### Sayfa önbelleği temizleme sırrı (S3)
+
+Web uygulaması sayfa motoru sayfalarını ISR ile önbellekler; API bir sayfa veya yazı yayınlandığında web'in `POST /api/revalidate` ucunu çağırarak önbelleği temizletir (`docs/SEO.md` bölüm 11). İki taraf aynı sırrı paylaşır: sahibin yapması gereken, her ortamın `/opt/app/.env` dosyasına `REVALIDATE_SECRET=$(openssl rand -hex 24)` yazmaktır (en az 16 karakter; `deploy/docker-compose.prod.yml` değeri hem `api` hem `web` konteynerine geçirir, API ayrıca `WEB_INTERNAL_URL=http://web:3000` kullanır). Boşsa uç kapalıdır (503) ve sayfalar 300 saniye penceresiyle yenilenir; dağıtım ve sağlık kontrolleri etkilenmez. Sır GitHub secret'ı değildir, yalnızca sunucu ortamıdır; yeni action veya izin yoktur.
+
 ### GitHub Environments, secret'lar ve değişkenler
 
 Settings > Environments altında iki ortam oluşturun: `preprod` ve `production`. Aşağıdakilerin

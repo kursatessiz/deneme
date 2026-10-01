@@ -1,6 +1,6 @@
 # Teknik SEO
 
-Bu belge herkese açık web sayfalarının (sayfa motoru siteleri, rezervasyon sayfası) arama motorlarına ve bağlantı önizlemelerine nasıl tanıtıldığını anlatır. Sayfa motorunun kendisi için `docs/SAYFA_MOTORU.md`, tasarım kuralları için `docs/TASARIM.md` geçerlidir. Kapsam: S1 (teknik SEO tabanı).
+Bu belge herkese açık web sayfalarının (sayfa motoru siteleri, rezervasyon sayfası) arama motorlarına ve bağlantı önizlemelerine nasıl tanıtıldığını anlatır. Sayfa motorunun kendisi için `docs/SAYFA_MOTORU.md`, tasarım kuralları için `docs/TASARIM.md` geçerlidir. Kapsam: S1 (teknik SEO tabanı), S2 (etkinlik ve blog sayfaları) ve S3 (pasif pazarlama ve SEO operasyonu: bölüm 9-16).
 
 ## 1. Neler var
 
@@ -16,6 +16,12 @@ Bu belge herkese açık web sayfalarının (sayfa motoru siteleri, rezervasyon s
 | Etkinlik sayfaları (S2a) | `app/(app)/(public)/events/[studioSlug]/` (liste ve ayrıntı), `lib/events/*`, `eventJsonLd` |
 | Blog (S2b) | `components/sites/BlogPages.tsx`, `app/[locale]/blog/*`, `app/tenant-site/.../blog/*`, `lib/sites/articles-api.ts`, `lib/sites/blog-feed.ts`, `articleJsonLd`, `packages/shared/src/sites/articles.ts`, `rss.ts` |
 | Yanıt başlıkları | `apps/web/next.config.ts` (`headers()`), `deploy/caddy/Caddyfile` |
+| "Powered by" rozeti (S3) | `components/branding/PoweredByBadge.tsx`, `packages/shared/src/branding.ts`, `apps/api/src/modules/sites/powered-by.ts` |
+| Lighthouse CI (S3) | `.github/workflows/lighthouse.yml`, `apps/web/lighthouserc.json` |
+| ISR ve önbellek temizleme (S3) | `components/layout/SiteRootLayout.tsx`, `app/[locale]/layout.tsx`, `app/api/revalidate/route.ts`, `lib/sites/{blog-paging,variant-pages}.ts`, `apps/api/src/modules/sites/site-cache.service.ts` |
+| Doğrulama etiketleri, yapay zeka politikası, `aggregateRating` (S3) | `packages/shared/src/sites/seo-settings.ts`, `lib/seo/verification.ts`, `components/sites/SiteSeoSettings.tsx` |
+| IndexNow (S3) | `apps/api/src/modules/sites/indexnow/`, `packages/shared/src/sites/indexnow.ts`, `app/indexnow-key/[key]/route.ts` |
+| `llms.txt` (S3) | `app/llms.txt/route.ts`, `lib/sites/llms.ts`, `packages/shared/src/sites/llms.ts` |
 
 Tüm kullanıcıya görünen metinler i18n anahtarıdır (`seo.*` ad alanı, `packages/shared/src/i18n/messages/{tr,en}/seo.ts`). Sayfa motoru sayfalarının başlık ve açıklaması kiracı verisidir (`seoTitle`, `seoDescription`) ve çevrilmez.
 
@@ -199,3 +205,8 @@ Site ayarı `aiCrawlers: 'allow' | 'block'` (`Site.seoSettings`, varsayılan `al
 - Kiracı sitesi için kiracıya özel simge ve manifest (şimdilik platform simgesi).
 - `PostalAddress` için yapılandırılmış adres alanları (stüdyo adresi tek serbest metin).
 - Doğrulanmış özel alan adı varken `<slug>.<alan>` alt alan adından özel alan adına kalıcı yönlendirme (şimdilik yalnızca canonical).
+- Search Console API ile sitemap'in otomatik gönderilmesi (şimdilik elle, bölüm 8) ve IndexNow'un içerik düzenlemeleri ile sitemap değişimlerine bağlanması (şimdilik yalnızca yayın ve yayından kaldırma).
+- Kiracının kendi özel alan adı için ayrı `llms.txt` içeriği (şimdilik host'a göre site verisinden üretilir, elle düzenlenemez).
+- `aggregateRating` için `LocalBusiness` yalnızca `contact` bloğu olan sayfalarda üretildiğinden ana sayfada da üretilmesi.
+- A/B sayfalarının önbellekten çıkması bir dakika sürer (bölüm 11); API'den anlık bildirim eklenebilir.
+- Blok formunda görsel yükleme seçici (görsel adresi şimdilik elle girilir).
