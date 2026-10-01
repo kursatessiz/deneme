@@ -7,14 +7,14 @@ import type { ErrorGroupListDTO } from '@platform/shared';
 import { useBff } from '@/lib/session/use-bff';
 import { EmptyState, ErrorState, LoadingState } from '@/components/common/DataState';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { LinkButton } from '@/components/ui/LinkButton';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
 
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  borderColor: 'var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
-const card: React.CSSProperties = { borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' };
 
 interface Filters {
   q: string;
@@ -53,45 +53,43 @@ export default function AdminErrorsPage() {
   const field = (key: keyof Filters) => ({ value: draft[key], onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setDraft({ ...draft, [key]: e.target.value }) });
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold">{t('adminErrors.title')}</h2>
-        <nav aria-label={t('adminErrors.title')} className="flex gap-4 text-sm mt-2">
-          <Link href="/admin/hatalar/uyarilar" className="hover:underline">
-            {t('adminErrors.tabs.alerts')}
-          </Link>
-          <Link href="/admin/hatalar/ayarlar" className="hover:underline">
-            {t('adminErrors.tabs.settings')}
-          </Link>
-        </nav>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('adminErrors.subtitle')}
-        </p>
-      </div>
+    <div className="grid gap-6">
+      <PageHeader
+        title={t('adminErrors.title')}
+        description={t('adminErrors.subtitle')}
+        actions={
+          <nav aria-label={t('adminErrors.title')} className="flex gap-2">
+            <LinkButton href="/admin/hatalar/uyarilar" variant="outline" tone="surface" size="sm">
+              {t('adminErrors.tabs.alerts')}
+            </LinkButton>
+            <LinkButton href="/admin/hatalar/ayarlar" variant="outline" tone="surface" size="sm">
+              {t('adminErrors.tabs.settings')}
+            </LinkButton>
+          </nav>
+        }
+      />
 
       <form onSubmit={apply} className="flex flex-wrap items-end gap-3" role="search">
-        <input aria-label={t('adminErrors.filter.search')} placeholder={t('adminErrors.filter.search')} className="border px-3 py-2 text-sm w-56" style={inputStyle} {...field('q')} />
-        <select aria-label={t('adminErrors.filter.source')} className="border px-3 py-2 text-sm" style={inputStyle} {...field('source')}>
+        <Input aria-label={t('adminErrors.filter.search')} placeholder={t('adminErrors.filter.search')} className="w-56" {...field('q')} />
+        <Select aria-label={t('adminErrors.filter.source')} className="w-auto" {...field('source')}>
           <option value="">{`${t('adminErrors.filter.source')}: ${t('adminErrors.filter.all')}`}</option>
           {ERROR_SOURCES.map((s) => (
             <option key={s} value={s}>
               {t(`errors.source.${s}`)}
             </option>
           ))}
-        </select>
-        <select aria-label={t('adminErrors.filter.status')} className="border px-3 py-2 text-sm" style={inputStyle} {...field('status')}>
+        </Select>
+        <Select aria-label={t('adminErrors.filter.status')} className="w-auto" {...field('status')}>
           <option value="">{`${t('adminErrors.filter.status')}: ${t('adminErrors.filter.all')}`}</option>
           {ERROR_GROUP_STATUSES.map((s) => (
             <option key={s} value={s}>
               {t(`errors.status.${s}`)}
             </option>
           ))}
-        </select>
-        <input aria-label={t('adminErrors.filter.release')} placeholder={t('adminErrors.filter.release')} className="border px-3 py-2 text-sm w-36" style={inputStyle} {...field('release')} />
-        <input aria-label={t('adminErrors.filter.studio')} placeholder={t('adminErrors.filter.studio')} className="border px-3 py-2 text-sm w-72" style={inputStyle} {...field('studioId')} />
-        <button type="submit" className="px-4 py-2 text-sm font-medium" style={{ borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
-          {t('adminErrors.filter.apply')}
-        </button>
+        </Select>
+        <Input aria-label={t('adminErrors.filter.release')} placeholder={t('adminErrors.filter.release')} className="w-36" {...field('release')} />
+        <Input aria-label={t('adminErrors.filter.studio')} placeholder={t('adminErrors.filter.studio')} className="w-72" {...field('studioId')} />
+        <Button type="submit">{t('adminErrors.filter.apply')}</Button>
       </form>
 
       {loading && <LoadingState />}
@@ -99,49 +97,47 @@ export default function AdminErrorsPage() {
       {data && data.items.length === 0 && <EmptyState title={t('adminErrors.empty')} />}
       {data && data.items.length > 0 && (
         <>
-          <div className="overflow-x-auto border" style={card}>
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
+          <Card className="overflow-x-auto">
+            <Table>
+              <Thead>
+                <Tr>
                   {(['title', 'source', 'status', 'count', 'studios', 'users', 'lastSeen', 'release'] as const).map((col) => (
-                    <th key={col} className="text-left px-3 py-2 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                      {t(`adminErrors.col.${col}`)}
-                    </th>
+                    <Th key={col}>{t(`adminErrors.col.${col}`)}</Th>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
+                </Tr>
+              </Thead>
+              <Tbody>
                 {data.items.map((g) => (
-                  <tr key={g.id} className="border-t align-top" style={{ borderColor: 'var(--color-border)' }}>
-                    <td className="px-3 py-2">
-                      <Link href={`/admin/hatalar/${g.id}`} className="font-medium hover:underline break-all">
+                  <Tr key={g.id} className="align-top">
+                    <Td>
+                      <Link href={`/admin/hatalar/${g.id}`} className="pui-link pui-surface ui-strong break-all">
                         {g.title}
                       </Link>
-                      <span className="block text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                      <span className="block ui-caption">
                         {g.lastCode ? `${t('adminErrors.detail.code')}: ${g.lastCode}` : ''}
                         {g.critical ? ` - ${t('adminErrors.critical')}` : ''}
                       </span>
-                    </td>
-                    <td className="px-3 py-2">{t(`errors.source.${g.source}`)}</td>
-                    <td className="px-3 py-2">{t(`errors.status.${g.status}`)}</td>
-                    <td className="px-3 py-2 tabular-nums">{new Intl.NumberFormat(locale).format(g.count)}</td>
-                    <td className="px-3 py-2 tabular-nums">{g.affectedStudioCount}</td>
-                    <td className="px-3 py-2 tabular-nums">{g.affectedUserCount}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{dateTime.format(new Date(g.lastSeenAt))}</td>
-                    <td className="px-3 py-2 font-mono text-xs">{g.lastRelease ?? ''}</td>
-                  </tr>
+                    </Td>
+                    <Td>{t(`errors.source.${g.source}`)}</Td>
+                    <Td>{t(`errors.status.${g.status}`)}</Td>
+                    <Td className="tabular-nums">{new Intl.NumberFormat(locale).format(g.count)}</Td>
+                    <Td className="tabular-nums">{g.affectedStudioCount}</Td>
+                    <Td className="tabular-nums">{g.affectedUserCount}</Td>
+                    <Td className="whitespace-nowrap">{dateTime.format(new Date(g.lastSeenAt))}</Td>
+                    <Td className="ui-mono">{g.lastRelease ?? ''}</Td>
+                  </Tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)} className="px-3 py-1.5 border disabled:opacity-40" style={inputStyle}>
+              </Tbody>
+            </Table>
+          </Card>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" tone="surface" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
               {t('adminErrors.page.previous')}
-            </button>
-            <span style={{ color: 'var(--color-text-secondary)' }}>{t('adminErrors.page.info', { page, pages, total: data.total })}</span>
-            <button type="button" disabled={page >= pages} onClick={() => setPage(page + 1)} className="px-3 py-1.5 border disabled:opacity-40" style={inputStyle}>
+            </Button>
+            <span className="ui-text-muted">{t('adminErrors.page.info', { page, pages, total: data.total })}</span>
+            <Button variant="outline" tone="surface" size="sm" disabled={page >= pages} onClick={() => setPage(page + 1)}>
               {t('adminErrors.page.next')}
-            </button>
+            </Button>
           </div>
         </>
       )}

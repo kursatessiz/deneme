@@ -16,28 +16,15 @@ import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { ErrorState, LoadingState } from '@/components/common/DataState';
 import { bffFetch } from '@/lib/session/client';
 import { aiErrorText } from '@/lib/ai/errors';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
+import { FieldGroup } from '@/components/ui/FieldGroup';
+import { Input } from '@/components/ui/Input';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
 
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
-const panelStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-card)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-};
-const primaryButton: React.CSSProperties = {
-  borderRadius: 'var(--radius-button)',
-  backgroundColor: 'var(--color-primary)',
-  color: 'var(--color-on-primary)',
-};
-const secondaryButton: React.CSSProperties = {
-  borderRadius: 'var(--radius-button)',
-  border: '1px solid var(--color-border)',
-  color: 'var(--color-text-secondary)',
-};
 const PRICE_FIELDS = ['inputPerMTok', 'outputPerMTok', 'cacheWritePerMTok', 'cacheReadPerMTok'] as const;
 const PRICE_LABELS: Record<(typeof PRICE_FIELDS)[number], string> = {
   inputPerMTok: 'adminAi.prices.input',
@@ -60,18 +47,20 @@ function useFormats() {
 
 function Section({ title, children, labelledBy }: { title: string; children: React.ReactNode; labelledBy: string }) {
   return (
-    <section aria-labelledby={labelledBy} className="p-5 space-y-3" style={panelStyle}>
-      <h3 id={labelledBy} className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-        {title}
-      </h3>
-      {children}
-    </section>
+    <Card as="section" aria-labelledby={labelledBy}>
+      <CardContent>
+        <h3 id={labelledBy} className="ui-heading">
+          {title}
+        </h3>
+        {children}
+      </CardContent>
+    </Card>
   );
 }
 
 function Message({ tone, text }: { tone: 'success' | 'error'; text: string }) {
   return (
-    <p className="text-xs" role={tone === 'error' ? 'alert' : 'status'} style={{ color: tone === 'error' ? 'var(--color-danger, #b42318)' : 'var(--color-success, #12a150)' }}>
+    <p className={tone === 'error' ? 'ui-caption ui-text-error' : 'ui-caption ui-text-success'} role={tone === 'error' ? 'alert' : 'status'}>
       {text}
     </p>
   );
@@ -133,58 +122,44 @@ function KeySection({ settings, onChange }: { settings: AiSettingsDTO; onChange:
 
   return (
     <Section title={t('adminAi.key.title')} labelledBy="ai-key">
-      <p className="text-sm" data-testid="ai-key-status" style={{ color: 'var(--color-text-primary)' }}>
+      <p data-testid="ai-key-status">
         {settings.configured && settings.keyLast4 ? t('adminAi.key.configured', { last4: settings.keyLast4 }) : t('adminAi.key.none')}
       </p>
       {settings.keySource && (
-        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+        <p className="ui-caption">
           {t(`adminAi.key.source.${settings.keySource}`)}
           {settings.keyUpdatedAt && settings.keySource === 'DATABASE' ? ` · ${t('adminAi.key.updatedAt', { date: fmt.date(settings.keyUpdatedAt) })}` : ''}
           {settings.lastTestAt ? ` · ${t('adminAi.test.last', { date: fmt.date(settings.lastTestAt) })}` : ''}
         </p>
       )}
       <div className="flex flex-wrap items-end gap-2">
-        <label className="block space-y-1 flex-1 min-w-[16rem]" htmlFor="ai-api-key">
-          <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('adminAi.key.label')}
-          </span>
-          <input
-            id="ai-api-key"
-            type="password"
-            autoComplete="off"
-            spellCheck={false}
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            className="w-full text-sm px-3 py-2 font-mono"
-            style={inputStyle}
-          />
-        </label>
-        <button type="button" onClick={save} disabled={busy || apiKey.trim().length < 20} className="px-4 py-2 text-sm font-medium disabled:opacity-40" style={primaryButton}>
+        <FieldGroup label={t('adminAi.key.label')} className="flex-1 min-w-[16rem]">
+          <Input id="ai-api-key" type="password" autoComplete="off" spellCheck={false} value={apiKey} onChange={(e) => setApiKey(e.target.value)} className="ui-mono" />
+        </FieldGroup>
+        <Button onClick={save} disabled={busy || apiKey.trim().length < 20}>
           {settings.keySource === 'DATABASE' ? t('adminAi.key.replace') : t('adminAi.key.save')}
-        </button>
+        </Button>
       </div>
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-        {t('adminAi.key.hint')}
-      </p>
+      <p className="ui-caption">{t('adminAi.key.hint')}</p>
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={test} disabled={busy || !settings.configured} className="px-3 py-1.5 text-xs font-medium disabled:opacity-40" style={secondaryButton}>
+        <Button variant="outline" tone="surface" size="sm" onClick={test} disabled={busy || !settings.configured}>
           {t('adminAi.test.button')}
-        </button>
+        </Button>
         {settings.keySource === 'DATABASE' && !confirmRemove && (
-          <button type="button" onClick={() => setConfirmRemove(true)} disabled={busy} className="px-3 py-1.5 text-xs font-medium disabled:opacity-40" style={secondaryButton}>
+          <Button variant="outline" tone="surface" size="sm" onClick={() => setConfirmRemove(true)} disabled={busy}>
             {t('adminAi.key.remove')}
-          </button>
+          </Button>
         )}
       </div>
       {confirmRemove && (
-        <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--color-text-primary)' }}>
-          <span>{t('adminAi.key.removeConfirm')}</span>
-          <button type="button" onClick={remove} disabled={busy} className="px-3 py-1.5 font-medium" style={{ ...secondaryButton, color: 'var(--color-danger, #b42318)' }}>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="ui-small">{t('adminAi.key.removeConfirm')}</span>
+          <Button variant="outline" tone="error" size="sm" onClick={remove} disabled={busy}>
             {t('adminAi.key.remove')}
-          </button>
-          <button type="button" onClick={() => setConfirmRemove(false)} className="px-3 py-1.5 font-medium" style={secondaryButton}>
+          </Button>
+          <Button variant="outline" tone="surface" size="sm" onClick={() => setConfirmRemove(false)}>
             {t('common.cancel')}
-          </button>
+          </Button>
         </div>
       )}
       {message && <Message tone={message.tone} text={message.text} />}
@@ -232,9 +207,7 @@ function ModelsSection({ settings, onChange }: { settings: AiSettingsDTO; onChan
 
   return (
     <Section title={t('adminAi.models.title')} labelledBy="ai-models">
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-        {t('adminAi.models.hint')}
-      </p>
+      <p className="ui-caption">{t('adminAi.models.hint')}</p>
       <datalist id="ai-known-models">
         {Object.keys(AI_PRICE_TABLE).map((m) => (
           <option key={m} value={m} />
@@ -242,57 +215,30 @@ function ModelsSection({ settings, onChange }: { settings: AiSettingsDTO; onChan
       </datalist>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {AI_TASKS.map((task) => (
-          <label key={task} className="block space-y-1" htmlFor={`ai-model-${task}`}>
-            <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-              {t(`adminAi.task.${task}`)}
-            </span>
-            <input
+          <FieldGroup key={task} label={t(`adminAi.task.${task}`)}>
+            <Input
               id={`ai-model-${task}`}
               list="ai-known-models"
               value={models[task]}
               onChange={(e) => setModels({ ...models, [task]: e.target.value.trim() })}
-              className="w-full text-sm px-3 py-2 font-mono"
-              style={inputStyle}
+              className="ui-mono"
             />
-          </label>
+          </FieldGroup>
         ))}
       </div>
-      <h4 className="text-xs font-semibold pt-2" style={{ color: 'var(--color-text-primary)' }}>
-        {t('adminAi.budget.title')}
-      </h4>
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-        {t('adminAi.budget.hint')}
-      </p>
-      <label className="block space-y-1 max-w-xs" htmlFor="ai-default-budget">
-        <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('adminAi.budget.label')}
-        </span>
-        <input id="ai-default-budget" type="number" min={0} step="0.01" value={budget} onChange={(e) => setBudget(e.target.value)} className="w-full text-sm px-3 py-2" style={inputStyle} />
-      </label>
-      <h4 className="text-xs font-semibold pt-2" style={{ color: 'var(--color-text-primary)' }}>
-        {t('adminAi.marketingBudget.title')}
-      </h4>
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-        {t('adminAi.marketingBudget.hint')}
-      </p>
-      <label className="block space-y-1 max-w-xs" htmlFor="ai-marketing-budget">
-        <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('adminAi.marketingBudget.label')}
-        </span>
-        <input
-          id="ai-marketing-budget"
-          type="number"
-          min={0}
-          step="0.01"
-          value={marketingBudget}
-          onChange={(e) => setMarketingBudget(e.target.value)}
-          className="w-full text-sm px-3 py-2"
-          style={inputStyle}
-        />
-      </label>
-      <button type="button" onClick={save} disabled={busy} className="px-4 py-2 text-sm font-medium disabled:opacity-40" style={primaryButton}>
+      <h4 className="ui-small ui-strong">{t('adminAi.budget.title')}</h4>
+      <p className="ui-caption">{t('adminAi.budget.hint')}</p>
+      <FieldGroup label={t('adminAi.budget.label')} className="max-w-xs">
+        <Input id="ai-default-budget" type="number" min={0} step="0.01" value={budget} onChange={(e) => setBudget(e.target.value)} />
+      </FieldGroup>
+      <h4 className="ui-small ui-strong">{t('adminAi.marketingBudget.title')}</h4>
+      <p className="ui-caption">{t('adminAi.marketingBudget.hint')}</p>
+      <FieldGroup label={t('adminAi.marketingBudget.label')} className="max-w-xs">
+        <Input id="ai-marketing-budget" type="number" min={0} step="0.01" value={marketingBudget} onChange={(e) => setMarketingBudget(e.target.value)} />
+      </FieldGroup>
+      <Button className="justify-self-start" onClick={save} disabled={busy}>
         {t('adminAi.save')}
-      </button>
+      </Button>
       {message && <Message tone={message.tone} text={message.text} />}
     </Section>
   );
@@ -309,46 +255,45 @@ function PriceRow({ model, price, overridden, onSave, onReset }: { model: string
   const dirty = PRICE_FIELDS.some((f) => Number(values[f]) !== price[f]);
   const valid = PRICE_FIELDS.every((f) => values[f] !== '' && Number(values[f]) >= 0);
   return (
-    <tr className="border-b last:border-0" style={{ borderColor: 'var(--color-border)' }}>
-      <td className="px-3 py-2 font-mono text-xs">
+    <Tr>
+      <Td className="ui-mono">
         {model}
         {overridden && (
-          <span className="ml-2 text-[10px] px-1.5 py-0.5" style={{ borderRadius: 'var(--radius-chip)', backgroundColor: 'var(--color-surface-muted)', color: 'var(--color-text-secondary)' }}>
-            {t('adminAi.prices.overridden')}
-          </span>
+          <>
+            {' '}
+            <Badge>{t('adminAi.prices.overridden')}</Badge>
+          </>
         )}
-      </td>
+      </Td>
       {PRICE_FIELDS.map((field) => (
-        <td key={field} className="px-2 py-1">
-          <input
+        <Td key={field}>
+          <Input
             aria-label={`${model} ${t(PRICE_LABELS[field])}`}
             type="number"
             min={0}
             step="0.01"
             value={values[field]}
             onChange={(e) => setValues({ ...values, [field]: e.target.value })}
-            className="w-20 text-xs px-2 py-1"
-            style={inputStyle}
+            className="w-24"
           />
-        </td>
+        </Td>
       ))}
-      <td className="px-3 py-2 text-right whitespace-nowrap">
-        <button
-          type="button"
+      <Td className="text-right whitespace-nowrap">
+        <Button
+          variant="link"
+          size="sm"
           disabled={!dirty || !valid}
           onClick={() => onSave({ inputPerMTok: Number(values.inputPerMTok), outputPerMTok: Number(values.outputPerMTok), cacheWritePerMTok: Number(values.cacheWritePerMTok), cacheReadPerMTok: Number(values.cacheReadPerMTok) })}
-          className="text-xs font-medium hover:underline disabled:opacity-40 mr-3"
-          style={{ color: 'var(--color-primary)' }}
         >
           {t('adminI18n.editor.save')}
-        </button>
+        </Button>
         {overridden && (
-          <button type="button" onClick={onReset} className="text-xs font-medium hover:underline" style={{ color: 'var(--color-text-muted)' }}>
+          <Button variant="link" tone="muted" size="sm" onClick={onReset}>
             {t('adminAi.prices.reset')}
-          </button>
+          </Button>
         )}
-      </td>
-    </tr>
+      </Td>
+    </Tr>
   );
 }
 
@@ -368,23 +313,19 @@ function PricesSection({ settings, onChange }: { settings: AiSettingsDTO; onChan
 
   return (
     <Section title={t('adminAi.prices.title')} labelledBy="ai-prices">
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-        {t('adminAi.prices.hint')}
-      </p>
+      <p className="ui-caption">{t('adminAi.prices.hint')}</p>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left border-b" style={{ borderColor: 'var(--color-border)' }}>
-              <th className="px-3 py-2 font-medium text-xs">{t('adminAi.prices.model')}</th>
+        <Table>
+          <Thead>
+            <Tr>
+              <Th>{t('adminAi.prices.model')}</Th>
               {PRICE_FIELDS.map((f) => (
-                <th key={f} className="px-2 py-2 font-medium text-xs">
-                  {t(PRICE_LABELS[f])}
-                </th>
+                <Th key={f}>{t(PRICE_LABELS[f])}</Th>
               ))}
-              <th />
-            </tr>
-          </thead>
-          <tbody>
+              <Th />
+            </Tr>
+          </Thead>
+          <Tbody>
             {models.map((model) => {
               const price = settings.effectivePrices[model] ?? { inputPerMTok: 0, outputPerMTok: 0, cacheWritePerMTok: 0, cacheReadPerMTok: 0 };
               const overridden = Object.prototype.hasOwnProperty.call(settings.priceOverrides, model);
@@ -403,8 +344,8 @@ function PricesSection({ settings, onChange }: { settings: AiSettingsDTO; onChan
                 />
               );
             })}
-          </tbody>
-        </table>
+          </Tbody>
+        </Table>
       </div>
       {error && <Message tone="error" text={error} />}
     </Section>
@@ -415,12 +356,12 @@ function TotalsCells({ totals }: { totals: AiUsageTotals }) {
   const fmt = useFormats();
   return (
     <>
-      <td className="px-3 py-2 text-right">{fmt.number(totals.calls)}</td>
-      <td className="px-3 py-2 text-right">{fmt.number(totals.failedCalls)}</td>
-      <td className="px-3 py-2 text-right">{fmt.number(totals.inputTokens)}</td>
-      <td className="px-3 py-2 text-right">{fmt.number(totals.outputTokens)}</td>
-      <td className="px-3 py-2 text-right">{fmt.number(totals.cacheReadTokens)}</td>
-      <td className="px-3 py-2 text-right font-medium">{fmt.usd(totals.costMicroUsd)}</td>
+      <Td className="text-right">{fmt.number(totals.calls)}</Td>
+      <Td className="text-right">{fmt.number(totals.failedCalls)}</Td>
+      <Td className="text-right">{fmt.number(totals.inputTokens)}</Td>
+      <Td className="text-right">{fmt.number(totals.outputTokens)}</Td>
+      <Td className="text-right">{fmt.number(totals.cacheReadTokens)}</Td>
+      <Td className="text-right ui-strong">{fmt.usd(totals.costMicroUsd)}</Td>
     </>
   );
 }
@@ -428,15 +369,15 @@ function TotalsCells({ totals }: { totals: AiUsageTotals }) {
 function TotalsHead({ first }: { first: string }) {
   const t = useT();
   return (
-    <tr className="text-left border-b text-xs" style={{ borderColor: 'var(--color-border)' }}>
-      <th className="px-3 py-2 font-medium">{first}</th>
-      <th className="px-3 py-2 font-medium text-right">{t('adminAi.usage.calls')}</th>
-      <th className="px-3 py-2 font-medium text-right">{t('adminAi.usage.failedCalls')}</th>
-      <th className="px-3 py-2 font-medium text-right">{t('adminAi.usage.inputTokens')}</th>
-      <th className="px-3 py-2 font-medium text-right">{t('adminAi.usage.outputTokens')}</th>
-      <th className="px-3 py-2 font-medium text-right">{t('adminAi.usage.cacheReadTokens')}</th>
-      <th className="px-3 py-2 font-medium text-right">{t('adminAi.usage.cost')}</th>
-    </tr>
+    <Tr>
+      <Th>{first}</Th>
+      <Th className="text-right">{t('adminAi.usage.calls')}</Th>
+      <Th className="text-right">{t('adminAi.usage.failedCalls')}</Th>
+      <Th className="text-right">{t('adminAi.usage.inputTokens')}</Th>
+      <Th className="text-right">{t('adminAi.usage.outputTokens')}</Th>
+      <Th className="text-right">{t('adminAi.usage.cacheReadTokens')}</Th>
+      <Th className="text-right">{t('adminAi.usage.cost')}</Th>
+    </Tr>
   );
 }
 
@@ -460,43 +401,28 @@ function TenantLimit({ row, onSaved }: { row: AiTenantUsageRow; onSaved: () => v
   }
 
   return (
-    <div className="space-y-1">
+    <div className="grid gap-1">
       <span>
         {row.budgetCents !== null ? fmt.cents(row.budgetCents) : '-'}
-        {row.budgetSource && <span style={{ color: 'var(--color-text-muted)' }}>{` (${t(`adminAi.usage.limitSource.${row.budgetSource}`)})`}</span>}
+        {row.budgetSource && <span className="ui-text-muted">{` (${t(`adminAi.usage.limitSource.${row.budgetSource}`)})`}</span>}
       </span>
       {!editing ? (
         <div className="flex gap-2">
-          <button type="button" onClick={() => setEditing(true)} className="text-xs underline" style={{ color: 'var(--color-primary)' }}>
+          <Button variant="link" size="sm" onClick={() => setEditing(true)}>
             {t('adminAi.usage.setLimit')}
-          </button>
+          </Button>
           {row.overrideCents !== null && (
-            <button type="button" onClick={() => save(null)} className="text-xs underline" style={{ color: 'var(--color-text-muted)' }}>
+            <Button variant="link" tone="muted" size="sm" onClick={() => save(null)}>
               {t('adminAi.usage.clearLimit')}
-            </button>
+            </Button>
           )}
         </div>
       ) : (
         <div className="flex items-center gap-1">
-          <input
-            aria-label={t('adminAi.usage.limitLabel')}
-            type="number"
-            min={0}
-            step="0.01"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            className="w-24 text-xs px-2 py-1"
-            style={inputStyle}
-          />
-          <button
-            type="button"
-            disabled={value === '' || Number(value) < 0}
-            onClick={() => save(Math.round(Number(value) * 100))}
-            className="text-xs font-medium disabled:opacity-40"
-            style={{ color: 'var(--color-primary)' }}
-          >
+          <Input aria-label={t('adminAi.usage.limitLabel')} type="number" min={0} step="0.01" value={value} onChange={(e) => setValue(e.target.value)} className="w-28" />
+          <Button variant="link" size="sm" disabled={value === '' || Number(value) < 0} onClick={() => save(Math.round(Number(value) * 100))}>
             {t('adminI18n.editor.save')}
-          </button>
+          </Button>
         </div>
       )}
       {error && <Message tone="error" text={error} />}
@@ -525,83 +451,79 @@ function UsageSection() {
 
   return (
     <Section title={t('adminAi.usage.title')} labelledBy="ai-usage">
-      <label className="flex items-center gap-2 text-xs" htmlFor="ai-usage-period" style={{ color: 'var(--color-text-secondary)' }}>
-        {t('adminAi.usage.period')}
-        <select id="ai-usage-period" value={months} onChange={(e) => setMonths(Number(e.target.value))} className="text-sm px-2 py-1" style={inputStyle}>
+      <label className="inline-flex items-center gap-2" htmlFor="ai-usage-period">
+        <span className="ui-small">{t('adminAi.usage.period')}</span>
+        <Select id="ai-usage-period" value={months} onChange={(e) => setMonths(Number(e.target.value))} className="w-auto">
           {PERIODS.map((p) => (
             <option key={p} value={p}>
               {t(`adminAi.usage.period.${p}`)}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       {error && <Message tone="error" text={error} />}
       {!data && !error && <LoadingState />}
-      {empty && (
-        <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-          {t('adminAi.usage.empty')}
-        </p>
-      )}
+      {empty && <p className="ui-text-muted">{t('adminAi.usage.empty')}</p>}
       {data && !empty && (
-        <div className="space-y-5 overflow-x-auto">
-          <div>
-            <h4 className="text-xs font-semibold mb-1">{t('adminAi.usage.byMonth')}</h4>
-            <table className="w-full text-sm">
-              <thead>
+        <div className="grid gap-5 overflow-x-auto">
+          <div className="grid gap-1">
+            <h4 className="ui-small ui-strong">{t('adminAi.usage.byMonth')}</h4>
+            <Table>
+              <Thead>
                 <TotalsHead first={t('adminAi.usage.month')} />
-              </thead>
-              <tbody>
+              </Thead>
+              <Tbody>
                 {data.byMonth.map((row) => (
-                  <tr key={row.month} className="border-b last:border-0" style={{ borderColor: 'var(--color-border)' }}>
-                    <td className="px-3 py-2">{row.month}</td>
+                  <Tr key={row.month}>
+                    <Td>{row.month}</Td>
                     <TotalsCells totals={row} />
-                  </tr>
+                  </Tr>
                 ))}
-              </tbody>
-            </table>
+              </Tbody>
+            </Table>
           </div>
-          <div>
-            <h4 className="text-xs font-semibold mb-1">{t('adminAi.usage.byTask')}</h4>
-            <table className="w-full text-sm">
-              <thead>
+          <div className="grid gap-1">
+            <h4 className="ui-small ui-strong">{t('adminAi.usage.byTask')}</h4>
+            <Table>
+              <Thead>
                 <TotalsHead first={t('adminAi.usage.task')} />
-              </thead>
-              <tbody>
+              </Thead>
+              <Tbody>
                 {data.byTask.map((row) => (
-                  <tr key={row.task} className="border-b last:border-0" style={{ borderColor: 'var(--color-border)' }}>
-                    <td className="px-3 py-2">{t(`adminAi.task.${row.task}`)}</td>
+                  <Tr key={row.task}>
+                    <Td>{t(`adminAi.task.${row.task}`)}</Td>
                     <TotalsCells totals={row} />
-                  </tr>
+                  </Tr>
                 ))}
-              </tbody>
-            </table>
+              </Tbody>
+            </Table>
           </div>
-          <div>
-            <h4 className="text-xs font-semibold mb-1">{t('adminAi.usage.byTenant')}</h4>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left border-b text-xs" style={{ borderColor: 'var(--color-border)' }}>
-                  <th className="px-3 py-2 font-medium">{t('adminAi.usage.tenant')}</th>
-                  <th className="px-3 py-2 font-medium text-right">{t('adminAi.usage.calls')}</th>
-                  <th className="px-3 py-2 font-medium text-right">{t('adminAi.usage.cost')}</th>
-                  <th className="px-3 py-2 font-medium text-right">{t('adminAi.usage.thisMonth')}</th>
-                  <th className="px-3 py-2 font-medium">{t('adminAi.usage.limit')}</th>
-                </tr>
-              </thead>
-              <tbody>
+          <div className="grid gap-1">
+            <h4 className="ui-small ui-strong">{t('adminAi.usage.byTenant')}</h4>
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th>{t('adminAi.usage.tenant')}</Th>
+                  <Th className="text-right">{t('adminAi.usage.calls')}</Th>
+                  <Th className="text-right">{t('adminAi.usage.cost')}</Th>
+                  <Th className="text-right">{t('adminAi.usage.thisMonth')}</Th>
+                  <Th>{t('adminAi.usage.limit')}</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
                 {data.byTenant.map((row) => (
-                  <tr key={row.studioId ?? 'platform'} className="border-b last:border-0 align-top" style={{ borderColor: 'var(--color-border)' }}>
-                    <td className="px-3 py-2">{row.studioId ? (row.studioName ?? row.studioId) : t('adminAi.usage.platform')}</td>
-                    <td className="px-3 py-2 text-right">{fmt.number(row.calls)}</td>
-                    <td className="px-3 py-2 text-right">{fmt.usd(row.costMicroUsd)}</td>
-                    <td className="px-3 py-2 text-right">{fmt.usd(row.currentMonthCostMicroUsd)}</td>
-                    <td className="px-3 py-2 text-xs">
+                  <Tr key={row.studioId ?? 'platform'} className="align-top">
+                    <Td>{row.studioId ? (row.studioName ?? row.studioId) : t('adminAi.usage.platform')}</Td>
+                    <Td className="text-right">{fmt.number(row.calls)}</Td>
+                    <Td className="text-right">{fmt.usd(row.costMicroUsd)}</Td>
+                    <Td className="text-right">{fmt.usd(row.currentMonthCostMicroUsd)}</Td>
+                    <Td className="ui-small">
                       <TenantLimit row={row} onSaved={load} />
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                 ))}
-              </tbody>
-            </table>
+              </Tbody>
+            </Table>
           </div>
         </div>
       )}
@@ -625,16 +547,17 @@ export default function AdminAiPage() {
   if (!settings) return <LoadingState />;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold">{t('adminAi.title')}</h2>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('adminAi.subtitle')}
-        </p>
-        <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-          {t(`adminAi.jobMode.${settings.jobMode}`)}
-        </p>
-      </div>
+    <div className="grid gap-6">
+      <PageHeader
+        title={t('adminAi.title')}
+        description={
+          <>
+            {t('adminAi.subtitle')}
+            <br />
+            {t(`adminAi.jobMode.${settings.jobMode}`)}
+          </>
+        }
+      />
       <KeySection settings={settings} onChange={setSettings} />
       <ModelsSection settings={settings} onChange={setSettings} />
       <PricesSection settings={settings} onChange={setSettings} />

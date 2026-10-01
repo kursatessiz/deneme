@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { BASE_MESSAGES, BUNDLED_MESSAGES, createTranslator } from '@platform/shared';
 import { ErrorScreen } from '@/components/errors/ErrorScreen';
 import './globals.css';
+import '@chrissgon/perfectui/perfectui.css';
 
 /** The bundled language closest to the browser's, Turkish otherwise (the root layout and its provider are gone here). */
 function browserLocale(): string {

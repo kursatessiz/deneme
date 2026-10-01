@@ -5,19 +5,12 @@ import { BASE_MESSAGES, isActiveTranslationJob, type AiSettingsDTO, type Transla
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { bffFetch } from '@/lib/session/client';
 import { aiErrorText } from '@/lib/ai/errors';
+import { Accordion, AccordionItem } from '@/components/ui/Accordion';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
+import { Checkbox } from '@/components/ui/Checkbox';
 
 const POLL_MS = 2000;
-
-const panelStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-card)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-};
-const buttonStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-button)',
-  border: '1px solid var(--color-border)',
-  color: 'var(--color-text-secondary)',
-};
 
 /**
  * "Yapay zeka ile çevir" in the language CMS (G3b): pick sections (or all),
@@ -100,132 +93,105 @@ export function AiTranslatePanel({ code, onProgress }: { code: string; onProgres
   const percent = job && job.total > 0 ? Math.round(((job.done + job.failed + job.skipped) / job.total) * 100) : 0;
 
   return (
-    <section aria-labelledby="ai-translate-title" className="p-5 space-y-3" style={panelStyle}>
-      <h3 id="ai-translate-title" className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-        {t('adminI18n.ai.title')}
-      </h3>
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-        {t('adminI18n.ai.hint')}
-      </p>
-      {configured === false && (
-        <p className="text-xs" role="note" style={{ color: 'var(--color-danger, #b42318)' }}>
-          {t('adminI18n.ai.notConfigured')}
-        </p>
-      )}
+    <Card as="section" aria-labelledby="ai-translate-title">
+      <CardContent>
+        <h3 id="ai-translate-title" className="ui-heading">
+          {t('adminI18n.ai.title')}
+        </h3>
+        <p className="ui-caption">{t('adminI18n.ai.hint')}</p>
+        {configured === false && (
+          <p className="ui-caption ui-text-error" role="note">
+            {t('adminI18n.ai.notConfigured')}
+          </p>
+        )}
 
-      {!active && configured && (
-        <div className="space-y-3">
-          <fieldset className="space-y-1">
-            <legend className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('adminI18n.ai.namespaces')}
-            </legend>
-            <label className="inline-flex items-center gap-1.5 text-xs mr-3">
-              <input type="checkbox" checked={selected.length === 0} onChange={() => setSelected([])} />
-              {t('adminI18n.ai.allNamespaces')}
-            </label>
-            <div className="flex flex-wrap gap-x-3 gap-y-1">
-              {namespaces.map((ns) => (
-                <label key={ns} className="inline-flex items-center gap-1.5 text-xs font-mono">
-                  <input type="checkbox" checked={selected.includes(ns)} onChange={() => toggle(ns)} />
-                  {ns}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <label className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-            <input
-              type="checkbox"
+        {!active && configured && (
+          <div className="grid gap-3">
+            <fieldset className="grid gap-1">
+              <legend className="ui-small ui-strong">{t('adminI18n.ai.namespaces')}</legend>
+              <Checkbox label={t('adminI18n.ai.allNamespaces')} checked={selected.length === 0} onChange={() => setSelected([])} />
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
+                {namespaces.map((ns) => (
+                  <Checkbox key={ns} className="ui-mono" label={ns} checked={selected.includes(ns)} onChange={() => toggle(ns)} />
+                ))}
+              </div>
+            </fieldset>
+            <Checkbox
+              label={t('adminI18n.ai.overwrite')}
               checked={overwrite}
               onChange={(e) => {
                 setOverwrite(e.target.checked);
                 setConfirming(false);
               }}
             />
-            {t('adminI18n.ai.overwrite')}
-          </label>
-          {confirming ? (
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span style={{ color: 'var(--color-text-primary)' }}>{t('adminI18n.ai.overwriteConfirm')}</span>
-              <button type="button" onClick={start} disabled={busy} className="px-3 py-1.5 font-medium" style={{ ...buttonStyle, color: 'var(--color-danger, #b42318)' }}>
+            {confirming ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="ui-small">{t('adminI18n.ai.overwriteConfirm')}</span>
+                <Button variant="outline" tone="error" size="sm" onClick={start} disabled={busy}>
+                  {t('adminI18n.ai.start')}
+                </Button>
+                <Button variant="outline" tone="surface" size="sm" onClick={() => setConfirming(false)}>
+                  {t('common.cancel')}
+                </Button>
+              </div>
+            ) : (
+              <Button className="justify-self-start" onClick={() => (overwrite ? setConfirming(true) : void start())} disabled={busy}>
                 {t('adminI18n.ai.start')}
-              </button>
-              <button type="button" onClick={() => setConfirming(false)} className="px-3 py-1.5 font-medium" style={buttonStyle}>
-                {t('common.cancel')}
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => (overwrite ? setConfirming(true) : void start())}
-              disabled={busy}
-              className="px-4 py-2 text-sm font-medium disabled:opacity-40"
-              style={{ borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
-            >
-              {t('adminI18n.ai.start')}
-            </button>
-          )}
-        </div>
-      )}
-
-      {error && (
-        <p className="text-xs" role="alert" style={{ color: 'var(--color-danger, #b42318)' }}>
-          {error}
-        </p>
-      )}
-
-      {job && (
-        <div className="space-y-2" data-testid="ai-translate-job">
-          <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-            {t(`adminI18n.ai.status.${job.status}`)}
-          </p>
-          <div
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={percent}
-            aria-label={t('adminI18n.ai.progress', { done: job.done, total: job.total })}
-            className="h-2 w-full overflow-hidden"
-            style={{ borderRadius: 'var(--radius-chip)', backgroundColor: 'var(--color-surface-muted)' }}
-          >
-            <div className="h-full" style={{ width: `${percent}%`, backgroundColor: 'var(--color-primary)' }} />
+              </Button>
+            )}
           </div>
-          <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('adminI18n.ai.progress', { done: job.done, total: job.total })}
-            {job.failed > 0 && ` · ${t('adminI18n.ai.failedCount', { count: job.failed })}`}
-            {job.skipped > 0 && ` · ${t('adminI18n.ai.skippedCount', { count: job.skipped })}`}
-            {` · ${t('adminI18n.ai.cost', { amount: money(job.costMicroUsd) })}`}
+        )}
+
+        {error && (
+          <p className="ui-caption ui-text-error" role="alert">
+            {error}
           </p>
-          {job.lastErrorCode && (
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              {t(`ai.error.${job.lastErrorCode}`)}
-            </p>
-          )}
-          {active && (
-            <div className="flex items-center gap-3">
-              <button type="button" onClick={cancel} disabled={busy} className="px-3 py-1.5 text-xs font-medium disabled:opacity-40" style={buttonStyle}>
-                {t('adminI18n.ai.cancel')}
-              </button>
-              <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-                {t('adminI18n.ai.backgroundHint')}
-              </span>
+        )}
+
+        {job && (
+          <div className="grid gap-2" data-testid="ai-translate-job">
+            <p className="ui-strong">{t(`adminI18n.ai.status.${job.status}`)}</p>
+            <div
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={percent}
+              aria-label={t('adminI18n.ai.progress', { done: job.done, total: job.total })}
+              className="h-2 w-full overflow-hidden ui-panel"
+            >
+              <div className="h-full ui-bar-fill" style={{ width: `${percent}%` }} />
             </div>
-          )}
-          {job.failures.length > 0 && (
-            <details className="text-xs">
-              <summary className="cursor-pointer" style={{ color: 'var(--color-text-secondary)' }}>
-                {t('adminI18n.ai.failures')}
-              </summary>
-              <ul className="mt-1 space-y-0.5 font-mono">
-                {job.failures.map((f) => (
-                  <li key={f.key}>
-                    {f.key}: {f.errorCode.startsWith('AI_') ? t(`ai.error.${f.errorCode}`) : t(`adminI18n.ai.reason.${f.errorCode}`)}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-        </div>
-      )}
-    </section>
+            <p className="ui-small">
+              {t('adminI18n.ai.progress', { done: job.done, total: job.total })}
+              {job.failed > 0 && ` · ${t('adminI18n.ai.failedCount', { count: job.failed })}`}
+              {job.skipped > 0 && ` · ${t('adminI18n.ai.skippedCount', { count: job.skipped })}`}
+              {` · ${t('adminI18n.ai.cost', { amount: money(job.costMicroUsd) })}`}
+            </p>
+            {job.lastErrorCode && <p className="ui-caption">{t(`ai.error.${job.lastErrorCode}`)}</p>}
+            {active && (
+              <div className="flex items-center gap-3">
+                <Button variant="outline" tone="surface" size="sm" onClick={cancel} disabled={busy}>
+                  {t('adminI18n.ai.cancel')}
+                </Button>
+                <span className="ui-caption">{t('adminI18n.ai.backgroundHint')}</span>
+              </div>
+            )}
+            {job.failures.length > 0 && (
+              <Accordion>
+                <AccordionItem title={t('adminI18n.ai.failures')}>
+                  <ul className="ui-mono grid gap-0.5">
+                    {job.failures.map((f) => (
+                      <li key={f.key}>
+                        {f.key}: {f.errorCode.startsWith('AI_') ? t(`ai.error.${f.errorCode}`) : t(`adminI18n.ai.reason.${f.errorCode}`)}
+                      </li>
+                    ))}
+                  </ul>
+                </AccordionItem>
+              </Accordion>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

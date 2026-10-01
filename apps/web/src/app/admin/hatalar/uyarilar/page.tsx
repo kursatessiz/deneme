@@ -8,14 +8,13 @@ import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { EmptyState, ErrorState, LoadingState } from '@/components/common/DataState';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { LinkButton } from '@/components/ui/LinkButton';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Select } from '@/components/ui/Select';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
 
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  borderColor: 'var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
-const card: React.CSSProperties = { borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' };
 
 /** Super admin: stored error alerts (spike, new group, regression) with acknowledgement and sink delivery state (H3). */
 export default function AdminErrorAlertsPage() {
@@ -47,27 +46,21 @@ export default function AdminErrorAlertsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <Link href="/admin/hatalar" className="text-sm hover:underline" style={{ color: 'var(--color-text-secondary)' }}>
+    <div className="grid gap-6">
+      <LinkButton href="/admin/hatalar" variant="link" tone="surface" size="sm" className="justify-self-start">
         {t('adminErrors.detail.back')}
-      </Link>
-      <div>
-        <h2 className="text-xl font-bold">{t('adminErrors.alerts.title')}</h2>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('adminErrors.alerts.subtitle')}
-        </p>
-      </div>
+      </LinkButton>
+      <PageHeader title={t('adminErrors.alerts.title')} description={t('adminErrors.alerts.subtitle')} />
 
       <div className="flex flex-wrap gap-3">
-        <select
+        <Select
           aria-label={t('adminErrors.alerts.filter.kind')}
           value={kind}
           onChange={(e) => {
             setKind(e.target.value);
             setPage(1);
           }}
-          className="border px-3 py-2 text-sm"
-          style={inputStyle}
+          className="w-auto"
         >
           <option value="">{t('adminErrors.alerts.filter.all')}</option>
           {ERROR_ALERT_KINDS.map((k) => (
@@ -75,25 +68,24 @@ export default function AdminErrorAlertsPage() {
               {t(`adminErrors.alert.kind.${k}`)}
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
           aria-label={t('adminErrors.alerts.filter.state')}
           value={state}
           onChange={(e) => {
             setState(e.target.value);
             setPage(1);
           }}
-          className="border px-3 py-2 text-sm"
-          style={inputStyle}
+          className="w-auto"
         >
           <option value="">{t('adminErrors.alerts.filter.all')}</option>
           <option value="open">{t('adminErrors.alerts.filter.open')}</option>
           <option value="acknowledged">{t('adminErrors.alerts.filter.acknowledged')}</option>
-        </select>
+        </Select>
       </div>
 
       {message && (
-        <p role="alert" className="text-sm" style={{ color: 'var(--color-danger)' }}>
+        <p role="alert" className="ui-text-error">
           {message}
         </p>
       )}
@@ -101,62 +93,58 @@ export default function AdminErrorAlertsPage() {
       {error && <ErrorState message={error} />}
       {data && data.items.length === 0 && <EmptyState title={t('adminErrors.alerts.empty')} />}
       {data && data.items.length > 0 && (
-        <div className="overflow-x-auto border" style={card}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
+        <Card className="overflow-x-auto">
+          <Table>
+            <Thead>
+              <Tr>
                 {(['kind', 'group', 'count', 'at', 'delivery'] as const).map((col) => (
-                  <th key={col} className="text-left px-3 py-2 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                    {t(`adminErrors.alerts.col.${col}`)}
-                  </th>
+                  <Th key={col}>{t(`adminErrors.alerts.col.${col}`)}</Th>
                 ))}
-                <th />
-              </tr>
-            </thead>
-            <tbody>
+                <Th />
+              </Tr>
+            </Thead>
+            <Tbody>
               {data.items.map((a) => (
-                <tr key={a.id} className="border-t align-top" style={{ borderColor: 'var(--color-border)' }}>
-                  <td className="px-3 py-2">{t(`adminErrors.alert.kind.${a.kind}`)}</td>
-                  <td className="px-3 py-2 break-all">
-                    <Link href={`/admin/hatalar/${a.groupId}`} className="hover:underline">
+                <Tr key={a.id} className="align-top">
+                  <Td>{t(`adminErrors.alert.kind.${a.kind}`)}</Td>
+                  <Td className="break-all">
+                    <Link href={`/admin/hatalar/${a.groupId}`} className="pui-link pui-surface">
                       {a.groupTitle}
                     </Link>
-                  </td>
-                  <td className="px-3 py-2 tabular-nums">{a.kind === 'SPIKE' ? t('adminErrors.alerts.count', { windowCount: a.windowCount, threshold: a.threshold }) : '-'}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{dateTime.format(new Date(a.createdAt))}</td>
-                  <td className="px-3 py-2 text-xs">
+                  </Td>
+                  <Td className="tabular-nums">{a.kind === 'SPIKE' ? t('adminErrors.alerts.count', { windowCount: a.windowCount, threshold: a.threshold }) : '-'}</Td>
+                  <Td className="whitespace-nowrap">{dateTime.format(new Date(a.createdAt))}</Td>
+                  <Td className="ui-small">
                     {a.deliveries.length === 0
                       ? '-'
                       : a.deliveries.map((d) => (
                           <div key={d.sink}>{t('adminErrors.alerts.delivery', { sink: t(`adminErrors.alerts.sink.${d.sink}`), status: t(`adminErrors.alerts.deliveryStatus.${d.status}`) })}</div>
                         ))}
-                  </td>
-                  <td className="px-3 py-2">
+                  </Td>
+                  <Td>
                     {a.acknowledgedAt ? (
-                      <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                        {t('adminErrors.alerts.acknowledged')}
-                      </span>
+                      <span className="ui-caption">{t('adminErrors.alerts.acknowledged')}</span>
                     ) : (
-                      <button type="button" onClick={() => acknowledge(a.id)} className="px-3 py-1 text-xs font-medium border" style={{ borderRadius: 'var(--radius-button)', borderColor: 'var(--color-border)' }}>
+                      <Button variant="outline" tone="surface" size="sm" onClick={() => acknowledge(a.id)}>
                         {t('adminErrors.alerts.acknowledge')}
-                      </button>
+                      </Button>
                     )}
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Tbody>
+          </Table>
+        </Card>
       )}
       {data && pages > 1 && (
-        <div className="flex items-center gap-3 text-sm">
-          <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)} className="px-3 py-1 border" style={{ borderRadius: 'var(--radius-button)', borderColor: 'var(--color-border)' }}>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" tone="surface" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
             {t('adminErrors.page.previous')}
-          </button>
-          <span>{t('adminErrors.page.info', { page, pages, total: data.total })}</span>
-          <button type="button" disabled={page >= pages} onClick={() => setPage(page + 1)} className="px-3 py-1 border" style={{ borderRadius: 'var(--radius-button)', borderColor: 'var(--color-border)' }}>
+          </Button>
+          <span className="ui-text-muted">{t('adminErrors.page.info', { page, pages, total: data.total })}</span>
+          <Button variant="outline" tone="surface" size="sm" disabled={page >= pages} onClick={() => setPage(page + 1)}>
             {t('adminErrors.page.next')}
-          </button>
+          </Button>
         </div>
       )}
     </div>
