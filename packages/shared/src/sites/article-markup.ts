@@ -41,8 +41,10 @@ export function safeArticleHref(raw: string): string | null {
   return SAFE_HTTPS_HREF.test(value) ? value : null;
 }
 
-// `**bold**` (non-greedy, no newline) or `[label](target)`.
-const INLINE_PATTERN = /\*\*([^*\n]+?)\*\*|\[([^\]\n]+)\]\(([^)\s]+)\)/g;
+// `**bold**` (non-greedy, no newline) or `[label](target)`. The label and target classes exclude the
+// bracket characters themselves so a run of unmatched brackets fails at once instead of rescanning the
+// rest of the line from every bracket (linear time on hostile input; CodeQL js/polynomial-redos).
+const INLINE_PATTERN = /\*\*([^*\n]+?)\*\*|\[([^[\]\n]+)\]\(([^)\s[\]]+)\)/g;
 
 function pushText(out: ArticleInlineNode[], value: string): void {
   if (!value) return;
