@@ -65,7 +65,7 @@ Rota yapısı (`apps/web/src/app/[locale]/[[...slug]]/page.tsx`, platform sitesi
 - Sayfalar her istekte render edilir (`dynamic = 'force-dynamic'`): kök layout sayfa dilini (`x-pw-page-locale` başlığı, middleware URL'nin ilk parçasından koyar) ve çerezleri okur, A/B varyantı çereze bağlıdır. API yanıtları yine önbelleklidir (300 saniyelik `fetch` yeniden doğrulaması ve yayınlamada etiketle temizleme), bu yüzden istek başına maliyet yalnızca render'dır. `<html lang>` her zaman sayfanın URL'deki dilidir.
 - `hreflang`, `canonical`, Open Graph/Twitter etiketleri ve `Organization`/`LocalBusiness`/`FAQPage`/`Offer` JSON-LD `apps/web/src/lib/sites/jsonld.ts` ve `SitePage.tsx`'te üretilir; `hreflang` yalnızca o sayfanın yayınlanmış dil varyantları için yazılır.
 - `sitemap.xml` ve `robots.txt` (`apps/web/src/app/sitemap.xml/route.ts`, `.../robots.txt/route.ts`) istek host'una göre platform veya ilgili işletme sitesi için üretilir.
-- `/` platformun en iyi dile yönlendiren kökü olarak sayfa motoruna devredilmiştir (mevcut sabit kodlu içerik kaldırıldı).
+- `/` T1'den beri kodla yazılmış ürün açılış sayfasıdır (`apps/web/src/app/page.tsx`); sayfa motorunun platform sitesi `/tr` ve `/en` altında yaşar. Kökün sayfa motoruna devredilip devredilmeyeceği sahibin kararını bekler (`docs/TASARIM.md`).
 
 ### Tasarım dili (T6)
 
