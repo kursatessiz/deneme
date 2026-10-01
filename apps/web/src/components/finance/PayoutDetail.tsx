@@ -116,7 +116,7 @@ export function PayoutDetail({ detail, onChange, onBack }: { detail: PayoutDetai
                       {t(`payouts.itemType.${item.type}`)}
                     </Badge>
                   </Td>
-                  <Td className="font-mono ui-caption break-all">{item.providerReference ?? '-'}</Td>
+                  <Td className="ui-mono ui-caption break-all">{item.providerReference ?? '-'}</Td>
                   <Td className="whitespace-nowrap">{dateTime.format(new Date(item.occurredAt))}</Td>
                   <Td className="ui-strong whitespace-nowrap">{money(item.amount)}</Td>
                   <Td className="whitespace-nowrap">{Number(item.fee) > 0 ? money(item.fee) : '-'}</Td>

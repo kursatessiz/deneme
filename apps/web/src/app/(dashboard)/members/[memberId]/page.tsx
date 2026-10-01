@@ -242,7 +242,7 @@ function MemberCard() {
               </div>
             )}
             {actionError && (
-              <p className="ui-caption" style={{ color: 'var(--pui-error)' }}>
+              <p className="ui-caption ui-text-error">
                 {actionError}
               </p>
             )}

@@ -8,17 +8,14 @@ import { bffFetch, BffError } from '@/lib/session/client';
 import { EmptyState, ErrorState, LoadingState } from '@/components/common/DataState';
 import { Modal } from '@/components/common/Modal';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
+import { Checkbox } from '@/components/ui/Checkbox';
+import { FieldGroup } from '@/components/ui/FieldGroup';
+import { Input } from '@/components/ui/Input';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
 
-const card: React.CSSProperties = { borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' };
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  borderColor: 'var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
-const primaryButton: React.CSSProperties = { borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' };
-const secondaryButton: React.CSSProperties = { borderRadius: 'var(--radius-button)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' };
-const muted: React.CSSProperties = { color: 'var(--color-text-muted)' };
 const POLL_MS = 5000;
 
 function bytesFormatter(locale: string): (n: number) => string {
@@ -98,29 +95,21 @@ export default function AdminBackupsPage() {
     });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold">{t('adminBackups.title')}</h2>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('adminBackups.subtitle')}
-          </p>
-        </div>
-        {data && (
-          <button
-            type="button"
-            onClick={runNow}
-            disabled={!data.config.offsiteConfigured || running || busy === 'run'}
-            className="px-4 py-2 text-sm font-medium disabled:opacity-50"
-            style={primaryButton}
-          >
-            {running || busy === 'run' ? t('adminBackups.run.running') : t('adminBackups.run.button')}
-          </button>
-        )}
-      </div>
+    <div className="grid gap-6">
+      <PageHeader
+        title={t('adminBackups.title')}
+        description={t('adminBackups.subtitle')}
+        actions={
+          data && (
+            <Button onClick={runNow} disabled={!data.config.offsiteConfigured || running || busy === 'run'}>
+              {running || busy === 'run' ? t('adminBackups.run.running') : t('adminBackups.run.button')}
+            </Button>
+          )
+        }
+      />
 
       {notice && (
-        <p role="status" className="text-sm" style={{ color: notice.kind === 'ok' ? 'var(--color-text-secondary)' : 'var(--color-danger)' }}>
+        <p role="status" className={notice.kind === 'ok' ? 'ui-text-muted' : 'ui-text-error'}>
           {notice.text}
         </p>
       )}
@@ -130,95 +119,75 @@ export default function AdminBackupsPage() {
       {data && (
         <>
           {!data.config.offsiteConfigured && (
-            <p className="text-sm border p-4" style={{ ...card, color: 'var(--color-text-secondary)' }}>
-              {t('adminBackups.notConfigured')}
-            </p>
+            <p className="ui-panel ui-text-muted p-4">{t('adminBackups.notConfigured')}</p>
           )}
           {data.config.bucket && (
-            <p className="text-xs font-mono" style={muted}>
+            <p className="ui-caption ui-mono">
               {t('adminBackups.storeInfo', { endpoint: data.config.endpointHost ?? '-', bucket: data.config.bucket, prefix: data.config.prefix ?? '' })}
             </p>
           )}
-          {data.errors.offsite && (
-            <p className="text-sm" style={{ color: 'var(--color-danger)' }}>
-              {t('adminBackups.listError.offsite', { message: data.errors.offsite })}
-            </p>
-          )}
-          {data.errors.local && (
-            <p className="text-sm" style={{ color: 'var(--color-danger)' }}>
-              {t('adminBackups.listError.local', { message: data.errors.local })}
-            </p>
-          )}
+          {data.errors.offsite && <p className="ui-text-error">{t('adminBackups.listError.offsite', { message: data.errors.offsite })}</p>}
+          {data.errors.local && <p className="ui-text-error">{t('adminBackups.listError.local', { message: data.errors.local })}</p>}
 
           <SummaryCards data={data} bytes={bytes} dateTime={dateTime} />
           <SettingsForm settings={data.settings} dateTime={dateTime} onSaved={() => setRefresh((n) => n + 1)} onError={fail} onNotice={setNotice} />
 
-          <section className="space-y-2" aria-labelledby="backup-list-title">
-            <h3 id="backup-list-title" className="text-sm font-semibold">
+          <section className="grid gap-2" aria-labelledby="backup-list-title">
+            <h3 id="backup-list-title" className="ui-heading">
               {t('adminBackups.list.title')}
             </h3>
             {data.entries.length === 0 ? (
               <EmptyState title={t('adminBackups.list.empty')} />
             ) : (
-              <div className="overflow-x-auto border" style={card}>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
+              <Card className="overflow-x-auto">
+                <Table>
+                  <Thead>
+                    <Tr>
                       {(['name', 'origin', 'location', 'size', 'age', 'checks', 'actions'] as const).map((col) => (
-                        <th key={col} className="text-left px-3 py-2 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                          {t(`adminBackups.col.${col}`)}
-                        </th>
+                        <Th key={col}>{t(`adminBackups.col.${col}`)}</Th>
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
                     {data.entries.map((e) => (
-                      <tr key={e.name} className="border-t align-top" style={{ borderColor: 'var(--color-border)' }}>
-                        <td className="px-3 py-2">
-                          <span className="font-mono text-xs break-all">{e.name}</span>
-                          <span className="block text-xs mt-0.5" style={muted}>
-                            {dateTime.format(new Date(e.createdAt))}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2">{t(`adminBackups.origin.${e.origin}`)}</td>
-                        <td className="px-3 py-2">{t(`adminBackups.location.${e.location}`)}</td>
-                        <td className="px-3 py-2 tabular-nums whitespace-nowrap">{bytes(e.sizeBytes)}</td>
-                        <td className="px-3 py-2 tabular-nums whitespace-nowrap">
+                      <Tr key={e.name} className="align-top">
+                        <Td>
+                          <span className="ui-mono break-all">{e.name}</span>
+                          <span className="block ui-caption">{dateTime.format(new Date(e.createdAt))}</span>
+                        </Td>
+                        <Td>{t(`adminBackups.origin.${e.origin}`)}</Td>
+                        <Td>{t(`adminBackups.location.${e.location}`)}</Td>
+                        <Td className="tabular-nums whitespace-nowrap">{bytes(e.sizeBytes)}</Td>
+                        <Td className="tabular-nums whitespace-nowrap">
                           {e.ageHours < 48 ? t('adminBackups.age.hours', { hours: Math.round(e.ageHours) }) : t('adminBackups.age.days', { days: Math.floor(e.ageHours / 24) })}
-                        </td>
-                        <td className="px-3 py-2 text-xs space-y-0.5">
+                        </Td>
+                        <Td className="ui-small">
                           {e.offsiteKey && <span className="block">{e.sha256SidecarPresent ? t('adminBackups.check.sidecar') : t('adminBackups.check.noSidecar')}</span>}
                           {e.offsiteKey && <span className="block">{e.verifiedAt ? t('adminBackups.check.verified') : t('adminBackups.check.notVerified')}</span>}
-                          {e.protected && <span className="block font-medium">{t('adminBackups.check.protected')}</span>}
-                        </td>
-                        <td className="px-3 py-2">
+                          {e.protected && <span className="block ui-strong">{t('adminBackups.check.protected')}</span>}
+                        </Td>
+                        <Td>
                           {e.offsiteKey && data.config.offsiteConfigured && (
                             <div className="flex flex-wrap gap-1.5">
-                              <button type="button" onClick={() => verify(e)} disabled={busy !== null} className="px-2.5 py-1 text-xs border disabled:opacity-50" style={secondaryButton}>
+                              <Button variant="outline" tone="surface" size="sm" onClick={() => verify(e)} disabled={busy !== null}>
                                 {busy === `verify:${e.name}` ? t('adminBackups.action.verifying') : t('adminBackups.action.verify')}
-                              </button>
-                              <button type="button" onClick={() => download(e)} disabled={busy !== null} className="px-2.5 py-1 text-xs border disabled:opacity-50" style={secondaryButton}>
+                              </Button>
+                              <Button variant="outline" tone="surface" size="sm" onClick={() => download(e)} disabled={busy !== null}>
                                 {t('adminBackups.action.download')}
-                              </button>
+                              </Button>
                               {!e.protected && (
-                                <button
-                                  type="button"
-                                  onClick={() => setDeleting(e)}
-                                  disabled={busy !== null}
-                                  className="px-2.5 py-1 text-xs border disabled:opacity-50"
-                                  style={{ ...secondaryButton, color: 'var(--color-danger)' }}
-                                >
+                                <Button variant="outline" tone="error" size="sm" onClick={() => setDeleting(e)} disabled={busy !== null}>
                                   {t('adminBackups.action.delete')}
-                                </button>
+                                </Button>
                               )}
                             </div>
                           )}
-                        </td>
-                      </tr>
+                        </Td>
+                      </Tr>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </Tbody>
+                </Table>
+              </Card>
             )}
           </section>
 
@@ -257,51 +226,45 @@ function SummaryCards({ data, bytes, dateTime }: { data: BackupOverviewDTO; byte
         : s.status === 'error'
           ? t('adminBackups.card.error')
           : t('adminBackups.card.notConfigured');
-  const statusColor = s.status === 'ok' ? 'var(--color-text-secondary)' : s.status === 'not_configured' ? 'var(--color-text-muted)' : 'var(--color-danger)';
+  const statusClass = s.status === 'ok' ? 'ui-small ui-strong ui-text-muted' : s.status === 'not_configured' ? 'ui-small ui-strong ui-text-muted' : 'ui-small ui-strong ui-text-error';
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div className="p-4 border space-y-1" style={card}>
-        <h3 className="text-xs font-medium" style={muted}>
-          {t('adminBackups.card.lastSuccess')}
-        </h3>
-        <p className="text-sm font-semibold">{s.lastSuccessAt ? dateTime.format(new Date(s.lastSuccessAt)) : t('adminBackups.card.lastSuccessNever')}</p>
-        {hours !== null && (
-          <p className="text-xs" style={muted}>
-            {t('adminBackups.card.hoursAgo', { hours })}
+      <Card>
+        <CardContent>
+          <h3 className="ui-caption">{t('adminBackups.card.lastSuccess')}</h3>
+          <p className="ui-strong">{s.lastSuccessAt ? dateTime.format(new Date(s.lastSuccessAt)) : t('adminBackups.card.lastSuccessNever')}</p>
+          {hours !== null && <p className="ui-caption">{t('adminBackups.card.hoursAgo', { hours })}</p>}
+          <p className={statusClass}>{statusLabel}</p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent>
+          <h3 className="ui-caption">{t('adminBackups.card.offsite')}</h3>
+          <p className="ui-strong">
+            {data.config.offsiteConfigured
+              ? t('adminBackups.card.offsiteValue', { count: data.summary.offsiteCount, size: bytes(data.summary.offsiteTotalBytes) })
+              : t('adminBackups.card.notConfigured')}
           </p>
-        )}
-        <p className="text-xs font-medium" style={{ color: statusColor }}>
-          {statusLabel}
-        </p>
-      </div>
-      <div className="p-4 border space-y-1" style={card}>
-        <h3 className="text-xs font-medium" style={muted}>
-          {t('adminBackups.card.offsite')}
-        </h3>
-        <p className="text-sm font-semibold">
-          {data.config.offsiteConfigured
-            ? t('adminBackups.card.offsiteValue', { count: data.summary.offsiteCount, size: bytes(data.summary.offsiteTotalBytes) })
-            : t('adminBackups.card.notConfigured')}
-        </p>
-      </div>
-      <div className="p-4 border space-y-1" style={card}>
-        <h3 className="text-xs font-medium" style={muted}>
-          {t('adminBackups.card.local')}
-        </h3>
-        <p className="text-sm font-semibold">
-          {data.config.localConfigured
-            ? t('adminBackups.card.localValue', { count: data.summary.localCount, size: bytes(data.summary.localTotalBytes) })
-            : t('adminBackups.card.localNotConfigured')}
-        </p>
-      </div>
-      <div className="p-4 border space-y-1" style={card}>
-        <h3 className="text-xs font-medium" style={muted}>
-          {t('adminBackups.card.retention')}
-        </h3>
-        <p className="text-sm font-semibold">
-          {data.settings.retentionDays > 0 ? t('adminBackups.card.retentionValue', { days: data.settings.retentionDays }) : t('adminBackups.card.retentionOff')}
-        </p>
-      </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent>
+          <h3 className="ui-caption">{t('adminBackups.card.local')}</h3>
+          <p className="ui-strong">
+            {data.config.localConfigured
+              ? t('adminBackups.card.localValue', { count: data.summary.localCount, size: bytes(data.summary.localTotalBytes) })
+              : t('adminBackups.card.localNotConfigured')}
+          </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent>
+          <h3 className="ui-caption">{t('adminBackups.card.retention')}</h3>
+          <p className="ui-strong">
+            {data.settings.retentionDays > 0 ? t('adminBackups.card.retentionValue', { days: data.settings.retentionDays }) : t('adminBackups.card.retentionOff')}
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -344,46 +307,28 @@ function SettingsForm({
   };
 
   return (
-    <form onSubmit={save} className="p-4 border space-y-3" style={card} aria-labelledby="backup-settings-title">
-      <h3 id="backup-settings-title" className="text-sm font-semibold">
-        {t('adminBackups.settings.title')}
-      </h3>
-      <div className="flex flex-wrap items-end gap-4">
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
-          {t('adminBackups.settings.enabled')}
-        </label>
-        <label className="text-sm space-y-1">
-          <span className="block text-xs" style={muted}>
-            {t('adminBackups.settings.time')}
-          </span>
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="border px-3 py-1.5 text-sm" style={inputStyle} required />
-        </label>
-        <label className="text-sm space-y-1">
-          <span className="block text-xs" style={muted}>
-            {t('adminBackups.settings.retention')}
-          </span>
-          <input
-            type="number"
-            min={0}
-            max={3650}
-            value={retention}
-            onChange={(e) => setRetention(e.target.value)}
-            className="border px-3 py-1.5 text-sm w-28"
-            style={inputStyle}
-            required
-          />
-        </label>
-        <button type="submit" disabled={saving} className="px-4 py-1.5 text-sm font-medium disabled:opacity-50" style={primaryButton}>
-          {t('adminBackups.settings.save')}
-        </button>
+    <form onSubmit={save} className="pui-card" aria-labelledby="backup-settings-title">
+      <div className="pui-card-content">
+        <h3 id="backup-settings-title" className="ui-heading">
+          {t('adminBackups.settings.title')}
+        </h3>
+        <div className="flex flex-wrap items-end gap-4">
+          <Checkbox label={t('adminBackups.settings.enabled')} checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+          <FieldGroup label={t('adminBackups.settings.time')}>
+            <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
+          </FieldGroup>
+          <FieldGroup label={t('adminBackups.settings.retention')}>
+            <Input type="number" min={0} max={3650} value={retention} onChange={(e) => setRetention(e.target.value)} className="w-28" required />
+          </FieldGroup>
+          <Button type="submit" disabled={saving}>
+            {t('adminBackups.settings.save')}
+          </Button>
+        </div>
+        <p className="ui-caption">
+          {settings.nextScheduledAt ? t('adminBackups.settings.next', { value: dateTime.format(new Date(settings.nextScheduledAt)) }) : t('adminBackups.settings.nextNone')}
+        </p>
+        <p className="ui-caption">{t('adminBackups.settings.help')}</p>
       </div>
-      <p className="text-xs" style={muted}>
-        {settings.nextScheduledAt ? t('adminBackups.settings.next', { value: dateTime.format(new Date(settings.nextScheduledAt)) }) : t('adminBackups.settings.nextNone')}
-      </p>
-      <p className="text-xs" style={muted}>
-        {t('adminBackups.settings.help')}
-      </p>
     </form>
   );
 }
@@ -391,43 +336,35 @@ function SettingsForm({
 function RunsTable({ runs, bytes, dateTime }: { runs: BackupRunDTO[]; bytes: (n: number) => string; dateTime: Intl.DateTimeFormat }) {
   const t = useT();
   return (
-    <section className="space-y-2" aria-labelledby="backup-runs-title">
-      <h3 id="backup-runs-title" className="text-sm font-semibold">
+    <section className="grid gap-2" aria-labelledby="backup-runs-title">
+      <h3 id="backup-runs-title" className="ui-heading">
         {t('adminBackups.runs.title')}
       </h3>
       {runs.length === 0 ? (
-        <p className="text-sm" style={muted}>
-          {t('adminBackups.runs.empty')}
-        </p>
+        <p className="ui-text-muted">{t('adminBackups.runs.empty')}</p>
       ) : (
-        <div className="overflow-x-auto border" style={card}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
+        <Card className="overflow-x-auto">
+          <Table>
+            <Thead>
+              <Tr>
                 {(['startedAt', 'trigger', 'status', 'size', 'detail'] as const).map((col) => (
-                  <th key={col} className="text-left px-3 py-2 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                    {t(`adminBackups.runs.col.${col}`)}
-                  </th>
+                  <Th key={col}>{t(`adminBackups.runs.col.${col}`)}</Th>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </Tr>
+            </Thead>
+            <Tbody>
               {runs.map((r) => (
-                <tr key={r.id} className="border-t align-top" style={{ borderColor: 'var(--color-border)' }}>
-                  <td className="px-3 py-2 whitespace-nowrap">{dateTime.format(new Date(r.startedAt))}</td>
-                  <td className="px-3 py-2">{t(`adminBackups.runs.trigger.${r.trigger}`)}</td>
-                  <td className="px-3 py-2" style={{ color: r.status === 'FAILED' ? 'var(--color-danger)' : undefined }}>
-                    {t(`adminBackups.runs.status.${r.status}`)}
-                  </td>
-                  <td className="px-3 py-2 tabular-nums whitespace-nowrap">{r.sizeBytes === null ? '-' : bytes(r.sizeBytes)}</td>
-                  <td className="px-3 py-2 text-xs break-all" style={muted}>
-                    {r.error ?? r.objectKey ?? ''}
-                  </td>
-                </tr>
+                <Tr key={r.id} className="align-top">
+                  <Td className="whitespace-nowrap">{dateTime.format(new Date(r.startedAt))}</Td>
+                  <Td>{t(`adminBackups.runs.trigger.${r.trigger}`)}</Td>
+                  <Td className={r.status === 'FAILED' ? 'ui-text-error' : undefined}>{t(`adminBackups.runs.status.${r.status}`)}</Td>
+                  <Td className="tabular-nums whitespace-nowrap">{r.sizeBytes === null ? '-' : bytes(r.sizeBytes)}</Td>
+                  <Td className="ui-small ui-text-muted break-all">{r.error ?? r.objectKey ?? ''}</Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Tbody>
+          </Table>
+        </Card>
       )}
     </section>
   );
@@ -461,31 +398,17 @@ function DeleteDialog({
   };
   return (
     <Modal title={t('adminBackups.delete.title')} onClose={onClose}>
-      <form onSubmit={submit} className="space-y-3">
-        <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('adminBackups.delete.warning')}
-        </p>
-        <p className="font-mono text-xs break-all">{entry.name}</p>
-        <input
-          aria-label={t('adminBackups.delete.confirmLabel')}
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-          className="border px-3 py-2 text-sm w-full font-mono"
-          style={inputStyle}
-          autoComplete="off"
-        />
+      <form onSubmit={submit} className="grid gap-3">
+        <p className="ui-text-muted">{t('adminBackups.delete.warning')}</p>
+        <p className="ui-mono break-all">{entry.name}</p>
+        <Input aria-label={t('adminBackups.delete.confirmLabel')} value={typed} onChange={(e) => setTyped(e.target.value)} className="ui-mono" autoComplete="off" />
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="px-3 py-1.5 text-sm border" style={secondaryButton}>
+          <Button variant="outline" tone="surface" onClick={onClose}>
             {t('adminBackups.delete.cancel')}
-          </button>
-          <button
-            type="submit"
-            disabled={working || typed.trim() !== entry.name}
-            className="px-3 py-1.5 text-sm font-medium disabled:opacity-50"
-            style={{ borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-danger)', color: 'var(--color-on-primary)' }}
-          >
+          </Button>
+          <Button type="submit" tone="error" disabled={working || typed.trim() !== entry.name}>
             {t('adminBackups.delete.confirm')}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>

@@ -93,7 +93,7 @@ export function LeadAdsSection({ data, run, call, fmtDate, entryHeaders, showPla
         ) : (
           <>
             <p className="ui-caption">
-              {t('leadAds.callback')} <code className="font-mono">/{leadAds.webhookPath}</code>
+              {t('leadAds.callback')} <code className="ui-mono">/{leadAds.webhookPath}</code>
             </p>
             {leadAds.connections.map((c) => (
               <ConnectionCard key={c.connectionId} connection={c} run={run} call={call} fmtDate={fmtDate} />
@@ -111,7 +111,7 @@ export function LeadAdsSection({ data, run, call, fmtDate, entryHeaders, showPla
           )}
           {leadAds.forms.map((f) => (
             <div key={f.id} className="pt-3 flex flex-wrap items-center gap-2 ui-rule">
-              <span className="font-mono">{f.formId}</span>
+              <span className="ui-mono">{f.formId}</span>
               {f.formName && <span>{f.formName}</span>}
               {f.consentQuestionKey ? <Badge>{t('leadAds.forms.consentSet', { key: f.consentQuestionKey })}</Badge> : <Badge tone="warning">{t('leadAds.forms.noConsent')}</Badge>}
               <span className="flex-1" />
@@ -154,7 +154,7 @@ export function LeadAdsSection({ data, run, call, fmtDate, entryHeaders, showPla
               {events.map((e) => (
                 <Tr key={e.id}>
                   <Td className="ui-small">{fmtDate(e.receivedAt)}</Td>
-                  <Td className="font-mono ui-small">{e.formId}</Td>
+                  <Td className="ui-mono ui-small">{e.formId}</Td>
                   <Td>
                     <Badge tone={EVENT_TONE[e.status]}>{t(`leadAds.events.status.${e.status}` as MessageKey)}</Badge>
                     {e.lastError && (
@@ -288,7 +288,7 @@ function FormMappingEditor({
                 value={row.key}
                 onChange={(e) => onChange({ ...draft, rows: draft.rows.map((r, i) => (i === index ? { ...r, key: e.target.value } : r)) })}
                 aria-label={t('leadAds.forms.question')}
-                className="font-mono"
+                className="ui-mono"
               />
             </Td>
             <Td>
@@ -364,7 +364,7 @@ function VerifyTokenSection({
       {shown && (
         <div className="space-y-1">
           <p>{t('leadAds.verifyToken.shownOnce')}</p>
-          <code className="ui-panel block p-2 break-all ui-small font-mono">
+          <code className="ui-panel block p-2 break-all ui-small ui-mono">
             {shown}
           </code>
         </div>

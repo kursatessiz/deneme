@@ -83,7 +83,7 @@ export function Header({
       className="h-16 px-6 flex items-center justify-between gap-4 sticky top-0 z-30"
       style={{ backgroundColor: 'var(--pui-bg)', borderBottom: 'var(--pui-border-width) solid var(--pui-border)' }}
     >
-      <span className="ui-text-muted capitalize truncate">{today}</span>
+      <span className="ui-text-muted ui-capitalize truncate">{today}</span>
 
       <div className="flex items-center gap-2">
         {branches.length > 1 && (
@@ -118,7 +118,7 @@ export function Header({
             <DropdownSection>
               <Switch label={t('layout.darkMode')} checked={isDark} onCheckedChange={(v) => void setDark(v)} />
               {appearanceError && (
-                <p className="ui-caption mt-1" style={{ color: 'var(--pui-error)' }}>
+                <p className="ui-caption ui-text-error mt-1">
                   {t('layout.appearanceSaveFailed')}
                 </p>
               )}

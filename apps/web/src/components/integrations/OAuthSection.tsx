@@ -260,7 +260,7 @@ function ClientForm({ client, redirectUri, run, fmtDate }: { client: OAuthClient
         )}
       </div>
       <p className="ui-caption">
-        {t('integrationsOAuth.clients.redirectUri')} <code className="font-mono break-all">{redirectUri}</code>
+        {t('integrationsOAuth.clients.redirectUri')} <code className="ui-mono break-all">{redirectUri}</code>
       </p>
       {def.pkce && (
         <p className="ui-caption">
@@ -268,7 +268,7 @@ function ClientForm({ client, redirectUri, run, fmtDate }: { client: OAuthClient
         </p>
       )}
       {client.clientIdPreview && (
-        <p className="font-mono ui-caption">
+        <p className="ui-mono ui-caption">
           {t('integrationsOAuth.clients.stored', { clientId: client.clientIdPreview, secret: client.clientSecretPreview ?? '****' })}
           {client.developerTokenPreview ? ` ${t('integrationsOAuth.clients.developerTokenStored', { token: client.developerTokenPreview })}` : ''}
         </p>

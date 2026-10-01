@@ -12,12 +12,7 @@ import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { formatMoney } from '@/lib/money';
 import { CreditSummary } from '@/components/billing/CreditSummary';
-
-const card: React.CSSProperties = {
-  borderRadius: 'var(--radius-card)',
-  borderColor: 'var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-};
+import { AnchorButton, Button, Card, CardContent, PageHeader, Radio, Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui';
 
 function formatDate(iso: string | null, locale: string): string {
   if (!iso) return '-';
@@ -83,139 +78,112 @@ function BillingPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-          {t('billing.page.title')}
-        </h2>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('billing.page.subtitle')}
-        </p>
-      </div>
+      <PageHeader title={t('billing.page.title')} description={t('billing.page.subtitle')} />
 
-      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 p-5 border" style={card} data-testid="billing-summary">
-        {rows.map((row) => (
-          <div key={row.label} className="flex justify-between gap-4 text-sm">
-            <dt style={{ color: 'var(--color-text-secondary)' }}>{row.label}</dt>
-            <dd className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-              {row.value}
-            </dd>
-          </div>
-        ))}
-      </dl>
+      <Card>
+        <dl className="pui-card-content grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3" data-testid="billing-summary">
+          {rows.map((row) => (
+            <div key={row.label} className="flex justify-between gap-4">
+              <dt className="ui-text-muted">{row.label}</dt>
+              <dd className="ui-strong">{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </Card>
 
       {result && !result.pending && result.status === 'ACTIVE' && (
-        <p role="status" className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+        <p role="status" className="ui-strong">
           {t('billing.activate.success')}
         </p>
       )}
       {result?.pending && (
-        <div role="status" className="text-sm space-y-2" style={{ color: 'var(--color-text-primary)' }}>
+        <div role="status" className="grid gap-2">
           <p>{t('billing.activate.pending')}</p>
           {result.checkoutUrl && (
-            <a href={result.checkoutUrl} className="underline font-medium">
-              {t('billing.activate.redirect')}
-            </a>
+            <div>
+              <AnchorButton href={result.checkoutUrl} variant="link" tone="surface" size="sm">
+                {t('billing.activate.redirect')}
+              </AnchorButton>
+            </div>
           )}
         </div>
       )}
 
       {canActivate ? (
-        <section aria-labelledby="activate-heading" className="p-5 border space-y-4" style={card}>
-          <div>
-            <h3 id="activate-heading" className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-              {t('billing.activate.title')}
-            </h3>
-            <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('billing.activate.description')}
+        <Card as="section" aria-labelledby="activate-heading">
+          <CardContent>
+            <div className="grid gap-1">
+              <h3 id="activate-heading" className="ui-heading">
+                {t('billing.activate.title')}
+              </h3>
+              <p className="ui-text-muted">{t('billing.activate.description')}</p>
+            </div>
+            {data.plans.length === 0 ? (
+              <p>{t('billing.activate.noPlans')}</p>
+            ) : (
+              <fieldset className="grid gap-2">
+                <legend className="ui-caption mb-2">{t('billing.activate.choosePlan')}</legend>
+                {data.plans.map((plan) => (
+                  <label key={plan.key} className="ui-choice flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-3">
+                      <Radio name="plan" value={plan.key} checked={selected === plan.key} onChange={() => setPlanKey(plan.key)} />
+                      <span className="ui-strong">{plan.name}</span>
+                    </span>
+                    <span>{t('billing.activate.perMonth', { price: formatMoney(plan.priceMonthly, plan.currency, locale) })}</span>
+                  </label>
+                ))}
+              </fieldset>
+            )}
+            <p className="ui-caption">
+              {t('billing.activate.currencyNote', { currency: data.billingCurrency })} {t('billing.activate.creditNote')}
             </p>
-          </div>
-          {data.plans.length === 0 ? (
-            <p className="text-sm">{t('billing.activate.noPlans')}</p>
-          ) : (
-            <fieldset className="space-y-2">
-              <legend className="text-xs font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                {t('billing.activate.choosePlan')}
-              </legend>
-              {data.plans.map((plan) => (
-                <label
-                  key={plan.key}
-                  className="flex items-center justify-between gap-3 px-4 py-3 border cursor-pointer text-sm"
-                  style={{
-                    borderRadius: 'var(--radius-input)',
-                    borderColor: selected === plan.key ? 'var(--color-primary)' : 'var(--color-border)',
-                    color: 'var(--color-text-primary)',
-                  }}
-                >
-                  <span className="flex items-center gap-3">
-                    <input type="radio" name="plan" value={plan.key} checked={selected === plan.key} onChange={() => setPlanKey(plan.key)} />
-                    <span className="font-medium">{plan.name}</span>
-                  </span>
-                  <span>{t('billing.activate.perMonth', { price: formatMoney(plan.priceMonthly, plan.currency, locale) })}</span>
-                </label>
-              ))}
-            </fieldset>
-          )}
-          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {t('billing.activate.currencyNote', { currency: data.billingCurrency })} {t('billing.activate.creditNote')}
-          </p>
-          {actionError && (
-            <p role="alert" className="text-xs" style={{ color: 'var(--color-danger, #b42318)' }}>
-              {actionError}
-            </p>
-          )}
-          <button
-            type="button"
-            onClick={activate}
-            disabled={submitting || !selected || Boolean(result?.pending)}
-            className="px-4 py-2 text-sm font-semibold disabled:opacity-60"
-            style={{ borderRadius: 'var(--radius-button)', background: 'var(--gradient-brand)', color: 'var(--color-on-primary)' }}
-          >
-            {submitting ? t('billing.activate.submitting') : t('billing.activate.submit')}
-          </button>
-        </section>
+            {actionError && (
+              <p role="alert" className="ui-caption ui-text-error">
+                {actionError}
+              </p>
+            )}
+            <div>
+              <Button onClick={activate} disabled={submitting || !selected || Boolean(result?.pending)}>
+                {submitting ? t('billing.activate.submitting') : t('billing.activate.submit')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       ) : (
-        !result && (
-          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('billing.activate.alreadyActive')}
-          </p>
-        )
+        !result && <p className="ui-text-muted">{t('billing.activate.alreadyActive')}</p>
       )}
 
-      <section aria-labelledby="payments-heading" className="space-y-3">
-        <h3 id="payments-heading" className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+      <section aria-labelledby="payments-heading" className="grid gap-3">
+        <h3 id="payments-heading" className="ui-heading">
           {t('billing.payments.title')}
         </h3>
         {payments.data && payments.data.items.length > 0 ? (
-          <div className="overflow-x-auto border" style={card}>
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
+          <Card className="overflow-x-auto">
+            <Table>
+              <Thead>
+                <Tr>
                   {(['date', 'plan', 'amount', 'credit', 'status'] as const).map((col) => (
-                    <th key={col} className="text-left px-3 py-2 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                      {t(`billing.payments.col.${col}`)}
-                    </th>
+                    <Th key={col}>{t(`billing.payments.col.${col}`)}</Th>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
+                </Tr>
+              </Thead>
+              <Tbody>
                 {payments.data.items.map((p) => (
-                  <tr key={p.id} className="border-t" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}>
-                    <td className="px-3 py-2">{formatDate(p.paidAt ?? p.createdAt, locale)}</td>
-                    <td className="px-3 py-2">{p.addOn ? t('addOns.payments.line', { name: localizedText(p.addOn.name, locale) }) : p.planKey ?? '-'}</td>
-                    <td className="px-3 py-2">{formatMoney(p.amount, p.currency, locale)}</td>
-                    <td className="px-3 py-2">
+                  <Tr key={p.id}>
+                    <Td>{formatDate(p.paidAt ?? p.createdAt, locale)}</Td>
+                    <Td>{p.addOn ? t('addOns.payments.line', { name: localizedText(p.addOn.name, locale) }) : p.planKey ?? '-'}</Td>
+                    <Td>{formatMoney(p.amount, p.currency, locale)}</Td>
+                    <Td>
                       <CreditSummary credit={{ amounts: Number(p.creditAmount) > 0 ? [{ currency: p.currency, amount: p.creditAmount }] : [], months: p.creditMonths }} />
-                    </td>
-                    <td className="px-3 py-2">{t(`billing.payments.status.${p.status}`)}</td>
-                  </tr>
+                    </Td>
+                    <Td>{t(`billing.payments.status.${p.status}`)}</Td>
+                  </Tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </Tbody>
+            </Table>
+          </Card>
         ) : (
-          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('billing.payments.empty')}
-          </p>
+          <p className="ui-text-muted">{t('billing.payments.empty')}</p>
         )}
       </section>
     </div>

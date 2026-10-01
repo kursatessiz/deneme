@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import type { Translate } from '@platform/shared';
 import { eventIdOf, reportError } from '@/lib/errors/reporter';
+import { Button } from '@/components/ui/Button';
+import { AnchorButton } from '@/components/ui/LinkButton';
 import { ErrorFeedbackBox } from './ErrorFeedbackBox';
 
 /**
@@ -21,38 +23,27 @@ export function ErrorScreen({ error, reset, t }: { error: Error & { digest?: str
   }, [error]);
 
   return (
-    <main className="min-h-[60vh] flex items-center justify-center px-4 py-16" style={{ color: 'var(--color-text-primary)' }}>
-      <section aria-labelledby="error-screen-title" className="max-w-md w-full space-y-4">
-        <h1 id="error-screen-title" className="text-2xl font-bold tracking-tight">
+    <main className="min-h-[60vh] flex items-center justify-center px-4 py-16">
+      <section aria-labelledby="error-screen-title" className="max-w-md w-full grid gap-4">
+        <h1 id="error-screen-title" className="ui-title">
           {t('errors.boundary.title')}
         </h1>
-        <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('errors.boundary.description')}
-        </p>
+        <p className="ui-text-muted">{t('errors.boundary.description')}</p>
         {code && (
-          <div className="space-y-1">
-            <p className="text-sm font-medium" data-testid="error-code">
+          <div className="grid gap-1">
+            <p className="ui-strong" data-testid="error-code">
               {t('errors.boundary.code', { code })}
             </p>
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              {t('errors.boundary.codeHint')}
-            </p>
+            <p className="ui-caption">{t('errors.boundary.codeHint')}</p>
           </div>
         )}
         {eventId && <ErrorFeedbackBox eventId={eventId} t={t} />}
         <div className="flex flex-wrap gap-3 pt-2">
-          <button
-            type="button"
-            onClick={reset}
-            className="px-4 py-2 text-sm font-medium"
-            style={{ borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
-          >
-            {t('errors.boundary.retry')}
-          </button>
+          <Button onClick={reset}>{t('errors.boundary.retry')}</Button>
           {/* A full navigation, so a broken client state is not carried over. */}
-          <a href="/" className="px-4 py-2 text-sm font-medium border" style={{ borderRadius: 'var(--radius-button)', borderColor: 'var(--color-border)' }}>
+          <AnchorButton href="/" variant="outline" tone="surface">
             {t('errors.boundary.home')}
-          </a>
+          </AnchorButton>
         </div>
       </section>
     </main>

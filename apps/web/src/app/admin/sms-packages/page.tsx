@@ -5,6 +5,10 @@ import { useBff } from '@/lib/session/use-bff';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 interface SmsPackage {
   id: string;
@@ -14,13 +18,6 @@ interface SmsPackage {
   price: string;
   isActive: boolean;
 }
-
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  borderColor: 'var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
 
 function TopUpForm() {
   const t = useT();
@@ -53,18 +50,20 @@ function TopUpForm() {
   };
 
   return (
-    <form onSubmit={submit} className="p-5 border space-y-3" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-      <h3 className="text-sm font-semibold">{t('adminSmsPackages.topUp.title')}</h3>
-      <div className="grid grid-cols-3 gap-3">
-        <input required placeholder={t('adminSmsPackages.topUp.studioId')} value={studioId} onChange={(e) => setStudioId(e.target.value)} className="border px-3 py-2 text-sm" style={inputStyle} />
-        <input required type="number" placeholder={t('adminSmsPackages.topUp.credits')} value={credits} onChange={(e) => setCredits(e.target.value)} className="border px-3 py-2 text-sm" style={inputStyle} />
-        <input placeholder={t('adminSmsPackages.topUp.note')} value={note} onChange={(e) => setNote(e.target.value)} className="border px-3 py-2 text-sm" style={inputStyle} />
-      </div>
-      {message && <p className="text-xs" style={{ color: isError ? 'var(--color-danger)' : 'var(--color-success)' }}>{message}</p>}
-      <button type="submit" disabled={submitting} className="px-4 py-2 text-sm font-medium" style={{ borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
-        {submitting ? t('adminSmsPackages.topUp.submitting') : t('adminSmsPackages.topUp.submit')}
-      </button>
-    </form>
+    <Card as="section">
+      <form onSubmit={submit} className="pui-card-content">
+        <h3 className="ui-heading">{t('adminSmsPackages.topUp.title')}</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Input required placeholder={t('adminSmsPackages.topUp.studioId')} value={studioId} onChange={(e) => setStudioId(e.target.value)} />
+          <Input required type="number" placeholder={t('adminSmsPackages.topUp.credits')} value={credits} onChange={(e) => setCredits(e.target.value)} />
+          <Input placeholder={t('adminSmsPackages.topUp.note')} value={note} onChange={(e) => setNote(e.target.value)} />
+        </div>
+        {message && <p className={isError ? 'ui-caption ui-text-error' : 'ui-caption ui-text-success'}>{message}</p>}
+        <Button type="submit" disabled={submitting} className="justify-self-start">
+          {submitting ? t('adminSmsPackages.topUp.submitting') : t('adminSmsPackages.topUp.submit')}
+        </Button>
+      </form>
+    </Card>
   );
 }
 
@@ -100,41 +99,40 @@ export default function SmsPackagesPage() {
   if (forbidden) return <EmptyState title={t('adminSmsPackages.accessDenied')} />;
 
   return (
-    <div className="space-y-6" key={refreshKey}>
-      <div>
-        <h2 className="text-xl font-bold">{t('adminSmsPackages.title')}</h2>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('adminSmsPackages.subtitle')}
-        </p>
-      </div>
+    <div className="grid gap-6" key={refreshKey}>
+      <PageHeader title={t('adminSmsPackages.title')} description={t('adminSmsPackages.subtitle')} />
 
       <TopUpForm />
 
-      <form onSubmit={submit} className="p-5 border space-y-3" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-        <h3 className="text-sm font-semibold">{t('adminSmsPackages.form.title')}</h3>
-        <div className="grid grid-cols-4 gap-3">
-          <input required placeholder={t('adminSmsPackages.form.key')} value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
-          <input required placeholder={t('adminSmsPackages.form.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
-          <input required type="number" placeholder={t('adminSmsPackages.form.credits')} value={form.credits} onChange={(e) => setForm({ ...form, credits: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
-          <input required type="number" placeholder={t('adminSmsPackages.form.price')} value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="border px-3 py-2 text-sm" style={inputStyle} />
-        </div>
-        {formError && <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{formError}</p>}
-        <button type="submit" disabled={submitting} className="px-4 py-2 text-sm font-medium" style={{ borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
-          {submitting ? t('adminSmsPackages.form.submitting') : t('adminSmsPackages.form.submit')}
-        </button>
-      </form>
+      <Card as="section">
+        <form onSubmit={submit} className="pui-card-content">
+          <h3 className="ui-heading">{t('adminSmsPackages.form.title')}</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <Input required placeholder={t('adminSmsPackages.form.key')} value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} />
+            <Input required placeholder={t('adminSmsPackages.form.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <Input required type="number" placeholder={t('adminSmsPackages.form.credits')} value={form.credits} onChange={(e) => setForm({ ...form, credits: e.target.value })} />
+            <Input required type="number" placeholder={t('adminSmsPackages.form.price')} value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+          </div>
+          {formError && <p className="ui-caption ui-text-error">{formError}</p>}
+          <Button type="submit" disabled={submitting} className="justify-self-start">
+            {submitting ? t('adminSmsPackages.form.submitting') : t('adminSmsPackages.form.submit')}
+          </Button>
+        </form>
+      </Card>
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
       {!loading && !error && data && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {data.items.map((p) => (
-            <div key={p.id} className="p-5 border" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-              <h3 className="text-sm font-semibold">{p.name}</h3>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                {t('adminSmsPackages.cardSummary', { credits: p.credits.toLocaleString(locale), price: Number(p.price).toLocaleString(locale) })}
-              </p>
-            </div>
+            <Card key={p.id}>
+              <CardContent>
+                <h3 className="ui-heading">{p.name}</h3>
+                <p className="ui-caption">
+                  {t('adminSmsPackages.cardSummary', { credits: p.credits.toLocaleString(locale), price: Number(p.price).toLocaleString(locale) })}
+                </p>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}

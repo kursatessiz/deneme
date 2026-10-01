@@ -178,14 +178,43 @@ T2b'de (CRM ve pazarlama) eklenen yardımcı sınıflar (hepsi `ui` katmanında,
 | `ui-status-item`, `ui-status-dot` | İçerik takvimi öğesi ve gösterge noktası; `data-status` (`PLANNED`, `DRAFTED`, `APPROVED`, `SENT`, `CANCELLED`) sol kenar rengini seçer |
 | `ui-dashed-item`, `ui-dashed-swatch` | Kesik çizgili satır (takvimde kampanya) ve göstergedeki küçük örneği |
 
+T3'te (süper admin paneli) eklenen yardımcı sınıflar (hepsi `ui` katmanında, yalnızca token'larla):
+
+| Sınıf | Ne için |
+|-------|---------|
+| `ui-mono` | Anahtar, kod, kimlik, sürüm ve yığın izi gibi tek aralıklı metin (küçük boyutlu). Tailwind `font-mono` yerine |
+| `ui-bar-fill[data-level='complete']` | Tamamlanmış ölçer (çeviri tamamlanma çubuğu yüzde yüzde): başarı renginde dolar |
+
+T4'te (mağaza, etkinlikler, topluluk, abonelik, herkese açık sayfalar) eklenen yardımcı sınıflar (hepsi `ui` katmanında, yalnızca token'larla):
+
+| Sınıf | Ne için |
+|-------|---------|
+| `ui-choice` | Seçilebilir satır (abonelik planı, rezervasyon saati): çizgili, köşeli, içindeki radyo seçiliyken (`:has(input:checked)`) marka renginde çerçeveli. `<label>` üzerine konur |
+| `ui-eyebrow` | Grup etiketinde büyük harf ve harf aralığı (Tailwind `uppercase`/`tracking-*` yerine) |
+| `ui-capitalize` | İlk harfi büyütür (yerel biçimli tarih; Tailwind `capitalize` yerine) |
+
+Bunlara ek olarak mağaza, etkinlik ve topluluk ekranları yeni sınıf gerektirmeden mevcut
+bileşenlerle yazıldı. Küçük herkese açık ekranların (abonelikten çık, çift onay,
+paylaşılan gönderi) ortak çerçevesi `components/common/PublicShell.tsx`'tir: kit zemini
+üzerinde ortalanmış tek `Card`.
+
+Kalıplar (süper admin): formlar `Card` içinde `<form className="pui-card-content">`
+(kart başlığı `h3.ui-heading`); yer tutucuyla çalışan kısa alanlar `Input`/`Select`,
+etiketli alanlar `FieldGroup`; liste ve çizelgeler `Card` + `Table`
+(`overflow-x-auto`); durum rozetleri `Badge` (etkin `muted`, askıda `solid error`);
+kapanıp açılan ayrıntılar (hata olayları, yığın izi) `Accordion`; yığın izi ve
+günlük blokları `<pre className="ui-panel ui-mono">`; sayfa içi geri bağlantısı
+`LinkButton variant="link" tone="surface"`. `global-error.tsx` kök düzen yokken
+çalıştığı için kit CSS'ini kendisi içe aktarır.
+
 Kalıplar: sekme şeridi gibi görünen gezinme `ui-tabs` + `LinkButton`
 (`solid theme` etkin, `link surface` diğerleri); filtre düğmeleri `ChipButton`;
 panelin içindeki ikincil blok (adım, çıktı, kod) `ui-panel`; metin içi
 bağlantılar `pui-link pui-surface`; satır içi kaldır/aç eylemleri
 `Button variant="link"`. `components/growth/ui.tsx` (`Panel`, `Field`,
 `Notice`, `Muted`, `PageHeader`) bileşen kütüphanesinin üstüne yazıldı;
-etkinlikler ve topluluk ekranları taşınana kadar `inputClass`/`inputStyle`
-`components/growth/legacy-controls.ts` içinde kalır, yeni kod bunları kullanmaz.
+eski `inputClass`/`inputStyle` (`legacy-controls.ts`) T4'te kaldırıldı, alanlar
+`Input`/`Select`/`Textarea` ile yazılır.
 
 `components/common` (Badge, Modal, Tabs, DataState, PermissionButton,
 Forbidden, DateRangeFilter, BranchSelect) ve `components/settings/ui.tsx` bu
@@ -320,13 +349,34 @@ sekmeleri) ile bunların kullandığı `components/growth`, `components/marketin
 `components/leads`, `components/churn`, `components/integrations`,
 `components/ai` ve `components/billing` bileşenleri.
 
-Sonraki fazlarda kalan ekranlar (mağaza, etkinlikler,
-topluluk, abonelik, süper admin alt sayfaları, sayfa motoru blokları)
-bileşen kütüphanesine taşınır ve Tailwind renk/köşe/gölge
-sınıflarından arındırılır; o zamana kadar eski `--color-*` takma adları
-üzerinden yeni paleti alırlar. Mobil uygulama (yazı tipi Inter'e geçiş dahil)
-T5'te taşınır; T1'de mobilde yalnızca paylaşılan tip değişikliklerinin
-gerektirdiği derleme düzeltmeleri yapıldı.
+T3'te süper admin paneli taşındı: yapay zeka, benchmark, iş türleri, içerik,
+denetim, entegrasyonlar kabuğu, özellik bayrakları, hatalar (liste, uyarılar,
+ayarlar, ayrıntı), sağlık, dil yönetimi (liste ve çeviri düzenleyici), pazarlama
+ayarları, planlar, platform kullanıcıları, tavsiye, SMS paketleri, işletmeler
+(`TenantBillingActions` dahil), uygulama pazarı, web sitesi sayfa kabuğu ve
+yedekler; bunların kullandığı `components/admin` (`AiTranslatePanel`,
+`GlossaryPanel`, `TenantBillingActions`) ve `components/errors` bileşenleri.
+
+T4'te kalan tenant ekranları ve tüm herkese açık sayfalar taşındı: mağaza (ürünler,
+satışlar, stok hareketleri, rapor, ayarlar, hızlı satış, satış fişi ve iade
+diyaloğu; fiş yazdırma kuralı `globals.css`'te aynı kaldı), etkinlikler (liste,
+yeni etkinlik, düzenleyici: ayrıntılar, oturumlar, biletler, kayıtlar), topluluk,
+abonelik, çerez izni bandı ve çerez tercihleri düğmesi, abonelikten çık (`/m/u`),
+çift onay (`/onay`), paylaşılan gönderi (`/paylasim`), davet sayfası (`/j`),
+iki adımlı doğrulama (`/guvenlik`), herkese açık rezervasyon sayfası ve gömülebilir
+rezervasyon aracı (`/embed`; işletmenin marka rengini kendisi çözmeye devam eder).
+`components/retail/styles.ts` ve `components/growth/legacy-controls.ts` silindi.
+Tailwind `font-mono`, `uppercase`, `italic` ve `capitalize` sınıfları tüm
+ekranlarda `ui-mono`, `ui-eyebrow`, `ui-capitalize` yardımcılarına çevrildi.
+
+Kalan: sayfa motoru blokları ve sayfaları (`components/sites/*`) T6'da, mobil uygulama
+(yazı tipi Inter'e geçiş dahil) T5'te taşınır; T1'de mobilde yalnızca paylaşılan tip
+değişikliklerinin gerektirdiği derleme düzeltmeleri yapıldı. `apps/web/src` içinde
+(`components/sites` hariç) Tailwind renk/köşe/gölge/tipografi sınıfı veya sabit renk
+kalmadı; geriye yalnızca değeri `var(--pui-*)` token'ı olan satır içi `style`'lar
+(`ThemeRoot`, açılış sayfası, üye kartı gradyan alanı, `Header` zemini), marka rengi
+alanının sabit `#0092cd` varsayılanı ve `ui-*` sınıflarıyla çözülemeyen konumlandırma
+stilleri (bal tuzağı alanı) var.
 
 ## 11. Lisans bildirimi (Perfect UI)
 

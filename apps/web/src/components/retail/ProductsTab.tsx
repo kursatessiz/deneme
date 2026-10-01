@@ -11,7 +11,7 @@ import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataSt
 import { PermissionButton } from '@/components/common/PermissionButton';
 import { Badge } from '@/components/common/Badge';
 import { Modal } from '@/components/common/Modal';
-import { fieldClass, fieldStyle, headRowStyle, labelStyle, rowStyle, sectionStyle, tableWrapStyle } from './styles';
+import { Card, CardContent, Checkbox, FieldGroup, Input, Select, Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui';
 import { StockDialog } from './StockDialog';
 
 interface ProductFormState {
@@ -123,71 +123,54 @@ function ProductDialog({
 
   return (
     <Modal title={product ? t('retail.products.edit') : t('retail.products.new')} onClose={onClose}>
-      <form onSubmit={submit} className="space-y-3">
-        <label className="block text-xs space-y-1" style={labelStyle}>
-          <span>{t('retail.form.name')}</span>
-          <input value={form.name} onChange={(e) => set('name', e.target.value)} className={fieldClass} style={fieldStyle} />
-        </label>
-        <label className="block text-xs space-y-1" style={labelStyle}>
-          <span>{t('retail.form.category')}</span>
-          <select value={form.categoryId} onChange={(e) => set('categoryId', e.target.value)} className={fieldClass} style={fieldStyle}>
+      <form onSubmit={submit} className="grid gap-3">
+        <FieldGroup label={t('retail.form.name')}>
+          <Input value={form.name} onChange={(e) => set('name', e.target.value)} />
+        </FieldGroup>
+        <FieldGroup label={t('retail.form.category')}>
+          <Select value={form.categoryId} onChange={(e) => set('categoryId', e.target.value)}>
             <option value="">{t('retail.form.noCategory')}</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </FieldGroup>
         <div className="grid grid-cols-2 gap-3">
-          <label className="block text-xs space-y-1" style={labelStyle}>
-            <span>{t('retail.form.sku')}</span>
-            <input value={form.sku} onChange={(e) => set('sku', e.target.value)} className={fieldClass} style={fieldStyle} />
-          </label>
-          <label className="block text-xs space-y-1" style={labelStyle}>
-            <span>{t('retail.form.barcode')}</span>
-            <input value={form.barcode} onChange={(e) => set('barcode', e.target.value)} className={fieldClass} style={fieldStyle} />
-          </label>
+          <FieldGroup label={t('retail.form.sku')}>
+            <Input value={form.sku} onChange={(e) => set('sku', e.target.value)} />
+          </FieldGroup>
+          <FieldGroup label={t('retail.form.barcode')}>
+            <Input value={form.barcode} onChange={(e) => set('barcode', e.target.value)} />
+          </FieldGroup>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <label className="block text-xs space-y-1" style={labelStyle}>
-            <span>{t('retail.form.price', { currency })}</span>
-            <input inputMode="decimal" value={form.price} onChange={(e) => set('price', e.target.value)} className={fieldClass} style={fieldStyle} />
-          </label>
-          <label className="block text-xs space-y-1" style={labelStyle}>
-            <span>{t('retail.form.taxRate')}</span>
-            <input inputMode="decimal" value={form.taxRate} onChange={(e) => set('taxRate', e.target.value)} className={fieldClass} style={fieldStyle} />
-          </label>
+          <FieldGroup label={t('retail.form.price', { currency })}>
+            <Input inputMode="decimal" value={form.price} onChange={(e) => set('price', e.target.value)} />
+          </FieldGroup>
+          <FieldGroup label={t('retail.form.taxRate')}>
+            <Input inputMode="decimal" value={form.taxRate} onChange={(e) => set('taxRate', e.target.value)} />
+          </FieldGroup>
         </div>
-        <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+        <p className="ui-caption">
           {settings?.pricesIncludeTax ? t('retail.form.priceHintInclusive') : t('retail.form.priceHintExclusive')}{' '}
           {t('retail.form.taxRateHint', { rate: settings?.defaultTaxRate ?? '0' })}
         </p>
         <div className="grid grid-cols-2 gap-3">
-          <label className="block text-xs space-y-1" style={labelStyle}>
-            <span>{t('retail.form.costPrice', { currency })}</span>
-            <input inputMode="decimal" value={form.costPrice} onChange={(e) => set('costPrice', e.target.value)} className={fieldClass} style={fieldStyle} />
-          </label>
-          <label className="block text-xs space-y-1" style={labelStyle}>
-            <span>{t('retail.form.lowStockThreshold')}</span>
-            <input inputMode="numeric" value={form.lowStockThreshold} onChange={(e) => set('lowStockThreshold', e.target.value)} className={fieldClass} style={fieldStyle} />
-          </label>
+          <FieldGroup label={t('retail.form.costPrice', { currency })}>
+            <Input inputMode="decimal" value={form.costPrice} onChange={(e) => set('costPrice', e.target.value)} />
+          </FieldGroup>
+          <FieldGroup label={t('retail.form.lowStockThreshold')}>
+            <Input inputMode="numeric" value={form.lowStockThreshold} onChange={(e) => set('lowStockThreshold', e.target.value)} />
+          </FieldGroup>
         </div>
-        <label className="block text-xs space-y-1" style={labelStyle}>
-          <span>{t('retail.form.imageUrl')}</span>
-          <input value={form.imageUrl} onChange={(e) => set('imageUrl', e.target.value)} className={fieldClass} style={fieldStyle} />
-        </label>
-        <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-primary)' }}>
-          <input type="checkbox" checked={form.trackStock} onChange={(e) => set('trackStock', e.target.checked)} /> {t('retail.form.trackStock')}
-        </label>
-        <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-primary)' }}>
-          <input type="checkbox" checked={form.isActive} onChange={(e) => set('isActive', e.target.checked)} /> {t('retail.form.isActive')}
-        </label>
-        {error && (
-          <p className="text-xs" style={{ color: 'var(--color-danger, #b42318)' }}>
-            {error}
-          </p>
-        )}
+        <FieldGroup label={t('retail.form.imageUrl')}>
+          <Input value={form.imageUrl} onChange={(e) => set('imageUrl', e.target.value)} />
+        </FieldGroup>
+        <Checkbox checked={form.trackStock} onChange={(e) => set('trackStock', e.target.checked)} label={t('retail.form.trackStock')} />
+        <Checkbox checked={form.isActive} onChange={(e) => set('isActive', e.target.checked)} label={t('retail.form.isActive')} />
+        {error && <p className="ui-caption ui-text-error">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <PermissionButton type="button" variant="ghost" onClick={onClose}>
             {t('common.cancel')}
@@ -229,42 +212,35 @@ function CategoriesSection({ studioId, categories, onChange }: { studioId: strin
   }
 
   return (
-    <section className="p-4 space-y-3" style={sectionStyle}>
-      <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-        {t('retail.categories.title')}
-      </h3>
-      {categories.length === 0 ? (
-        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          {t('retail.categories.empty')}
-        </p>
-      ) : (
-        <ul className="flex flex-wrap gap-2">
-          {categories.map((c) => (
-            <li key={c.id} className="flex items-center gap-2 text-xs px-2.5 py-1" style={{ ...fieldStyle, borderRadius: 'var(--radius-chip)' }}>
-              <span>{c.name}</span>
-              <span style={{ color: 'var(--color-text-muted)' }}>{t('retail.categories.productCount', { count: c.productCount })}</span>
-              <PermissionButton required={['retail.manage']} variant="ghost" onClick={() => remove(c.id)} aria-label={`${t('retail.products.delete')} ${c.name}`}>
-                {t('retail.products.delete')}
-              </PermissionButton>
-            </li>
-          ))}
-        </ul>
-      )}
-      <form onSubmit={add} className="flex flex-wrap items-end gap-2">
-        <label className="text-xs space-y-1" style={labelStyle}>
-          <span className="block">{t('retail.categories.name')}</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} className="text-sm px-3 py-1.5" style={fieldStyle} />
-        </label>
-        <PermissionButton required={['retail.manage']} type="submit" variant="secondary">
-          {t('retail.categories.add')}
-        </PermissionButton>
-      </form>
-      {error && (
-        <p className="text-xs" style={{ color: 'var(--color-danger, #b42318)' }}>
-          {error}
-        </p>
-      )}
-    </section>
+    <Card as="section">
+      <CardContent>
+        <h3 className="ui-heading">{t('retail.categories.title')}</h3>
+        {categories.length === 0 ? (
+          <p className="ui-caption">{t('retail.categories.empty')}</p>
+        ) : (
+          <ul className="flex flex-wrap gap-2">
+            {categories.map((c) => (
+              <li key={c.id} className="pui-chip pui-soft pui-muted pui-rounded-full flex items-center gap-2">
+                <span>{c.name}</span>
+                <span className="ui-caption">{t('retail.categories.productCount', { count: c.productCount })}</span>
+                <PermissionButton required={['retail.manage']} variant="ghost" onClick={() => remove(c.id)} aria-label={`${t('retail.products.delete')} ${c.name}`}>
+                  {t('retail.products.delete')}
+                </PermissionButton>
+              </li>
+            ))}
+          </ul>
+        )}
+        <form onSubmit={add} className="flex flex-wrap items-end gap-2">
+          <FieldGroup label={t('retail.categories.name')}>
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          </FieldGroup>
+          <PermissionButton required={['retail.manage']} type="submit" variant="secondary">
+            {t('retail.categories.add')}
+          </PermissionButton>
+        </form>
+        {error && <p className="ui-caption ui-text-error">{error}</p>}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -315,21 +291,20 @@ export function ProductsTab() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <input
+        <Input
           type="search"
           aria-label={t('retail.products.search')}
           placeholder={t('retail.products.search')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="text-sm px-3 py-1.5 w-full max-w-sm"
-          style={fieldStyle}
+          className="w-full max-w-sm"
         />
         <PermissionButton required={['retail.manage']} variant="primary" onClick={() => setEditing('new')}>
           {t('retail.products.new')}
         </PermissionButton>
       </div>
       {notice && (
-        <p className="text-xs" role="status" style={{ color: 'var(--color-text-secondary)' }}>
+        <p className="ui-caption" role="status">
           {notice}
         </p>
       )}
@@ -340,10 +315,10 @@ export function ProductsTab() {
         <EmptyState title={t('retail.products.empty.title')} description={t('retail.products.empty.description')} />
       )}
       {!loading && !error && products && products.length > 0 && (
-        <div className="border overflow-x-auto" style={tableWrapStyle}>
-          <table className="w-full text-sm" data-testid="retail-products">
-            <thead>
-              <tr style={headRowStyle}>
+        <Card className="overflow-x-auto">
+          <Table data-testid="retail-products">
+            <Thead>
+              <Tr>
                 {[
                   t('retail.products.col.name'),
                   t('retail.products.col.category'),
@@ -353,46 +328,38 @@ export function ProductsTab() {
                   t('retail.products.col.status'),
                   '',
                 ].map((h, i) => (
-                  <th key={i} className="text-left px-4 py-2.5 font-medium whitespace-nowrap" style={labelStyle}>
+                  <Th key={i} className="whitespace-nowrap">
                     {h}
-                  </th>
+                  </Th>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </Tr>
+            </Thead>
+            <Tbody>
               {products.map((p) => (
-                <tr key={p.id} className="border-t" style={rowStyle}>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-primary)' }}>
-                    <div className="font-medium">{p.name}</div>
-                    {(p.sku || p.barcode) && (
-                      <div className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-                        {[p.sku, p.barcode].filter(Boolean).join(' / ')}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5" style={labelStyle}>
-                    {p.categoryName ?? '-'}
-                  </td>
-                  <td className="px-4 py-2.5 whitespace-nowrap" style={{ color: 'var(--color-text-primary)' }}>
-                    {formatMoney(p.price)}
-                  </td>
-                  <td className="px-4 py-2.5 whitespace-nowrap" style={labelStyle}>
+                <Tr key={p.id}>
+                  <Td>
+                    <div className="ui-strong">{p.name}</div>
+                    {(p.sku || p.barcode) && <div className="ui-caption">{[p.sku, p.barcode].filter(Boolean).join(' / ')}</div>}
+                  </Td>
+                  <Td>{p.categoryName ?? '-'}</Td>
+                  <Td className="whitespace-nowrap">{formatMoney(p.price)}</Td>
+                  <Td className="whitespace-nowrap">
                     {p.taxRate === null ? t('retail.products.defaultTax', { rate: p.effectiveTaxRate }) : t('retail.products.taxValue', { rate: p.taxRate })}
-                  </td>
-                  <td className="px-4 py-2.5 whitespace-nowrap" style={{ color: 'var(--color-text-primary)' }}>
+                  </Td>
+                  <Td className="whitespace-nowrap">
                     {p.trackStock ? (
                       <span className="flex items-center gap-2">
                         {p.totalStock}
                         {p.lowStock && <Badge tone="warning">{t('retail.products.lowStock')}</Badge>}
                       </span>
                     ) : (
-                      <span style={{ color: 'var(--color-text-muted)' }}>{t('retail.products.untracked')}</span>
+                      <span className="ui-text-muted">{t('retail.products.untracked')}</span>
                     )}
-                  </td>
-                  <td className="px-4 py-2.5">
+                  </Td>
+                  <Td>
                     <Badge tone={p.isActive ? 'success' : 'neutral'}>{p.isActive ? t('retail.products.active') : t('retail.products.inactive')}</Badge>
-                  </td>
-                  <td className="px-4 py-2.5 text-right whitespace-nowrap space-x-1">
+                  </Td>
+                  <Td className="text-right whitespace-nowrap space-x-1">
                     {p.trackStock && (
                       <PermissionButton required={['retail.manage']} variant="secondary" onClick={() => setStockFor(p)}>
                         {t('retail.products.stockAction')}
@@ -404,12 +371,12 @@ export function ProductsTab() {
                     <PermissionButton required={['retail.manage']} variant="danger" onClick={() => remove(p)}>
                       {t('retail.products.delete')}
                     </PermissionButton>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Tbody>
+          </Table>
+        </Card>
       )}
 
       <CategoriesSection studioId={activeStudioId} categories={categories} onChange={reload} />

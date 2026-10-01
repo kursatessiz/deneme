@@ -9,6 +9,17 @@ import { LoadingState, ErrorState } from '@/components/common/DataState';
 import { useT } from '@/components/i18n/I18nProvider';
 import { AiTranslatePanel } from '@/components/admin/AiTranslatePanel';
 import { GlossaryPanel } from '@/components/admin/GlossaryPanel';
+import { Badge } from '@/components/ui/Badge';
+import { AnchorButton } from '@/components/ui/LinkButton';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
+import { Checkbox } from '@/components/ui/Checkbox';
+import { Input } from '@/components/ui/Input';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Radio } from '@/components/ui/Radio';
+import { Select } from '@/components/ui/Select';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
+import { Textarea } from '@/components/ui/Textarea';
 
 type SourceFilter = '' | 'AI_UNREVIEWED' | 'AI' | 'MANUAL' | 'UPLOAD';
 const SOURCE_FILTERS: readonly SourceFilter[] = ['', 'AI_UNREVIEWED', 'AI', 'MANUAL', 'UPLOAD'];
@@ -17,26 +28,8 @@ function SourceBadge({ entry }: { entry: TranslationEntryDTO }) {
   const t = useT();
   if (!entry.source) return null;
   const pending = entry.source === 'AI' && entry.reviewedAt === null;
-  return (
-    <span
-      className="inline-block mt-1 mr-1 text-[10px] px-1.5 py-0.5 font-sans"
-      style={{
-        borderRadius: 'var(--radius-chip)',
-        backgroundColor: 'var(--color-surface-muted)',
-        color: pending ? 'var(--color-warning, #b54708)' : 'var(--color-text-secondary)',
-      }}
-    >
-      {pending ? t('adminI18n.source.aiUnreviewed') : t(`adminI18n.source.${entry.source}`)}
-    </span>
-  );
+  return <Badge tone={pending ? 'warn' : 'muted'}>{pending ? t('adminI18n.source.aiUnreviewed') : t(`adminI18n.source.${entry.source}`)}</Badge>;
 }
-
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  borderColor: 'var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
 
 function EntryRow({ code, entry, onSaved }: { code: string; entry: TranslationEntryDTO; onSaved: (entry: TranslationEntryDTO) => void }) {
   const t = useT();
@@ -81,69 +74,38 @@ function EntryRow({ code, entry, onSaved }: { code: string; entry: TranslationEn
   }
 
   return (
-    <tr className="border-b last:border-0 align-top" style={{ borderColor: 'var(--color-border)' }}>
-      <td className="px-3 py-2 font-mono text-xs" style={{ color: 'var(--color-text-muted)' }}>
+    <Tr className="align-top">
+      <Td className="ui-mono ui-text-muted">
         {entry.key}
-        <div>
+        <div className="flex flex-wrap items-center gap-1">
           <SourceBadge entry={entry} />
-          {entry.isPluralExtension && (
-            <span className="inline-block mt-1 text-[10px] font-sans" style={{ color: 'var(--color-text-muted)' }}>
-              {t('adminI18n.editor.pluralExtension')}
-            </span>
-          )}
+          {entry.isPluralExtension && <span className="ui-caption">{t('adminI18n.editor.pluralExtension')}</span>}
         </div>
         {entry.placeholders.length > 0 && (
-          <div className="mt-1 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+          <div className="ui-caption">
             {t('adminI18n.editor.placeholders')}: {entry.placeholders.map((p) => `{${p}}`).join(', ')}
           </div>
         )}
-      </td>
-      <td className="px-3 py-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-        {entry.base}
-      </td>
-      <td className="px-3 py-2">
-        <textarea
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          rows={1}
-          className="w-full px-2 py-1 border text-sm resize-y"
-          style={inputStyle}
-        />
-        {error && (
-          <p className="text-xs mt-1" style={{ color: 'var(--color-danger, #b42318)' }}>
-            {error}
-          </p>
-        )}
-      </td>
-      <td className="px-3 py-2 text-right whitespace-nowrap">
+      </Td>
+      <Td className="ui-small">{entry.base}</Td>
+      <Td>
+        <Textarea value={value} onChange={(e) => setValue(e.target.value)} rows={1} className="resize-y" />
+        {error && <p className="ui-caption ui-text-error">{error}</p>}
+      </Td>
+      <Td className="text-right whitespace-nowrap">
         {entry.source === 'AI' && entry.reviewedAt === null && (
-          <button
-            onClick={approve}
-            disabled={saving || dirty}
-            className="text-xs font-medium hover:underline disabled:opacity-40 mr-3"
-            style={{ color: 'var(--color-primary)' }}
-          >
+          <Button variant="link" size="sm" onClick={approve} disabled={saving || dirty}>
             {t('adminI18n.editor.approve')}
-          </button>
+          </Button>
         )}
-        <button
-          onClick={() => save(value)}
-          disabled={saving || !dirty}
-          className="text-xs font-medium hover:underline disabled:opacity-40 mr-3"
-          style={{ color: 'var(--color-primary)' }}
-        >
+        <Button variant="link" size="sm" onClick={() => save(value)} disabled={saving || !dirty}>
           {t('adminI18n.editor.save')}
-        </button>
-        <button
-          onClick={() => save(null)}
-          disabled={saving || entry.override === null}
-          className="text-xs font-medium hover:underline disabled:opacity-40"
-          style={{ color: 'var(--color-text-muted)' }}
-        >
+        </Button>
+        <Button variant="link" tone="muted" size="sm" onClick={() => save(null)} disabled={saving || entry.override === null}>
           {t('adminI18n.editor.resetToBundled')}
-        </button>
-      </td>
-    </tr>
+        </Button>
+      </Td>
+    </Tr>
   );
 }
 
@@ -260,35 +222,23 @@ export default function AdminI18nEditorPage() {
   if (error) return <ErrorState message={error} />;
 
   return (
-    <div className="space-y-6" key={refreshKey}>
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-            {t('adminI18n.editor.title', { name: language?.name ?? code })}
-          </h2>
-        </div>
-        <div className="flex gap-2">
-          <a
-            href={`/api/bff/admin/i18n/languages/${code}/export?format=json`}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg border"
-            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
-          >
-            {t('adminI18n.download.json')}
-          </a>
-          <a
-            href={`/api/bff/admin/i18n/languages/${code}/export?format=csv`}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg border"
-            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
-          >
-            {t('adminI18n.download.csv')}
-          </a>
-        </div>
-      </div>
+    <div className="grid gap-6" key={refreshKey}>
+      <PageHeader
+        title={t('adminI18n.editor.title', { name: language?.name ?? code })}
+        actions={
+          <>
+            <AnchorButton href={`/api/bff/admin/i18n/languages/${code}/export?format=json`} variant="outline" tone="surface" size="sm">
+              {t('adminI18n.download.json')}
+            </AnchorButton>
+            <AnchorButton href={`/api/bff/admin/i18n/languages/${code}/export?format=csv`} variant="outline" tone="surface" size="sm">
+              {t('adminI18n.download.csv')}
+            </AnchorButton>
+          </>
+        }
+      />
 
       {code === BASE_LOCALE ? (
-        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          {t('adminI18n.ai.baseLanguage')}
-        </p>
+        <p className="ui-caption">{t('adminI18n.ai.baseLanguage')}</p>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <AiTranslatePanel code={code} onProgress={reload} />
@@ -297,123 +247,72 @@ export default function AdminI18nEditorPage() {
       )}
 
       <div className="flex flex-wrap gap-3 items-center">
-        <select value={namespace} onChange={(e) => setNamespace(e.target.value)} className="px-2 py-1.5 border text-sm" style={inputStyle}>
+        <Select value={namespace} onChange={(e) => setNamespace(e.target.value)} className="w-auto">
           <option value="">{t('common.all')}</option>
           {namespaces.map((ns) => (
             <option key={ns} value={ns}>
               {ns}
             </option>
           ))}
-        </select>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={t('adminI18n.editor.search')}
-          className="px-2 py-1.5 border text-sm"
-          style={inputStyle}
-        />
-        <label className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-          <input type="checkbox" checked={onlyMissing} onChange={(e) => setOnlyMissing(e.target.checked)} />
-          {t('adminI18n.editor.onlyMissing')}
-        </label>
-        <label className="flex items-center gap-1.5 text-xs" htmlFor="i18n-source-filter" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('adminI18n.editor.sourceFilter')}
-          <select
-            id="i18n-source-filter"
-            value={sourceFilter}
-            onChange={(e) => setSourceFilter(e.target.value as SourceFilter)}
-            className="px-2 py-1.5 border text-sm"
-            style={inputStyle}
-          >
+        </Select>
+        <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('adminI18n.editor.search')} className="w-auto" />
+        <Checkbox label={t('adminI18n.editor.onlyMissing')} checked={onlyMissing} onChange={(e) => setOnlyMissing(e.target.checked)} />
+        <label className="inline-flex items-center gap-2" htmlFor="i18n-source-filter">
+          <span className="ui-small">{t('adminI18n.editor.sourceFilter')}</span>
+          <Select id="i18n-source-filter" value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value as SourceFilter)} className="w-auto">
             {SOURCE_FILTERS.map((f) => (
               <option key={f || 'all'} value={f}>
                 {f === '' ? t('common.all') : f === 'AI_UNREVIEWED' ? t('adminI18n.source.aiUnreviewed') : t(`adminI18n.source.${f}`)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         {unreviewedVisible.length > 0 && (
-          <button
-            type="button"
-            onClick={approveVisible}
-            disabled={approving}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg border disabled:opacity-40"
-            style={{ borderColor: 'var(--color-border)', color: 'var(--color-primary)' }}
-          >
+          <Button variant="outline" tone="surface" size="sm" onClick={approveVisible} disabled={approving}>
             {t('adminI18n.editor.approveVisible')}
-          </button>
+          </Button>
         )}
       </div>
 
-      <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left border-b" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-muted)' }}>
-              <th className="px-3 py-2 font-medium">{t('adminI18n.editor.key')}</th>
-              <th className="px-3 py-2 font-medium">{t('adminI18n.editor.source')}</th>
-              <th className="px-3 py-2 font-medium">{t('adminI18n.editor.value')}</th>
-              <th className="px-3 py-2" />
-            </tr>
-          </thead>
-          <tbody>
+      <Card className="overflow-x-auto">
+        <Table>
+          <Thead>
+            <Tr>
+              <Th>{t('adminI18n.editor.key')}</Th>
+              <Th>{t('adminI18n.editor.source')}</Th>
+              <Th>{t('adminI18n.editor.value')}</Th>
+              <Th />
+            </Tr>
+          </Thead>
+          <Tbody>
             {(items ?? []).map((entry) => (
               <EntryRow key={entry.key} code={code} entry={entry} onSaved={onEntrySaved} />
             ))}
-          </tbody>
-        </table>
-      </div>
+          </Tbody>
+        </Table>
+      </Card>
 
-      <div className="rounded-2xl border p-5 max-w-xl" style={{ borderColor: 'var(--color-border)' }}>
-        <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-          {t('adminI18n.upload.title')}
-        </h3>
-        <div className="space-y-3">
-          <input type="file" accept=".json,.csv" onChange={onFileChange} className="text-sm" />
-          <div className="flex items-center gap-4 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-            <label className="flex items-center gap-1.5">
-              <input type="radio" checked={mode === 'merge'} onChange={() => setMode('merge')} />
-              {t('adminI18n.upload.merge')}
-            </label>
-            <label className="flex items-center gap-1.5">
-              <input type="radio" checked={mode === 'replace'} onChange={() => setMode('replace')} />
-              {t('adminI18n.upload.replace')}
-            </label>
+      <Card as="section" className="max-w-xl">
+        <CardContent>
+          <h3 className="ui-heading">{t('adminI18n.upload.title')}</h3>
+          <Input type="file" accept=".json,.csv" onChange={onFileChange} />
+          <div className="flex items-center gap-4">
+            <Radio label={t('adminI18n.upload.merge')} checked={mode === 'merge'} onChange={() => setMode('merge')} />
+            <Radio label={t('adminI18n.upload.replace')} checked={mode === 'replace'} onChange={() => setMode('replace')} />
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => runImport(true)}
-              disabled={!uploadFile || uploading}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border disabled:opacity-40"
-              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
-            >
+            <Button variant="outline" tone="surface" size="sm" onClick={() => runImport(true)} disabled={!uploadFile || uploading}>
               {t('adminI18n.upload.check')}
-            </button>
-            <button
-              onClick={() => runImport(false)}
-              disabled={!uploadFile || uploading || !report || !report.applied}
-              className="px-3 py-1.5 text-xs font-medium text-white rounded-lg disabled:opacity-40"
-              style={{ backgroundColor: 'var(--color-primary)' }}
-            >
+            </Button>
+            <Button size="sm" onClick={() => runImport(false)} disabled={!uploadFile || uploading || !report || !report.applied}>
               {t('adminI18n.upload.apply')}
-            </button>
+            </Button>
           </div>
-          {uploadError && (
-            <p className="text-xs" style={{ color: 'var(--color-danger, #b42318)' }}>
-              {uploadError}
-            </p>
-          )}
+          {uploadError && <p className="ui-caption ui-text-error">{uploadError}</p>}
           {report && (
-            <div className="text-xs space-y-1 rounded-lg border p-3" style={{ borderColor: 'var(--color-border)' }}>
-              {!report.applied && (
-                <p className="font-medium" style={{ color: 'var(--color-danger, #b42318)' }}>
-                  {t('adminI18n.upload.blocked')}
-                </p>
-              )}
-              {report.applied && !report.dryRun && (
-                <p className="font-medium" style={{ color: 'var(--color-success, #12a150)' }}>
-                  {t('adminI18n.upload.applied')}
-                </p>
-              )}
+            <div className="ui-panel ui-small grid gap-1 p-3">
+              {!report.applied && <p className="ui-strong ui-text-error">{t('adminI18n.upload.blocked')}</p>}
+              {report.applied && !report.dryRun && <p className="ui-strong ui-text-success">{t('adminI18n.upload.applied')}</p>}
               <p>
                 {t('adminI18n.upload.report.accepted')}: {report.acceptedCount} · {t('adminI18n.upload.report.changed')}: {report.changedCount} ·{' '}
                 {t('adminI18n.upload.report.removed')}: {report.removedCount}
@@ -436,8 +335,8 @@ export default function AdminI18nEditorPage() {
               )}
             </div>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

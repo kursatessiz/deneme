@@ -210,7 +210,7 @@ export function ContentCalendar() {
         <SecondaryButton onClick={() => setAnchor(shift(anchor, mode, -1))}>{t('contentCalendar.prev')}</SecondaryButton>
         <SecondaryButton onClick={() => setAnchor(today)}>{t('contentCalendar.today')}</SecondaryButton>
         <SecondaryButton onClick={() => setAnchor(shift(anchor, mode, 1))}>{t('contentCalendar.next')}</SecondaryButton>
-        <h3 className="capitalize ui-strong" aria-live="polite">
+        <h3 className="ui-capitalize ui-strong" aria-live="polite">
           {title}
         </h3>
         {canManage && (
@@ -225,7 +225,7 @@ export function ContentCalendar() {
         <div className="ui-cal-month min-w-[840px]" role="grid" aria-label={title}>
           <div className="ui-cal-weekhead" role="row">
             {dates.slice(0, 7).map((date) => (
-              <div key={date} role="columnheader" className="px-2 py-1 capitalize ui-strong ui-caption">
+              <div key={date} role="columnheader" className="px-2 py-1 ui-capitalize ui-strong ui-caption">
                 {weekday.format(new Date(`${date}T00:00:00.000Z`))}
               </div>
             ))}

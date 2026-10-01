@@ -9,7 +9,7 @@ import { useBff } from '@/lib/session/use-bff';
 import { retailErrorMessage } from '@/lib/retail/errors';
 import { LoadingState, ErrorState } from '@/components/common/DataState';
 import { PermissionButton } from '@/components/common/PermissionButton';
-import { fieldStyle, labelStyle, sectionStyle } from './styles';
+import { Card, Checkbox, FieldGroup, Input } from '@/components/ui';
 
 /** Backorder switch and receipt prefix; tax comes from the studio's region settings and is only shown here. */
 export function SettingsTab() {
@@ -49,41 +49,40 @@ export function SettingsTab() {
   if (error || !data) return <ErrorState message={error ?? undefined} />;
 
   return (
-    <form onSubmit={save} className="p-4 space-y-4 max-w-xl" style={sectionStyle}>
-      <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-        {t('retail.settings.title')}
-      </h3>
-      <label className="flex items-start gap-2 text-sm" style={{ color: 'var(--color-text-primary)' }}>
-        <input type="checkbox" checked={allowBackorder} onChange={(e) => setAllowBackorder(e.target.checked)} className="mt-1" />
-        <span>
-          {t('retail.settings.allowBackorder')}
-          <span className="block text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-            {t('retail.settings.allowBackorderHint')}
-          </span>
-        </span>
-      </label>
-      <label className="block text-xs space-y-1" style={labelStyle}>
-        <span>{t('retail.settings.receiptPrefix')}</span>
-        <input value={receiptPrefix} maxLength={10} onChange={(e) => setReceiptPrefix(e.target.value)} className="text-sm px-3 py-1.5 w-40" style={fieldStyle} />
-        <span className="block text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-          {t('retail.settings.receiptPrefixHint')}
-        </span>
-      </label>
-      <p className="text-xs" style={labelStyle}>
-        {t('retail.settings.tax', {
-          regime: data.taxRegime,
-          rate: data.defaultTaxRate,
-          pricing: data.pricesIncludeTax ? t('retail.settings.pricesInclusive') : t('retail.settings.pricesExclusive'),
-        })}
-      </p>
-      {message && (
-        <p className="text-xs" role="status" style={labelStyle}>
-          {message}
+    <Card className="max-w-xl">
+      <form onSubmit={save} className="pui-card-content">
+        <h3 className="ui-heading">{t('retail.settings.title')}</h3>
+        <Checkbox
+          checked={allowBackorder}
+          onChange={(e) => setAllowBackorder(e.target.checked)}
+          label={
+            <>
+              {t('retail.settings.allowBackorder')}
+              <span className="block ui-caption">{t('retail.settings.allowBackorderHint')}</span>
+            </>
+          }
+        />
+        <FieldGroup label={t('retail.settings.receiptPrefix')} hint={t('retail.settings.receiptPrefixHint')}>
+          <Input value={receiptPrefix} maxLength={10} onChange={(e) => setReceiptPrefix(e.target.value)} className="w-40" />
+        </FieldGroup>
+        <p className="ui-caption">
+          {t('retail.settings.tax', {
+            regime: data.taxRegime,
+            rate: data.defaultTaxRate,
+            pricing: data.pricesIncludeTax ? t('retail.settings.pricesInclusive') : t('retail.settings.pricesExclusive'),
+          })}
         </p>
-      )}
-      <PermissionButton required={['retail.manage']} type="submit" variant="primary" disabled={saving}>
-        {t('retail.settings.save')}
-      </PermissionButton>
-    </form>
+        {message && (
+          <p className="ui-caption" role="status">
+            {message}
+          </p>
+        )}
+        <div>
+          <PermissionButton required={['retail.manage']} type="submit" variant="primary" disabled={saving}>
+            {t('retail.settings.save')}
+          </PermissionButton>
+        </div>
+      </form>
+    </Card>
   );
 }

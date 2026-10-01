@@ -74,7 +74,7 @@ export function SegmentSuggestionView({ draft, platformStudioId, canSave }: { dr
             <p className="ui-text-muted">
               {content.rationale}
             </p>
-            <pre className="ui-panel font-mono whitespace-pre-wrap p-3 ui-small">
+            <pre className="ui-panel ui-mono whitespace-pre-wrap p-3 ui-small">
               {ruleLines(content.rules).join('\n')}
             </pre>
             <p className="ui-caption">
@@ -119,7 +119,7 @@ export function ResearchNoteView({ draft }: { draft: MarketingDraftDTO }) {
           return (
             <li key={index} className="space-y-1">
               <p>{point.claim}</p>
-              <blockquote className="italic ui-rail ui-caption">
+              <blockquote className="ui-rail ui-caption">
                 {point.quote}
               </blockquote>
               <p className="ui-caption">

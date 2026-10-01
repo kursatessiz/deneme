@@ -5,13 +5,10 @@ import { PLATFORM_BILLING_CURRENCIES } from '@platform/shared';
 import type { PlatformBillingCurrency, StudioBillingStatus } from '@platform/shared';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
-
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  borderColor: 'var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
+import { Button } from '@/components/ui/Button';
+import { Checkbox } from '@/components/ui/Checkbox';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 
 /**
  * Super-admin billing cell of the tenants table (G5c-1): status, trial end,
@@ -81,92 +78,74 @@ export function TenantBillingActions({
       : null;
 
   return (
-    <div className="space-y-1 min-w-[12rem]">
-      <p className="text-xs font-medium">{t(`billing.status.${status}`)}</p>
-      {trialEnd && (
-        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          {trialEnd}
-        </p>
-      )}
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+    <div className="grid gap-1 min-w-[12rem]">
+      <p className="ui-small ui-strong">{t(`billing.status.${status}`)}</p>
+      {trialEnd && <p className="ui-caption">{trialEnd}</p>}
+      <p className="ui-caption">
         {t('adminBilling.tenants.billingCurrency', { currency: billingCurrency })}{' '}
         {billingCurrencyOverride ? t('adminBilling.tenants.currencyOverridden') : t('adminBilling.tenants.currencyFromCountry', { country: countryCode })}
       </p>
       {mode === 'idle' ? (
         <div className="flex flex-wrap gap-2">
           {(status === 'TRIALING' || status === 'RESTRICTED') && (
-            <button type="button" onClick={() => setMode('extend')} className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
+            <Button variant="link" tone="surface" size="sm" onClick={() => setMode('extend')}>
               {t('adminBilling.tenants.extend')}
-            </button>
+            </Button>
           )}
           {status !== 'ACTIVE' && (
-            <button type="button" onClick={() => setMode('ACTIVE')} className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
+            <Button variant="link" tone="surface" size="sm" onClick={() => setMode('ACTIVE')}>
               {t('adminBilling.tenants.forceActivate')}
-            </button>
+            </Button>
           )}
           {status !== 'RESTRICTED' && status !== 'CANCELLED' && (
-            <button type="button" onClick={() => setMode('RESTRICTED')} className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
+            <Button variant="link" tone="surface" size="sm" onClick={() => setMode('RESTRICTED')}>
               {t('adminBilling.tenants.forceRestrict')}
-            </button>
+            </Button>
           )}
-          <button type="button" onClick={() => setMode('currency')} className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
+          <Button variant="link" tone="surface" size="sm" onClick={() => setMode('currency')}>
             {t('adminBilling.tenants.changeCurrency')}
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
           {mode === 'extend' ? (
-            <input
+            <Input
               type="number"
               min={1}
               max={90}
               aria-label={t('adminBilling.tenants.extendDays')}
               value={days}
               onChange={(e) => setDays(e.target.value)}
-              className="w-16 border px-2 py-1 text-xs"
-              style={inputStyle}
+              className="w-20"
             />
           ) : (
             <>
-            {mode === 'currency' && (
-              <select
-                aria-label={t('adminBilling.tenants.currency')}
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value as PlatformBillingCurrency | '')}
-                className="border px-2 py-1 text-xs"
-                style={inputStyle}
-              >
-                <option value="">{t('adminBilling.tenants.currencyAuto')}</option>
-                {PLATFORM_BILLING_CURRENCIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            )}
-            <input
-              aria-label={t('adminBilling.tenants.reason')}
-              placeholder={t('adminBilling.tenants.reason')}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="border px-2 py-1 text-xs"
-              style={inputStyle}
-            />
-            {mode === 'ACTIVE' && (
-              <label className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                <input type="checkbox" checked={recordAsPaid} onChange={(e) => setRecordAsPaid(e.target.checked)} />
-                {t('adminBilling.tenants.recordAsPaid')}
-              </label>
-            )}
+              {mode === 'currency' && (
+                <Select
+                  aria-label={t('adminBilling.tenants.currency')}
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value as PlatformBillingCurrency | '')}
+                  className="w-auto"
+                >
+                  <option value="">{t('adminBilling.tenants.currencyAuto')}</option>
+                  {PLATFORM_BILLING_CURRENCIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </Select>
+              )}
+              <Input
+                aria-label={t('adminBilling.tenants.reason')}
+                placeholder={t('adminBilling.tenants.reason')}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                className="w-auto"
+              />
+              {mode === 'ACTIVE' && <Checkbox label={t('adminBilling.tenants.recordAsPaid')} checked={recordAsPaid} onChange={(e) => setRecordAsPaid(e.target.checked)} />}
             </>
           )}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={submit}
-            className="px-2.5 py-1 text-xs font-medium"
-            style={{ borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
-          >
+          <Button size="sm" disabled={busy} onClick={submit}>
             {mode === 'extend'
               ? t('adminBilling.tenants.extendSubmit')
               : mode === 'ACTIVE'
@@ -174,17 +153,13 @@ export function TenantBillingActions({
                 : mode === 'currency'
                   ? t('adminBilling.tenants.currencySave')
                   : t('adminBilling.tenants.forceRestrict')}
-          </button>
-          <button type="button" onClick={() => setMode('idle')} className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+          </Button>
+          <Button variant="link" tone="surface" size="sm" onClick={() => setMode('idle')}>
             {t('adminBilling.tenants.cancel')}
-          </button>
+          </Button>
         </div>
       )}
-      {error && (
-        <p className="text-xs" style={{ color: 'var(--color-danger)' }}>
-          {error}
-        </p>
-      )}
+      {error && <p className="ui-caption ui-text-error">{error}</p>}
     </div>
   );
 }

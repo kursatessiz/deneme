@@ -8,16 +8,13 @@ import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { EmptyState, ErrorState, LoadingState } from '@/components/common/DataState';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
-
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  borderColor: 'var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
-const card: React.CSSProperties = { borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' };
-const primary: React.CSSProperties = { borderRadius: 'var(--radius-button)', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' };
-const secondary: React.CSSProperties = { borderRadius: 'var(--radius-button)', borderColor: 'var(--color-border)' };
+import { Accordion, AccordionItem } from '@/components/ui/Accordion';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { LinkButton } from '@/components/ui/LinkButton';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Textarea } from '@/components/ui/Textarea';
 
 /** Super admin: one error group with its stack, breadcrumbs, releases, tenants and actions. */
 export default function AdminErrorDetailPage() {
@@ -69,129 +66,116 @@ export default function AdminErrorDetailPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <Link href="/admin/hatalar" className="text-sm hover:underline" style={{ color: 'var(--color-text-secondary)' }}>
+    <div className="grid gap-6">
+      <LinkButton href="/admin/hatalar" variant="link" tone="surface" size="sm" className="justify-self-start">
         {t('adminErrors.detail.back')}
-      </Link>
-      <div>
-        <h2 className="text-xl font-bold break-all">{data.title}</h2>
-        {data.critical && (
-          <p className="text-xs mt-1 font-medium" style={{ color: 'var(--color-danger)' }}>
-            {t('adminErrors.critical')}
-          </p>
-        )}
+      </LinkButton>
+      <div className="grid gap-1">
+        <h2 className="ui-title break-all">{data.title}</h2>
+        {data.critical && <p className="ui-small ui-strong ui-text-error">{t('adminErrors.critical')}</p>}
       </div>
 
       {data.mergedIntoId && (
-        <p className="text-sm">
+        <p>
           {t('adminErrors.detail.mergedInto')}{' '}
-          <Link href={`/admin/hatalar/${data.mergedIntoId}`} className="underline">
+          <Link href={`/admin/hatalar/${data.mergedIntoId}`} className="pui-link pui-surface">
             {t('adminErrors.detail.mergedIntoOpen')}
           </Link>
         </p>
       )}
 
-      <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 p-5 border" style={card}>
-        {facts.map(([label, value]) => (
-          <div key={label}>
-            <dt className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              {label}
-            </dt>
-            <dd className="text-sm font-medium break-all">{value}</dd>
+      <Card>
+        <dl className="pui-card-content grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+          {facts.map(([label, value]) => (
+            <div key={label}>
+              <dt className="ui-caption">{label}</dt>
+              <dd className="ui-strong break-all">{value}</dd>
+            </div>
+          ))}
+          <div className="col-span-2 sm:col-span-3">
+            <dt className="ui-caption">{t('adminErrors.detail.topFrame')}</dt>
+            <dd className="ui-mono break-all">{data.topFrame ?? '-'}</dd>
           </div>
-        ))}
-        <div className="col-span-2 sm:col-span-3">
-          <dt className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('adminErrors.detail.topFrame')}
-          </dt>
-          <dd className="text-xs font-mono break-all">{data.topFrame ?? '-'}</dd>
-        </div>
-      </dl>
+        </dl>
+      </Card>
 
       <section aria-label={t('adminErrors.detail.resolve')} className="flex flex-wrap items-center gap-3">
         {data.status !== 'RESOLVED' && (
           <>
-            <input
+            <Input
               aria-label={t('adminErrors.detail.resolveRelease')}
               placeholder={t('adminErrors.detail.resolveRelease')}
               value={release}
               onChange={(e) => setRelease(e.target.value)}
-              className="border px-3 py-2 text-sm w-80"
-              style={inputStyle}
+              className="w-80"
             />
-            <button type="button" disabled={busy} onClick={() => act('resolve', release.trim() ? { release: release.trim() } : {})} className="px-4 py-2 text-sm font-medium" style={primary}>
+            <Button disabled={busy} onClick={() => act('resolve', release.trim() ? { release: release.trim() } : {})}>
               {t('adminErrors.detail.resolve')}
-            </button>
+            </Button>
           </>
         )}
         {data.status !== 'IGNORED' && (
-          <button type="button" disabled={busy} onClick={() => act('ignore', {})} className="px-4 py-2 text-sm font-medium border" style={secondary}>
+          <Button variant="outline" tone="surface" disabled={busy} onClick={() => act('ignore', {})}>
             {t('adminErrors.detail.ignore')}
-          </button>
+          </Button>
         )}
         {data.status !== 'OPEN' && (
-          <button type="button" disabled={busy} onClick={() => act('reopen', {})} className="px-4 py-2 text-sm font-medium border" style={secondary}>
+          <Button variant="outline" tone="surface" disabled={busy} onClick={() => act('reopen', {})}>
             {t('adminErrors.detail.reopen')}
-          </button>
+          </Button>
         )}
       </section>
 
       {!data.mergedIntoId && (
         <section aria-label={t('adminErrors.detail.merge')} className="flex flex-wrap items-center gap-3">
-          <input
+          <Input
             aria-label={t('adminErrors.detail.mergeTarget')}
             placeholder={t('adminErrors.detail.mergeTarget')}
             value={mergeTarget}
             onChange={(e) => setMergeTarget(e.target.value)}
-            className="border px-3 py-2 text-sm w-96 font-mono"
-            style={inputStyle}
+            className="w-96 ui-mono"
           />
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            tone="surface"
             disabled={busy || mergeTarget.trim().length === 0}
             onClick={() => act('merge', { targetId: mergeTarget.trim() }, t('adminErrors.detail.mergeDone'), `admin/errors/groups/${data.id}/merge`)}
-            className="px-4 py-2 text-sm font-medium border"
-            style={secondary}
           >
             {t('adminErrors.detail.mergeConfirm')}
-          </button>
-          {data.aliasCount > 0 && (
-            <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('adminErrors.detail.aliases', { count: data.aliasCount })}
-            </span>
-          )}
+          </Button>
+          {data.aliasCount > 0 && <span className="ui-caption">{t('adminErrors.detail.aliases', { count: data.aliasCount })}</span>}
         </section>
       )}
 
-      <section className="space-y-2">
-        <label htmlFor="error-group-note" className="block text-sm font-semibold">
+      <section className="grid gap-2">
+        <label htmlFor="error-group-note" className="ui-heading">
           {t('adminErrors.detail.note')}
         </label>
-        <textarea id="error-group-note" value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={2000} className="w-full border px-3 py-2 text-sm" style={inputStyle} />
-        <button type="button" disabled={busy} onClick={() => act('note', { note }, t('adminErrors.detail.noteSaved'))} className="px-4 py-2 text-sm font-medium border" style={secondary}>
+        <Textarea id="error-group-note" value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={2000} />
+        <Button variant="outline" tone="surface" className="justify-self-start" disabled={busy} onClick={() => act('note', { note }, t('adminErrors.detail.noteSaved'))}>
           {t('adminErrors.detail.noteSave')}
-        </button>
+        </Button>
         {message && (
-          <p role="status" className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+          <p role="status" className="ui-caption">
             {message}
           </p>
         )}
       </section>
 
       <div className="grid gap-6 sm:grid-cols-2">
-        <section>
-          <h3 className="text-sm font-semibold mb-2">{t('adminErrors.detail.releases')}</h3>
-          <ul className="text-sm space-y-1">
+        <section className="grid gap-2 content-start">
+          <h3 className="ui-heading">{t('adminErrors.detail.releases')}</h3>
+          <ul className="grid gap-1">
             {data.releases.map((r) => (
-              <li key={r.release} className="font-mono text-xs">
+              <li key={r.release} className="ui-mono">
                 {t('adminErrors.detail.releaseCount', { release: r.release, count: r.count })}
               </li>
             ))}
           </ul>
         </section>
-        <section>
-          <h3 className="text-sm font-semibold mb-2">{t('adminErrors.detail.affectedStudios')}</h3>
-          <ul className="text-sm space-y-1">
+        <section className="grid gap-2 content-start">
+          <h3 className="ui-heading">{t('adminErrors.detail.affectedStudios')}</h3>
+          <ul className="grid gap-1">
             {data.studios.map((s) => (
               <li key={s.studioId}>
                 {s.studioName ?? s.studioId} ({s.count})
@@ -201,12 +185,12 @@ export default function AdminErrorDetailPage() {
         </section>
       </div>
 
-      <section>
-        <h3 className="text-sm font-semibold mb-2">{t('adminErrors.detail.alerts')}</h3>
+      <section className="grid gap-2">
+        <h3 className="ui-heading">{t('adminErrors.detail.alerts')}</h3>
         {data.alerts.length === 0 ? (
-          <p className="text-sm">{t('adminErrors.detail.noAlerts')}</p>
+          <p>{t('adminErrors.detail.noAlerts')}</p>
         ) : (
-          <ul className="text-xs space-y-1">
+          <ul className="ui-small grid gap-1">
             {data.alerts.map((a) => (
               <li key={a.id}>
                 {t(`adminErrors.alert.kind.${a.kind}`)} - {dateTime.format(new Date(a.createdAt))}
@@ -216,73 +200,86 @@ export default function AdminErrorDetailPage() {
         )}
       </section>
 
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold">{t('adminErrors.detail.events')}</h3>
-        {data.events.length === 0 && <p className="text-sm">{t('adminErrors.detail.noEvents')}</p>}
-        {data.events.map((e) => (
-          <details key={e.id} className="border p-4" style={card}>
-            <summary className="cursor-pointer text-sm">
-              <span className="font-mono">{e.code}</span> - {dateTime.format(new Date(e.occurredAt))} - {e.studioName ?? t('adminErrors.detail.platform')}
-            </summary>
-            <dl className="grid grid-cols-2 gap-2 mt-3 text-xs">
-              <dt style={{ color: 'var(--color-text-secondary)' }}>{t('adminErrors.detail.requestId')}</dt>
-              <dd className="font-mono break-all">{e.requestId ?? '-'}</dd>
-              <dt style={{ color: 'var(--color-text-secondary)' }}>{t('adminErrors.detail.route')}</dt>
-              <dd className="font-mono break-all">{e.route ?? '-'}</dd>
-              <dt style={{ color: 'var(--color-text-secondary)' }}>{t('adminErrors.detail.release')}</dt>
-              <dd className="font-mono">{e.release}</dd>
-              <dt style={{ color: 'var(--color-text-secondary)' }}>{t('adminErrors.detail.status')}</dt>
-              <dd>{e.statusCode ?? '-'}</dd>
-            </dl>
-            <p className="text-sm mt-3 break-all">{e.message}</p>
-            {e.feedback && (
-              <>
-                <h4 className="text-xs font-semibold mt-3">{t('adminErrors.detail.feedback')}</h4>
-                <p className="text-sm mt-1 whitespace-pre-wrap break-words" data-testid="error-feedback">
-                  {e.feedback}
-                </p>
-              </>
-            )}
-            <h4 className="text-xs font-semibold mt-3">{e.symbolicatedStack ? t('adminErrors.detail.stackResolved') : t('adminErrors.detail.stack')}</h4>
-            {e.symbolicatedStack || e.stack ? (
-              <pre className="text-xs overflow-x-auto mt-1 p-2 whitespace-pre" style={{ backgroundColor: 'var(--color-surface-muted)' }}>{e.symbolicatedStack ?? e.stack}</pre>
-            ) : (
-              <p className="text-xs">{t('adminErrors.detail.noStack')}</p>
-            )}
-            {e.symbolicatedContext && e.symbolicatedContext.length > 0 && (
-              <>
-                <h4 className="text-xs font-semibold mt-3">{t('adminErrors.detail.context')}</h4>
-                {e.symbolicatedContext.map((c) => (
-                  <div key={c.location} className="mt-1">
-                    <p className="text-xs font-mono break-all">{c.location}</p>
-                    <pre className="text-xs font-mono overflow-x-auto mt-1 p-2 whitespace-pre" style={{ backgroundColor: 'var(--color-surface-muted)' }}>
-                      {c.lines.map((line, i) => `${String(c.startLine + i).padStart(5)}${i === c.focus ? ' >' : '  '} ${line}`).join('\n')}
-                    </pre>
+      <section className="grid gap-3">
+        <h3 className="ui-heading">{t('adminErrors.detail.events')}</h3>
+        {data.events.length === 0 && <p>{t('adminErrors.detail.noEvents')}</p>}
+        <Accordion>
+          {data.events.map((e) => (
+            <AccordionItem
+              key={e.id}
+              title={
+                <>
+                  <span className="ui-mono">{e.code}</span> - {dateTime.format(new Date(e.occurredAt))} - {e.studioName ?? t('adminErrors.detail.platform')}
+                </>
+              }
+            >
+              <div className="grid gap-3">
+                <dl className="grid grid-cols-2 gap-2 ui-small">
+                  <dt className="ui-caption">{t('adminErrors.detail.requestId')}</dt>
+                  <dd className="ui-mono break-all">{e.requestId ?? '-'}</dd>
+                  <dt className="ui-caption">{t('adminErrors.detail.route')}</dt>
+                  <dd className="ui-mono break-all">{e.route ?? '-'}</dd>
+                  <dt className="ui-caption">{t('adminErrors.detail.release')}</dt>
+                  <dd className="ui-mono">{e.release}</dd>
+                  <dt className="ui-caption">{t('adminErrors.detail.status')}</dt>
+                  <dd>{e.statusCode ?? '-'}</dd>
+                </dl>
+                <p className="break-all">{e.message}</p>
+                {e.feedback && (
+                  <div className="grid gap-1">
+                    <h4 className="ui-small ui-strong">{t('adminErrors.detail.feedback')}</h4>
+                    <p className="whitespace-pre-wrap break-words" data-testid="error-feedback">
+                      {e.feedback}
+                    </p>
                   </div>
-                ))}
-              </>
-            )}
-            {e.symbolicatedStack && e.stack && (
-              <details className="mt-2">
-                <summary className="cursor-pointer text-xs">{t('adminErrors.detail.stackRaw')}</summary>
-                <pre className="text-xs overflow-x-auto mt-1 p-2 whitespace-pre" style={{ backgroundColor: 'var(--color-surface-muted)' }}>{e.stack}</pre>
-              </details>
-            )}
-            <h4 className="text-xs font-semibold mt-3">{t('adminErrors.detail.breadcrumbs')}</h4>
-            {e.breadcrumbs.length === 0 ? (
-              <p className="text-xs">{t('adminErrors.detail.noBreadcrumbs')}</p>
-            ) : (
-              <ol className="text-xs font-mono mt-1 space-y-0.5">
-                {e.breadcrumbs.map((b, i) => (
-                  <li key={i}>
-                    {b.at.slice(11, 19)} {b.type} {b.message}
-                    {b.data ? ` ${Object.entries(b.data).map(([k, v]) => `${k}=${v}`).join(' ')}` : ''}
-                  </li>
-                ))}
-              </ol>
-            )}
-          </details>
-        ))}
+                )}
+                <div className="grid gap-1">
+                  <h4 className="ui-small ui-strong">{e.symbolicatedStack ? t('adminErrors.detail.stackResolved') : t('adminErrors.detail.stack')}</h4>
+                  {e.symbolicatedStack || e.stack ? (
+                    <pre className="ui-panel ui-mono overflow-x-auto p-2 whitespace-pre">{e.symbolicatedStack ?? e.stack}</pre>
+                  ) : (
+                    <p className="ui-small">{t('adminErrors.detail.noStack')}</p>
+                  )}
+                </div>
+                {e.symbolicatedContext && e.symbolicatedContext.length > 0 && (
+                  <div className="grid gap-1">
+                    <h4 className="ui-small ui-strong">{t('adminErrors.detail.context')}</h4>
+                    {e.symbolicatedContext.map((c) => (
+                      <div key={c.location} className="grid gap-1">
+                        <p className="ui-mono break-all">{c.location}</p>
+                        <pre className="ui-panel ui-mono overflow-x-auto p-2 whitespace-pre">
+                          {c.lines.map((line, i) => `${String(c.startLine + i).padStart(5)}${i === c.focus ? ' >' : '  '} ${line}`).join('\n')}
+                        </pre>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {e.symbolicatedStack && e.stack && (
+                  <Accordion>
+                    <AccordionItem title={t('adminErrors.detail.stackRaw')}>
+                      <pre className="ui-panel ui-mono overflow-x-auto p-2 whitespace-pre">{e.stack}</pre>
+                    </AccordionItem>
+                  </Accordion>
+                )}
+                <div className="grid gap-1">
+                  <h4 className="ui-small ui-strong">{t('adminErrors.detail.breadcrumbs')}</h4>
+                  {e.breadcrumbs.length === 0 ? (
+                    <p className="ui-small">{t('adminErrors.detail.noBreadcrumbs')}</p>
+                  ) : (
+                    <ol className="ui-mono grid gap-0.5">
+                      {e.breadcrumbs.map((b, i) => (
+                        <li key={i}>
+                          {b.at.slice(11, 19)} {b.type} {b.message}
+                          {b.data ? ` ${Object.entries(b.data).map(([k, v]) => `${k}=${v}`).join(' ')}` : ''}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </div>
+              </div>
+            </AccordionItem>
+          ))}
+        </Accordion>
       </section>
     </div>
   );
