@@ -324,6 +324,23 @@
     border-top: var(--pui-border-width) solid var(--pui-border);
   }
 
+  /* Heatmap fill: the brand color mixed into the muted surface; --ui-heat (a percentage) is set inline. */
+  .ui-heat {
+    background-color: color-mix(in srgb, var(--pui-theme) var(--ui-heat, 0%), var(--pui-bg-muted));
+  }
+
+  .ui-heat-cell {
+    width: 14px;
+    height: 14px;
+    border-radius: calc(var(--pui-radius) / 3);
+  }
+
+  /* Solid brand fill for chart bars; the width is set inline. */
+  .ui-bar-fill {
+    background-color: var(--pui-theme);
+    color: var(--pui-on-theme, var(--pui-bg));
+  }
+
   /* A whole card that is a link (settings hub). */
   .ui-card-link {
     transition: background-color 0.15s;

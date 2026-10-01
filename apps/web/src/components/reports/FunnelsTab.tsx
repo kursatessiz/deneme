@@ -14,13 +14,10 @@ import { PermissionButton } from '@/components/common/PermissionButton';
 import { Badge } from '@/components/common/Badge';
 import { StatTile } from './Bar';
 import { FunnelEditor } from './FunnelEditor';
-
-const selectStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
+import { Select } from '@/components/ui/Select';
+import { FieldGroup } from '@/components/ui/FieldGroup';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
+import { Card } from '@/components/ui/Card';
 
 const READY_MADE_KEYS = {
   'lead-to-member': 'funnels.ready.lead-to-member.name',
@@ -54,7 +51,8 @@ export function FunnelsTab({ from, to, branchId, compare }: Props) {
   const selected = items.find((f) => f.id === selectedId) ?? items[0] ?? null;
   const selectedFunnelId = selected?.id ?? null;
 
-  const funnelName = (f: FunnelSummaryDTO): string => (f.kind === 'READY_MADE' && f.slug ? t(READY_MADE_KEYS[f.slug as keyof typeof READY_MADE_KEYS] ?? 'funnels.title') : (f.name ?? ''));
+  const funnelName = (f: FunnelSummaryDTO): string =>
+    f.kind === 'READY_MADE' && f.slug ? t(READY_MADE_KEYS[f.slug as keyof typeof READY_MADE_KEYS] ?? 'funnels.title') : (f.name ?? '');
   const stepLabel = (key: string): string => t(funnelStepMessageKey(key) as MessageKey);
   const percent = (ratio: number | null) => (ratio === null ? t('funnels.noValue') : formatPercent(ratio, locale, 1));
   const count = (n: number) => new Intl.NumberFormat(locale).format(n);
@@ -77,7 +75,9 @@ export function FunnelsTab({ from, to, branchId, compare }: Props) {
     const params = new URLSearchParams(buildReportQuery({ from, to, branchId: branchId || null }));
     if (breakdown) params.set('breakdown', breakdown);
     if (compare) params.set('compare', 'previous');
-    bffFetch<FunnelReportDTO>(`studios/${activeStudioId}/funnels/${encodeURIComponent(selectedFunnelId)}/report?${params.toString()}`, { studioId: activeStudioId })
+    bffFetch<FunnelReportDTO>(`studios/${activeStudioId}/funnels/${encodeURIComponent(selectedFunnelId)}/report?${params.toString()}`, {
+      studioId: activeStudioId,
+    })
       .then((res) => {
         if (!cancelled) setReport(res);
       })
@@ -116,11 +116,10 @@ export function FunnelsTab({ from, to, branchId, compare }: Props) {
   const last = report?.steps[report.steps.length - 1];
 
   return (
-    <div className="space-y-4">
+    <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('funnels.selector.label')}
-          <select value={selected?.id ?? ''} onChange={(e) => setSelectedId(e.target.value)} aria-label={t('funnels.selector.label')} className="text-xs px-2.5 py-1.5" style={selectStyle}>
+        <FieldGroup label={t('funnels.selector.label')}>
+          <Select value={selected?.id ?? ''} onChange={(e) => setSelectedId(e.target.value)} aria-label={t('funnels.selector.label')}>
             <optgroup label={t('funnels.selector.readyMade')}>
               {items
                 .filter((f) => f.kind === 'READY_MADE')
@@ -141,19 +140,18 @@ export function FunnelsTab({ from, to, branchId, compare }: Props) {
                   ))}
               </optgroup>
             )}
-          </select>
-        </label>
-        <label className="flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('funnels.breakdown.label')}
-          <select value={breakdown} onChange={(e) => setBreakdown(e.target.value as FunnelBreakdown | '')} aria-label={t('funnels.breakdown.label')} className="text-xs px-2.5 py-1.5" style={selectStyle}>
+          </Select>
+        </FieldGroup>
+        <FieldGroup label={t('funnels.breakdown.label')}>
+          <Select value={breakdown} onChange={(e) => setBreakdown(e.target.value as FunnelBreakdown | '')} aria-label={t('funnels.breakdown.label')}>
             <option value="">{t('funnels.breakdown.none')}</option>
             {FUNNEL_BREAKDOWNS.map((b) => (
               <option key={b} value={b}>
                 {t(`funnels.breakdown.${b}` as MessageKey)}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </FieldGroup>
         <div className="flex items-center gap-2 ml-auto">
           <PermissionButton required={['funnels.manage']} onClick={() => setEditing('new')}>
             {t('funnels.editor.new')}
@@ -172,7 +170,7 @@ export function FunnelsTab({ from, to, branchId, compare }: Props) {
       </div>
 
       {selected && (
-        <div className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+        <div className="ui-caption">
           {selected.kind === 'READY_MADE' && selected.slug && <p>{t(`funnels.ready.${selected.slug}.description` as MessageKey)}</p>}
           <p>{selected.windowDays === null ? t('funnels.window.none') : t('funnels.window.days', { days: selected.windowDays })}</p>
         </div>
@@ -184,7 +182,10 @@ export function FunnelsTab({ from, to, branchId, compare }: Props) {
         <ErrorState message={error} />
       ) : report && first && last ? (
         first.reached === 0 ? (
-          <EmptyState title={t('funnels.empty.title')} description={report.funnel.requiresSiteTracking ? t('funnels.empty.tracking') : t('funnels.empty.description')} />
+          <EmptyState
+            title={t('funnels.empty.title')}
+            description={report.funnel.requiresSiteTracking ? t('funnels.empty.tracking') : t('funnels.empty.description')}
+          />
         ) : (
           <>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -193,7 +194,7 @@ export function FunnelsTab({ from, to, branchId, compare }: Props) {
               <StatTile label={t('funnels.col.overall')} value={percent(last.rateFromFirst)} />
             </div>
 
-            <ol className="space-y-3" aria-label={t('funnels.title')}>
+            <ol className="grid gap-3" aria-label={t('funnels.title')}>
               {report.steps.map((step, k) => (
                 <FunnelStepRow
                   key={step.key}
@@ -210,39 +211,37 @@ export function FunnelsTab({ from, to, branchId, compare }: Props) {
             </ol>
 
             {report.breakdown && (
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  {t('funnels.breakdown.title', { name: t(`funnels.breakdown.${report.breakdown}` as MessageKey) })}
-                </h3>
-                <div className="overflow-x-auto" style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr style={{ color: 'var(--color-text-secondary)' }}>
-                        <th className="text-left font-medium px-3 py-2">{t(`funnels.breakdown.${report.breakdown}` as MessageKey)}</th>
+              <div className="grid gap-2">
+                <h3 className="ui-heading">{t('funnels.breakdown.title', { name: t(`funnels.breakdown.${report.breakdown}` as MessageKey) })}</h3>
+                <Card className="overflow-x-auto">
+                  <Table>
+                    <Thead>
+                      <Tr>
+                        <Th>{t(`funnels.breakdown.${report.breakdown}` as MessageKey)}</Th>
                         {report.steps.map((s) => (
-                          <th key={s.key} className="text-right font-medium px-3 py-2">
+                          <Th key={s.key} className="text-right">
                             {stepLabel(s.key)}
-                          </th>
+                          </Th>
                         ))}
-                        <th className="text-right font-medium px-3 py-2">{t('funnels.col.overall')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                        <Th className="text-right">{t('funnels.col.overall')}</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
                       {report.groups.map((g) => (
-                        <tr key={g.key} style={{ borderTop: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}>
-                          <td className="px-3 py-2">{groupLabel(g.key, g.label)}</td>
+                        <Tr key={g.key}>
+                          <Td>{groupLabel(g.key, g.label)}</Td>
                           {g.steps.map((s) => (
-                            <td key={s.key} className="text-right px-3 py-2">
+                            <Td key={s.key} className="text-right">
                               {count(s.reached)}
-                              <span style={{ color: 'var(--color-text-muted)' }}> ({percent(s.rateFromFirst)})</span>
-                            </td>
+                              <span className="ui-text-muted"> ({percent(s.rateFromFirst)})</span>
+                            </Td>
                           ))}
-                          <td className="text-right px-3 py-2 font-medium">{percent(g.steps[g.steps.length - 1]?.rateFromFirst ?? null)}</td>
-                        </tr>
+                          <Td className="text-right ui-strong">{percent(g.steps[g.steps.length - 1]?.rateFromFirst ?? null)}</Td>
+                        </Tr>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </Tbody>
+                  </Table>
+                </Card>
               </div>
             )}
           </>
@@ -280,12 +279,12 @@ function FunnelStepRow({ step, index, label, percent, count, duration, previous,
   const width = step.rateFromFirst === null ? 0 : Math.max(0, Math.min(1, step.rateFromFirst)) * 100;
   const tone = change === null || change.reached.direction === 'neutral' ? 'neutral' : change.reached.direction === 'up' ? 'success' : 'danger';
   return (
-    <li className="space-y-1">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 text-xs">
-        <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+    <li className="grid gap-1">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 ui-caption">
+        <span className="ui-strong">
           {index + 1}. {label}
         </span>
-        <span style={{ color: 'var(--color-text-secondary)' }}>
+        <span className="ui-text-muted">
           {index > 0 && (
             <>
               {t('funnels.col.fromPrevious')}: {percent(step.rateFromPrevious)}
@@ -297,16 +296,13 @@ function FunnelStepRow({ step, index, label, percent, count, duration, previous,
           {t('funnels.col.fromFirst')}: {percent(step.rateFromFirst)}
         </span>
       </div>
-      <div className="h-7 overflow-hidden" style={{ backgroundColor: 'var(--color-surface-muted)', borderRadius: 'var(--radius-input)' }}>
-        <div
-          className="h-full flex items-center px-2 text-xs font-semibold"
-          style={{ width: `${width}%`, minWidth: '2.5rem', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)', borderRadius: 'var(--radius-input)' }}
-        >
+      <div className="h-7 overflow-hidden ui-panel">
+        <div className="h-full flex items-center px-2 ui-caption ui-strong ui-bar-fill" style={{ width: `${width}%`, minWidth: '2.5rem' }}>
           {count(step.reached)}
         </div>
       </div>
       {previous && change && (
-        <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+        <div className="flex flex-wrap items-center gap-2 ui-caption">
           <span>{t('funnels.compare.previous', { value: count(previous.reached) })}</span>
           <Badge tone={tone}>{change.reached.changeRatio === null ? t('funnels.compare.noPrevious') : percent(change.reached.changeRatio)}</Badge>
         </div>

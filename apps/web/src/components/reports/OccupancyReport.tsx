@@ -1,11 +1,14 @@
 'use client';
 
 import { Fragment } from 'react';
+import type { CSSProperties } from 'react';
 import type { OccupancyReportDTO } from '@platform/shared';
 import { formatPercent as formatPercentShared } from '@/lib/money';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { Bar } from './Bar';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
+import { Card, CardContent } from '@/components/ui/Card';
 
 type OccupancyReport = OccupancyReportDTO;
 
@@ -21,10 +24,10 @@ function weekdayLabels(locale: string): string[] {
   });
 }
 
-function heatColor(occupancy: number): string {
-  if (occupancy <= 0) return 'var(--color-surface-muted)';
-  const alpha = Math.min(1, 0.15 + occupancy * 0.75);
-  return `rgba(var(--color-primary-rgb, 99, 102, 241), ${alpha})`;
+/** Strength of the heat cell fill in percent (0 means the muted surface); the .ui-heat class mixes the brand color in. */
+function heatStrength(occupancy: number): string {
+  if (occupancy <= 0) return '0%';
+  return `${Math.round(Math.min(1, 0.15 + occupancy * 0.75) * 100)}%`;
 }
 
 export function OccupancyReport({ report, loading, error }: { report: OccupancyReport | null; loading: boolean; error: string | null }) {
@@ -39,59 +42,56 @@ export function OccupancyReport({ report, loading, error }: { report: OccupancyR
   const labels = weekdayLabels(locale);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-          {t('reports.occupancy.byServiceType')}
-        </h3>
-        <div className="space-y-2">
-          {report.byServiceType.map((s) => (
-            <Bar key={s.serviceTypeId} label={s.serviceTypeName} value={s.occupancy} max={maxOccupancy} valueLabel={formatPercent(s.occupancy)} />
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-          {t('reports.occupancy.heatmap')}
-        </h3>
-        <div className="overflow-x-auto">
-          <div className="inline-grid gap-[2px]" style={{ gridTemplateColumns: `40px repeat(24, 14px)` }}>
-            <div />
-            {Array.from({ length: 24 }, (_, h) => (
-              <div key={h} className="text-[9px] text-center" style={{ color: 'var(--color-text-muted)' }}>
-                {h % 3 === 0 ? h : ''}
-              </div>
-            ))}
-            {labels.map((label, weekday) => (
-              <Fragment key={weekday}>
-                <div className="text-[10px] flex items-center" style={{ color: 'var(--color-text-secondary)' }}>
-                  {label}
-                </div>
-                {Array.from({ length: 24 }, (_, hour) => {
-                  const cell = report.heatmap.find((c) => c.weekday === weekday && c.hour === hour);
-                  return (
-                    <div
-                      key={`${weekday}-${hour}`}
-                      title={`${label} ${hour}:00 - ${formatPercent(cell?.occupancy ?? 0)}`}
-                      style={{ width: 14, height: 14, backgroundColor: heatColor(cell?.occupancy ?? 0), borderRadius: 2 }}
-                    />
-                  );
-                })}
-              </Fragment>
+    <div className="grid gap-6">
+      <Card>
+        <CardContent>
+          <h3 className="ui-heading">{t('reports.occupancy.byServiceType')}</h3>
+          <div className="grid gap-2">
+            {report.byServiceType.map((s) => (
+              <Bar key={s.serviceTypeId} label={s.serviceTypeName} value={s.occupancy} max={maxOccupancy} valueLabel={formatPercent(s.occupancy)} />
             ))}
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      <div>
-        <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-          {t('reports.occupancy.byDay')}
-        </h3>
-        <div className="border overflow-x-auto" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)' }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
+      <Card>
+        <CardContent>
+          <h3 className="ui-heading">{t('reports.occupancy.heatmap')}</h3>
+          <div className="overflow-x-auto">
+            <div className="inline-grid gap-[2px]" style={{ gridTemplateColumns: `40px repeat(24, 14px)` }}>
+              <div />
+              {Array.from({ length: 24 }, (_, h) => (
+                <div key={h} className="ui-caption text-center">
+                  {h % 3 === 0 ? h : ''}
+                </div>
+              ))}
+              {labels.map((label, weekday) => (
+                <Fragment key={weekday}>
+                  <div className="ui-caption flex items-center">{label}</div>
+                  {Array.from({ length: 24 }, (_, hour) => {
+                    const cell = report.heatmap.find((c) => c.weekday === weekday && c.hour === hour);
+                    return (
+                      <div
+                        key={`${weekday}-${hour}`}
+                        className="ui-heat ui-heat-cell"
+                        title={`${label} ${hour}:00 - ${formatPercent(cell?.occupancy ?? 0)}`}
+                        style={{ '--ui-heat': heatStrength(cell?.occupancy ?? 0) } as CSSProperties}
+                      />
+                    );
+                  })}
+                </Fragment>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-2">
+        <h3 className="ui-heading">{t('reports.occupancy.byDay')}</h3>
+        <Card className="overflow-x-auto">
+          <Table>
+            <Thead>
+              <Tr>
                 {[
                   t('reports.occupancy.col.date'),
                   t('reports.occupancy.col.sessions'),
@@ -100,38 +100,26 @@ export function OccupancyReport({ report, loading, error }: { report: OccupancyR
                   t('reports.occupancy.col.attended'),
                   t('reports.occupancy.col.occupancy'),
                 ].map((h, i) => (
-                  <th key={i} className="text-left px-4 py-2 font-medium whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
+                  <Th key={i} className="whitespace-nowrap">
                     {h}
-                  </th>
+                  </Th>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </Tr>
+            </Thead>
+            <Tbody>
               {report.byDay.map((d) => (
-                <tr key={d.date} className="border-t" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-                  <td className="px-4 py-2" style={{ color: 'var(--color-text-primary)' }}>
-                    {new Date(d.date).toLocaleDateString(locale)}
-                  </td>
-                  <td className="px-4 py-2" style={{ color: 'var(--color-text-secondary)' }}>
-                    {d.sessions}
-                  </td>
-                  <td className="px-4 py-2" style={{ color: 'var(--color-text-secondary)' }}>
-                    {d.capacity}
-                  </td>
-                  <td className="px-4 py-2" style={{ color: 'var(--color-text-secondary)' }}>
-                    {d.booked}
-                  </td>
-                  <td className="px-4 py-2" style={{ color: 'var(--color-text-secondary)' }}>
-                    {d.attended}
-                  </td>
-                  <td className="px-4 py-2 font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                    {formatPercent(d.occupancy)}
-                  </td>
-                </tr>
+                <Tr key={d.date}>
+                  <Td>{new Date(d.date).toLocaleDateString(locale)}</Td>
+                  <Td>{d.sessions}</Td>
+                  <Td>{d.capacity}</Td>
+                  <Td>{d.booked}</Td>
+                  <Td>{d.attended}</Td>
+                  <Td className="ui-strong">{formatPercent(d.occupancy)}</Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Tbody>
+          </Table>
+        </Card>
       </div>
     </div>
   );
