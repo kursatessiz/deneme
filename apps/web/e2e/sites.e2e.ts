@@ -14,6 +14,34 @@ test.describe('platform site', () => {
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     const enAlternate = page.locator('link[rel="alternate"][hreflang="en"]');
     await expect(enAlternate).toHaveAttribute('href', /\/en$/);
+    // x-default points at the site default locale (Turkish in the seed) and the page is canonical to itself.
+    await expect(page.locator('link[rel="alternate"][hreflang="x-default"]')).toHaveAttribute('href', /\/tr$/);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/tr$/);
+  });
+
+  test('the English home page carries the same hreflang set and open graph defaults', async ({ page }) => {
+    await page.goto('/en');
+    await expect(page.locator('link[rel="alternate"][hreflang="tr"]')).toHaveAttribute('href', /\/tr$/);
+    await expect(page.locator('link[rel="alternate"][hreflang="x-default"]')).toHaveAttribute('href', /\/tr$/);
+    await expect(page.locator('meta[property="og:type"]')).toHaveAttribute('content', 'website');
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /\/(og\?|.*opengraph-image)|^https?:\/\//);
+  });
+
+  test('sitemap.xml lists one url per locale with x-default alternates', async ({ request }) => {
+    const res = await request.get('/sitemap.xml');
+    expect(res.status()).toBe(200);
+    const xml = await res.text();
+    expect(xml).toMatch(/<loc>[^<]*\/tr<\/loc>/);
+    expect(xml).toMatch(/<loc>[^<]*\/en<\/loc>/);
+    expect(xml).toContain('hreflang="x-default"');
+  });
+
+  test('robots.txt keeps public content allowed and disallows private areas', async ({ request }) => {
+    const body = await (await request.get('/robots.txt')).text();
+    expect(body).toContain('Allow: /');
+    expect(body).toContain('Disallow: /giris/');
+    expect(body).toContain('Disallow: /admin/');
+    expect(body).toContain('Sitemap:');
   });
 
   test('renders the English home page', async ({ page }) => {

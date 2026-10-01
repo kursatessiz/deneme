@@ -4,6 +4,7 @@
  */
 
 import { NON_INDEXABLE_PATH_PREFIXES } from './indexing';
+import { buildHreflangAlternates, type SitemapPageEntry } from './site';
 
 export interface SitemapEntry {
   loc: string;
@@ -13,6 +14,30 @@ export interface SitemapEntry {
 
 function escapeXml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/**
+ * One sitemap entry per published locale variant of every page, each carrying the
+ * page's full hreflang set (every variant plus x-default), as search engines require
+ * the alternate set to be reciprocal on every URL.
+ */
+export function buildLocalizedSitemapEntries(
+  items: readonly SitemapPageEntry[],
+  defaultLocale: string | null,
+  toUrl: (locale: string, slug: string) => string,
+): SitemapEntry[] {
+  const byPage = new Map<string, SitemapPageEntry[]>();
+  for (const item of items) {
+    const group = byPage.get(item.pageId);
+    if (group) group.push(item);
+    else byPage.set(item.pageId, [item]);
+  }
+  const entries: SitemapEntry[] = [];
+  for (const group of byPage.values()) {
+    const alternates = buildHreflangAlternates(group, toUrl, defaultLocale);
+    for (const variant of group) entries.push({ loc: toUrl(variant.locale, variant.slug), lastModified: variant.updatedAt, alternates });
+  }
+  return entries;
 }
 
 export function buildSitemapXml(entries: readonly SitemapEntry[]): string {

@@ -1,9 +1,10 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { DEFAULT_TENANT_THEME, PRODUCT_NAME } from '@platform/shared';
+import { DEFAULT_TENANT_THEME, PRODUCT_NAME, buildHreflangAlternates } from '@platform/shared';
 import { toOgLocale } from '@/lib/seo/og-locale';
 import { fetchPublicPage } from '@/lib/sites/api';
-import { siteOrigin, sitePath } from '@/lib/sites/origin';
+import { sitePath } from '@/lib/sites/origin';
+import { requestSiteOrigin } from '@/lib/sites/request-origin';
 import { pickPageVariant } from '@/lib/sites/ab';
 import { getTFor } from '@/lib/i18n/getT';
 import { serializeJsonLd } from '@/lib/sites/json-ld';
@@ -13,7 +14,6 @@ import { PublicTracking } from '@/components/consent/PublicTracking';
 import { BlockRenderer } from './BlockRenderer';
 import { organizationJsonLd, localBusinessJsonLd, faqPageJsonLd, offerJsonLd } from '@/lib/sites/jsonld';
 
-export { sitesBaseDomain, siteOrigin, sitePath } from '@/lib/sites/origin';
 const pathFor = sitePath;
 
 /** Shared by the platform's `/[locale]/[[...slug]]` route and a tenant site's `tenant-site/[studioSlug]/[locale]/[[...slug]]` route. */
@@ -21,9 +21,8 @@ export async function buildSiteMetadata(studioSlug: string, isPlatform: boolean,
   const slug = (slugParts ?? []).join('/');
   const page = await fetchPublicPage(studioSlug, locale, slug);
   if (!page) return {};
-  const origin = siteOrigin(studioSlug, isPlatform);
-  const languages: Record<string, string> = {};
-  for (const l of page.allLocales) languages[l.locale] = `${origin}${pathFor(l.locale, l.slug)}`;
+  const origin = await requestSiteOrigin(studioSlug, isPlatform);
+  const languages = buildHreflangAlternates(page.allLocales, (l, sl) => `${origin}${pathFor(l, sl)}`, page.defaultLocale);
 
   const title = page.localeMeta.seoTitle ?? undefined;
   const description = page.localeMeta.seoDescription ?? undefined;
@@ -69,7 +68,7 @@ export async function SitePageView({ studioSlug, isPlatform, locale, slugParts }
   const { variant } = await pickPageVariant(variantKeys);
   const t = await getTFor(locale);
 
-  const origin = siteOrigin(studioSlug, isPlatform);
+  const origin = await requestSiteOrigin(studioSlug, isPlatform);
   const pageUrl = `${origin}${pathFor(locale, slug)}`;
 
   const faqBlock = page.blocks.find((b) => b.type === 'faq');
