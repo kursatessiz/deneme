@@ -7,13 +7,8 @@ import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { PermissionButton } from '@/components/common/PermissionButton';
 import { bffFetch } from '@/lib/session/client';
 import { aiErrorText } from '@/lib/ai/errors';
-
-const fieldStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
+import { Select, Textarea } from '@/components/ui';
+import { Button } from '@/components/ui/Button';
 
 interface Props {
   /** Text types offered; the first one is preselected. */
@@ -105,70 +100,67 @@ export function AiDraftPanel({ kinds, locale, hint, onUse }: Props) {
   return (
     <section
       aria-labelledby={`${id}-title`}
-      className="border p-4 space-y-3"
-      style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)', backgroundColor: 'var(--color-surface)' }}
+      className="p-4 space-y-3 pui-card"
     >
       <div className="flex items-center justify-between gap-2">
-        <h3 id={`${id}-title`} className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+        <h3 id={`${id}-title`} className="ui-strong">
           {t('ai.draft.title')}
         </h3>
-        <button type="button" onClick={() => setOpen(false)} className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
+        <Button variant="link" tone="muted" size="sm" type="button" onClick={() => setOpen(false)}>
           {t('ai.draft.close')}
-        </button>
+        </Button>
       </div>
       <label className="block space-y-1" htmlFor={`${id}-brief`}>
-        <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+        <span className="ui-strong ui-caption">
           {t('ai.draft.brief')}
         </span>
-        <textarea
+        <Textarea
           id={`${id}-brief`}
           value={brief}
           onChange={(e) => setBrief(e.target.value)}
           placeholder={t('ai.draft.briefPlaceholder')}
           rows={3}
           maxLength={1000}
-          className="w-full text-sm px-3 py-2"
-          style={fieldStyle}
         />
       </label>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         {kinds.length > 1 && (
           <label className="block space-y-1" htmlFor={`${id}-kind`}>
-            <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+            <span className="ui-strong ui-caption">
               {t('ai.draft.kind')}
             </span>
-            <select id={`${id}-kind`} value={kind} onChange={(e) => setKind(e.target.value as AiDraftKind)} className="w-full text-sm px-3 py-2" style={fieldStyle}>
+            <Select id={`${id}-kind`} value={kind} onChange={(e) => setKind(e.target.value as AiDraftKind)}>
               {kinds.map((k) => (
                 <option key={k} value={k}>
                   {t(`ai.draft.kind.${k}`)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
         <label className="block space-y-1" htmlFor={`${id}-tone`}>
-          <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+          <span className="ui-strong ui-caption">
             {t('ai.draft.tone')}
           </span>
-          <select id={`${id}-tone`} value={tone} onChange={(e) => setTone(e.target.value as AiDraftTone)} className="w-full text-sm px-3 py-2" style={fieldStyle}>
+          <Select id={`${id}-tone`} value={tone} onChange={(e) => setTone(e.target.value as AiDraftTone)}>
             {AI_DRAFT_TONES.map((k) => (
               <option key={k} value={k}>
                 {t(`ai.draft.tone.${k}`)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="block space-y-1" htmlFor={`${id}-locale`}>
-          <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+          <span className="ui-strong ui-caption">
             {t('ai.draft.locale')}
           </span>
-          <select id={`${id}-locale`} value={draftLocale} onChange={(e) => setDraftLocale(e.target.value)} className="w-full text-sm px-3 py-2" style={fieldStyle}>
+          <Select id={`${id}-locale`} value={draftLocale} onChange={(e) => setDraftLocale(e.target.value)}>
             {localeOptions.map((code) => (
               <option key={code} value={code}>
                 {code}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       </div>
       <div className="flex items-center gap-2">
@@ -177,25 +169,22 @@ export function AiDraftPanel({ kinds, locale, hint, onUse }: Props) {
         </PermissionButton>
       </div>
       {error && (
-        <p className="text-xs" role="alert" style={{ color: 'var(--color-danger, #b42318)' }}>
+        <p className="ui-text-error ui-small" role="alert">
           {error}
         </p>
       )}
       {result && (
         <div className="space-y-2" data-testid="ai-draft-result">
-          <p className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+          <p className="ui-strong ui-caption">
             {t('ai.draft.result')}
           </p>
           {result.subject && (
-            <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
-              <span className="font-medium">{t('ai.draft.subject')}: </span>
+            <p>
+              <span className="ui-strong">{t('ai.draft.subject')}: </span>
               {result.subject}
             </p>
           )}
-          <p
-            className="text-sm whitespace-pre-wrap border p-3"
-            style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)', color: 'var(--color-text-primary)' }}
-          >
+          <p className="ui-panel whitespace-pre-wrap p-3">
             {result.text}
           </p>
           <div className="flex flex-wrap items-center gap-2">
@@ -208,7 +197,7 @@ export function AiDraftPanel({ kinds, locale, hint, onUse }: Props) {
               {copied ? t('ai.draft.copied') : t('ai.draft.copy')}
             </PermissionButton>
           </div>
-          <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="ui-caption">
             {hint ?? t('ai.draft.hint')}
           </p>
         </div>

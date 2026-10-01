@@ -11,8 +11,11 @@ import { LoadingState, ErrorState } from '@/components/common/DataState';
 import { bffFetch } from '@/lib/session/client';
 import { hasAnyPermission } from '@/lib/nav';
 import { EMPTY_RULES, SegmentBuilder, SegmentPreview } from './SegmentBuilder';
-import { Field, Muted, Notice, PageHeader, Panel, inputClass, inputStyle, errorMessage, useDateFormat } from './ui';
+import { Field, Muted, Notice, PageHeader, Panel, errorMessage, useDateFormat } from './ui';
 import { useAreaHref } from '@/components/session/AreaBase';
+import { Input, Select } from '@/components/ui';
+import { Button } from '@/components/ui/Button';
+import { Checkbox } from '@/components/ui/Checkbox';
 
 /** Create (segment undefined) or edit a segment: rule builder, live preview, members of a static segment. */
 export function SegmentEditor({ segmentId }: { segmentId?: string }) {
@@ -149,26 +152,23 @@ export function SegmentEditor({ segmentId }: { segmentId?: string }) {
           <Panel>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Field label={t('segments.field.name')} htmlFor="segment-name">
-                <input id="segment-name" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} style={inputStyle} disabled={!canManage} />
+                <Input id="segment-name" value={name} onChange={(e) => setName(e.target.value)} disabled={!canManage} />
               </Field>
               {!segment && (
                 <Field label={t('segments.field.kind')} htmlFor="segment-kind" hint={t(`segments.kindHint.${kind}`)}>
-                  <select id="segment-kind" value={kind} onChange={(e) => setKind(e.target.value === 'STATIC' ? 'STATIC' : 'DYNAMIC')} className={inputClass} style={inputStyle}>
+                  <Select id="segment-kind" value={kind} onChange={(e) => setKind(e.target.value === 'STATIC' ? 'STATIC' : 'DYNAMIC')}>
                     <option value="DYNAMIC">{t('segments.kind.DYNAMIC')}</option>
                     <option value="STATIC">{t('segments.kind.STATIC')}</option>
-                  </select>
+                  </Select>
                 </Field>
               )}
               <div className="md:col-span-2">
                 <Field label={t('segments.field.description')} htmlFor="segment-description">
-                  <input id="segment-description" value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} style={inputStyle} disabled={!canManage} />
+                  <Input id="segment-description" value={description} onChange={(e) => setDescription(e.target.value)} disabled={!canManage} />
                 </Field>
               </div>
               {!segment && kind === 'STATIC' && (
-                <label className="inline-flex items-center gap-2 text-xs md:col-span-2" style={{ color: 'var(--color-text-primary)' }}>
-                  <input type="checkbox" checked={seedFromRules} onChange={(e) => setSeedFromRules(e.target.checked)} />
-                  {t('segments.seedFromRules')}
-                </label>
+                <Checkbox checked={seedFromRules} onChange={(e) => setSeedFromRules(e.target.checked)} label={t('segments.seedFromRules')} className="md:col-span-2 ui-small" />
               )}
             </div>
           </Panel>
@@ -186,14 +186,14 @@ export function SegmentEditor({ segmentId }: { segmentId?: string }) {
               ) : (
                 <ul className="space-y-1">
                   {members.items.map((m) => (
-                    <li key={m.id} className="flex items-center justify-between gap-2 text-sm">
-                      <Link href={areaHref(`/kisiler/${encodeURIComponent(m.id)}`)} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                    <li key={m.id} className="flex items-center justify-between gap-2">
+                      <Link href={areaHref(`/kisiler/${encodeURIComponent(m.id)}`)} className="pui-link pui-surface">
                         {m.fullName}
                       </Link>
                       {segment.kind === 'STATIC' && canManage && (
-                        <button type="button" className="text-xs underline" style={{ color: 'var(--color-text-muted)' }} onClick={() => removeMember(m.id)}>
+                        <Button variant="link" tone="muted" size="sm" type="button" onClick={() => removeMember(m.id)}>
                           {t('segments.members.remove')}
-                        </button>
+                        </Button>
                       )}
                     </li>
                   ))}

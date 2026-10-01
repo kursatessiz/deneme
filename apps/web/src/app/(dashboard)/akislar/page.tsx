@@ -9,8 +9,10 @@ import { Badge } from '@/components/common/Badge';
 import { EmptyState, ErrorState, LoadingState } from '@/components/common/DataState';
 import { hasAnyPermission } from '@/lib/nav';
 import { useBff } from '@/lib/session/use-bff';
-import { PageHeader, inputStyle } from '@/components/growth/ui';
+import { PageHeader } from '@/components/growth/ui';
 import { useAreaHref } from '@/components/session/AreaBase';
+import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui';
+import { LinkButton } from '@/components/ui/LinkButton';
 
 function triggerLabel(j: JourneyDTO, t: (key: string) => string): string {
   const trigger = j.definition.trigger;
@@ -32,12 +34,12 @@ function JourneyList() {
         actions={
           canManage ? (
             <>
-              <Link href={areaHref('/akislar/sablonlar')} className="text-xs font-medium px-3 py-1.5" style={{ ...inputStyle, borderRadius: 'var(--radius-button)' }}>
+              <LinkButton variant="outline" tone="surface" size="sm" href={areaHref('/akislar/sablonlar')}>
                 {t('journeys.fromTemplate')}
-              </Link>
-              <Link href={areaHref('/akislar/yeni')} className="text-xs font-medium px-3 py-1.5" style={{ background: 'var(--gradient-brand)', color: 'var(--color-on-primary)', borderRadius: 'var(--radius-button)' }}>
+              </LinkButton>
+              <LinkButton size="sm" href={areaHref('/akislar/yeni')}>
                 {t('journeys.new')}
-              </Link>
+              </LinkButton>
             </>
           ) : undefined
         }
@@ -52,20 +54,20 @@ function JourneyList() {
         />
       )}
       {!loading && !error && data && data.items.length > 0 && (
-        <div className="overflow-x-auto" style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-          <table className="w-full text-sm" aria-label={t('journeys.title')}>
-            <thead>
-              <tr className="text-left text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                <th className="px-4 py-2 font-medium">{t('journeys.col.name')}</th>
-                <th className="px-4 py-2 font-medium">{t('journeys.col.trigger')}</th>
-                <th className="px-4 py-2 font-medium">{t('journeys.col.status')}</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="overflow-x-auto pui-card">
+          <Table aria-label={t('journeys.title')}>
+            <Thead>
+              <Tr>
+                <Th>{t('journeys.col.name')}</Th>
+                <Th>{t('journeys.col.trigger')}</Th>
+                <Th>{t('journeys.col.status')}</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
               {data.items.map((j) => (
-                <tr key={j.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
-                  <td className="px-4 py-2.5">
-                    <Link href={areaHref(`/akislar/${encodeURIComponent(j.id)}`)} className="font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                <Tr key={j.id}>
+                  <Td>
+                    <Link href={areaHref(`/akislar/${encodeURIComponent(j.id)}`)} className="pui-link pui-surface ui-strong">
                       {j.name}
                     </Link>
                     {j.legacyRuleType && (
@@ -73,17 +75,17 @@ function JourneyList() {
                         <Badge>{t('journeys.legacyBadge')}</Badge>
                       </span>
                     )}
-                  </td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
+                  </Td>
+                  <Td className="ui-text-muted">
                     {triggerLabel(j, t)}
-                  </td>
-                  <td className="px-4 py-2.5">
+                  </Td>
+                  <Td>
                     <Badge tone={j.status === 'ACTIVE' ? 'success' : 'neutral'}>{t(`journeys.status.${j.status}`)}</Badge>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
+            </Tbody>
+          </Table>
         </div>
       )}
     </div>
