@@ -157,7 +157,7 @@ export default function LoginPage() {
 
 function ErrorText({ text }: { text: string }) {
   return (
-    <p className="ui-caption" role="alert" style={{ color: 'var(--pui-error)' }}>
+    <p className="ui-caption ui-text-error" role="alert">
       {text}
     </p>
   );

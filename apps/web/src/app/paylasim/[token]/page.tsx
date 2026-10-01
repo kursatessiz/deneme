@@ -6,6 +6,8 @@ import type { PublicCommunityPostDTO } from '@platform/shared';
 import { bffFetch } from '@/lib/session/client';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
+import { PublicShell } from '@/components/common/PublicShell';
+import { AnchorButton } from '@/components/ui';
 
 type State = 'loading' | 'ready' | 'invalid';
 
@@ -36,56 +38,37 @@ export default function SharedCommunityPostPage({ params }: { params: Promise<{ 
   }, [token]);
 
   return (
-    <main className="min-h-screen flex justify-center px-4 py-12" style={{ backgroundColor: 'var(--color-background)' }}>
-      <article
-        className="w-full max-w-2xl p-8 border space-y-4 h-fit"
-        style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-card)' }}
-      >
-        <div className="flex justify-end">
-          <LanguageSwitcher mode="cookie" />
-        </div>
-        {state === 'loading' && (
-          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-            {t('common.loading')}
+    <PublicShell wide as="article">
+      <div className="flex justify-end">
+        <LanguageSwitcher mode="cookie" className="pui-input ui-btn-sm" />
+      </div>
+      {state === 'loading' && <p className="ui-text-muted">{t('common.loading')}</p>}
+      {state === 'invalid' && (
+        <p className="ui-text-muted" role="alert">
+          {t('community.public.invalid')}
+        </p>
+      )}
+      {state === 'ready' && post && (
+        <>
+          <p className="ui-caption">
+            {t('community.public.from', { studio: post.studioName })} - {new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(post.publishedAt))}
           </p>
-        )}
-        {state === 'invalid' && (
-          <p className="text-sm" role="alert" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('community.public.invalid')}
-          </p>
-        )}
-        {state === 'ready' && post && (
-          <>
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              {t('community.public.from', { studio: post.studioName })} - {new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(post.publishedAt))}
+          <h1 className="ui-title">{post.title}</h1>
+          {post.body && <p className="ui-text-muted whitespace-pre-wrap break-words">{post.body}</p>}
+          {post.video && (
+            <p className="ui-caption">
+              {post.video.title} - {t('community.public.videoMembersOnly')}
             </p>
-            <h1 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-              {post.title}
-            </h1>
-            {post.body && (
-              <p className="text-sm whitespace-pre-wrap break-words" style={{ color: 'var(--color-text-secondary)' }}>
-                {post.body}
-              </p>
-            )}
-            {post.video && (
-              <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                {post.video.title} - {t('community.public.videoMembersOnly')}
-              </p>
-            )}
-            {post.attachmentUrl && post.attachmentUrl.startsWith('https://') && (
-              <a
-                href={post.attachmentUrl}
-                target="_blank"
-                rel="noopener noreferrer nofollow"
-                className="inline-block text-sm font-medium underline"
-                style={{ color: 'var(--color-primary)' }}
-              >
+          )}
+          {post.attachmentUrl && post.attachmentUrl.startsWith('https://') && (
+            <div>
+              <AnchorButton href={post.attachmentUrl} target="_blank" rel="noopener noreferrer nofollow" variant="link" tone="theme" size="sm">
                 {post.attachmentName || t('community.public.openAttachment')}
-              </a>
-            )}
-          </>
-        )}
-      </article>
-    </main>
+              </AnchorButton>
+            </div>
+          )}
+        </>
+      )}
+    </PublicShell>
   );
 }

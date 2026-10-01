@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Calendar, Clock, User, CheckCircle2, ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
+import { User, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { useT } from '@/components/i18n/I18nProvider';
+import { Badge, Button, Card, CardContent, FieldGroup, LinkButton, Radio, Select } from '@/components/ui';
 
 export default function PublicBookingPage() {
   const t = useT();
@@ -34,134 +34,88 @@ export default function PublicBookingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col justify-center items-center p-4 sm:p-6">
-      <div className="max-w-md w-full bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-xl">
-        <Link
-          href="/"
-          className="inline-flex items-center text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 mb-6"
-        >
-          <ArrowLeft className="w-3.5 h-3.5 mr-1" /> {t('booking.backToList')}
-        </Link>
-
-        {isConfirmed ? (
-          <div className="text-center py-8 space-y-4">
-            <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto">
-              <CheckCircle2 className="w-10 h-10" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-              {t('booking.confirmed.title')}
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              {t('booking.confirmed.summary', { type: selectedType, date: selectedDate, slot: selectedSlot })}
-            </p>
-            <p className="text-[11px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border border-amber-200 dark:border-amber-900/60">
-              {t('booking.confirmed.cancellationNote')}
-            </p>
-            <button
-              onClick={() => setIsConfirmed(false)}
-              className="w-full py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold mt-4"
-            >
-              {t('booking.confirmed.newBooking')}
-            </button>
-          </div>
-        ) : (
+    <main className="min-h-screen flex justify-center items-center p-4 sm:p-6">
+      <Card className="w-full max-w-md">
+        <CardContent className="gap-5 p-6">
           <div>
-            <div className="text-center mb-6">
-              <span className="text-[10px] font-bold ui-eyebrow tracking-wider text-sky-500 bg-sky-50 dark:bg-sky-950/60 px-3 py-1 rounded-full border border-sky-200 dark:border-sky-900/60">
-                {t('booking.badge')}
-              </span>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-3">
-                {studioName}
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                {t('booking.intro')}
-              </p>
+            <LinkButton href="/" variant="link" tone="surface" size="sm" icon={<ArrowLeft className="ui-icon" aria-hidden="true" />}>
+              {t('booking.backToList')}
+            </LinkButton>
+          </div>
+
+          {isConfirmed ? (
+            <div className="grid justify-items-center gap-4 text-center py-4">
+              <Badge tone="success">
+                <CheckCircle2 className="ui-icon" aria-hidden="true" />
+              </Badge>
+              <h3 className="ui-title">{t('booking.confirmed.title')}</h3>
+              <p className="ui-text-muted">{t('booking.confirmed.summary', { type: selectedType, date: selectedDate, slot: selectedSlot })}</p>
+              <p className="ui-panel ui-small p-3">{t('booking.confirmed.cancellationNote')}</p>
+              <Button block onClick={() => setIsConfirmed(false)}>
+                {t('booking.confirmed.newBooking')}
+              </Button>
             </div>
-
-            <form onSubmit={handleBooking} className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
-                  {t('booking.sessionType')}
-                </label>
-                <select
-                  value={selectedType}
-                  onChange={(e) => setSelectedType(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
-                >
-                  <option value="Birebir Özel Reformer">Birebir Özel Reformer (1 Seans)</option>
-                  <option value="Düet Reformer">Düet Reformer (2 Kişi)</option>
-                  <option value="Cadillac Trapeze Özel">Cadillac Trapeze Özel</option>
-                  <option value="Grup Reformer">Grup Reformer</option>
-                </select>
+          ) : (
+            <div className="grid gap-5">
+              <div className="grid justify-items-center gap-2 text-center">
+                <Badge tone="theme" className="ui-eyebrow">
+                  {t('booking.badge')}
+                </Badge>
+                <h2 className="ui-title">{studioName}</h2>
+                <p className="ui-text-muted">{t('booking.intro')}</p>
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
-                  {t('booking.dateSelection')}
-                </label>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  {['Bugün (18 Eylül)', 'Yarın (19 Eylül)'].map((d) => (
-                    <button
-                      key={d}
-                      type="button"
-                      onClick={() => setSelectedDate(d)}
-                      className={`p-2 rounded-xl border text-center font-medium transition ${
-                        selectedDate === d
-                          ? 'border-sky-500 bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-300'
-                          : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
-                      }`}
-                    >
-                      {d}
-                    </button>
-                  ))}
+              <form onSubmit={handleBooking} className="grid gap-4">
+                <FieldGroup label={t('booking.sessionType')}>
+                  <Select value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
+                    <option value="Birebir Özel Reformer">Birebir Özel Reformer (1 Seans)</option>
+                    <option value="Düet Reformer">Düet Reformer (2 Kişi)</option>
+                    <option value="Cadillac Trapeze Özel">Cadillac Trapeze Özel</option>
+                    <option value="Grup Reformer">Grup Reformer</option>
+                  </Select>
+                </FieldGroup>
+
+                <div className="grid gap-1.5">
+                  <span className="ui-caption ui-strong">{t('booking.dateSelection')}</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['Bugün (18 Eylül)', 'Yarın (19 Eylül)'].map((d) => (
+                      <Button
+                        key={d}
+                        variant={selectedDate === d ? 'soft' : 'outline'}
+                        tone={selectedDate === d ? 'theme' : 'surface'}
+                        size="sm"
+                        aria-pressed={selectedDate === d}
+                        onClick={() => setSelectedDate(d)}
+                      >
+                        {d}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
-                  {t('booking.availableSlots')}
-                </label>
-                <div className="space-y-2">
+                <fieldset className="grid gap-1.5">
+                  <legend className="ui-caption ui-strong mb-1.5">{t('booking.availableSlots')}</legend>
                   {availableSlots.map((s) => (
-                    <label
-                      key={s.time}
-                      className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition ${
-                        selectedSlot === s.time
-                          ? 'border-sky-500 bg-sky-500/10'
-                          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="radio"
-                          name="timeSlot"
-                          checked={selectedSlot === s.time}
-                          onChange={() => setSelectedSlot(s.time)}
-                          className="text-sky-500"
-                        />
-                        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                          {s.time}
-                        </span>
-                      </div>
-                      <span className="text-[11px] text-slate-500 flex items-center">
-                        <User className="w-3 h-3 mr-1" /> {s.trainer}
+                    <label key={s.time} className="ui-choice flex items-center justify-between gap-3">
+                      <span className="flex items-center gap-2">
+                        <Radio name="timeSlot" checked={selectedSlot === s.time} onChange={() => setSelectedSlot(s.time)} />
+                        <span className="ui-strong">{s.time}</span>
+                      </span>
+                      <span className="ui-caption flex items-center gap-1">
+                        <User className="ui-icon" aria-hidden="true" /> {s.trainer}
                       </span>
                     </label>
                   ))}
-                </div>
-              </div>
+                </fieldset>
 
-              <button
-                type="submit"
-                disabled={!selectedSlot}
-                className="w-full py-3 rounded-xl bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white font-semibold text-xs transition shadow-md mt-6"
-              >
-                {t('booking.confirm')}
-              </button>
-            </form>
-          </div>
-        )}
-      </div>
-    </div>
+                <Button type="submit" block disabled={!selectedSlot}>
+                  {t('booking.confirm')}
+                </Button>
+              </form>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </main>
   );
 }

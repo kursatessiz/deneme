@@ -5,6 +5,8 @@ import { CONSENT_CONFIRMATION_TOKEN_PATTERN, type ConsentConfirmResultDTO } from
 import { bffFetch } from '@/lib/session/client';
 import { useT } from '@/components/i18n/I18nProvider';
 import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
+import { PublicShell } from '@/components/common/PublicShell';
+import { Button } from '@/components/ui';
 
 type State = 'ready' | 'done' | 'invalid' | 'error';
 
@@ -35,56 +37,35 @@ export default function ConsentConfirmPage({ params }: { params: Promise<{ token
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4 py-12" style={{ backgroundColor: 'var(--color-background)' }}>
-      <div
-        className="w-full max-w-md p-8 border space-y-5"
-        style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-card)' }}
-      >
-        <div className="flex items-start justify-between gap-4">
-          <h1 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-            {t('consentConfirm.title')}
-          </h1>
-          <LanguageSwitcher mode="cookie" />
-        </div>
-
-        {(state === 'ready' || state === 'error') && (
-          <div className="space-y-4">
-            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('consentConfirm.description')}
-            </p>
-            <button
-              type="button"
-              onClick={confirm}
-              disabled={busy}
-              className="w-full px-4 py-2.5 text-sm font-semibold disabled:opacity-50"
-              style={{ background: 'var(--gradient-brand, var(--color-primary))', color: 'var(--color-on-primary)', borderRadius: 'var(--radius-button)' }}
-            >
-              {t('consentConfirm.confirm')}
-            </button>
-            {state === 'error' && (
-              <p className="text-xs" role="alert" style={{ color: 'var(--color-danger)' }}>
-                {t('consentConfirm.error')}
-              </p>
-            )}
-          </div>
-        )}
-
-        {state === 'done' && (
-          <p className="text-sm" role="status" style={{ color: 'var(--color-text-primary)' }}>
-            {t('consentConfirm.done')}
-          </p>
-        )}
-
-        {state === 'invalid' && (
-          <p className="text-sm" role="alert" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('consentConfirm.invalid')}
-          </p>
-        )}
-
-        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          {t('consentConfirm.note')}
-        </p>
+    <PublicShell>
+      <div className="flex items-start justify-between gap-4">
+        <h1 className="ui-title">{t('consentConfirm.title')}</h1>
+        <LanguageSwitcher mode="cookie" className="pui-input ui-btn-sm" />
       </div>
-    </main>
+
+      {(state === 'ready' || state === 'error') && (
+        <div className="grid gap-4">
+          <p className="ui-text-muted">{t('consentConfirm.description')}</p>
+          <Button block onClick={confirm} disabled={busy}>
+            {t('consentConfirm.confirm')}
+          </Button>
+          {state === 'error' && (
+            <p className="ui-caption ui-text-error" role="alert">
+              {t('consentConfirm.error')}
+            </p>
+          )}
+        </div>
+      )}
+
+      {state === 'done' && <p role="status">{t('consentConfirm.done')}</p>}
+
+      {state === 'invalid' && (
+        <p className="ui-text-muted" role="alert">
+          {t('consentConfirm.invalid')}
+        </p>
+      )}
+
+      <p className="ui-caption">{t('consentConfirm.note')}</p>
+    </PublicShell>
   );
 }

@@ -4,6 +4,8 @@ import { use, useEffect, useState } from 'react';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { useT } from '@/components/i18n/I18nProvider';
 import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
+import { PublicShell } from '@/components/common/PublicShell';
+import { Button } from '@/components/ui';
 import { isTrackingToken } from '@/lib/messaging/tokens';
 
 interface UnsubscribeInfo {
@@ -58,67 +60,40 @@ export default function UnsubscribePage({ params }: { params: Promise<{ token: s
   const channelLabel = info ? t(`messaging.channel.${info.channel}`) : '';
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4 py-12" style={{ backgroundColor: 'var(--color-background)' }}>
-      <div
-        className="w-full max-w-md p-8 border space-y-5"
-        style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-card)' }}
-      >
-        <div className="flex items-start justify-between gap-4">
-          <h1 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-            {t('messaging.unsubscribe.title')}
-          </h1>
-          <LanguageSwitcher mode="cookie" />
-        </div>
-
-        {state === 'loading' && (
-          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-            {t('common.loading')}
-          </p>
-        )}
-
-        {state === 'invalid' && (
-          <p className="text-sm" role="alert" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('messaging.unsubscribe.invalid')}
-          </p>
-        )}
-
-        {state === 'ready' && info && (
-          <div className="space-y-4">
-            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('messaging.unsubscribe.description', { studioName: info.studioName, channel: channelLabel })}
-            </p>
-            <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-              {t('messaging.unsubscribe.address', { address: info.maskedAddress })}
-            </p>
-            <button
-              type="button"
-              onClick={confirm}
-              disabled={busy}
-              className="w-full px-4 py-2.5 text-sm font-semibold disabled:opacity-50"
-              style={{ background: 'var(--gradient-brand, var(--color-primary))', color: 'var(--color-on-primary)', borderRadius: 'var(--radius-button)' }}
-            >
-              {t('messaging.unsubscribe.confirm')}
-            </button>
-            {error && (
-              <p className="text-xs" role="alert" style={{ color: 'var(--color-danger, #b42318)' }}>
-                {error}
-              </p>
-            )}
-          </div>
-        )}
-
-        {state === 'done' && info && (
-          <p className="text-sm" role="status" style={{ color: 'var(--color-text-primary)' }}>
-            {info.alreadyUnsubscribed ? t('messaging.unsubscribe.already') : t('messaging.unsubscribe.done', { studioName: info.studioName })}
-          </p>
-        )}
-
-        {state !== 'invalid' && (
-          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {t('messaging.unsubscribe.note')}
-          </p>
-        )}
+    <PublicShell>
+      <div className="flex items-start justify-between gap-4">
+        <h1 className="ui-title">{t('messaging.unsubscribe.title')}</h1>
+        <LanguageSwitcher mode="cookie" className="pui-input ui-btn-sm" />
       </div>
-    </main>
+
+      {state === 'loading' && <p className="ui-text-muted">{t('common.loading')}</p>}
+
+      {state === 'invalid' && (
+        <p className="ui-text-muted" role="alert">
+          {t('messaging.unsubscribe.invalid')}
+        </p>
+      )}
+
+      {state === 'ready' && info && (
+        <div className="grid gap-4">
+          <p className="ui-text-muted">{t('messaging.unsubscribe.description', { studioName: info.studioName, channel: channelLabel })}</p>
+          <p className="ui-strong">{t('messaging.unsubscribe.address', { address: info.maskedAddress })}</p>
+          <Button block onClick={confirm} disabled={busy}>
+            {t('messaging.unsubscribe.confirm')}
+          </Button>
+          {error && (
+            <p className="ui-caption ui-text-error" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
+      )}
+
+      {state === 'done' && info && (
+        <p role="status">{info.alreadyUnsubscribed ? t('messaging.unsubscribe.already') : t('messaging.unsubscribe.done', { studioName: info.studioName })}</p>
+      )}
+
+      {state !== 'invalid' && <p className="ui-caption">{t('messaging.unsubscribe.note')}</p>}
+    </PublicShell>
   );
 }

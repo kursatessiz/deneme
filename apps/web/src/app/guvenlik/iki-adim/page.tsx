@@ -13,7 +13,7 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
   const t = useT();
   return (
     <Section title={t('twoFactor.recovery.title')} description={t('twoFactor.recovery.note')}>
-      <ul className="grid grid-cols-2 gap-1 ui-mono text-sm" aria-label={t('twoFactor.recovery.title')}>
+      <ul className="grid grid-cols-2 gap-1 ui-mono" aria-label={t('twoFactor.recovery.title')}>
         {codes.map((c) => (
           <li key={c}>{c}</li>
         ))}
@@ -133,19 +133,15 @@ function TwoFactor() {
               });
             }}
           >
-            <p className="text-sm">{t('twoFactor.setup.step1')}</p>
-            <div className="space-y-1">
-              <p className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                {t('twoFactor.setup.secretLabel')}
-              </p>
-              <code className="block p-2 border text-sm break-all" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)' }}>
-                {enrollment.secret}
-              </code>
-              <a href={enrollment.otpauthUrl} className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
+            <p>{t('twoFactor.setup.step1')}</p>
+            <div className="grid gap-1">
+              <p className="ui-caption ui-strong">{t('twoFactor.setup.secretLabel')}</p>
+              <code className="ui-panel ui-mono block p-2 break-all">{enrollment.secret}</code>
+              <a href={enrollment.otpauthUrl} className="pui-link pui-surface ui-small">
                 {t('twoFactor.setup.openInApp')}
               </a>
             </div>
-            <p className="text-sm">{t('twoFactor.setup.step2')}</p>
+            <p>{t('twoFactor.setup.step2')}</p>
             <TextField label={t('twoFactor.verify.code')} value={code} onChange={setCode} />
             {error && <InlineMessage text={error} tone="error" />}
             <PrimaryButton type="submit" disabled={busy || !/^\d{6}$/.test(code)}>

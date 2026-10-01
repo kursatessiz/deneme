@@ -118,7 +118,7 @@ export function Header({
             <DropdownSection>
               <Switch label={t('layout.darkMode')} checked={isDark} onCheckedChange={(v) => void setDark(v)} />
               {appearanceError && (
-                <p className="ui-caption mt-1" style={{ color: 'var(--pui-error)' }}>
+                <p className="ui-caption ui-text-error mt-1">
                   {t('layout.appearanceSaveFailed')}
                 </p>
               )}

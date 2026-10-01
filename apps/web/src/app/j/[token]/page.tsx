@@ -8,6 +8,7 @@ import { postLoginPath } from '@/lib/session/post-login';
 import { useT } from '@/components/i18n/I18nProvider';
 import { AdminTheme } from '@/components/admin/AdminTheme';
 import { ErrorState, LoadingState } from '@/components/common/DataState';
+import { Checkbox } from '@/components/ui';
 import { InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader, TextField } from '@/components/settings/ui';
 
 interface InvitePreview {
@@ -67,7 +68,7 @@ export default function JoinInvitePage() {
         {invite && (
           <>
             <SettingsHeader title={t('joinInvite.invitedTo', { name: invite.studio.name })} description={t('joinInvite.role', { role: invite.roleName })} />
-            <p className="text-sm">{t('joinInvite.greeting', { fullName: invite.fullName })}</p>
+            <p>{t('joinInvite.greeting', { fullName: invite.fullName })}</p>
             {!codeSent ? (
               <PrimaryButton
                 disabled={busy}
@@ -100,27 +101,20 @@ export default function JoinInvitePage() {
                   });
                 }}
               >
-                <p className="text-sm">{t('joinInvite.codeSentTo', { phone: codeSent })}</p>
+                <p>{t('joinInvite.codeSentTo', { phone: codeSent })}</p>
                 <TextField label={t('joinInvite.code')} value={code} onChange={setCode} />
-                <div className="space-y-1">
+                <div className="grid gap-1">
                   <TextField label={t('joinInvite.pin')} value={pin} onChange={setPin} type="password" />
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    {t('joinInvite.pinHint')}
-                  </p>
+                  <p className="ui-caption">{t('joinInvite.pinHint')}</p>
                 </div>
                 <Section title={t('joinInvite.documents')}>
                   {invite.documents.map((d) => (
-                    <details key={d.id} className="text-sm">
-                      <summary className="cursor-pointer font-medium">{d.title}</summary>
-                      <p className="mt-2 whitespace-pre-wrap text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                        {d.body}
-                      </p>
+                    <details key={d.id}>
+                      <summary className="ui-strong">{d.title}</summary>
+                      <p className="mt-2 whitespace-pre-wrap ui-caption">{d.body}</p>
                     </details>
                   ))}
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
-                    {t('joinInvite.accept')}
-                  </label>
+                  <Checkbox checked={accepted} onChange={(e) => setAccepted(e.target.checked)} label={t('joinInvite.accept')} />
                 </Section>
                 {error && <InlineMessage text={error} tone="error" />}
                 <div className="flex gap-3">
