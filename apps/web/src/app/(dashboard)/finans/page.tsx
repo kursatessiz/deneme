@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { PageGuard } from '@/components/common/PageGuard';
 import { Tabs } from '@/components/common/Tabs';
 import { useT } from '@/components/i18n/I18nProvider';
@@ -13,15 +12,17 @@ import { AccountingExportCard } from '@/components/finance/AccountingExportCard'
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { hasAnyPermission } from '@/lib/nav';
 import type { PermissionKey } from '@platform/shared';
+import { LinkButton } from '@/components/ui/LinkButton';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 /** A link shown only to members holding one of the permissions (owners always). */
 function PermissionLink({ permissions, href, children }: { permissions: readonly PermissionKey[]; href: string; children: React.ReactNode }) {
   const { permissions: held, isOwner } = useDashboardSession();
   if (!hasAnyPermission(permissions, held, isOwner)) return null;
   return (
-    <Link href={href} className="text-sm font-medium hover:underline" style={{ color: 'var(--color-text-secondary)' }}>
+    <LinkButton href={href} variant="outline" tone="surface" size="sm">
       {children}
-    </Link>
+    </LinkButton>
   );
 }
 
@@ -33,25 +34,21 @@ function FinancePage() {
   const tabs = TAB_KEYS.map((key) => ({ key, label: t(`finance.tabs.${key}`) }));
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-            {t('finance.title')}
-          </h2>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('finance.subtitle')}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <PermissionLink permissions={['payouts.view']} href="/finans/odemeler">
-            {t('finance.payoutsLink')}
-          </PermissionLink>
-          <Link href="/finans/bordro" className="text-sm font-medium hover:underline" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('finance.payrollLink')}
-          </Link>
-        </div>
-      </div>
+    <div className="grid gap-6">
+      <PageHeader
+        title={t('finance.title')}
+        description={t('finance.subtitle')}
+        actions={
+          <>
+            <PermissionLink permissions={['payouts.view']} href="/finans/odemeler">
+              {t('finance.payoutsLink')}
+            </PermissionLink>
+            <LinkButton href="/finans/bordro" variant="outline" tone="surface" size="sm">
+              {t('finance.payrollLink')}
+            </LinkButton>
+          </>
+        }
+      />
 
       <AccountingExportCard />
 

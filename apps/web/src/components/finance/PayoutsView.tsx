@@ -1,21 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  PAYOUT_EXPORT_FORMATS,
-  PAYOUT_EXPORT_KINDS,
-  PAYOUT_PROVIDERS,
-  PAYOUT_RECONCILIATION_STATUSES,
-  PAYOUT_STATUSES,
-} from '@platform/shared';
-import type {
-  PayoutConnectionDTO,
-  PayoutDetailDTO,
-  PayoutExportFormat,
-  PayoutExportKind,
-  PayoutListDTO,
-  PayoutSyncResultDTO,
-} from '@platform/shared';
+import { PAYOUT_EXPORT_FORMATS, PAYOUT_EXPORT_KINDS, PAYOUT_PROVIDERS, PAYOUT_RECONCILIATION_STATUSES, PAYOUT_STATUSES } from '@platform/shared';
+import type { PayoutConnectionDTO, PayoutDetailDTO, PayoutExportFormat, PayoutExportKind, PayoutListDTO, PayoutSyncResultDTO } from '@platform/shared';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
@@ -26,19 +13,13 @@ import { Badge } from '@/components/common/Badge';
 import { DateRangeFilter } from '@/components/common/DateRangeFilter';
 import { PayoutDetail } from '@/components/finance/PayoutDetail';
 import { PAYOUT_STATUS_TONE, RECONCILIATION_TONE } from '@/components/finance/payout-tones';
-
-const fieldStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
-
-const cardStyle: React.CSSProperties = {
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-card)',
-  backgroundColor: 'var(--color-surface)',
-};
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { FieldGroup } from '@/components/ui/FieldGroup';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
+import { AnchorButton } from '@/components/ui/LinkButton';
+import { Card } from '@/components/ui/Card';
+import { List, ListItem } from '@/components/ui/List';
 
 /** The picked end date is a calendar day: the range runs to the end of it. */
 function endOfDay(d: Date): Date {
@@ -57,7 +38,11 @@ function ConnectionsPanel({ studioId, connections, onSaved }: { studioId: string
     setMessage(null);
     const value = (accountDrafts[provider] ?? '').trim();
     try {
-      await bffFetch(`studios/${studioId}/payouts/connections/${provider}`, { method: 'PATCH', studioId, body: { providerAccountId: value === '' ? null : value } });
+      await bffFetch(`studios/${studioId}/payouts/connections/${provider}`, {
+        method: 'PATCH',
+        studioId,
+        body: { providerAccountId: value === '' ? null : value },
+      });
       setMessage(t('payouts.connections.accountSaved'));
       onSaved();
     } catch (err) {
@@ -67,51 +52,47 @@ function ConnectionsPanel({ studioId, connections, onSaved }: { studioId: string
 
   if (connections.length === 0) return null;
   return (
-    <section className="p-4 space-y-3" style={cardStyle}>
-      <h3 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-        {t('payouts.connections.title')}
-      </h3>
-      <ul className="space-y-3">
+    <Card as="section" className="p-4 space-y-3">
+      <h3 className="ui-heading">{t('payouts.connections.title')}</h3>
+      <List className="ui-divide">
         {connections.map((c) => (
-          <li key={c.provider} className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-            <span className="font-medium min-w-24" style={{ color: 'var(--color-text-primary)' }}>
-              {t(`payouts.provider.${c.provider}`)}
-            </span>
+          <ListItem key={c.provider} className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <span className="ui-strong min-w-24">{t(`payouts.provider.${c.provider}`)}</span>
             {!c.supported && <Badge tone="neutral">{t('payouts.connections.unsupported')}</Badge>}
             {c.supported && (
-              <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              <span className="ui-caption">
                 {c.lastSyncedAt
-                  ? t('payouts.connections.lastSynced', { date: new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(c.lastSyncedAt)) })
+                  ? t('payouts.connections.lastSynced', {
+                      date: new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(c.lastSyncedAt)),
+                    })
                   : t('payouts.connections.never')}
               </span>
             )}
             {c.lastError && <Badge tone="danger">{t(`payouts.connections.error.${c.lastError}`)}</Badge>}
             {c.supported && c.accountRequired && (
               <span className="inline-flex flex-wrap items-center gap-2">
-                <input
+                <Input
                   type="text"
                   aria-label={`${t('payouts.connections.accountLabel')} (${t(`payouts.provider.${c.provider}`)})`}
                   placeholder={t('payouts.connections.accountLabel')}
                   value={accountDrafts[c.provider] ?? c.providerAccountId ?? ''}
                   onChange={(e) => setAccountDrafts((d) => ({ ...d, [c.provider]: e.target.value }))}
-                  className="text-xs px-2.5 py-1.5"
-                  style={fieldStyle}
                 />
                 <PermissionButton required={['payouts.manage']} variant="secondary" onClick={() => saveAccount(c.provider)}>
                   {t('payouts.connections.accountSave')}
                 </PermissionButton>
               </span>
             )}
-          </li>
+          </ListItem>
         ))}
-      </ul>
+      </List>
       {message && (
-        <p className="text-xs" role="status" style={{ color: 'var(--color-text-secondary)' }}>
+        <p className="ui-caption" role="status">
           {message}
         </p>
       )}
-      {error && <p className="text-xs text-red-600">{error}</p>}
-    </section>
+      {error && <p className="ui-caption ui-text-error">{error}</p>}
+    </Card>
   );
 }
 
@@ -128,46 +109,35 @@ function ExportCard({ studioId, from, to, provider }: { studioId: string; from: 
   const href = `/api/bff/studios/${studioId}/payouts/export?${params.toString()}`;
 
   return (
-    <section className="p-4 space-y-3" style={cardStyle}>
+    <Card as="section" className="p-4 space-y-3">
       <div>
-        <h3 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          {t('payouts.export.title')}
-        </h3>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('payouts.export.description')}
-        </p>
+        <h3 className="ui-heading">{t('payouts.export.title')}</h3>
+        <p className="ui-caption mt-0.5">{t('payouts.export.description')}</p>
       </div>
       <div className="flex flex-wrap items-end gap-3">
-        <label className="text-xs space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
-          <span className="block">{t('payouts.export.kind')}</span>
-          <select value={kind} onChange={(e) => setKind(e.target.value as PayoutExportKind)} className="text-xs px-2.5 py-1.5" style={fieldStyle}>
+        <FieldGroup label={t('payouts.export.kind')}>
+          <Select value={kind} onChange={(e) => setKind(e.target.value as PayoutExportKind)}>
             {PAYOUT_EXPORT_KINDS.map((k) => (
               <option key={k} value={k}>
                 {t(`payouts.export.kind.${k}`)}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="text-xs space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
-          <span className="block">{t('payouts.export.format')}</span>
-          <select value={format} onChange={(e) => setFormat(e.target.value as PayoutExportFormat)} className="text-xs px-2.5 py-1.5" style={fieldStyle}>
+          </Select>
+        </FieldGroup>
+        <FieldGroup label={t('payouts.export.format')}>
+          <Select value={format} onChange={(e) => setFormat(e.target.value as PayoutExportFormat)}>
             {PAYOUT_EXPORT_FORMATS.map((f) => (
               <option key={f} value={f}>
                 {t(`payouts.export.format.${f}`)}
               </option>
             ))}
-          </select>
-        </label>
-        <a
-          href={href}
-          download
-          className="text-xs font-medium px-3 py-1.5 hover:opacity-90"
-          style={{ borderRadius: 'var(--radius-button)', background: 'var(--gradient-brand)', color: 'var(--color-on-primary)' }}
-        >
+          </Select>
+        </FieldGroup>
+        <AnchorButton href={href} download size="sm">
           {t('payouts.export.download')}
-        </a>
+        </AnchorButton>
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -267,10 +237,12 @@ export function PayoutsView() {
     }
   }
 
-  const resetPage = <T,>(setter: (v: T) => void) => (v: T) => {
-    setter(v);
-    setPage(1);
-  };
+  const resetPage =
+    <T,>(setter: (v: T) => void) =>
+    (v: T) => {
+      setter(v);
+      setPage(1);
+    };
   const pages = list ? Math.max(1, Math.ceil(list.total / list.pageSize)) : 1;
   const day = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' });
 
@@ -305,7 +277,7 @@ export function PayoutsView() {
           {syncing ? t('payouts.sync.running') : t('payouts.sync.button')}
         </PermissionButton>
         {syncLines.length > 0 && (
-          <div role="status" className="text-xs space-y-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+          <div role="status" className="ui-caption space-y-0.5">
             {syncLines.map((line) => (
               <p key={line}>{line}</p>
             ))}
@@ -326,39 +298,36 @@ export function PayoutsView() {
             setPage(1);
           }}
         />
-        <label className="text-xs space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
-          <span className="block">{t('payouts.filter.provider')}</span>
-          <select value={provider} onChange={(e) => resetPage(setProvider)(e.target.value)} className="text-xs px-2.5 py-1.5" style={fieldStyle}>
+        <FieldGroup label={t('payouts.filter.provider')}>
+          <Select value={provider} onChange={(e) => resetPage(setProvider)(e.target.value)}>
             <option value="">{t('payouts.filter.allProviders')}</option>
             {PAYOUT_PROVIDERS.map((p) => (
               <option key={p} value={p}>
                 {t(`payouts.provider.${p}`)}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="text-xs space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
-          <span className="block">{t('payouts.filter.status')}</span>
-          <select value={status} onChange={(e) => resetPage(setStatus)(e.target.value)} className="text-xs px-2.5 py-1.5" style={fieldStyle}>
+          </Select>
+        </FieldGroup>
+        <FieldGroup label={t('payouts.filter.status')}>
+          <Select value={status} onChange={(e) => resetPage(setStatus)(e.target.value)}>
             <option value="">{t('payouts.filter.allStatuses')}</option>
             {PAYOUT_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {t(`payouts.status.${s}`)}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="text-xs space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
-          <span className="block">{t('payouts.filter.reconciliation')}</span>
-          <select value={reconciliation} onChange={(e) => resetPage(setReconciliation)(e.target.value)} className="text-xs px-2.5 py-1.5" style={fieldStyle}>
+          </Select>
+        </FieldGroup>
+        <FieldGroup label={t('payouts.filter.reconciliation')}>
+          <Select value={reconciliation} onChange={(e) => resetPage(setReconciliation)(e.target.value)}>
             <option value="">{t('payouts.filter.allReconciliation')}</option>
             {PAYOUT_RECONCILIATION_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {t(`payouts.reconciliation.${s}`)}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </FieldGroup>
       </div>
 
       {loading && <LoadingState />}
@@ -366,10 +335,10 @@ export function PayoutsView() {
       {!loading && !error && (!list || list.items.length === 0) && <EmptyState title={t('payouts.empty.title')} description={t('payouts.empty.description')} />}
       {!loading && !error && list && list.items.length > 0 && (
         <>
-          <div className="border overflow-x-auto" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)' }}>
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
+          <Card className="overflow-x-auto">
+            <Table>
+              <Thead>
+                <Tr>
                   {[
                     t('payouts.col.arrivalDate'),
                     t('payouts.col.provider'),
@@ -383,56 +352,40 @@ export function PayoutsView() {
                     t('payouts.col.reconciliationStatus'),
                     '',
                   ].map((h, i) => (
-                    <th key={i} className="text-left px-3 py-2.5 font-medium whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
+                    <Th key={i} className="whitespace-nowrap">
                       {h}
-                    </th>
+                    </Th>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
+                </Tr>
+              </Thead>
+              <Tbody>
                 {list.items.map((p) => (
-                  <tr key={p.id} className="border-t" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-                    <td className="px-3 py-2.5 whitespace-nowrap" style={{ color: 'var(--color-text-primary)' }}>
-                      {day.format(new Date(p.arrivalDate))}
-                    </td>
-                    <td className="px-3 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
-                      {t(`payouts.provider.${p.provider}`)}
-                    </td>
-                    <td className="px-3 py-2.5 font-mono text-xs break-all" style={{ color: 'var(--color-text-secondary)' }}>
-                      {p.providerPayoutId}
-                    </td>
-                    <td className="px-3 py-2.5">
+                  <Tr key={p.id}>
+                    <Td className="whitespace-nowrap">{day.format(new Date(p.arrivalDate))}</Td>
+                    <Td>{t(`payouts.provider.${p.provider}`)}</Td>
+                    <Td className="font-mono ui-caption break-all">{p.providerPayoutId}</Td>
+                    <Td>
                       <Badge tone={PAYOUT_STATUS_TONE[p.status]}>{t(`payouts.status.${p.status}`)}</Badge>
-                    </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap" style={{ color: 'var(--color-text-primary)' }}>
-                      {formatMoney(p.grossAmount, p.currency, locale)}
-                    </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
-                      {formatMoney(p.feeAmount, p.currency, locale)}
-                    </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
-                      {formatMoney(p.refundAmount, p.currency, locale)}
-                    </td>
-                    <td className="px-3 py-2.5 font-medium whitespace-nowrap" style={{ color: 'var(--color-text-primary)' }}>
-                      {formatMoney(p.netAmount, p.currency, locale)}
-                    </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
-                      {t('payouts.table.items', { matched: p.matchedItemCount, total: p.matchableItemCount })}
-                    </td>
-                    <td className="px-3 py-2.5">
+                    </Td>
+                    <Td className="whitespace-nowrap">{formatMoney(p.grossAmount, p.currency, locale)}</Td>
+                    <Td className="whitespace-nowrap">{formatMoney(p.feeAmount, p.currency, locale)}</Td>
+                    <Td className="whitespace-nowrap">{formatMoney(p.refundAmount, p.currency, locale)}</Td>
+                    <Td className="ui-strong whitespace-nowrap">{formatMoney(p.netAmount, p.currency, locale)}</Td>
+                    <Td className="whitespace-nowrap">{t('payouts.table.items', { matched: p.matchedItemCount, total: p.matchableItemCount })}</Td>
+                    <Td>
                       <Badge tone={RECONCILIATION_TONE[p.reconciliationStatus]}>{t(`payouts.reconciliation.${p.reconciliationStatus}`)}</Badge>
-                    </td>
-                    <td className="px-3 py-2.5 text-right">
+                    </Td>
+                    <Td className="text-right">
                       <PermissionButton variant="secondary" aria-label={`${t('payouts.table.open')} ${p.providerPayoutId}`} onClick={() => setSelectedId(p.id)}>
                         {t('payouts.table.open')}
                       </PermissionButton>
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              </Tbody>
+            </Table>
+          </Card>
+          <div className="flex flex-wrap items-center justify-between gap-2 ui-caption">
             <span>{t('payouts.table.total', { count: list.total })}</span>
             <span className="inline-flex items-center gap-2">
               <PermissionButton variant="secondary" disabled={page <= 1} onClick={() => setPage((n) => Math.max(1, n - 1))}>

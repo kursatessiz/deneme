@@ -12,16 +12,13 @@ import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataSt
 import { PermissionButton } from '@/components/common/PermissionButton';
 import { Badge } from '@/components/common/Badge';
 import { Modal } from '@/components/common/Modal';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
+import { Card } from '@/components/ui/Card';
 
 type PromoCodeRow = PromoCodeDTO;
 type GiftCardRow = GiftCardDTO;
-
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
 
 function NewPromoCodeDialog({ studioId, onClose, onDone }: { studioId: string; onClose: () => void; onDone: () => void }) {
   const t = useT();
@@ -54,31 +51,24 @@ function NewPromoCodeDialog({ studioId, onClose, onDone }: { studioId: string; o
   return (
     <Modal title={t('finance.promotions.newCodeTitle')} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-3">
-        <input
-          placeholder={t('finance.promotions.codePlaceholder')}
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          className="w-full text-sm px-3 py-1.5"
-          style={inputStyle}
-        />
-        <select value={kind} onChange={(e) => setKind(e.target.value as PromoCodeKind)} className="w-full text-sm px-3 py-1.5" style={inputStyle}>
+        <Input placeholder={t('finance.promotions.codePlaceholder')} value={code} onChange={(e) => setCode(e.target.value)} className="w-full" />
+        <Select value={kind} onChange={(e) => setKind(e.target.value as PromoCodeKind)} className="w-full">
           {Object.values(PromoCodeKind).map((k) => (
             <option key={k} value={k}>
               {kindLabel(k)}
             </option>
           ))}
-        </select>
-        <input
+        </Select>
+        <Input
           type="number"
           min="0.01"
           step="0.01"
           placeholder={t('finance.promotions.valuePlaceholder')}
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          className="w-full text-sm px-3 py-1.5"
-          style={inputStyle}
+          className="w-full"
         />
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {error && <p className="ui-caption ui-text-error">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <PermissionButton type="button" variant="ghost" onClick={onClose}>
             {t('common.cancel')}
@@ -114,9 +104,7 @@ function PromoCodesSection() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          {t('finance.promotions.codesTitle')}
-        </h3>
+        <h3 className="ui-heading">{t('finance.promotions.codesTitle')}</h3>
         <PermissionButton required={['promotions.manage']} variant="primary" onClick={() => setShowNew(true)}>
           {t('finance.promotions.newCode')}
         </PermissionButton>
@@ -125,10 +113,10 @@ function PromoCodesSection() {
       {error && <ErrorState message={error} />}
       {!loading && !error && (!codes || codes.length === 0) && <EmptyState title={t('finance.promotions.empty')} />}
       {!loading && !error && codes && codes.length > 0 && (
-        <div className="border overflow-x-auto" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)' }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
+        <Card className="overflow-x-auto">
+          <Table>
+            <Thead>
+              <Tr>
                 {[
                   t('finance.promotions.col.code'),
                   t('finance.promotions.col.kind'),
@@ -137,41 +125,41 @@ function PromoCodesSection() {
                   t('finance.promotions.col.status'),
                   '',
                 ].map((h, i) => (
-                  <th key={i} className="text-left px-4 py-2.5 font-medium whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
+                  <Th key={i} className="whitespace-nowrap">
                     {h}
-                  </th>
+                  </Th>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </Tr>
+            </Thead>
+            <Tbody>
               {codes.map((c) => (
-                <tr key={c.id} className="border-t" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-                  <td className="px-4 py-2.5 font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                    {c.code}
-                  </td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
-                    {kindLabel(c.kind)}
-                  </td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-primary)' }}>
-                    {c.kind === 'PERCENT' ? `%${c.value}` : c.kind === 'FIXED_AMOUNT' ? formatMoney(c.value) : t('finance.promotions.valueUnit', { value: c.value })}
-                  </td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
+                <Tr key={c.id}>
+                  <Td className="ui-strong">{c.code}</Td>
+                  <Td>{kindLabel(c.kind)}</Td>
+                  <Td>
+                    {c.kind === 'PERCENT'
+                      ? `%${c.value}`
+                      : c.kind === 'FIXED_AMOUNT'
+                        ? formatMoney(c.value)
+                        : t('finance.promotions.valueUnit', { value: c.value })}
+                  </Td>
+                  <Td>
                     {c.redeemedCount}
                     {c.maxRedemptions ? ` / ${c.maxRedemptions}` : ''}
-                  </td>
-                  <td className="px-4 py-2.5">
+                  </Td>
+                  <Td>
                     <Badge tone={c.isActive ? 'success' : 'neutral'}>{c.isActive ? t('finance.promotions.active') : t('finance.promotions.inactive')}</Badge>
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
+                  </Td>
+                  <Td className="text-right">
                     <PermissionButton required={['promotions.manage']} onClick={() => toggleActive(c)}>
                       {c.isActive ? t('finance.promotions.deactivate') : t('finance.promotions.activate')}
                     </PermissionButton>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Tbody>
+          </Table>
+        </Card>
       )}
       {showNew && activeStudioId && (
         <NewPromoCodeDialog
@@ -196,20 +184,16 @@ function GiftCardsSection() {
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-        {t('finance.promotions.giftCardsTitle')}
-      </h3>
-      <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-        {t('finance.promotions.giftCardsHint')}
-      </p>
+      <h3 className="ui-heading">{t('finance.promotions.giftCardsTitle')}</h3>
+      <p className="ui-caption">{t('finance.promotions.giftCardsHint')}</p>
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
       {!loading && !error && (!cards || cards.length === 0) && <EmptyState title={t('finance.promotions.giftCardsEmpty')} />}
       {!loading && !error && cards && cards.length > 0 && (
-        <div className="border overflow-x-auto" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)' }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
+        <Card className="overflow-x-auto">
+          <Table>
+            <Thead>
+              <Tr>
                 {[
                   t('finance.promotions.col.card'),
                   t('finance.promotions.col.recipient'),
@@ -217,35 +201,27 @@ function GiftCardsSection() {
                   t('finance.promotions.col.balance'),
                   t('finance.promotions.col.status'),
                 ].map((h, i) => (
-                  <th key={i} className="text-left px-4 py-2.5 font-medium whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
+                  <Th key={i} className="whitespace-nowrap">
                     {h}
-                  </th>
+                  </Th>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </Tr>
+            </Thead>
+            <Tbody>
               {cards.map((g) => (
-                <tr key={g.id} className="border-t" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-                  <td className="px-4 py-2.5 font-mono text-xs" style={{ color: 'var(--color-text-primary)' }}>
-                    **** {g.last4}
-                  </td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
-                    {g.recipientName ?? '-'}
-                  </td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
-                    {formatMoney(g.initialAmount)}
-                  </td>
-                  <td className="px-4 py-2.5 font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                    {formatMoney(g.balance)}
-                  </td>
-                  <td className="px-4 py-2.5">
+                <Tr key={g.id}>
+                  <Td className="font-mono ui-caption">**** {g.last4}</Td>
+                  <Td>{g.recipientName ?? '-'}</Td>
+                  <Td>{formatMoney(g.initialAmount)}</Td>
+                  <Td className="ui-strong">{formatMoney(g.balance)}</Td>
+                  <Td>
                     <Badge tone={g.status === 'ACTIVE' ? 'success' : 'neutral'}>{g.status}</Badge>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Tbody>
+          </Table>
+        </Card>
       )}
     </div>
   );

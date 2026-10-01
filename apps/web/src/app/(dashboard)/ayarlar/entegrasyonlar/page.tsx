@@ -12,6 +12,11 @@ import { PageGuard } from '@/components/common/PageGuard';
 import { hasAnyPermission } from '@/lib/nav';
 import { Badge, InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader, TextField } from '@/components/settings/ui';
 import { validateWebhookUrl } from '@/lib/settings/url-validation';
+import { Checkbox } from '@/components/ui/Checkbox';
+import { Select } from '@/components/ui/Select';
+import { Button } from '@/components/ui/Button';
+import { FieldGroup } from '@/components/ui/FieldGroup';
+import { List, ListItem } from '@/components/ui/List';
 
 interface ApiKeyRow {
   id: string;
@@ -100,7 +105,11 @@ function ApiKeysSection() {
     }
     setCreating(true);
     try {
-      const res = await bffFetch<{ plaintext: string }>('integrations/api-keys', { method: 'POST', body: { name, scopes: [...scopes] }, studioId: activeStudioId });
+      const res = await bffFetch<{ plaintext: string }>('integrations/api-keys', {
+        method: 'POST',
+        body: { name, scopes: [...scopes] },
+        studioId: activeStudioId,
+      });
       setPlaintext(res.plaintext);
       setName('');
       setScopes(new Set());
@@ -125,34 +134,32 @@ function ApiKeysSection() {
   return (
     <Section title={t('settings.integrations.apiKeys.title')} description={t('settings.integrations.apiKeys.description')} key={refreshKey}>
       {plaintext && (
-        <div className="p-3 border space-y-2" style={{ borderColor: 'var(--color-primary)', borderRadius: 'var(--radius-input)' }}>
-          <p className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
-            {t('settings.integrations.apiKeys.showOnce')}
-          </p>
+        <div className="ui-panel grid gap-2 p-3">
+          <p className="ui-caption ui-strong">{t('settings.integrations.apiKeys.showOnce')}</p>
           <div className="flex items-center gap-2">
-            <code className="text-xs break-all flex-1" style={{ color: 'var(--color-text-primary)' }}>
-              {plaintext}
-            </code>
+            <code className="ui-caption break-all flex-1">{plaintext}</code>
             <CopyButton text={plaintext} />
           </div>
-          <button type="button" className="text-xs underline" onClick={() => setPlaintext(null)}>
+          <Button variant="link" size="sm" className="justify-self-start" onClick={() => setPlaintext(null)}>
             {t('settings.integrations.close')}
-          </button>
+          </Button>
         </div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end max-w-xl">
-        <TextField label={t('settings.integrations.apiKeys.nameLabel')} value={name} onChange={setName} placeholder={t('settings.integrations.apiKeys.namePlaceholder')} />
+        <TextField
+          label={t('settings.integrations.apiKeys.nameLabel')}
+          value={name}
+          onChange={setName}
+          placeholder={t('settings.integrations.apiKeys.namePlaceholder')}
+        />
         <PrimaryButton onClick={create} disabled={creating}>
           {creating ? t('settings.integrations.apiKeys.creating') : t('settings.integrations.apiKeys.create')}
         </PrimaryButton>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {ALL_API_KEY_SCOPES.map((s) => (
-          <label key={s} className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-primary)' }}>
-            <input type="checkbox" checked={scopes.has(s)} onChange={() => toggleScope(s)} />
-            {API_KEY_SCOPES[s]}
-          </label>
+          <Checkbox key={s} label={API_KEY_SCOPES[s]} checked={scopes.has(s)} onChange={() => toggleScope(s)} />
         ))}
       </div>
       {createError && <InlineMessage text={createError} tone="error" />}
@@ -162,16 +169,14 @@ function ApiKeysSection() {
       {actionError && <InlineMessage text={actionError} tone="error" />}
       {!loading && !error && (!data || data.length === 0) && <EmptyState title={t('settings.integrations.apiKeys.empty')} />}
       {!loading && !error && data && data.length > 0 && (
-        <div className="space-y-2">
+        <List className="ui-divide">
           {data.map((k) => (
-            <div key={k.id} className="flex items-center justify-between gap-3 py-2 border-b last:border-b-0" style={{ borderColor: 'var(--color-border)' }}>
+            <ListItem key={k.id} className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                  {k.name} <span style={{ color: 'var(--color-text-muted)' }}>({k.prefix}...)</span>
+                <p className="ui-strong">
+                  {k.name} <span className="ui-text-muted">({k.prefix}...)</span>
                 </p>
-                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  {k.scopes.join(', ')}
-                </p>
+                <p className="ui-caption">{k.scopes.join(', ')}</p>
               </div>
               {k.revokedAt ? (
                 <Badge tone="danger">{t('settings.integrations.apiKeys.revoked')}</Badge>
@@ -180,9 +185,9 @@ function ApiKeysSection() {
                   {t('settings.integrations.apiKeys.revoke')}
                 </SecondaryButton>
               )}
-            </div>
+            </ListItem>
           ))}
-        </div>
+        </List>
       )}
     </Section>
   );
@@ -212,20 +217,20 @@ function WebhookDeliveries({ endpointId }: { endpointId: string }) {
   if (!data || data.items.length === 0) return <EmptyState title={t('settings.integrations.webhooks.deliveries.empty')} />;
 
   return (
-    <div className="mt-2 space-y-1">
+    <List>
       {actionError && <InlineMessage text={actionError} tone="error" />}
       {data.items.map((d) => (
-        <div key={d.id} className="flex items-center justify-between text-xs py-1" style={{ color: 'var(--color-text-secondary)' }}>
+        <ListItem key={d.id} className="flex items-center justify-between ui-caption">
           <span>
             {d.event} -- {d.status}
             {d.lastError ? ` -- ${d.lastError}` : ''}
           </span>
-          <button type="button" disabled={redelivering === d.id} className="underline disabled:opacity-50" onClick={() => redeliver(d.id)}>
+          <Button variant="link" size="sm" disabled={redelivering === d.id} onClick={() => redeliver(d.id)}>
             {t('settings.integrations.webhooks.deliveries.resend')}
-          </button>
-        </div>
+          </Button>
+        </ListItem>
       ))}
-    </div>
+    </List>
   );
 }
 
@@ -266,7 +271,11 @@ function WebhooksSection() {
     }
     setCreating(true);
     try {
-      const res = await bffFetch<{ secret: string }>('integrations/webhooks', { method: 'POST', body: { url, events: [...events], isActive: true }, studioId: activeStudioId });
+      const res = await bffFetch<{ secret: string }>('integrations/webhooks', {
+        method: 'POST',
+        body: { url, events: [...events], isActive: true },
+        studioId: activeStudioId,
+      });
       setSecretShown(res.secret);
       setUrl('');
       setEvents(new Set());
@@ -310,19 +319,15 @@ function WebhooksSection() {
   return (
     <Section title={t('settings.integrations.webhooks.title')} description={t('settings.integrations.webhooks.description')} key={refreshKey}>
       {secretShown && (
-        <div className="p-3 border space-y-2" style={{ borderColor: 'var(--color-primary)', borderRadius: 'var(--radius-input)' }}>
-          <p className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
-            {t('settings.integrations.webhooks.secretShowOnce')}
-          </p>
+        <div className="ui-panel grid gap-2 p-3">
+          <p className="ui-caption ui-strong">{t('settings.integrations.webhooks.secretShowOnce')}</p>
           <div className="flex items-center gap-2">
-            <code className="text-xs break-all flex-1" style={{ color: 'var(--color-text-primary)' }}>
-              {secretShown}
-            </code>
+            <code className="ui-caption break-all flex-1">{secretShown}</code>
             <CopyButton text={secretShown} />
           </div>
-          <button type="button" className="text-xs underline" onClick={() => setSecretShown(null)}>
+          <Button variant="link" size="sm" className="justify-self-start" onClick={() => setSecretShown(null)}>
             {t('settings.integrations.close')}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -330,10 +335,7 @@ function WebhooksSection() {
         <TextField label={t('settings.integrations.webhooks.urlLabel')} value={url} onChange={setUrl} placeholder="https://..." error={urlError} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {TENANT_WEBHOOK_EVENTS.map((e) => (
-            <label key={e} className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-primary)' }}>
-              <input type="checkbox" checked={events.has(e)} onChange={() => toggleEvent(e)} />
-              {WEBHOOK_EVENTS[e]}
-            </label>
+            <Checkbox key={e} label={WEBHOOK_EVENTS[e]} checked={events.has(e)} onChange={() => toggleEvent(e)} />
           ))}
         </div>
         {createError && <InlineMessage text={createError} tone="error" />}
@@ -347,15 +349,13 @@ function WebhooksSection() {
       {actionError && <InlineMessage text={actionError} tone="error" />}
       {!loading && !error && (!data || data.length === 0) && <EmptyState title={t('settings.integrations.webhooks.empty')} />}
       {!loading && !error && data && data.length > 0 && (
-        <div className="space-y-3">
+        <List className="ui-divide">
           {data.map((w) => (
-            <div key={w.id} className="border-b last:border-b-0 pb-3" style={{ borderColor: 'var(--color-border)' }}>
+            <ListItem key={w.id}>
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
-                    {w.url}
-                  </p>
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                  <p className="ui-strong truncate">{w.url}</p>
+                  <p className="ui-caption">
                     {w.events.join(', ')} {!w.isActive && `-- ${t('settings.integrations.webhooks.inactive')}`}{' '}
                     {w.failureCount > 0 && `-- ${t('settings.integrations.webhooks.consecutiveFailures', { count: w.failureCount })}`}
                   </p>
@@ -363,16 +363,18 @@ function WebhooksSection() {
                 <div className="flex gap-2 shrink-0">
                   <SecondaryButton onClick={() => rotate(w.id)}>{t('settings.integrations.webhooks.rotateSecret')}</SecondaryButton>
                   <SecondaryButton onClick={() => sendTest(w.id, w.events[0])}>{t('settings.integrations.webhooks.testEvent')}</SecondaryButton>
-                  <SecondaryButton onClick={() => setExpandedId(expandedId === w.id ? null : w.id)}>{t('settings.integrations.webhooks.deliveries')}</SecondaryButton>
+                  <SecondaryButton onClick={() => setExpandedId(expandedId === w.id ? null : w.id)}>
+                    {t('settings.integrations.webhooks.deliveries')}
+                  </SecondaryButton>
                   <SecondaryButton danger onClick={() => remove(w.id)}>
                     {t('settings.integrations.webhooks.delete')}
                   </SecondaryButton>
                 </div>
               </div>
               {expandedId === w.id && <WebhookDeliveries endpointId={w.id} />}
-            </div>
+            </ListItem>
           ))}
-        </div>
+        </List>
       )}
     </Section>
   );
@@ -432,24 +434,21 @@ function PartnersSection() {
   return (
     <Section title={t('settings.integrations.partners.title')} description={t('settings.integrations.partners.description')} key={refreshKey}>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl items-end">
-        <div>
-          <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('settings.integrations.partners.providerLabel')}
-          </span>
-          <select
-            value={provider}
-            onChange={(e) => setProvider(e.target.value as PartnerProviderName)}
-            className="w-full mt-1 px-3 py-2 text-sm border"
-            style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)', backgroundColor: 'var(--color-background)', color: 'var(--color-text-primary)' }}
-          >
+        <FieldGroup label={t('settings.integrations.partners.providerLabel')}>
+          <Select value={provider} onChange={(e) => setProvider(e.target.value as PartnerProviderName)}>
             {PARTNER_PROVIDERS.map((p) => (
               <option key={p} value={p}>
                 {p}
               </option>
             ))}
-          </select>
-        </div>
-        <TextField label={t('settings.integrations.partners.labelLabel')} value={label} onChange={setLabel} placeholder={t('settings.integrations.partners.labelPlaceholder')} />
+          </Select>
+        </FieldGroup>
+        <TextField
+          label={t('settings.integrations.partners.labelLabel')}
+          value={label}
+          onChange={setLabel}
+          placeholder={t('settings.integrations.partners.labelPlaceholder')}
+        />
         <TextField label={t('settings.integrations.partners.webhookSecretLabel')} value={webhookSecret} onChange={setWebhookSecret} type="password" />
       </div>
       {createError && <InlineMessage text={createError} tone="error" />}
@@ -462,14 +461,14 @@ function PartnersSection() {
       {actionError && <InlineMessage text={actionError} tone="error" />}
       {!loading && !error && (!data || data.length === 0) && <EmptyState title={t('settings.integrations.partners.empty')} />}
       {!loading && !error && data && data.length > 0 && (
-        <div className="space-y-2">
+        <List className="ui-divide">
           {data.map((c) => (
-            <div key={c.id} className="flex items-center justify-between gap-3 py-2 border-b last:border-b-0" style={{ borderColor: 'var(--color-border)' }}>
+            <ListItem key={c.id} className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                  {c.label} <span style={{ color: 'var(--color-text-muted)' }}>({c.provider})</span>
+                <p className="ui-strong">
+                  {c.label} <span className="ui-text-muted">({c.provider})</span>
                 </p>
-                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                <p className="ui-caption">
                   {statusLabel(c.status)}
                   {c.consecutiveFailures > 0 && ` -- ${t('settings.integrations.webhooks.consecutiveFailures', { count: c.consecutiveFailures })}`}
                 </p>
@@ -479,9 +478,9 @@ function PartnersSection() {
               ) : (
                 <SecondaryButton onClick={() => setStatus(c.id, 'ACTIVE')}>{t('settings.integrations.partners.activate')}</SecondaryButton>
               )}
-            </div>
+            </ListItem>
           ))}
-        </div>
+        </List>
       )}
     </Section>
   );
@@ -494,7 +493,7 @@ function IntegrationsSettings() {
   const canPartners = hasAnyPermission(['integrations.partners.manage'], permissions, isOwner);
 
   return (
-    <div className="space-y-6">
+    <div className="grid gap-6">
       <SettingsHeader title={t('settings.integrations.title')} description={t('settings.integrations.description')} />
       {canIntegrations && <ApiKeysSection />}
       {canIntegrations && <WebhooksSection />}

@@ -5,6 +5,8 @@ import { useT } from '@/components/i18n/I18nProvider';
 import { useBff } from '@/lib/session/use-bff';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { PageGuard } from '@/components/common/PageGuard';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Card } from '@/components/ui/Card';
 
 interface PackageDefinitionRow {
   id: string;
@@ -23,15 +25,8 @@ function PackageList() {
   const { data: packages, loading, error } = useBff<PackageDefinitionRow[]>(`catalog/package-definitions/studio/${activeStudioId}`, activeStudioId);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-          {t('packages.title')}
-        </h2>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('packages.subtitle')}
-        </p>
-      </div>
+    <div className="grid gap-6">
+      <PageHeader title={t('packages.title')} description={t('packages.subtitle')} />
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
@@ -45,25 +40,17 @@ function PackageList() {
       {!loading && !error && packages && packages.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {packages.map((pkg) => (
-            <div
-              key={pkg.id}
-              className="p-5 flex flex-col justify-between"
-              style={{
-                borderRadius: 'var(--radius-card)',
-                background: 'var(--gradient-brand)',
-                color: 'var(--color-on-primary)',
-              }}
-            >
-              <div>
-                <h3 className="font-bold text-lg">{pkg.name}</h3>
-                <p className="text-2xl font-extrabold mt-3">{formatMoney(pkg.price)}</p>
+            <Card key={pkg.id} className="ui-gradient-package-card flex flex-col justify-between gap-4 p-5">
+              <div className="grid gap-3">
+                <h3 className="ui-heading">{pkg.name}</h3>
+                <p className="ui-stat-value">{formatMoney(pkg.price)}</p>
               </div>
-              <div className="mt-4 text-xs space-y-1 opacity-90">
+              <div className="grid gap-1 opacity-90">
                 <div>{pkg.totalUnits ? t('packages.units', { count: pkg.totalUnits }) : t('packages.unlimited')}</div>
                 <div>{t('packages.validity', { count: pkg.validityDays })}</div>
                 <div>{t('packages.freezeDays', { count: pkg.freezeDaysAllowed })}</div>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}

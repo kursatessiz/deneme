@@ -94,16 +94,22 @@ export function Toggle({ label, checked, onChange, disabled }: { label: string; 
 }
 
 export function Badge({ children, tone = 'neutral' }: { children: React.ReactNode; tone?: 'neutral' | 'primary' | 'danger' }) {
-  if (tone === 'primary') return <UiBadge variant="solid" tone="theme">{children}</UiBadge>;
-  if (tone === 'danger') return <UiBadge variant="solid" tone="error">{children}</UiBadge>;
+  if (tone === 'primary')
+    return (
+      <UiBadge variant="solid" tone="theme">
+        {children}
+      </UiBadge>
+    );
+  if (tone === 'danger')
+    return (
+      <UiBadge variant="solid" tone="error">
+        {children}
+      </UiBadge>
+    );
   return <UiBadge>{children}</UiBadge>;
 }
 
 export function InlineMessage({ text, tone = 'neutral' }: { text: string; tone?: 'neutral' | 'success' | 'error' }) {
-  const color = tone === 'success' ? 'var(--pui-success)' : tone === 'error' ? 'var(--pui-error)' : 'var(--pui-text-muted)';
-  return (
-    <p className="ui-caption" style={{ color }}>
-      {text}
-    </p>
-  );
+  const toneClass = tone === 'success' ? 'ui-text-success' : tone === 'error' ? 'ui-text-error' : '';
+  return <p className={toneClass ? `ui-caption ${toneClass}` : 'ui-caption'}>{text}</p>;
 }

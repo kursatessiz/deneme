@@ -4,6 +4,8 @@ import type { TrainerReportDTO } from '@platform/shared';
 import { formatPercent as formatPercentShared } from '@/lib/money';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
+import { Card } from '@/components/ui/Card';
 
 type TrainersReport = TrainerReportDTO;
 
@@ -16,10 +18,10 @@ export function TrainersReport({ report, loading, error }: { report: TrainersRep
   if (!report || report.trainers.length === 0) return <EmptyState title={t('reports.empty.title')} />;
 
   return (
-    <div className="border overflow-x-auto" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)' }}>
-      <table className="w-full text-sm">
-        <thead>
-          <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
+    <Card className="overflow-x-auto">
+      <Table>
+        <Thead>
+          <Tr>
             {[
               t('reports.trainers.col.trainer'),
               t('reports.trainers.col.sessions'),
@@ -30,43 +32,27 @@ export function TrainersReport({ report, loading, error }: { report: TrainersRep
               t('reports.trainers.col.lateCancellations'),
               t('reports.trainers.col.substitutions'),
             ].map((h, i) => (
-              <th key={i} className="text-left px-4 py-2 font-medium whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
+              <Th key={i} className="whitespace-nowrap">
                 {h}
-              </th>
+              </Th>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </Tr>
+        </Thead>
+        <Tbody>
           {report.trainers.map((row) => (
-            <tr key={row.trainerProfileId} className="border-t" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-              <td className="px-4 py-2" style={{ color: 'var(--color-text-primary)' }}>
-                {row.trainerName}
-              </td>
-              <td className="px-4 py-2" style={{ color: 'var(--color-text-secondary)' }}>
-                {row.sessions}
-              </td>
-              <td className="px-4 py-2" style={{ color: 'var(--color-text-secondary)' }}>
-                {row.booked}
-              </td>
-              <td className="px-4 py-2" style={{ color: 'var(--color-text-secondary)' }}>
-                {row.attended}
-              </td>
-              <td className="px-4 py-2 font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                {formatPercent(row.occupancy)}
-              </td>
-              <td className="px-4 py-2" style={{ color: 'var(--color-text-secondary)' }}>
-                {row.noShows}
-              </td>
-              <td className="px-4 py-2" style={{ color: 'var(--color-text-secondary)' }}>
-                {row.lateCancellations}
-              </td>
-              <td className="px-4 py-2" style={{ color: 'var(--color-text-secondary)' }}>
-                {row.substitutions}
-              </td>
-            </tr>
+            <Tr key={row.trainerProfileId}>
+              <Td>{row.trainerName}</Td>
+              <Td>{row.sessions}</Td>
+              <Td>{row.booked}</Td>
+              <Td>{row.attended}</Td>
+              <Td className="ui-strong">{formatPercent(row.occupancy)}</Td>
+              <Td>{row.noShows}</Td>
+              <Td>{row.lateCancellations}</Td>
+              <Td>{row.substitutions}</Td>
+            </Tr>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </Tbody>
+      </Table>
+    </Card>
   );
 }

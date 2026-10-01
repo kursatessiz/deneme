@@ -288,6 +288,201 @@
     color: var(--pui-text);
   }
 
+  /* Text colors by role, for the rare inline message or figure (after ui-caption so they win over it). */
+  .ui-text-error {
+    color: var(--pui-error);
+  }
+
+  .ui-text-success {
+    color: var(--pui-success);
+  }
+
+  .ui-text-warn {
+    color: var(--pui-warn);
+  }
+
+  .ui-text-theme {
+    color: var(--pui-theme);
+  }
+
+  .ui-strong {
+    font-weight: 600;
+  }
+
+  /* A muted inset block (note, legend, summary strip); never a card inside a card. */
+  .ui-panel {
+    background-color: var(--pui-bg-muted);
+    border-radius: var(--pui-radius);
+  }
+
+  /* An inline error block: error-colored text and border, centered (DataState ErrorState). */
+  .ui-alert {
+    padding: calc(var(--pui-space) * 10) calc(var(--pui-space) * 6);
+    text-align: center;
+    color: var(--pui-error);
+    border: var(--pui-border-width) solid var(--pui-error);
+    border-radius: calc(var(--pui-radius) * 1.5);
+  }
+
+  /* Hairline dividers for plain stacks: one rule, or a rule between children. */
+  .ui-rule {
+    border-top: var(--pui-border-width) solid var(--pui-border);
+  }
+
+  .ui-divide > * + * {
+    border-top: var(--pui-border-width) solid var(--pui-border);
+  }
+
+  /*
+   * Calendar grid (components/calendar/CalendarBoard): the frame, the time
+   * gutter, day columns, hour lines, session chips and the month cells.
+   * data-load (full | busy | normal) tints a chip by how full the session is.
+   */
+  .ui-cal,
+  .ui-cal-month {
+    background-color: var(--pui-bg);
+    border: var(--pui-border-width) solid var(--pui-border);
+    border-radius: calc(var(--pui-radius) * 1.5);
+    overflow: hidden;
+  }
+
+  .ui-cal {
+    display: flex;
+  }
+
+  .ui-cal-gutter {
+    width: 3.5rem;
+    flex: none;
+    border-inline-end: var(--pui-border-width) solid var(--pui-border);
+  }
+
+  .ui-cal-head {
+    height: 2.5rem;
+    border-bottom: var(--pui-border-width) solid var(--pui-border);
+  }
+
+  .ui-cal-hour {
+    text-align: end;
+    padding-inline-end: 0.375rem;
+    padding-top: 0.125rem;
+  }
+
+  .ui-cal-col {
+    flex: 1;
+    min-width: 0;
+    border-inline-end: var(--pui-border-width) solid var(--pui-border);
+  }
+
+  .ui-cal-col:last-child {
+    border-inline-end: none;
+  }
+
+  .ui-cal-col[data-drop='true'] {
+    background-color: var(--pui-bg-muted);
+  }
+
+  .ui-cal-line {
+    position: absolute;
+    inset-inline: 0;
+    border-top: var(--pui-border-width) solid var(--pui-border);
+    opacity: 0.5;
+  }
+
+  .ui-cal-chip {
+    position: absolute;
+    inset-inline: 0.25rem;
+    padding: 0.25rem 0.375rem;
+    overflow: hidden;
+    text-align: start;
+    cursor: pointer;
+    border: var(--pui-border-width) solid var(--pui-border);
+    border-radius: var(--pui-radius);
+    background-color: var(--pui-bg-muted);
+  }
+
+  .ui-cal-chip[draggable='true'] {
+    cursor: grab;
+  }
+
+  .ui-cal-chip[data-selected='true'] {
+    border: 2px solid var(--pui-theme);
+  }
+
+  .ui-cal-chip[data-cancelled='true'] {
+    opacity: 0.5;
+  }
+
+  .ui-cal-chip[data-load='busy'],
+  .ui-cal-mini[data-load='busy'] {
+    background-color: color-mix(in srgb, var(--pui-warn) 16%, var(--pui-bg));
+  }
+
+  .ui-cal-chip[data-load='full'],
+  .ui-cal-mini[data-load='full'] {
+    background-color: color-mix(in srgb, var(--pui-error) 16%, var(--pui-bg));
+  }
+
+  .ui-cal-weekhead {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    border-bottom: var(--pui-border-width) solid var(--pui-border);
+  }
+
+  .ui-cal-cell {
+    min-height: 92px;
+    padding: 0.375rem;
+    text-align: start;
+    border-inline-end: var(--pui-border-width) solid var(--pui-border);
+    border-bottom: var(--pui-border-width) solid var(--pui-border);
+  }
+
+  .ui-cal-cell:nth-child(7n) {
+    border-inline-end: none;
+  }
+
+  .ui-cal-cell:hover {
+    background-color: var(--pui-bg-muted);
+  }
+
+  .ui-cal-cell[data-outside='true'] {
+    opacity: 0.45;
+  }
+
+  .ui-cal-mini {
+    padding: 0.125rem 0.25rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-radius: calc(var(--pui-radius) / 2);
+    background-color: var(--pui-bg-muted);
+  }
+
+  /* Heatmap fill: the brand color mixed into the muted surface; --ui-heat (a percentage) is set inline. */
+  .ui-heat {
+    background-color: color-mix(in srgb, var(--pui-theme) var(--ui-heat, 0%), var(--pui-bg-muted));
+  }
+
+  .ui-heat-cell {
+    width: 14px;
+    height: 14px;
+    border-radius: calc(var(--pui-radius) / 3);
+  }
+
+  /* Solid brand fill for chart bars; the width is set inline. */
+  .ui-bar-fill {
+    background-color: var(--pui-theme);
+    color: var(--pui-on-theme, var(--pui-bg));
+  }
+
+  /* A whole card that is a link (settings hub). */
+  .ui-card-link {
+    transition: background-color 0.15s;
+  }
+
+  .ui-card-link:hover {
+    background-color: var(--pui-bg-muted);
+  }
+
   /* Only the two gradient slots of the design system (packages/shared GRADIENT_SLOTS). */
   .ui-gradient-member-card,
   .ui-gradient-package-card {

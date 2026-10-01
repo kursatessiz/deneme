@@ -6,6 +6,10 @@ import { bffFetch, BffError } from '@/lib/session/client';
 import { hasAnyPermission } from '@/lib/nav';
 import { useDashboardSession, useFormatMoney } from '@/components/session/DashboardSessionProvider';
 import { useT } from '@/components/i18n/I18nProvider';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { FieldGroup } from '@/components/ui/FieldGroup';
+import { Button } from '@/components/ui/Button';
 
 interface PackageDefinitionRow {
   id: string;
@@ -14,13 +18,6 @@ interface PackageDefinitionRow {
 }
 
 const METHODS: PaymentMethod[] = [PaymentMethod.CASH, PaymentMethod.CREDIT_CARD_POS, PaymentMethod.BANK_TRANSFER];
-
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
 
 export function PackageSaleDialog({
   studioId,
@@ -103,8 +100,8 @@ export function PackageSaleDialog({
 
   if (result) {
     return (
-      <div className="space-y-3">
-        <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+      <div className="grid gap-3">
+        <p>
           {t('members.sale.complete')}{' '}
           <strong>
             {result.paymentStatus === 'COMPLETED'
@@ -115,30 +112,21 @@ export function PackageSaleDialog({
           </strong>
         </p>
         {result.invoiceStatus && (
-          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+          <p className="ui-text-muted">
             {t('members.sale.invoiceStatus')} <strong>{result.invoiceStatus}</strong>
           </p>
         )}
         <div className="flex justify-end pt-2">
-          <button
-            onClick={onClose}
-            className="text-xs font-medium px-4 py-1.5"
-            style={{ borderRadius: 'var(--radius-button)', background: 'var(--gradient-brand)', color: 'var(--color-on-primary)' }}
-          >
-            {t('members.sale.close')}
-          </button>
+          <Button onClick={onClose}>{t('members.sale.close')}</Button>
         </div>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <label className="flex flex-col gap-1 text-xs">
-        <span style={{ color: 'var(--color-text-secondary)' }}>{t('members.sale.package')}</span>
-        <select
-          className="px-2.5 py-1.5 text-sm"
-          style={inputStyle}
+    <form onSubmit={handleSubmit} className="grid gap-3">
+      <FieldGroup label={t('members.sale.package')}>
+        <Select
           value={packageDefinitionId}
           onChange={(e) => {
             setPackageDefinitionId(e.target.value);
@@ -152,73 +140,50 @@ export function PackageSaleDialog({
               {p.name} - {formatMoney(p.price)}
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
+      </FieldGroup>
 
       <div className="grid grid-cols-2 gap-3">
-        <label className="flex flex-col gap-1 text-xs">
-          <span style={{ color: 'var(--color-text-secondary)' }}>{t('members.sale.paymentMethod')}</span>
-          <select className="px-2.5 py-1.5 text-sm" style={inputStyle} value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}>
+        <FieldGroup label={t('members.sale.paymentMethod')}>
+          <Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}>
             {METHODS.map((m) => (
               <option key={m} value={m}>
                 {methodLabel(m)}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs">
-          <span style={{ color: 'var(--color-text-secondary)' }}>{t('members.sale.collectedAmount')}</span>
-          <input type="number" min={0} step="0.01" className="px-2.5 py-1.5 text-sm" style={inputStyle} value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} required />
-        </label>
+          </Select>
+        </FieldGroup>
+        <FieldGroup label={t('members.sale.collectedAmount')}>
+          <Input type="number" min={0} step="0.01" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} required />
+        </FieldGroup>
       </div>
 
       {paymentMethod === PaymentMethod.BANK_TRANSFER && (
-        <label className="flex flex-col gap-1 text-xs">
-          <span style={{ color: 'var(--color-text-secondary)' }}>{t('members.sale.bankReference')}</span>
-          <input className="px-2.5 py-1.5 text-sm" style={inputStyle} value={bankReference} onChange={(e) => setBankReference(e.target.value)} required />
-        </label>
+        <FieldGroup label={t('members.sale.bankReference')}>
+          <Input value={bankReference} onChange={(e) => setBankReference(e.target.value)} required />
+        </FieldGroup>
       )}
 
       <div className="grid grid-cols-2 gap-3">
-        <label className="flex flex-col gap-1 text-xs">
-          <span style={{ color: 'var(--color-text-secondary)' }}>{t('members.sale.promoCode')}</span>
-          <input className="px-2.5 py-1.5 text-sm" style={inputStyle} value={promoCode} onChange={(e) => setPromoCode(e.target.value)} />
-        </label>
-        <label className="flex flex-col gap-1 text-xs">
-          <span style={{ color: 'var(--color-text-secondary)' }}>{t('members.sale.giftCardCode')}</span>
-          <input className="px-2.5 py-1.5 text-sm" style={inputStyle} value={giftCardCode} onChange={(e) => setGiftCardCode(e.target.value)} />
-        </label>
+        <FieldGroup label={t('members.sale.promoCode')}>
+          <Input value={promoCode} onChange={(e) => setPromoCode(e.target.value)} />
+        </FieldGroup>
+        <FieldGroup label={t('members.sale.giftCardCode')}>
+          <Input value={giftCardCode} onChange={(e) => setGiftCardCode(e.target.value)} />
+        </FieldGroup>
       </div>
 
-      {selectedDefinition && (
-        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          {t('members.sale.listPrice', { price: formatMoney(selectedDefinition.price) })}
-        </p>
-      )}
+      {selectedDefinition && <p className="ui-caption">{t('members.sale.listPrice', { price: formatMoney(selectedDefinition.price) })}</p>}
 
-      {error && (
-        <p className="text-xs" style={{ color: '#b42318' }}>
-          {error}
-        </p>
-      )}
+      {error && <p className="ui-caption ui-text-error">{error}</p>}
 
       <div className="flex justify-end gap-2 pt-2">
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-xs font-medium px-3 py-1.5"
-          style={{ borderRadius: 'var(--radius-button)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
-        >
+        <Button variant="outline" tone="surface" onClick={onClose}>
           {t('common.cancel')}
-        </button>
-        <button
-          type="submit"
-          disabled={submitting || !packageDefinitionId}
-          className="text-xs font-medium px-4 py-1.5 disabled:opacity-60"
-          style={{ borderRadius: 'var(--radius-button)', background: 'var(--gradient-brand)', color: 'var(--color-on-primary)' }}
-        >
+        </Button>
+        <Button type="submit" disabled={submitting || !packageDefinitionId}>
           {submitting ? t('members.sale.selling') : t('members.sale.sell')}
-        </button>
+        </Button>
       </div>
     </form>
   );

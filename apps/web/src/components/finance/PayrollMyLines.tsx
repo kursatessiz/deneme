@@ -6,6 +6,9 @@ import { useT } from '@/components/i18n/I18nProvider';
 import { useBff } from '@/lib/session/use-bff';
 import { formatMoney, sumMoney } from '@/lib/money';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
+import { Card } from '@/components/ui/Card';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 type MyPayrollLine = PayrollLineDTO;
 
@@ -18,23 +21,16 @@ export function PayrollMyLines() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-          {t('finance.payroll.myTitle')}
-        </h2>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('finance.payroll.mySubtitle')}
-        </p>
-      </div>
+      <PageHeader title={t('finance.payroll.myTitle')} description={t('finance.payroll.mySubtitle')} />
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
       {!loading && !error && (!lines || lines.length === 0) && <EmptyState title={t('finance.payroll.myEmpty')} />}
       {!loading && !error && lines && lines.length > 0 && (
-        <div className="border overflow-x-auto" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)' }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
+        <Card className="overflow-x-auto">
+          <Table>
+            <Thead>
+              <Tr>
                 {[
                   t('finance.payroll.col.sessions'),
                   t('finance.payroll.col.attendees'),
@@ -42,45 +38,33 @@ export function PayrollMyLines() {
                   t('finance.payroll.col.adjustment'),
                   t('finance.payroll.col.net'),
                 ].map((h, i) => (
-                  <th key={i} className="text-left px-4 py-2.5 font-medium whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
+                  <Th key={i} className="whitespace-nowrap">
                     {h}
-                  </th>
+                  </Th>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </Tr>
+            </Thead>
+            <Tbody>
               {lines.map((l) => (
-                <tr key={l.id} className="border-t" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-primary)' }}>
-                    {l.sessions}
-                  </td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
-                    {l.attendees}
-                  </td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
-                    {formatMoney(l.grossAmount)}
-                  </td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
-                    {formatMoney(l.adjustments)}
-                  </td>
-                  <td className="px-4 py-2.5 font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                    {formatMoney(l.netAmount)}
-                  </td>
-                </tr>
+                <Tr key={l.id}>
+                  <Td>{l.sessions}</Td>
+                  <Td>{l.attendees}</Td>
+                  <Td>{formatMoney(l.grossAmount)}</Td>
+                  <Td>{formatMoney(l.adjustments)}</Td>
+                  <Td className="ui-strong">{formatMoney(l.netAmount)}</Td>
+                </Tr>
               ))}
-            </tbody>
+            </Tbody>
             <tfoot>
-              <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
-                <td colSpan={4} className="px-4 py-2.5 font-semibold text-right" style={{ color: 'var(--color-text-primary)' }}>
+              <Tr>
+                <Td colSpan={4} className="ui-strong text-right">
                   {t('finance.payroll.totalNet')}
-                </td>
-                <td className="px-4 py-2.5 font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  {formatMoney(sumMoney(lines.map((l) => l.netAmount)))}
-                </td>
-              </tr>
+                </Td>
+                <Td className="ui-strong">{formatMoney(sumMoney(lines.map((l) => l.netAmount)))}</Td>
+              </Tr>
             </tfoot>
-          </table>
-        </div>
+          </Table>
+        </Card>
       )}
     </div>
   );

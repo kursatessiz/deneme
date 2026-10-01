@@ -10,6 +10,10 @@ import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataSt
 import { PageGuard } from '@/components/common/PageGuard';
 import { hasAnyPermission } from '@/lib/nav';
 import { Badge, InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader, TextField } from '@/components/settings/ui';
+import { Checkbox } from '@/components/ui/Checkbox';
+import { Card } from '@/components/ui/Card';
+import { List, ListItem } from '@/components/ui/List';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
 
 function BranchForm({ branch, onCancel, onSaved }: { branch: BranchDTO | null; onCancel: () => void; onSaved: () => void }) {
   const t = useT();
@@ -116,17 +120,13 @@ function StaffBranchAccess({ studioId, branches }: { studioId: string; branches:
       {error2 && <InlineMessage text={error2} tone="error" />}
       {!loading && !error && (!staff || staff.length === 0) && <EmptyState title={t('settings.branches.staffAccess.empty')} />}
       {!loading && !error && staff && staff.length > 0 && (
-        <div className="space-y-2">
+        <List className="ui-divide">
           {staff.map((m) => (
-            <div key={m.membershipId} className="border-b last:border-b-0 py-2" style={{ borderColor: 'var(--color-border)' }}>
+            <ListItem key={m.membershipId}>
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
-                    {m.fullName}
-                  </p>
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    {m.roleName}
-                  </p>
+                  <p className="ui-strong truncate">{m.fullName}</p>
+                  <p className="ui-caption">{m.roleName}</p>
                 </div>
                 {m.isOwner ? (
                   <Badge tone="primary">{t('settings.branches.staffAccess.unrestricted')}</Badge>
@@ -136,15 +136,10 @@ function StaffBranchAccess({ studioId, branches }: { studioId: string; branches:
               </div>
               {openMembershipId === m.membershipId && (
                 <div className="mt-3 pl-2 space-y-2">
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    {t('settings.branches.staffAccess.hint')}
-                  </p>
+                  <p className="ui-caption">{t('settings.branches.staffAccess.hint')}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {branches.map((b) => (
-                      <label key={b.id} className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                        <input type="checkbox" checked={selectedBranchIds.has(b.id)} onChange={() => toggle(b.id)} />
-                        {b.name}
-                      </label>
+                      <Checkbox key={b.id} label={b.name} checked={selectedBranchIds.has(b.id)} onChange={() => toggle(b.id)} />
                     ))}
                   </div>
                   <PrimaryButton onClick={() => save(m.membershipId)} disabled={saving}>
@@ -152,9 +147,9 @@ function StaffBranchAccess({ studioId, branches }: { studioId: string; branches:
                   </PrimaryButton>
                 </div>
               )}
-            </div>
+            </ListItem>
           ))}
-        </div>
+        </List>
       )}
     </Section>
   );
@@ -169,30 +164,30 @@ function BranchSummaryTable({ studioId }: { studioId: string }) {
   if (!data || data.length === 0) return <EmptyState title={t('settings.branches.summary.empty')} />;
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left" style={{ color: 'var(--color-text-muted)' }}>
-            <th className="font-medium py-1.5 pr-4">{t('settings.branches.summary.col.branch')}</th>
-            <th className="font-medium py-1.5 pr-4">{t('settings.branches.summary.col.sessions')}</th>
-            <th className="font-medium py-1.5 pr-4">{t('settings.branches.summary.col.occupancy')}</th>
-            <th className="font-medium py-1.5 pr-4">{t('settings.branches.summary.col.attended')}</th>
-            <th className="font-medium py-1.5 pr-4">{t('settings.branches.summary.col.noShows')}</th>
-            <th className="font-medium py-1.5 pr-4">{t('settings.branches.summary.col.revenue')}</th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table>
+        <Thead>
+          <Tr>
+            <Th>{t('settings.branches.summary.col.branch')}</Th>
+            <Th>{t('settings.branches.summary.col.sessions')}</Th>
+            <Th>{t('settings.branches.summary.col.occupancy')}</Th>
+            <Th>{t('settings.branches.summary.col.attended')}</Th>
+            <Th>{t('settings.branches.summary.col.noShows')}</Th>
+            <Th>{t('settings.branches.summary.col.revenue')}</Th>
+          </Tr>
+        </Thead>
+        <Tbody>
           {data.map((row) => (
-            <tr key={row.branchId ?? 'none'} className="border-t" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}>
-              <td className="py-1.5 pr-4">{row.branchName}</td>
-              <td className="py-1.5 pr-4">{row.sessions}</td>
-              <td className="py-1.5 pr-4">{Math.round(row.occupancy * 100)}%</td>
-              <td className="py-1.5 pr-4">{row.attended}</td>
-              <td className="py-1.5 pr-4">{row.noShows}</td>
-              <td className="py-1.5 pr-4">{formatMoney(row.revenue)}</td>
-            </tr>
+            <Tr key={row.branchId ?? 'none'}>
+              <Td>{row.branchName}</Td>
+              <Td>{row.sessions}</Td>
+              <Td>{Math.round(row.occupancy * 100)}%</Td>
+              <Td>{row.attended}</Td>
+              <Td>{row.noShows}</Td>
+              <Td>{formatMoney(row.revenue)}</Td>
+            </Tr>
           ))}
-        </tbody>
-      </table>
+        </Tbody>
+      </Table>
     </div>
   );
 }
@@ -216,9 +211,25 @@ function BranchesSettings() {
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
 
-      {editing === 'new' && <BranchForm branch={null} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); setRefreshKey((k) => k + 1); }} />}
+      {editing === 'new' && (
+        <BranchForm
+          branch={null}
+          onCancel={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            setRefreshKey((k) => k + 1);
+          }}
+        />
+      )}
       {editing && editing !== 'new' && (
-        <BranchForm branch={editing} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); setRefreshKey((k) => k + 1); }} />
+        <BranchForm
+          branch={editing}
+          onCancel={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            setRefreshKey((k) => k + 1);
+          }}
+        />
       )}
 
       {!loading && !error && editing === null && (
@@ -229,22 +240,14 @@ function BranchesSettings() {
           {branches && branches.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {branches.map((b) => (
-                <div
-                  key={b.id}
-                  className="p-5 border flex flex-col gap-2"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-card)' }}
-                >
+                <Card key={b.id} className="flex flex-col gap-2 p-5">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                      {b.name}
-                    </h3>
+                    <h3 className="ui-heading">{b.name}</h3>
                     {!b.isActive && <Badge>{t('settings.branches.inactive')}</Badge>}
                   </div>
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    {b.address || t('settings.branches.noAddress')}
-                  </p>
+                  <p className="ui-caption">{b.address || t('settings.branches.noAddress')}</p>
                   {canManage && <SecondaryButton onClick={() => setEditing(b)}>{t('settings.branches.edit')}</SecondaryButton>}
-                </div>
+                </Card>
               ))}
             </div>
           )}

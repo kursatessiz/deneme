@@ -9,13 +9,10 @@ import { BranchSelect } from '@/components/common/BranchSelect';
 import { DateRangeFilter } from '@/components/common/DateRangeFilter';
 import { resolveDateRangePreset } from '@/lib/date-range';
 import { hasAnyPermission } from '@/lib/nav';
-
-const fieldStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
+import { Select } from '@/components/ui/Select';
+import { FieldGroup } from '@/components/ui/FieldGroup';
+import { AnchorButton } from '@/components/ui/LinkButton';
+import { Card } from '@/components/ui/Card';
 
 const DELIMITERS: readonly AccountingDelimiterName[] = ['semicolon', 'comma'];
 
@@ -52,14 +49,10 @@ export function AccountingExportCard() {
   const href = `/api/bff/studios/${activeStudioId}/accounting/export?${params.toString()}`;
 
   return (
-    <section className="p-4 space-y-3" style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-card)', backgroundColor: 'var(--color-surface)' }}>
+    <Card as="section" className="grid gap-3 p-4">
       <div>
-        <h3 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          {t('accounting.card.title')}
-        </h3>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('accounting.card.description')}
-        </p>
+        <h3 className="ui-heading">{t('accounting.card.title')}</h3>
+        <p className="ui-caption mt-0.5">{t('accounting.card.description')}</p>
       </div>
       <div className="flex flex-wrap items-end gap-3">
         <DateRangeFilter
@@ -71,50 +64,40 @@ export function AccountingExportCard() {
           }}
         />
         <BranchSelect value={branchId} onChange={setBranchId} />
-        <label className="text-xs space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
-          <span className="block">{t('accounting.card.kind')}</span>
-          <select value={kind} onChange={(e) => setKind(e.target.value as AccountingKind)} className="text-xs px-2.5 py-1.5" style={fieldStyle}>
+        <FieldGroup label={t('accounting.card.kind')}>
+          <Select value={kind} onChange={(e) => setKind(e.target.value as AccountingKind)}>
             {ACCOUNTING_KINDS.map((k) => (
               <option key={k} value={k}>
                 {t(`accounting.card.kind.${k}`)}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="text-xs space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
-          <span className="block">{t('accounting.card.format')}</span>
-          <select value={format} onChange={(e) => setFormat(e.target.value as AccountingFormat)} className="text-xs px-2.5 py-1.5" style={fieldStyle}>
+          </Select>
+        </FieldGroup>
+        <FieldGroup label={t('accounting.card.format')}>
+          <Select value={format} onChange={(e) => setFormat(e.target.value as AccountingFormat)}>
             {ACCOUNTING_FORMATS.map((f) => (
               <option key={f} value={f}>
                 {t(`accounting.card.format.${f}`)}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </FieldGroup>
         {format === 'csv' && (
-          <label className="text-xs space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
-            <span className="block">{t('accounting.card.delimiter')}</span>
-            <select value={delimiter} onChange={(e) => setDelimiter(e.target.value as AccountingDelimiterName)} className="text-xs px-2.5 py-1.5" style={fieldStyle}>
+          <FieldGroup label={t('accounting.card.delimiter')}>
+            <Select value={delimiter} onChange={(e) => setDelimiter(e.target.value as AccountingDelimiterName)}>
               {DELIMITERS.map((d) => (
                 <option key={d} value={d}>
                   {t(`accounting.card.delimiter.${d}`)}
                 </option>
               ))}
-            </select>
-          </label>
+            </Select>
+          </FieldGroup>
         )}
-        <a
-          href={href}
-          download
-          className="text-xs font-medium px-3 py-1.5 hover:opacity-90"
-          style={{ borderRadius: 'var(--radius-button)', background: 'var(--gradient-brand)', color: 'var(--color-on-primary)' }}
-        >
+        <AnchorButton href={href} download size="sm">
           {t('accounting.card.download')}
-        </a>
+        </AnchorButton>
       </div>
-      <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-        {t('accounting.card.hint')}
-      </p>
-    </section>
+      <p className="ui-caption">{t('accounting.card.hint')}</p>
+    </Card>
   );
 }

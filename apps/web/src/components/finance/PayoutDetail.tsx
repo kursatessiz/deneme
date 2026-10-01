@@ -11,14 +11,11 @@ import { EmptyState } from '@/components/common/DataState';
 import { PermissionButton } from '@/components/common/PermissionButton';
 import { PayoutMatchDialog } from '@/components/finance/PayoutMatchDialog';
 import { PAYOUT_STATUS_TONE, RECONCILIATION_TONE } from '@/components/finance/payout-tones';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
+import { Card } from '@/components/ui/Card';
+import { StatTile } from '@/components/ui/StatTile';
 
 const MATCHABLE = new Set(['CHARGE', 'REFUND']);
-
-const cardStyle: React.CSSProperties = {
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-card)',
-  backgroundColor: 'var(--color-surface)',
-};
 
 /** One payout with its items, the payments they are matched to, and the manual match and unmatch actions. */
 export function PayoutDetail({ detail, onChange, onBack }: { detail: PayoutDetailDTO; onChange: (detail: PayoutDetailDTO) => void; onBack: () => void }) {
@@ -38,7 +35,12 @@ export function PayoutDetail({ detail, onChange, onBack }: { detail: PayoutDetai
     setBusyId(item.id);
     setError(null);
     try {
-      onChange(await bffFetch<PayoutDetailDTO>(`studios/${activeStudioId}/payouts/${detail.id}/items/${item.id}/match`, { method: 'DELETE', studioId: activeStudioId }));
+      onChange(
+        await bffFetch<PayoutDetailDTO>(`studios/${activeStudioId}/payouts/${detail.id}/items/${item.id}/match`, {
+          method: 'DELETE',
+          studioId: activeStudioId,
+        }),
+      );
     } catch (err) {
       setError(err instanceof BffError ? err.message : t('payouts.errors.unmatchFailed'));
     } finally {
@@ -58,10 +60,8 @@ export function PayoutDetail({ detail, onChange, onBack }: { detail: PayoutDetai
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-            {t('payouts.detail.title', { id: detail.providerPayoutId })}
-          </h3>
-          <p className="text-xs mt-0.5 flex flex-wrap items-center gap-2" style={{ color: 'var(--color-text-secondary)' }}>
+          <h3 className="ui-heading">{t('payouts.detail.title', { id: detail.providerPayoutId })}</h3>
+          <p className="ui-caption mt-0.5 flex flex-wrap items-center gap-2">
             <span>{t(`payouts.provider.${detail.provider}`)}</span>
             <span>{t('payouts.detail.arrival', { date: day.format(new Date(detail.arrivalDate)) })}</span>
             <Badge tone={PAYOUT_STATUS_TONE[detail.status]}>{t(`payouts.status.${detail.status}`)}</Badge>
@@ -73,69 +73,61 @@ export function PayoutDetail({ detail, onChange, onBack }: { detail: PayoutDetai
         </PermissionButton>
       </div>
 
-      <dl className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {summary.map((s) => (
-          <div key={s.label} className="p-3" style={cardStyle}>
-            <dt className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              {s.label}
-            </dt>
-            <dd className="text-base font-semibold mt-1" style={{ color: 'var(--color-text-primary)' }}>
-              {s.value}
-            </dd>
-          </div>
+          <StatTile key={s.label} label={s.label} value={s.value} />
         ))}
-      </dl>
+      </div>
 
-      <p className="text-xs" role="status" style={{ color: differs ? '#b45309' : 'var(--color-text-secondary)' }}>
+      <p className="ui-caption" role="status">
         {differs ? t('payouts.detail.netDifference', { amount: money(detail.netDifference) }) : t('payouts.detail.balanced')}
       </p>
 
-      <h4 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-        {t('payouts.detail.itemsTitle')}
-      </h4>
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      <h4 className="ui-heading">{t('payouts.detail.itemsTitle')}</h4>
+      {error && <p className="ui-caption ui-text-error">{error}</p>}
       {detail.items.length === 0 ? (
         <EmptyState title={t('payouts.detail.noItems')} />
       ) : (
-        <div className="border overflow-x-auto" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)' }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
-                {[t('payouts.col.type'), t('payouts.col.providerReference'), t('payouts.col.occurredAt'), t('payouts.col.amount'), t('payouts.col.fee'), t('payouts.col.net'), t('payouts.col.payment'), ''].map((h, i) => (
-                  <th key={i} className="text-left px-3 py-2.5 font-medium whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
+        <Card className="overflow-x-auto">
+          <Table>
+            <Thead>
+              <Tr>
+                {[
+                  t('payouts.col.type'),
+                  t('payouts.col.providerReference'),
+                  t('payouts.col.occurredAt'),
+                  t('payouts.col.amount'),
+                  t('payouts.col.fee'),
+                  t('payouts.col.net'),
+                  t('payouts.col.payment'),
+                  '',
+                ].map((h, i) => (
+                  <Th key={i} className="whitespace-nowrap">
                     {h}
-                  </th>
+                  </Th>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </Tr>
+            </Thead>
+            <Tbody>
               {detail.items.map((item) => (
-                <tr key={item.id} className="border-t" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-                  <td className="px-3 py-2.5 whitespace-nowrap">
-                    <Badge tone={item.type === 'CHARGE' ? 'success' : item.type === 'REFUND' ? 'warning' : 'neutral'}>{t(`payouts.itemType.${item.type}`)}</Badge>
-                  </td>
-                  <td className="px-3 py-2.5 font-mono text-xs break-all" style={{ color: 'var(--color-text-secondary)' }}>
-                    {item.providerReference ?? '-'}
-                  </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
-                    {dateTime.format(new Date(item.occurredAt))}
-                  </td>
-                  <td className="px-3 py-2.5 font-medium whitespace-nowrap" style={{ color: 'var(--color-text-primary)' }}>
-                    {money(item.amount)}
-                  </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
-                    {Number(item.fee) > 0 ? money(item.fee) : '-'}
-                  </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap" style={{ color: 'var(--color-text-primary)' }}>
-                    {money(item.net)}
-                  </td>
-                  <td className="px-3 py-2.5">
+                <Tr key={item.id}>
+                  <Td className="whitespace-nowrap">
+                    <Badge tone={item.type === 'CHARGE' ? 'success' : item.type === 'REFUND' ? 'warning' : 'neutral'}>
+                      {t(`payouts.itemType.${item.type}`)}
+                    </Badge>
+                  </Td>
+                  <Td className="font-mono ui-caption break-all">{item.providerReference ?? '-'}</Td>
+                  <Td className="whitespace-nowrap">{dateTime.format(new Date(item.occurredAt))}</Td>
+                  <Td className="ui-strong whitespace-nowrap">{money(item.amount)}</Td>
+                  <Td className="whitespace-nowrap">{Number(item.fee) > 0 ? money(item.fee) : '-'}</Td>
+                  <Td className="whitespace-nowrap">{money(item.net)}</Td>
+                  <Td>
                     {item.payment ? (
                       <div>
-                        <p style={{ color: 'var(--color-text-primary)' }}>
+                        <p>
                           {item.payment.receiptNumber ?? t('payouts.item.noReceipt')} - {formatMoney(item.payment.amount, item.payment.currency, locale)}
                         </p>
-                        <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                        <p className="ui-caption">
                           {dateTime.format(new Date(item.payment.paidAt))}
                           {item.matchSource ? ` - ${t(`payouts.matchSource.${item.matchSource}`)}` : ''}
                         </p>
@@ -143,12 +135,10 @@ export function PayoutDetail({ detail, onChange, onBack }: { detail: PayoutDetai
                     ) : MATCHABLE.has(item.type) ? (
                       <Badge tone="danger">{t('payouts.item.unmatched')}</Badge>
                     ) : (
-                      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                        {t('payouts.item.notMatchable')}
-                      </span>
+                      <span className="ui-caption">{t('payouts.item.notMatchable')}</span>
                     )}
-                  </td>
-                  <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                  </Td>
+                  <Td className="text-right whitespace-nowrap">
                     {MATCHABLE.has(item.type) && (
                       <span className="inline-flex gap-2">
                         <PermissionButton required={['payouts.manage']} variant="secondary" onClick={() => setMatching(item)}>
@@ -161,12 +151,12 @@ export function PayoutDetail({ detail, onChange, onBack }: { detail: PayoutDetai
                         )}
                       </span>
                     )}
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Tbody>
+          </Table>
+        </Card>
       )}
 
       {matching && activeStudioId && (

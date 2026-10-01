@@ -1,27 +1,24 @@
 'use client';
 
-import Link from 'next/link';
 import { PageGuard } from '@/components/common/PageGuard';
 import { useT } from '@/components/i18n/I18nProvider';
 import { PayoutsView } from '@/components/finance/PayoutsView';
+import { LinkButton } from '@/components/ui/LinkButton';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 function PayoutsPage() {
   const t = useT();
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-            {t('payouts.title')}
-          </h2>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('payouts.subtitle')}
-          </p>
-        </div>
-        <Link href="/finans" className="text-sm font-medium hover:underline" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('payouts.backToFinance')}
-        </Link>
-      </div>
+    <div className="grid gap-6">
+      <PageHeader
+        title={t('payouts.title')}
+        description={t('payouts.subtitle')}
+        actions={
+          <LinkButton href="/finans" variant="outline" tone="surface" size="sm">
+            {t('payouts.backToFinance')}
+          </LinkButton>
+        }
+      />
       <PayoutsView />
     </div>
   );

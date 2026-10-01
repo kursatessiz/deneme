@@ -11,24 +11,9 @@ import { useDashboardSession } from '@/components/session/DashboardSessionProvid
 import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { formatMoney } from '@/lib/money';
-
-const surface: React.CSSProperties = {
-  borderRadius: 'var(--radius-card)',
-  borderColor: 'var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-};
-
-const primaryButton: React.CSSProperties = {
-  borderRadius: 'var(--radius-button)',
-  backgroundColor: 'var(--color-primary)',
-  color: 'var(--color-on-primary)',
-};
-
-const secondaryButton: React.CSSProperties = {
-  borderRadius: 'var(--radius-button)',
-  border: '1px solid var(--color-border)',
-  color: 'var(--color-text-primary)',
-};
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 
 function formatDate(iso: string | null, locale: string): string {
   if (!iso) return '';
@@ -74,11 +59,9 @@ function AddOnsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="grid gap-6">
       <SettingsHeader title={t('addOns.title')} description={t('addOns.subtitle')} />
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-        {t('addOns.billingCurrency', { currency: data.billingCurrency })}
-      </p>
+      <p className="ui-caption">{t('addOns.billingCurrency', { currency: data.billingCurrency })}</p>
 
       {data.items.length === 0 ? (
         <EmptyState title={t('addOns.empty.title')} description={t('addOns.empty.description')} />
@@ -88,21 +71,15 @@ function AddOnsPage() {
             const working = busyKey === item.key;
             const name = localizedText(item.name, locale);
             return (
-              <article key={item.key} className="p-5 border space-y-3" style={surface} data-testid={`add-on-${item.key}`} aria-label={name}>
+              <Card as="article" key={item.key} className="grid gap-3 p-5" data-testid={`add-on-${item.key}`} aria-label={name}>
                 <div className="flex items-start justify-between gap-3">
-                  <h3 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                    {name}
-                  </h3>
-                  <span className="px-2 py-0.5 text-xs font-medium shrink-0" style={{ borderRadius: 'var(--radius-chip)', backgroundColor: 'var(--color-surface-muted)', color: 'var(--color-text-secondary)' }}>
-                    {t(`addOns.state.${item.state}`)}
-                  </span>
+                  <h3 className="ui-heading">{name}</h3>
+                  <Badge className="shrink-0">{t(`addOns.state.${item.state}`)}</Badge>
                 </div>
-                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                  {localizedText(item.description, locale)}
-                </p>
+                <p className="ui-text-muted">{localizedText(item.description, locale)}</p>
 
                 {item.promoVideoUrl && (
-                  <a href={item.promoVideoUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-medium underline">
+                  <a href={item.promoVideoUrl} target="_blank" rel="noopener noreferrer" className="pui-link pui-theme ui-strong">
                     {t('addOns.video')}
                   </a>
                 )}
@@ -110,90 +87,85 @@ function AddOnsPage() {
                   <ul className="flex gap-2 overflow-x-auto">
                     {item.screenshotUrls.map((url, index) => (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <li key={url} className="shrink-0">
-                        <img src={url} alt={t('addOns.screenshot', { index: index + 1 })} className="h-24 w-auto border" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)' }} loading="lazy" />
+                      <li key={url} className="pui-card shrink-0">
+                        <img src={url} alt={t('addOns.screenshot', { index: index + 1 })} className="h-24 w-auto" loading="lazy" />
                       </li>
                     ))}
                   </ul>
                 )}
 
                 {item.price ? (
-                  <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                  <p className="ui-strong">
                     {t('addOns.price.month', { price: formatMoney(item.price.priceMonthly, item.price.currency, locale) })}
                     {' · '}
                     {t('addOns.price.year', { price: formatMoney(item.price.priceYearly, item.price.currency, locale) })}
                   </p>
                 ) : (
-                  <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                    {t('addOns.price.none', { currency: data.billingCurrency })}
-                  </p>
+                  <p className="ui-text-muted">{t('addOns.price.none', { currency: data.billingCurrency })}</p>
                 )}
 
-                {item.state === 'AVAILABLE' && item.trialAvailable && (
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    {t('addOns.trial.days', { count: item.trialDays })}
-                  </p>
-                )}
+                {item.state === 'AVAILABLE' && item.trialAvailable && <p className="ui-caption">{t('addOns.trial.days', { count: item.trialDays })}</p>}
                 {item.state === 'TRIALING' && item.trialDaysLeft !== null && (
-                  <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                  <p className="ui-caption">
                     {t('addOns.trial.left', { count: item.trialDaysLeft })} ({t('addOns.trial.endsOn', { date: formatDate(item.trialEndsAt, locale) })})
                   </p>
                 )}
                 {item.state === 'ACTIVE' && item.currentPeriodEnd && (
-                  <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                    {t('addOns.period.renews', { date: formatDate(item.currentPeriodEnd, locale) })}
-                  </p>
+                  <p className="ui-caption">{t('addOns.period.renews', { date: formatDate(item.currentPeriodEnd, locale) })}</p>
                 )}
                 {item.state === 'CANCELLED' && item.currentPeriodEnd && (
-                  <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                    {t('addOns.period.accessUntil', { date: formatDate(item.currentPeriodEnd, locale) })}
-                  </p>
+                  <p className="ui-caption">{t('addOns.period.accessUntil', { date: formatDate(item.currentPeriodEnd, locale) })}</p>
                 )}
 
                 <div className="flex flex-wrap gap-2 pt-1">
                   {item.trialAvailable && (
-                    <button type="button" disabled={working} onClick={() => run(item, 'start-trial')} className="px-3 py-1.5 text-sm font-medium" style={primaryButton}>
+                    <Button disabled={working} onClick={() => run(item, 'start-trial')}>
                       {working ? t('addOns.action.working') : t('addOns.action.startTrial')}
-                    </button>
+                    </Button>
                   )}
                   {item.purchasable && item.state !== 'ACTIVE' && item.price && (
                     <>
-                      <button type="button" disabled={working} onClick={() => run(item, 'activate', { interval: 'MONTH' })} className="px-3 py-1.5 text-sm font-medium" style={item.trialAvailable ? secondaryButton : primaryButton}>
+                      <Button
+                        variant={item.trialAvailable ? 'outline' : 'solid'}
+                        tone={item.trialAvailable ? 'surface' : 'theme'}
+                        disabled={working}
+                        onClick={() => run(item, 'activate', { interval: 'MONTH' })}
+                      >
                         {item.state === 'EXPIRED' ? t('addOns.action.reactivate') : t('addOns.action.activateMonthly')}
-                      </button>
-                      <button type="button" disabled={working} onClick={() => run(item, 'activate', { interval: 'YEAR' })} className="px-3 py-1.5 text-sm font-medium" style={secondaryButton}>
+                      </Button>
+                      <Button variant="outline" tone="surface" disabled={working} onClick={() => run(item, 'activate', { interval: 'YEAR' })}>
                         {t('addOns.action.activateYearly')}
-                      </button>
+                      </Button>
                     </>
                   )}
                   {item.state === 'ACTIVE' && item.paymentOverdue && (
-                    <button type="button" disabled={working} onClick={() => run(item, 'activate', { interval: item.billingInterval ?? 'MONTH' })} className="px-3 py-1.5 text-sm font-medium" style={primaryButton}>
+                    <Button disabled={working} onClick={() => run(item, 'activate', { interval: item.billingInterval ?? 'MONTH' })}>
                       {t('addOns.action.activate')}
-                    </button>
+                    </Button>
                   )}
                   {(item.state === 'TRIALING' || item.state === 'ACTIVE') && (
-                    <button type="button" disabled={working} onClick={() => run(item, 'cancel')} className="px-3 py-1.5 text-sm font-medium" style={secondaryButton}>
+                    <Button variant="outline" tone="surface" disabled={working} onClick={() => run(item, 'cancel')}>
                       {t('addOns.action.cancel')}
-                    </button>
+                    </Button>
                   )}
                 </div>
 
                 {message?.key === item.key && (
-                  <p role="status" className="text-sm">
+                  <p role="status">
                     {message.text}{' '}
                     {message.checkoutUrl && (
-                      <a href={message.checkoutUrl} className="underline font-medium">
+                      <a href={message.checkoutUrl} className="pui-link pui-theme ui-strong">
                         {t('addOns.action.openCheckout')}
                       </a>
                     )}
                   </p>
                 )}
                 {actionError?.key === item.key && (
-                  <p role="alert" className="text-sm" style={{ color: 'var(--color-danger)' }}>
+                  <p role="alert" className="ui-text-error">
                     {actionError.text}
                   </p>
                 )}
-              </article>
+              </Card>
             );
           })}
         </div>

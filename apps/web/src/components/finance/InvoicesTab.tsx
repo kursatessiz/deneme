@@ -13,6 +13,10 @@ import { PermissionButton } from '@/components/common/PermissionButton';
 import { Badge } from '@/components/common/Badge';
 import { BranchSelect } from '@/components/common/BranchSelect';
 import { DateRangeFilter } from '@/components/common/DateRangeFilter';
+import { Select } from '@/components/ui/Select';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
+import { Card } from '@/components/ui/Card';
+import { AnchorButton } from '@/components/ui/LinkButton';
 
 type InvoiceRow = InvoiceDTO;
 
@@ -21,13 +25,6 @@ const STATUS_TONE: Record<string, 'success' | 'warning' | 'danger' | 'neutral'> 
   DRAFT: 'neutral',
   CANCELLED: 'neutral',
   FAILED: 'danger',
-};
-
-const selectStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
 };
 
 export function InvoicesTab() {
@@ -94,18 +91,18 @@ export function InvoicesTab() {
             }}
           />
           <BranchSelect value={branchId} onChange={setBranchId} />
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="text-xs px-2.5 py-1.5" style={selectStyle}>
+          <Select value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">{t('finance.invoices.allStatuses')}</option>
             {Object.values(InvoiceStatus).map((s) => (
               <option key={s} value={s}>
                 {statusLabel(s)}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
-        <a href={exportHref} className="text-xs font-medium px-3 py-1.5" style={{ ...selectStyle, background: 'var(--color-surface-muted)' }}>
+        <AnchorButton href={exportHref} variant="outline" tone="surface" size="sm">
           {t('finance.invoices.downloadCsv')}
-        </a>
+        </AnchorButton>
       </div>
 
       {loading && <LoadingState />}
@@ -114,64 +111,44 @@ export function InvoicesTab() {
         <EmptyState title={t('finance.invoices.empty.title')} description={t('finance.invoices.empty.description')} />
       )}
       {!loading && !error && invoices && invoices.length > 0 && (
-        <div className="border overflow-x-auto" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)' }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
-                {[
-                  t('finance.invoices.col.number'),
-                  t('finance.invoices.col.date'),
-                  t('finance.invoices.col.amount'),
-                  t('finance.invoices.col.status'),
-                  '',
-                ].map((h, i) => (
-                  <th key={i} className="text-left px-4 py-2.5 font-medium whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
+        <Card className="overflow-x-auto">
+          <Table>
+            <Thead>
+              <Tr>
+                {[t('finance.invoices.col.number'), t('finance.invoices.col.date'), t('finance.invoices.col.amount'), t('finance.invoices.col.status'), ''].map(
+                  (h, i) => (
+                    <Th key={i} className="whitespace-nowrap">
+                      {h}
+                    </Th>
+                  ),
+                )}
+              </Tr>
+            </Thead>
+            <Tbody>
               {invoices.map((inv) => (
-                <tr key={inv.id} className="border-t" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-                  <td className="px-4 py-2.5 whitespace-nowrap" style={{ color: 'var(--color-text-primary)' }}>
-                    {inv.number}
-                  </td>
-                  <td className="px-4 py-2.5 whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
-                    {new Date(inv.issueDate).toLocaleDateString(locale)}
-                  </td>
-                  <td className="px-4 py-2.5 font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                    {formatMoney(inv.total)}
-                  </td>
-                  <td className="px-4 py-2.5">
+                <Tr key={inv.id}>
+                  <Td className="whitespace-nowrap">{inv.number}</Td>
+                  <Td className="whitespace-nowrap">{new Date(inv.issueDate).toLocaleDateString(locale)}</Td>
+                  <Td className="ui-strong">{formatMoney(inv.total)}</Td>
+                  <Td>
                     <Badge tone={STATUS_TONE[inv.status] ?? 'neutral'}>{statusLabel(inv.status)}</Badge>
-                    {inv.status === 'FAILED' && inv.failureReason && (
-                      <span className="block text-[11px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                        {inv.failureReason}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
+                    {inv.status === 'FAILED' && inv.failureReason && <span className="block ui-caption mt-0.5">{inv.failureReason}</span>}
+                  </Td>
+                  <Td className="text-right">
                     {inv.status === 'FAILED' && (
                       <PermissionButton required={['finance.manage']} onClick={() => handleRetry(inv.id)} disabled={retryingId === inv.id}>
                         {retryingId === inv.id ? t('finance.invoices.retrying') : t('finance.invoices.retry')}
                       </PermissionButton>
                     )}
-                    <a
-                      href={`/api/bff/invoices/${inv.id}/download`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="ml-2 text-xs hover:underline"
-                      style={{ color: 'var(--color-text-secondary)' }}
-                    >
+                    <AnchorButton href={`/api/bff/invoices/${inv.id}/download`} target="_blank" rel="noreferrer" variant="link" size="sm">
                       {t('finance.invoices.download')}
-                    </a>
-                  </td>
-                </tr>
+                    </AnchorButton>
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Tbody>
+          </Table>
+        </Card>
       )}
     </div>
   );

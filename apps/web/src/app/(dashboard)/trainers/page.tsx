@@ -5,6 +5,8 @@ import { useT } from '@/components/i18n/I18nProvider';
 import { useBff } from '@/lib/session/use-bff';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { PageGuard } from '@/components/common/PageGuard';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Card } from '@/components/ui/Card';
 
 interface TrainerRow {
   id: string;
@@ -20,15 +22,8 @@ function TrainersList() {
   const { data: trainers, loading, error } = useBff<TrainerRow[]>(`trainers/studio/${activeStudioId}`, activeStudioId);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-          {t('screens.trainers.title')}
-        </h2>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('screens.trainers.subtitle')}
-        </p>
-      </div>
+    <div className="grid gap-6">
+      <PageHeader title={t('screens.trainers.title')} description={t('screens.trainers.subtitle')} />
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
@@ -38,21 +33,13 @@ function TrainersList() {
       {!loading && !error && trainers && trainers.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {trainers.map((tr) => (
-            <div
-              key={tr.id}
-              className="p-5 border"
-              style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-card)' }}
-            >
-              <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+            <Card key={tr.id} className="grid gap-2 p-5">
+              <h3 className="ui-heading">
                 {tr.firstName} {tr.lastName}
               </h3>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                {tr.bio || t('screens.trainers.noBio')}
-              </p>
-              <p className="text-xs mt-3" style={{ color: 'var(--color-text-secondary)' }}>
-                {t('screens.trainers.qualifiedCount', { count: tr.qualifiedServiceTypeIds.length })}
-              </p>
-            </div>
+              <p className="ui-caption">{tr.bio || t('screens.trainers.noBio')}</p>
+              <p className="ui-caption">{t('screens.trainers.qualifiedCount', { count: tr.qualifiedServiceTypeIds.length })}</p>
+            </Card>
           ))}
         </div>
       )}

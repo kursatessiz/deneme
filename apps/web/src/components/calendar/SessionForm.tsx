@@ -6,21 +6,14 @@ import type { CreateScheduleInput } from '@platform/shared';
 import { useT } from '@/components/i18n/I18nProvider';
 import { validateScheduleForm, type ScheduleFormValues } from '@/lib/calendar/schedule-form';
 import type { BranchRow, ResourceRow, ServiceTypeRow, TrainerRow } from '@/lib/calendar/types';
-
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
+import { Checkbox } from '@/components/ui/Checkbox';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { Button } from '@/components/ui/Button';
+import { FieldGroup } from '@/components/ui/FieldGroup';
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1 text-xs">
-      <span style={{ color: 'var(--color-text-secondary)' }}>{label}</span>
-      {children}
-    </label>
-  );
+  return <FieldGroup label={label}>{children}</FieldGroup>;
 }
 
 export interface SessionFormProps {
@@ -78,156 +71,115 @@ export function SessionForm({ studioId, branches, resources, trainers, serviceTy
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={handleSubmit} className="grid gap-3">
       <Field label={t('calendar.form.title')}>
-        <input className="px-2.5 py-1.5 text-sm" style={inputStyle} value={values.title} onChange={(e) => set('title', e.target.value)} required />
+        <Input value={values.title} onChange={(e) => set('title', e.target.value)} required />
       </Field>
 
       <div className="grid grid-cols-2 gap-3">
         <Field label={t('calendar.form.serviceType')}>
-          <select className="px-2.5 py-1.5 text-sm" style={inputStyle} value={values.serviceTypeId} onChange={(e) => set('serviceTypeId', e.target.value)} required>
+          <Select value={values.serviceTypeId} onChange={(e) => set('serviceTypeId', e.target.value)} required>
             <option value="">{t('calendar.form.choose')}</option>
             {serviceTypes.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label={t('calendar.form.branch')}>
-          <select className="px-2.5 py-1.5 text-sm" style={inputStyle} value={values.branchId} onChange={(e) => set('branchId', e.target.value)}>
+          <Select value={values.branchId} onChange={(e) => set('branchId', e.target.value)}>
             <option value="">{t('calendar.form.choose')}</option>
             {branches.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <Field label={t('calendar.form.resource')}>
-          <select className="px-2.5 py-1.5 text-sm" style={inputStyle} value={values.resourceId} onChange={(e) => set('resourceId', e.target.value)}>
+          <Select value={values.resourceId} onChange={(e) => set('resourceId', e.target.value)}>
             <option value="">{t('calendar.form.none')}</option>
             {resources.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label={t('calendar.form.trainer')}>
-          <select className="px-2.5 py-1.5 text-sm" style={inputStyle} value={values.trainerId} onChange={(e) => set('trainerId', e.target.value)}>
+          <Select value={values.trainerId} onChange={(e) => set('trainerId', e.target.value)}>
             <option value="">{t('calendar.form.none')}</option>
             {trainers.map((tr) => (
               <option key={tr.id} value={tr.id}>
                 {tr.firstName} {tr.lastName}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
         <Field label={t('calendar.form.date')}>
-          <input type="date" className="px-2.5 py-1.5 text-sm" style={inputStyle} value={values.date} onChange={(e) => set('date', e.target.value)} required />
+          <Input type="date" value={values.date} onChange={(e) => set('date', e.target.value)} required />
         </Field>
         <Field label={t('calendar.form.startTime')}>
-          <input type="time" className="px-2.5 py-1.5 text-sm" style={inputStyle} value={values.startTime} onChange={(e) => set('startTime', e.target.value)} required />
+          <Input type="time" value={values.startTime} onChange={(e) => set('startTime', e.target.value)} required />
         </Field>
         <Field label={t('calendar.form.endTime')}>
-          <input type="time" className="px-2.5 py-1.5 text-sm" style={inputStyle} value={values.endTime} onChange={(e) => set('endTime', e.target.value)} required />
+          <Input type="time" value={values.endTime} onChange={(e) => set('endTime', e.target.value)} required />
         </Field>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <Field label={t('calendar.form.capacity')}>
-          <input type="number" min={1} className="px-2.5 py-1.5 text-sm" style={inputStyle} value={values.capacity} onChange={(e) => set('capacity', e.target.value)} />
+          <Input type="number" min={1} value={values.capacity} onChange={(e) => set('capacity', e.target.value)} />
         </Field>
         <Field label={t('calendar.form.deliveryMode')}>
-          <select
-            className="px-2.5 py-1.5 text-sm"
-            style={inputStyle}
-            value={values.deliveryMode}
-            onChange={(e) => set('deliveryMode', e.target.value as SessionDeliveryMode)}
-          >
+          <Select value={values.deliveryMode} onChange={(e) => set('deliveryMode', e.target.value as SessionDeliveryMode)}>
             <option value={SessionDeliveryMode.IN_PERSON}>{t('calendar.form.deliveryMode.IN_PERSON')}</option>
             <option value={SessionDeliveryMode.ONLINE}>{t('calendar.form.deliveryMode.ONLINE')}</option>
             <option value={SessionDeliveryMode.HYBRID}>{t('calendar.form.deliveryMode.HYBRID')}</option>
-          </select>
+          </Select>
         </Field>
       </div>
 
       {values.deliveryMode !== SessionDeliveryMode.IN_PERSON && (
         <div className="grid grid-cols-2 gap-3">
           <Field label={t('calendar.form.meetingProvider')}>
-            <select
-              className="px-2.5 py-1.5 text-sm"
-              style={inputStyle}
-              value={values.meetingProvider}
-              onChange={(e) => set('meetingProvider', e.target.value)}
-            >
+            <Select value={values.meetingProvider} onChange={(e) => set('meetingProvider', e.target.value)}>
               <option value="">{t('calendar.form.choose')}</option>
               <option value={VideoMeetingProviderKind.JITSI}>{t('calendar.form.meetingProvider.JITSI')}</option>
               <option value={VideoMeetingProviderKind.MANUAL}>{t('calendar.form.meetingProvider.MANUAL')}</option>
-            </select>
+            </Select>
           </Field>
           {values.meetingProvider === VideoMeetingProviderKind.MANUAL && (
             <Field label={t('calendar.form.meetingUrl')}>
-              <input
-                className="px-2.5 py-1.5 text-sm"
-                style={inputStyle}
-                value={values.manualMeetingUrl}
-                onChange={(e) => set('manualMeetingUrl', e.target.value)}
-                placeholder="https://..."
-              />
+              <Input value={values.manualMeetingUrl} onChange={(e) => set('manualMeetingUrl', e.target.value)} placeholder="https://..." />
             </Field>
           )}
         </div>
       )}
 
-      <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-        <input type="checkbox" checked={values.isRecurring} onChange={(e) => set('isRecurring', e.target.checked)} />
-        {t('calendar.form.recurring')}
-      </label>
+      <Checkbox label={t('calendar.form.recurring')} checked={values.isRecurring} onChange={(e) => set('isRecurring', e.target.checked)} />
       {values.isRecurring && (
         <Field label={t('calendar.form.recurringWeeks')}>
-          <input
-            type="number"
-            min={1}
-            max={12}
-            className="px-2.5 py-1.5 text-sm w-24"
-            style={inputStyle}
-            value={values.recurringWeeks}
-            onChange={(e) => set('recurringWeeks', e.target.value)}
-          />
+          <Input type="number" min={1} max={12} className="w-24" value={values.recurringWeeks} onChange={(e) => set('recurringWeeks', e.target.value)} />
         </Field>
       )}
 
-      {error && (
-        <p className="text-xs" style={{ color: '#b42318' }}>
-          {error}
-        </p>
-      )}
+      {error && <p className="ui-caption ui-text-error">{error}</p>}
 
       <div className="flex justify-end gap-2 pt-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="text-xs font-medium px-3 py-1.5"
-          style={{ borderRadius: 'var(--radius-button)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
-        >
+        <Button variant="outline" tone="surface" onClick={onCancel}>
           {t('common.cancel')}
-        </button>
-        <button
-          type="submit"
-          disabled={submitting}
-          className="text-xs font-medium px-4 py-1.5 disabled:opacity-60"
-          style={{ borderRadius: 'var(--radius-button)', background: 'var(--gradient-brand)', color: 'var(--color-on-primary)' }}
-        >
+        </Button>
+        <Button type="submit" disabled={submitting}>
           {submitting ? t('calendar.form.creating') : t('calendar.form.create')}
-        </button>
+        </Button>
       </div>
     </form>
   );
