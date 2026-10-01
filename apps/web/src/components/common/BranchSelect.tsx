@@ -3,19 +3,13 @@
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { useBff } from '@/lib/session/use-bff';
 import { useT } from '@/components/i18n/I18nProvider';
+import { Select } from '@/components/ui/Select';
 
 interface BranchRow {
   id: string;
   name: string;
   isActive: boolean;
 }
-
-const selectStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
 
 /** A reusable branch filter dropdown, loaded from the studio's own branch list; "Tüm şubeler" means no branchId filter. */
 export function BranchSelect({ value, onChange, className }: { value: string; onChange: (branchId: string) => void; className?: string }) {
@@ -24,12 +18,7 @@ export function BranchSelect({ value, onChange, className }: { value: string; on
   const t = useT();
 
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={`text-xs px-2.5 py-1.5 ${className ?? ''}`}
-      style={selectStyle}
-    >
+    <Select value={value} onChange={(e) => onChange(e.target.value)} className={className}>
       <option value="">{t('common.allBranches')}</option>
       {(branches ?? [])
         .filter((b) => b.isActive)
@@ -38,6 +27,6 @@ export function BranchSelect({ value, onChange, className }: { value: string; on
             {b.name}
           </option>
         ))}
-    </select>
+    </Select>
   );
 }

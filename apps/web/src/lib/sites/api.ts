@@ -55,3 +55,25 @@ export async function studioSlugForHost(host: string): Promise<{ studioSlug: str
   const resolved = await resolveHost(bareHost, apiInternalBaseUrl());
   return resolved ? { studioSlug: resolved.studioSlug, isPlatform: false } : { studioSlug: 'platform', isPlatform: true };
 }
+
+/**
+ * The platform tenant's brand (its primary color and logo) for the platform
+ * chrome (super admin and marketing panel). Best effort: an unreachable API
+ * or a missing platform tenant leaves the kit's default color.
+ */
+export async function fetchPlatformBrand(): Promise<{ themePrimary: string | null; logoUrl: string | null }> {
+  try {
+    const res = await fetch(`${apiInternalBaseUrl()}/studios/public/platform`, {
+      next: { revalidate: PAGE_REVALIDATE_SECONDS },
+      signal: AbortSignal.timeout(2000),
+    });
+    if (!res.ok) return { themePrimary: null, logoUrl: null };
+    const body = (await res.json()) as { themePrimary?: unknown; logoUrl?: unknown };
+    return {
+      themePrimary: typeof body.themePrimary === 'string' ? body.themePrimary : null,
+      logoUrl: typeof body.logoUrl === 'string' ? body.logoUrl : null,
+    };
+  } catch {
+    return { themePrimary: null, logoUrl: null };
+  }
+}
