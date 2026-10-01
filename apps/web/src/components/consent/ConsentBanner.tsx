@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DEFAULT_TENANT_THEME, resolveTheme, themeCssVariables } from '@platform/shared';
 import { useT } from '@/components/i18n/I18nProvider';
 import { Button, Checkbox } from '@/components/ui';
@@ -36,8 +36,28 @@ export function ConsentBanner({
 
   const body = mode === 'opt_in' ? t('consent.optIn.body') : mode === 'kvkk' ? t('consent.kvkk.body') : t('consent.notice.body');
 
+  // The banner is fixed to the bottom, so the page reserves its height while
+  // it is shown; otherwise it covers whatever ends the page (a form's submit
+  // button, a footer link) and that control cannot be reached.
+  const bannerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = bannerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const reserve = () => {
+      document.body.style.paddingBottom = `${el.offsetHeight + 32}px`;
+    };
+    reserve();
+    const observer = new ResizeObserver(reserve);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      document.body.style.paddingBottom = '';
+    };
+  }, []);
+
   return (
     <div
+      ref={bannerRef}
       role="dialog"
       aria-live="polite"
       aria-label={t('consent.title')}
