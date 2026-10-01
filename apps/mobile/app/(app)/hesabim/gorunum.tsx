@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { THEME_FAMILIES, THEME_FAMILY_KEYS } from '@platform/shared';
+import { THEME_FAMILIES, THEME_FAMILY_KEYS, getThemeFamily } from '@platform/shared';
 import type { AppearancePreference, ColorSchemePreference, ThemeFamilyKey } from '@platform/shared';
 
 import { ChoiceRow } from '../../../src/components/ChoiceRow';
@@ -37,7 +37,7 @@ export default function GorunumScreen() {
   };
 
   const studioFamily = activeMembership?.theme.themeFamily;
-  const studioLabel = studioFamily ? THEME_FAMILIES[studioFamily].label : null;
+  const studioLabel = studioFamily ? getThemeFamily(studioFamily).label : null;
 
   return (
     <ScreenContainer>

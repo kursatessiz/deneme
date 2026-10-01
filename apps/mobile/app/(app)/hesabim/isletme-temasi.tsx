@@ -2,7 +2,7 @@ import { Redirect } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { THEME_FAMILIES, THEME_FAMILY_KEYS, onColor } from '@platform/shared';
+import { THEME_FAMILIES, THEME_FAMILY_KEYS, getThemeFamily, onColor } from '@platform/shared';
 import type { TenantTheme, ThemeFamilyKey } from '@platform/shared';
 
 import { ChoiceRow } from '../../../src/components/ChoiceRow';
@@ -45,7 +45,7 @@ export default function IsletmeTemasiScreen() {
     );
   }
 
-  const family = THEME_FAMILIES[draft.themeFamily];
+  const family = getThemeFamily(draft.themeFamily);
 
   const pickFamily = (key: ThemeFamilyKey) => {
     const next = THEME_FAMILIES[key];
@@ -98,7 +98,8 @@ export default function IsletmeTemasiScreen() {
               accessibilityLabel={g.label}
               onPress={() => {
                 setSaved(false);
-                setDraft({ ...draft, gradientPresetKey: g.key, themePrimary: g.stops[0] });
+                // Since T1 the stored preset key is ignored; a choice only sets the primary color.
+                setDraft({ ...draft, themePrimary: g.stops[0] });
               }}
               style={[styles.gradientChoice, { borderColor: selected ? c.textPrimary : c.border }]}
             >

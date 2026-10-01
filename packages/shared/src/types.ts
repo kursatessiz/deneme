@@ -18,7 +18,7 @@ import {
 import type { PermissionKey } from './permissions';
 import type { PlatformAccessDTO, SessionMfaDTO } from './platform-permissions';
 import type { AppearancePreference, GradientPresetKey, TenantTheme } from './design/tokens';
-import type { ThemeFamilyKey } from './design/themes';
+import type { StoredThemeFamilyKey } from './design/themes';
 
 export interface StudioDTO {
   id: string;
@@ -29,7 +29,8 @@ export interface StudioDTO {
   address?: string | null;
   timezone: string;
   logoUrl?: string | null;
-  themeFamily: ThemeFamilyKey;
+  /** Legacy keys may be stored; every key renders as the Perfect UI family. */
+  themeFamily: StoredThemeFamilyKey;
   themePrimary: string;
   gradientPresetKey: GradientPresetKey;
   maxAdvanceBookingDays: number;

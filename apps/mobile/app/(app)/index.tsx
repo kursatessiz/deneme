@@ -1,10 +1,8 @@
 import type { MeUpcomingBookingsDTO, PendingRatingPromptDTO, UpcomingBookingDTO } from '@platform/shared';
-import { onColor } from '@platform/shared';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { GradientSurface } from '../../src/components/GradientSurface';
 import { ScreenContainer } from '../../src/components/ScreenContainer';
 import { useLocale, useT } from '../../src/i18n';
 import { ApiError, apiRequest } from '../../src/lib/api';
@@ -126,7 +124,7 @@ export default function HomeScreen() {
   const [bookings, setBookings] = useState<UpcomingBookingDTO[] | null>(null);
   const [pendingRatings, setPendingRatings] = useState<PendingRatingPromptDTO[]>([]);
   const [loadError, setLoadError] = useState<string | undefined>();
-  const onBand = onColor(theme.gradient.stops[0]);
+  const onBand = theme.colors.onPrimary;
 
   const loadBookings = useCallback(async () => {
     setLoadError(undefined);
@@ -166,12 +164,12 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer>
-      <GradientSurface slot="appHeaderBand" style={[styles.band, { borderRadius: theme.family.radii.card }]}>
+      <View style={[styles.band, { borderRadius: theme.family.radii.card, backgroundColor: theme.colors.primary }]}>
         {activeMembership ? (
           <Text style={[styles.studio, fonts.bodyStrong, { color: onBand }]}>{activeMembership.studioName}</Text>
         ) : null}
         <Text style={[styles.name, fonts.display, { color: onBand }]}>{t('mHome.greeting', { name: user?.firstName ?? '' })}</Text>
-      </GradientSurface>
+      </View>
 
       {pendingRatings.map((prompt) => (
         <PendingRatingCard key={prompt.bookingId} prompt={prompt} />

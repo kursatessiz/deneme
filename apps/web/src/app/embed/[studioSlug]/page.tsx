@@ -3,16 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
-import { resolveTheme, themeCssVariables, THEME_FAMILY_KEYS, DEFAULT_THEME_FAMILY, STUDIO_SLUG_PATTERN } from '@platform/shared';
+import { resolveTheme, themeCssVariables, STUDIO_SLUG_PATTERN } from '@platform/shared';
 import { trackingHeaders } from '@/lib/tracking/client';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-import type { ThemeFamilyKey } from '@platform/shared';
 import { publicApiBaseUrl } from '@/lib/public-api-url';
-
-function toThemeFamilyKey(value: string): ThemeFamilyKey {
-  return (THEME_FAMILY_KEYS as readonly string[]).includes(value) ? (value as ThemeFamilyKey) : DEFAULT_THEME_FAMILY;
-}
 
 /** Expo scheme, see apps/mobile/app.json "scheme". */
 const MOBILE_APP_SCHEME = 'platform';
@@ -110,7 +105,7 @@ export default function EmbedBookingPage() {
       resolveTheme({
         tenant: config
           ? {
-              themeFamily: toThemeFamilyKey(config.themeFamily),
+              themeFamily: config.themeFamily,
               themePrimary: config.themePrimary,
               gradientPresetKey: config.gradientPresetKey,
               logoUrl: config.logoUrl,

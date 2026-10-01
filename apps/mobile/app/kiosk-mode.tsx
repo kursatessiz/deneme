@@ -5,7 +5,6 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { GradientSurface } from '../src/components/GradientSurface';
 import { PrimaryButton } from '../src/components/PrimaryButton';
 import { TextField } from '../src/components/TextField';
 import { useT } from '../src/i18n';
@@ -149,12 +148,12 @@ export default function KioskModeScreen() {
 
   return (
     <SafeAreaView style={[styles.fill, { backgroundColor: colors.background }]}>
-      <GradientSurface slot="appHeaderBand" style={styles.headerBand}>
+      <View style={[styles.headerBand, { backgroundColor: colors.primary }]}>
         <Text style={styles.headerTitle}>{session.deviceName}</Text>
         <Pressable accessibilityRole="button" accessibilityLabel={t('mKiosk.a11y.exitKiosk')} style={styles.exitButton} onPress={() => setExitVisible(true)}>
           <Text style={styles.exitButtonLabel}>{t('mKiosk.exit')}</Text>
         </Pressable>
-      </GradientSurface>
+      </View>
 
       <View style={styles.body}>
         {lastOutcome ? (
