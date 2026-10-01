@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { UpdateCompanyInfoInput } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { SiteCacheService } from './site-cache.service';
 
 const SINGLETON_ID = 'platform';
 
@@ -11,7 +12,10 @@ const SINGLETON_ID = 'platform';
  */
 @Injectable()
 export class CompanyInfoService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly siteCache: SiteCacheService,
+  ) {}
 
   async get() {
     const row = await this.prisma.companyInfo.findUnique({ where: { id: SINGLETON_ID } });
@@ -33,10 +37,13 @@ export class CompanyInfoService {
   }
 
   async update(input: UpdateCompanyInfoInput) {
-    return this.prisma.companyInfo.upsert({
+    const row = await this.prisma.companyInfo.upsert({
       where: { id: SINGLETON_ID },
       create: { id: SINGLETON_ID, ...input },
       update: { ...input },
     });
+    // The platform site's Organization JSON-LD and contact block read this row (cached pages, docs/SEO.md "ISR").
+    void this.siteCache.purgeSlug('platform');
+    return row;
   }
 }

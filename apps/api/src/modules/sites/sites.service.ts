@@ -4,6 +4,7 @@ import { isValidDomain, expectedDnsRecords } from '@platform/shared';
 import type { SiteDTO, SiteDomainDTO, UpdateSiteInput } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { DnsVerificationService } from './dns.service';
+import { SiteCacheService } from './site-cache.service';
 
 /** Base domain tenant sites are served on as `<slug>.<SITES_DOMAIN>`. */
 export function sitesBaseDomain(): string {
@@ -31,6 +32,7 @@ export class SitesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly dns: DnsVerificationService,
+    private readonly siteCache: SiteCacheService,
   ) {}
 
   /** Every studio may have at most one site; it is created lazily on first access. */
@@ -66,6 +68,8 @@ export class SitesService {
       },
       include: { domains: true },
     });
+    // Locales and the primary domain change canonical URLs and hreflang of every cached page (ISR, docs/SEO.md).
+    void this.siteCache.purgeStudio(studioId);
     return this.toSiteDto(updated);
   }
 
@@ -85,6 +89,7 @@ export class SitesService {
     const domain = await this.prisma.siteDomain.findFirst({ where: { id: domainId, siteId: site.id } });
     if (!domain) throw new NotFoundException('Alan adı bulunamadı');
     await this.prisma.siteDomain.delete({ where: { id: domainId } });
+    void this.siteCache.purgeStudio(studioId);
   }
 
   dnsInstructions(domain: string, verificationToken: string) {
@@ -100,6 +105,8 @@ export class SitesService {
       where: { id: domainId },
       data: { status: ok ? 'VERIFIED' : 'FAILED', verifiedAt: ok ? new Date() : null },
     });
+    // A verified domain becomes the canonical origin of every cached page.
+    void this.siteCache.purgeStudio(studioId);
     return toDomainDto(updated);
   }
 

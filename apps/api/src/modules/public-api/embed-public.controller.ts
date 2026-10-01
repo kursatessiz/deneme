@@ -7,7 +7,7 @@ import { PublicListSchedulesQuerySchema, PublicListSchedulesQuery } from '@platf
 /**
  * Unauthenticated (no API key, no JWT), rate-limited, READ-ONLY endpoints
  * behind the embeddable booking widget at apps/web `/embed/<slug>` (see
- * apps/web/src/app/embed and docs/PUBLIC_API.md "Embed widget").
+ * apps/web/src/app/(app)/embed and docs/PUBLIC_API.md "Embed widget").
  *
  * There is deliberately no write endpoint here. An earlier version of this
  * controller let anyone who knew a member's phone number book or cancel

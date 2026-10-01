@@ -23,7 +23,7 @@ tek guard'a taşındı (davranış değişmedi, sadece tekilleştirildi):
 `FeedbackAdminController`, `SmsWalletAdminController`,
 `StudiosController#findAll`.
 
-Web tarafında `apps/web/src/app/admin/layout.tsx` sunucu bileşeninde
+Web tarafında `apps/web/src/app/(app)/admin/layout.tsx` sunucu bileşeninde
 `getAdminSession()` (`apps/web/src/lib/session/admin-session.ts`) ile
 ayrıca kontrol edilir; gerçek yetkilendirme sınırı yine API guard'ıdır, bu
 sadece panel kabuğunun gösterilmemesi içindir. `middleware.ts` da `/admin`
@@ -129,7 +129,7 @@ cron'unun (`backup.sh`) yedekleri de aynı listede görünür. Son başarılı y
 
 ## Web paneli
 
-`/admin` route grubu (`apps/web/src/app/admin/`), yalnızca oturum
+`/admin` route grubu (`apps/web/src/app/(app)/admin/`), yalnızca oturum
 kullanıcısı `isSuperAdmin` olduğunda görünür. Kiracı temasını kullanmaz
 (CLAUDE.md kural 10: süper admin bir kiracı değildir); `packages/shared/
 src/design`'daki nötr semantik renkleri ve ölçüleri doğrudan okur
@@ -236,7 +236,7 @@ platform davetinde yalnızca KVKK aydınlatma metni istenir. Kabulde
 
 - `/admin/platform-kullanicilari`, `/admin/entegrasyonlar` ve AdminNav'da
   "Pazarlama" bağlantısı; sahip için tek konsol `/admin` kalır.
-- `/pazarlama/*` kabuğu (`apps/web/src/app/pazarlama/layout.tsx`): platform
+- `/pazarlama/*` kabuğu (`apps/web/src/app/(app)/pazarlama/layout.tsx`): platform
   kiracısını `DashboardSessionProvider` ile bağlar, `(dashboard)`
   sayfalarını yeniden dışa aktarır, bağlantıları `useAreaHref()`
   (`components/session/AreaBase.tsx`) ile `/pazarlama` altında tutar.

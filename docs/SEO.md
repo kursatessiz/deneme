@@ -7,13 +7,13 @@ Bu belge herkese açık web sayfalarının (sayfa motoru siteleri, rezervasyon s
 | Konu | Nerede |
 | --- | --- |
 | Dizinleme denetimi (noindex, `robots.txt` Disallow) | `packages/shared/src/sites/indexing.ts`, `apps/web/src/middleware.ts`, `lib/seo/noindex.ts` |
-| Kök metadata (`metadataBase`, varsayılan Open Graph ve Twitter, tema rengi) | `apps/web/src/app/layout.tsx` |
+| Kök metadata (`metadataBase`, varsayılan Open Graph ve Twitter, tema rengi) | `apps/web/src/app/(app)/layout.tsx` |
 | Üretilen simgeler ve manifest | `app/icon.tsx`, `app/apple-icon.tsx`, `app/manifest.ts` |
 | Open Graph görselleri | `app/opengraph-image.tsx` (varsayılan kart: ürün adı), `app/og/route.tsx` (sayfa motoru), `lib/og/*` |
 | `hreflang`, `x-default`, canonical, `sitemap.xml` | `components/sites/SitePage.tsx`, `lib/sites/api.ts`, `lib/sites/request-origin.ts`, `app/sitemap.xml/route.ts`, `packages/shared/src/sites/site.ts` ve `sitemap.ts` |
 | Yapılandırılmış veri (JSON-LD) | `lib/sites/jsonld.ts`, `SitePage.tsx` |
-| Rezervasyon sayfası metadata'sı | `app/(public)/booking/[studioSlug]/layout.tsx` |
-| Etkinlik sayfaları (S2a) | `app/(public)/events/[studioSlug]/` (liste ve ayrıntı), `lib/events/*`, `eventJsonLd` |
+| Rezervasyon sayfası metadata'sı | `app/(app)/(public)/booking/[studioSlug]/layout.tsx` |
+| Etkinlik sayfaları (S2a) | `app/(app)/(public)/events/[studioSlug]/` (liste ve ayrıntı), `lib/events/*`, `eventJsonLd` |
 | Blog (S2b) | `components/sites/BlogPages.tsx`, `app/[locale]/blog/*`, `app/tenant-site/.../blog/*`, `lib/sites/articles-api.ts`, `lib/sites/blog-feed.ts`, `articleJsonLd`, `packages/shared/src/sites/articles.ts`, `rss.ts` |
 | Yanıt başlıkları | `apps/web/next.config.ts` (`headers()`), `deploy/caddy/Caddyfile` |
 
@@ -60,7 +60,7 @@ Kök (`/`) bir sayfa değil, dil müzakereli bir `302` yönlendirmesidir (`app/r
 
 - Her sayfanın `alternates.languages` kümesi yalnızca yayınlanmış dil varyantlarını ve bir `x-default` içerir. `x-default`, sitenin varsayılan dilindeki varyanta işaret eder (platform ana sayfası istisnadır: `x-default` origin köküne `/` işaret eder, kök ziyaretçiyi dilinde bir sayfaya yönlendirir); sayfanın o dilde varyantı yoksa ilk varyanta (`buildHreflangAlternates`, `packages/shared/src/sites/site.ts`).
 - `sitemap.xml` her dil varyantı için ayrı bir `<url>` üretir; her biri sayfanın tam alternatif kümesini (`xhtml:link`, `x-default` dahil) taşır (`buildLocalizedSitemapEntries`). `GET /public/sites/:slug/sitemap-entries` yanıtı geriye uyumlu biçimde `defaultLocale` alanını da verir. `/` listelenmez; platform ana sayfasının alternatif kümesinde `x-default` olarak yer alır (`homeXDefaultUrl` seçeneği).
-- Özel alan adı: istek host'u doğrulanmış (`VERIFIED`) bir özel alan adıysa canonical, alternatifler, sitemap ve `robots.txt` o host'u kullanır; aksi halde `<slug>.<SITES_DOMAIN>` kullanılır. Host'a tek başına güvenilmez: API'nin `GET /public/sites/resolve` yanıtı o host'un aynı stüdyoya ait olduğunu söylemelidir (`lib/sites/request-origin.ts`, `studioSlugForHost()`).
+- Özel alan adı: sayfa canonical'ı ve alternatifleri (önbellekli sayfalar, bölüm 11) API'nin verdiği host'tan bağımsız kökeni kullanır (doğrulanmış birincil özel alan adı, yoksa `<slug>.<SITES_DOMAIN>`); `sitemap.xml`, `robots.txt` ve `rss.xml` istek host'u doğrulanmış (`VERIFIED`) bir özel alan adıysa o host'u kullanır. Host'a tek başına güvenilmez: API'nin `GET /public/sites/resolve` yanıtı o host'un aynı stüdyoya ait olduğunu söylemelidir (`lib/sites/request-origin.ts`, `studioSlugForHost()`).
 
 ## 6. JSON-LD kataloğu
 
@@ -122,10 +122,30 @@ Pasif edinim: işletme sitelerinin altbilgisinde (`SiteShell`: sayfa motoru sayf
 
 Yerel ölçümden çıkan düzeltme: Next.js 15 tarayıcı kullanıcı ajanlarına metadata'yı akışla `<body>` içine koyar; Lighthouse (ve bot listesinde olmayan tarayıcılar) `<meta name="description">` etiketini `<head>` içinde göremez ve SEO puanı 0,91'de kalırdı. `next.config.ts` içindeki `htmlLimitedBots: /.*/` her ajana metadata'yı `<head>` içinde verir (SEO 1,0). Sayfa başlığı ve açıklaması kritik SEO verisi olduğundan akışın getirdiği küçük gecikme kazancından vazgeçildi.
 
+## 11. ISR: önbellekli sayfa motoru sayfaları (S3)
+
+Sayfa motoru sayfaları (`/{dil}/...`), blog sayfaları ve işletme siteleri artık her istekte render edilmez: ilk istekte render edilir, Next.js ISR önbelleğinden en fazla 300 saniye servis edilir ve yayında anında temizlenir. Ölçüm (üretim `server.js`, yerel, 30 istek): önbellekten `/tr` ortalama 8 ms TTFB, aynı sayfa kodunun istek başına render eden ikizi (A/B sayfası) ortalama 71 ms.
+
+**Ne değişti**
+
+- **Kök layout'lar**: `app/layout.tsx` tek kök layout'u cookie ve başlık okuyordu (`resolveRequestLocale`); bu, altındaki her rotayı dinamik yapıyordu. Artık birden çok kök layout var (`app/(app)/layout.tsx` panel, giriş, rezervasyon ve token sayfaları için; `app/[locale]/layout.tsx` platform sitesi; `app/tenant-site/[studioSlug]/[locale]/layout.tsx` işletme siteleri). Site kök layout'ları `<html lang>` ve mesajları URL'deki dilden alır (`components/layout/SiteRootLayout.tsx`, `lib/sites/document-locale.ts`), hiçbir istek verisi okumaz. Panel rotaları `app/(app)/` grubuna taşındı (URL'ler değişmedi); `@/app/(dashboard)/...` içe aktarımları `@/app/(app)/(dashboard)/...` oldu.
+- **Rotalar**: `export const revalidate = 300` ve `generateStaticParams() { return [] }` (build'de hiçbir sayfa üretilmez, ilk istek önbelleği doldurur). Kapsam: `[[...slug]]`, `blog`, `blog/[slug]`, `blog/tag/[tag]` ve sayfalama rotaları, hem platform hem işletme sitesi için. `rss.xml`, `sitemap.xml`, `robots.txt` ve `/og` host'a duyarlı route handler'lar olarak dinamik kalır.
+- **Canonical host'tan bağımsız**: önbellekli bir sayfa istek host'una bakamaz. Canonical kökeni API verir (`GET /public/sites/:slug/settings` -> `canonicalOrigin`): platform sitesi için alan adı, işletme için doğrulanmış birincil özel alan adı, yoksa en eski doğrulanmış özel alan adı, yoksa `<slug>.<alan>` (`pickCanonicalHost`). Önceki davranış (istek host'u doğrulanmış özel alan adıysa onu kullan) yerine bu, `<slug>.<alan>` alt alan adından açılan sayfaların da özel alan adına canonical vermesini sağlar; `sitemap.xml` ve `rss.xml` istek host'unu kullanmaya devam eder.
+- **Sayfalama**: `?page=N` `searchParams` okutur ve sayfayı dinamik yapar. Middleware `?page=N` (N >= 2) isteğini içeride `/{dil}/blog/page/N` ve `/{dil}/blog/tag/{etiket}/page/N` rotalarına yeniden yazar (`lib/sites/blog-paging.ts`); ziyaretçinin URL'si ve canonical aynı kalır, birinci sayfa düz rotadır.
+- **Rıza bölgesi**: `PublicTracking` bölgeyi istek başlıklarından (CF-IPCountry, Accept-Language) sunucuda çözüyordu. Önbellekli sayfa bunu okuyamaz; tarayıcı bölgeyi yüklemede `GET /api/consent-region` ile alır. Bölge bilinene kadar çerez yazılmaz, hiçbir şey gönderilmez ve banner gösterilmez (en katı davranış). Rezervasyon, etkinlik ve widget sayfaları (dinamik) sunucuda çözmeye devam eder.
+- **Bellek önbelleği**: üretim konteyneri salt okunur dosya sistemiyle çalışır; `next.config.ts` `experimental.isrFlushToDisk: false` ve `cacheMaxMemorySize: 64 MB` ile sayfalar yalnızca bellekte tutulur (512 MB Node heap içinde), yeniden başlatmada ilk istek yeniden render eder.
+
+**A/B sayfaları**: A/B varyantı ziyaretçinin çerezine bağlıdır ve önbelleğe alınamaz. API, iki veya daha çok `abVariantKey` taşıyan yayınlı sayfaları `GET /public/sites/:slug/variant-pages` ile verir; middleware bu listeyi 60 saniye bellekte tutar (`lib/sites/variant-pages.ts`) ve yalnızca bu sayfaları `/{dil}/_dynamic/...` rotasına (`app/[locale]/%5Fdynamic`, `force-dynamic`) yeniden yazar. Takas: bu sayfalar önbelleğin hızından yararlanmaz (istek başına render); yeni bir A/B testi önbellekten en geç bir dakikada çıkar; liste alınamazsa sayfa önbellekten ilk varyantla servis edilir (kısa süreli, en kötü durum).
+
+**Yayında temizleme**: API `POST {WEB_INTERNAL_URL}/api/revalidate` çağırır (`SiteCacheService`), gövde `{ "tags": ["site:<slug>"] }`, başlık `x-revalidate-secret`. Web tarafı (`app/api/revalidate/route.ts`) sırrı sabit zamanlı karşılaştırır (`REVALIDATE_SECRET`, `lib/server-env.ts` içinde Zod ile doğrulanır, en az 16 karakter), yalnızca `site:<slug>` biçimli etiketleri kabul eder ve `revalidateTag` çağırır. Sayfa, ayar, sitemap ve yazı okumalarının hepsi aynı `site:<slug>` etiketini taşır (`siteCacheTag`), yani tek bir etiket o sitenin tüm önbelleğini temizler. Tetikleyiciler: sayfa yayınla/yayından kaldır/geri al, yayındaki sayfada blok, dil veya hukuki onay değişikliği, yazı yayınla/arşivle/yayındaki yazıyı düzenle, etiket değişikliği, site dilleri ve alan adı değişikliği, şirket bilgisi. Taslak düzenlemeleri temizleme yapmaz. Sır veya `WEB_INTERNAL_URL` yoksa temizleme yapılmaz ve sayfalar 300 saniye penceresiyle yenilenir (yerel geliştirme, e2e). Değerler `deploy/docker-compose.prod.yml` ve `.env.example` içindedir; **sahibin yapması gereken**: `/opt/app/.env` içine `REVALIDATE_SECRET` yazmak.
+
+**Önbellek anahtarı ve kiracı izolasyonu**: önbellek yolla anahtarlanır; işletme siteleri `tenant-site/[studioSlug]/...` yoluna yeniden yazıldığı için anahtar stüdyo slug'ını içerir ve iki kiracı hangi host'tan gelirse gelsin aynı girdiyi paylaşamaz. Korunum testi: `apps/web/src/lib/sites/isr-routes.spec.ts` (her önbellekli rota `revalidate = 300` bildirir, istek verisi okumaz, işletme rotaları `[studioSlug]` taşır, iki kiracı farklı yollara gider).
+
+**Test**: `isr-routes.spec.ts`, `blog-paging.spec.ts`, `variant-pages.spec.ts`, `revalidate.spec.ts` (web); `site-cache.service.spec.ts` (API); `apps/api/test/e2e/site-cache.e2e-spec.ts` (yayın ve yayından kaldırmada temizleme, taslakta temizleme yok, A/B sayfa listesi ve kiracı ayrımı, host'tan bağımsız canonical).
+
 ## 17. Açık işler
 
 - Blog için görsel seçici, yazı önizlemesi ve zamanlanmış yayın (S2b'de yok).
-- ISR: sayfalar `force-dynamic` ve her istekte render ediliyor; API yanıtları önbellekli.
 - GA4 (yalnızca reklam piksellerinin onay kapısı var; analitik kurulu değil).
 - Kiracı sitesi için kiracıya özel simge ve manifest (şimdilik platform simgesi).
 - `PostalAddress` için yapılandırılmış adres alanları (stüdyo adresi tek serbest metin).

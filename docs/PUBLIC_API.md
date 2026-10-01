@@ -319,7 +319,7 @@ API-anahtarlı üçüncü taraf entegrasyon API'sinden kasıtlı olarak ayrıdı
 
 Saat dilimi: `.../config` işletmenin `timezone` alanını, `.../branches` her şube için etkin `timezone` değerini (şubenin kendi dilimi, yoksa işletmeninki; asla null değildir) verir. Herkese açık rezervasyon sayfası ve widget, bir seansın tarih ve saatini ziyaretçinin değil seansın şubesinin saat diliminde biçimler (`Intl.DateTimeFormat` + `timeZone`, `apps/web/src/lib/zoned-time.ts`) ve gün grubu başına kısa dilim adını (`timeZoneName: 'short'`) gösterir; böylece yurt dışındaki bir ziyaretçi yanılmaz.
 
-Sayfa: `apps/web/src/app/embed/[studioSlug]/page.tsx`, işletmenin
+Sayfa: `apps/web/src/app/(app)/embed/[studioSlug]/page.tsx`, işletmenin
 `resolveTheme()`/`themeCssVariables()` ile hesaplanan temasını (logo, ana
 renk, gradyan) kullanır; başka hiçbir şey temalandırılmaz.
 

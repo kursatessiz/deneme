@@ -38,6 +38,12 @@ export class PublicSitesController {
     return this.publicSites.getSettings(studioSlug);
   }
 
+  /** Published pages with A/B variants: the only ones the web app renders per request (docs/SEO.md "ISR"). */
+  @Get('public/sites/:studioSlug/variant-pages')
+  async variantPages(@Param('studioSlug') studioSlug: string) {
+    return this.publicSites.variantPages(studioSlug);
+  }
+
   /** Published pages (`items`), the site default locale and, additively since S2b, published article variants (`articles`). */
   @Get('public/sites/:studioSlug/sitemap-entries')
   async sitemapEntries(@Param('studioSlug') studioSlug: string) {

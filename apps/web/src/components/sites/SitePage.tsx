@@ -4,7 +4,6 @@ import { PRODUCT_NAME, buildHreflangAlternates } from '@platform/shared';
 import { toOgLocale } from '@/lib/seo/og-locale';
 import { fetchPublicPage, fetchSiteSettings } from '@/lib/sites/api';
 import { sitePath } from '@/lib/sites/origin';
-import { requestSiteOrigin } from '@/lib/sites/request-origin';
 import { pickPageVariant } from '@/lib/sites/ab';
 import { getTFor } from '@/lib/i18n/getT';
 import { serializeJsonLd } from '@/lib/sites/json-ld';
@@ -28,7 +27,7 @@ export async function buildSiteMetadata(studioSlug: string, isPlatform: boolean,
   const slug = (slugParts ?? []).join('/');
   const page = await fetchPublicPage(studioSlug, locale, slug);
   if (!page) return {};
-  const origin = await requestSiteOrigin(studioSlug, isPlatform);
+  const origin = (await fetchSiteSettings(studioSlug)).canonicalOrigin;
   // The platform home page's x-default is the origin root, which redirects to the visitor's locale (app/route.ts).
   const xDefaultUrl = isPlatform && page.page.kind === 'HOME' && slug === '' ? `${origin}/` : null;
   const languages = buildHreflangAlternates(page.allLocales, (l, sl) => `${origin}${pathFor(l, sl)}`, page.defaultLocale, xDefaultUrl);
@@ -92,16 +91,20 @@ async function buildBreadcrumbs(params: { studioSlug: string; origin: string; lo
   return trail;
 }
 
-export async function SitePageView({ studioSlug, isPlatform, locale, slugParts }: { studioSlug: string; isPlatform: boolean; locale: string; slugParts: string[] | undefined }) {
+/**
+ * `perRequest` is set only by the `_dynamic` routes the middleware sends A/B pages to: they read the visitor's
+ * cookies to pick a variant, so they are never cached. Every other render is a cached ISR render.
+ */
+export async function SitePageView({ studioSlug, isPlatform, locale, slugParts, perRequest = false }: { studioSlug: string; isPlatform: boolean; locale: string; slugParts: string[] | undefined; perRequest?: boolean }) {
   const slug = (slugParts ?? []).join('/');
   const page = await fetchPublicPage(studioSlug, locale, slug);
   if (!page) notFound();
 
   const variantKeys = Array.from(new Set(page.blocks.map((b) => b.abVariantKey).filter((v): v is string => !!v))).sort();
-  const { variant } = await pickPageVariant(variantKeys);
+  const { variant } = await pickPageVariant(variantKeys, perRequest);
   const [t, settings] = await Promise.all([getTFor(locale), fetchSiteSettings(studioSlug)]);
 
-  const origin = await requestSiteOrigin(studioSlug, isPlatform);
+  const origin = settings.canonicalOrigin;
   const pageUrl = `${origin}${pathFor(locale, slug)}`;
 
   const faqItems = page.blocks

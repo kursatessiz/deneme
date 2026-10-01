@@ -1,4 +1,4 @@
-import { ARTICLE_SLUG_PATTERN, LocaleCodeSchema, STUDIO_SLUG_PATTERN } from '@platform/shared';
+import { ARTICLE_SLUG_PATTERN, LocaleCodeSchema, SITE_REVALIDATE_SECONDS, STUDIO_SLUG_PATTERN, siteCacheTag } from '@platform/shared';
 import type { PublicArticleDTO, PublicArticleListDTO } from '@platform/shared';
 import { apiInternalBaseUrl } from '@/lib/server-env';
 
@@ -8,7 +8,7 @@ import { apiInternalBaseUrl } from '@/lib/server-env';
  * API URL; every path value is validated before it reaches the URL.
  */
 
-const REVALIDATE_SECONDS = 300;
+const REVALIDATE_SECONDS = SITE_REVALIDATE_SECONDS;
 
 function validParams(studioSlug: string, locale: string): boolean {
   return (studioSlug === 'platform' || STUDIO_SLUG_PATTERN.test(studioSlug)) && LocaleCodeSchema.safeParse(locale).success;
@@ -23,7 +23,7 @@ export async function fetchPublicArticles(studioSlug: string, locale: string, op
   if (options.page && options.page > 1) url.searchParams.set('page', String(options.page));
   if (options.pageSize) url.searchParams.set('pageSize', String(options.pageSize));
   if (options.tag) url.searchParams.set('tag', options.tag);
-  const res = await fetch(url, { next: { revalidate: REVALIDATE_SECONDS, tags: [`site-articles:${studioSlug}`] } });
+  const res = await fetch(url, { next: { revalidate: REVALIDATE_SECONDS, tags: [siteCacheTag(studioSlug), `site-articles:${studioSlug}`] } });
   if (res.status === 404 || res.status === 400) return null;
   if (!res.ok) throw new Error(`Articles could not be loaded (${res.status})`);
   return (await res.json()) as PublicArticleListDTO;
@@ -34,15 +34,8 @@ export async function fetchPublicArticle(studioSlug: string, locale: string, slu
   if (!validParams(studioSlug, locale) || !ARTICLE_SLUG_PATTERN.test(slug)) return null;
   const url = new URL(`${apiInternalBaseUrl()}/public/sites/${encodeURIComponent(studioSlug)}/articles/${encodeURIComponent(slug)}`);
   url.searchParams.set('locale', locale);
-  const res = await fetch(url, { next: { revalidate: REVALIDATE_SECONDS, tags: [`site-articles:${studioSlug}`] } });
+  const res = await fetch(url, { next: { revalidate: REVALIDATE_SECONDS, tags: [siteCacheTag(studioSlug), `site-articles:${studioSlug}`] } });
   if (res.status === 404 || res.status === 400) return null;
   if (!res.ok) throw new Error(`Article could not be loaded (${res.status})`);
   return (await res.json()) as PublicArticleDTO;
-}
-
-/** A positive page number from `?page=`, else 1. */
-export function parsePageParam(value: string | string[] | undefined): number {
-  const raw = Array.isArray(value) ? value[0] : value;
-  const page = raw && /^[1-9][0-9]{0,3}$/.test(raw) ? Number(raw) : 1;
-  return page;
 }

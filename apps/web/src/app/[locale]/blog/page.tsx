@@ -1,22 +1,26 @@
 import type { Metadata } from 'next';
 import { BlogIndexView, buildBlogIndexMetadata } from '@/components/sites/BlogPages';
-import { parsePageParam } from '@/lib/sites/articles-api';
 
 /**
- * Platform site blog index (S2b): `/tr/blog`, `/en/blog?page=2`. The static `blog` segment takes precedence
- * over the page engine's optional catch-all (`[[...slug]]`), and page slugs may not start with `blog`
- * (UpsertPageLocaleSchema), so no page engine page can be shadowed. Rendered per request like the page engine.
+ * Platform blog index, page 1 (S2b). Later pages are `blog/page/[page]`: the middleware rewrites `?page=N` to it, so
+ * this route never reads `searchParams` and can be cached. The static `blog` segment takes precedence over the
+ * page engine's optional catch-all, and page slugs may not start with `blog` (UpsertPageLocaleSchema).
+ * Cached with ISR (docs/SEO.md "ISR"), purged on publish through POST /api/revalidate (tag `site:<slug>`).
  */
-export const dynamic = 'force-dynamic';
+export const revalidate = 300;
 
-type Props = { params: Promise<{ locale: string }>; searchParams: Promise<{ page?: string | string[] }> };
-
-export default async function PlatformBlogPage({ params, searchParams }: Props) {
-  const [{ locale }, query] = await Promise.all([params, searchParams]);
-  return <BlogIndexView studioSlug="platform" isPlatform locale={locale} page={parsePageParam(query.page)} />;
+export function generateStaticParams(): Array<{ locale: string }> {
+  return [];
 }
 
-export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
-  const [{ locale }, query] = await Promise.all([params, searchParams]);
-  return buildBlogIndexMetadata({ studioSlug: 'platform', isPlatform: true, locale }, parsePageParam(query.page));
+type Props = { params: Promise<{ locale: string }> };
+
+export default async function PlatformBlogPage({ params }: Props) {
+  const { locale } = await params;
+  return <BlogIndexView studioSlug={'platform'} isPlatform locale={locale} page={1} />;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params;
+  return buildBlogIndexMetadata({ studioSlug: 'platform', isPlatform: true, locale }, 1);
 }

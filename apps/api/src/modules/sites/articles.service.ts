@@ -15,6 +15,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SitesService } from './sites.service';
 import { articleError } from './articles.errors';
 import { ArticlesFeedCache } from './articles-feed-cache.service';
+import { SiteCacheService } from './site-cache.service';
 
 const ARTICLE_INCLUDE = { locales: { orderBy: { locale: 'asc' } }, tags: { select: { tagId: true } } } satisfies Prisma.ArticleInclude;
 type ArticleRow = Prisma.ArticleGetPayload<{ include: typeof ARTICLE_INCLUDE }>;
@@ -73,7 +74,17 @@ export class ArticlesService {
     private readonly prisma: PrismaService,
     private readonly sites: SitesService,
     private readonly feedCache: ArticlesFeedCache,
+    private readonly siteCache: SiteCacheService,
   ) {}
+
+  /**
+   * Article content changed: the RSS feed cache is dropped, and when published content is affected the web app is
+   * asked to purge its cached pages (ISR, docs/SEO.md). A draft is not public, so editing one purges nothing.
+   */
+  private changed(studioId: string, siteId: string, publicChange: boolean): void {
+    this.feedCache.invalidateSite(siteId);
+    if (publicChange) void this.siteCache.purgeStudio(studioId);
+  }
 
   private async siteIdOf(studioId: string): Promise<string> {
     return (await this.sites.ensureSite(studioId)).id;
@@ -128,7 +139,7 @@ export class ArticlesService {
         },
         include: ARTICLE_INCLUDE,
       });
-      this.feedCache.invalidateSite(siteId);
+      this.changed(studioId, siteId, false);
       return toArticleDto(article);
     } catch (err) {
       if (isUniqueViolation(err)) throw articleError('ARTICLE_SLUG_TAKEN');
@@ -172,7 +183,7 @@ export class ArticlesService {
       if (isUniqueViolation(err)) throw articleError('ARTICLE_SLUG_TAKEN');
       throw err;
     }
-    this.feedCache.invalidateSite(existing.siteId);
+    this.changed(studioId, existing.siteId, existing.status === 'PUBLISHED');
     return this.get(studioId, existing.id);
   }
 
@@ -184,7 +195,7 @@ export class ArticlesService {
       data: { status: 'PUBLISHED', publishedAt: existing.publishedAt ?? new Date() },
       include: ARTICLE_INCLUDE,
     });
-    this.feedCache.invalidateSite(existing.siteId);
+    this.changed(studioId, existing.siteId, true);
     return toArticleDto(article);
   }
 
@@ -192,7 +203,7 @@ export class ArticlesService {
   async archive(studioId: string, articleId: string): Promise<ArticleDTO> {
     const existing = await this.articleOrThrow(studioId, articleId);
     const article = await this.prisma.article.update({ where: { id: existing.id }, data: { status: 'ARCHIVED' }, include: ARTICLE_INCLUDE });
-    this.feedCache.invalidateSite(existing.siteId);
+    this.changed(studioId, existing.siteId, existing.status === 'PUBLISHED');
     return toArticleDto(article);
   }
 
@@ -200,7 +211,7 @@ export class ArticlesService {
     const existing = await this.articleOrThrow(studioId, articleId);
     if (existing.status === 'PUBLISHED') throw articleError('ARTICLE_NOT_DELETABLE');
     await this.prisma.article.delete({ where: { id: existing.id } });
-    this.feedCache.invalidateSite(existing.siteId);
+    this.changed(studioId, existing.siteId, false);
   }
 
   // -------------------------------------------------------------------------
@@ -221,7 +232,7 @@ export class ArticlesService {
     const siteId = await this.siteIdOf(studioId);
     try {
       const tag = await this.prisma.articleTag.create({ data: { siteId, studioId, slug: input.slug, labels: input.labels } });
-      this.feedCache.invalidateSite(siteId);
+      this.changed(studioId, siteId, false);
       return { id: tag.id, slug: tag.slug, labels: input.labels, articleCount: 0 };
     } catch (err) {
       if (isUniqueViolation(err)) throw articleError('ARTICLE_TAG_SLUG_TAKEN');
@@ -238,7 +249,7 @@ export class ArticlesService {
         data: { slug: input.slug, labels: input.labels },
         include: { _count: { select: { articles: true } } },
       });
-      this.feedCache.invalidateSite(existing.siteId);
+      this.changed(studioId, existing.siteId, true);
       return { id: tag.id, slug: tag.slug, labels: input.labels, articleCount: tag._count.articles };
     } catch (err) {
       if (isUniqueViolation(err)) throw articleError('ARTICLE_TAG_SLUG_TAKEN');
@@ -250,6 +261,6 @@ export class ArticlesService {
     const existing = await this.prisma.articleTag.findFirst({ where: { id: tagId, studioId } });
     if (!existing) throw articleError('ARTICLE_TAG_NOT_FOUND');
     await this.prisma.articleTag.delete({ where: { id: existing.id } });
-    this.feedCache.invalidateSite(existing.siteId);
+    this.changed(studioId, existing.siteId, true);
   }
 }

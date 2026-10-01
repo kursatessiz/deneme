@@ -27,20 +27,40 @@ type NavigatorWithGpc = Navigator & { globalPrivacyControl?: boolean };
  * tenant the visit belongs to (`platform` on the product site). Nothing is
  * stored and nothing is sent until the region's rules allow analytics.
  */
-export function TrackingProvider({ studioSlug, region }: { studioSlug: string; region: ConsentRegion }) {
+export function TrackingProvider({ studioSlug, region: serverRegion }: { studioSlug: string; region: ConsentRegion | null }) {
+  // Cached pages arrive without a region; it is fetched once from the edge-aware route handler. Until it is
+  // known nothing is stored, sent or shown (the strictest behaviour).
+  const [fetchedRegion, setFetchedRegion] = useState<ConsentRegion | null>(null);
+  const region = serverRegion ?? fetchedRegion;
+  useEffect(() => {
+    if (serverRegion) return;
+    let cancelled = false;
+    fetch('/api/consent-region', { credentials: 'omit' })
+      .then((res) => (res.ok ? (res.json() as Promise<ConsentRegion>) : null))
+      .then((body) => {
+        if (!cancelled && body) setFetchedRegion(body);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [serverRegion]);
+
   const locale = useLocale();
   const pathname = usePathname();
   const [state, setState] = useState<ConsentState | null>(null);
   const [gpc, setGpc] = useState(false);
 
+  const regionMode = region?.mode ?? null;
   useEffect(() => {
+    if (!regionMode) return;
     const signal = (navigator as NavigatorWithGpc).globalPrivacyControl === true;
-    const initial = initialConsent(region.mode, parseConsent(readStoredConsent()), signal);
-    consentModeDefault(region.mode, initial);
+    const initial = initialConsent(regionMode, parseConsent(readStoredConsent()), signal);
+    consentModeDefault(regionMode, initial);
     if (initial.decided) consentModeUpdate(initial);
     setGpc(signal);
     setState(initial);
-  }, [region.mode]);
+  }, [regionMode]);
 
   useEffect(() => {
     if (!state?.analytics) return;
@@ -75,6 +95,6 @@ export function TrackingProvider({ studioSlug, region }: { studioSlug: string; r
     return () => window.removeEventListener(OPEN_CONSENT_EVENT, reopen);
   }, []);
 
-  if (!state || state.decided) return null;
-  return <ConsentBanner mode={region.mode} gpc={gpc} onDecide={onDecide} />;
+  if (!state || !regionMode || state.decided) return null;
+  return <ConsentBanner mode={regionMode} gpc={gpc} onDecide={onDecide} />;
 }

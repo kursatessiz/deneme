@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { EMBED_ORIGIN_PATTERN, LocaleCodeSchema, NOINDEX_ROBOTS_VALUE, STUDIO_SLUG_PATTERN, isNonIndexablePath } from '@platform/shared';
+import { DYNAMIC_PAGE_SEGMENT, EMBED_ORIGIN_PATTERN, LocaleCodeSchema, NOINDEX_ROBOTS_VALUE, STUDIO_SLUG_PATTERN, isNonIndexablePath } from '@platform/shared';
 import { PAGE_LOCALE_HEADER } from '@/lib/i18n/constants';
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE, accessTokenCookieOptions, refreshTokenCookieOptions } from '@/lib/bff/cookies';
 import { dashboardCsp, generateNonce } from '@/lib/security/csp';
 import { isProtectedPath } from '@/lib/security/protected-paths';
 import { tenantRewritePath } from '@/lib/sites/tenant-path';
+import { blogPagingRewrite } from '@/lib/sites/blog-paging';
+import { isVariantPage } from '@/lib/sites/variant-pages';
 import { apiOrigin, serverPublicApiUrl } from '@/lib/public-api-url';
 
 /** Server-side API base (docker network) for host resolution, session refresh and the embed CSP; same variable the BFF uses. */
@@ -33,6 +35,22 @@ function requestHeadersWithPageLocale(request: NextRequest): Headers {
   return headers;
 }
 
+/**
+ * The internal path of a page engine request: paginated blog lists use cached path-based routes, and a page
+ * with A/B variants goes to the per-request `_dynamic` twin (docs/SEO.md "ISR"). Everything else is the cached
+ * route at the visitor's own path. The visitor's URL never changes.
+ */
+async function pageEnginePath(request: NextRequest, studioSlug: string): Promise<string> {
+  const pathname = request.nextUrl.pathname;
+  const paging = blogPagingRewrite(pathname, request.nextUrl.searchParams.get('page'));
+  if (paging) return paging;
+  if (request.method !== 'GET' && request.method !== 'HEAD') return pathname;
+  const [locale, ...rest] = pathname.split('/').filter(Boolean);
+  if (!locale || !LocaleCodeSchema.safeParse(locale).success || locale === 'api' || rest[0] === 'blog') return pathname;
+  const slug = rest.join('/');
+  return (await isVariantPage(API_INTERNAL_BASE_URL, studioSlug, locale, slug)) ? `/${locale}/${DYNAMIC_PAGE_SEGMENT}${slug ? `/${slug}` : ''}` : pathname;
+}
+
 async function tenantSiteRewrite(request: NextRequest): Promise<NextResponse | null> {
   if (HOST_AWARE_PATHS.includes(request.nextUrl.pathname)) return null;
   const host = (request.headers.get('host') ?? '').split(':')[0].toLowerCase();
@@ -52,7 +70,7 @@ async function tenantSiteRewrite(request: NextRequest): Promise<NextResponse | n
   if (!studioSlug || !STUDIO_SLUG_PATTERN.test(studioSlug)) return null;
 
   const url = request.nextUrl.clone();
-  url.pathname = tenantRewritePath(studioSlug, request.nextUrl.pathname);
+  url.pathname = tenantRewritePath(studioSlug, await pageEnginePath(request, studioSlug));
   return NextResponse.rewrite(url, { request: { headers: requestHeadersWithPageLocale(request) } });
 }
 
@@ -223,6 +241,13 @@ async function route(request: NextRequest): Promise<NextResponse> {
   // place the ad pixel scripts (loaded client-side, gated on consent) are
   // allowed to run.
   if (request.nextUrl.pathname.startsWith('/api/')) return NextResponse.next();
+  // Platform site: paginated blog lists and A/B pages are rewritten internally (see pageEnginePath).
+  const enginePath = await pageEnginePath(request, 'platform');
+  if (enginePath !== request.nextUrl.pathname) {
+    const url = request.nextUrl.clone();
+    url.pathname = enginePath;
+    return publicAdsCsp(NextResponse.rewrite(url, { request: { headers: requestHeadersWithPageLocale(request) } }));
+  }
   return publicAdsCsp(NextResponse.next({ request: { headers: requestHeadersWithPageLocale(request) } }));
 }
 

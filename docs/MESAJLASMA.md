@@ -86,7 +86,7 @@ Her kanal denemesinde sıra:
 Belirteçler (`apps/api/src/modules/messaging/tracking/tracking-tokens.ts`): `base64url("v1:<tür>:<uuid>") + "." + base64url(HMAC-SHA256)`; tür `o` (açılma), `c` (tıklama), `u` (abonelikten çıkma). Belirteç yalnızca bir satıra (teslim kaydı veya bağlantı) başvurur; içinde adres, kişisel veri ya da hedef URL yoktur. Anahtar `MESSAGING_TRACKING_SECRET`'tir; geliştirme/testte yoksa `JWT_SECRET`'ten türetilir, üretimde yoksa belirteç üretilmez.
 
 - **Açılma** `GET /m/o/<token>` (API): 1x1 GIF her zaman döner. Yalnızca ticari e-postada kaydedilir. Apple Mail Gizlilik Koruması (çıplak `Mozilla/5.0`), boş User-Agent, bilinen botlar ve e-posta güvenlik tarayıcıları (Barracuda, Mimecast, Proofpoint, Safe Links vb.) **makine açılışı** olarak ayrıca işaretlenir (`machineOpenedAt`, olayda `isMachine`), insan açılışı sayılmaz.
-- **Tıklama** `GET /m/c/<token>` (web, `apps/web/src/app/m/c/[token]/route.ts`): bağlantılar gönderim anında `MessageLink` satırı olarak saklanır. Web rotası belirteci API'ye (`POST /m/c/<token>`) sorar, `pw_vid` çerezini ve User-Agent'ı iletir, API'nin döndürdüğü saklı hedefe 302 ile yönlendirir. Hatalı, sahte veya bilinmeyen belirteç sitenin köküne gider; istekten gelen hiçbir URL'ye asla yönlendirilmez. İnsan tıklaması `clickedAt` yazar ve kişinin bir ziyaretçisi varsa (`pw_vid`) ziyaretçi kişiye bağlanır (atıf zinciri, `AttributionService.identify`). API aynı alan adındaysa doğrudan `GET /m/c/<token>` da çalışır.
+- **Tıklama** `GET /m/c/<token>` (web, `apps/web/src/app/(app)/m/c/[token]/route.ts`): bağlantılar gönderim anında `MessageLink` satırı olarak saklanır. Web rotası belirteci API'ye (`POST /m/c/<token>`) sorar, `pw_vid` çerezini ve User-Agent'ı iletir, API'nin döndürdüğü saklı hedefe 302 ile yönlendirir. Hatalı, sahte veya bilinmeyen belirteç sitenin köküne gider; istekten gelen hiçbir URL'ye asla yönlendirilmez. İnsan tıklaması `clickedAt` yazar ve kişinin bir ziyaretçisi varsa (`pw_vid`) ziyaretçi kişiye bağlanır (atıf zinciri, `AttributionService.identify`). API aynı alan adındaysa doğrudan `GET /m/c/<token>` da çalışır.
 - **Teslim bildirimleri**: `NotificationLog.status` yalnızca ileri gider (PENDING < FAILED < SENT < DELIVERED < BOUNCED < COMPLAINED); tekrar gelen bildirim bir şey değiştirmez.
 
 | Sağlayıcı | Uç nokta | Doğrulama |
@@ -100,7 +100,7 @@ Belirteçler (`apps/api/src/modules/messaging/tracking/tracking-tokens.ts`): `ba
 
 ## 6. Abonelikten çıkma
 
-- Sayfa: `/m/u/<token>` (web, `apps/web/src/app/m/u/[token]/page.tsx`, tr + en, dil seçici). İşletme adını, kanalı ve maskelenmiş adresi gösterir; tek düğmeyle çıkar. Zaten çıkmış adres bunu görür.
+- Sayfa: `/m/u/<token>` (web, `apps/web/src/app/(app)/m/u/[token]/page.tsx`, tr + en, dil seçici). İşletme adını, kanalı ve maskelenmiş adresi gösterir; tek düğmeyle çıkar. Zaten çıkmış adres bunu görür.
 - Tek tık: posta istemcileri `List-Unsubscribe-Post` ile doğrudan `POST <API>/m/u/<token>` çağırır (RFC 8058). Sayfanın düğmesi de aynı ucu kullanır (BFF üzerinden).
 - Kayıt: adres kanal bazında bastırma listesine eklenir (`UNSUBSCRIBED`); alıcının hesabı varsa `CommunicationConsent` o kanal için `REVOKED` olur ve mevcut İYS kuyruğuna girer (TR). Hesabı olmayan TR kişisi için ret doğrudan İYS adaptörüne bildirilir. İşlem idempotenttir: ikinci çağrı `alreadyUnsubscribed: true` döner, yeni kayıt yazmaz.
 

@@ -238,4 +238,37 @@ export function buildHreflangAlternates<T extends { locale: string; slug: string
  * What GET /public/sites/:slug/settings returns: per-site presentation settings the public renderer needs
  * outside a page body (badge, and since S3 verification tags, crawler policy and the review aggregate).
  */
-export interface PublicSiteSettingsDTO extends PoweredByDTO {}
+export interface PublicSiteSettingsDTO extends PoweredByDTO {
+  /**
+   * The site's one canonical origin, independent of the request host so cached pages stay correct (ISR): the
+   * verified primary custom domain, else the earliest verified one, else `<slug>.<base domain>`; the platform
+   * site is its base domain.
+   */
+  canonicalOrigin: string;
+}
+
+/**
+ * The host a site's canonical URLs use (`PublicSiteSettingsDTO.canonicalOrigin`): the platform site is the base
+ * domain; a tenant site prefers its primary domain when that one is verified, else the earliest verified custom
+ * domain, else `<slug>.<base domain>`.
+ */
+export function pickCanonicalHost(input: {
+  isPlatform: boolean;
+  slug: string;
+  baseDomain: string;
+  primaryDomain: string | null;
+  verifiedDomains: ReadonlyArray<{ domain: string; verifiedAt: number }>;
+}): string {
+  if (input.isPlatform) return input.baseDomain;
+  const verified = [...input.verifiedDomains].sort((a, b) => a.verifiedAt - b.verifiedAt || a.domain.localeCompare(b.domain));
+  const primary = input.primaryDomain ? verified.find((d) => d.domain === input.primaryDomain?.toLowerCase()) : undefined;
+  return (primary ?? verified[0])?.domain ?? `${input.slug}.${input.baseDomain}`;
+}
+
+/** What GET /public/sites/:slug/variant-pages returns: published page paths whose blocks carry two or more A/B variants. */
+export interface VariantPagesDTO {
+  items: Array<{ locale: string; slug: string }>;
+}
+
+/** Internal path segment the web middleware rewrites an A/B page to (the folder is `%5Fdynamic` because Next treats a leading underscore as a private folder): the same page, rendered per request (docs/SEO.md "ISR"). */
+export const DYNAMIC_PAGE_SEGMENT = '_dynamic';

@@ -14,6 +14,7 @@ import { PublicArticlesService } from './public-articles.service';
 import { ArticlesFeedCache } from './articles-feed-cache.service';
 import { ArticlesTenantController } from './articles-tenant.controller';
 import { PublicArticlesController } from './public-articles.controller';
+import { SiteCacheService } from './site-cache.service';
 
 /** Page engine (G2c): Site -> Page -> Block, tenant sites and the platform site, plus blog articles (S2b). See docs/SAYFA_MOTORU.md. */
 @Module({
@@ -30,7 +31,8 @@ import { PublicArticlesController } from './public-articles.controller';
     ArticlesService,
     PublicArticlesService,
     ArticlesFeedCache,
+    SiteCacheService,
   ],
-  exports: [SitesService, PagesService, PublicSitesService],
+  exports: [SitesService, PagesService, PublicSitesService, SiteCacheService],
 })
 export class SitesModule {}

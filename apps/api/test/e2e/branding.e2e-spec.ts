@@ -63,7 +63,7 @@ describe('Branding: powered-by badge (e2e)', () => {
 
     const settings = await request(server).get(`/public/sites/${ZEN_SLUG}/settings`);
     expect(settings.status).toBe(200);
-    expect(settings.body).toEqual({ showPoweredBy: true, poweredByUrl: res.body.poweredByUrl });
+    expect(settings.body).toMatchObject({ showPoweredBy: true, poweredByUrl: res.body.poweredByUrl });
   });
 
   it('hides the badge once the super admin turns the tenant flag on, and shows it again when off', async () => {
@@ -71,7 +71,7 @@ describe('Branding: powered-by badge (e2e)', () => {
     const hidden = await request(server).get(`/public/studios/${ZEN_SLUG}/embed/config`);
     expect(hidden.body).toMatchObject({ showPoweredBy: false, poweredByUrl: null });
     const hiddenSettings = await request(server).get(`/public/sites/${ZEN_SLUG}/settings`);
-    expect(hiddenSettings.body).toEqual({ showPoweredBy: false, poweredByUrl: null });
+    expect(hiddenSettings.body).toMatchObject({ showPoweredBy: false, poweredByUrl: null });
 
     expect((await setFlag(false)).status).toBeLessThan(300);
     const shown = await request(server).get(`/public/studios/${ZEN_SLUG}/embed/config`);
@@ -83,7 +83,7 @@ describe('Branding: powered-by badge (e2e)', () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ showPoweredBy: false, poweredByUrl: null });
     const settings = await request(server).get('/public/sites/platform/settings');
-    expect(settings.body).toEqual({ showPoweredBy: false, poweredByUrl: null });
+    expect(settings.body).toMatchObject({ showPoweredBy: false, poweredByUrl: null });
   });
 
   it('answers 404 for the settings of an unknown site', async () => {

@@ -30,7 +30,7 @@ export function SiteShell({
 }) {
   return (
     <ThemeRoot tenantTheme={theme ?? DEFAULT_TENANT_THEME} appearance={{ themeFamily: null, colorScheme: 'SYSTEM' }}>
-      <PublicTracking studioSlug={studioSlug} />
+      <PublicTracking studioSlug={studioSlug} deferRegion />
       {jsonLd.map((doc, i) => (
         <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: doc }} />
       ))}

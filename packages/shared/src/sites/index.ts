@@ -7,3 +7,4 @@ export * from './indexing';
 export * from './articles';
 export * from './article-markup';
 export * from './rss';
+export * from './cache';

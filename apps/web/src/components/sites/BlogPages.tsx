@@ -18,7 +18,6 @@ import { fetchPublicArticle, fetchPublicArticles } from '@/lib/sites/articles-ap
 import { serializeJsonLd } from '@/lib/sites/json-ld';
 import { articleJsonLd, breadcrumbJsonLd } from '@/lib/sites/jsonld';
 import { sitePath } from '@/lib/sites/origin';
-import { requestSiteOrigin } from '@/lib/sites/request-origin';
 import { ArticleBody } from './ArticleBody';
 import { fetchSiteSettings } from '@/lib/sites/api';
 import { SiteShell, poweredByOf } from './SiteShell';
@@ -93,10 +92,11 @@ function TagBadges({ tags, locale }: { tags: PublicArticleSummaryDTO['tags']; lo
 // Blog index (and tag listing)
 // ---------------------------------------------------------------------------
 
-export async function buildBlogIndexMetadata({ studioSlug, isPlatform, locale }: BlogRouteParams, page: number, tag?: string): Promise<Metadata> {
+export async function buildBlogIndexMetadata({ studioSlug, locale }: BlogRouteParams, page: number, tag?: string): Promise<Metadata> {
   const list = await fetchPublicArticles(studioSlug, locale, { page, tag });
   if (!list) return {};
-  const [t, origin] = await Promise.all([getTFor(locale), requestSiteOrigin(studioSlug, isPlatform)]);
+  const [t, settings] = await Promise.all([getTFor(locale), fetchSiteSettings(studioSlug)]);
+  const origin = settings.canonicalOrigin;
   const site = list.site;
   const heading = list.tag ? t('articles.public.tagTitle', { tag: list.tag.label }) : t('articles.public.title');
   const title = t('articles.public.metaTitle', { title: heading, site: site.siteName });
@@ -118,12 +118,13 @@ export async function buildBlogIndexMetadata({ studioSlug, isPlatform, locale }:
   };
 }
 
-export async function BlogIndexView({ studioSlug, isPlatform, locale, page, tag }: BlogRouteParams & { page: number; tag?: string }) {
+export async function BlogIndexView({ studioSlug, locale, page, tag }: BlogRouteParams & { page: number; tag?: string }) {
   const list = await fetchPublicArticles(studioSlug, locale, { page, tag });
   if (!list) notFound();
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize));
   if (page > pages) notFound();
-  const [t, origin, settings] = await Promise.all([getTFor(locale), requestSiteOrigin(studioSlug, isPlatform), fetchSiteSettings(studioSlug)]);
+  const [t, settings] = await Promise.all([getTFor(locale), fetchSiteSettings(studioSlug)]);
+  const origin = settings.canonicalOrigin;
   const { site } = list;
   const heading = list.tag ? t('articles.public.tagTitle', { tag: list.tag.label }) : t('articles.public.title');
   const listPath = list.tag ? blogTagPath(locale, list.tag.slug) : blogIndexPath(locale);
@@ -201,10 +202,11 @@ export async function BlogIndexView({ studioSlug, isPlatform, locale, page, tag 
 // One article
 // ---------------------------------------------------------------------------
 
-export async function buildArticleMetadata({ studioSlug, isPlatform, locale }: BlogRouteParams, slug: string): Promise<Metadata> {
+export async function buildArticleMetadata({ studioSlug, locale }: BlogRouteParams, slug: string): Promise<Metadata> {
   const article = await fetchPublicArticle(studioSlug, locale, slug);
   if (!article) return {};
-  const [t, origin] = await Promise.all([getTFor(locale), requestSiteOrigin(studioSlug, isPlatform)]);
+  const [t, settings] = await Promise.all([getTFor(locale), fetchSiteSettings(studioSlug)]);
+  const origin = settings.canonicalOrigin;
   const { site } = article;
   const title = article.seoTitle ?? t('articles.public.metaTitle', { title: article.title, site: site.siteName });
   const description = article.seoDescription ?? article.excerpt;
@@ -237,10 +239,11 @@ export async function buildArticleMetadata({ studioSlug, isPlatform, locale }: B
   };
 }
 
-export async function ArticleView({ studioSlug, isPlatform, locale, slug }: BlogRouteParams & { slug: string }) {
+export async function ArticleView({ studioSlug, locale, slug }: BlogRouteParams & { slug: string }) {
   const article = await fetchPublicArticle(studioSlug, locale, slug);
   if (!article) notFound();
-  const [t, origin, settings] = await Promise.all([getTFor(locale), requestSiteOrigin(studioSlug, isPlatform), fetchSiteSettings(studioSlug)]);
+  const [t, settings] = await Promise.all([getTFor(locale), fetchSiteSettings(studioSlug)]);
+  const origin = settings.canonicalOrigin;
   const { site } = article;
   const url = `${origin}${articlePath(locale, article.slug)}`;
   const updated = article.updatedAt.slice(0, 10) !== article.publishedAt.slice(0, 10);

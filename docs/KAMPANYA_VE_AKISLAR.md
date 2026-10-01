@@ -12,7 +12,7 @@ Bu belge G2a fazında gelen dört parçayı anlatır: segmentler, kişi düzeyin
 | Akışlar | `apps/api/src/modules/growth/journeys` | `journeys.view`, `journeys.manage` |
 | Eski `/automation-rules` | `apps/api/src/modules/automations` (kullanımdan kaldırıldı, sarmalayıcı) | `notifications.manage` (değişmedi) |
 
-Sözleşmeler (Zod şemaları, DTO'lar, şablonlar) `packages/shared/src/growth/` altındadır: `segments.ts` (kural dili, G0), `segment-api.ts`, `campaigns.ts`, `journeys.ts` (akış şeması, G0 + G2a eklemeleri), `journey-api.ts` (API sözleşmesi, şablon galerisi, eski kural dönüşümü). Web ekranları `apps/web/src/app/(dashboard)/{kisiler,segmentler,kampanyalar,akislar}` altındadır.
+Sözleşmeler (Zod şemaları, DTO'lar, şablonlar) `packages/shared/src/growth/` altındadır: `segments.ts` (kural dili, G0), `segment-api.ts`, `campaigns.ts`, `journeys.ts` (akış şeması, G0 + G2a eklemeleri), `journey-api.ts` (API sözleşmesi, şablon galerisi, eski kural dönüşümü). Web ekranları `apps/web/src/app/(app)/(dashboard)/{kisiler,segmentler,kampanyalar,akislar}` altındadır.
 
 Altı yeni izin anahtarı migration ile mevcut sahip rol şablonlarına eklendi; sahip zaten her izne sahiptir. Resepsiyon ve eğitmen varsayılan olarak bu anahtarları almaz; işletme rol ekranından verebilir.
 

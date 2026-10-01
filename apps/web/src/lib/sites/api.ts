@@ -1,4 +1,5 @@
 import { apiInternalBaseUrl } from '@/lib/server-env';
+import { SITE_REVALIDATE_SECONDS, siteCacheTag } from '@platform/shared';
 import type { ArticleSitemapEntry, PublicPageDTO, PublicSiteSettingsDTO, SitemapPageEntry, SitemapResponseDTO } from '@platform/shared';
 import { originForHost, siteOrigin } from './origin';
 
@@ -8,27 +9,28 @@ import { originForHost, siteOrigin } from './origin';
  * client-controlled host.
  */
 
-const PAGE_REVALIDATE_SECONDS = 300;
+const PAGE_REVALIDATE_SECONDS = SITE_REVALIDATE_SECONDS;
 
 export async function fetchPublicPage(studioSlug: string, locale: string, slug: string): Promise<PublicPageDTO | null> {
   const url = new URL(`${apiInternalBaseUrl()}/public/sites/${encodeURIComponent(studioSlug)}/pages`);
   url.searchParams.set('locale', locale);
   url.searchParams.set('slug', slug);
-  const res = await fetch(url, { next: { revalidate: PAGE_REVALIDATE_SECONDS, tags: [`site-page:${studioSlug}:${locale}:${slug}`] } });
+  const res = await fetch(url, { next: { revalidate: PAGE_REVALIDATE_SECONDS, tags: [siteCacheTag(studioSlug), `site-page:${studioSlug}:${locale}:${slug}`] } });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Sayfa yüklenemedi (${res.status})`);
   return (await res.json()) as PublicPageDTO;
 }
 
 /**
- * Presentation settings of a site (the plan-gated "Powered by" badge today), cached like the page reads and
- * purged with the site's other tags on publish. An unknown site or an unreachable API fails closed: no badge.
+ * Presentation settings of a site (the plan-gated "Powered by" badge and the canonical origin), cached like the
+ * page reads and purged with the site's other tags on publish. An unknown site or an unreachable API fails
+ * closed: no badge, and the default origin.
  */
 export async function fetchSiteSettings(studioSlug: string): Promise<PublicSiteSettingsDTO> {
-  const fallback: PublicSiteSettingsDTO = { showPoweredBy: false, poweredByUrl: null };
+  const fallback: PublicSiteSettingsDTO = { showPoweredBy: false, poweredByUrl: null, canonicalOrigin: siteOrigin(studioSlug, studioSlug === 'platform') };
   try {
     const res = await fetch(`${apiInternalBaseUrl()}/public/sites/${encodeURIComponent(studioSlug)}/settings`, {
-      next: { revalidate: PAGE_REVALIDATE_SECONDS, tags: [`site-settings:${studioSlug}`] },
+      next: { revalidate: PAGE_REVALIDATE_SECONDS, tags: [siteCacheTag(studioSlug)] },
       signal: AbortSignal.timeout(2000),
     });
     if (!res.ok) return fallback;
@@ -43,7 +45,7 @@ export async function fetchSitemapEntries(studioSlug: string): Promise<SitemapRe
   // than an error page.
   try {
     const res = await fetch(`${apiInternalBaseUrl()}/public/sites/${encodeURIComponent(studioSlug)}/sitemap-entries`, {
-      next: { revalidate: PAGE_REVALIDATE_SECONDS },
+      next: { revalidate: PAGE_REVALIDATE_SECONDS, tags: [siteCacheTag(studioSlug)] },
     });
     if (!res.ok) return { items: [], defaultLocale: null, articles: [] };
     const data = (await res.json()) as { items: SitemapPageEntry[]; defaultLocale?: string | null; articles?: ArticleSitemapEntry[] };
