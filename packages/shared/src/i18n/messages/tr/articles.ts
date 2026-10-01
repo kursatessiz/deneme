@@ -2,6 +2,7 @@
 export const trArticles = {
   // Public blog
   'articles.public.title': 'Blog',
+  'articles.public.metaTitle': '{title} | {site}',
   'articles.public.description': '{site} yazıları',
   'articles.public.tagTitle': '{tag} etiketli yazılar',
   'articles.public.tagDescription': '{site} blogunda {tag} etiketli yazılar',

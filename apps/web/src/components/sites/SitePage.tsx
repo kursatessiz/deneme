@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { DEFAULT_TENANT_THEME, PRODUCT_NAME, buildHreflangAlternates } from '@platform/shared';
+import { PRODUCT_NAME, buildHreflangAlternates } from '@platform/shared';
 import { toOgLocale } from '@/lib/seo/og-locale';
 import { fetchPublicPage } from '@/lib/sites/api';
 import { sitePath } from '@/lib/sites/origin';
@@ -8,10 +8,8 @@ import { requestSiteOrigin } from '@/lib/sites/request-origin';
 import { pickPageVariant } from '@/lib/sites/ab';
 import { getTFor } from '@/lib/i18n/getT';
 import { serializeJsonLd } from '@/lib/sites/json-ld';
-import { CookiePreferencesButton } from '@/components/consent/CookiePreferencesButton';
-import { ThemeRoot } from '@/components/theme/ThemeRoot';
-import { PublicTracking } from '@/components/consent/PublicTracking';
 import { BlockRenderer } from './BlockRenderer';
+import { SiteShell } from './SiteShell';
 import {
   breadcrumbJsonLd,
   faqPageJsonLd,
@@ -131,25 +129,20 @@ export async function SitePageView({ studioSlug, isPlatform, locale, slugParts }
   jsonLd.push(...productJsonLd([...plans, ...packages]));
 
   return (
-    <ThemeRoot tenantTheme={page.theme ?? DEFAULT_TENANT_THEME} appearance={{ themeFamily: null, colorScheme: 'SYSTEM' }}>
-      <PublicTracking studioSlug={studioSlug} />
-      {jsonLd.map((doc, i) => (
-        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(doc) }} />
-      ))}
-
-      <div className="min-h-screen flex flex-col">
-        {page.page.kind === 'LEGAL' && !page.localeMeta.legalApproved && (
+    <SiteShell
+      theme={page.theme}
+      studioSlug={studioSlug}
+      cookieLabel={t('sites.footer.cookiePreferences')}
+      jsonLd={jsonLd.map(serializeJsonLd)}
+      banner={
+        page.page.kind === 'LEGAL' && !page.localeMeta.legalApproved ? (
           <div role="note" className="ui-panel ui-strong ui-text-warn text-center px-4 py-3">
             {t('sites.legalDraftBanner')}
           </div>
-        )}
-        <main className="flex-1">
-          <BlockRenderer blocks={page.blocks} locale={locale} defaultLocale={page.defaultLocale} studioSlug={studioSlug} context={page.context} variant={variant} t={t} />
-        </main>
-        <footer className="ui-rule px-4 py-4 text-center ui-caption">
-          <CookiePreferencesButton label={t('sites.footer.cookiePreferences')} />
-        </footer>
-      </div>
-    </ThemeRoot>
+        ) : null
+      }
+    >
+      <BlockRenderer blocks={page.blocks} locale={locale} defaultLocale={page.defaultLocale} studioSlug={studioSlug} context={page.context} variant={variant} t={t} />
+    </SiteShell>
   );
 }

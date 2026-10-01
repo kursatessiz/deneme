@@ -2,6 +2,7 @@ import type { trArticles } from '../tr/articles';
 
 export const enArticles = {
   'articles.public.title': 'Blog',
+  'articles.public.metaTitle': '{title} | {site}',
   'articles.public.description': 'Articles from {site}',
   'articles.public.tagTitle': 'Articles tagged {tag}',
   'articles.public.tagDescription': 'Articles tagged {tag} on the {site} blog',
