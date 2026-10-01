@@ -47,7 +47,7 @@ import { toCsv } from '../../common/csv';
 import { EventSeatsService } from './event-seats.service';
 import { EventsService } from './events.service';
 import { eventError } from './events.errors';
-import { EVENT_INCLUDE, REGISTRATION_INCLUDE, RegistrationWithPerson, toEventDTO, toPublicEventDTO, toRegistrationDTO } from './events.mapper';
+import { EVENT_INCLUDE, PUBLIC_EVENT_INCLUDE, REGISTRATION_INCLUDE, RegistrationWithPerson, toEventDTO, toPublicEventDTO, toRegistrationDTO } from './events.mapper';
 import { assertStudioWritable } from '../auth/guards/billing-write.guard';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -657,7 +657,7 @@ export class EventRegistrationsService {
   // -------------------------------------------------------------------------
 
   private async studioBySlug(slug: string) {
-    const studio = await this.prisma.studio.findUnique({ where: { slug }, select: { id: true, isActive: true } });
+    const studio = await this.prisma.studio.findUnique({ where: { slug }, select: { id: true, isActive: true, name: true, address: true, timezone: true } });
     if (!studio || !studio.isActive) throw eventError('EVENT_NOT_FOUND');
     return studio;
   }
@@ -684,19 +684,19 @@ export class EventRegistrationsService {
     const now = new Date();
     const events = await this.prisma.event.findMany({
       where: this.publicWhere(studio.id, now),
-      include: EVENT_INCLUDE,
+      include: PUBLIC_EVENT_INCLUDE,
       orderBy: [{ startsAt: { sort: 'asc', nulls: 'last' } }],
       take: 100,
     });
-    return events.map((e) => toPublicEventDTO(e, this.isOpen(e, now), now));
+    return events.map((e) => toPublicEventDTO(e, studio, this.isOpen(e, now), now));
   }
 
   async publicGet(slug: string, eventId: string): Promise<PublicEventDTO> {
     const studio = await this.studioBySlug(slug);
     const now = new Date();
-    const event = await this.prisma.event.findFirst({ where: { id: eventId, ...this.publicWhere(studio.id, now) }, include: EVENT_INCLUDE });
+    const event = await this.prisma.event.findFirst({ where: { id: eventId, ...this.publicWhere(studio.id, now) }, include: PUBLIC_EVENT_INCLUDE });
     if (!event) throw eventError('EVENT_NOT_FOUND');
-    return toPublicEventDTO(event, this.isOpen(event, now), now);
+    return toPublicEventDTO(event, studio, this.isOpen(event, now), now);
   }
 
   /**

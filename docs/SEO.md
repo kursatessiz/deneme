@@ -13,6 +13,7 @@ Bu belge herkese açık web sayfalarının (sayfa motoru siteleri, rezervasyon s
 | `hreflang`, `x-default`, canonical, `sitemap.xml` | `components/sites/SitePage.tsx`, `lib/sites/api.ts`, `lib/sites/request-origin.ts`, `app/sitemap.xml/route.ts`, `packages/shared/src/sites/site.ts` ve `sitemap.ts` |
 | Yapılandırılmış veri (JSON-LD) | `lib/sites/jsonld.ts`, `SitePage.tsx` |
 | Rezervasyon sayfası metadata'sı | `app/(public)/booking/[studioSlug]/layout.tsx` |
+| Etkinlik sayfaları (S2a) | `app/(public)/events/[studioSlug]/` (liste ve ayrıntı), `lib/events/*`, `eventJsonLd` |
 | Yanıt başlıkları | `apps/web/next.config.ts` (`headers()`), `deploy/caddy/Caddyfile` |
 
 Tüm kullanıcıya görünen metinler i18n anahtarıdır (`seo.*` ad alanı, `packages/shared/src/i18n/messages/{tr,en}/seo.ts`). Sayfa motoru sayfalarının başlık ve açıklaması kiracı verisidir (`seoTitle`, `seoDescription`) ve çevrilmez.
@@ -71,8 +72,13 @@ Kök (`/`) bir sayfa değil, dil müzakereli bir `302` yönlendirmesidir (`app/r
 | `FAQPage` | `faq` bloğu olan sayfalar | sayfadaki tüm `faq` bloklarının soruları tek `FAQPage` içinde |
 | `SoftwareApplication` | yalnızca platform ana sayfası | `applicationCategory: BusinessApplication`, `offers` yayınlanmış planlardan (fiyatlandırma bloğu yüklediyse) |
 | `Product` + `Offer` | plan (platform) ve paket (kiracı) listesi olan sayfalar | `priceCurrency` öğenin kendi para birimi |
+| `Event` | herkese açık etkinlik ayrıntı sayfası (`/events/.../<etkinlik>`) | `startDate`/`endDate` etkinliğin saat diliminin UTC farkıyla (`zonedIsoString`), `eventStatus: EventScheduled`, `eventAttendanceMode: OfflineEventAttendanceMode`, `location` (`Place`, ad + serbest metin adres), `organizer` (`Organization`), bilet türü başına `Offer` (`price`, `priceCurrency`, `availability`), çok oturumlu etkinlikte `subEvent`, `image` (kapak, yoksa logo) |
 
 Çıktı `serializeJsonLd()` ile kaçışlanır (`<`, `>`, `&`); metinler kiracı girdisidir.
+
+### Herkese açık etkinlik sayfaları
+
+`/events/<studioSlug>` (liste) ve `/events/<studioSlug>/<etkinlik>` (ayrıntı), `(public)/events` altında sunucuda render edilir; yalnızca `PUBLIC` ve `PUBLISHED`, bitmemiş etkinlikler gösterilir (API'nin herkese açık uçları). `<etkinlik>` bölümü `<başlık-slug>-<id>` veya yalın kimliktir; yalnızca sondaki kimlik aranır (etkinlikte slug sütunu yoktur). İşletmenin kendi site host'unda (`<slug>.<alan>` veya doğrulanmış özel alan adı) aynı sayfalar `/events` ve `/events/<etkinlik>` yollarında sunulur (middleware yeniden yazımı, `lib/sites/tenant-path.ts`). Canonical her zaman işletmenin site origin'indeki `/events...` adresidir; platform host'undaki adres onun kopyasıdır. İşletme `sitemap.xml` dosyası, en az bir herkese açık etkinlik varsa `/events` ve her etkinliğin adresini listeler (aynı önbellekli liste okuması, en fazla 100 etkinlik). Başlık, açıklama, Open Graph ve Twitter etiketleri ile `Event` + `BreadcrumbList` JSON-LD üretilir. Tarih ve saatler etkinliğin saat diliminde (şube, yoksa işletme) biçimlenir ve dilim adı blok başına bir kez yazılır.
 
 ## 7. Yanıt başlıkları ve performans
 

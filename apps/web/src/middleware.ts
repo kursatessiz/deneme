@@ -4,6 +4,7 @@ import { PAGE_LOCALE_HEADER } from '@/lib/i18n/constants';
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE, accessTokenCookieOptions, refreshTokenCookieOptions } from '@/lib/bff/cookies';
 import { dashboardCsp, generateNonce } from '@/lib/security/csp';
 import { isProtectedPath } from '@/lib/security/protected-paths';
+import { tenantRewritePath } from '@/lib/sites/tenant-path';
 import { apiOrigin, serverPublicApiUrl } from '@/lib/public-api-url';
 
 /** Server-side API base (docker network) for host resolution, session refresh and the embed CSP; same variable the BFF uses. */
@@ -51,7 +52,7 @@ async function tenantSiteRewrite(request: NextRequest): Promise<NextResponse | n
   if (!studioSlug || !STUDIO_SLUG_PATTERN.test(studioSlug)) return null;
 
   const url = request.nextUrl.clone();
-  url.pathname = `/tenant-site/${studioSlug}${request.nextUrl.pathname}`;
+  url.pathname = tenantRewritePath(studioSlug, request.nextUrl.pathname);
   return NextResponse.rewrite(url, { request: { headers: requestHeadersWithPageLocale(request) } });
 }
 

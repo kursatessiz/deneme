@@ -112,7 +112,7 @@ Personel ve üye uç noktalarının tümü `@StudioScoped()`; işletme her zaman
 | `GET /studios/:studioId/events/self`, `GET .../self/:eventId`, `GET .../self/registrations` | self-servis |
 | `POST /studios/:studioId/events/self/:eventId/register` (`ticketTypeId`, `memberPackageId` veya `useCredits`) | self-servis |
 | `POST /studios/:studioId/events/self/registrations/:registrationId/cancel`, `.../pay` | self-servis |
-| `GET /public/studios/:slug/events`, `GET /public/studios/:slug/events/:eventId` | herkese açık |
+| `GET /public/studios/:slug/events`, `GET /public/studios/:slug/events/:eventId` | herkese açık (yanıt `timezone` ve `location` alanlarını da taşır: şubenin dilimi/adresi, yoksa işletmeninki) |
 | `POST /public/studios/:slug/events/:eventId/registrations` | herkese açık |
 
 Herkese açık uç noktalar yalnızca `PUBLIC` ve `PUBLISHED`, bitmemiş etkinlikleri döndürür; kayıt sayısı veya kayıtlı kişiler hakkında bilgi vermez (yalnızca kalan yer). IP başına sabit pencereli hız sınırı vardır (okuma dakikada 60, yazma dakikada 5; Redis varsa Redis, yoksa bellek içi, açık bırakmaz). Misafir formundaki gizli tuzak alanı (`website`) doluysa hiçbir şey kaydedilmez. Hatalar gövdede kararlı bir `code` taşır (`EVENT_ERROR_CODES`); istemciler `events.error.<code>` / `mEvents.error.<code>` anahtarıyla çevirir. CSV noktalı virgülle ayrılır, formül önekleri etkisizleştirilir, başlıklar istenen veya işletmenin dilindedir; telefon yalnızca `members.contact.view` izniyle yazılır.
@@ -120,6 +120,7 @@ Herkese açık uç noktalar yalnızca `PUBLIC` ve `PUBLISHED`, bitmemiş etkinli
 ## Arayüz
 
 - Web `/etkinlikler`: durum filtresi, liste (tarih, durum, dolu yer, bekleme listesi); `/etkinlikler/yeni`; `/etkinlikler/[id]` sekmeleri: Genel (düzenleme, yayınlama, iptal), Oturumlar, Biletler (ekleme, satışı durdurma, silme), Kayıtlar (giriş, gelmedi, ödemeyi alma, iptal, CSV). Menü girişi `events.view` ile görünür (`lib/nav.ts`).
+- Web herkese açık sayfalar (S2a): `/events/<işletme-slug>` liste ve `/events/<işletme-slug>/<başlık-slug>-<id>` ayrıntı (`apps/web/src/app/(public)/events`), sunucuda render edilir, işletme markasıyla (herkese açık yapılandırma) çizilir, `Event` JSON-LD taşır ve işletme `sitemap.xml` dosyasında listelenir (`docs/SEO.md`). Tarihler etkinliğin saat diliminde yazılır. Sayfada kayıt formu yoktur: üyeler mobil uygulamadan, misafirler işletmeyle iletişime geçerek kaydolur. Metinler `events.public.*` anahtarlarındadır.
 - Mobil üye: "Hesabım > Etkinlikler" (kayıtlarım ve yaklaşan etkinlikler), etkinlik ayrıntısı (oturumlar, biletler, kayıt, paket hakkıyla kayıt, bekleme listesi, ödeme, iade süresini gösteren iptal onayı).
 - Mobil personel: "Hesabım > Etkinlik girişi" (`events.checkin` + `events.view`): yayındaki etkinliği seçip tek dokunuşla giriş.
 - Tüm metinler `events` ve `mEvents` ad alanlarında (tr + en).
@@ -138,7 +139,7 @@ Seed, Zen işletmesinde iki etkinlik açar: herkese açık, bekleme listeli, tek
 
 ## Kalan
 
-- İşletme web sitesinde (sayfa motoru) herkese açık etkinlik sayfası ve kayıt formu bloğu. API uç noktaları hazır; site motoru sayfaları `[[...slug]]` yakalayıcısıyla ve blok şemalarıyla render ettiği için ayrı bir "etkinlikler" bloğu tasarlanmalı.
+- Herkese açık etkinlik sayfasında misafir kayıt formu (S2a yalnızca liste ve ayrıntıyı ekledi) ve sayfa motorunda "etkinlikler" bloğu. API uç noktaları hazır; site motoru sayfaları `[[...slug]]` yakalayıcısıyla ve blok şemalarıyla render ettiği için ayrı bir "etkinlikler" bloğu tasarlanmalı.
 - Misafir için çevrimiçi ödeme (sağlayıcı checkout'u üye profili istiyor).
 - Oturum başına yoklama ve çok oturumlu kursta kısmi iade.
 - Web'de personelin üye/kişi arayıp kayıt eklemesi (API hazır: `POST .../registrations`).
