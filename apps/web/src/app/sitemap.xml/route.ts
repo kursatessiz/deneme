@@ -12,9 +12,13 @@ export async function GET() {
   const h = await headers();
   const { studioSlug, isPlatform, origin } = await studioSlugForHost(h.get('host') ?? '');
   const { items, defaultLocale } = await fetchSitemapEntries(studioSlug);
-  const pageEntries = buildLocalizedSitemapEntries(items, defaultLocale, (locale, slug) => `${origin}${sitePath(locale, slug)}`);
-  // The product landing page at `/` is not a page-engine page (docs/SEO.md); only the platform host lists it.
-  const entries = isPlatform ? [{ loc: `${origin}/` }, ...pageEntries] : pageEntries;
+  // `/` is a redirect, never a listed page: on the platform host it is the x-default of the home page (docs/SEO.md).
+  const entries = buildLocalizedSitemapEntries(
+    items,
+    defaultLocale,
+    (locale, slug) => `${origin}${sitePath(locale, slug)}`,
+    isPlatform ? { homeXDefaultUrl: `${origin}/` } : {},
+  );
   const xml = buildSitemapXml(entries);
   return new Response(xml, { headers: { 'Content-Type': 'application/xml' } });
 }

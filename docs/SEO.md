@@ -1,6 +1,6 @@
 # Teknik SEO
 
-Bu belge herkese açık web sayfalarının (ürün açılış sayfası, sayfa motoru siteleri, rezervasyon sayfası) arama motorlarına ve bağlantı önizlemelerine nasıl tanıtıldığını anlatır. Sayfa motorunun kendisi için `docs/SAYFA_MOTORU.md`, tasarım kuralları için `docs/TASARIM.md` geçerlidir. Kapsam: S1 (teknik SEO tabanı).
+Bu belge herkese açık web sayfalarının (sayfa motoru siteleri, rezervasyon sayfası) arama motorlarına ve bağlantı önizlemelerine nasıl tanıtıldığını anlatır. Sayfa motorunun kendisi için `docs/SAYFA_MOTORU.md`, tasarım kuralları için `docs/TASARIM.md` geçerlidir. Kapsam: S1 (teknik SEO tabanı).
 
 ## 1. Neler var
 
@@ -9,7 +9,7 @@ Bu belge herkese açık web sayfalarının (ürün açılış sayfası, sayfa mo
 | Dizinleme denetimi (noindex, `robots.txt` Disallow) | `packages/shared/src/sites/indexing.ts`, `apps/web/src/middleware.ts`, `lib/seo/noindex.ts` |
 | Kök metadata (`metadataBase`, varsayılan Open Graph ve Twitter, tema rengi) | `apps/web/src/app/layout.tsx` |
 | Üretilen simgeler ve manifest | `app/icon.tsx`, `app/apple-icon.tsx`, `app/manifest.ts` |
-| Open Graph görselleri | `app/opengraph-image.tsx` (açılış sayfası ve varsayılan), `app/og/route.tsx` (sayfa motoru), `lib/og/*` |
+| Open Graph görselleri | `app/opengraph-image.tsx` (varsayılan kart: ürün adı), `app/og/route.tsx` (sayfa motoru), `lib/og/*` |
 | `hreflang`, `x-default`, canonical, `sitemap.xml` | `components/sites/SitePage.tsx`, `lib/sites/api.ts`, `lib/sites/request-origin.ts`, `app/sitemap.xml/route.ts`, `packages/shared/src/sites/site.ts` ve `sitemap.ts` |
 | Yapılandırılmış veri (JSON-LD) | `lib/sites/jsonld.ts`, `SitePage.tsx` |
 | Rezervasyon sayfası metadata'sı | `app/(public)/booking/[studioSlug]/layout.tsx` |
@@ -44,7 +44,7 @@ Next.js metadata'yı yüzeysel birleştirir: kendi `openGraph` nesnesini veren b
 
 Simgeler ve manifest `PRODUCT_NAME` ilk harfi ile marka birincil renginden (`DEFAULT_TENANT_THEME`, `onColor()`) üretilir; emoji veya sabit renk yoktur. Middleware matcher'ı `/icon`, `/apple-icon`, `/opengraph-image` ve `/manifest.webmanifest` yollarını atlar.
 
-Açılış sayfası (`/`) kendine canonical verir, Open Graph ve Twitter etiketlerini taşır ve platform `sitemap.xml` dosyasında listelenir.
+Kök (`/`) bir sayfa değil, dil müzakereli bir `302` yönlendirmesidir (`app/route.ts`, `docs/SAYFA_MOTORU.md`); meta etiketi taşımaz ve `sitemap.xml` içinde listelenmez. Platform ana sayfasının (`/tr`, `/en`) canonical'ı kendisidir.
 
 ## 4. Open Graph görselleri
 
@@ -56,8 +56,8 @@ Açılış sayfası (`/`) kendine canonical verir, Open Graph ve Twitter etiketl
 
 ## 5. hreflang, sitemap ve canonical
 
-- Her sayfanın `alternates.languages` kümesi yalnızca yayınlanmış dil varyantlarını ve bir `x-default` içerir. `x-default`, sitenin varsayılan dilindeki varyanta işaret eder; sayfanın o dilde varyantı yoksa ilk varyanta (`buildHreflangAlternates`, `packages/shared/src/sites/site.ts`).
-- `sitemap.xml` her dil varyantı için ayrı bir `<url>` üretir; her biri sayfanın tam alternatif kümesini (`xhtml:link`, `x-default` dahil) taşır (`buildLocalizedSitemapEntries`). `GET /public/sites/:slug/sitemap-entries` yanıtı geriye uyumlu biçimde `defaultLocale` alanını da verir. Platform sitesinde `/` açılış sayfası da listelenir.
+- Her sayfanın `alternates.languages` kümesi yalnızca yayınlanmış dil varyantlarını ve bir `x-default` içerir. `x-default`, sitenin varsayılan dilindeki varyanta işaret eder (platform ana sayfası istisnadır: `x-default` origin köküne `/` işaret eder, kök ziyaretçiyi dilinde bir sayfaya yönlendirir); sayfanın o dilde varyantı yoksa ilk varyanta (`buildHreflangAlternates`, `packages/shared/src/sites/site.ts`).
+- `sitemap.xml` her dil varyantı için ayrı bir `<url>` üretir; her biri sayfanın tam alternatif kümesini (`xhtml:link`, `x-default` dahil) taşır (`buildLocalizedSitemapEntries`). `GET /public/sites/:slug/sitemap-entries` yanıtı geriye uyumlu biçimde `defaultLocale` alanını da verir. `/` listelenmez; platform ana sayfasının alternatif kümesinde `x-default` olarak yer alır (`homeXDefaultUrl` seçeneği).
 - Özel alan adı: istek host'u doğrulanmış (`VERIFIED`) bir özel alan adıysa canonical, alternatifler, sitemap ve `robots.txt` o host'u kullanır; aksi halde `<slug>.<SITES_DOMAIN>` kullanılır. Host'a tek başına güvenilmez: API'nin `GET /public/sites/resolve` yanıtı o host'un aynı stüdyoya ait olduğunu söylemelidir (`lib/sites/request-origin.ts`, `studioSlugForHost()`).
 
 ## 6. JSON-LD kataloğu
@@ -97,7 +97,6 @@ Açılış sayfası (`/`) kendine canonical verir, Open Graph ve Twitter etiketl
 - ISR: sayfalar `force-dynamic` ve her istekte render ediliyor; API yanıtları önbellekli.
 - Lighthouse CI (CI'da performans ve SEO bütçesi).
 - GA4 (yalnızca reklam piksellerinin onay kapısı var; analitik kurulu değil).
-- `/` yolunun sayfa motoruna devredilmesi sahibin kararını bekliyor; şimdilik `/` kodla yazılmış açılış sayfasıdır.
 - Kiracı sitesi için kiracıya özel simge ve manifest (şimdilik platform simgesi).
 - `PostalAddress` için yapılandırılmış adres alanları (stüdyo adresi tek serbest metin).
 - Doğrulanmış özel alan adı varken `<slug>.<alan>` alt alan adından özel alan adına kalıcı yönlendirme (şimdilik yalnızca canonical).

@@ -35,6 +35,16 @@ export async function fetchSitemapEntries(studioSlug: string): Promise<SitemapRe
   }
 }
 
+/**
+ * Locales in which the platform site's home page is published, plus the site default, for the `/` redirect.
+ * Reuses the cached sitemap read; an unreachable API yields no locales (the caller falls back to BASE_LOCALE).
+ */
+export async function fetchPlatformHomeLocales(): Promise<{ locales: string[]; defaultLocale: string | null }> {
+  const { items, defaultLocale } = await fetchSitemapEntries('platform');
+  const locales = Array.from(new Set(items.filter((item) => item.slug === '').map((item) => item.locale)));
+  return { locales, defaultLocale };
+}
+
 export interface ResolvedHost {
   studioSlug: string;
   siteId: string;
