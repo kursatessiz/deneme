@@ -6,6 +6,7 @@ import { OtpPurpose } from '@platform/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { OtpService } from '../otp/otp.service';
 import { toAppearance, toTenantTheme } from '../appearance/theme-mapping';
+import { loadAllowedThemeFamilies } from '../appearance/theme-families';
 import { LoginThrottleService } from './login-throttle.service';
 import { isStudioBillingStatus } from '@platform/shared';
 import { loadPlatformAccess, requireTwoFactorForPlatformRoles } from './platform-access';
@@ -202,6 +203,8 @@ export class AuthService {
       },
     });
 
+    const allowedFamilies = await loadAllowedThemeFamilies(this.prisma, [...new Set(user.memberships.map((m) => m.studio.id))]);
+
     const memberships: MembershipDTO[] = user.memberships.map((m) => ({
       id: m.id,
       studioId: m.studio.id,
@@ -218,7 +221,7 @@ export class AuthService {
       memberProfileId: m.memberProfile?.id ?? null,
       trainerProfileId: m.trainerProfile?.id ?? null,
       homeBranchId: m.memberProfile?.homeBranchId ?? null,
-      theme: toTenantTheme(m.studio),
+      theme: { ...toTenantTheme(m.studio), allowedThemeFamilies: allowedFamilies.get(m.studio.id) },
       defaultLocale: m.studio.defaultLocale,
       currency: m.studio.currency,
       billing: {

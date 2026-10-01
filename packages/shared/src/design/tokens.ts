@@ -6,19 +6,19 @@ import {
   STORED_THEME_FAMILY_KEYS,
   THEME_FAMILIES,
   getThemeFamily,
+  isThemeFamilyAllowed,
 } from './themes';
-import type { ColorMode, GradientPreset, PerfectRoleColors, StoredThemeFamilyKey, ThemeColors, ThemeFamily } from './themes';
+import type { ColorMode, GradientPreset, PerfectRoleColors, StoredThemeFamilyKey, ThemeColors, ThemeFamily, ThemeFamilyKey } from './themes';
 
 /**
  * Design tokens shared by web and mobile: the Perfect UI tokens
- * (themes.ts, PERFECT_UI_TOKENS) plus the tenant brand. Apps must read
+ * (themes.ts, PERFECT_UI_TOKENS and the optional families) plus the tenant brand. Apps must read
  * colors, spacing, radii and type from here instead of hardcoding values.
  * resolveTheme() combines the tenant's brand with the user's light/dark
  * choice; themeCssVariables() turns the result into `--pui-*` variables.
  */
 
 const PUI_L = PERFECT_UI_TOKENS.colors.light;
-const PUI_D = PERFECT_UI_TOKENS.colors.dark;
 
 // Neutral scale of the kit (cool gray). Semantic colors are the kit's light values.
 export const palette = {
@@ -88,6 +88,11 @@ export const GRADIENT_PRESET_KEYS = Object.values(GRADIENT_PRESET_KEYS_BY_FAMILY
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
+/** The preset key a studio gets when it switches to `family`: the family's first one (the schema ties a non-default family to its own presets). */
+export function gradientKeyForFamily(family: StoredThemeFamilyKey): GradientPresetKey {
+  return GRADIENT_PRESET_KEYS_BY_FAMILY[family][0];
+}
+
 /** The stored family of a preset key, or null for an unknown key. */
 export function familyOfGradient(key: string): StoredThemeFamilyKey | null {
   for (const family of STORED_THEME_FAMILY_KEYS) {
@@ -114,6 +119,13 @@ export const TenantThemeSchema = z
     { path: ['gradientPresetKey'], message: 'Gradyan seçilen tema ailesine ait olmalı' },
   );
 export type TenantTheme = z.infer<typeof TenantThemeSchema>;
+
+/**
+ * A tenant theme as the API delivers it to clients: the stored values plus
+ * the families the super admin allowed for this studio (D7). A client that
+ * lacks the list renders the default family.
+ */
+export type TenantThemeView = TenantTheme & { allowedThemeFamilies?: ThemeFamilyKey[] };
 
 export const UpdateTenantThemeSchema = TenantThemeSchema;
 export type UpdateTenantThemeInput = TenantTheme;
@@ -177,6 +189,8 @@ export interface TenantThemeInput {
   themeFamily?: string | null;
   themePrimary?: string | null;
   gradientPresetKey?: string | null;
+  /** Families the super admin allowed; the stored family renders only when it is in here (the default always renders). */
+  allowedThemeFamilies?: readonly string[] | null;
 }
 
 export interface ResolvedTheme {
@@ -206,12 +220,17 @@ export function resolveTheme(params: {
     themePrimary: params.tenant?.themePrimary ?? DEFAULT_TENANT_THEME.themePrimary,
   };
   const appearance = { ...DEFAULT_APPEARANCE, ...(params.appearance ?? {}) };
-  const family = getThemeFamily(DEFAULT_THEME_FAMILY);
+  const requestedFamily = params.tenant?.themeFamily;
+  // A stored family the super admin has not allowed renders as the default family.
+  const family = getThemeFamily(isThemeFamilyAllowed(requestedFamily, params.tenant?.allowedThemeFamilies) ? requestedFamily : DEFAULT_THEME_FAMILY);
   const mode: ColorMode =
     appearance.colorScheme === 'LIGHT' ? 'light' : appearance.colorScheme === 'DARK' ? 'dark' : (params.systemMode ?? 'light');
   const valid = typeof tenant.themePrimary === 'string' && HEX.test(tenant.themePrimary);
-  const isDefaultPrimary = !valid || tenant.themePrimary.toLowerCase() === DEFAULT_TENANT_THEME.themePrimary.toLowerCase();
-  const primary = isDefaultPrimary ? family.roles[mode].theme : tenant.themePrimary;
+  // The kit's own light/dark brand pair applies to the default family with the default color only.
+  const isDefaultPrimary =
+    family.key === DEFAULT_THEME_FAMILY &&
+    (!valid || tenant.themePrimary.toLowerCase() === DEFAULT_TENANT_THEME.themePrimary.toLowerCase());
+  const primary = isDefaultPrimary || !valid ? family.roles[mode].theme : tenant.themePrimary;
   return {
     family,
     mode,
@@ -223,9 +242,9 @@ export function resolveTheme(params: {
   };
 }
 
-/** `light-dark()` pair of one kit color token. */
-function pair(token: keyof typeof PUI_L): string {
-  return `light-dark(${PUI_L[token]}, ${PUI_D[token]})`;
+/** `light-dark()` pair of one color of a family. */
+function pair(family: ThemeFamily, pick: (colors: ThemeColors, roles: PerfectRoleColors) => string): string {
+  return `light-dark(${pick(family.colors.light, family.roles.light)}, ${pick(family.colors.dark, family.roles.dark)})`;
 }
 
 /**
@@ -239,27 +258,29 @@ function pair(token: keyof typeof PUI_L): string {
  * that were not yet moved to the component library.
  */
 export function themeCssVariables(theme: ResolvedTheme): Record<string, string> {
-  const brand = theme.isDefaultPrimary ? pair('theme') : theme.colors.primary;
+  const f = theme.family;
+  const brand = theme.isDefaultPrimary ? pair(f, (_c, r) => r.theme) : theme.colors.primary;
+  const flatSurface = (['light', 'dark'] as const).every((m) => f.colors[m].surface === f.colors[m].background);
   const vars: Record<string, string> = {
-    '--pui-bg': pair('bg'),
-    '--pui-bg-muted': pair('bgMuted'),
-    '--pui-bg-emphasis': pair('bgEmphasis'),
-    '--pui-text': pair('text'),
-    '--pui-text-muted': pair('textMuted'),
-    '--pui-border': pair('border'),
+    '--pui-bg': pair(f, (c) => c.background),
+    '--pui-bg-muted': pair(f, (c) => c.surfaceMuted),
+    '--pui-bg-emphasis': pair(f, (c) => c.surfaceEmphasis),
+    '--pui-text': pair(f, (c) => c.textPrimary),
+    '--pui-text-muted': pair(f, (c) => c.textMuted),
+    '--pui-border': pair(f, (c) => c.border),
     '--pui-theme': brand,
-    '--pui-success': pair('success'),
-    '--pui-warn': pair('warn'),
-    '--pui-error': pair('error'),
-    '--pui-muted': pair('muted'),
-    '--pui-radius': `${PERFECT_UI_TOKENS.radius / 16}rem`,
+    '--pui-success': pair(f, (_c, r) => r.success),
+    '--pui-warn': pair(f, (_c, r) => r.warn),
+    '--pui-error': pair(f, (_c, r) => r.error),
+    '--pui-muted': pair(f, (_c, r) => r.muted),
+    '--pui-radius': `${f.radii.input / 16}rem`,
     '--pui-space': `${PERFECT_UI_TOKENS.space / 16}rem`,
     '--pui-font-size': `${PERFECT_UI_TOKENS.fontSize / 16}rem`,
     '--pui-border-width': `${PERFECT_UI_TOKENS.borderWidth}px`,
     // Text on the brand color: the kit uses the page color; a tenant color gets a contrast-checked one.
     '--pui-on-theme': theme.isDefaultPrimary ? 'var(--pui-bg)' : theme.colors.onPrimary,
     '--color-background': 'var(--pui-bg)',
-    '--color-surface': 'var(--pui-bg)',
+    '--color-surface': flatSurface ? 'var(--pui-bg)' : pair(f, (c) => c.surface),
     '--color-surface-muted': 'var(--pui-bg-muted)',
     '--color-surface-emphasis': 'var(--pui-bg-emphasis)',
     '--color-border': 'var(--pui-border)',
@@ -273,12 +294,12 @@ export function themeCssVariables(theme: ResolvedTheme): Record<string, string> 
     '--color-danger': 'var(--pui-error)',
     '--gradient-brand': gradientCss(theme.gradient.stops[0]),
     '--gradient-brand-on': onGradient(theme.gradient),
-    '--font-display': PERFECT_UI_TOKENS.fontFamily,
-    '--font-body': PERFECT_UI_TOKENS.fontFamily,
-    '--radius-card': `${theme.family.radii.card}px`,
-    '--radius-button': `${theme.family.radii.button}px`,
-    '--radius-chip': `${theme.family.radii.chip}px`,
-    '--radius-input': `${theme.family.radii.input}px`,
+    '--font-display': f.fonts.display.web,
+    '--font-body': f.fonts.body.web,
+    '--radius-card': `${f.radii.card}px`,
+    '--radius-button': `${f.radii.button}px`,
+    '--radius-chip': `${f.radii.chip}px`,
+    '--radius-input': `${f.radii.input}px`,
   };
   return vars;
 }

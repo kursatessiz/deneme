@@ -65,6 +65,7 @@ export default function EmbedBookingPage() {
               themePrimary: config.themePrimary,
               gradientPresetKey: config.gradientPresetKey,
               logoUrl: config.logoUrl,
+              allowedThemeFamilies: config.allowedThemeFamilies,
             }
           : null,
         appearance: null,

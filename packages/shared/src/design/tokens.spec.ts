@@ -17,7 +17,17 @@ import {
   themeCssVariables,
   themePuiMode,
 } from './tokens';
-import { PERFECT_UI_TOKENS, THEME_FAMILIES, THEME_FAMILY_KEYS, getThemeFamily } from './themes';
+import {
+  DEFAULT_THEME_FAMILY,
+  OPTIONAL_THEME_FAMILY_KEYS,
+  PERFECT_UI_TOKENS,
+  THEME_FAMILIES,
+  THEME_FAMILY_KEYS,
+  getThemeFamily,
+  isThemeFamilyAllowed,
+  resolveAllowedThemeFamilies,
+  themeFamilyFlagKey,
+} from './themes';
 
 describe('design tokens (Perfect UI)', () => {
   it('names only Inter faces for the native fonts', () => {
@@ -27,11 +37,71 @@ describe('design tokens (Perfect UI)', () => {
     }
   });
 
-  it('has exactly one design family and maps every legacy or unknown key to it', () => {
-    expect(THEME_FAMILY_KEYS).toEqual(['perfect']);
-    for (const key of ['perfect', 'noir', 'nefes', 'saha', 'atolye', 'mor', null, undefined]) {
-      expect(getThemeFamily(key).key).toBe('perfect');
+  it('has five families with perfect as the default and maps unknown keys to it', () => {
+    expect(THEME_FAMILY_KEYS).toEqual(['perfect', 'noir', 'nefes', 'saha', 'atolye']);
+    expect(DEFAULT_THEME_FAMILY).toBe('perfect');
+    for (const key of THEME_FAMILY_KEYS) expect(getThemeFamily(key).key).toBe(key);
+    for (const key of ['mor', '', null, undefined]) expect(getThemeFamily(key).key).toBe('perfect');
+  });
+
+  it('every optional family emits exactly the variables of the default family', () => {
+    const names = Object.keys(themeCssVariables(resolveTheme({ tenant: null, appearance: null, systemMode: 'light' }))).sort();
+    for (const key of OPTIONAL_THEME_FAMILY_KEYS) {
+      const theme = resolveTheme({
+        tenant: { themeFamily: key, themePrimary: '#1F6F5C', allowedThemeFamilies: [key] },
+        appearance: null,
+        systemMode: 'light',
+      });
+      expect(theme.family.key).toBe(key);
+      const vars = themeCssVariables(theme);
+      expect(Object.keys(vars).sort()).toEqual(names);
+      expect(vars['--pui-bg']).toBe(`light-dark(${THEME_FAMILIES[key].colors.light.background}, ${THEME_FAMILIES[key].colors.dark.background})`);
+      expect(vars['--font-body']).toContain('Inter');
+      for (const mode of ['light', 'dark'] as const) {
+        const c = THEME_FAMILIES[key].colors[mode];
+        expect(contrastRatio(c.textPrimary, c.background)).toBeGreaterThanOrEqual(7);
+        expect(contrastRatio(c.textSecondary, c.background)).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(c.textPrimary, c.surface)).toBeGreaterThanOrEqual(7);
+      }
+      // Gradients stay data of the family; the gradient slots stay the only place they render.
+      expect(THEME_FAMILIES[key].gradients.length).toBeGreaterThan(0);
     }
+  });
+
+  it('renders a stored family only when the super admin allowed it', () => {
+    const stored = { themeFamily: 'saha', themePrimary: '#1F6F5C' };
+    const resolve = (allowed?: string[] | null) =>
+      resolveTheme({ tenant: { ...stored, allowedThemeFamilies: allowed }, appearance: null, systemMode: 'light' }).family.key;
+    expect(resolve()).toBe('perfect');
+    expect(resolve(null)).toBe('perfect');
+    expect(resolve(['perfect'])).toBe('perfect');
+    expect(resolve(['perfect', 'noir'])).toBe('perfect');
+    expect(resolve(['perfect', 'saha'])).toBe('saha');
+    expect(resolveTheme({ tenant: { themeFamily: 'perfect' }, appearance: null, systemMode: 'light' }).family.key).toBe('perfect');
+  });
+
+  it('resolves the allow-list from tenant and global flag rows, perfect always included', () => {
+    expect(resolveAllowedThemeFamilies([])).toEqual(['perfect']);
+    expect(themeFamilyFlagKey('noir')).toBe('theme_family.noir');
+    expect(
+      resolveAllowedThemeFamilies([
+        { key: 'theme_family.noir', scope: 'TENANT', enabled: true },
+        { key: 'theme_family.nefes', scope: 'GLOBAL', enabled: true },
+        { key: 'theme_family.saha', scope: 'TENANT', enabled: false },
+        { key: 'theme_family.atolye', scope: 'BUSINESS_TYPE', enabled: true },
+      ]),
+    ).toEqual(['perfect', 'noir', 'nefes']);
+    // A tenant row beats a global row in both directions.
+    expect(
+      resolveAllowedThemeFamilies([
+        { key: 'theme_family.noir', scope: 'GLOBAL', enabled: true },
+        { key: 'theme_family.noir', scope: 'TENANT', enabled: false },
+      ]),
+    ).toEqual(['perfect']);
+    expect(isThemeFamilyAllowed('perfect', [])).toBe(true);
+    expect(isThemeFamilyAllowed('noir', ['perfect'])).toBe(false);
+    expect(isThemeFamilyAllowed('noir', ['perfect', 'noir'])).toBe(true);
+    expect(isThemeFamilyAllowed('mor', ['mor'])).toBe(false);
   });
 
   it('copies the kit core.css colors exactly', () => {
@@ -109,6 +179,7 @@ describe('design tokens (Perfect UI)', () => {
   });
 
   it('resolveTheme: the user mode wins, the tenant brand always stays', () => {
+    // saha is stored but not allowed here, so it renders as the default family.
     const tenant = { ...DEFAULT_TENANT_THEME, themeFamily: 'saha' as const, gradientPresetKey: 'saha-mavi' as const, themePrimary: '#2B74B9' };
     const bySystem = resolveTheme({ tenant, appearance: null, systemMode: 'dark' });
     expect(bySystem.family.key).toBe('perfect');

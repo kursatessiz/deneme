@@ -14,17 +14,34 @@ ve sonraki fazlarda neyin taşınacağı.
 
 ## 1. Alınmış kararlar
 
-1. **Tek tasarım dili.** Dört tema ailesi (Stüdyo Noir, Nefes, Saha, Atölye)
-   kaldırıldı. `THEME_FAMILY_KEYS` artık yalnızca `['perfect']`;
-   `getThemeFamily()` bilinmeyen veya eski her anahtarı bu aileye eşler.
-   Veritabanındaki değerler olduğu gibi kalır (migration yok). API sözleşmesi
-   değişmedi: `PUT /studios/:id/theme` ve `PUT /me/appearance` eski aile
-   anahtarlarını (`noir`, `nefes`, `saha`, `atolye`) ve eski gradyan
-   anahtarlarını kabul eder, eski bir aile için gradyanın o aileye ait olması
-   kuralı da korunur; ancak bu alanlar ekranda hiçbir şeyi değiştirmez
-   (render tarafında normalize edilir). Web'de `/ayarlar/gorunum` ve üst
-   bardaki kullanıcı menüsü yalnızca açık / koyu / cihazla aynı seçimini
-   sunar; aile seçimi arayüzden kalktı.
+1. **Varsayılan tasarım dili Perfect UI; eski aileler süper admin kontrolüyle
+   geri döndü (D7).** Beş tema ailesi vardır: `perfect` (varsayılan) ile
+   Stüdyo Noir, Nefes, Saha, Atölye (`noir`, `nefes`, `saha`, `atolye`).
+   `THEME_FAMILY_KEYS` beş anahtardır, `DEFAULT_THEME_FAMILY = 'perfect'`.
+   Dört eski aile `THEME_FAMILIES` içinde Perfect UI token sözlüğüyle tam
+   `ThemeFamily` tanımlarıdır: aynı `--pui-*` değişkenlerini yayarlar
+   (`themeCssVariables()`), bu yüzden her bileşen olduğu gibi çalışır. Yazı
+   tipi her ailede Inter'dir (uygulamalarda gömülü tek yüz); köşe yarıçapları,
+   nötr renkler ve kart çizgisi/gölge tercihi ailelere özgüdür. Gradyan yine
+   yalnızca iki alanda (üye kartı, paket kartı) görünür.
+   **İşletmeler aileleri özgürce seçemez.** Hangi ailenin kullanılabildiğine
+   süper admin karar verir (aşağıda "İzin listesi"). Varsayılan izin listesi
+   `['perfect']`'tir; yalnızca tek aile izinliyse işletme ayarlarında aile
+   seçici hiç görünmez. `getThemeFamily()` bilinmeyen anahtarı `perfect`'e
+   eşler; `resolveTheme()` izin listesinde olmayan saklı bir aileyi de
+   `perfect` olarak çizer (veritabanı değeri değişmez).
+   API sözleşmesi: `PUT /studios/:id/theme` listede olmayan bir aileye geçişi
+   `403` ve `code: 'THEME_FAMILY_NOT_ALLOWED'` ile reddeder (istemciler
+   `themeDesign.error.THEME_FAMILY_NOT_ALLOWED` anahtarını çevirir). Saklı
+   aileyi değiştirmeden geri göndermek (istemciler bunu yapar) her zaman
+   kabul edilir; böylece saklı ailesi izinli olmayan bir işletme logosunu ve
+   rengini yine düzenleyebilir. Eski gradyan anahtarlarına ilişkin kural
+   değişmedi: `perfect` dışındaki bir aile için gradyan anahtarı o aileye ait
+   olmalıdır (`gradientKeyForFamily()`); gradyan yine birincil renkten
+   türetilir ve bu anahtar ekranda hiçbir şeyi değiştirmez. Kullanıcının
+   kendi `themeFamily` alanı (`PUT /me/appearance`) eski bir alandır ve yok
+   sayılır; Web'de `/ayarlar/gorunum` ve üst bardaki kullanıcı menüsü
+   kullanıcıya yalnızca açık / koyu / cihazla aynı seçimini sunar.
 2. **İşletme markası kalır.** Logo ve birincil renk (`themePrimary`)
    işletmenindir; birincil renk o işletmenin alt ağacında `--pui-theme` olur.
    Kullanıcının açık/koyu/sistem tercihi `data-pui-mode` olur.
@@ -39,15 +56,42 @@ ve sonraki fazlarda neyin taşınacağı.
    yoktur. İkonlar Lucide, 16 px, çizgi rengi metin rengine bağlı
    (`lucide-react`, `ui-icon` sınıfı).
 
+## 1a. Tema ailesi izin listesi (süper admin)
+
+İzin listesi yeni bir tablo gerektirmez: işletme kapsamlı (`TENANT`) feature
+flag satırlarıdır. Her isteğe bağlı aile için bir anahtar vardır:
+`theme_family.noir`, `theme_family.nefes`, `theme_family.saha`,
+`theme_family.atolye` (`themeFamilyFlagKey()`, `FEATURE_FLAGS` kataloğunda
+belgelidir). `perfect` her zaman izinlidir ve bayrak gerektirmez. Kural
+`resolveAllowedThemeFamilies()` içindedir (saf, test edilir): işletme satırı
+varsa o kazanır, yoksa `GLOBAL` satır; iş türü satırları bu kararda
+kullanılmaz. API tarafında `loadAllowedThemeFamilies()` tek sorguyla bir veya
+birden çok işletmenin listesini yükler.
+
+Liste istemcilere şu yollarla ulaşır (`TenantThemeView.allowedThemeFamilies`):
+`GET /studios/:id/theme` ve `PUT` yanıtı, oturumdaki üyeliğin `theme` alanı
+(`/auth/me`), herkese açık sayfa motoru yanıtı ve embed/rezervasyon
+`config` yanıtı. Liste yoksa istemci yalnızca `perfect` çizer. E-posta
+şablonları liste taşımadığı için her zaman `perfect` kullanır.
+
+Süper admin, `/admin/tenants` tablosundaki "Tema aileleri" bölümünden
+işletme başına izinli aileleri açıp kapatır ve işletmenin mevcut ailesini
+seçer (`GET/PUT /admin/tenants/:id/theme-families`; `UpdateTenantThemeFamiliesSchema`).
+Mevcut aile izinli olmayan bir aileye ayarlanamaz; `perfect` dışına geçerken
+gradyan anahtarı yeni ailenin ilk anahtarına çekilir. Her kayıt
+`tenant.theme_families.update` olarak denetim kaydına yazılır.
+
 ## 2. Token'lar ve tek doğruluk kaynağı
 
 Token'lar `packages/shared/src/design` içinde yaşar ve iki platform için
 tektir:
 
 - `themes.ts`: `PERFECT_UI_TOKENS` (kitin `dist/css/core.css` değerlerinin
-  birebir kopyası), `THEME_FAMILIES.perfect` (yazı tipi, köşe, nötr renkler,
-  anlamsal roller, varsayılan gradyan), eski anahtar listeleri
-  (`LEGACY_THEME_FAMILY_KEYS`, `STORED_THEME_FAMILY_KEYS`).
+  birebir kopyası), `THEME_FAMILIES` (`perfect` ile dört isteğe bağlı aile:
+  yazı tipi, köşe, nötr renkler, anlamsal roller, gradyanlar),
+  `OPTIONAL_THEME_FAMILY_KEYS`, `STORED_THEME_FAMILY_KEYS` ve izin listesi
+  yardımcıları (`themeFamilyFlagKey`, `resolveAllowedThemeFamilies`,
+  `isThemeFamilyAllowed`).
 - `tokens.ts`: `palette`, `semanticColors`, `spacing`, `radii`, `typography`,
   `GRADIENT_SLOTS`, şemalar (`TenantThemeSchema`, `AppearancePreferenceSchema`),
   `resolveTheme()`, `themeCssVariables()`, `brandGradient()`, `onColor()`,

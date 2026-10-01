@@ -20,6 +20,8 @@ export interface EmbedConfig {
   themeFamily: string;
   themePrimary: string;
   gradientPresetKey: string;
+  /** Families the super admin allowed; absent means the default family only. */
+  allowedThemeFamilies?: string[];
 }
 
 export interface EmbedBranch {

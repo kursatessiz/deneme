@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BILLING_CURRENCY_LOCKED_ERROR_CODE, DashboardMetricsDTO, StudioRegion, studioBillingCurrency } from '@platform/shared';
+import { loadAllowedThemeFamiliesForStudio } from '../appearance/theme-families';
 
 @Injectable()
 export class StudiosService {
@@ -39,7 +40,7 @@ export class StudiosService {
       throw new NotFoundException(`'${slug}' stüdyosu bulunamadı`);
     }
 
-    return studio;
+    return { ...studio, allowedThemeFamilies: await loadAllowedThemeFamiliesForStudio(this.prisma, studio.id) };
   }
 
   async getEmbedSettings(studioId: string) {

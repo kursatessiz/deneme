@@ -32,6 +32,7 @@ export class EmbedPublicController {
       themeFamily: studio.themeFamily,
       themePrimary: studio.themePrimary,
       gradientPresetKey: studio.gradientPresetKey,
+      allowedThemeFamilies: studio.allowedThemeFamilies,
     };
   }
 

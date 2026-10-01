@@ -1,7 +1,24 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
-import { SubscriptionStatus } from '@platform/database';
-import { ALL_PERMISSIONS, countryDefaultsOf, DEFAULT_ROLE_TEMPLATES } from '@platform/shared';
-import type { CreateTenantInput, TenantDetailDTO, TenantListItemDTO } from '@platform/shared';
+import { FeatureFlagScope, SubscriptionStatus } from '@platform/database';
+import {
+  ALL_PERMISSIONS,
+  DEFAULT_ROLE_TEMPLATES,
+  DEFAULT_THEME_FAMILY,
+  GRADIENT_PRESET_KEYS_BY_FAMILY,
+  OPTIONAL_THEME_FAMILY_KEYS,
+  countryDefaultsOf,
+  getThemeFamily,
+  isThemeFamilyKey,
+  themeFamilyFlagKey,
+} from '@platform/shared';
+import type {
+  CreateTenantInput,
+  TenantDetailDTO,
+  TenantListItemDTO,
+  TenantThemeFamiliesDTO,
+  UpdateTenantThemeFamiliesInput,
+} from '@platform/shared';
+import { loadAllowedThemeFamiliesForStudio } from '../appearance/theme-families';
 import { PrismaService } from '../prisma/prisma.service';
 import { InvitesService } from '../invites/invites.service';
 import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
@@ -206,6 +223,60 @@ export class AdminTenantsService {
     await this.referrals.recordSignup(studioId, dto.ownerPhone, dto.referralCode ?? null);
 
     return { studioId, ownerInvite: invite };
+  }
+
+  /** The studio's theme-family allow-list and the family stored on it. */
+  async getThemeFamilies(studioId: string): Promise<TenantThemeFamiliesDTO> {
+    const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { themeFamily: true } });
+    if (!studio) throw new NotFoundException('İşletme bulunamadı');
+    return {
+      allowed: await loadAllowedThemeFamiliesForStudio(this.prisma, studioId),
+      current: isThemeFamilyKey(studio.themeFamily) ? studio.themeFamily : DEFAULT_THEME_FAMILY,
+    };
+  }
+
+  /**
+   * Replaces the allow-list (one tenant-scoped `theme_family.<key>` flag per
+   * optional family; the default family needs none) and sets the family the
+   * studio uses. A non-default family also gets one of its own gradient
+   * preset keys when the stored one belongs elsewhere, because the theme
+   * schema ties a non-default family to its presets.
+   */
+  async setThemeFamilies(actorUserId: string, studioId: string, input: UpdateTenantThemeFamiliesInput): Promise<TenantThemeFamiliesDTO> {
+    const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { themeFamily: true, gradientPresetKey: true } });
+    if (!studio) throw new NotFoundException('İşletme bulunamadı');
+    const before = await this.getThemeFamilies(studioId);
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const key of OPTIONAL_THEME_FAMILY_KEYS) {
+        const enabled = input.allowed.includes(key);
+        const where = { key: themeFamilyFlagKey(key), scope: FeatureFlagScope.TENANT, studioId, businessTypeTemplateId: null };
+        const existing = await tx.featureFlag.findFirst({ where });
+        if (existing) await tx.featureFlag.update({ where: { id: existing.id }, data: { enabled } });
+        else await tx.featureFlag.create({ data: { ...where, enabled } });
+      }
+      const presets = GRADIENT_PRESET_KEYS_BY_FAMILY[input.current] as readonly string[];
+      await tx.studio.update({
+        where: { id: studioId },
+        data: {
+          themeFamily: input.current,
+          ...(input.current !== DEFAULT_THEME_FAMILY && !presets.includes(studio.gradientPresetKey)
+            ? { gradientPresetKey: getThemeFamily(input.current).gradients[0].key }
+            : {}),
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          studioId,
+          userId: actorUserId,
+          action: 'tenant.theme_families.update',
+          entityType: 'Studio',
+          entityId: studioId,
+          metadata: { before: { allowed: before.allowed, current: before.current }, after: { allowed: input.allowed, current: input.current } },
+        },
+      });
+    });
+    return this.getThemeFamilies(studioId);
   }
 
   async setActive(actorUserId: string, studioId: string, isActive: boolean) {
