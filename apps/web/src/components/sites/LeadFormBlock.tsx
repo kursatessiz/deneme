@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { trackingHeaders } from '@/lib/tracking/client';
 import { publicApiBaseUrl } from '@/lib/public-api-url';
+import { Button, Checkbox, FieldGroup, Input, Textarea } from '@/components/ui';
 
 /**
  * The page engine's lead_form block (docs/SAYFA_MOTORU.md). Posts to the
@@ -80,18 +81,12 @@ export function LeadFormBlock({
   };
 
   if (status === 'sent') {
-    return (
-      <p role="status" style={{ color: 'var(--color-text-primary)' }}>
-        {i18n.sent}
-      </p>
-    );
+    return <p role="status" className="ui-strong">{i18n.sent}</p>;
   }
 
   return (
-    <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 420 }}>
-      {title && (
-        <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{title}</h3>
-      )}
+    <form onSubmit={onSubmit} className="grid gap-3 max-w-md">
+      {title && <h3 className="ui-title">{title}</h3>}
       {/* Honeypot: hidden from real visitors via off-screen positioning, never display:none (some scrapers skip those). */}
       <input
         type="text"
@@ -103,77 +98,34 @@ export function LeadFormBlock({
         style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
         aria-hidden="true"
       />
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 14 }}>
-        {i18n.fullName}
-        <input
-          required
-          value={values.fullName}
-          onChange={(e) => setValues({ ...values, fullName: e.target.value })}
-          style={{ padding: '10px 12px', borderRadius: 'var(--radius-input)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-background)', color: 'var(--color-text-primary)' }}
-        />
-      </label>
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 14 }}>
-        {i18n.phone}
-        <input
-          required
-          value={values.phone}
-          onChange={(e) => setValues({ ...values, phone: e.target.value })}
-          placeholder="+90 5xx xxx xx xx"
-          style={{ padding: '10px 12px', borderRadius: 'var(--radius-input)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-background)', color: 'var(--color-text-primary)' }}
-        />
-      </label>
+      <FieldGroup label={i18n.fullName}>
+        <Input required value={values.fullName} onChange={(e) => setValues({ ...values, fullName: e.target.value })} />
+      </FieldGroup>
+      <FieldGroup label={i18n.phone}>
+        <Input required type="tel" value={values.phone} onChange={(e) => setValues({ ...values, phone: e.target.value })} placeholder="+90 5xx xxx xx xx" />
+      </FieldGroup>
       {fields.includes('email') && (
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 14 }}>
-          {i18n.email}
-          <input
-            type="email"
-            value={values.email}
-            onChange={(e) => setValues({ ...values, email: e.target.value })}
-            style={{ padding: '10px 12px', borderRadius: 'var(--radius-input)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-background)', color: 'var(--color-text-primary)' }}
-          />
-        </label>
+        <FieldGroup label={i18n.email}>
+          <Input type="email" value={values.email} onChange={(e) => setValues({ ...values, email: e.target.value })} />
+        </FieldGroup>
       )}
       {fields.includes('interest') && (
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 14 }}>
-          {i18n.message}
-          <textarea
-            value={values.interest}
-            onChange={(e) => setValues({ ...values, interest: e.target.value })}
-            rows={3}
-            style={{ padding: '10px 12px', borderRadius: 'var(--radius-input)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-background)', color: 'var(--color-text-primary)' }}
-          />
-        </label>
+        <FieldGroup label={i18n.message}>
+          <Textarea value={values.interest} onChange={(e) => setValues({ ...values, interest: e.target.value })} rows={3} />
+        </FieldGroup>
       )}
-      <label style={{ display: 'flex', gap: 8, fontSize: 13, alignItems: 'flex-start', color: 'var(--color-text-secondary)' }}>
-        <input type="checkbox" required checked={values.consent} onChange={(e) => setValues({ ...values, consent: e.target.checked })} style={{ marginTop: 3 }} />
-        <span>{consentText || i18n.defaultConsent}</span>
-      </label>
+      <Checkbox required checked={values.consent} onChange={(e) => setValues({ ...values, consent: e.target.checked })} className="items-start" label={<span className="ui-caption">{consentText || i18n.defaultConsent}</span>} />
       {marketingConsent && (
-        <label style={{ display: 'flex', gap: 8, fontSize: 13, alignItems: 'flex-start', color: 'var(--color-text-secondary)' }}>
-          <input type="checkbox" checked={values.marketing} onChange={(e) => setValues({ ...values, marketing: e.target.checked })} style={{ marginTop: 3 }} />
-          <span>{marketingConsent.text}</span>
-        </label>
+        <Checkbox checked={values.marketing} onChange={(e) => setValues({ ...values, marketing: e.target.checked })} className="items-start" label={<span className="ui-caption">{marketingConsent.text}</span>} />
       )}
       {status === 'error' && (
-        <p role="alert" style={{ color: 'var(--color-danger, #b42318)', fontSize: 13 }}>
+        <p role="alert" className="ui-caption ui-text-error">
           {i18n.error}
         </p>
       )}
-      <button
-        type="submit"
-        disabled={status === 'sending'}
-        style={{
-          padding: '12px 20px',
-          borderRadius: 'var(--radius-button)',
-          fontWeight: 700,
-          color: '#fff',
-          border: 'none',
-          backgroundImage: 'var(--gradient-brand)',
-          cursor: 'pointer',
-        }}
-      >
+      <Button type="submit" disabled={status === 'sending'} className="justify-self-start">
         {submitLabel || i18n.submit}
-      </button>
+      </Button>
     </form>
   );
 }

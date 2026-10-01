@@ -7,6 +7,7 @@ import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, ErrorState, EmptyState } from '@/components/common/DataState';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { Badge, InlineMessage, PrimaryButton, SecondaryButton, Section, TextField } from '@/components/settings/ui';
+import { ChipButton, FieldGroup, List, ListItem, Select, Textarea } from '@/components/ui';
 
 interface PageLocaleRow {
   locale: string;
@@ -63,15 +64,6 @@ const BLOCK_TEMPLATE: Record<BlockType, unknown> = {
   contact: { config: { showAddress: true, showPhone: true, showEmail: true }, text: { tr: {} } },
   legal_text: { config: {}, text: { tr: { title: 'Başlık', body: 'Metin' } } },
 };
-
-function fieldStyle(): React.CSSProperties {
-  return {
-    borderRadius: 'var(--radius-input)',
-    borderColor: 'var(--color-border)',
-    backgroundColor: 'var(--color-background)',
-    color: 'var(--color-text-primary)',
-  };
-}
 
 /**
  * Page engine editor (docs/SAYFA_MOTORU.md), shared by the super admin
@@ -158,22 +150,18 @@ export function SiteEditor({ studioId, variant }: { studioId: string; variant: '
   const selectedPage = selectedPageId ? pages.items.find((p) => p.id === selectedPageId) : null;
 
   return (
-    <div className="space-y-8">
+    <div className="grid gap-6">
       <Section
         title={t('sites.editor.settings.title')}
         description={variant === 'platform' ? t('sites.editor.settings.platformDescription') : t('sites.editor.settings.tenantDescription')}
       >
-        <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('sites.editor.settings.summary', { locale: site.defaultLocale, locales: site.enabledLocales.join(', ') })}
-        </p>
+        <p className="ui-text-muted">{t('sites.editor.settings.summary', { locale: site.defaultLocale, locales: site.enabledLocales.join(', ') })}</p>
         {variant === 'tenant' && (
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-              {t('sites.editor.domains.title')}
-            </h4>
-            <ul className="text-sm space-y-1">
+          <div className="grid gap-3 ui-rule pt-4">
+            <h4 className="ui-heading">{t('sites.editor.domains.title')}</h4>
+            <List>
               {site.domains.map((d) => (
-                <li key={d.id} className="flex items-center gap-2">
+                <ListItem key={d.id} className="flex items-center gap-2">
                   <span>{d.domain}</span>
                   <Badge tone={d.status === 'VERIFIED' ? 'primary' : 'neutral'}>
                     {d.status === 'VERIFIED'
@@ -192,16 +180,16 @@ export function SiteEditor({ studioId, variant }: { studioId: string; variant: '
                       {t('sites.editor.domains.verifyCheck')}
                     </SecondaryButton>
                   )}
-                </li>
+                </ListItem>
               ))}
-              {site.domains.length === 0 && <li style={{ color: 'var(--color-text-muted)' }}>{t('sites.editor.domains.empty')}</li>}
-            </ul>
+              {site.domains.length === 0 && <ListItem className="ui-text-muted">{t('sites.editor.domains.empty')}</ListItem>}
+            </List>
             <div className="flex gap-2 items-end">
               <TextField label={t('sites.editor.domains.newDomainLabel')} value={newDomain} onChange={setNewDomain} placeholder="site.ornek.com" />
               <SecondaryButton onClick={addDomain}>{t('sites.editor.domains.add')}</SecondaryButton>
             </div>
             {domainError && <InlineMessage text={domainError} tone="error" />}
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{t('sites.editor.domains.hint')}</p>
+            <p className="ui-caption">{t('sites.editor.domains.hint')}</p>
           </div>
         )}
       </Section>
@@ -220,33 +208,31 @@ export function SiteEditor({ studioId, variant }: { studioId: string; variant: '
       <Section title={t('sites.editor.pages.title')}>
         <div className="flex gap-2 items-end flex-wrap">
           <TextField label={t('sites.editor.pages.newLabel')} value={createLabel} onChange={setCreateLabel} placeholder={t('sites.editor.pages.newLabelPlaceholder')} />
-          <select value={createKind} onChange={(e) => setCreateKind(e.target.value as PageKind)} className="border px-3 py-2 text-sm" style={fieldStyle()}>
+          <Select value={createKind} onChange={(e) => setCreateKind(e.target.value as PageKind)} aria-label={t('sites.editor.pages.kindLabel')} className="w-auto">
             <option value="HOME">{t('sites.editor.pages.kind.HOME')}</option>
             <option value="LANDING">{t('sites.editor.pages.kind.LANDING')}</option>
             <option value="CORPORATE">{t('sites.editor.pages.kind.CORPORATE')}</option>
             <option value="LEGAL">{t('sites.editor.pages.kind.LEGAL')}</option>
             <option value="CUSTOM">{t('sites.editor.pages.kind.CUSTOM')}</option>
-          </select>
+          </Select>
           <SecondaryButton onClick={createPage}>{t('sites.editor.pages.create')}</SecondaryButton>
         </div>
         {createError && <InlineMessage text={createError} tone="error" />}
 
         {pages.items.length === 0 && <EmptyState title={t('sites.editor.pages.empty')} />}
-        <ul className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
+        <List>
           {pages.items.map((p) => (
-            <li key={p.id} className="py-2 flex items-center justify-between gap-3">
-              <button className="text-left flex-1" onClick={() => setSelectedPageId(p.id)}>
-                <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                  {p.internalLabel}
-                </span>
-                <span className="text-xs ml-2" style={{ color: 'var(--color-text-muted)' }}>
-                  {p.kind} · {p.locales.map((l) => l.locale).join(', ') || t('sites.editor.pages.noLocales')}
+            <ListItem key={p.id} className="ui-pick flex items-center justify-between gap-3" aria-current={p.id === selectedPageId ? 'true' : undefined}>
+              <button type="button" className="text-left flex-1 flex flex-wrap items-baseline gap-2" onClick={() => setSelectedPageId(p.id)}>
+                <span className="ui-strong">{p.internalLabel}</span>
+                <span className="ui-caption">
+                  {p.kind} &middot; {p.locales.map((l) => l.locale).join(', ') || t('sites.editor.pages.noLocales')}
                 </span>
               </button>
               <Badge tone={p.status === 'PUBLISHED' ? 'primary' : 'neutral'}>{p.status === 'PUBLISHED' ? t('sites.editor.pages.published') : t('sites.editor.pages.draft')}</Badge>
-            </li>
+            </ListItem>
           ))}
-        </ul>
+        </List>
       </Section>
 
       {selectedPage && (
@@ -435,15 +421,13 @@ function PageDetailEditor({
       </div>
       {actionMessage && <InlineMessage text={actionMessage} tone="success" />}
 
-      <div className="space-y-3">
-        <h4 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          {t('sites.editor.detail.localesTitle')}
-        </h4>
-        <div className="flex gap-2">
+      <div className="grid gap-3 ui-rule pt-4">
+        <h4 className="ui-heading">{t('sites.editor.detail.localesTitle')}</h4>
+        <div className="flex flex-wrap gap-2">
           {detail.locales.map((l) => (
-            <SecondaryButton key={l.locale} onClick={() => setActiveLocale(l.locale)}>
+            <ChipButton key={l.locale} selected={l.locale === activeLocale} onClick={() => setActiveLocale(l.locale)}>
               {l.locale}
-            </SecondaryButton>
+            </ChipButton>
           ))}
           {!detail.locales.some((l) => l.locale === activeLocale) && (
             <Badge>
@@ -471,15 +455,13 @@ function PageDetailEditor({
         )}
       </div>
 
-      <div className="space-y-3">
-        <h4 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          {t('sites.editor.blocks.title')}
-        </h4>
+      <div className="grid gap-3 ui-rule pt-4">
+        <h4 className="ui-heading">{t('sites.editor.blocks.title')}</h4>
         {blocksDraft.map((b, i) => (
-          <div key={b.id} className="p-3 border space-y-2" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)' }}>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">{b.type}</span>
-              <div className="flex gap-1">
+          <div key={b.id} className="ui-panel p-3 grid gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="ui-strong ui-mono">{b.type}</span>
+              <div className="flex flex-wrap gap-1">
                 <SecondaryButton onClick={() => moveBlock(i, -1)}>{t('sites.editor.blocks.moveUp')}</SecondaryButton>
                 <SecondaryButton onClick={() => moveBlock(i, 1)}>{t('sites.editor.blocks.moveDown')}</SecondaryButton>
                 <SecondaryButton danger onClick={() => removeBlock(i)}>
@@ -487,41 +469,50 @@ function PageDetailEditor({
                 </SecondaryButton>
               </div>
             </div>
-            <textarea
-              value={typeof b.data === 'string' ? b.data : JSON.stringify(b.data, null, 2)}
-              onChange={(e) => {
+            <TextField
+              label={t('sites.editor.blocks.abVariant')}
+              value={b.abVariantKey ?? ''}
+              placeholder={t('sites.editor.blocks.abVariantPlaceholder')}
+              onChange={(v) => {
                 const next = [...blocksDraft];
-                next[i] = { ...b, data: e.target.value };
+                next[i] = { ...b, abVariantKey: v.trim() ? v : null };
                 setBlocksDraft(next);
               }}
-              rows={6}
-              className="w-full text-xs font-mono px-2 py-2 border"
-              style={fieldStyle()}
             />
+            <FieldGroup label={t('sites.editor.blocks.data')} hint={t('sites.editor.blocks.dataHint')}>
+              <Textarea
+                value={typeof b.data === 'string' ? b.data : JSON.stringify(b.data, null, 2)}
+                onChange={(e) => {
+                  const next = [...blocksDraft];
+                  next[i] = { ...b, data: e.target.value };
+                  setBlocksDraft(next);
+                }}
+                rows={6}
+                className="ui-mono"
+              />
+            </FieldGroup>
           </div>
         ))}
         <div className="flex gap-2 items-center flex-wrap">
-          <select onChange={(e) => e.target.value && addBlock(e.target.value as BlockType)} value="" className="border px-3 py-2 text-sm" style={fieldStyle()}>
+          <Select onChange={(e) => e.target.value && addBlock(e.target.value as BlockType)} value="" aria-label={t('sites.editor.blocks.addPlaceholder')} className="w-auto">
             <option value="">{t('sites.editor.blocks.addPlaceholder')}</option>
             {availableBlockTypes.map((blockType) => (
               <option key={blockType} value={blockType}>
                 {blockType}
               </option>
             ))}
-          </select>
+          </Select>
           <PrimaryButton onClick={saveBlocks}>{t('sites.editor.blocks.save')}</PrimaryButton>
         </div>
         {blocksError && <InlineMessage text={blocksError} tone="error" />}
       </div>
 
       {versions && versions.items.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-            {t('sites.editor.versions.title')}
-          </h4>
-          <ul className="text-sm space-y-1">
+        <div className="grid gap-3 ui-rule pt-4">
+          <h4 className="ui-heading">{t('sites.editor.versions.title')}</h4>
+          <List>
             {versions.items.map((v) => (
-              <li key={v.id} className="flex items-center gap-2">
+              <ListItem key={v.id} className="flex flex-wrap items-center gap-2">
                 <span>
                   {t('sites.editor.versions.entry', {
                     version: v.version,
@@ -530,9 +521,9 @@ function PageDetailEditor({
                   })}
                 </span>
                 <SecondaryButton onClick={() => rollback(v.id)}>{t('sites.editor.versions.rollback')}</SecondaryButton>
-              </li>
+              </ListItem>
             ))}
-          </ul>
+          </List>
         </div>
       )}
     </Section>

@@ -1,121 +1,289 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { User, CheckCircle2, ArrowLeft } from 'lucide-react';
-import { useT } from '@/components/i18n/I18nProvider';
-import { Badge, Button, Card, CardContent, FieldGroup, LinkButton, Radio, Select } from '@/components/ui';
+import { STUDIO_SLUG_PATTERN } from '@platform/shared';
+import { useLocale, useT } from '@/components/i18n/I18nProvider';
+import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
+import { ThemeRoot } from '@/components/theme/ThemeRoot';
+import { Button, Card, CardContent, ChipButton, Checkbox, FieldGroup, Input, Radio, Select, Skeleton } from '@/components/ui';
+import { publicApiBaseUrl } from '@/lib/public-api-url';
+import { embedFetch, openMemberAppSession } from '@/lib/public-booking';
+import type { EmbedBranch, EmbedConfig, EmbedScheduleItem, EmbedServiceType } from '@/lib/public-booking';
+import { trackingHeaders } from '@/lib/tracking/client';
 
+/** How many days ahead the page lists sessions; same window as the embeddable widget. */
+const WINDOW_DAYS = 14;
+
+/** Local calendar day key (the visitor's own time zone), used only to group sessions by day. */
+function dayKey(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Public booking page of a studio. It reads the same unauthenticated embed
+ * endpoints as the embeddable widget (config, branches, service types,
+ * schedules) and, like the widget, never creates a booking itself: a
+ * visitor has no way to authenticate here, so a write endpoint would let
+ * anyone book on a member's behalf (docs/PUBLIC_API.md). A member continues
+ * in the member app through a deep link; a first-time visitor leaves their
+ * contact through the public lead form.
+ */
 export default function PublicBookingPage() {
   const t = useT();
+  const locale = useLocale();
   const params = useParams();
-  const slug = params.slug as string;
+  const rawSlug = params.studioSlug as string;
+  const slug = STUDIO_SLUG_PATTERN.test(rawSlug) ? rawSlug : '';
 
-  const [selectedType, setSelectedType] = useState('Birebir Özel Reformer');
-  const [selectedDate, setSelectedDate] = useState('Bugün (18 Eylül)');
-  const [selectedSlot, setSelectedSlot] = useState('');
-  const [isConfirmed, setIsConfirmed] = useState(false);
+  const [config, setConfig] = useState<EmbedConfig | null>(null);
+  const [branches, setBranches] = useState<EmbedBranch[]>([]);
+  const [serviceTypes, setServiceTypes] = useState<EmbedServiceType[]>([]);
+  const [schedules, setSchedules] = useState<EmbedScheduleItem[]>([]);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
-  const studioName =
-    slug === 'flow-pilates'
-      ? 'Flow Boutique Pilates & Wellness'
-      : 'Zen Reformer Pilates';
+  const [serviceFilter, setServiceFilter] = useState('');
+  const [branchFilter, setBranchFilter] = useState('');
+  const [selectedDay, setSelectedDay] = useState('');
+  const [selectedScheduleId, setSelectedScheduleId] = useState('');
 
-  const availableSlots = [
-    { time: '11:00 - 12:00', trainer: 'Selin Aydın' },
-    { time: '15:00 - 16:00', trainer: 'Burak Kaya' },
-    { time: '17:00 - 18:00', trainer: 'Selin Aydın' },
-  ];
+  const [mode, setMode] = useState<'choose' | 'lead'>('choose');
+  const [leadName, setLeadName] = useState('');
+  const [leadPhone, setLeadPhone] = useState('');
+  const [leadConsent, setLeadConsent] = useState(false);
+  const [leadWebsite, setLeadWebsite] = useState(''); // honeypot, real visitors never fill this
+  const [leadStatus, setLeadStatus] = useState<'idle' | 'submitting' | 'submitted'>('idle');
+  const [leadError, setLeadError] = useState(false);
 
-  const handleBooking = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!slug) {
+      setStatus('error');
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const now = new Date();
+        const to = new Date(now.getTime() + WINDOW_DAYS * 24 * 60 * 60 * 1000);
+        const [cfg, branchList, serviceTypeList, scheduleList] = await Promise.all([
+          embedFetch<EmbedConfig>(slug, 'config'),
+          embedFetch<EmbedBranch[]>(slug, 'branches'),
+          embedFetch<EmbedServiceType[]>(slug, 'service-types'),
+          embedFetch<EmbedScheduleItem[]>(slug, `schedules?from=${encodeURIComponent(now.toISOString())}&to=${encodeURIComponent(to.toISOString())}`),
+        ]);
+        if (cancelled) return;
+        setConfig(cfg);
+        setBranches(branchList);
+        setServiceTypes(serviceTypeList);
+        setSchedules(scheduleList.filter((s) => s.bookedCount < s.capacity));
+        setStatus('ready');
+      } catch {
+        if (!cancelled) setStatus('error');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
+
+  const serviceName = (id: string) => serviceTypes.find((s) => s.id === id)?.name ?? '';
+  const branchName = (id: string | null) => branches.find((b) => b.id === id)?.name ?? '';
+
+  const dayFormat = useMemo(() => new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short' }), [locale]);
+  const timeFormat = useMemo(() => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }), [locale]);
+  const dateTimeFormat = useMemo(() => new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }), [locale]);
+  const durationFormat = useMemo(() => new Intl.NumberFormat(locale, { style: 'unit', unit: 'minute', unitDisplay: 'short' }), [locale]);
+
+  const filtered = useMemo(
+    () => schedules.filter((s) => (!serviceFilter || s.serviceTypeId === serviceFilter) && (!branchFilter || s.branchId === branchFilter)),
+    [schedules, serviceFilter, branchFilter],
+  );
+  const days = useMemo(() => Array.from(new Set(filtered.map((s) => dayKey(s.startTime)))), [filtered]);
+  const activeDay = days.includes(selectedDay) ? selectedDay : (days[0] ?? '');
+  const slots = filtered.filter((s) => dayKey(s.startTime) === activeDay);
+  const selected = schedules.find((s) => s.id === selectedScheduleId && slots.some((x) => x.id === s.id)) ?? null;
+
+  const submitLead = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSlot) return;
-    setIsConfirmed(true);
+    if (!leadConsent || leadName.trim().length < 2 || leadPhone.trim().length < 8) return;
+    setLeadStatus('submitting');
+    setLeadError(false);
+    try {
+      const interest = selected
+        ? t('booking.lead.interestWithSchedule', { service: serviceName(selected.serviceTypeId), time: dateTimeFormat.format(new Date(selected.startTime)) }) +
+          (selected.branchId ? t('booking.lead.interestWithBranch', { branch: branchName(selected.branchId) }) : '')
+        : t('booking.lead.interestNoSchedule');
+      await fetch(`${publicApiBaseUrl()}/public/studios/${encodeURIComponent(slug)}/leads`, {
+        method: 'POST',
+        // X-PW-VID links this visitor's tracked visits to the new contact (only present after consent).
+        headers: { 'Content-Type': 'application/json', ...trackingHeaders() },
+        body: JSON.stringify({ fullName: leadName.trim(), phone: leadPhone.trim(), interest, consent: true, website: leadWebsite }),
+      });
+      // The lead endpoint always answers 202, whatever happened, so the page cannot be used to probe which phone numbers are known.
+      setLeadStatus('submitted');
+    } catch {
+      setLeadError(true);
+      setLeadStatus('idle');
+    }
   };
 
   return (
-    <main className="min-h-screen flex justify-center items-center p-4 sm:p-6">
-      <Card className="w-full max-w-md">
-        <CardContent className="gap-5 p-6">
-          <div>
-            <LinkButton href="/" variant="link" tone="surface" size="sm" icon={<ArrowLeft className="ui-icon" aria-hidden="true" />}>
-              {t('booking.backToList')}
-            </LinkButton>
-          </div>
-
-          {isConfirmed ? (
-            <div className="grid justify-items-center gap-4 text-center py-4">
-              <Badge tone="success">
-                <CheckCircle2 className="ui-icon" aria-hidden="true" />
-              </Badge>
-              <h3 className="ui-title">{t('booking.confirmed.title')}</h3>
-              <p className="ui-text-muted">{t('booking.confirmed.summary', { type: selectedType, date: selectedDate, slot: selectedSlot })}</p>
-              <p className="ui-panel ui-small p-3">{t('booking.confirmed.cancellationNote')}</p>
-              <Button block onClick={() => setIsConfirmed(false)}>
-                {t('booking.confirmed.newBooking')}
-              </Button>
-            </div>
-          ) : (
-            <div className="grid gap-5">
-              <div className="grid justify-items-center gap-2 text-center">
-                <Badge tone="theme" className="ui-eyebrow">
-                  {t('booking.badge')}
-                </Badge>
-                <h2 className="ui-title">{studioName}</h2>
-                <p className="ui-text-muted">{t('booking.intro')}</p>
+    <ThemeRoot
+      tenantTheme={config ? { themeFamily: config.themeFamily, themePrimary: config.themePrimary, gradientPresetKey: config.gradientPresetKey, logoUrl: config.logoUrl } : null}
+      appearance={{ colorScheme: 'SYSTEM' }}
+    >
+      <main className="px-4 py-8 sm:py-12">
+        <Card className="mx-auto w-full max-w-xl">
+          <CardContent className="gap-5 p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                {config?.logoUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={config.logoUrl} alt="" className="h-8 object-contain" />
+                )}
+                <h1 className="ui-title">{config?.name ?? t('booking.defaultTitle')}</h1>
               </div>
+              <LanguageSwitcher mode="cookie" className="pui-input ui-btn-sm w-auto" />
+            </div>
+            <p className="ui-text-muted">{t('booking.intro')}</p>
 
-              <form onSubmit={handleBooking} className="grid gap-4">
-                <FieldGroup label={t('booking.sessionType')}>
-                  <Select value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
-                    <option value="Birebir Özel Reformer">Birebir Özel Reformer (1 Seans)</option>
-                    <option value="Düet Reformer">Düet Reformer (2 Kişi)</option>
-                    <option value="Cadillac Trapeze Özel">Cadillac Trapeze Özel</option>
-                    <option value="Grup Reformer">Grup Reformer</option>
-                  </Select>
-                </FieldGroup>
+            {status === 'loading' && (
+              <div className="grid gap-3" role="status" aria-label={t('booking.loading')}>
+                <Skeleton width="40%" height="1rem" />
+                <Skeleton height="2.5rem" />
+                <Skeleton height="2.5rem" />
+              </div>
+            )}
 
-                <div className="grid gap-1.5">
-                  <span className="ui-caption ui-strong">{t('booking.dateSelection')}</span>
-                  <div className="grid grid-cols-2 gap-2">
-                    {['Bugün (18 Eylül)', 'Yarın (19 Eylül)'].map((d) => (
-                      <Button
-                        key={d}
-                        variant={selectedDate === d ? 'soft' : 'outline'}
-                        tone={selectedDate === d ? 'theme' : 'surface'}
-                        size="sm"
-                        aria-pressed={selectedDate === d}
-                        onClick={() => setSelectedDate(d)}
-                      >
-                        {d}
-                      </Button>
+            {status === 'error' && <p className="ui-alert">{t('booking.errors.loadFailed')}</p>}
+
+            {status === 'ready' && (
+              <div className="grid gap-5">
+                <div className="grid gap-2">
+                  <span className="ui-caption ui-strong">{t('booking.serviceType')}</span>
+                  <div className="flex flex-wrap gap-2">
+                    <ChipButton selected={serviceFilter === ''} onClick={() => setServiceFilter('')}>
+                      {t('booking.allServices')}
+                    </ChipButton>
+                    {serviceTypes.map((s) => (
+                      <ChipButton key={s.id} selected={serviceFilter === s.id} onClick={() => setServiceFilter(s.id)}>
+                        {s.name}
+                        <span className="ui-caption">{durationFormat.format(s.durationMin)}</span>
+                      </ChipButton>
                     ))}
                   </div>
                 </div>
 
-                <fieldset className="grid gap-1.5">
-                  <legend className="ui-caption ui-strong mb-1.5">{t('booking.availableSlots')}</legend>
-                  {availableSlots.map((s) => (
-                    <label key={s.time} className="ui-choice flex items-center justify-between gap-3">
-                      <span className="flex items-center gap-2">
-                        <Radio name="timeSlot" checked={selectedSlot === s.time} onChange={() => setSelectedSlot(s.time)} />
-                        <span className="ui-strong">{s.time}</span>
-                      </span>
-                      <span className="ui-caption flex items-center gap-1">
-                        <User className="ui-icon" aria-hidden="true" /> {s.trainer}
-                      </span>
-                    </label>
-                  ))}
-                </fieldset>
+                {branches.length > 1 && (
+                  <FieldGroup label={t('booking.branch')}>
+                    <Select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)}>
+                      <option value="">{t('booking.allBranches')}</option>
+                      {branches.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </FieldGroup>
+                )}
 
-                <Button type="submit" block disabled={!selectedSlot}>
-                  {t('booking.confirm')}
-                </Button>
-              </form>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </main>
+                {days.length === 0 ? (
+                  <p className="ui-panel p-4 ui-text-muted">{t('booking.noSlots')}</p>
+                ) : (
+                  <>
+                    <div className="grid gap-2">
+                      <span className="ui-caption ui-strong">{t('booking.dateSelection')}</span>
+                      <div className="flex flex-wrap gap-2">
+                        {days.map((d) => {
+                          const first = filtered.find((s) => dayKey(s.startTime) === d);
+                          return (
+                            <ChipButton key={d} selected={d === activeDay} className="ui-capitalize" onClick={() => setSelectedDay(d)}>
+                              {first ? dayFormat.format(new Date(first.startTime)) : d}
+                            </ChipButton>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <fieldset className="grid gap-2">
+                      <legend className="ui-caption ui-strong mb-2">{t('booking.availableSlots')}</legend>
+                      {slots.map((s) => (
+                        <label key={s.id} className="ui-choice flex items-center justify-between gap-3">
+                          <span className="flex items-center gap-3">
+                            <Radio name="timeSlot" checked={selectedScheduleId === s.id} onChange={() => setSelectedScheduleId(s.id)} />
+                            <span className="grid">
+                              <span className="ui-strong">
+                                {timeFormat.format(new Date(s.startTime))} - {timeFormat.format(new Date(s.endTime))}
+                              </span>
+                              <span className="ui-caption">
+                                {serviceName(s.serviceTypeId) || s.title}
+                                {branches.length > 1 && s.branchId ? ` (${branchName(s.branchId)})` : ''}
+                              </span>
+                            </span>
+                          </span>
+                          <span className="ui-caption">{t('booking.spotsLeft', { count: s.capacity - s.bookedCount })}</span>
+                        </label>
+                      ))}
+                    </fieldset>
+                  </>
+                )}
+
+                {selected && mode === 'choose' && (
+                  <div className="grid gap-3 ui-rule pt-4">
+                    <p className="ui-strong">{t('booking.selected', { service: serviceName(selected.serviceTypeId) || selected.title, time: dateTimeFormat.format(new Date(selected.startTime)) })}</p>
+                    <p className="ui-caption">{t('booking.selectionHint')}</p>
+                    <Button block onClick={() => openMemberAppSession(selected.id)}>
+                      {t('booking.openApp')}
+                    </Button>
+                    <Button block variant="outline" tone="surface" onClick={() => setMode('lead')}>
+                      {t('booking.firstTime')}
+                    </Button>
+                  </div>
+                )}
+
+                {mode === 'lead' && leadStatus !== 'submitted' && (
+                  <form onSubmit={submitLead} className="grid gap-3 ui-rule pt-4">
+                    <FieldGroup label={t('booking.lead.fullName')}>
+                      <Input required value={leadName} onChange={(e) => setLeadName(e.target.value)} />
+                    </FieldGroup>
+                    <FieldGroup label={t('booking.lead.phone')}>
+                      <Input required type="tel" placeholder="+90 5xx xxx xx xx" value={leadPhone} onChange={(e) => setLeadPhone(e.target.value)} />
+                    </FieldGroup>
+                    {/* Honeypot: hidden from real visitors off-screen, bots often fill every field. */}
+                    <input
+                      type="text"
+                      value={leadWebsite}
+                      onChange={(e) => setLeadWebsite(e.target.value)}
+                      tabIndex={-1}
+                      autoComplete="off"
+                      aria-hidden="true"
+                      style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
+                    />
+                    <Checkbox checked={leadConsent} onChange={(e) => setLeadConsent(e.target.checked)} required className="items-start" label={<span className="ui-caption">{t('booking.lead.consent')}</span>} />
+                    {leadError && <p className="ui-caption ui-text-error">{t('booking.lead.error')}</p>}
+                    <div className="flex gap-2">
+                      <Button variant="outline" tone="surface" className="flex-1" onClick={() => setMode('choose')}>
+                        {t('booking.lead.back')}
+                      </Button>
+                      <Button type="submit" className="flex-1" disabled={leadStatus === 'submitting' || !leadConsent}>
+                        {leadStatus === 'submitting' ? t('booking.lead.sending') : t('booking.lead.send')}
+                      </Button>
+                    </div>
+                  </form>
+                )}
+
+                {mode === 'lead' && leadStatus === 'submitted' && (
+                  <div className="grid gap-1 ui-rule pt-4" role="status">
+                    <p className="ui-strong">{t('booking.lead.submittedTitle')}</p>
+                    <p className="ui-caption">{t('booking.lead.submittedDescription')}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </main>
+    </ThemeRoot>
   );
 }

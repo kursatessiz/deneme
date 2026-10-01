@@ -65,7 +65,24 @@ Rota yapısı (`apps/web/src/app/[locale]/[[...slug]]/page.tsx`, platform sitesi
 - Sayfalar her istekte render edilir (`dynamic = 'force-dynamic'`): kök layout sayfa dilini (`x-pw-page-locale` başlığı, middleware URL'nin ilk parçasından koyar) ve çerezleri okur, A/B varyantı çereze bağlıdır. API yanıtları yine önbelleklidir (300 saniyelik `fetch` yeniden doğrulaması ve yayınlamada etiketle temizleme), bu yüzden istek başına maliyet yalnızca render'dır. `<html lang>` her zaman sayfanın URL'deki dilidir.
 - `hreflang`, `canonical`, Open Graph/Twitter etiketleri ve `Organization`/`LocalBusiness`/`FAQPage`/`Offer` JSON-LD `apps/web/src/lib/sites/jsonld.ts` ve `SitePage.tsx`'te üretilir; `hreflang` yalnızca o sayfanın yayınlanmış dil varyantları için yazılır.
 - `sitemap.xml` ve `robots.txt` (`apps/web/src/app/sitemap.xml/route.ts`, `.../robots.txt/route.ts`) istek host'una göre platform veya ilgili işletme sitesi için üretilir.
-- `/` platformun en iyi dile yönlendiren kökü olarak sayfa motoruna devredilmiştir (mevcut sabit kodlu içerik kaldırıldı).
+- `/` T1'den beri kodla yazılmış ürün açılış sayfasıdır (`apps/web/src/app/page.tsx`); sayfa motorunun platform sitesi `/tr` ve `/en` altında yaşar. Kökün sayfa motoruna devredilip devredilmeyeceği sahibin kararını bekler (`docs/TASARIM.md`).
+
+### Tasarım dili (T6)
+
+Sayfa motoru blokları ve işletme/platform siteleri Perfect UI kitiyle (`docs/TASARIM.md`) çizilir; `BlockRenderer`, `LeadFormBlock` ve `SitePage` satır içi renk, köşe veya tipografi yazmaz, `components/ui` bileşenlerini ve `ui-*` yardımcı sınıflarını kullanır. Tailwind yalnızca yerleşim içindir (grid, flex, boşluk, genişlik).
+
+| Blok | Çizim |
+|------|-------|
+| `hero` | `ui-display` başlık (tek `h1`), `ui-lead` alt metin, `LinkButton` (düz birincil + `outline surface` ikincil), üst etiket `Badge` |
+| `feature_grid`, `trainers`, `how_it_works` | `Card`/`CardContent` ızgarası (tek seviye kart); adım numarası `Badge` |
+| `sector_cards` | `pui-card ui-card-link` bağlantı kartları |
+| `pricing` | plan fiyatı `Card` + `ui-stat-value`; işletme paketleri `ui-gradient-package-card` (gradyanın izinli iki alanından biri); tutar `formatMoney()` ile etkin dilde ve kendi para birimiyle |
+| `testimonials` | `Card` içinde `blockquote` + `ui-rail` |
+| `faq` | `Accordion` (yerel `<details>`, istemci JS yok) |
+| `stats`, `cta`, `contact`, `booking_widget`, `legal_text` | `ui-title`/`ui-caption`, `ui-rule` ayracı, `LinkButton` |
+| `lead_form` | `FieldGroup` + `Input`/`Textarea`/`Checkbox` + `Button`; bal tuzağı ve 1,5 saniye kuralı aynı |
+
+Platform sitesi platform kiracısının, işletme siteleri işletmenin markasını `SitePage` içinde `ThemeRoot` ile alır (`page.theme`, sistem açık/koyu modu); gömülebilir widget ile herkese açık rezervasyon sayfası aynı çözümlemeyi (`resolveTheme()`) kullanır. Sunucuda render, çapa kimlikleri (`#iletisim`/`#contact`), `hreflang` ve `sitemap.xml` davranışı değişmedi; istemci JS yalnızca form, izin ve izleme içindir. Hukuki taslak bandı `role="note"` ile `ui-panel` olarak çizilir.
 
 ### A/B testi
 
@@ -73,7 +90,7 @@ Rota yapısı (`apps/web/src/app/[locale]/[[...slug]]/page.tsx`, platform sitesi
 
 ## 5. Editörler
 
-**Süper admin -- "Web sitesi"** (`apps/web/src/app/admin/web-sitesi/page.tsx`): platform sitesinin sayfaları (dil bazlı durum), blok editörü (ekle/sırala/kaldır, her blok için dil sekmeleri, çevrilmemiş alanlar işaretlenir), canlı önizleme, yayınla/yayından kaldır, sürüm geçmişi + geri alma, şirket bilgisi formu (`CompanyInfo`), sektör açılış sayfası sihirbazı (`POST sites/studio/:studioId/pages/wizard`: sektör + teklif + dil listesi seçilir, `BusinessTypeTemplate` kelime dağarcığından önceden doldurulmuş bir `LANDING` sayfası oluşturur).
+**Süper admin -- "Web sitesi"** (`apps/web/src/app/admin/web-sitesi/page.tsx`): platform sitesinin sayfaları (dil bazlı durum), blok editörü (`SiteEditor`, `components/ui` üzerinde; ekle/sırala/kaldır, her blokta isteğe bağlı A/B varyant anahtarı alanı ve JSON veri alanı, her blok için dil sekmeleri, çevrilmemiş alanlar işaretlenir), canlı önizleme, yayınla/yayından kaldır, sürüm geçmişi + geri alma, şirket bilgisi formu (`CompanyInfo`), sektör açılış sayfası sihirbazı (`POST sites/studio/:studioId/pages/wizard`: sektör + teklif + dil listesi seçilir, `BusinessTypeTemplate` kelime dağarcığından önceden doldurulmuş bir `LANDING` sayfası oluşturur).
 
 **Kiracı -- "Web sitem"** (`apps/web/src/app/(dashboard)/ayarlar/web-sitem/page.tsx`, `site.manage`/`site.view`, sahip varsayılan): yalnızca kendi sitesi, özel alan adı kurulumu ve doğrulaması (DNS TXT + CNAME), rezervasyon/eğitmen/fiyat blokları dahil aynı editör bileşeni (`components/sites/SiteEditor.tsx`).
 
