@@ -11,7 +11,8 @@ import { Badge } from '@/components/common/Badge';
 import { EmptyState, ErrorState, LoadingState } from '@/components/common/DataState';
 import { useBff } from '@/lib/session/use-bff';
 import { bffFetch } from '@/lib/session/client';
-import { PageHeader, inputClass, inputStyle, useDateFormat } from '@/components/growth/ui';
+import { PageHeader, useDateFormat } from '@/components/growth/ui';
+import { Card, Checkbox, FieldGroup, Input, List, ListItem, Select, Textarea } from '@/components/ui';
 import { InlineMessage, PrimaryButton, SecondaryButton, Section, TextField, Toggle } from '@/components/settings/ui';
 import { communityErrorMessage, shareUrl } from '@/components/community/labels';
 
@@ -95,60 +96,37 @@ function PostEditor({ post, tiers, onDone }: { post: CommunityPostDTO | null; ti
   return (
     <Section title={post ? t('community.editor.editTitle') : t('community.editor.newTitle')}>
       <div className="space-y-3 max-w-2xl">
-        <div className="space-y-1">
-          <label htmlFor="community-post-type" className="block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('community.editor.type')}
-          </label>
-          <select
-            id="community-post-type"
-            className={inputClass}
-            style={inputStyle}
-            value={form.type}
-            onChange={(e) => setForm({ ...form, type: e.target.value as CommunityPostType })}
-          >
+        <FieldGroup label={t('community.editor.type')}>
+          <Select id="community-post-type" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as CommunityPostType })}>
             {COMMUNITY_POST_TYPES.map((type) => (
               <option key={type} value={type}>
                 {t(`community.type.${type}`)}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </FieldGroup>
         <TextField label={t('community.editor.title')} value={form.title} onChange={(v) => setForm({ ...form, title: v })} />
-        <div className="space-y-1">
-          <label htmlFor="community-post-body" className="block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('community.editor.body')}
-          </label>
-          <textarea
-            id="community-post-body"
-            rows={5}
-            className={inputClass}
-            style={inputStyle}
-            value={form.body}
-            onChange={(e) => setForm({ ...form, body: e.target.value })}
-          />
-        </div>
+        <FieldGroup label={t('community.editor.body')}>
+          <Textarea id="community-post-body" rows={5} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} />
+        </FieldGroup>
         {form.type === 'VIDEO' && (
-          <div className="space-y-1">
-            <label htmlFor="community-post-video" className="block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('community.editor.video')}
-            </label>
+          <div className="grid gap-1">
             {videos.forbidden || videos.error ? (
-              <InlineMessage text={t('community.editor.videoUnavailable')} tone="error" />
+              <>
+                <span className="ui-caption">{t('community.editor.video')}</span>
+                <InlineMessage text={t('community.editor.videoUnavailable')} tone="error" />
+              </>
             ) : (
-              <select
-                id="community-post-video"
-                className={inputClass}
-                style={inputStyle}
-                value={form.videoContentId}
-                onChange={(e) => setForm({ ...form, videoContentId: e.target.value })}
-              >
-                <option value="">{t('community.editor.videoNone')}</option>
-                {(videos.data ?? []).map((video) => (
-                  <option key={video.id} value={video.id}>
-                    {video.title}
-                  </option>
-                ))}
-              </select>
+              <FieldGroup label={t('community.editor.video')}>
+                <Select id="community-post-video" value={form.videoContentId} onChange={(e) => setForm({ ...form, videoContentId: e.target.value })}>
+                  <option value="">{t('community.editor.videoNone')}</option>
+                  {(videos.data ?? []).map((video) => (
+                    <option key={video.id} value={video.id}>
+                      {video.title}
+                    </option>
+                  ))}
+                </Select>
+              </FieldGroup>
             )}
           </div>
         )}
@@ -158,19 +136,14 @@ function PostEditor({ post, tiers, onDone }: { post: CommunityPostDTO | null; ti
             <TextField label={t('community.editor.attachmentName')} value={form.attachmentName} onChange={(v) => setForm({ ...form, attachmentName: v })} />
           </div>
         )}
-        <fieldset className="space-y-2">
-          <legend className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('community.editor.tiers')}
-          </legend>
+        <fieldset className="grid gap-2">
+          <legend className="ui-caption">{t('community.editor.tiers')}</legend>
           {tiers.length === 0 ? (
             <InlineMessage text={t('community.editor.noTiers')} />
           ) : (
             <div className="flex flex-wrap gap-3">
               {tiers.map((tier) => (
-                <label key={tier.id} className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                  <input type="checkbox" checked={form.tierIds.includes(tier.id)} onChange={() => toggleTier(tier.id)} />
-                  {tier.name}
-                </label>
+                <Checkbox key={tier.id} checked={form.tierIds.includes(tier.id)} onChange={() => toggleTier(tier.id)} label={tier.name} />
               ))}
             </div>
           )}
@@ -215,21 +188,17 @@ function CommentsPanel({ postId }: { postId: string }) {
   const comments = data?.items ?? [];
   return (
     <div className="space-y-2 pt-2" data-testid="community-comments">
-      <h4 className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
-        {t('community.comments.title')}
-      </h4>
+      <h4 className="ui-caption ui-strong">{t('community.comments.title')}</h4>
       {comments.length === 0 && <InlineMessage text={t('community.comments.empty')} />}
-      <ul className="space-y-2">
+      <ul className="grid gap-2">
         {comments.map((comment) => (
-          <li key={comment.id} className="flex flex-wrap items-start justify-between gap-3 text-sm">
+          <li key={comment.id} className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              <p className="ui-caption">
                 {comment.authorName} - {fmt.dateTime(comment.createdAt)} {comment.isHidden && <Badge tone="warning">{t('community.comments.hidden')}</Badge>}
               </p>
               {/* Plain text only: React escapes it, and it is never set as HTML. */}
-              <p className="whitespace-pre-wrap break-words" style={{ color: 'var(--color-text-primary)' }}>
-                {comment.body}
-              </p>
+              <p className="whitespace-pre-wrap break-words">{comment.body}</p>
             </div>
             <div className="flex gap-2">
               <PermissionButton
@@ -279,22 +248,18 @@ function PostItem({ post, onChanged, onEdit }: { post: CommunityPostDTO; onChang
   const statusTone = post.status === 'PUBLISHED' ? 'success' : post.status === 'ARCHIVED' ? 'neutral' : 'info';
 
   return (
-    <li className="py-3 space-y-2">
+    <ListItem className="grid gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          {post.title}
-        </p>
+        <p className="ui-strong">{post.title}</p>
         <Badge>{t(`community.type.${post.type}`)}</Badge>
         <Badge tone={statusTone}>{t(`community.status.${post.status}`)}</Badge>
         {post.pinned && <Badge tone="warning">{t('community.pinned')}</Badge>}
         {!post.commentsEnabled && <Badge>{t('community.commentsOff')}</Badge>}
       </div>
       {post.body && (
-        <p className="text-sm whitespace-pre-wrap break-words line-clamp-3" style={{ color: 'var(--color-text-secondary)' }}>
-          {post.body}
-        </p>
+        <p className="ui-text-muted whitespace-pre-wrap break-words line-clamp-3">{post.body}</p>
       )}
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+      <p className="ui-caption">
         {post.tiers.length === 0 ? t('community.audience.all') : t('community.audience.tiers', { tiers: post.tiers.map((tier) => tier.name).join(', ') })}
         {' - '}
         {t('community.stats', { likes: fmt.number(post.likeCount), comments: fmt.number(post.commentCount) })}
@@ -303,19 +268,10 @@ function PostItem({ post, onChanged, onEdit }: { post: CommunityPostDTO; onChang
         {post.publishedAt && ` - ${t('community.publishedAt', { date: fmt.date(post.publishedAt) })}`}
       </p>
       {post.shareToken && (
-        <div className="space-y-1 max-w-xl">
-          <label htmlFor={`community-share-${post.id}`} className="block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('community.share.label')}
-          </label>
-          <input
-            id={`community-share-${post.id}`}
-            readOnly
-            className={inputClass}
-            style={inputStyle}
-            value={shareUrl(post.shareToken)}
-            onFocus={(e) => e.currentTarget.select()}
-          />
-          <InlineMessage text={t('community.share.hint')} />
+        <div className="max-w-xl">
+          <FieldGroup label={t('community.share.label')} hint={t('community.share.hint')}>
+            <Input id={`community-share-${post.id}`} readOnly value={shareUrl(post.shareToken)} onFocus={(e) => e.currentTarget.select()} />
+          </FieldGroup>
         </div>
       )}
       <div className="flex flex-wrap gap-2">
@@ -356,7 +312,7 @@ function PostItem({ post, onChanged, onEdit }: { post: CommunityPostDTO; onChang
       </div>
       {error && <InlineMessage text={error} tone="error" />}
       {showComments && <CommentsPanel postId={post.id} />}
-    </li>
+    </ListItem>
   );
 }
 
@@ -395,32 +351,29 @@ function CommunityView() {
           }}
         />
       )}
-      <div className="max-w-xs space-y-1">
-        <label htmlFor="community-status" className="block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('community.filter.status')}
-        </label>
-        <select id="community-status" className={inputClass} style={inputStyle} value={status} onChange={(e) => setStatus(e.target.value as CommunityPostStatus | '')}>
-          <option value="">{t('community.filter.all')}</option>
-          {COMMUNITY_POST_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {t(`community.status.${s}`)}
-            </option>
-          ))}
-        </select>
+      <div className="max-w-xs">
+        <FieldGroup label={t('community.filter.status')}>
+          <Select id="community-status" value={status} onChange={(e) => setStatus(e.target.value as CommunityPostStatus | '')}>
+            <option value="">{t('community.filter.all')}</option>
+            {COMMUNITY_POST_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {t(`community.status.${s}`)}
+              </option>
+            ))}
+          </Select>
+        </FieldGroup>
       </div>
       {loading && !data && <LoadingState />}
       {error && <ErrorState message={error} />}
       {data && data.items.length === 0 && !loading && <EmptyState title={t('community.empty')} description={t('community.emptyHint')} />}
       {data && data.items.length > 0 && (
-        <ul
-          className="divide-y px-4"
-          style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}
-          data-testid="community-posts"
-        >
-          {data.items.map((post) => (
-            <PostItem key={post.id} post={post} onChanged={refresh} onEdit={(p) => setEditing(p)} />
-          ))}
-        </ul>
+        <Card>
+          <List className="ui-divide" data-testid="community-posts">
+            {data.items.map((post) => (
+              <PostItem key={post.id} post={post} onChanged={refresh} onEdit={(p) => setEditing(p)} />
+            ))}
+          </List>
+        </Card>
       )}
     </div>
   );

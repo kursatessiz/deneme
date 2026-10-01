@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { EVENT_DESK_PAYMENT_METHODS, EVENT_VISIBILITIES } from '@platform/shared';
@@ -22,7 +21,8 @@ import { hasAnyPermission } from '@/lib/nav';
 import { useBff } from '@/lib/session/use-bff';
 import { bffFetch } from '@/lib/session/client';
 import { formatMoney } from '@/lib/money';
-import { Field, Muted, Notice, PageHeader, Panel, inputClass, inputStyle, useDateFormat } from '@/components/growth/ui';
+import { Field, Muted, Notice, PageHeader, Panel, useDateFormat } from '@/components/growth/ui';
+import { AnchorButton, Card, Input, LinkButton, List, ListItem, Select, Table, Tbody, Td, Textarea, Th, Thead, Tr } from '@/components/ui';
 import { PrimaryButton, SecondaryButton, Toggle } from '@/components/settings/ui';
 import { eventErrorMessage, fromLocalInput, toLocalInput } from '@/components/events/labels';
 
@@ -116,73 +116,61 @@ function DetailsTab({ event, canManage, onChanged }: { event: EventDTO; canManag
       {!editable && <Muted>{t('events.form.readOnly')}</Muted>}
       <Panel>
         <Field label={t('events.form.title')} htmlFor="event-title">
-          <input id="event-title" disabled={!editable} className={inputClass} style={inputStyle} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+          <Input id="event-title" disabled={!editable} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
         </Field>
         <Field label={t('events.form.description')} htmlFor="event-description">
-          <textarea
+          <Textarea
             id="event-description"
             rows={3}
             disabled={!editable}
-            className={inputClass}
-            style={inputStyle}
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
         </Field>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label={t('events.form.capacity')} htmlFor="event-capacity">
-            <input
+            <Input
               id="event-capacity"
               type="number"
               min={1}
               disabled={!editable}
-              className={inputClass}
-              style={inputStyle}
               value={form.capacity}
               onChange={(e) => setForm({ ...form, capacity: e.target.value })}
             />
           </Field>
           <Field label={t('events.form.refundHours')} htmlFor="event-refund-hours">
-            <input
+            <Input
               id="event-refund-hours"
               type="number"
               min={0}
               disabled={!editable}
-              className={inputClass}
-              style={inputStyle}
               value={form.fullRefundHoursBefore}
               onChange={(e) => setForm({ ...form, fullRefundHoursBefore: e.target.value })}
             />
           </Field>
           <Field label={t('events.form.opensAt')} htmlFor="event-opens">
-            <input
+            <Input
               id="event-opens"
               type="datetime-local"
               disabled={!editable}
-              className={inputClass}
-              style={inputStyle}
               value={form.registrationOpensAt}
               onChange={(e) => setForm({ ...form, registrationOpensAt: e.target.value })}
             />
           </Field>
           <Field label={t('events.form.closesAt')} htmlFor="event-closes">
-            <input
+            <Input
               id="event-closes"
               type="datetime-local"
               disabled={!editable}
-              className={inputClass}
-              style={inputStyle}
               value={form.registrationClosesAt}
               onChange={(e) => setForm({ ...form, registrationClosesAt: e.target.value })}
             />
           </Field>
         </div>
         <Field label={t('events.form.visibility')} htmlFor="event-visibility">
-          <select
+          <Select
             id="event-visibility"
             disabled={!editable}
-            className={inputClass}
-            style={inputStyle}
             value={form.visibility}
             onChange={(e) => setForm({ ...form, visibility: e.target.value as EventVisibility })}
           >
@@ -191,10 +179,10 @@ function DetailsTab({ event, canManage, onChanged }: { event: EventDTO; canManag
                 {t(`events.visibility.${v}`)}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label={t('events.form.coverImageUrl')} htmlFor="event-cover">
-          <input id="event-cover" disabled={!editable} className={inputClass} style={inputStyle} value={form.coverImageUrl} onChange={(e) => setForm({ ...form, coverImageUrl: e.target.value })} />
+          <Input id="event-cover" disabled={!editable} value={form.coverImageUrl} onChange={(e) => setForm({ ...form, coverImageUrl: e.target.value })} />
         </Field>
         <Toggle label={t('events.form.waitlist')} checked={form.waitlistEnabled} disabled={!editable} onChange={(v) => setForm({ ...form, waitlistEnabled: v })} />
         {message && <Notice tone={message.tone}>{message.text}</Notice>}
@@ -219,7 +207,7 @@ function DetailsTab({ event, canManage, onChanged }: { event: EventDTO; canManag
         <Panel title={t('events.cancel')}>
           <Muted>{t('events.cancelHint')}</Muted>
           <Field label={t('events.cancelReason')} htmlFor="event-cancel-reason">
-            <input id="event-cancel-reason" maxLength={500} className={inputClass} style={inputStyle} value={reason} onChange={(e) => setReason(e.target.value)} />
+            <Input id="event-cancel-reason" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
           </Field>
           <Toggle label={t('events.cancelNotify')} checked={notify} onChange={setNotify} />
           <SecondaryButton danger onClick={cancel} disabled={busy}>
@@ -267,23 +255,19 @@ function OccurrencesTab({ event, canManage, onChanged }: { event: EventDTO; canM
           {rows.map((row, i) => (
             <li key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 items-end">
               <Field label={t('events.occ.start')} htmlFor={`occ-start-${i}`}>
-                <input
+                <Input
                   id={`occ-start-${i}`}
                   type="datetime-local"
                   disabled={!editable}
-                  className={inputClass}
-                  style={inputStyle}
                   value={row.start}
                   onChange={(e) => setRows(rows.map((r, j) => (j === i ? { ...r, start: e.target.value } : r)))}
                 />
               </Field>
               <Field label={t('events.occ.end')} htmlFor={`occ-end-${i}`}>
-                <input
+                <Input
                   id={`occ-end-${i}`}
                   type="datetime-local"
                   disabled={!editable}
-                  className={inputClass}
-                  style={inputStyle}
                   value={row.end}
                   onChange={(e) => setRows(rows.map((r, j) => (j === i ? { ...r, end: e.target.value } : r)))}
                 />
@@ -360,16 +344,12 @@ function TicketsTab({ event, canManage, onChanged }: { event: EventDTO; canManag
     <div className="space-y-4 max-w-2xl">
       <Panel>
         {event.ticketTypes.length === 0 && <Muted>{t('events.tickets.empty')}</Muted>}
-        <ul className="divide-y" style={{ borderColor: 'var(--color-border)' }} data-testid="event-tickets">
+        <List data-testid="event-tickets">
           {event.ticketTypes.map((ticket) => (
-            <li key={ticket.id} className="py-2 flex flex-wrap items-center justify-between gap-3">
+            <ListItem key={ticket.id} className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                  {ticket.name}
-                </p>
-                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  {summary(ticket)}
-                </p>
+                <p className="ui-strong">{ticket.name}</p>
+                <p className="ui-caption">{summary(ticket)}</p>
                 <div className="flex gap-1 mt-1">
                   {!ticket.isActive && <Badge>{t('events.tickets.inactive')}</Badge>}
                   {ticket.membersOnly && <Badge>{t('events.tickets.membersOnlyBadge')}</Badge>}
@@ -390,21 +370,21 @@ function TicketsTab({ event, canManage, onChanged }: { event: EventDTO; canManag
                   )}
                 </div>
               )}
-            </li>
+            </ListItem>
           ))}
-        </ul>
+        </List>
       </Panel>
       {editable && (
         <Panel title={t('events.tickets.new')}>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Field label={t('events.tickets.name')} htmlFor="ticket-name">
-              <input id="ticket-name" maxLength={120} className={inputClass} style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} />
+              <Input id="ticket-name" maxLength={120} value={name} onChange={(e) => setName(e.target.value)} />
             </Field>
             <Field label={t('events.tickets.price', { currency })} htmlFor="ticket-price">
-              <input id="ticket-price" type="number" min={0} step="0.01" className={inputClass} style={inputStyle} value={price} onChange={(e) => setPrice(e.target.value)} />
+              <Input id="ticket-price" type="number" min={0} step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} />
             </Field>
             <Field label={t('events.tickets.quantity')} htmlFor="ticket-quantity">
-              <input id="ticket-quantity" type="number" min={1} className={inputClass} style={inputStyle} value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+              <Input id="ticket-quantity" type="number" min={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} />
             </Field>
           </div>
           <Toggle label={t('events.tickets.membersOnly')} checked={membersOnly} onChange={setMembersOnly} />
@@ -472,21 +452,22 @@ function RegistrationsTab({ event }: { event: EventDTO }) {
         <Muted>{t('events.reg.count', counts)}</Muted>
         <div className="flex flex-wrap items-center gap-2">
           {canManage && (
-            <select aria-label={t('events.reg.paymentMethod')} className="text-xs px-2.5 py-1.5" style={inputStyle} value={method} onChange={(e) => setMethod(e.target.value as EventDeskPaymentMethod)}>
+            <Select aria-label={t('events.reg.paymentMethod')} value={method} onChange={(e) => setMethod(e.target.value as EventDeskPaymentMethod)}>
               {EVENT_DESK_PAYMENT_METHODS.map((m) => (
                 <option key={m} value={m}>
                   {t(`events.paymentMethod.${m}`)}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
-          <a
+          <AnchorButton
+            variant="outline"
+            tone="surface"
+            size="sm"
             href={`/api/bff/studios/${activeStudioId}/events/${event.id}/registrations/export.csv?locale=${encodeURIComponent(locale)}`}
-            className="text-xs font-medium px-3 py-1.5 border"
-            style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-button)', color: 'var(--color-text-primary)' }}
           >
             {t('events.reg.export')}
-          </a>
+          </AnchorButton>
         </div>
       </div>
       {message && <Notice tone={message.tone}>{message.text}</Notice>}
@@ -494,48 +475,32 @@ function RegistrationsTab({ event }: { event: EventDTO }) {
       {error && <ErrorState message={error} />}
       {!loading && items.length === 0 && <Muted>{t('events.reg.empty')}</Muted>}
       {items.length > 0 && (
-        <div className="overflow-x-auto" style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-          <table className="w-full text-sm" aria-label={t('events.tab.registrations')}>
-            <thead>
-              <tr className="text-left text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                <th className="px-4 py-2 font-medium">{t('events.reg.col.person')}</th>
-                <th className="px-4 py-2 font-medium">{t('events.reg.col.ticket')}</th>
-                <th className="px-4 py-2 font-medium">{t('events.reg.col.status')}</th>
-                <th className="px-4 py-2 font-medium">{t('events.reg.col.payment')}</th>
-                <th className="px-4 py-2 font-medium">{t('events.reg.col.actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
+        <Card className="overflow-x-auto">
+          <Table aria-label={t('events.tab.registrations')}>
+            <Thead>
+              <Tr>
+                <Th>{t('events.reg.col.person')}</Th>
+                <Th>{t('events.reg.col.ticket')}</Th>
+                <Th>{t('events.reg.col.status')}</Th>
+                <Th>{t('events.reg.col.payment')}</Th>
+                <Th>{t('events.reg.col.actions')}</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
               {items.map((r) => (
-                <tr key={r.id} className="border-t align-top" style={{ borderColor: 'var(--color-border)' }}>
-                  <td className="px-4 py-2.5">
-                    <p className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                      {r.displayName}
-                    </p>
-                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                      {[r.phone, t(`events.reg.source.${r.source}`)].filter(Boolean).join(' - ')}
-                    </p>
-                  </td>
-                  <td className="px-4 py-2.5 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                    {r.ticketTypeName}
-                  </td>
-                  <td className="px-4 py-2.5">
+                <Tr key={r.id} className="align-top">
+                  <Td>
+                    <p className="ui-strong">{r.displayName}</p>
+                    <p className="ui-caption">{[r.phone, t(`events.reg.source.${r.source}`)].filter(Boolean).join(' - ')}</p>
+                  </Td>
+                  <Td className="ui-small">{r.ticketTypeName}</Td>
+                  <Td>
                     <Badge>{t(`events.registrationStatus.${r.status}`)}</Badge>
-                    {r.waitlistPosition !== null && (
-                      <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                        {t('events.reg.waitlistPosition', { position: r.waitlistPosition })}
-                      </p>
-                    )}
-                    {r.checkedInAt && (
-                      <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                        {t('events.reg.checkedInAt', { time: fmt.dateTime(r.checkedInAt) })}
-                      </p>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                    {paymentLine(r)}
-                  </td>
-                  <td className="px-4 py-2.5">
+                    {r.waitlistPosition !== null && <p className="ui-caption mt-1">{t('events.reg.waitlistPosition', { position: r.waitlistPosition })}</p>}
+                    {r.checkedInAt && <p className="ui-caption mt-1">{t('events.reg.checkedInAt', { time: fmt.dateTime(r.checkedInAt) })}</p>}
+                  </Td>
+                  <Td className="ui-small">{paymentLine(r)}</Td>
+                  <Td>
                     <div className="flex flex-wrap gap-1.5">
                       {canCheckIn && (r.status === 'CONFIRMED' || r.status === 'NO_SHOW') && (
                         <SecondaryButton disabled={busy} onClick={() => act(r.id, 'check-in')}>
@@ -558,12 +523,12 @@ function RegistrationsTab({ event }: { event: EventDTO }) {
                         </SecondaryButton>
                       )}
                     </div>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Tbody>
+          </Table>
+        </Card>
       )}
     </div>
   );
@@ -596,15 +561,17 @@ function EventEditor() {
 
   return (
     <div className="space-y-6">
-      <Link href="/etkinlikler" className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
-        {t('events.back')}
-      </Link>
+      <div>
+        <LinkButton href="/etkinlikler" variant="link" tone="surface" size="sm">
+          {t('events.back')}
+        </LinkButton>
+      </div>
       <PageHeader
         title={event.title}
         subtitle={[t(`events.kind.${event.kind}`), event.startsAt ? fmt.dateTime(event.startsAt) : t('events.noDate')].join(' - ')}
         actions={<Badge>{t(`events.status.${event.status}`)}</Badge>}
       />
-      <div className="flex flex-wrap gap-4 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+      <div className="flex flex-wrap gap-4 ui-text-muted">
         <span>{t('events.summary.seats', { taken: fmt.number(event.seatsTaken), capacity: fmt.number(event.capacity) })}</span>
         {event.waitlistEnabled && <span>{t('events.summary.waitlist', { count: event.waitlistCount })}</span>}
       </div>
