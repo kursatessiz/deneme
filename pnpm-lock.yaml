@@ -154,25 +154,7 @@ importers:
 
   apps/mobile:
     dependencies:
-      '@expo-google-fonts/archivo':
-        specifier: ^0.4.2
-        version: 0.4.2
-      '@expo-google-fonts/figtree':
-        specifier: ^0.4.1
-        version: 0.4.1
-      '@expo-google-fonts/fraunces':
-        specifier: ^0.4.1
-        version: 0.4.1
-      '@expo-google-fonts/ibm-plex-sans':
-        specifier: ^0.4.1
-        version: 0.4.1
-      '@expo-google-fonts/manrope':
-        specifier: ^0.4.2
-        version: 0.4.2
-      '@expo-google-fonts/nunito-sans':
-        specifier: ^0.4.2
-        version: 0.4.2
-      '@expo-google-fonts/schibsted-grotesk':
+      '@expo-google-fonts/inter':
         specifier: ^0.4.2
         version: 0.4.2
       '@expo/ui':
@@ -983,29 +965,11 @@ packages:
   '@emnapi/runtime@1.11.3':
     resolution: {integrity: sha512-Xz4Tpyki7XyrpbUK1jR1AhdAdaXyhhY4lZ3neLodmhpuWfy2PAQN5B46sAiU4liOXGLkHypn/qU+jvfWSCYYLA==}
 
-  '@expo-google-fonts/archivo@0.4.2':
-    resolution: {integrity: sha512-FLhI4/ZVIFSHHxx15Z7Rr4QX/4ZrJozEebBEFSdHSRRwULGCuSIpbb3dz56Hslux6LZEnJ1mVpZ6CyVpUzLwIg==}
-
-  '@expo-google-fonts/figtree@0.4.1':
-    resolution: {integrity: sha512-6IQQddGeR3yZBSwiIjy2kd1gA+5s2esF8JAFw6M1qqU4RUlj4Zxkw9J+gixAtZFgd+QIS875EPHqeYlpaRcCRw==}
-
-  '@expo-google-fonts/fraunces@0.4.1':
-    resolution: {integrity: sha512-gYc9P92ObyWvz1rWPOeWSvVKyBFIuA8hgOdhvo4DSiPBaWLbFA6v8uLIEIBwW+0oWTlXbBzjeBReHQI2H7UNjQ==}
-
-  '@expo-google-fonts/ibm-plex-sans@0.4.1':
-    resolution: {integrity: sha512-allsuhZbvKoKDTB/U8creFVYYzhI97Nw9MgyyNjFzqISNc/sURpA7ZY37Rr+IRI567OV9BWQ/ioUCjAQrVGRbw==}
-
-  '@expo-google-fonts/manrope@0.4.2':
-    resolution: {integrity: sha512-BZsKe8d9BJrVnIQIZcTS7/Kac0TbXnqs/+8EBSiQxrmK6GoCO6eTkmr50D1weIk/EoF20pTmAkpWICnovATr/g==}
+  '@expo-google-fonts/inter@0.4.2':
+    resolution: {integrity: sha512-syfiImMaDmq7cFi0of+waE2M4uSCyd16zgyWxdPOY7fN2VBmSLKEzkfbZgeOjJq61kSqPBNNtXjggiQiSD6gMQ==}
 
   '@expo-google-fonts/material-symbols@0.4.48':
     resolution: {integrity: sha512-aZztj44PyA/sj3TXSwwpLJwqMlTUJ49okbZJYURzEcuERxMQB0KbX7RrLBi8WJnuWz5HFOLlTRxORrJfNnUPNQ==}
-
-  '@expo-google-fonts/nunito-sans@0.4.2':
-    resolution: {integrity: sha512-e4+jUhgXNC6Zahf3MQwiiUimjWPp/Noe5v7CxBDbvXED+E7p7/egDaXKTbLwSBJku/mP3N+vNdJwk5xKAjkQmg==}
-
-  '@expo-google-fonts/schibsted-grotesk@0.4.2':
-    resolution: {integrity: sha512-OqscHDqXmG/noftZFsGvGXiYoJGIZ1HFKXO7dNNEuitIKVA/qzNhrfoBK7upnxsVlC/AubnYEWeTS5QNw2A+HA==}
 
   '@expo/cli@57.0.27':
     resolution: {integrity: sha512-Jauk4chxmpVG5ElrMLTCwjFP20jbYU7PB4l3LYV8j+4e/3HU5jdl7qTQ4eVy1AaDUE9Ia2NCQ5A9kar2V1gaLg==}
@@ -6984,21 +6948,9 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@expo-google-fonts/archivo@0.4.2': {}
-
-  '@expo-google-fonts/figtree@0.4.1': {}
-
-  '@expo-google-fonts/fraunces@0.4.1': {}
-
-  '@expo-google-fonts/ibm-plex-sans@0.4.1': {}
-
-  '@expo-google-fonts/manrope@0.4.2': {}
+  '@expo-google-fonts/inter@0.4.2': {}
 
   '@expo-google-fonts/material-symbols@0.4.48': {}
-
-  '@expo-google-fonts/nunito-sans@0.4.2': {}
-
-  '@expo-google-fonts/schibsted-grotesk@0.4.2': {}
 
   '@expo/cli@57.0.27(@expo/dom-webview@57.0.1)(@expo/metro-runtime@57.0.16)(expo-constants@57.0.19)(expo-font@57.0.4)(expo-router@57.0.23)(expo@57.0.25)(react-dom@19.3.0(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(typescript@5.9.3)':
     dependencies:

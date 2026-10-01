@@ -5,14 +5,16 @@ import type { TextStyle } from 'react-native';
 
 import {
   DEFAULT_APPEARANCE,
+  PERFECT_UI_TOKENS,
   palette,
   radii,
   resolveTheme,
   spacing,
-  typography,
+  typography as sharedTypography,
 } from '@platform/shared';
 import type { AppearancePreference, ResolvedTheme } from '@platform/shared';
 
+import { INTER_FACE } from './interFaces';
 import { apiRequest } from './lib/api';
 import { useSession } from './lib/session';
 
@@ -76,32 +78,64 @@ export function useTheme(): ThemeContextValue {
   return ctx;
 }
 
+/** True once Inter has loaded; false outside a ThemeProvider (e.g. the root error fallback). */
+export function useFontsLoaded(): boolean {
+  return useContext(ThemeContext)?.fontsLoaded ?? false;
+}
+
 /** Semantic colors of the active theme. Never hardcode colors. */
 export function useThemeColors(): ResolvedTheme['colors'] {
   return useTheme().theme.colors;
 }
 
-/** Text styles bound to the active theme family's fonts; system fonts until they load. */
-export function useThemeFonts(): { display: TextStyle; body: TextStyle; bodyStrong: TextStyle } {
-  const { theme, fontsLoaded } = useTheme();
-  const { family } = theme;
+/**
+ * Type scale of the app: 12 / 14 / 16 / 20 / 24, the base being the kit's 14.
+ * (The shared scale carries web display sizes the mobile app does not use.)
+ */
+export const typography = {
+  ...sharedTypography,
+  size: { xs: 12, sm: PERFECT_UI_TOKENS.fontSize, md: 16, lg: 20, xl: 24 },
+} as const;
+
+/** Border width of the kit (1px); every card, input and divider uses it. */
+export const borderWidth = PERFECT_UI_TOKENS.borderWidth;
+
+/** Dimming layer behind modals and sheets (black at 50%, same in both modes). */
+export const SCRIM = `${palette.black}80`;
+
+/** Minimum touch target of interactive rows and controls. */
+export const TOUCH_TARGET = 44;
+
+interface ThemeFonts {
+  /** Titles and numbers: Inter 700. */
+  display: TextStyle;
+  /** Body copy: Inter 400. */
+  body: TextStyle;
+  /** Labels and buttons: Inter 500. */
+  bodyMedium: TextStyle;
+  /** Emphasis: Inter 600. */
+  bodyStrong: TextStyle;
+}
+
+/** Text styles in Inter; the system font (with matching weights) until the faces load. */
+export function useThemeFonts(): ThemeFonts {
+  const { fontsLoaded } = useTheme();
   return useMemo(() => {
     if (!fontsLoaded) {
       return {
         display: { fontWeight: typography.weight.bold },
         body: {},
+        bodyMedium: { fontWeight: typography.weight.medium },
         bodyStrong: { fontWeight: typography.weight.semibold },
       };
     }
     return {
-      display: {
-        fontFamily: family.fonts.display.native.strong,
-        letterSpacing: family.fonts.display.letterSpacing * typography.size.xl,
-      },
-      body: { fontFamily: family.fonts.body.native.regular },
-      bodyStrong: { fontFamily: family.fonts.body.native.strong },
+      display: { fontFamily: INTER_FACE.bold },
+      body: { fontFamily: INTER_FACE.regular },
+      bodyMedium: { fontFamily: INTER_FACE.medium },
+      bodyStrong: { fontFamily: INTER_FACE.semibold },
     };
-  }, [family, fontsLoaded]);
+  }, [fontsLoaded]);
 }
 
-export { palette, radii, spacing, typography };
+export { palette, radii, spacing };
