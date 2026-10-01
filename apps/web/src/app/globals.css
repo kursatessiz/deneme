@@ -483,6 +483,11 @@
     background-color: var(--pui-error);
   }
 
+  /* A finished meter (translation completion at 100 percent) fills in the success color. */
+  .ui-bar-fill[data-level='complete'] {
+    background-color: var(--pui-success);
+  }
+
   /* A whole card that is a link (settings hub). */
   .ui-card-link {
     transition: background-color 0.15s;
@@ -642,6 +647,12 @@
     width: 0.75rem;
     height: 0.5rem;
     padding: 0;
+  }
+
+  /* T3 (super admin): monospace text for keys, codes and identifiers. */
+  .ui-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: calc(var(--pui-font-size) * 0.857);
   }
 
   /* Only the two gradient slots of the design system (packages/shared GRADIENT_SLOTS). */

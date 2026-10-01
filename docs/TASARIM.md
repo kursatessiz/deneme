@@ -178,6 +178,22 @@ T2b'de (CRM ve pazarlama) eklenen yardımcı sınıflar (hepsi `ui` katmanında,
 | `ui-status-item`, `ui-status-dot` | İçerik takvimi öğesi ve gösterge noktası; `data-status` (`PLANNED`, `DRAFTED`, `APPROVED`, `SENT`, `CANCELLED`) sol kenar rengini seçer |
 | `ui-dashed-item`, `ui-dashed-swatch` | Kesik çizgili satır (takvimde kampanya) ve göstergedeki küçük örneği |
 
+T3'te (süper admin paneli) eklenen yardımcı sınıflar (hepsi `ui` katmanında, yalnızca token'larla):
+
+| Sınıf | Ne için |
+|-------|---------|
+| `ui-mono` | Anahtar, kod, kimlik, sürüm ve yığın izi gibi tek aralıklı metin (küçük boyutlu). Tailwind `font-mono` yerine |
+| `ui-bar-fill[data-level='complete']` | Tamamlanmış ölçer (çeviri tamamlanma çubuğu yüzde yüzde): başarı renginde dolar |
+
+Kalıplar (süper admin): formlar `Card` içinde `<form className="pui-card-content">`
+(kart başlığı `h3.ui-heading`); yer tutucuyla çalışan kısa alanlar `Input`/`Select`,
+etiketli alanlar `FieldGroup`; liste ve çizelgeler `Card` + `Table`
+(`overflow-x-auto`); durum rozetleri `Badge` (etkin `muted`, askıda `solid error`);
+kapanıp açılan ayrıntılar (hata olayları, yığın izi) `Accordion`; yığın izi ve
+günlük blokları `<pre className="ui-panel ui-mono">`; sayfa içi geri bağlantısı
+`LinkButton variant="link" tone="surface"`. `global-error.tsx` kök düzen yokken
+çalıştığı için kit CSS'ini kendisi içe aktarır.
+
 Kalıplar: sekme şeridi gibi görünen gezinme `ui-tabs` + `LinkButton`
 (`solid theme` etkin, `link surface` diğerleri); filtre düğmeleri `ChipButton`;
 panelin içindeki ikincil blok (adım, çıktı, kod) `ui-panel`; metin içi
@@ -320,8 +336,16 @@ sekmeleri) ile bunların kullandığı `components/growth`, `components/marketin
 `components/leads`, `components/churn`, `components/integrations`,
 `components/ai` ve `components/billing` bileşenleri.
 
+T3'te süper admin paneli taşındı: yapay zeka, benchmark, iş türleri, içerik,
+denetim, entegrasyonlar kabuğu, özellik bayrakları, hatalar (liste, uyarılar,
+ayarlar, ayrıntı), sağlık, dil yönetimi (liste ve çeviri düzenleyici), pazarlama
+ayarları, planlar, platform kullanıcıları, tavsiye, SMS paketleri, işletmeler
+(`TenantBillingActions` dahil), uygulama pazarı, web sitesi sayfa kabuğu ve
+yedekler; bunların kullandığı `components/admin` (`AiTranslatePanel`,
+`GlossaryPanel`, `TenantBillingActions`) ve `components/errors` bileşenleri.
+
 Sonraki fazlarda kalan ekranlar (mağaza, etkinlikler,
-topluluk, abonelik, süper admin alt sayfaları, sayfa motoru blokları)
+topluluk, abonelik, sayfa motoru blokları)
 bileşen kütüphanesine taşınır ve Tailwind renk/köşe/gölge
 sınıflarından arındırılır; o zamana kadar eski `--color-*` takma adları
 üzerinden yeni paleti alırlar. Mobil uygulama (yazı tipi Inter'e geçiş dahil)
