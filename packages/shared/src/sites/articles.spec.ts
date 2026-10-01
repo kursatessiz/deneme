@@ -1,3 +1,4 @@
+import { DEFAULT_TENANT_THEME } from '../design';
 import {
   CreateArticleSchema,
   UpsertPageLocaleSchema,
@@ -9,6 +10,7 @@ import {
   blogFeedPath,
   blogIndexPath,
   blogTagPath,
+  buildArticleFeedXml,
   buildArticleSitemapEntries,
   buildRssXml,
   buildSitemapXml,
@@ -199,5 +201,39 @@ describe('sites/rss', () => {
 
   it('formats dates as RFC 822', () => {
     expect(rssDate('2026-01-05T00:00:00Z')).toBe('Mon, 05 Jan 2026 00:00:00 GMT');
+  });
+});
+
+describe('sites/rss article feed', () => {
+  it('links every item on the given origin', () => {
+    const xml = buildArticleFeedXml(
+      {
+        site: {
+          siteKind: 'TENANT',
+          studioSlug: 'zen',
+          siteName: 'Zen',
+          publisherName: 'Zen',
+          logoUrl: null,
+          defaultLocale: 'tr',
+          enabledLocales: ['tr'],
+          theme: DEFAULT_TENANT_THEME,
+        },
+        locale: 'tr',
+        tag: null,
+        publishedLocales: ['tr'],
+        items: [
+          { locale: 'tr', slug: 'merhaba', title: 'Merhaba', excerpt: 'Ozet', coverImageUrl: null, authorName: 'Ayse', publishedAt: '2026-10-01T09:00:00.000Z', updatedAt: '2026-10-01T09:00:00.000Z', readingMinutes: 1, tags: [{ slug: 'haber', label: 'Haber' }] },
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 12,
+      },
+      'https://zen.example.com',
+      { title: 'Zen blogu', description: 'Zen yazilari' },
+    );
+    expect(xml).toContain('<link>https://zen.example.com/tr/blog</link>');
+    expect(xml).toContain('<link>https://zen.example.com/tr/blog/merhaba</link>');
+    expect(xml).toContain('href="https://zen.example.com/tr/blog/rss.xml"');
+    expect(xml).toContain('<category>Haber</category>');
   });
 });

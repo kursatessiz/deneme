@@ -5,6 +5,8 @@
  * at all are dropped.
  */
 
+import { articlePath, blogFeedPath, blogIndexPath, type PublicArticleListDTO } from './articles';
+
 export interface RssItem {
   title: string;
   link: string;
@@ -83,4 +85,26 @@ export function buildRssXml(channel: RssChannel): string {
     items +
     '</channel></rss>'
   );
+}
+
+/**
+ * The RSS feed of a public article list served on `origin`. Shared by the API feed endpoint and the web
+ * app's per-host feed route, so both write the same document; `labels` are the translated channel texts.
+ */
+export function buildArticleFeedXml(list: PublicArticleListDTO, origin: string, labels: { title: string; description: string }): string {
+  return buildRssXml({
+    title: labels.title,
+    link: `${origin}${blogIndexPath(list.locale)}`,
+    selfUrl: `${origin}${blogFeedPath(list.locale)}`,
+    description: labels.description,
+    language: list.locale,
+    items: list.items.map((item) => ({
+      title: item.title,
+      link: `${origin}${articlePath(item.locale, item.slug)}`,
+      description: item.excerpt,
+      publishedAt: item.publishedAt,
+      author: item.authorName,
+      categories: item.tags.map((tag) => tag.label),
+    })),
+  });
 }
