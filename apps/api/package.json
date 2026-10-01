@@ -10,7 +10,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
-    "test": "jest",
+    "test": "node --max-old-space-size=4096 node_modules/jest/bin/jest.js",
     "test:e2e": "node --max-old-space-size=6144 node_modules/jest/bin/jest.js --config test/jest-e2e.config.js",
     "typecheck": "tsc --noEmit"
   },
