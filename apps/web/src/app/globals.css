@@ -302,7 +302,7 @@
   }
 
   .ui-text-theme {
-    color: var(--pui-theme);
+    color: var(--pui-theme-text, var(--pui-theme));
   }
 
   .ui-strong {
@@ -689,10 +689,18 @@
 /*
  * Text on the brand color. The kit puts the page color on `pui-theme`;
  * ThemeRoot sets `--pui-on-theme` to a contrast-checked color for a tenant
- * primary. Unlayered on purpose so it wins over the kit's color layer.
+ * primary, and the corrected hover and accent-text colors (see
+ * packages/shared/src/design/brand.ts). Unlayered on purpose so it wins over
+ * the kit's color layer.
  */
 .pui-theme {
   --pui-on-color: var(--pui-on-theme, var(--pui-bg));
+  /* Soft, outline and link elements set their text in the corrected accent text color (4.5:1 on the page). */
+  --pui-ink: var(--pui-theme-text, var(--pui-theme));
+}
+
+.pui-solid.pui-theme:hover {
+  background-color: var(--pui-theme-hover, var(--pui-theme));
 }
 
 body {

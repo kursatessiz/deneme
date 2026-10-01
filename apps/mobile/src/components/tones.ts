@@ -33,7 +33,8 @@ export function toneColors(theme: ResolvedTheme, tone: Tone): ToneColors {
   }
   const main = tone === 'theme' ? c.primary : theme.roles[tone];
   const onMain = tone === 'theme' ? c.onPrimary : onColor(main);
-  // A pale tone would vanish as text on the page; fall back to the text color.
-  const ink = contrastRatio(main, c.background) >= 3 ? main : c.textPrimary;
+  // The brand tone has a corrected text variant (4.5:1 on the page); a pale status tone would vanish as
+  // text on the page, so it falls back to the text color.
+  const ink = tone === 'theme' ? c.primaryText : contrastRatio(main, c.background) >= 3 ? main : c.textPrimary;
   return { main, onMain, soft: withAlpha(main, 0.12), ink, line: main };
 }

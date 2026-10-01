@@ -6,6 +6,7 @@ import type { PublicCreateBookingInput } from '@platform/shared';
 import type { TenantContext } from '../auth/tenant-context';
 import { assertStudioWritable } from '../auth/guards/billing-write.guard';
 
+import { loadAllowedThemeFamiliesForStudio } from '../appearance/theme-families';
 /**
  * The read/write logic behind both `/v1/public/*` (API-key authenticated
  * third-party integrations, see PublicApiController) and the embeddable
@@ -147,7 +148,7 @@ export class PublicApiService {
       select: { id: true, name: true, embedAllowedOrigins: true, logoUrl: true, themeFamily: true, themePrimary: true, gradientPresetKey: true, timezone: true },
     });
     if (!studio) throw new NotFoundException(`'${slug}' stüdyosu bulunamadı`);
-    return studio;
+    return { ...studio, allowedThemeFamilies: await loadAllowedThemeFamiliesForStudio(this.prisma, studio.id) };
   }
 
   private async resolveMemberByPhone(studioId: string, phone: string) {

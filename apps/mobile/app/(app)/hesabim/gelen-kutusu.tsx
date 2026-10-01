@@ -136,7 +136,7 @@ function Inbox() {
             <Text style={[styles.name, fonts.bodyStrong, { color: c.textPrimary }]} numberOfLines={1}>
               {conv.contact.displayName}
             </Text>
-            {conv.unreadCount > 0 ? <Text style={[styles.unread, fonts.bodyStrong, { color: c.primary }]}>{conv.unreadCount}</Text> : null}
+            {conv.unreadCount > 0 ? <Text style={[styles.unread, fonts.bodyStrong, { color: c.primaryText }]}>{conv.unreadCount}</Text> : null}
           </View>
           <Text style={[styles.meta, fonts.body, { color: c.textMuted }]}>
             {t(`messaging.channel.${conv.channel}`)} · {formatDateTime(conv.lastMessageAt, locale)}
@@ -153,7 +153,7 @@ function Inbox() {
     <View style={styles.pane}>
       {!isTablet ? (
         <Pressable accessibilityRole="button" onPress={() => setSelected(null)} style={styles.back}>
-          <Text style={[fonts.bodyStrong, { color: c.primary }]}>{t('mMessaging.inbox.back')}</Text>
+          <Text style={[fonts.bodyStrong, { color: c.primaryText }]}>{t('mMessaging.inbox.back')}</Text>
         </Pressable>
       ) : null}
       <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{selected.contact.displayName}</Text>

@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
-import { AssignPlanSchema, CreateTenantSchema } from '@platform/shared';
-import type { AssignPlanInput, CreateTenantInput } from '@platform/shared';
+import { Controller, Get, Param, ParseUUIDPipe, Post, Put } from '@nestjs/common';
+import { AssignPlanSchema, CreateTenantSchema, UpdateTenantThemeFamiliesSchema } from '@platform/shared';
+import type { AssignPlanInput, CreateTenantInput, UpdateTenantThemeFamiliesInput } from '@platform/shared';
 import { SuperAdminOnly } from '../auth/decorators/super-admin-only.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/tenant-context';
@@ -50,5 +50,19 @@ export class AdminTenantsController {
     @ZodBody(AssignPlanSchema) body: AssignPlanInput,
   ) {
     return this.tenants.assignPlan(user.id, studioId, body.planKey);
+  }
+
+  @Get(':studioId/theme-families')
+  async themeFamilies(@Param('studioId', ParseUUIDPipe) studioId: string) {
+    return this.tenants.getThemeFamilies(studioId);
+  }
+
+  @Put(':studioId/theme-families')
+  async setThemeFamilies(
+    @CurrentUser() user: AuthUser,
+    @Param('studioId', ParseUUIDPipe) studioId: string,
+    @ZodBody(UpdateTenantThemeFamiliesSchema) body: UpdateTenantThemeFamiliesInput,
+  ) {
+    return this.tenants.setThemeFamilies(user.id, studioId, body);
   }
 }

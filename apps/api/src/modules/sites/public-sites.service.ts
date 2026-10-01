@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@platform/database';
 import { DEFAULT_TENANT_THEME, studioBillingCurrency } from '@platform/shared';
-import type { PublicPageDTO, PublicPageContext, PageLocaleDTO, BlockDTO, SitemapPageEntry, TenantTheme } from '@platform/shared';
+import type { PublicPageDTO, PublicPageContext, PageLocaleDTO, BlockDTO, SitemapPageEntry, TenantThemeView } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { sitesBaseDomain } from './sites.service';
+import { loadAllowedThemeFamiliesForStudio } from '../appearance/theme-families';
 
 function toLocaleDto(l: { locale: string; slug: string; seoTitle: string | null; seoDescription: string | null; ogImageUrl: string | null; legalApproved: boolean; legalApprovedAt: Date | null }): PageLocaleDTO {
   return {
@@ -68,10 +69,16 @@ export class PublicSitesService {
     const page = localeRow.page;
 
     const context = await this.buildContext(studio, page.blocks.map((b) => b.type));
-    const theme: TenantTheme =
+    const theme: TenantThemeView =
       studio.site.kind === 'PLATFORM'
         ? DEFAULT_TENANT_THEME
-        : { logoUrl: studio.logoUrl, themeFamily: studio.themeFamily as TenantTheme['themeFamily'], themePrimary: studio.themePrimary, gradientPresetKey: studio.gradientPresetKey as TenantTheme['gradientPresetKey'] };
+        : {
+            logoUrl: studio.logoUrl,
+            themeFamily: studio.themeFamily as TenantThemeView['themeFamily'],
+            themePrimary: studio.themePrimary,
+            gradientPresetKey: studio.gradientPresetKey as TenantThemeView['gradientPresetKey'],
+            allowedThemeFamilies: await loadAllowedThemeFamiliesForStudio(this.prisma, studio.id),
+          };
 
     return {
       siteKind: studio.site.kind,

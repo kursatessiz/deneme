@@ -143,7 +143,7 @@ export default function PublicBookingPage() {
 
   return (
     <ThemeRoot
-      tenantTheme={config ? { themeFamily: config.themeFamily, themePrimary: config.themePrimary, gradientPresetKey: config.gradientPresetKey, logoUrl: config.logoUrl } : null}
+      tenantTheme={config ? { themeFamily: config.themeFamily, themePrimary: config.themePrimary, gradientPresetKey: config.gradientPresetKey, logoUrl: config.logoUrl, allowedThemeFamilies: config.allowedThemeFamilies } : null}
       appearance={{ colorScheme: 'SYSTEM' }}
     >
       <main className="px-4 py-8 sm:py-12">

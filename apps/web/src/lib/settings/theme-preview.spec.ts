@@ -1,4 +1,4 @@
-import { DEFAULT_TENANT_THEME, PERFECT_UI_TOKENS, gradientCss } from '@platform/shared';
+import { DEFAULT_TENANT_THEME, gradientCss } from '@platform/shared';
 import { previewCssVariables, previewThemeFromForm } from './theme-preview';
 
 describe('previewThemeFromForm / previewCssVariables', () => {
@@ -6,7 +6,8 @@ describe('previewThemeFromForm / previewCssVariables', () => {
     const preview = previewThemeFromForm(DEFAULT_TENANT_THEME);
     expect(preview.mode).toBe('light');
     expect(preview.family.key).toBe('perfect');
-    expect(preview.colors.primary).toBe(PERFECT_UI_TOKENS.colors.light.theme);
+    // The kit default blue is darkened until white text reaches 4.5:1 (brand.ts).
+    expect(preview.colors.primary).toBe('#007db1');
   });
 
   it('renders a legacy family with the single design language', () => {

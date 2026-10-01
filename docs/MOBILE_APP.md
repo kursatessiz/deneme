@@ -24,10 +24,14 @@ yazı boyutu yazmaz.
   `xs`..`xl`, taban 14), dokunma hedefi en az 44 (`TOUCH_TARGET`).
 - **Tek tema ailesi, açık/koyu kullanıcıya ait**: Görünüm ekranı yalnızca sistem, açık ve koyu seçer
   (`mAccount.appearance.*`). Kullanıcının kayıtlı tema ailesi eski bir alandır; olduğu gibi geri
-  gönderilir. Marka rengi (`theme.colors.primary`) vurgu rengidir, üzerindeki metin `onColor()` ile
-  hesaplanır (`theme.colors.onPrimary`). İşletme teması ekranı (`hesabim/isletme-temasi`) yalnızca logo
-  adresini ve ana rengi (`#RRGGBB`) düzenler; aile ve gradyan alanları API'de olduğu gibi kalır ve
-  uygulama bunları değiştirmez.
+  gönderilir. Marka rengi (`theme.colors.primary`) düz yüzeylerin rengidir ve gerekirse otomatik düzeltilir
+  (`deriveBrandPalette()`, `docs/TASARIM.md` bölüm 1b); üzerindeki metin `theme.colors.onPrimary`,
+  bağlantı ve vurgu metni `theme.colors.primaryText` ile okunur. İşletme teması ekranı (`hesabim/isletme-temasi`) yalnızca logo
+  adresini ve ana rengi (`#RRGGBB`) düzenler. Süper admin işletme için birden çok tema ailesine izin
+  verdiyse (D7) ekranda ayrıca bir aile seçici görünür (`themeDesign.picker.*`); tek aile izinliyse
+  seçici yoktur. Aile, oturumdaki `membership.theme.allowedThemeFamilies` ile `resolveTheme()`
+  üzerinden çizilir; izinli olmayan saklı aile `perfect` çizilir. İzin dışı bir aileyi API `403` ve
+  `THEME_FAMILY_NOT_ALLOWED` koduyla reddeder.
 - **Gradyan yalnızca iki alanda**: `MemberCard` (üye kartı) ve `PackageCard` (paket kartı), ayrıca
   sadakat bakiye kartı (üye kartı alanı); kaynağı `brandGradient()` (birincil renkten türetilir) ve
   metin rengi `onGradient()`. `GradientSurface` yalnızca bu alanları kabul eder. Birincil buton ve

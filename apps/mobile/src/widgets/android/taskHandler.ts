@@ -1,11 +1,10 @@
-import React from 'react';
 import { registerWidgetTaskHandler } from 'react-native-android-widget';
 import type { WidgetTaskHandler } from 'react-native-android-widget';
 
 import { toWidgetDisplayModel } from '../format';
 import { resolveWidgetTranslation } from '../locale';
-import { loadWidgetSummary } from '../store';
-import { NextSessionAndroidWidget } from './nextSessionWidget';
+import { loadWidgetBrand, loadWidgetSummary } from '../store';
+import { androidWidgetRepresentation } from './nextSessionWidget';
 
 /**
  * Handles Android widget lifecycle events (added, updated, resized,
@@ -19,7 +18,8 @@ const nextSessionTaskHandler: WidgetTaskHandler = async ({ widgetAction, renderW
   const data = await loadWidgetSummary();
   const { locale, t } = await resolveWidgetTranslation();
   const display = toWidgetDisplayModel(data, locale, t);
-  renderWidget(React.createElement(NextSessionAndroidWidget, { display }));
+  // Light and dark variants in the design-token palette, with the studio primary color when cached.
+  renderWidget(androidWidgetRepresentation(display, await loadWidgetBrand()));
 };
 
 /** Call once at JS bundle load (see app/_layout.tsx) so it also registers

@@ -29,3 +29,6 @@ export const EMPTY_WIDGET_SUMMARY: WidgetSummaryData = {
 };
 
 export const WIDGET_STORAGE_KEY = 'widget-summary-v1';
+
+/** Separate key for the studio primary color, so the snapshot shape above stays unchanged. */
+export const WIDGET_BRAND_STORAGE_KEY = 'widget-brand-v1';

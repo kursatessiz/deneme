@@ -6,6 +6,7 @@ import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { useT } from '@/components/i18n/I18nProvider';
 import { TenantBillingActions } from '@/components/admin/TenantBillingActions';
+import { TenantThemeFamilies } from '@/components/admin/TenantThemeFamilies';
 import type { TenantListItemDTO } from '@platform/shared';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -130,6 +131,7 @@ export default function TenantsPage() {
     t('adminTenants.table.staff'),
     t('adminTenants.table.status'),
     t('adminBilling.tenants.billing'),
+    t('themeDesign.admin.title'),
     '',
   ];
 
@@ -180,6 +182,9 @@ export default function TenantsPage() {
                       billingCurrencyOverride={tenant.billingCurrencyOverride}
                       onChanged={refresh}
                     />
+                  </Td>
+                  <Td className="align-top">
+                    <TenantThemeFamilies studioId={tenant.id} />
                   </Td>
                   <Td>
                     <Button variant="link" tone="surface" size="sm" onClick={() => toggleActive(tenant)}>

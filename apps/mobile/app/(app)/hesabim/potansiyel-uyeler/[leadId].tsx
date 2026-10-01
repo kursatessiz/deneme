@@ -143,7 +143,7 @@ export default function LeadDetailScreen() {
   return (
     <ScreenContainer>
       <Text style={[styles.name, fonts.display, { color: c.textPrimary }]}>{lead.fullName}</Text>
-      <Text style={[styles.stage, fonts.bodyStrong, { color: c.primary }]}>{stageLabels(t)[lead.stage] ?? lead.stage}</Text>
+      <Text style={[styles.stage, fonts.bodyStrong, { color: c.primaryText }]}>{stageLabels(t)[lead.stage] ?? lead.stage}</Text>
 
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mLeads.call')}</Text>

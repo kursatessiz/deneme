@@ -47,6 +47,25 @@ Widget kodu `apps/mobile/src/widgets/` altında:
   headless görev (`registerWidgetTaskHandler`), `app/_layout.tsx`'te JS
   paketi yüklenirken kaydedilir.
 
+### Android widget renkleri (D7)
+
+Android widget'ı başsız (headless) bir JS görevinde çalışır ve uygulamanın tema
+bağlamına (`useTheme()`) erişemez. Bu yüzden renkler `packages/shared/src/design/widget.ts`
+içindeki düz, hook olmayan `widgetPalette(mode, primary?)` fonksiyonundan ve
+`WIDGET_PALETTE` sabitinden okunur: `perfect` ailesinin açık ve koyu zemin, metin,
+soluk metin, çizgi ve marka rengi. Sabit kodlanmış palet kaldırıldı; gradyan yoktur,
+boyutlar (yazı boyutu, dolgu, köşe) değişmedi.
+
+- **Açık/koyu**: `react-native-android-widget`, `renderWidget` için `{ light, dark }` çifti kabul
+  eder ve cihazın sistem kipine uyan varyantı seçer. Widget iki varyantı da üretir
+  (`androidWidgetRepresentation()`); ayrıca bir ipucu veya hook gerekmez.
+- **İşletme birincil rengi**: widget deposu (`store.ts`) aktif işletmenin birincil rengini ayrı bir
+  anahtarda (`widget-brand-v1`) saklar; oturum, aktif işletme veya teması değiştiğinde
+  `updateWidgetBrand()` ile güncellenir ve widget yeniden çizilir, çıkışta silinir. Renk,
+  uygulamayla aynı otomatik kontrast düzeltmesinden geçer (`docs/TASARIM.md` bölüm 1b); paket
+  başlığı düzeltilmiş vurgu metin rengiyle çizilir. Renk yoksa kitin marka rengi kullanılır.
+- Birim testi: `packages/shared/src/design/widget.spec.ts`.
+
 ### app.json yapılandırması
 
 `apps/mobile/app.json` içine iki config plugin eklendi:

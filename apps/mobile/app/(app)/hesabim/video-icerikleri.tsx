@@ -202,7 +202,7 @@ export default function VideoIcerikleriScreen() {
             disabled={busyId === item.id}
             style={[styles.publishButton, { borderColor: colors.primary }]}
           >
-            <Text style={{ color: colors.primary, fontSize: typography.size.xs }}>
+            <Text style={{ color: colors.primaryText, fontSize: typography.size.xs }}>
               {busyId === item.id ? '...' : item.isPublished ? t('mVideoContent.remove') : t('mVideoContent.publish')}
             </Text>
           </Pressable>

@@ -21,6 +21,8 @@ export interface EmbedConfig {
   themeFamily: string;
   themePrimary: string;
   gradientPresetKey: string;
+  /** Families the super admin allowed; absent means the default family only. */
+  allowedThemeFamilies?: string[];
   /** The studio's IANA time zone: the zone of any session whose branch has none of its own. */
   timezone: string;
 }

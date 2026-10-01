@@ -7,6 +7,8 @@ import { PLATFORM_BILLING_CURRENCIES, PlatformBillingCurrencySchema, StudioRefer
 import type { PlanPriceDTO, PlatformBillingCurrency, StudioBillingStatus } from './billing';
 import { EmailBlocksSchema } from './email-blocks';
 import { WHATSAPP_TEMPLATE_STATUSES } from './message-templates';
+import { DEFAULT_THEME_FAMILY, OPTIONAL_THEME_FAMILY_KEYS, THEME_FAMILY_KEYS } from './design/themes';
+import type { ThemeFamilyKey } from './design/themes';
 
 // ---------------------------------------------------------------------------
 // Super-admin (platform owner) panel: backlog 4.1-4.3.
@@ -30,6 +32,10 @@ export const FEATURE_FLAGS = {
   leads_pipeline: 'Potansiyel musteri (lead) hattı',
   public_api: 'Herkese acik API ve API anahtarlari',
   webhooks: 'Giden webhook bildirimleri',
+  'theme_family.noir': 'Tema ailesi: Studio Noir (isletme icin izin)',
+  'theme_family.nefes': 'Tema ailesi: Nefes (isletme icin izin)',
+  'theme_family.saha': 'Tema ailesi: Saha (isletme icin izin)',
+  'theme_family.atolye': 'Tema ailesi: Atolye (isletme icin izin)',
 } as const;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;
@@ -153,6 +159,31 @@ export const SetFeatureFlagSchema = z
     }
   });
 export type SetFeatureFlagInput = z.infer<typeof SetFeatureFlagSchema>;
+
+// -- Theme families (D7) -------------------------------------------------------
+
+/** Stable error code of a theme write that names a family the super admin did not allow. */
+export const THEME_FAMILY_NOT_ALLOWED = 'THEME_FAMILY_NOT_ALLOWED';
+
+/** The super admin's view of one studio's theme families: the allow-list and the stored family. */
+export interface TenantThemeFamiliesDTO {
+  /** Always contains the default family. */
+  allowed: ThemeFamilyKey[];
+  /** The family stored on the studio (it may be outside `allowed`, in which case it renders as the default). */
+  current: ThemeFamilyKey;
+}
+
+export const UpdateTenantThemeFamiliesSchema = z
+  .object({
+    /** Optional families to allow; the default family is implied. */
+    allowed: z.array(z.enum(OPTIONAL_THEME_FAMILY_KEYS)).max(OPTIONAL_THEME_FAMILY_KEYS.length),
+    current: z.enum(THEME_FAMILY_KEYS),
+  })
+  .refine((v) => v.current === DEFAULT_THEME_FAMILY || (v.allowed as readonly string[]).includes(v.current), {
+    path: ['current'],
+    message: 'Mevcut aile izin verilen ailelerden biri olmalıdır',
+  });
+export type UpdateTenantThemeFamiliesInput = z.infer<typeof UpdateTenantThemeFamiliesSchema>;
 
 // -- SMS packages ------------------------------------------------------------
 

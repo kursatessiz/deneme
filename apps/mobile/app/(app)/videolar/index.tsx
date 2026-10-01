@@ -146,7 +146,7 @@ export default function VideolarScreen() {
             {item.isLocked ? (
               <Text style={[styles.cardLocked, { color: palette.warning }]}>{item.lockedReason}</Text>
             ) : item.lastPositionSeconds ? (
-              <Text style={[styles.cardMeta, { color: colors.primary }]}>
+              <Text style={[styles.cardMeta, { color: colors.primaryText }]}>
                 {t('mVideoContent.resumePosition', { position: formatDuration(item.lastPositionSeconds, t) })}
               </Text>
             ) : null}
