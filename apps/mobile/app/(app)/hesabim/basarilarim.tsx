@@ -202,7 +202,7 @@ export default function BasarilarimScreen() {
             <View key={`${entry.rank}-${entry.displayName}`} style={styles.leaderRow}>
               <Text style={[fonts.bodyStrong, styles.leaderRank, { color: c.textPrimary }]}>{entry.rank}</Text>
               <Text
-                style={[fonts.body, styles.leaderName, { color: entry.isSelf ? c.primary : c.textPrimary }]}
+                style={[fonts.body, styles.leaderName, { color: entry.isSelf ? c.primaryText : c.textPrimary }]}
                 numberOfLines={1}
               >
                 {entry.displayName}

@@ -88,7 +88,7 @@ export default function SeanslarScreen() {
               <Text style={[styles.subtitle, fonts.body, { color: colors.textSecondary }]}>{item.trainerName}</Text>
             ) : null}
             {item.deliveryMode !== 'IN_PERSON' ? (
-              <Text style={[styles.subtitle, fonts.bodyStrong, { color: colors.primary }]}>
+              <Text style={[styles.subtitle, fonts.bodyStrong, { color: colors.primaryText }]}>
                 {item.deliveryMode === 'ONLINE' ? t('mSessionBooking.deliveryMode.online') : t('mSessionBooking.deliveryMode.hybrid')}
               </Text>
             ) : null}

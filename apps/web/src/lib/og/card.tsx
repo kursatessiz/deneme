@@ -1,5 +1,5 @@
 import { ImageResponse } from 'next/og';
-import { onColor } from '@platform/shared';
+import { deriveBrandPalette } from '@platform/shared';
 import { OG_FONT_FAMILY, loadOgFonts } from './fonts';
 
 export const OG_SIZE = { width: 1200, height: 630 } as const;
@@ -23,7 +23,9 @@ function clip(text: string, max: number): string {
 
 /** The shared Open Graph card: title, description, name and optional logo on the brand primary colour. */
 export async function renderOgCard(input: OgCardInput): Promise<ImageResponse> {
-  const ink = onColor(input.primary);
+  // The owner's color, corrected for contrast the same way the apps do (brand.ts).
+  const brand = deriveBrandPalette(input.primary);
+  const ink = brand.onPrimary;
   const title = clip(input.title, 90);
   const description = input.description ? clip(input.description, 170) : null;
   const name = input.name ? clip(input.name, 60) : null;
@@ -31,7 +33,7 @@ export async function renderOgCard(input: OgCardInput): Promise<ImageResponse> {
 
   return new ImageResponse(
     (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: 72, background: input.primary, color: ink, fontFamily: OG_FONT_FAMILY }}>
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: 72, background: brand.primary, color: ink, fontFamily: OG_FONT_FAMILY }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 24, minHeight: 64 }}>
           {input.logoDataUri ? (
             <div style={{ display: 'flex', alignItems: 'center', background: '#ffffff', borderRadius: 12, padding: 12 }}>

@@ -1,6 +1,8 @@
 import * as SecureStore from 'expo-secure-store';
 
-import { EMPTY_WIDGET_SUMMARY, WIDGET_STORAGE_KEY, type WidgetSummaryData } from './types';
+import { EMPTY_WIDGET_SUMMARY, WIDGET_BRAND_STORAGE_KEY, WIDGET_STORAGE_KEY, type WidgetSummaryData } from './types';
+
+const HEX = /^#[0-9a-fA-F]{6}$/;
 
 /**
  * Persists the latest widget snapshot on-device so the Android headless
@@ -25,4 +27,22 @@ export async function loadWidgetSummary(): Promise<WidgetSummaryData> {
 
 export async function clearWidgetSummary(): Promise<void> {
   await SecureStore.deleteItemAsync(WIDGET_STORAGE_KEY);
+}
+
+/**
+ * Caches the active studio's primary color (#RRGGBB) for the Android widget,
+ * which has no access to the app's session or theme context. `null` clears it.
+ */
+export async function saveWidgetBrand(primary: string | null): Promise<void> {
+  if (primary && HEX.test(primary)) await SecureStore.setItemAsync(WIDGET_BRAND_STORAGE_KEY, primary);
+  else await SecureStore.deleteItemAsync(WIDGET_BRAND_STORAGE_KEY);
+}
+
+export async function loadWidgetBrand(): Promise<string | null> {
+  try {
+    const raw = await SecureStore.getItemAsync(WIDGET_BRAND_STORAGE_KEY);
+    return raw && HEX.test(raw) ? raw : null;
+  } catch {
+    return null;
+  }
 }

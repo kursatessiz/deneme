@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { COLOR_SCHEME_PREFERENCES } from '@platform/shared';
-import type { AppearancePreference, ColorSchemePreference, TenantTheme } from '@platform/shared';
+import { COLOR_SCHEME_PREFERENCES, THEME_FAMILY_KEYS, THEME_FAMILY_NOT_ALLOWED, gradientKeyForFamily } from '@platform/shared';
+import type { AppearancePreference, ColorSchemePreference, TenantTheme, TenantThemeView } from '@platform/shared';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { useT } from '@/components/i18n/I18nProvider';
 import { useBff } from '@/lib/session/use-bff';
@@ -12,7 +12,7 @@ import { LoadingState, ErrorState } from '@/components/common/DataState';
 import { PageGuard } from '@/components/common/PageGuard';
 import { hasAnyPermission } from '@/lib/nav';
 import { InlineMessage, PrimaryButton, Section, SettingsHeader, TextField } from '@/components/settings/ui';
-import { previewCssVariables } from '@/lib/settings/theme-preview';
+import { previewCssVariables, previewThemeFromForm } from '@/lib/settings/theme-preview';
 import { Button } from '@/components/ui/Button';
 import { Radio } from '@/components/ui/Radio';
 
@@ -22,9 +22,12 @@ const HEX = /^#[0-9a-fA-F]{6}$/;
  * Live preview of the unsaved form: the two gradient slots (member card,
  * package card) and a flat primary button, in light mode.
  */
-function ThemePreview({ form }: { form: TenantTheme }) {
+function ThemePreview({ form }: { form: TenantThemeView }) {
   const t = useT();
   const vars = previewCssVariables(form);
+  // Shown only when the automatic correction moved the color the owner typed.
+  const solid = previewThemeFromForm(form).colors.primary;
+  const applied = HEX.test(form.themePrimary) && solid.toLowerCase() !== form.themePrimary.toLowerCase() ? solid : null;
   return (
     <div className="pui-card" data-pui-mode="light" style={{ ...(vars as React.CSSProperties), colorScheme: 'light' }}>
       <div className="pui-card-content gap-4">
@@ -43,8 +46,15 @@ function ThemePreview({ form }: { form: TenantTheme }) {
             {t('settings.appearance.preview.remaining')}
           </span>
         </div>
-        <Button className="justify-self-start">{t('settings.appearance.preview.primaryButton')}</Button>
+        <div className="flex items-center gap-4">
+          <Button>{t('settings.appearance.preview.primaryButton')}</Button>
+          <span className="ui-text-theme ui-strong">{t('themeDesign.contrast.link')}</span>
+        </div>
         <p>{t('settings.appearance.preview.bodyText')}</p>
+        <div className="ui-panel grid gap-1">
+          <p className="ui-caption ui-text-muted">{t('themeDesign.contrast.note')}</p>
+          {applied && <p className="ui-caption">{t('themeDesign.contrast.adjusted', { color: applied.toUpperCase() })}</p>}
+        </div>
       </div>
     </div>
   );
@@ -54,8 +64,8 @@ function StudioThemeForm() {
   const t = useT();
   const router = useRouter();
   const { activeStudioId } = useDashboardSession();
-  const { data, loading, error } = useBff<TenantTheme>(`studios/${activeStudioId}/theme`, activeStudioId);
-  const [form, setForm] = useState<TenantTheme | null>(null);
+  const { data, loading, error } = useBff<TenantThemeView>(`studios/${activeStudioId}/theme`, activeStudioId);
+  const [form, setForm] = useState<TenantThemeView | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -68,6 +78,9 @@ function StudioThemeForm() {
   if (error) return <ErrorState message={error} />;
   if (!form) return null;
 
+  // The picker lists the families the super admin allowed; it appears only when there is a choice.
+  const pickable = THEME_FAMILY_KEYS.filter((key) => (form.allowedThemeFamilies ?? []).includes(key));
+
   const save = async () => {
     setSaveError(null);
     setSaved(false);
@@ -77,13 +90,20 @@ function StudioThemeForm() {
     }
     setSaving(true);
     try {
-      // The stored family and gradient key are sent back unchanged: since T1 they no longer change what renders.
-      const updated = await bffFetch<TenantTheme>(`studios/${activeStudioId}/theme`, { method: 'PUT', body: form, studioId: activeStudioId });
+      // The stored family is sent back unchanged unless the owner picked another allowed one. The allow-list is read-only here.
+      const body: TenantTheme = { logoUrl: form.logoUrl, themeFamily: form.themeFamily, themePrimary: form.themePrimary, gradientPresetKey: form.gradientPresetKey };
+      const updated = await bffFetch<TenantThemeView>(`studios/${activeStudioId}/theme`, { method: 'PUT', body, studioId: activeStudioId });
       setForm(updated);
       setSaved(true);
       router.refresh();
     } catch (err) {
-      setSaveError(err instanceof BffError ? err.message : t('settings.appearance.errors.themeSaveFailed'));
+      setSaveError(
+        err instanceof BffError
+          ? err.code === THEME_FAMILY_NOT_ALLOWED
+            ? t(`themeDesign.error.${THEME_FAMILY_NOT_ALLOWED}`)
+            : err.message
+          : t('settings.appearance.errors.themeSaveFailed'),
+      );
     } finally {
       setSaving(false);
     }
@@ -93,6 +113,22 @@ function StudioThemeForm() {
     <Section title={t('settings.appearance.studioTheme.title')} description={t('settings.appearance.studioTheme.description')}>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="grid gap-4 content-start">
+          {pickable.length > 1 && (
+            <fieldset className="grid gap-2">
+              <legend className="ui-caption mb-1">{t('themeDesign.picker.title')}</legend>
+              <p className="ui-caption ui-text-muted">{t('themeDesign.picker.description')}</p>
+              {pickable.map((key) => (
+                <Radio
+                  key={key}
+                  name="theme-family"
+                  value={key}
+                  checked={form.themeFamily === key}
+                  onChange={() => setForm({ ...form, themeFamily: key, gradientPresetKey: gradientKeyForFamily(key) })}
+                  label={`${t(`themeDesign.family.${key}.name`)}: ${t(`themeDesign.family.${key}.description`)}`}
+                />
+              ))}
+            </fieldset>
+          )}
           <TextField label={t('settings.appearance.logoUrl')} value={form.logoUrl ?? ''} onChange={(v) => setForm({ ...form, logoUrl: v || null })} placeholder="https://..." />
           <div className="flex items-end gap-2">
             <div className="flex-1">

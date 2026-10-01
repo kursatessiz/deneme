@@ -114,7 +114,7 @@ function WalkInContent() {
             onPress={() => book(item.id)}
             style={[styles.bookButton, { borderColor: colors.primary }]}
           >
-            <Text style={{ color: colors.primary, fontSize: typography.size.sm }}>{t('mWalkIn.add')}</Text>
+            <Text style={{ color: colors.primaryText, fontSize: typography.size.sm }}>{t('mWalkIn.add')}</Text>
           </Pressable>
         </View>
       ))}

@@ -68,6 +68,7 @@ import { trMPayments } from './tr/mPayments';
 import { trMScheduleForm } from './tr/mScheduleForm';
 import { trMSessionBooking } from './tr/mSessionBooking';
 import { trMTheme } from './tr/mTheme';
+import { trThemeDesign } from './tr/themeDesign';
 import { trMScreens } from './tr/mScreens';
 import { trMSession } from './tr/mSession';
 import { trMVideoContent } from './tr/mVideoContent';
@@ -166,6 +167,7 @@ import { enMPayments } from './en/mPayments';
 import { enMScheduleForm } from './en/mScheduleForm';
 import { enMSessionBooking } from './en/mSessionBooking';
 import { enMTheme } from './en/mTheme';
+import { enThemeDesign } from './en/themeDesign';
 import { enMScreens } from './en/mScreens';
 import { enMSession } from './en/mSession';
 import { enMVideoContent } from './en/mVideoContent';
@@ -322,6 +324,7 @@ export const TR_NAMESPACES = [
   trMSession,
   trMSessionBooking,
   trMTheme,
+  trThemeDesign,
   trMVideoContent,
   trMWalkIn,
   trMWidgets,
@@ -444,6 +447,7 @@ export const EN_NAMESPACES = [
   enMSession,
   enMSessionBooking,
   enMTheme,
+  enThemeDesign,
   enMVideoContent,
   enMWalkIn,
   enMWidgets,

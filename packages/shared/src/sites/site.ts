@@ -187,7 +187,7 @@ export interface PublicPageDTO {
   blocks: import('./blocks').BlockDTO[];
   context: PublicPageContext;
   /** The platform's default theme for the platform site, the tenant's own brand theme for a tenant site (CLAUDE.md rule 10). */
-  theme: import('../design').TenantTheme;
+  theme: import('../design').TenantThemeView;
 }
 
 export interface SitemapPageEntry {

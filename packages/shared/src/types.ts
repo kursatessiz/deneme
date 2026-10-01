@@ -17,7 +17,7 @@ import {
 } from './enums';
 import type { PermissionKey } from './permissions';
 import type { PlatformAccessDTO, SessionMfaDTO } from './platform-permissions';
-import type { AppearancePreference, GradientPresetKey, TenantTheme } from './design/tokens';
+import type { AppearancePreference, GradientPresetKey, TenantThemeView } from './design/tokens';
 import type { StoredThemeFamilyKey } from './design/themes';
 
 export interface StudioDTO {
@@ -66,7 +66,7 @@ export interface MembershipDTO {
   /** The member's home branch in this studio, if any. */
   homeBranchId?: string | null;
   /** The studio's brand and default theme family, for theming the app. */
-  theme: TenantTheme;
+  theme: TenantThemeView;
   /** The studio's default language; see resolveLocale in i18n/locales.ts. */
   defaultLocale: string;
   /** The studio's currency (ISO 4217). Never hard-code 'TRY'; use this. */
