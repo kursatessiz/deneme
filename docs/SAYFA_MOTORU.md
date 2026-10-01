@@ -90,11 +90,23 @@ Platform sitesi platform kiracısının, işletme siteleri işletmenin markasın
 
 ## 5. Editörler
 
-**Süper admin -- "Web sitesi"** (`apps/web/src/app/(app)/admin/web-sitesi/page.tsx`): platform sitesinin sayfaları (dil bazlı durum), blok editörü (`SiteEditor`, `components/ui` üzerinde; ekle/sırala/kaldır, her blokta isteğe bağlı A/B varyant anahtarı alanı ve JSON veri alanı, her blok için dil sekmeleri, çevrilmemiş alanlar işaretlenir), canlı önizleme, yayınla/yayından kaldır, sürüm geçmişi + geri alma, şirket bilgisi formu (`CompanyInfo`), sektör açılış sayfası sihirbazı (`POST sites/studio/:studioId/pages/wizard`: sektör + teklif + dil listesi seçilir, `BusinessTypeTemplate` kelime dağarcığından önceden doldurulmuş bir `LANDING` sayfası oluşturur).
+**Süper admin -- "Web sitesi"** (`apps/web/src/app/(app)/admin/web-sitesi/page.tsx`): platform sitesinin sayfaları (dil bazlı durum), blok editörü (`SiteEditor`, `components/ui` üzerinde; ekle/sırala/kaldır, her blokta isteğe bağlı A/B varyant anahtarı alanı ve alan tabanlı blok formu, bölüm 5a), canlı önizleme, yayınla/yayından kaldır, sürüm geçmişi + geri alma, şirket bilgisi formu (`CompanyInfo`), sektör açılış sayfası sihirbazı (`POST sites/studio/:studioId/pages/wizard`: sektör + teklif + dil listesi seçilir, `BusinessTypeTemplate` kelime dağarcığından önceden doldurulmuş bir `LANDING` sayfası oluşturur).
 
 **Kiracı -- "Web sitem"** (`apps/web/src/app/(app)/(dashboard)/ayarlar/web-sitem/page.tsx`, `site.manage`/`site.view`, sahip varsayılan): yalnızca kendi sitesi, özel alan adı kurulumu ve doğrulaması (DNS TXT + CNAME), rezervasyon/eğitmen/fiyat blokları dahil aynı editör bileşeni (`components/sites/SiteEditor.tsx`).
 
 Ortak bileşen `SiteEditor.tsx` her iki panelde de kullanılır; `TENANT_ONLY_BLOCK_TYPES` platform sitesinde gizlenir.
+
+### 5a. Alan tabanlı blok formları (S3)
+
+Blok verisi artık ham JSON olarak düzenlenmez: `components/sites/BlockForm.tsx` her blok türü için formu, `packages/shared/src/sites/blocks.ts` içindeki Zod şemasından üretir (`deriveBlockFormSpec`, `packages/shared/src/sites/block-form.ts`). Bir şemaya alan eklendiğinde form editöre dokunmadan o alanı gösterir.
+
+- **Alan türleri**: kısa metin (`Input`), uzun metin (`Textarea`; 200 karakteri aşan alanlar), görsel adresi ve bağlantı hedefi (`Input`), anahtar (`Switch`), sabit seçenek listesi (`ChipButton`; `lead_form.fields`), tekrarlanan öğe listesi (SSS, özellik, adım, yorum, değer, eğitmen: öğe başına alanlar, ekle/kaldır, şemadaki üst sınırda ekleme düğmesi kapanır) ve sektör seçici (`sector_cards.sectorKeys`: süper adminde `GET /admin/business-type-templates` ile `Select`, liste yüklenemezse virgülle ayrılmış anahtar alanı).
+- **Diller**: metin alanları `ChipButton` ile dil seçilerek düzenlenir (sitenin etkin dilleri ve blokta metni olan diller); metni olmayan dil "çevrilmedi" rozeti taşır. Bir dilin tüm alanları boşaltılırsa o dilin girdisi silinir (sayfa varsayılan dile düşer); boşaltılan isteğe bağlı alan JSON'dan çıkar.
+- **Doğrulama**: form, bloğun şemasını (`BLOCK_SCHEMAS`) her değişiklikte çalıştırır ve her sorunu ilgili alanın altında, arayüz dilinde gösterir (`describeIssue`: zorunlu, çok uzun, çok kısa, çok az/çok fazla öğe, geçersiz adres, yalnızca https, geçersiz bağlantı; şemanın kendi metni gösterilmez). Hatalı blok varsa "Blokları kaydet" göndermez ve kaç bloğun düzeltilmesi gerektiğini söyler; API aynı şemayla yine doğrular.
+- **Gelişmiş (JSON)**: her blokta kapalı bir `details` bölümü, formun kapsamadığı her şey için ham JSON'u gösterir; geçerli JSON yazıldığında form güncellenir, geçersizken son geçerli değer korunur.
+- **Kayıt yükü değişmedi**: `PUT sites/studio/:studioId/pages/:pageId/blocks` gövdesi aynı `[{ type, position, abVariantKey, data }]` dizisidir. Yeni bloğun başlangıç verisi (`newBlockData`) şemaya uyar ve çevrilmiş başlangıç metinlerini (`sites.editor.blocks.template.*`) sitenin varsayılan diline yazar.
+- **i18n**: tüm etiketler ve hata iletileri `sites` ad alanındadır (`sites.editor.blocks.field.*`, `.items.*`, `.choice.*`, `.error.*`, `.form.*`, `.advanced.*`); testler her türetilen alan için tr ve en etiketin var olduğunu doğrular.
+- **Testler**: `packages/shared/src/sites/block-form.spec.ts` (şemadan alan türetme: her blok türü, tür ve sınırlar), `apps/web/src/lib/sites/block-form.spec.ts` (yol düzenlemeleri, doğrulama iletileri, etiket anahtarları, başlangıç verisi), Playwright `apps/web/e2e/site-editor.e2e.ts` (süper admin form ile hero bloğu oluşturur, satır içi hata, JSON görünümü, yayın; SSS tekrarlanan öğeleri; yalnızca CI'da).
 
 ## 6. Uçlar
 
@@ -172,7 +184,7 @@ pnpm exec playwright test --reporter=list    # platform ana sayfa (tr/en), bir s
 
 - Birim: `packages/shared/src/sites/sites.spec.ts` (blok şemaları, `resolveBlockText` dil düşümü, `buildHreflangAlternates`, `assignVariant` determinizmi, `expectedDnsRecords`).
 - API e2e: `apps/api/test/e2e/sites.e2e-spec.ts` (izin ve kiracı izolasyonu, sayfa yaşam döngüsü, yayınlama/sürüm/geri alma, sektör sihirbazı, özel alan adı doğrulama akışı ve `ask` uç noktası, herkese açık render + sitemap girdileri + host çözümleme, yayınlanmış bir açılış sayfasından form gönderimi -> `Contact` + `lead` dönüşümü, şirket bilgisi).
-- Web e2e (Playwright, CI'da çalışır, bu ortamda `playwright install` engellendiği için burada koşulmamıştır): `apps/web/e2e/sites.e2e.ts`.
+- Web e2e (Playwright, CI'da çalışır, bu ortamda `playwright install` engellendiği için burada koşulmamıştır): `apps/web/e2e/sites.e2e.ts` ve `apps/web/e2e/site-editor.e2e.ts` (alan tabanlı blok formları).
 
 Test paketleri oluşturdukları her şeyi siler; art arda iki kez geçer.
 

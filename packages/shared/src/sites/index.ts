@@ -6,6 +6,7 @@ export * from './sitemap';
 export * from './robots';
 export * from './llms';
 export * from './aggregate-rating';
+export * from './block-form';
 export * from './indexing';
 export * from './articles';
 export * from './article-markup';
