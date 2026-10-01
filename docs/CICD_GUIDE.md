@@ -146,6 +146,25 @@ eklendi (imajı çekmek için); başka yeni izin veya action yok.
 
 Web uygulaması sayfa motoru sayfalarını ISR ile önbellekler; API bir sayfa veya yazı yayınlandığında web'in `POST /api/revalidate` ucunu çağırarak önbelleği temizletir (`docs/SEO.md` bölüm 11). İki taraf aynı sırrı paylaşır: sahibin yapması gereken, her ortamın `/opt/app/.env` dosyasına `REVALIDATE_SECRET=$(openssl rand -hex 24)` yazmaktır (en az 16 karakter; `deploy/docker-compose.prod.yml` değeri hem `api` hem `web` konteynerine geçirir, API ayrıca `WEB_INTERNAL_URL=http://web:3000` kullanır). Boşsa uç kapalıdır (503) ve sayfalar 300 saniye penceresiyle yenilenir; dağıtım ve sağlık kontrolleri etkilenmez. Sır GitHub secret'ı değildir, yalnızca sunucu ortamıdır; yeni action veya izin yoktur.
 
+### Ortam değişkenleri envanteri
+
+Tüm değişkenler `.env.example` içinde Zod şemalarıyla (`apps/api/src/config/env.ts`, `apps/web/src/lib/server-env.ts`) uyumlu olarak listelenir; `apps/api/src/config/compose-env.spec.ts` bir şema anahtarı compose'a aktarılmadıkça başarısız olur. `/opt/app/.env` dosyasına yalnızca sahibin değer verdiği anahtarlar yazılır; geri kalanlar `deploy/docker-compose.prod.yml` tarafından türetilir:
+
+| Değişken | Kim ayarlar | Not |
+|---|---|---|
+| `IMAGE_REPO`, `GIT_REMOTE`, `WEB_DOMAIN`, `API_DOMAIN`, `ACME_EMAIL`, `POSTGRES_*`, `REDIS_PASSWORD`, `JWT_SECRET` | sahip (`/opt/app/.env`) | zorunlu |
+| `SITES_DOMAIN` | sahip, opsiyonel | işletme siteleri `<slug>.<SITES_DOMAIN>`; boşsa `WEB_DOMAIN` |
+| `REVALIDATE_SECRET` | sahip, opsiyonel | en az 16 karakter; `api` ve `web` konteynerlerine geçer; boşsa önbellek temizleme kapalı |
+| `SITE_ENV` | sahip | `production` veya `preprod` (Caddy) |
+| `WEB_INTERNAL_URL` | compose | `http://web:3000`; API'nin `POST /api/revalidate` çağrısı için |
+| `API_INTERNAL_URL` | compose | `http://api:4000`; web sunucusunun API adresi |
+| `PUBLIC_API_URL`, `PUBLIC_APP_URL`, `CORS_ORIGIN` | compose | `API_DOMAIN` ve `WEB_DOMAIN` değerlerinden |
+| `DATABASE_URL`, `REDIS_URL`, `NODE_ENV`, `PORT` | compose | `POSTGRES_*` ve `REDIS_PASSWORD` değerlerinden |
+| `APP_VERSION`, `APP_RELEASE` | compose | dağıtımın `RELEASE_TAG` değeri (`sha-<commit>`) |
+| `SOURCEMAP_DIR`, `BACKUP_LOCAL_DIR` | compose | konteyner içi volume yolları |
+| Sağlayıcı anahtarları (SMS, e-posta, ödeme, fatura, yedek, WhatsApp, İYS) | sahip, opsiyonel | `.env.example` bölümleri; yan etkili olanlar `[SIDE EFFECT]` ile işaretlidir |
+| `OTP_TEST_CODE`, `AI_FAKE_PROVIDER`, `SOCIAL_FAKE_PROVIDER` | yalnızca test | üretimde reddedilir, compose'a bilerek aktarılmaz |
+
 ### GitHub Environments, secret'lar ve değişkenler
 
 Settings > Environments altında iki ortam oluşturun: `preprod` ve `production`. Aşağıdakilerin
