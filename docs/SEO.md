@@ -14,6 +14,7 @@ Bu belge herkese açık web sayfalarının (sayfa motoru siteleri, rezervasyon s
 | Yapılandırılmış veri (JSON-LD) | `lib/sites/jsonld.ts`, `SitePage.tsx` |
 | Rezervasyon sayfası metadata'sı | `app/(public)/booking/[studioSlug]/layout.tsx` |
 | Etkinlik sayfaları (S2a) | `app/(public)/events/[studioSlug]/` (liste ve ayrıntı), `lib/events/*`, `eventJsonLd` |
+| Blog (S2b) | `components/sites/BlogPages.tsx`, `app/[locale]/blog/*`, `app/tenant-site/.../blog/*`, `lib/sites/articles-api.ts`, `lib/sites/blog-feed.ts`, `articleJsonLd`, `packages/shared/src/sites/articles.ts`, `rss.ts` |
 | Yanıt başlıkları | `apps/web/next.config.ts` (`headers()`), `deploy/caddy/Caddyfile` |
 
 Tüm kullanıcıya görünen metinler i18n anahtarıdır (`seo.*` ad alanı, `packages/shared/src/i18n/messages/{tr,en}/seo.ts`). Sayfa motoru sayfalarının başlık ve açıklaması kiracı verisidir (`seoTitle`, `seoDescription`) ve çevrilmez.
@@ -72,6 +73,7 @@ Kök (`/`) bir sayfa değil, dil müzakereli bir `302` yönlendirmesidir (`app/r
 | `FAQPage` | `faq` bloğu olan sayfalar | sayfadaki tüm `faq` bloklarının soruları tek `FAQPage` içinde |
 | `SoftwareApplication` | yalnızca platform ana sayfası | `applicationCategory: BusinessApplication`, `offers` yayınlanmış planlardan (fiyatlandırma bloğu yüklediyse) |
 | `Product` + `Offer` | plan (platform) ve paket (kiracı) listesi olan sayfalar | `priceCurrency` öğenin kendi para birimi |
+| `Article` | blog yazısı sayfası (`/{dil}/blog/{yazı}`) | `headline` (110 karakterle sınırlı), `datePublished` (ilk yayın), `dateModified` (yazı veya dil varyantının son değişikliği), `author` (imza sitenin veya yayıncının adıysa `Organization`, değilse `Person`), `publisher` (`Organization`: platform sitesinde şirket unvanı, işletme sitesinde işletme adı; logo varsa `ImageObject`), `image` (paylaşım görseli, yoksa kapak, yoksa logo), `inLanguage`, `mainEntityOfPage` (`WebPage`, kendi URL'si); yanında `BreadcrumbList` (site, Blog, yazı) |
 | `Event` | herkese açık etkinlik ayrıntı sayfası (`/events/.../<etkinlik>`) | `startDate`/`endDate` etkinliğin saat diliminin UTC farkıyla (`zonedIsoString`), `eventStatus: EventScheduled`, `eventAttendanceMode: OfflineEventAttendanceMode`, `location` (`Place`, ad + serbest metin adres), `organizer` (`Organization`), bilet türü başına `Offer` (`price`, `priceCurrency`, `availability`), çok oturumlu etkinlikte `subEvent`, `image` (kapak, yoksa logo) |
 
 Çıktı `serializeJsonLd()` ile kaçışlanır (`<`, `>`, `&`); metinler kiracı girdisidir.
@@ -79,6 +81,13 @@ Kök (`/`) bir sayfa değil, dil müzakereli bir `302` yönlendirmesidir (`app/r
 ### Herkese açık etkinlik sayfaları
 
 `/events/<studioSlug>` (liste) ve `/events/<studioSlug>/<etkinlik>` (ayrıntı), `(public)/events` altında sunucuda render edilir; yalnızca `PUBLIC` ve `PUBLISHED`, bitmemiş etkinlikler gösterilir (API'nin herkese açık uçları). `<etkinlik>` bölümü `<başlık-slug>-<id>` veya yalın kimliktir; yalnızca sondaki kimlik aranır (etkinlikte slug sütunu yoktur). İşletmenin kendi site host'unda (`<slug>.<alan>` veya doğrulanmış özel alan adı) aynı sayfalar `/events` ve `/events/<etkinlik>` yollarında sunulur (middleware yeniden yazımı, `lib/sites/tenant-path.ts`). Canonical her zaman işletmenin site origin'indeki `/events...` adresidir; platform host'undaki adres onun kopyasıdır. İşletme `sitemap.xml` dosyası, en az bir herkese açık etkinlik varsa `/events` ve her etkinliğin adresini listeler (aynı önbellekli liste okuması, en fazla 100 etkinlik). Başlık, açıklama, Open Graph ve Twitter etiketleri ile `Event` + `BreadcrumbList` JSON-LD üretilir. Tarih ve saatler etkinliğin saat diliminde (şube, yoksa işletme) biçimlenir ve dilim adı blok başına bir kez yazılır.
+
+### Blog (S2b)
+
+- **Metadata**: yazıda başlık `seoTitle`, yoksa "{başlık} | {site}" (`articles.public.metaTitle`); açıklama `seoDescription`, yoksa özet (yazarın özeti veya gövdeden üretilen ilk 200 karakter). Canonical yazının kendi URL'si; `hreflang` yalnızca yazının yayınlanmış dil varyantları + `x-default` (sitenin varsayılan dilindeki varyant, yoksa ilk varyant); Open Graph `type: article`, `publishedTime`, `modifiedTime`, `authors`, `tags`; görsel `ogImageUrl`, yoksa kapak, yoksa `/og?locale=<dil>&article=<yazı>` ile üretilen kart.
+- **Liste ve etiket sayfaları**: canonical sayfa numarasıyla (`?page=N`); dil alternatifleri yalnızca ilk sayfada, en az bir yayınlanmış yazısı olan diller için; boş liste `noindex, follow`.
+- **RSS 2.0**: her liste ve yazı sayfası `<link rel="alternate" type="application/rss+xml">` taşır (`/{dil}/blog/rss.xml`). Besleme, isteğin host'unu (doğrulanmış özel alan adı dahil) kullanan web rotasından üretilir; API'de ayrıca `GET /public/sites/:slug/feed/:locale` vardır (sitenin varsayılan origin'i: platform alanı, doğrulanmış birincil özel alan adı veya `<slug>.<alan>`). İkisi de aynı paylaşılan üreticiyi (`buildArticleFeedXml`, `packages/shared/src/sites/rss.ts`) kullanır: en yeni 30 yazı, `guid` kalıcı bağlantı, `pubDate` RFC 822, yazar `dc:creator`, etiketler `category`, `atom:link rel="self"`. Tüm değerler kiracı girdisidir ve XML kaçışlanır (`& < > " '`), XML 1.0'ın taşıyamadığı karakterler atılır. Yanıt `Cache-Control: public, max-age=300`; API tarafında site ve dil başına 5 dakikalık süreç içi önbellek her yazı/etiket yazımında temizlenir ve uç nokta IP başına dakikada 60 istekle sınırlıdır.
+- **Sitemap**: `buildArticleSitemapEntries` her yazının her dil varyantı için ayrı `<url>` yazar, her biri yazının tam alternatif kümesini (`x-default` dahil) taşır; ayrıca en az bir yazısı olan her dil için blog dizini (`/{dil}/blog`, `lastmod` o dildeki en son değişiklik). Veri `sitemap-entries` yanıtındaki yeni `articles` alanından gelir. Etiket sayfaları sitemap'e yazılmaz (ince içerik).
 
 ## 7. Yanıt başlıkları ve performans
 
@@ -99,7 +108,7 @@ Kök (`/`) bir sayfa değil, dil müzakereli bir `302` yönlendirmesidir (`app/r
 
 ## 9. Açık işler
 
-- Blog (içerik türü ve şablonu yok).
+- Blog için görsel seçici, yazı önizlemesi ve zamanlanmış yayın (S2b'de yok).
 - ISR: sayfalar `force-dynamic` ve her istekte render ediliyor; API yanıtları önbellekli.
 - Lighthouse CI (CI'da performans ve SEO bütçesi).
 - GA4 (yalnızca reklam piksellerinin onay kapısı var; analitik kurulu değil).

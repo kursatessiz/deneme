@@ -120,7 +120,8 @@ Herkese açık, kimliksiz uçlar (`apps/api/src/modules/sites/public-sites.contr
 |---|---|
 | `GET /public/sites/resolve?host=` | Web middleware'i: bir Host başlığı hangi siteye ait |
 | `GET /public/sites/:studioSlug/pages?locale=&slug=` | Bir sayfanın yayınlanmış tek dil hali; yayınlanmamış/bilinmeyen 404 |
-| `GET /public/sites/:studioSlug/sitemap-entries` | `sitemap.xml` için yayınlanmış sayfa listesi (`items`) ve sitenin varsayılan dili (`defaultLocale`) |
+| `GET /public/sites/:studioSlug/sitemap-entries` | `sitemap.xml` için yayınlanmış sayfa listesi (`items`), sitenin varsayılan dili (`defaultLocale`) ve S2b'den beri geriye uyumlu biçimde yayınlanmış yazı varyantları (`articles`) |
+| `GET /public/sites/:studioSlug/articles`, `.../articles/:slug`, `.../article-tags`, `.../feed/:locale` | Blog okumaları ve RSS beslemesi (bölüm 11, `docs/PUBLIC_API.md`) |
 | `GET /public/domains/ask?domain=` | Caddy on-demand TLS "ask" uç noktası; hız sınırlıdır (`SitesPublicRateLimitGuard`), yalnızca aktif bir kiracının doğrulanmış özel alan adı veya `<slug>.<SITES_DOMAIN>` alt alan adı için 200 döner, başka her şey 404 |
 
 ## 7. Özel alan adları
@@ -174,3 +175,66 @@ pnpm exec playwright test --reporter=list    # platform ana sayfa (tr/en), bir s
 - Web e2e (Playwright, CI'da çalışır, bu ortamda `playwright install` engellendiği için burada koşulmamıştır): `apps/web/e2e/sites.e2e.ts`.
 
 Test paketleri oluşturdukları her şeyi siler; art arda iki kez geçer.
+
+## 11. Yazılar / blog (S2b)
+
+Sahibin kararı (pasif pazarlama): hem platform sitesi hem işletme siteleri sayfa motoru üzerinden yazı (blog) yayınlayabilir. Yazılar sayfa bloklarından ayrı, kendi tablolarında yaşar; aynı site, tema, alan adı ve SEO altyapısını kullanır.
+
+### Veri modeli
+
+Migration `20261101000000_articles` (yalnızca yeni enum ve dört yeni tablo; mevcut hiçbir tabloya dokunmaz).
+
+| Model | Açıklama |
+|---|---|
+| `Article` | `siteId`, `studioId` (sitenin `studioId`'sinin kopyası; kiracı izolasyonu için her sorgu buna göre filtrelenir), `status` (`DRAFT`/`PUBLISHED`/`ARCHIVED`), `authorName` (görünen imza, serbest metin), `authorUserId` (isteğe bağlı, yazıyı oluşturan kullanıcı), `coverImageUrl`, `publishedAt` (ilk yayın anı, arşivden yeniden yayında korunur) |
+| `ArticleLocale` | `articleId`, `siteId` (benzersizlik için kopya), `locale`, `slug`, `title`, `excerpt`, `body` (düz metin + aşağıdaki işaretleme alt kümesi), `seoTitle`, `seoDescription`, `ogImageUrl`, `readingMinutes` (her yazımda gövdeden hesaplanır, dakikada 200 kelime) |
+| `ArticleTag` | `siteId`, `studioId`, dilden bağımsız `slug`, dil başına ad (`labels` JSON: dil -> ad) |
+| `ArticleTagLink` | yazı-etiket bağlantısı |
+
+Kısıtlar: `(site_id, locale, slug)` benzersiz (aynı dilde iki yazı aynı adresi paylaşamaz), `(article_id, locale)` benzersiz, `(site_id, slug)` etiket için benzersiz; `(site_id, status, published_at)` listeleme indeksi. Yayınlama `PageVersion` gibi anlık görüntü yazmaz; durum + `publishedAt` yeterli görüldü (yazının geri alma ihtiyacı sayfadan düşük, düzenleme doğrudan canlıya yansır).
+
+Not: istenen tasarımda `Article.studioId` boş olabilir diye düşünülmüştü; `Site.studioId` zorunlu olduğu (platform sitesi de platform kiracısının sitesidir) için alan zorunlu yapıldı.
+
+### Gövde işaretlemesi
+
+`packages/shared/src/sites/article-markup.ts` küçük ve güvenli bir alt küme tanımlar; HTML hiçbir zaman geçmez:
+
+- Paragraflar boş satırla ayrılır; paragraf içindeki tek satır sonu korunur.
+- Satır başında `## ` bölüm başlığı (`h2`), `- ` madde (ardışık satırlar tek liste).
+- `**metin**` kalın, `[metin](https://...)` bağlantı. Bağlantı yalnızca noktalı bir ana makine adına giden `https` adresi olabilir (kimlik bilgisi, `javascript:`, `data:`, `http:`, göreli adres yok); API böyle bir bağlantıyı yazımda 400 ile reddeder, renderer ise her durumda yalnızca etiket metnini gösterir.
+
+Ayrıştırıcı tipli bir ağaç döndürür (`parseArticleBody`); web tarafında `components/sites/ArticleBody.tsx` bu ağacı React öğelerine çevirir (`dangerouslySetInnerHTML` yok, her metin React tarafından kaçışlanır, bağlantılar `target="_blank" rel="noopener noreferrer"`). Aynı ağaç özet (`articleSummary`), okuma süresi ve RSS açıklaması için de kullanılır.
+
+### İzin ve yönetim
+
+Yeni izin anahtarı `sites.articles.manage` ("Web sitem" grubu; sahip her zaman sahiptir, platform pazarlama yöneticisi `platform.marketing.manage` ile platform kiracısında alır). Kiracı uçları `sites/studio/:studioId` altında, `JwtAuthGuard` + `StudioTenantGuard` + `PermissionGuard` ile:
+
+| Uç nokta | İzin |
+|---|---|
+| `GET .../articles?page&pageSize&status` | `sites.articles.manage` |
+| `POST .../articles`, `GET/PATCH/DELETE .../articles/:articleId` (silme yalnızca taslak veya arşivdeki yazı için; yayındaki yazı 409 `ARTICLE_NOT_DELETABLE`) | `sites.articles.manage` |
+| `POST .../articles/:articleId/publish` \| `archive` | `sites.articles.manage` |
+| `GET/POST .../article-tags`, `PATCH/DELETE .../article-tags/:tagId` | `sites.articles.manage` |
+
+Platform sitesinin yazıları, sayfalarda olduğu gibi süper admin tarafından aynı uçlarla, platform kiracısının `studioId`'siyle yönetilir. Hatalar sabit bir `code` taşır (`ARTICLE_NOT_FOUND`, `ARTICLE_SLUG_TAKEN`, `ARTICLE_TAG_NOT_FOUND`, `ARTICLE_TAG_SLUG_TAKEN`, `ARTICLE_NOT_DELETABLE`); arayüz `articles.error.<code>` ile çevirir.
+
+Editör: süper admin "Web sitesi" ekranı ve kiracı "Web sitem" ayarı "Sayfalar / Yazılar" sekmeleri taşır (`components/sites/ArticleEditor.tsx`). Liste (durum filtresi, sayfalama), alan tabanlı form (yazar, kapak görseli adresi, etiketler, her dil için adres, başlık, özet, metin, SEO başlığı/açıklaması, paylaşım görseli), yayınla/arşivle/sil ve etiket yönetimi. Kiracı sekmesi izne göre görünür. Görsel seçici yok; kapak görseli adresi elle girilir (yalnızca https).
+
+### Herkese açık render
+
+| Yol | Rota |
+|---|---|
+| `/{dil}/blog` (`?page=N`) | `app/[locale]/blog/page.tsx` |
+| `/{dil}/blog/{yazı}` | `app/[locale]/blog/[slug]/page.tsx` |
+| `/{dil}/blog/tag/{etiket}` | `app/[locale]/blog/tag/[tag]/page.tsx` |
+| `/{dil}/blog/rss.xml` | `app/[locale]/blog/rss.xml/route.ts` |
+
+İşletme sitelerinde aynı yollar `tenant-site/[studioSlug]/[locale]/blog/...` altındadır ve middleware yeniden yazımıyla işletmenin kendi host'unda `/{dil}/blog...` olarak sunulur. Statik `blog` bölümü Next.js'te sayfa motorunun `[[...slug]]` yakalayıcısından önce eşleşir; ayrıca sayfa slug'ı artık `blog` ile başlayamaz (`UpsertPageLocaleSchema`), böylece bir sayfa yazı rotalarını gölgeleyemez ve tersi de olmaz.
+
+Sayfalar sunucuda, `SitePage` ile ortak `SiteShell` içinde (tema, izinli izleme, JSON-LD, alt bilgi) render edilir; yalnızca `PUBLISHED` yazılar görünür, taslak/arşiv/bilinmeyen adres ve bilinmeyen etiket 404'tür; sitenin etkin dilleri dışındaki ve hiç yazısı olmayan dil 404'tür. Başlıklar, metinler ve etiket adları kiracı verisidir, çevrilmez; arayüz metinleri `articles.*` ad alanındadır. SEO ayrıntıları: `docs/SEO.md`.
+
+### Testler
+
+- Birim: `packages/shared/src/sites/articles.spec.ts` (işaretleme ayrıştırıcısı, güvenli bağlantı, şemalar, yollar, sitemap girdileri ve hreflang, RSS kaçışı), `apps/web/src/components/sites/article-body.spec.ts` (renderer), `apps/web/src/lib/sites/json-ld.spec.ts` (`articleJsonLd`).
+- API e2e: `apps/api/test/e2e/articles.e2e-spec.ts` (izin, kiracı izolasyonu, yaşam döngüsü, yalnızca yayındaki yazının görünmesi, RSS kaçışı, bilinmeyen slug 404, sitemap girdileri, platform sitesi).
+- Web e2e (Playwright, yalnızca CI): `apps/web/e2e/blog.e2e.ts`. Tohum: platform sitesinde iki dilli iki yazı ve bir taslak, Zen için işletme sitesi ve bir yazı.

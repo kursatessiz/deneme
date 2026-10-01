@@ -462,7 +462,12 @@ Sahip kararı: partner misafiri kendisi stüdyoya katılana kadar mesajlaşma/et
 | `page_versions` | Yayınlanan anın değişmez anlık görüntüsü (geri alma için) | `(page_id, version)` benzersiz, artan |
 | `company_info` | Tekil satır: platformun ticari unvanı, adresi, MERSIS/vergi bilgisi, iletişim, sosyal medya | tekil kayıt (sabit id) |
 
-`site.view`/`site.manage` izinleri kiracının kendi sitesini kapsar; platform sitesi aynı tablolar üzerinde, platform kiracısının `studio_id`'siyle, yalnızca süper admin tarafından yönetilir. Ayrıntılar: `docs/SAYFA_MOTORU.md`.
+| `articles` | Blog yazısı (S2b): site, kiracı (`studio_id`, sitenin kiracısı), durum (DRAFT/PUBLISHED/ARCHIVED), yazar adı, isteğe bağlı yazar kullanıcı, kapak görseli, ilk yayın zamanı | `(site_id, status, published_at)` ve `studio_id` index |
+| `article_locales` | Yazının dil başına adresi, başlığı, özeti, gövdesi (düz metin + işaretleme alt kümesi), SEO alanları, okuma süresi | `(site_id, locale, slug)` ve `(article_id, locale)` benzersiz |
+| `article_tags` | Sitenin etiketleri: dilden bağımsız slug, dil başına ad (JSON) | `(site_id, slug)` benzersiz |
+| `article_tag_links` | Yazı-etiket bağlantısı | `(article_id, tag_id)` birincil anahtar, `tag_id` index |
+
+`site.view`/`site.manage` izinleri kiracının kendi sitesini, `sites.articles.manage` yazılarını kapsar; platform sitesi aynı tablolar üzerinde, platform kiracısının `studio_id`'siyle, yalnızca süper admin tarafından yönetilir. Ayrıntılar: `docs/SAYFA_MOTORU.md`.
 
 ## Yapay zeka çekirdeği (G3b)
 

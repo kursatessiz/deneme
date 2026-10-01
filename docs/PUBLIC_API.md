@@ -361,6 +361,20 @@ gelen mesajlar kabul edilir).
   yazma uç noktalarının artık `404` döndüğü, potansiyel müşteri formu
   üzerinden gönderimin çalıştığı.
 
+## 6. Herkese açık site ve blog uçları (sayfa motoru, S2b)
+
+Anahtarsız, kimliksiz okuma uçları; web uygulamasının sunucu tarafı render'ı ve besleme okuyucuları içindir. İşletme, sayfa motorunun diğer herkese açık uçlarıyla aynı kuralla çözümlenir: `slug`'ı eşleşen, aktif ve sitesi olan bir işletme; aksi her durumda `404`. Yalnızca `PUBLISHED` yazılar döner.
+
+| Uç nokta | Açıklama |
+|---|---|
+| `GET /public/sites/:studioSlug/articles?locale&page&pageSize&tag` | Yayınlanmış yazılar, yeniden eskiye; `pageSize` en fazla 50 (varsayılan 12). Yanıt: `items` (başlık, özet, kapak, yazar, yayın ve güncelleme zamanı, okuma süresi, etiketler), `total`, `page`, `pageSize`, `site` (tür, ad, yayıncı, logo, diller, tema), `tag` (filtre varsa), `publishedLocales`. Bilinmeyen etiket veya sitenin etkin olmayan ve yazısı da olmayan dili `404` |
+| `GET /public/sites/:studioSlug/articles/:articleSlug?locale` | Tek yazı: özet alanlarına ek olarak `body` (düz metin + işaretleme alt kümesi, `docs/SAYFA_MOTORU.md` bölüm 11), SEO alanları, `alternates` (yayınlanmış dil varyantları). Taslak, arşiv veya bilinmeyen `404` |
+| `GET /public/sites/:studioSlug/article-tags?locale` | O dilde en az bir yayınlanmış yazısı olan etiketler: `slug`, `label`, `count` |
+| `GET /public/sites/:studioSlug/feed/:locale` | RSS 2.0 (`application/rss+xml; charset=utf-8`), en yeni 30 yazı, sitenin varsayılan origin'iyle bağlantılar; `Cache-Control: public, max-age=300`, süreç içi 5 dakikalık önbellek, IP başına dakikada 60 istek (`429`) |
+| `GET /public/sites/:studioSlug/sitemap-entries` | Mevcut yanıta geriye uyumlu `articles` alanı eklendi: `{ articleId, locale, slug, updatedAt }` listesi |
+
+Liste, ayrıntı ve etiket uçları sayfa uçları gibi hız sınırı taşımaz (çağıran web sunucusudur ve yanıtları 300 saniye önbellekler); doğrudan dış istemcilere açık olan RSS uç noktası sınırlıdır.
+
 ## Açık sorular / kapsam dışı
 
 - Widget'ın gerçek zamanlı yer/kaynak seçimi (W5'teki yerleşim planı) yok;
