@@ -127,3 +127,7 @@ içindedir.
 - Web paneli tarafı bu backlog öğesinin kapsamında değildir (bkz. HANDOVER.md 2.1).
 - Hak kazanma anlık değil, en geç bir zamanlayıcı döngüsü (15 dakika) sonra değerlendirilir; ödeme ve yoklama
   modüllerine doğrudan kanca eklenmemiştir.
+
+## Arama sonuçlarında yıldız (S3)
+
+İşletme sitesinin `LocalBusiness` yapılandırılmış verisi, işletmenin gerçek ders sonrası puanlarının ortalamasını ve sayısını `aggregateRating` olarak yayınlayabilir: en az 5 puan gerekir, değer asla uydurulmaz ve işletme `showAggregateRating` ayarıyla vazgeçebilir. Ayrıntı: `docs/SEO.md` bölüm 16.

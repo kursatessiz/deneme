@@ -22,6 +22,7 @@ import { IndexNowProcessor } from './indexnow/indexnow.processor';
 import { IndexNowSubmitter } from './indexnow/indexnow-submitter.service';
 import { IndexNowKeyService } from './indexnow/indexnow-key.service';
 import { IndexNowService } from './indexnow/indexnow.service';
+import { SiteAggregateRatingService } from './site-aggregate-rating.service';
 
 /** Same rule as JobsModule: BullMQ only when REDIS_URL is a real process env var (see jobs.module.ts). */
 const redisConfigured = Boolean(process.env.REDIS_URL);
@@ -42,6 +43,7 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
     PublicArticlesService,
     ArticlesFeedCache,
     SiteCacheService,
+    SiteAggregateRatingService,
     AlertHttpClient,
     IndexNowKeyService,
     IndexNowSubmitter,

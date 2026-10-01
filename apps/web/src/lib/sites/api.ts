@@ -34,6 +34,7 @@ export async function fetchSiteSettings(studioSlug: string): Promise<PublicSiteS
     googleSiteVerification: null,
     bingSiteVerification: null,
     aiCrawlers: 'allow',
+    aggregateRating: null,
   };
   try {
     const res = await fetch(`${apiInternalBaseUrl()}/public/sites/${encodeURIComponent(studioSlug)}/settings`, {

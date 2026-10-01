@@ -30,6 +30,8 @@ export interface SiteSeoSettings {
   bingSiteVerification: string | null;
   /** `block` adds Disallow rules for the AI crawlers to robots.txt and turns llms.txt off (default allow). */
   aiCrawlers: AiCrawlerPolicy;
+  /** Publish the real review aggregate in the LocalBusiness structured data (default true; shown only from 5 ratings). */
+  showAggregateRating: boolean;
   /** Generated on first IndexNow use; never edited by hand. */
   indexNowKey: string | null;
 }
@@ -38,6 +40,7 @@ export const DEFAULT_SITE_SEO_SETTINGS: SiteSeoSettings = {
   googleSiteVerification: null,
   bingSiteVerification: null,
   aiCrawlers: DEFAULT_AI_CRAWLER_POLICY,
+  showAggregateRating: true,
   indexNowKey: null,
 };
 
@@ -47,6 +50,7 @@ export const UpdateSiteSeoSettingsSchema = z
     googleSiteVerification: SearchVerificationTokenSchema.optional(),
     bingSiteVerification: SearchVerificationTokenSchema.optional(),
     aiCrawlers: z.enum(AI_CRAWLER_POLICIES).optional(),
+    showAggregateRating: z.boolean().optional(),
   })
   .strict();
 export type UpdateSiteSeoSettingsInput = z.infer<typeof UpdateSiteSeoSettingsSchema>;
@@ -62,6 +66,7 @@ export function parseSiteSeoSettings(raw: unknown): SiteSeoSettings {
     googleSiteVerification: TokenOrNull.parse(source.googleSiteVerification ?? null),
     bingSiteVerification: TokenOrNull.parse(source.bingSiteVerification ?? null),
     aiCrawlers: AiCrawlerPolicyOrDefault.parse(source.aiCrawlers ?? DEFAULT_AI_CRAWLER_POLICY),
+    showAggregateRating: z.boolean().catch(true).parse(source.showAggregateRating ?? true),
     indexNowKey: IndexNowKeyOrNull.parse(source.indexNowKey ?? null),
   };
 }
@@ -73,5 +78,6 @@ export function mergeSiteSeoSettings(current: SiteSeoSettings, update: UpdateSit
     ...(update.googleSiteVerification !== undefined ? { googleSiteVerification: update.googleSiteVerification } : {}),
     ...(update.bingSiteVerification !== undefined ? { bingSiteVerification: update.bingSiteVerification } : {}),
     ...(update.aiCrawlers !== undefined ? { aiCrawlers: update.aiCrawlers } : {}),
+    ...(update.showAggregateRating !== undefined ? { showAggregateRating: update.showAggregateRating } : {}),
   };
 }

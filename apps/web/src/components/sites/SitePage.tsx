@@ -124,7 +124,17 @@ export async function SitePageView({ studioSlug, isPlatform, locale, slugParts, 
   if (companyInfo) {
     jsonLd.push(organizationJsonLd({ name: companyInfo.legalName, url: origin, logoUrl, email: companyInfo.email, phone: companyInfo.phone, sameAs: sameAsLinks(companyInfo.socialLinks) }));
   } else if (studioContact) {
-    jsonLd.push(localBusinessJsonLd({ name: studioContact.name, url: origin, imageUrl: logoUrl, address: studioContact.address, phone: studioContact.phone, email: studioContact.email }));
+    jsonLd.push(
+      localBusinessJsonLd({
+        name: studioContact.name,
+        url: origin,
+        imageUrl: logoUrl,
+        address: studioContact.address,
+        phone: studioContact.phone,
+        email: studioContact.email,
+        aggregateRating: settings.aggregateRating,
+      }),
+    );
   }
   if (isHome && siteName) jsonLd.push(webSiteJsonLd({ name: siteName, url: origin, locale }));
   jsonLd.push(breadcrumbJsonLd(await buildBreadcrumbs({ studioSlug, origin, locale, slug, siteName: siteName ?? origin, pageTitle: page.localeMeta.seoTitle })));

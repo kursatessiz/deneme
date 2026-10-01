@@ -37,6 +37,7 @@ describe('sites/seo settings', () => {
       googleSiteVerification: null,
       bingSiteVerification: 'goodtoken123',
       aiCrawlers: 'allow',
+      showAggregateRating: true,
       indexNowKey: null,
     });
   });
@@ -47,6 +48,14 @@ describe('sites/seo settings', () => {
     expect(UpdateSiteSeoSettingsSchema.safeParse({ aiCrawlers: 'block' }).success).toBe(true);
     expect(UpdateSiteSeoSettingsSchema.safeParse({ aiCrawlers: 'deny' }).success).toBe(false);
     expect(mergeSiteSeoSettings(DEFAULT_SITE_SEO_SETTINGS, { aiCrawlers: 'block' }).aiCrawlers).toBe('block');
+  });
+
+  it('shows the review aggregate unless the owner opts out', () => {
+    expect(DEFAULT_SITE_SEO_SETTINGS.showAggregateRating).toBe(true);
+    expect(parseSiteSeoSettings({ showAggregateRating: false }).showAggregateRating).toBe(false);
+    expect(parseSiteSeoSettings({ showAggregateRating: 'no' }).showAggregateRating).toBe(true);
+    expect(UpdateSiteSeoSettingsSchema.safeParse({ showAggregateRating: 'no' }).success).toBe(false);
+    expect(mergeSiteSeoSettings(DEFAULT_SITE_SEO_SETTINGS, { showAggregateRating: false }).showAggregateRating).toBe(false);
   });
 
   it('merges only the fields that are given and can clear one', () => {

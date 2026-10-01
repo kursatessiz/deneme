@@ -48,6 +48,8 @@ export function localBusinessJsonLd(params: {
   phone?: string | null;
   email?: string | null;
   imageUrl?: string | null;
+  /** Real member rating aggregate (docs/SEO.md "AggregateRating"); omitted when null. */
+  aggregateRating?: { ratingValue: number; reviewCount: number; bestRating: number } | null;
 }) {
   return {
     '@context': CONTEXT,
@@ -58,6 +60,16 @@ export function localBusinessJsonLd(params: {
     ...(params.address ? { address: params.address } : {}),
     ...(params.phone ? { telephone: params.phone } : {}),
     ...(params.email ? { email: params.email } : {}),
+    ...(params.aggregateRating
+      ? {
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: params.aggregateRating.ratingValue,
+            reviewCount: params.aggregateRating.reviewCount,
+            bestRating: params.aggregateRating.bestRating,
+          },
+        }
+      : {}),
   };
 }
 

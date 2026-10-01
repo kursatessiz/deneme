@@ -47,7 +47,7 @@ interface SiteRow {
   defaultLocale: string;
   enabledLocales: string[];
   domains: Array<{ id: string; domain: string; status: string; verificationToken: string }>;
-  seo: { googleSiteVerification: string | null; bingSiteVerification: string | null; aiCrawlers: 'allow' | 'block' };
+  seo: { googleSiteVerification: string | null; bingSiteVerification: string | null; aiCrawlers: 'allow' | 'block'; showAggregateRating: boolean };
 }
 
 const BLOCK_TEMPLATE: Record<BlockType, unknown> = {
@@ -196,7 +196,7 @@ export function SiteEditor({ studioId, variant }: { studioId: string; variant: '
         )}
       </Section>
 
-      <SiteSeoSettings studioId={studioId} seo={site.seo} onSaved={refresh} />
+      <SiteSeoSettings studioId={studioId} seo={site.seo} variant={variant} onSaved={refresh} />
 
       {variant === 'platform' && (
         <Section title={t('sites.editor.wizard.title')} description={t('sites.editor.wizard.description')}>

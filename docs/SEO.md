@@ -67,7 +67,7 @@ Kök (`/`) bir sayfa değil, dil müzakereli bir `302` yönlendirmesidir (`app/r
 | Tür | Nerede | Not |
 | --- | --- | --- |
 | `Organization` | `companyInfo` olan sayfalar | `logo` (kiracı logosu), `sameAs` (yalnızca https sosyal bağlantılar), e-posta, telefon |
-| `LocalBusiness` | `companyInfo` yoksa stüdyo iletişimi | `url`, `telephone`, `image` (logo); adres tek serbest metin olduğu için `PostalAddress` yazılmaz |
+| `LocalBusiness` | `companyInfo` yoksa stüdyo iletişimi | `url`, `telephone`, `image` (logo); adres tek serbest metin olduğu için `PostalAddress` yazılmaz; en az 5 gerçek üye puanı varsa ve işletme vazgeçmediyse `aggregateRating` (bölüm 16) |
 | `WebSite` | `HOME` türündeki sayfalar | `inLanguage` sayfanın dili |
 | `BreadcrumbList` | her sayfa motoru sayfası | ana sayfa, üst sayfalar, geçerli sayfa; üst sayfa adı yayınlanmış sayfanın `seoTitle` alanı, yoksa slug parçası |
 | `FAQPage` | `faq` bloğu olan sayfalar | sayfadaki tüm `faq` bloklarının soruları tek `FAQPage` içinde |
@@ -181,6 +181,16 @@ Sayfa veya yazı yayınlandığında ve yayından kaldırıldığında değişen
 ## 15. Yapay zeka tarayıcı politikası (S3)
 
 Site ayarı `aiCrawlers: 'allow' | 'block'` (`Site.seoSettings`, varsayılan `allow`). `block` iken `robots.txt` GPTBot, ClaudeBot, CCBot, Google-Extended, PerplexityBot, Bytespider ve anthropic-ai için `Disallow: /` içeren bir grup ekler (`User-agent: *` kurallarından önce, tek grupta yedi `User-agent` satırı); arama motoru tarayıcıları (Googlebot, Bingbot) etkilenmez. Platform sitesinin politikası platform alan adının `robots.txt` dosyasını, işletmenin politikası kendi host'unun dosyasını belirler. Ayar süper admin "Web sitesi" ve kiracı "Web sitem" ekranlarındaki "Arama motoru doğrulaması" bölümünde seçilir. Kural tek yerdedir: `buildRobotsTxt(sitemapUrl, { aiCrawlers })` (`packages/shared/src/sites/robots.ts`, test `robots.spec.ts`). Not: `robots.txt` yalnızca uyan tarayıcılar için bir istektir, teknik bir engel değildir.
+
+## 16. AggregateRating: gerçek geri bildirimden puan (S3)
+
+İşletme sitesinin `LocalBusiness` yapılandırılmış verisine (`lib/sites/jsonld.ts` `localBusinessJsonLd`) gerçek üye puanlarından bir `aggregateRating` eklenir: `ratingValue` (ortalama, bir ondalık), `reviewCount` (gerçek puan sayısı) ve `bestRating: 5`.
+
+- **Kaynak**: işletmenin kendi `SessionRating` satırları (ders sonrası üye puanı, `docs/FEEDBACK_REFERRAL.md`); yalnızca 1-5 tam sayı puanlar sayılır. Hesap sunucuda `GET /public/sites/:slug/settings` yanıtının `aggregateRating` alanında yapılır (`SiteAggregateRatingService`: tek `aggregate` sorgusu, her zaman `studioId` ile süzülür, süreç içinde 10 dakika önbellek; yeni puan en geç o pencerede görünür).
+- **Asla uydurulmaz**: en az 5 puan (`AGGREGATE_RATING_MIN_COUNT`) yoksa alan hiç yazılmaz; platform sitesi için hiçbir zaman yazılmaz (platformun üye puanı yoktur); Google yorum bağlantısı (`googleReviewUrl`) veya dış yorumlar kullanılmaz.
+- **Vazgeçme**: site ayarı `showAggregateRating` (varsayılan açık), kiracı "Web sitem" ekranındaki "Arama motoru doğrulaması" bölümünde "Gerçek üye puanlarını arama sonuçlarında göster" anahtarıdır; kapalıyken alan yazılmaz.
+- **Nerede görünür**: `LocalBusiness` yalnızca işletme sitesinde bir `contact` bloğu olan sayfalarda üretilir (bölüm 6); `aggregateRating` onunla birlikte gider.
+- **Test**: `packages/shared/src/sites/aggregate-rating.spec.ts` (toplama: 5 altı yok, ortalama, geçersiz puanlar), `site-aggregate-rating.service.spec.ts` (sorgu kapsamı, önbellek), `apps/web/src/lib/sites/json-ld.spec.ts`, `apps/api/test/e2e/site-rating.e2e-spec.ts` (gerçek puanlarla, başka işletme, vazgeçme).
 
 ## 17. Açık işler
 

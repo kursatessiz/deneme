@@ -102,4 +102,6 @@ export const enSites: Record<keyof typeof trSites, string> = {
   'sites.editor.seo.aiCrawlers.allow': 'Allow (default)',
   'sites.editor.seo.aiCrawlers.block': 'Block',
   'sites.editor.seo.aiCrawlers.hint': 'When blocked, robots.txt disallows the whole site for these crawlers and llms.txt is not published: {agents}. Search engine crawlers are not affected.',
+  'sites.editor.seo.showAggregateRating': 'Show real member ratings in search results',
+  'sites.editor.seo.showAggregateRating.hint': 'Your real average member rating is published in structured data only once there are at least 5 member ratings. Turn it off to never publish it.',
 } as const;

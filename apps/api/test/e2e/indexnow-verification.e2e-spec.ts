@@ -150,7 +150,7 @@ describe('Sites: IndexNow and search verification (e2e)', () => {
 
       const ok = await owner().patch(`/sites/studio/${ZEN}`).send({ seo: { googleSiteVerification: `g-token-${suffix}-abc`, bingSiteVerification: 'BING0123456789ABCDEF' } });
       expect(ok.status).toBe(200);
-      expect(ok.body.seo).toEqual({ googleSiteVerification: `g-token-${suffix}-abc`, bingSiteVerification: 'BING0123456789ABCDEF', aiCrawlers: 'allow' });
+      expect(ok.body.seo).toEqual({ googleSiteVerification: `g-token-${suffix}-abc`, bingSiteVerification: 'BING0123456789ABCDEF', aiCrawlers: 'allow', showAggregateRating: true });
       expect((await owner().get(`/sites/studio/${ZEN}`)).body.seo.googleSiteVerification).toBe(`g-token-${suffix}-abc`);
 
       const pub = await request(server).get(`/public/sites/${ZEN_SLUG}/settings`);
@@ -164,7 +164,7 @@ describe('Sites: IndexNow and search verification (e2e)', () => {
     it('keeps a field that is not sent and clears one that is sent empty', async () => {
       const res = await owner().patch(`/sites/studio/${ZEN}`).send({ seo: { bingSiteVerification: '' } });
       expect(res.status).toBe(200);
-      expect(res.body.seo).toEqual({ googleSiteVerification: `g-token-${suffix}-abc`, bingSiteVerification: null, aiCrawlers: 'allow' });
+      expect(res.body.seo).toEqual({ googleSiteVerification: `g-token-${suffix}-abc`, bingSiteVerification: null, aiCrawlers: 'allow', showAggregateRating: true });
     });
 
     it('stores the AI crawler policy (default allow) and rejects unknown values', async () => {

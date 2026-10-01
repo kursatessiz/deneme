@@ -5,6 +5,7 @@ import type { PublicPageDTO, PublicPageContext, PageLocaleDTO, BlockDTO, PublicS
 import { PrismaService } from '../prisma/prisma.service';
 import { sitesBaseDomain } from './sites.service';
 import { canonicalOriginOf } from './canonical-origin';
+import { SiteAggregateRatingService } from './site-aggregate-rating.service';
 import { loadAllowedThemeFamiliesForStudio } from '../appearance/theme-families';
 import { loadPoweredBy } from './powered-by';
 
@@ -31,7 +32,10 @@ export interface ResolvedHost {
 
 @Injectable()
 export class PublicSitesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ratings: SiteAggregateRatingService,
+  ) {}
 
   /** Host -> site, for the web app's middleware (platform domain, `<slug>.<base>`, or a verified custom domain). */
   async resolveHost(host: string): Promise<ResolvedHost | null> {
@@ -115,6 +119,8 @@ export class PublicSitesService {
       googleSiteVerification: seo.googleSiteVerification,
       bingSiteVerification: seo.bingSiteVerification,
       aiCrawlers: seo.aiCrawlers,
+      // Real member ratings only, from 5 up, tenant sites that did not opt out (the platform has no ratings).
+      aggregateRating: !studio.isPlatform && seo.showAggregateRating ? await this.ratings.forStudio(studio.id) : null,
     };
   }
 

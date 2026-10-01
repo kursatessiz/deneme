@@ -46,6 +46,13 @@ describe('organization and local business', () => {
     const lb = localBusinessJsonLd({ name: 'Studio', url: 'https://s.test', address: 'Main St 1', phone: '+90 555', imageUrl: 'https://cdn.test/l.png' });
     expect(lb).toMatchObject({ '@type': 'LocalBusiness', url: 'https://s.test', image: 'https://cdn.test/l.png', address: 'Main St 1', telephone: '+90 555' });
   });
+
+  it('adds the real review aggregate only when one is given', () => {
+    const rated = localBusinessJsonLd({ name: 'Studio', url: 'https://s.test', aggregateRating: { ratingValue: 4.6, reviewCount: 12, bestRating: 5 } });
+    expect(rated).toMatchObject({ aggregateRating: { '@type': 'AggregateRating', ratingValue: 4.6, reviewCount: 12, bestRating: 5 } });
+    expect('aggregateRating' in localBusinessJsonLd({ name: 'Studio', url: 'https://s.test', aggregateRating: null })).toBe(false);
+    expect('aggregateRating' in localBusinessJsonLd({ name: 'Studio', url: 'https://s.test' })).toBe(false);
+  });
 });
 
 describe('website and breadcrumbs', () => {
