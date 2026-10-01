@@ -27,6 +27,7 @@ import {
   computeCartTotals,
   defaultRetailTaxRate,
   formatReceiptNumber,
+  computeReadingMinutes,
 } from '@platform/shared';
 import { createPublishedPage as writePublishedPage } from '../src/platform-defaults';
 import { ensureCatalogDefaults, ensurePlatformTenant } from '../src/ensure-platform-defaults';
@@ -45,6 +46,10 @@ const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? 'Demo1234!';
 // Tables in no particular order: TRUNCATE ... CASCADE handles FK order for us.
 const ALL_TABLES = [
   'audit_logs',
+  'article_tag_links',
+  'article_tags',
+  'article_locales',
+  'articles',
   'community_reactions',
   'community_comments',
   'community_post_tiers',
@@ -238,6 +243,7 @@ async function main() {
   await seedPayouts(zen.studioId);
   await seedCommunity(zen.studioId);
   await seedSites(platformStudioId);
+  await seedArticles(platformStudioId, zen.studioId);
   await seedPlatformBilling(zen.studioId, businessTypeTemplates.personal_training, plans.starter, kvkkDoc.id, passwordHash);
   await seedPlatformAccess();
 
@@ -2759,6 +2765,170 @@ async function seedSites(platformStudioId: string): Promise<void> {
       s.sectorKey,
     );
   }
+}
+
+/**
+ * Blog articles (S2b, docs/SAYFA_MOTORU.md "Yazilar / blog"): two published
+ * platform articles in tr and en sharing a tag, one platform draft that must
+ * never be public, and a tenant site for Zen with one published article.
+ * Article text is tenant data, not UI text.
+ */
+async function seedArticles(platformStudioId: string, zenStudioId: string): Promise<void> {
+  type SeedLocale = { locale: string; slug: string; title: string; excerpt?: string; body: string; seoDescription?: string };
+  const createArticle = async (params: {
+    siteId: string;
+    studioId: string;
+    authorName: string;
+    status: 'DRAFT' | 'PUBLISHED';
+    publishedAt: Date | null;
+    tagIds: string[];
+    locales: SeedLocale[];
+  }) => {
+    await prisma.article.create({
+      data: {
+        siteId: params.siteId,
+        studioId: params.studioId,
+        authorName: params.authorName,
+        status: params.status,
+        publishedAt: params.publishedAt,
+        locales: {
+          create: params.locales.map((l) => ({
+            siteId: params.siteId,
+            locale: l.locale,
+            slug: l.slug,
+            title: l.title,
+            excerpt: l.excerpt ?? null,
+            body: l.body,
+            seoDescription: l.seoDescription ?? null,
+            readingMinutes: computeReadingMinutes(l.body),
+          })),
+        },
+        tags: { create: params.tagIds.map((tagId) => ({ tagId })) },
+      },
+    });
+    count('articles');
+    count('article_locales', params.locales.length);
+  };
+
+  // -- Platform site ----------------------------------------------------------
+  const platformSite = await prisma.site.findUniqueOrThrow({ where: { studioId: platformStudioId } });
+  const guides = await prisma.articleTag.create({
+    data: { siteId: platformSite.id, studioId: platformStudioId, slug: 'rehber', labels: { tr: 'Rehber', en: 'Guide' } },
+  });
+  count('article_tags');
+
+  await createArticle({
+    siteId: platformSite.id,
+    studioId: platformStudioId,
+    authorName: 'Platform Ekibi',
+    status: 'PUBLISHED',
+    publishedAt: new Date('2026-09-15T08:00:00Z'),
+    tagIds: [guides.id],
+    locales: [
+      {
+        locale: 'tr',
+        slug: 'randevu-iptallerini-azaltmanin-yollari',
+        title: 'Randevu iptallerini azaltmanın beş yolu',
+        excerpt: 'Geç iptal ve gelmeme oranını düşürmek için uygulanabilir öneriler.',
+        seoDescription: 'Geç iptal ve gelmeme oranını düşürmek için iptal politikası, hatırlatma ve bekleme listesi önerileri.',
+        body:
+          'Geç iptaller ve gelmeyen danışanlar, kapasite sınırlı her işletmenin gelirini doğrudan etkiler.\n\n' +
+          '## Net bir iptal politikası yazın\n' +
+          'Politikanızı **rezervasyon anında** gösterin ve hangi süreden sonra hakkın düşeceğini açıkça belirtin.\n\n' +
+          '## Hatırlatmaları otomatikleştirin\n' +
+          '- Seanstan bir gün önce mesaj gönderin\n' +
+          '- Seans sabahı kısa bir hatırlatma ekleyin\n' +
+          '- Bekleme listesini otomatik doldurun\n\n' +
+          'Ayrıntılı ayarlar için [yardım merkezimize](https://example.com/yardim) göz atın.',
+      },
+      {
+        locale: 'en',
+        slug: 'ways-to-reduce-booking-cancellations',
+        title: 'Five ways to reduce booking cancellations',
+        excerpt: 'Practical steps to lower late cancellations and no-shows.',
+        seoDescription: 'A cancellation policy, reminders and a waitlist: practical steps to lower late cancellations and no-shows.',
+        body:
+          'Late cancellations and no-shows hit the revenue of every capacity-limited business.\n\n' +
+          '## Write a clear cancellation policy\n' +
+          'Show your policy **at booking time** and state when a credit is forfeited.\n\n' +
+          '## Automate reminders\n' +
+          '- Send a message the day before\n' +
+          '- Add a short reminder on the morning of the session\n' +
+          '- Fill the waitlist automatically\n\n' +
+          'See our [help centre](https://example.com/help) for the detailed settings.',
+      },
+    ],
+  });
+
+  await createArticle({
+    siteId: platformSite.id,
+    studioId: platformStudioId,
+    authorName: 'Platform Ekibi',
+    status: 'PUBLISHED',
+    publishedAt: new Date('2026-09-25T08:00:00Z'),
+    tagIds: [guides.id],
+    locales: [
+      {
+        locale: 'tr',
+        slug: 'paket-ve-kredi-fiyatlandirmasi',
+        title: 'Paket ve kredi fiyatlandırması nasıl kurulur',
+        body:
+          'Seans sayısına, süreye veya krediye dayalı paketler farklı müşteri tiplerine hitap eder.\n\n' +
+          '## Hangi model kime uygun\n' +
+          '- Seans paketi: düzenli gelen müşteriler\n' +
+          '- Süresiz üyelik: haftada birkaç kez gelenler\n' +
+          '- Kredi: farklı hizmetleri karıştıranlar\n\n' +
+          'Fiyatları her zaman kendi para biriminizle tanımlayın.',
+      },
+      {
+        locale: 'en',
+        slug: 'package-and-credit-pricing',
+        title: 'How to set up package and credit pricing',
+        body:
+          'Packages based on session counts, time or credits suit different kinds of customers.\n\n' +
+          '## Which model fits whom\n' +
+          '- Session packs: regular visitors\n' +
+          '- Unlimited memberships: people who come several times a week\n' +
+          '- Credits: customers who mix services\n\n' +
+          'Always define prices in your own currency.',
+      },
+    ],
+  });
+
+  // A draft: never listed, its URL is a 404 (apps/web/e2e/blog.e2e.ts).
+  await createArticle({
+    siteId: platformSite.id,
+    studioId: platformStudioId,
+    authorName: 'Platform Ekibi',
+    status: 'DRAFT',
+    publishedAt: null,
+    tagIds: [],
+    locales: [{ locale: 'tr', slug: 'taslak-yazi', title: 'Taslak yazı', body: 'Bu yazı henüz yayınlanmadı.' }],
+  });
+
+  // -- Tenant site (Zen) ------------------------------------------------------
+  const zenSite = await prisma.site.create({ data: { studioId: zenStudioId, kind: 'TENANT', defaultLocale: 'tr', enabledLocales: ['tr'] } });
+  count('sites');
+  await createArticle({
+    siteId: zenSite.id,
+    studioId: zenStudioId,
+    authorName: 'Zen Reformer Pilates',
+    status: 'PUBLISHED',
+    publishedAt: new Date('2026-09-20T07:00:00Z'),
+    tagIds: [],
+    locales: [
+      {
+        locale: 'tr',
+        slug: 'reformer-ile-ilk-dersiniz',
+        title: 'Reformer ile ilk dersiniz',
+        body:
+          'İlk derse gelmeden önce bilmeniz gereken birkaç şey var.\n\n' +
+          '- Rahat, kaymayan çoraplar getirin\n' +
+          '- Dersten on dakika önce gelin\n\n' +
+          'Sorularınız için **resepsiyonumuza** yazabilirsiniz.',
+      },
+    ],
+  });
 }
 
 main()
