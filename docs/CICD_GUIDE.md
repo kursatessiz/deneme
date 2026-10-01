@@ -408,6 +408,26 @@ Apple kimlikleriyle değiştirilmelidir.
 
 Tüm üçüncü taraf action'lar, değişken (floating) tag'lere değil commit SHA'larına sabitlenmiştir.
 
+### Private repository notu
+
+Repository 1 Ekim 2026'da private yapıldı. GitHub Free planında private repolarda şunlar
+yoktur: CodeQL ve dependency review (GitHub Code Security ister, ücretli), OpenSSF Scorecard
+(yalnızca public), GitHub Environments, branch protection, rulesets ve CODEOWNERS (GitHub Pro
+ile gelir), sınırsız Actions dakikası (Free: aylık 2.000, Pro: 3.000). Bu yüzden:
+
+- `codeql.yml`, `security.yml` içindeki dependency review ve `scorecard.yml` yalnızca
+  repository public iken çalışır (`!github.event.repository.private`); private'ta işler
+  atlanır, hata vermez. Code Security açılırsa koşul kaldırılır.
+- Zafiyet denetimi `ci.yml` içindeki `pnpm audit --audit-level high`, gizli bilgi taraması
+  TruffleHog ve workflow denetimi `zizmor` ile sürer; Dependabot private repoda da çalışır.
+- `ci.yml` artık yalnızca pull request'lerde çalışır (çalışma dallarına push ayrıca
+  tetiklemez); bir PR yaklaşık 25 dakika, `main`'e merge sonrası `release.yml` yaklaşık
+  25 dakika harcar.
+- `release.yml` ortam sırlarını GitHub Environments'tan okur; Free planda private repoda
+  Environments olmadığından deploy için GitHub Pro gerekir (önerilen) ya da sırlar repository
+  düzeyine taşınır. GHCR private paketlerde 500 MB depolama ve aylık 1 GB transfer
+  ücretsizdir; imaj temizleme kuralı sunucu kurulumuyla birlikte eklenecek.
+
 ### Önerilen GitHub repository ayarları
 
 Bunlar public repository'ler için ücretsizdir ve kendileri GitHub Actions workflow'u değildir,

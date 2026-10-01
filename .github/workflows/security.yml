@@ -18,7 +18,10 @@ concurrency:
 jobs:
   dependency-review:
     name: Dependency review
-    if: github.event_name == 'pull_request'
+    # Needs the dependency graph with GitHub Code Security on a private
+    # repository; runs only while the repository is public. The CI job's
+    # `pnpm audit --audit-level high` covers vulnerable dependencies either way.
+    if: github.event_name == 'pull_request' && !github.event.repository.private
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

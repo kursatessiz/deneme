@@ -3,7 +3,7 @@ name: CodeQL
 on:
   pull_request:
   push:
-    branches: [main, 'claude/**']
+    branches: [main]
   schedule:
     - cron: '17 4 * * 1'
 
@@ -17,6 +17,10 @@ concurrency:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
+    # CodeQL on a private repository needs GitHub Code Security (paid); the
+    # job runs only while the repository is public so it never fails for
+    # a missing licence. Drop this condition if Code Security is enabled.
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
