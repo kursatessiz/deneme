@@ -5,6 +5,7 @@
 
 import { NON_INDEXABLE_PATH_PREFIXES } from './indexing';
 import { buildHreflangAlternates, type SitemapPageEntry } from './site';
+import { articlePath, blogIndexPath, type ArticleSitemapEntry } from './articles';
 
 export interface SitemapEntry {
   loc: string;
@@ -39,6 +40,28 @@ export function buildLocalizedSitemapEntries(
     const isHome = group.some((variant) => variant.slug === '');
     const alternates = buildHreflangAlternates(group, toUrl, defaultLocale, isHome ? options.homeXDefaultUrl : undefined);
     for (const variant of group) entries.push({ loc: toUrl(variant.locale, variant.slug), lastModified: variant.updatedAt, alternates });
+  }
+  return entries;
+}
+
+/**
+ * Sitemap entries of a site's blog: one url per published locale variant of every article, each with the
+ * article's full hreflang set (x-default = the site default locale variant, else the first), plus the blog
+ * index of every locale that has at least one published article, with the same reciprocal set.
+ */
+export function buildArticleSitemapEntries(items: readonly ArticleSitemapEntry[], defaultLocale: string | null, origin: string): SitemapEntry[] {
+  const asPages: SitemapPageEntry[] = items.map((item) => ({ pageId: item.articleId, locale: item.locale, slug: item.slug, updatedAt: item.updatedAt }));
+  const entries = buildLocalizedSitemapEntries(asPages, defaultLocale, (locale, slug) => `${origin}${articlePath(locale, slug)}`);
+
+  const latestByLocale = new Map<string, string>();
+  for (const item of items) {
+    const current = latestByLocale.get(item.locale);
+    if (!current || item.updatedAt > current) latestByLocale.set(item.locale, item.updatedAt);
+  }
+  const indexVariants = Array.from(latestByLocale.keys()).map((locale) => ({ locale, slug: '' }));
+  const indexAlternates = buildHreflangAlternates(indexVariants, (locale) => `${origin}${blogIndexPath(locale)}`, defaultLocale);
+  for (const [locale, updatedAt] of latestByLocale) {
+    entries.push({ loc: `${origin}${blogIndexPath(locale)}`, lastModified: updatedAt, alternates: indexAlternates });
   }
   return entries;
 }

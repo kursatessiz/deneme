@@ -79,6 +79,8 @@ export const PERMISSIONS = {
 
   'site.view': 'İşletme web sitesini ve sayfalarını görüntüleme',
   'site.manage': 'İşletme web sitesi sayfalarını düzenleme, yayınlama ve alan adı ayarlama',
+  // S2b: blog articles and tags on the site (create, edit, publish, archive).
+  'sites.articles.manage': 'Web sitesi yazılarını (blog) ve etiketlerini yazma, düzenleme, yayınlama ve arşivleme',
 
   // G3b: drafting campaign, email, SMS and page text and inbox reply
   // suggestions with AI. Counts against the tenant's monthly AI budget, so
@@ -161,7 +163,7 @@ export const PERMISSION_AREAS = {
   Entegrasyon: ['integrations.manage', 'integrations.partners.manage'],
   Reklam: ['ads.view', 'ads.manage'],
   İçerik: ['content.view', 'content.manage'],
-  'Web sitem': ['site.view', 'site.manage'],
+  'Web sitem': ['site.view', 'site.manage', 'sites.articles.manage'],
   'Yapay zeka': ['ai.use'],
   Sadakat: ['loyalty.view', 'loyalty.manage', 'loyalty.redeem'],
   Etkinlikler: ['events.view', 'events.manage', 'events.checkin'],
