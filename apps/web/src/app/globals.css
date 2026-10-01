@@ -288,6 +288,51 @@
     color: var(--pui-text);
   }
 
+  /* Text colors by role, for the rare inline message or figure (after ui-caption so they win over it). */
+  .ui-text-error {
+    color: var(--pui-error);
+  }
+
+  .ui-text-success {
+    color: var(--pui-success);
+  }
+
+  .ui-text-warn {
+    color: var(--pui-warn);
+  }
+
+  .ui-text-theme {
+    color: var(--pui-theme);
+  }
+
+  .ui-strong {
+    font-weight: 600;
+  }
+
+  /* A muted inset block (note, legend, summary strip); never a card inside a card. */
+  .ui-panel {
+    background-color: var(--pui-bg-muted);
+    border-radius: var(--pui-radius);
+  }
+
+  /* Hairline dividers for plain stacks: one rule, or a rule between children. */
+  .ui-rule {
+    border-top: var(--pui-border-width) solid var(--pui-border);
+  }
+
+  .ui-divide > * + * {
+    border-top: var(--pui-border-width) solid var(--pui-border);
+  }
+
+  /* A whole card that is a link (settings hub). */
+  .ui-card-link {
+    transition: background-color 0.15s;
+  }
+
+  .ui-card-link:hover {
+    background-color: var(--pui-bg-muted);
+  }
+
   /* Only the two gradient slots of the design system (packages/shared GRADIENT_SLOTS). */
   .ui-gradient-member-card,
   .ui-gradient-package-card {

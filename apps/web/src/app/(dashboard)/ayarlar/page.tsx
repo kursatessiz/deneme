@@ -2,11 +2,27 @@
 
 import Link from 'next/link';
 import type { PermissionKey } from '@platform/shared';
-import { AlertTriangle, Award, ChevronRight, Gift, Globe, KeyRound, Layers, Megaphone, MessageSquareText, Palette, Puzzle, ShieldCheck, Store, UsersRound } from 'lucide-react';
+import {
+  AlertTriangle,
+  Award,
+  ChevronRight,
+  Gift,
+  Globe,
+  KeyRound,
+  Layers,
+  Megaphone,
+  MessageSquareText,
+  Palette,
+  Puzzle,
+  ShieldCheck,
+  Store,
+  UsersRound,
+} from 'lucide-react';
 import { useT } from '@/components/i18n/I18nProvider';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { hasAnyPermission } from '@/lib/nav';
 import { SettingsHeader } from '@/components/settings/ui';
+import { Badge } from '@/components/ui/Badge';
 
 interface SettingsCard {
   key: string;
@@ -130,33 +146,21 @@ export default function SettingsHubPage() {
   const visible = CARDS.filter((c) => hasAnyPermission(c.permissions, permissions, isOwner));
 
   return (
-    <div className="space-y-6">
+    <div className="grid gap-6">
       <SettingsHeader title={t('settings.hub.title')} description={t('settings.hub.description')} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {visible.map((card) => {
           const Icon = card.icon;
           return (
-            <Link
-              key={card.key}
-              href={card.href}
-              className="p-5 border flex items-start gap-4 transition-colors hover:opacity-90"
-              style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-card)' }}
-            >
-              <div
-                className="p-2.5 shrink-0"
-                style={{ backgroundColor: 'var(--color-surface-muted)', borderRadius: 'var(--radius-card)', color: 'var(--color-primary)' }}
-              >
-                <Icon className="w-5 h-5" />
+            <Link key={card.key} href={card.href} className="pui-card ui-card-link flex items-start gap-4 p-5">
+              <Badge tone="theme" className="shrink-0">
+                <Icon className="ui-icon" aria-hidden="true" />
+              </Badge>
+              <div className="flex-1 min-w-0 grid gap-1">
+                <h3 className="ui-heading">{t(card.titleKey)}</h3>
+                <p className="ui-caption">{t(card.descriptionKey)}</p>
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  {t(card.titleKey)}
-                </h3>
-                <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                  {t(card.descriptionKey)}
-                </p>
-              </div>
-              <ChevronRight className="w-4 h-4 shrink-0 mt-1" style={{ color: 'var(--color-text-muted)' }} />
+              <ChevronRight className="ui-icon ui-text-muted" aria-hidden="true" />
             </Link>
           );
         })}

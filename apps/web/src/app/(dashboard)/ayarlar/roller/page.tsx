@@ -10,18 +10,14 @@ import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataSt
 import { PageGuard } from '@/components/common/PageGuard';
 import { Badge, InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader, TextField } from '@/components/settings/ui';
 import { groupPermissionsByArea } from '@/lib/settings/role-permission-grouping';
+import { Checkbox } from '@/components/ui/Checkbox';
+import { Select } from '@/components/ui/Select';
+import { Card } from '@/components/ui/Card';
+import { List, ListItem } from '@/components/ui/List';
 
 const AREA_GROUPS = groupPermissionsByArea();
 
-function RoleEditor({
-  role,
-  onCancel,
-  onSaved,
-}: {
-  role: RoleTemplateDTO | null;
-  onCancel: () => void;
-  onSaved: () => void;
-}) {
+function RoleEditor({ role, onCancel, onSaved }: { role: RoleTemplateDTO | null; onCancel: () => void; onSaved: () => void }) {
   const t = useT();
   const { activeStudioId } = useDashboardSession();
   const [name, setName] = useState(role?.name ?? '');
@@ -65,23 +61,13 @@ function RoleEditor({
       <div className="max-w-sm">
         <TextField label={t('settings.roles.nameLabel')} value={name} onChange={setName} placeholder={t('settings.roles.namePlaceholder')} />
       </div>
-      <div className="space-y-4">
+      <div className="grid gap-4">
         {AREA_GROUPS.map((group) => (
           <div key={group.area}>
-            <h4 className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
-              {group.area}
-            </h4>
+            <h4 className="ui-caption ui-strong uppercase mb-2">{group.area}</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
               {group.permissions.map((p) => (
-                <label key={p.key} className="flex items-start gap-2 text-sm cursor-pointer" style={{ color: 'var(--color-text-primary)' }}>
-                  <input
-                    type="checkbox"
-                    className="mt-0.5"
-                    checked={selected.has(p.key)}
-                    onChange={() => toggle(p.key)}
-                  />
-                  <span>{p.label}</span>
-                </label>
+                <Checkbox key={p.key} label={p.label} checked={selected.has(p.key)} onChange={() => toggle(p.key)} />
               ))}
             </div>
           </div>
@@ -152,7 +138,7 @@ function RolesAndStaffView({ onChanged }: { onChanged: () => void }) {
   if (forbidden) return <ErrorState message={t('settings.roles.forbidden')} />;
 
   return (
-    <div className="space-y-6">
+    <div className="grid gap-6">
       <div className="flex items-center justify-between">
         <SettingsHeader title={t('settings.roles.title')} description={t('settings.roles.description')} />
         {editing === null && <PrimaryButton onClick={() => setEditing('new')}>{t('settings.roles.new')}</PrimaryButton>}
@@ -161,9 +147,25 @@ function RolesAndStaffView({ onChanged }: { onChanged: () => void }) {
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
 
-      {editing === 'new' && <RoleEditor role={null} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); onChanged(); }} />}
+      {editing === 'new' && (
+        <RoleEditor
+          role={null}
+          onCancel={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            onChanged();
+          }}
+        />
+      )}
       {editing && editing !== 'new' && (
-        <RoleEditor role={editing} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); onChanged(); }} />
+        <RoleEditor
+          role={editing}
+          onCancel={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            onChanged();
+          }}
+        />
       )}
 
       {!loading && !error && editing === null && (
@@ -171,18 +173,12 @@ function RolesAndStaffView({ onChanged }: { onChanged: () => void }) {
           {deleteError && <InlineMessage text={deleteError} tone="error" />}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {(roles ?? []).map((role) => (
-              <div
-                key={role.id}
-                className="p-5 border flex flex-col gap-3"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-card)' }}
-              >
+              <Card key={role.id} className="flex flex-col gap-3 p-5">
                 <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                    {role.name}
-                  </h3>
+                  <h3 className="ui-strong">{role.name}</h3>
                   {role.isOwner && <Badge tone="primary">{t('settings.roles.ownerBadge')}</Badge>}
                 </div>
-                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                <p className="ui-caption">
                   {role.isOwner ? t('settings.roles.ownerHasAll') : t('settings.roles.permissionCount', { count: role.permissions.length })}
                 </p>
                 {!role.isOwner && (
@@ -193,7 +189,7 @@ function RolesAndStaffView({ onChanged }: { onChanged: () => void }) {
                     </SecondaryButton>
                   </div>
                 )}
-              </div>
+              </Card>
             ))}
           </div>
 
@@ -205,37 +201,27 @@ function RolesAndStaffView({ onChanged }: { onChanged: () => void }) {
               <EmptyState title={t('settings.roles.assignment.empty.title')} description={t('settings.roles.assignment.empty.description')} />
             )}
             {!staffLoading && !staffError && staff && staff.length > 0 && (
-              <div className="space-y-2">
+              <List className="ui-divide">
                 {staff.map((m) => (
-                  <div key={m.membershipId} className="flex items-center justify-between gap-3 py-2 border-b last:border-b-0" style={{ borderColor: 'var(--color-border)' }}>
+                  <ListItem key={m.membershipId} className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
-                        {m.fullName}
-                      </p>
-                      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                        {m.phone}
-                      </p>
+                      <p className="ui-strong truncate">{m.fullName}</p>
+                      <p className="ui-caption">{m.phone}</p>
                     </div>
                     {m.isOwner ? (
                       <Badge tone="primary">{t('settings.roles.assignment.owner')}</Badge>
                     ) : (
-                      <select
-                        value={m.roleTemplateId}
-                        disabled={assigningId === m.membershipId}
-                        onChange={(e) => assignRole(m.membershipId, e.target.value)}
-                        className="text-sm px-2 py-1.5 border"
-                        style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)', backgroundColor: 'var(--color-background)', color: 'var(--color-text-primary)' }}
-                      >
+                      <Select value={m.roleTemplateId} disabled={assigningId === m.membershipId} onChange={(e) => assignRole(m.membershipId, e.target.value)}>
                         {assignableRoles.map((r) => (
                           <option key={r.id} value={r.id}>
                             {r.name}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     )}
-                  </div>
+                  </ListItem>
                 ))}
-              </div>
+              </List>
             )}
           </Section>
         </>

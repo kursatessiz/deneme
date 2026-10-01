@@ -12,6 +12,8 @@ import { PermissionButton } from '@/components/common/PermissionButton';
 import { hasAnyPermission } from '@/lib/nav';
 import { InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader, TextField } from '@/components/settings/ui';
 import { communityErrorMessage, tierRuleLabel } from '@/components/community/labels';
+import { Checkbox } from '@/components/ui/Checkbox';
+import { List, ListItem } from '@/components/ui/List';
 
 interface PackageOption {
   id: string;
@@ -44,15 +46,6 @@ function rulesOf(form: TierForm): AccessTierRuleInput[] {
   if (form.anyPackage) rules.push({ kind: 'ACTIVE_PACKAGE', packageDefinitionId: null });
   for (const id of form.packageIds) rules.push({ kind: 'PACKAGE_DEFINITION', packageDefinitionId: id });
   return rules;
-}
-
-function Checkbox({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
-  return (
-    <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-primary)' }}>
-      <input type="checkbox" checked={checked} onChange={onChange} />
-      {label}
-    </label>
-  );
 }
 
 function TierEditor({ tier, packages, onDone }: { tier: AccessTierDTO | null; packages: PackageOption[]; onDone: () => void }) {
@@ -89,18 +82,22 @@ function TierEditor({ tier, packages, onDone }: { tier: AccessTierDTO | null; pa
 
   return (
     <Section title={tier ? t('community.tiers.edit') : t('community.tiers.new')}>
-      <div className="space-y-3 max-w-xl">
+      <div className="grid gap-3 max-w-xl">
         <TextField label={t('community.tiers.name')} value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
         <TextField label={t('community.tiers.description')} value={form.description} onChange={(v) => setForm({ ...form, description: v })} />
-        <fieldset className="space-y-2">
-          <legend className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('community.tiers.rules')}
-          </legend>
-          <Checkbox label={t('community.tiers.rule.ACTIVE_MEMBER')} checked={form.anyMember} onChange={() => setForm({ ...form, anyMember: !form.anyMember })} />
-          <Checkbox label={t('community.tiers.rule.ACTIVE_PACKAGE')} checked={form.anyPackage} onChange={() => setForm({ ...form, anyPackage: !form.anyPackage })} />
-          <p className="text-xs pt-1" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('community.tiers.packages')}
-          </p>
+        <fieldset className="grid gap-2">
+          <legend className="ui-caption ui-strong">{t('community.tiers.rules')}</legend>
+          <Checkbox
+            label={t('community.tiers.rule.ACTIVE_MEMBER')}
+            checked={form.anyMember}
+            onChange={() => setForm({ ...form, anyMember: !form.anyMember })}
+          />
+          <Checkbox
+            label={t('community.tiers.rule.ACTIVE_PACKAGE')}
+            checked={form.anyPackage}
+            onChange={() => setForm({ ...form, anyPackage: !form.anyPackage })}
+          />
+          <p className="ui-caption pt-1">{t('community.tiers.packages')}</p>
           {packages.length === 0 && <InlineMessage text={t('community.tiers.noPackages')} />}
           <div className="flex flex-wrap gap-3">
             {packages.map((p) => (
@@ -152,25 +149,19 @@ function AccessTiersView() {
   const items = tiers.data?.items ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="grid gap-6">
       <SettingsHeader title={t('community.tiers.title')} description={t('community.tiers.subtitle')} />
       <Section title={t('community.tiers.list')}>
         {tiers.loading && !tiers.data && <LoadingState />}
         {tiers.error && <ErrorState message={tiers.error} />}
         {!tiers.loading && items.length === 0 && <InlineMessage text={t('community.tiers.empty')} />}
-        <ul className="divide-y" style={{ borderColor: 'var(--color-border)' }} data-testid="community-tiers">
+        <List className="ui-divide" data-testid="community-tiers">
           {items.map((tier) => (
-            <li key={tier.id} className="py-2 flex flex-wrap items-start justify-between gap-3">
+            <ListItem key={tier.id} className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                  {tier.name}
-                </p>
-                {tier.description && (
-                  <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                    {tier.description}
-                  </p>
-                )}
-                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                <p className="ui-strong">{tier.name}</p>
+                {tier.description && <p className="ui-caption">{tier.description}</p>}
+                <p className="ui-caption">
                   {tier.rules.map((rule) => tierRuleLabel(t, rule)).join(', ')} - {t('community.tiers.postCount', { count: tier.postCount })}
                 </p>
               </div>
@@ -182,9 +173,9 @@ function AccessTiersView() {
                   {t('community.tiers.delete')}
                 </PermissionButton>
               </div>
-            </li>
+            </ListItem>
           ))}
-        </ul>
+        </List>
         {error && <InlineMessage text={error} tone="error" />}
       </Section>
       {canManage && (

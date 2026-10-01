@@ -10,6 +10,9 @@ import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { PageGuard } from '@/components/common/PageGuard';
 import { Badge, InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader, TextField } from '@/components/settings/ui';
+import { Select } from '@/components/ui/Select';
+import { FieldGroup } from '@/components/ui/FieldGroup';
+import { List, ListItem } from '@/components/ui/List';
 
 interface AdConnectionRow {
   id: string;
@@ -132,23 +135,15 @@ function ConnectionsSection() {
   return (
     <Section title={t('ads.connections.title')} description={t('ads.connections.description')} key={refreshKey}>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl items-end">
-        <div>
-          <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('ads.connections.platform')}
-          </span>
-          <select
-            value={platform}
-            onChange={(e) => setPlatform(e.target.value as AdConnectionPlatform)}
-            className="w-full mt-1 px-3 py-2 text-sm border"
-            style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)', backgroundColor: 'var(--color-background)', color: 'var(--color-text-primary)' }}
-          >
+        <FieldGroup label={t('ads.connections.platform')}>
+          <Select value={platform} onChange={(e) => setPlatform(e.target.value as AdConnectionPlatform)}>
             {AD_CONNECTION_PLATFORMS.map((p) => (
               <option key={p} value={p}>
                 {t(`ads.connections.platform.${p}` as never)}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </FieldGroup>
         <TextField label={t('ads.connections.label')} value={label} onChange={setLabel} />
         <TextField label={t('ads.connections.externalAccountId')} value={externalAccountId} onChange={setExternalAccountId} />
       </div>
@@ -156,18 +151,46 @@ function ConnectionsSection() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
         {platform === 'META' && (
           <>
-            <TextField label={t('ads.connections.field.accessToken')} value={credentials.META.accessToken} onChange={(v) => setField('META', 'accessToken', v)} type="password" />
+            <TextField
+              label={t('ads.connections.field.accessToken')}
+              value={credentials.META.accessToken}
+              onChange={(v) => setField('META', 'accessToken', v)}
+              type="password"
+            />
             <TextField label={t('ads.connections.field.pixelId')} value={credentials.META.pixelId} onChange={(v) => setField('META', 'pixelId', v)} />
           </>
         )}
         {platform === 'GOOGLE' && (
           <>
             <TextField label={t('ads.connections.field.clientId')} value={credentials.GOOGLE.clientId} onChange={(v) => setField('GOOGLE', 'clientId', v)} />
-            <TextField label={t('ads.connections.field.clientSecret')} value={credentials.GOOGLE.clientSecret} onChange={(v) => setField('GOOGLE', 'clientSecret', v)} type="password" />
-            <TextField label={t('ads.connections.field.refreshToken')} value={credentials.GOOGLE.refreshToken} onChange={(v) => setField('GOOGLE', 'refreshToken', v)} type="password" />
-            <TextField label={t('ads.connections.field.developerToken')} value={credentials.GOOGLE.developerToken} onChange={(v) => setField('GOOGLE', 'developerToken', v)} type="password" />
-            <TextField label={t('ads.connections.field.loginCustomerId')} value={credentials.GOOGLE.loginCustomerId} onChange={(v) => setField('GOOGLE', 'loginCustomerId', v)} />
-            <TextField label={t('ads.connections.field.customerId')} value={credentials.GOOGLE.customerId} onChange={(v) => setField('GOOGLE', 'customerId', v)} />
+            <TextField
+              label={t('ads.connections.field.clientSecret')}
+              value={credentials.GOOGLE.clientSecret}
+              onChange={(v) => setField('GOOGLE', 'clientSecret', v)}
+              type="password"
+            />
+            <TextField
+              label={t('ads.connections.field.refreshToken')}
+              value={credentials.GOOGLE.refreshToken}
+              onChange={(v) => setField('GOOGLE', 'refreshToken', v)}
+              type="password"
+            />
+            <TextField
+              label={t('ads.connections.field.developerToken')}
+              value={credentials.GOOGLE.developerToken}
+              onChange={(v) => setField('GOOGLE', 'developerToken', v)}
+              type="password"
+            />
+            <TextField
+              label={t('ads.connections.field.loginCustomerId')}
+              value={credentials.GOOGLE.loginCustomerId}
+              onChange={(v) => setField('GOOGLE', 'loginCustomerId', v)}
+            />
+            <TextField
+              label={t('ads.connections.field.customerId')}
+              value={credentials.GOOGLE.customerId}
+              onChange={(v) => setField('GOOGLE', 'customerId', v)}
+            />
             <TextField
               label={t('ads.connections.field.googleConversionId')}
               value={credentials.GOOGLE.conversionId}
@@ -178,14 +201,17 @@ function ConnectionsSection() {
         )}
         {platform === 'TIKTOK' && (
           <>
-            <TextField label={t('ads.connections.field.accessToken')} value={credentials.TIKTOK.accessToken} onChange={(v) => setField('TIKTOK', 'accessToken', v)} type="password" />
+            <TextField
+              label={t('ads.connections.field.accessToken')}
+              value={credentials.TIKTOK.accessToken}
+              onChange={(v) => setField('TIKTOK', 'accessToken', v)}
+              type="password"
+            />
             <TextField label={t('ads.connections.field.pixelCode')} value={credentials.TIKTOK.pixelCode} onChange={(v) => setField('TIKTOK', 'pixelCode', v)} />
           </>
         )}
       </div>
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-        {t('ads.connections.credentialHint')}
-      </p>
+      <p className="ui-caption">{t('ads.connections.credentialHint')}</p>
       {formError && <InlineMessage text={formError} tone="error" />}
       <PrimaryButton onClick={create} disabled={creating}>
         {creating ? '...' : t('ads.connections.add')}
@@ -196,22 +222,18 @@ function ConnectionsSection() {
       {actionError && <InlineMessage text={actionError} tone="error" />}
       {!loading && !error && (!data || data.length === 0) && <EmptyState title={t('ads.report.empty')} />}
       {!loading && !error && data && data.length > 0 && (
-        <div className="space-y-2">
+        <List className="ui-divide">
           {data.map((c) => (
-            <div key={c.id} className="flex items-center justify-between gap-3 py-2 border-b last:border-b-0" style={{ borderColor: 'var(--color-border)' }}>
+            <ListItem key={c.id} className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                  {c.label} <span style={{ color: 'var(--color-text-muted)' }}>({t(`ads.connections.platform.${c.platform}` as never)})</span>
+                <p className="ui-strong">
+                  {c.label} <span className="ui-text-muted">({t(`ads.connections.platform.${c.platform}` as never)})</span>
                 </p>
-                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                <p className="ui-caption">
                   {t('ads.connections.credentialHint').split(',')[0]}: ****{c.credentialLast4}
                   {c.lastSyncAt && ` — ${t('ads.connections.lastSync')}: ${new Date(c.lastSyncAt).toLocaleString()}`}
                 </p>
-                {testResult[c.id] && (
-                  <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                    {testResult[c.id]}
-                  </p>
-                )}
+                {testResult[c.id] && <p className="ui-caption">{testResult[c.id]}</p>}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <Badge tone={c.status === 'CONNECTED' ? 'primary' : c.status === 'ERROR' || c.status === 'REAUTH_REQUIRED' ? 'danger' : 'neutral'}>
@@ -222,9 +244,9 @@ function ConnectionsSection() {
                   {t('ads.connections.delete')}
                 </SecondaryButton>
               </div>
-            </div>
+            </ListItem>
           ))}
-        </div>
+        </List>
       )}
     </Section>
   );
@@ -259,39 +281,23 @@ function UtmBuilderSection() {
         <TextField label={t('ads.utm.market')} value={market} onChange={setMarket} />
         <TextField label={t('ads.utm.language')} value={language} onChange={setLanguage} />
         <TextField label={t('ads.utm.sector')} value={sector} onChange={setSector} />
-        <div>
-          <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('ads.utm.objective')}
-          </span>
-          <select
-            value={objective}
-            onChange={(e) => setObjective(e.target.value as CampaignObjective)}
-            className="w-full mt-1 px-3 py-2 text-sm border"
-            style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)', backgroundColor: 'var(--color-background)', color: 'var(--color-text-primary)' }}
-          >
+        <FieldGroup label={t('ads.utm.objective')}>
+          <Select value={objective} onChange={(e) => setObjective(e.target.value as CampaignObjective)}>
             {CAMPAIGN_OBJECTIVES.map((o) => (
               <option key={o} value={o}>
                 {o}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </FieldGroup>
         <TextField label={t('ads.utm.month')} value={yearMonth} onChange={setYearMonth} placeholder="202610" />
-        <div>
-          <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('ads.utm.platform')}
-          </span>
-          <select
-            value={platform}
-            onChange={(e) => setPlatform(e.target.value as 'META' | 'GOOGLE' | 'TIKTOK')}
-            className="w-full mt-1 px-3 py-2 text-sm border"
-            style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)', backgroundColor: 'var(--color-background)', color: 'var(--color-text-primary)' }}
-          >
+        <FieldGroup label={t('ads.utm.platform')}>
+          <Select value={platform} onChange={(e) => setPlatform(e.target.value as 'META' | 'GOOGLE' | 'TIKTOK')}>
             <option value="META">Meta</option>
             <option value="GOOGLE">Google</option>
             <option value="TIKTOK">TikTok</option>
-          </select>
-        </div>
+          </Select>
+        </FieldGroup>
       </div>
       <TextField label={t('ads.utm.landingPath')} value={landingPath} onChange={setLandingPath} placeholder="tr/pilates" />
 
@@ -299,41 +305,27 @@ function UtmBuilderSection() {
       {!buildError && (
         <div className="space-y-3">
           <div>
-            <p className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('ads.utm.campaignName')}
-            </p>
+            <p className="ui-caption ui-strong">{t('ads.utm.campaignName')}</p>
             <div className="flex items-center gap-2">
-              <code className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                {campaignName}
-              </code>
+              <code>{campaignName}</code>
               <CopyButton text={campaignName} t={t} />
             </div>
           </div>
           <div>
-            <p className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('ads.utm.urlParams')}
-            </p>
+            <p className="ui-caption ui-strong">{t('ads.utm.urlParams')}</p>
             <div className="flex items-center gap-2">
-              <code className="text-xs break-all" style={{ color: 'var(--color-text-primary)' }}>
-                {urlParams}
-              </code>
+              <code className="ui-caption break-all">{urlParams}</code>
               <CopyButton text={urlParams} t={t} />
             </div>
           </div>
           {exampleUrl && (
             <div>
-              <p className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                {t('ads.utm.exampleUrl')}
-              </p>
+              <p className="ui-caption ui-strong">{t('ads.utm.exampleUrl')}</p>
               <div className="flex items-center gap-2">
-                <code className="text-xs break-all" style={{ color: 'var(--color-text-primary)' }}>
-                  {exampleUrl}
-                </code>
+                <code className="ui-caption break-all">{exampleUrl}</code>
                 <CopyButton text={exampleUrl} t={t} />
               </div>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                {t('ads.utm.landingUnknown')}
-              </p>
+              <p className="ui-caption mt-1">{t('ads.utm.landingUnknown')}</p>
             </div>
           )}
         </div>
@@ -355,13 +347,13 @@ function NamingCheckSection() {
       {error && <ErrorState message={error} />}
       {!loading && !error && (!data || data.length === 0) && <EmptyState title={t('ads.utm.namingCheck.empty')} />}
       {!loading && !error && data && data.length > 0 && (
-        <ul className="space-y-1">
+        <List>
           {data.map((row) => (
-            <li key={row.externalId} className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
-              {row.name} <span style={{ color: 'var(--color-text-muted)' }}>({row.platform})</span>
-            </li>
+            <ListItem key={row.externalId}>
+              {row.name} <span className="ui-text-muted">({row.platform})</span>
+            </ListItem>
           ))}
-        </ul>
+        </List>
       )}
     </Section>
   );
@@ -370,7 +362,7 @@ function NamingCheckSection() {
 function AdsSettings() {
   const t = useT();
   return (
-    <div className="space-y-6">
+    <div className="grid gap-6">
       <SettingsHeader title={t('ads.nav.settings')} description={t('ads.connections.description')} />
       <ConnectionsSection />
       <UtmBuilderSection />

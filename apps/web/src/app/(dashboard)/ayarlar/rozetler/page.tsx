@@ -12,14 +12,11 @@ import { PageGuard } from '@/components/common/PageGuard';
 import { hasAnyPermission } from '@/lib/nav';
 import { Badge, InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader, TextField, Toggle } from '@/components/settings/ui';
 import { badgeKindLabel, defaultThresholdFor, describeThreshold } from '@/lib/settings/badge-threshold';
+import { Select } from '@/components/ui/Select';
+import { Card } from '@/components/ui/Card';
+import { FieldGroup } from '@/components/ui/FieldGroup';
 
-function ThresholdFields({
-  threshold,
-  onChange,
-}: {
-  threshold: BadgeThresholdParams;
-  onChange: (t: BadgeThresholdParams) => void;
-}) {
+function ThresholdFields({ threshold, onChange }: { threshold: BadgeThresholdParams; onChange: (t: BadgeThresholdParams) => void }) {
   const t = useT();
   switch (threshold.kind) {
     case BadgeKind.MILESTONE_SESSIONS:
@@ -74,15 +71,7 @@ function ThresholdFields({
   }
 }
 
-function BadgeEditor({
-  badge,
-  onCancel,
-  onSaved,
-}: {
-  badge: BadgeDefinitionDTO | null;
-  onCancel: () => void;
-  onSaved: () => void;
-}) {
+function BadgeEditor({ badge, onCancel, onSaved }: { badge: BadgeDefinitionDTO | null; onCancel: () => void; onSaved: () => void }) {
   const t = useT();
   const { activeStudioId } = useDashboardSession();
   const [key, setKey] = useState(badge?.key ?? '');
@@ -132,7 +121,10 @@ function BadgeEditor({
   };
 
   return (
-    <Section title={badge ? t('settings.badges.editTitle', { name: badge.name }) : t('settings.badges.newTitle')} description={t('settings.badges.editDescription')}>
+    <Section
+      title={badge ? t('settings.badges.editTitle', { name: badge.name }) : t('settings.badges.newTitle')}
+      description={t('settings.badges.editDescription')}
+    >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl">
         {!badge && <TextField label={t('settings.badges.keyLabel')} value={key} onChange={setKey} placeholder={t('settings.badges.keyPlaceholder')} />}
         <TextField label={t('settings.badges.nameLabel')} value={name} onChange={setName} placeholder={t('settings.badges.namePlaceholder')} />
@@ -146,23 +138,15 @@ function BadgeEditor({
         />
       </div>
       {!badge && (
-        <label className="block space-y-1 max-w-xs">
-          <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('settings.badges.kindLabel')}
-          </span>
-          <select
-            value={kind}
-            onChange={(e) => changeKind(e.target.value as BadgeKind)}
-            className="w-full px-3 py-2 text-sm border"
-            style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)', backgroundColor: 'var(--color-background)', color: 'var(--color-text-primary)' }}
-          >
+        <FieldGroup label={t('settings.badges.kindLabel')} className="max-w-xs">
+          <Select value={kind} onChange={(e) => changeKind(e.target.value as BadgeKind)}>
             {Object.values(BadgeKind).map((k) => (
               <option key={k} value={k}>
                 {badgeKindLabel(t, k)}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </FieldGroup>
       )}
       <div className="max-w-xl">
         <ThresholdFields threshold={threshold} onChange={setThreshold} />
@@ -196,25 +180,16 @@ function BadgeCard({
   const t = useT();
   const isGlobal = badge.studioId === null;
   return (
-    <div
-      className="p-5 border flex flex-col gap-3"
-      style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-card)' }}
-    >
+    <Card className="flex flex-col gap-3 p-5">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          {badge.name}
-        </h3>
+        <h3 className="ui-heading">{badge.name}</h3>
         <div className="flex items-center gap-1.5">
           {isGlobal && <Badge tone="primary">{t('settings.badges.global')}</Badge>}
           {!badge.isActive && <Badge tone="neutral">{t('settings.badges.inactive')}</Badge>}
         </div>
       </div>
-      {badge.description && (
-        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-          {badge.description}
-        </p>
-      )}
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+      {badge.description && <p className="ui-caption">{badge.description}</p>}
+      <p className="ui-caption">
         {badgeKindLabel(t, badge.kind)} - {describeThreshold(t, badge.threshold)}
       </p>
       {canEdit && !isGlobal && (
@@ -226,7 +201,7 @@ function BadgeCard({
           </SecondaryButton>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -234,10 +209,7 @@ function BadgeDefinitions() {
   const t = useT();
   const { activeStudioId, permissions, isOwner } = useDashboardSession();
   const canEdit = hasAnyPermission(['studio.settings.manage'], permissions, isOwner);
-  const { data: badges, loading, error, forbidden } = useBff<BadgeDefinitionDTO[]>(
-    `gamification/studio/${activeStudioId}/badge-definitions`,
-    activeStudioId,
-  );
+  const { data: badges, loading, error, forbidden } = useBff<BadgeDefinitionDTO[]>(`gamification/studio/${activeStudioId}/badge-definitions`, activeStudioId);
   const [editing, setEditing] = useState<BadgeDefinitionDTO | null | 'new'>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -285,10 +257,24 @@ function BadgeDefinitions() {
       {actionError && <InlineMessage text={actionError} tone="error" />}
 
       {editing === 'new' && (
-        <BadgeEditor badge={null} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); }} />
+        <BadgeEditor
+          badge={null}
+          onCancel={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            refresh();
+          }}
+        />
       )}
       {editing && editing !== 'new' && (
-        <BadgeEditor badge={editing} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); }} />
+        <BadgeEditor
+          badge={editing}
+          onCancel={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            refresh();
+          }}
+        />
       )}
 
       {!loading && !error && editing === null && (
@@ -297,9 +283,7 @@ function BadgeDefinitions() {
 
           {studioBadges.length > 0 && (
             <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                {t('settings.badges.studioSection')}
-              </h4>
+              <h4 className="ui-caption ui-strong uppercase mb-2">{t('settings.badges.studioSection')}</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {studioBadges.map((b) => (
                   <BadgeCard
@@ -317,9 +301,7 @@ function BadgeDefinitions() {
 
           {globalBadges.length > 0 && (
             <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                {t('settings.badges.globalSection')}
-              </h4>
+              <h4 className="ui-caption ui-strong uppercase mb-2">{t('settings.badges.globalSection')}</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {globalBadges.map((b) => (
                   <BadgeCard key={b.id} badge={b} canEdit={canEdit} onEdit={() => {}} onToggleActive={() => {}} onDelete={() => {}} />

@@ -9,6 +9,9 @@ import { BffError, bffFetch } from '@/lib/session/client';
 import { EmptyState, ErrorState, LoadingState } from '@/components/common/DataState';
 import { PageGuard } from '@/components/common/PageGuard';
 import { SettingsHeader } from '@/components/settings/ui';
+import { Card, CardContent } from '@/components/ui/Card';
+import { Checkbox } from '@/components/ui/Checkbox';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
 
 function ErrorList() {
   const t = useT();
@@ -22,32 +25,30 @@ function ErrorList() {
 
   const dateTime = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' });
   return (
-    <div className="overflow-x-auto border" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-      <table className="w-full text-sm">
-        <thead>
-          <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
+    <Card className="overflow-x-auto">
+      <Table>
+        <Thead>
+          <Tr>
             {(['message', 'source', 'count', 'firstSeen', 'lastSeen', 'code', 'status'] as const).map((col) => (
-              <th key={col} className="text-left px-3 py-2 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                {t(`errors.owner.col.${col}`)}
-              </th>
+              <Th key={col}>{t(`errors.owner.col.${col}`)}</Th>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </Tr>
+        </Thead>
+        <Tbody>
           {data.map((g) => (
-            <tr key={g.id} className="border-t align-top" style={{ borderColor: 'var(--color-border)' }}>
-              <td className="px-3 py-2 break-all">{g.safeMessage ?? t('errors.owner.serverError')}</td>
-              <td className="px-3 py-2">{t(`errors.source.${g.source}`)}</td>
-              <td className="px-3 py-2 tabular-nums">{new Intl.NumberFormat(locale).format(g.count)}</td>
-              <td className="px-3 py-2 whitespace-nowrap">{dateTime.format(new Date(g.firstSeenAt))}</td>
-              <td className="px-3 py-2 whitespace-nowrap">{dateTime.format(new Date(g.lastSeenAt))}</td>
-              <td className="px-3 py-2 font-mono">{g.lastCode ?? '-'}</td>
-              <td className="px-3 py-2">{t(`errors.status.${g.status}`)}</td>
-            </tr>
+            <Tr key={g.id} className="align-top">
+              <Td className="break-all">{g.safeMessage ?? t('errors.owner.serverError')}</Td>
+              <Td>{t(`errors.source.${g.source}`)}</Td>
+              <Td className="tabular-nums">{new Intl.NumberFormat(locale).format(g.count)}</Td>
+              <Td className="whitespace-nowrap">{dateTime.format(new Date(g.firstSeenAt))}</Td>
+              <Td className="whitespace-nowrap">{dateTime.format(new Date(g.lastSeenAt))}</Td>
+              <Td className="font-mono">{g.lastCode ?? '-'}</Td>
+              <Td>{t(`errors.status.${g.status}`)}</Td>
+            </Tr>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </Tbody>
+      </Table>
+    </Card>
   );
 }
 
@@ -80,21 +81,18 @@ function NotifyToggle() {
   };
 
   return (
-    <section className="space-y-2 p-5 border" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-      <h3 className="text-sm font-semibold">{t('errors.owner.notify.title')}</h3>
-      <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-        {t('errors.owner.notify.description')}
-      </p>
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={enabled} disabled={busy} onChange={(e) => change(e.target.checked)} />
-        {t('errors.owner.notify.toggle')}
-      </label>
-      {message && (
-        <p role="status" className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-          {message}
-        </p>
-      )}
-    </section>
+    <Card as="section">
+      <CardContent>
+        <h3 className="ui-heading">{t('errors.owner.notify.title')}</h3>
+        <p className="ui-text-muted">{t('errors.owner.notify.description')}</p>
+        <Checkbox label={t('errors.owner.notify.toggle')} checked={enabled} disabled={busy} onChange={(e) => change(e.target.checked)} />
+        {message && (
+          <p role="status" className="ui-caption">
+            {message}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -103,7 +101,7 @@ export default function StudioErrorsPage() {
   const t = useT();
   return (
     <PageGuard required={['errors.view']}>
-      <div className="space-y-6">
+      <div className="grid gap-6">
         <SettingsHeader title={t('errors.owner.title')} description={t('errors.owner.description')} />
         <NotifyToggle />
         <ErrorList />
