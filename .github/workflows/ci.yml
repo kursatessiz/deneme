@@ -6,6 +6,7 @@ on:
   # which matters on a private repository with an Actions minute budget.
   pull_request:
   workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: read
