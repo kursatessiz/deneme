@@ -183,6 +183,7 @@ Mesajlaşma, CRM ve pazarlama
 - Segmentler, kampanyalar ve akışlar: [`docs/KAMPANYA_VE_AKISLAR.md`](docs/KAMPANYA_VE_AKISLAR.md)
 - Reklam entegrasyonu: [`docs/REKLAM_ENTEGRASYONU.md`](docs/REKLAM_ENTEGRASYONU.md)
 - Sayfa motoru (platform ve kiracı siteleri): [`docs/SAYFA_MOTORU.md`](docs/SAYFA_MOTORU.md)
+- Teknik SEO (dizinleme, metadata, Open Graph, JSON-LD): [`docs/SEO.md`](docs/SEO.md)
 - Yapay zeka çekirdeği: [`docs/YAPAY_ZEKA.md`](docs/YAPAY_ZEKA.md)
 - Pazarlama modülü ve pazarlama yöneticisi rolü: [`docs/PAZARLAMA_MODULU.md`](docs/PAZARLAMA_MODULU.md)
 
