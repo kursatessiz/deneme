@@ -396,6 +396,11 @@ describe('Gamification (e2e)', () => {
 
   describe('disabled gamification', () => {
     it('turning gamification off stops new badges from being awarded', async () => {
+      // Baseline taken from the database, not assumed: earlier specs in the
+      // same run may have attended sessions or awarded badges to this member.
+      const badgesBefore = await prisma.memberBadge.count({ where: { studioId: ZEN, memberId: memberCId } });
+      const attendedBefore = await prisma.booking.count({ where: { studioId: ZEN, memberId: memberCId, status: 'ATTENDED' } });
+
       const off = await as(ownerToken).put(`/gamification/studio/${ZEN}/settings`).send({ enabled: false });
       expect(off.status).toBe(200);
       expect(off.body.enabled).toBe(false);
@@ -406,8 +411,9 @@ describe('Gamification (e2e)', () => {
 
       const stats = await as(memberCToken).get(`/gamification/studio/${ZEN}/me/stats`);
       expect(stats.status).toBe(200);
-      expect(stats.body.totalAttendedSessions).toBe(1); // attendance is still recorded
-      expect(stats.body.earnedBadges).toEqual([]); // but nothing was awarded
+      expect(stats.body.totalAttendedSessions).toBe(attendedBefore + 1); // attendance is still recorded
+      expect(stats.body.earnedBadges).toHaveLength(badgesBefore); // but nothing new was awarded
+      expect(await prisma.memberBadge.count({ where: { studioId: ZEN, memberId: memberCId } })).toBe(badgesBefore);
 
       const on = await as(ownerToken).put(`/gamification/studio/${ZEN}/settings`).send({ enabled: true });
       expect(on.status).toBe(200);

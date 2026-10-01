@@ -215,6 +215,11 @@ export class GamificationService {
       const met = this.isConditionMet(threshold, { sessions, attendedAt, timeZone: studio.timezone, anyMonthlyGoalMet });
       if (!met) continue;
 
+      // Re-check the setting at award time: the evaluation spans several
+      // queries, so a studio that turned gamification off meanwhile must not
+      // receive further badges from an evaluation that started earlier.
+      if (!(await this.isEnabled(studioId))) break;
+
       const created = await this.tryAward(studioId, memberId, def.id, sourceRef);
       if (created) newlyEarned.push({ badgeDefinitionId: def.id, name: def.name, description: def.description, kind: def.kind as BadgeKind });
     }
@@ -223,6 +228,11 @@ export class GamificationService {
       await this.notifyNewBadges(studioId, memberId, newlyEarned);
     }
     return newlyEarned;
+  }
+
+  private async isEnabled(studioId: string): Promise<boolean> {
+    const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { gamificationEnabled: true } });
+    return studio?.gamificationEnabled === true;
   }
 
   private isConditionMet(
