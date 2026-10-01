@@ -2,6 +2,7 @@
 
 import type { ChurnSummaryDTO } from '@platform/shared';
 import { useT } from '@/components/i18n/I18nProvider';
+import { StatTile } from '@/components/ui/StatTile';
 
 export function ChurnSummaryTiles({ summary }: { summary: ChurnSummaryDTO }) {
   const t = useT();
@@ -10,19 +11,18 @@ export function ChurnSummaryTiles({ summary }: { summary: ChurnSummaryDTO }) {
       {summary.counts.map((c) => {
         const delta = c.count - c.previousCount;
         return (
-          <div key={c.level} className="p-4" style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-            <div className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              {t(`churn.summary.${c.level}`)}
-            </div>
-            <div className="text-xl font-bold mt-1" style={{ color: 'var(--color-text-primary)' }}>
-              {c.count}
-            </div>
-            {c.previousCount !== undefined && (
-              <div className="text-xs mt-0.5" style={{ color: delta > 0 ? '#b42318' : delta < 0 ? '#15803d' : 'var(--color-text-muted)' }}>
-                {t('churn.summary.weekOverWeek', { delta: `${delta > 0 ? '+' : ''}${delta}` })}
-              </div>
-            )}
-          </div>
+          <StatTile
+            key={c.level}
+            label={t(`churn.summary.${c.level}`)}
+            value={c.count}
+            hint={
+              c.previousCount !== undefined ? (
+                <span className={delta > 0 ? 'ui-text-error' : delta < 0 ? 'ui-text-success' : undefined}>
+                  {t('churn.summary.weekOverWeek', { delta: `${delta > 0 ? '+' : ''}${delta}` })}
+                </span>
+              ) : undefined
+            }
+          />
         );
       })}
     </div>

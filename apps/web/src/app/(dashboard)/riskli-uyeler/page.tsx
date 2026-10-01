@@ -12,15 +12,11 @@ import { Modal } from '@/components/common/Modal';
 import { BranchSelect } from '@/components/common/BranchSelect';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { ChurnSummaryTiles } from '@/components/churn/ChurnSummaryTiles';
+import { Checkbox, Input, Select, Textarea } from '@/components/ui';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { AnchorButton } from '@/components/ui/LinkButton';
 
 const LEVEL_TONE: Record<string, 'danger' | 'warning' | 'neutral'> = { HIGH: 'danger', MEDIUM: 'warning', LOW: 'neutral' };
-
-const selectStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
 
 function ContactedDialog({ studioId, member, onClose, onDone }: { studioId: string; member: ChurnMemberSummaryDTO; onClose: () => void; onDone: () => void }) {
   const t = useT();
@@ -49,14 +45,13 @@ function ContactedDialog({ studioId, member, onClose, onDone }: { studioId: stri
   return (
     <Modal title={t('churn.contactedDialog.title', { name: `${member.firstName} ${member.lastName}` })} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-3">
-        <textarea
+        <Textarea
           placeholder={t('churn.contactedDialog.notePlaceholder')}
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          className="w-full text-sm px-3 py-1.5"
-          style={{ ...selectStyle, minHeight: 70 }}
+          rows={3}
         />
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {error && <p className="ui-text-error ui-small">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <PermissionButton type="button" variant="ghost" onClick={onClose}>
             {t('common.cancel')}
@@ -144,46 +139,38 @@ function ChurnList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-            {t('churn.title')}
-          </h2>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('churn.subtitle')}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <a href={exportHref} className="text-xs font-medium px-3 py-1.5" style={{ ...selectStyle, background: 'var(--color-surface-muted)' }}>
-            {t('churn.downloadCsv')}
-          </a>
-          <PermissionButton required={['members.manage']} onClick={handleRecompute}>
-            {t('churn.recompute')}
-          </PermissionButton>
-        </div>
-      </div>
+      <PageHeader
+        title={t('churn.title')}
+        description={t('churn.subtitle')}
+        actions={
+          <>
+            <AnchorButton variant="outline" tone="surface" size="sm" href={exportHref}>
+              {t('churn.downloadCsv')}
+            </AnchorButton>
+            <PermissionButton required={['members.manage']} onClick={handleRecompute}>
+              {t('churn.recompute')}
+            </PermissionButton>
+          </>
+        }
+      />
 
       {summary && <ChurnSummaryTiles summary={summary} />}
 
       <div className="flex flex-wrap items-center gap-2">
-        <input
+        <Input
           placeholder={t('churn.searchPlaceholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="text-sm px-3 py-1.5 flex-1 min-w-[200px]"
-          style={selectStyle}
+          className="flex-1 min-w-[200px]"
         />
-        <select value={level} onChange={(e) => setLevel(e.target.value as ChurnRiskLevel | '')} className="text-xs px-2.5 py-1.5" style={selectStyle}>
+        <Select value={level} onChange={(e) => setLevel(e.target.value as ChurnRiskLevel | '')}>
           <option value="">{t('churn.allLevels')}</option>
           <option value="HIGH">{t('churn.level.HIGH')}</option>
           <option value="MEDIUM">{t('churn.level.MEDIUM')}</option>
           <option value="LOW">{t('churn.level.LOW')}</option>
-        </select>
+        </Select>
         <BranchSelect value={branchId} onChange={setBranchId} />
-        <label className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-          <input type="checkbox" checked={includeSnoozed} onChange={(e) => setIncludeSnoozed(e.target.checked)} />
-          {t('churn.showSnoozed')}
-        </label>
+        <Checkbox label={t('churn.showSnoozed')} checked={includeSnoozed} onChange={(e) => setIncludeSnoozed(e.target.checked)} />
       </div>
 
       {loading && <LoadingState />}
@@ -193,25 +180,25 @@ function ChurnList() {
       {!loading && !error && members && members.length > 0 && (
         <div className="space-y-2">
           {members.map((m) => (
-            <div key={m.memberId} className="p-4 flex flex-wrap items-start justify-between gap-3" style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
+            <div key={m.memberId} className="p-4 flex flex-wrap items-start justify-between gap-3 pui-card">
               <div>
                 <div className="flex items-center gap-2">
-                  <a href={`/members/${m.memberId}`} className="font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                  <a href={`/members/${m.memberId}`} className="pui-link pui-surface ui-strong">
                     {m.firstName} {m.lastName}
                   </a>
                   <Badge tone={LEVEL_TONE[m.level]}>{t(`churn.level.${m.level}`)}</Badge>
-                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                  <span className="ui-caption">
                     {t('churn.score', { score: m.score })}
                     {m.previousScore !== null && m.previousScore !== m.score ? t('churn.previousScore', { score: m.previousScore }) : ''}
                   </span>
                 </div>
-                <ul className="text-xs mt-1 space-y-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+                <ul className="mt-1 space-y-0.5 ui-caption">
                   {m.reasons.slice(0, 3).map((r) => (
                     <li key={r.key}>- {r.label}</li>
                   ))}
                 </ul>
                 {m.contactedAt && (
-                  <div className="text-[11px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                  <div className="mt-1 ui-caption">
                     {t('churn.lastContact', { date: new Date(m.contactedAt).toLocaleDateString(locale) })}
                   </div>
                 )}

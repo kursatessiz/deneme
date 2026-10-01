@@ -14,17 +14,19 @@ import { Badge } from '@/components/common/Badge';
 import { ErrorState, LoadingState } from '@/components/common/DataState';
 import { bffFetch } from '@/lib/session/client';
 import { hasAnyPermission } from '@/lib/nav';
-import { Muted, Notice, Panel, inputClass, inputStyle, errorMessage, useDateFormat } from '@/components/growth/ui';
+import { Muted, Notice, Panel, errorMessage, useDateFormat } from '@/components/growth/ui';
 import { stageLabel } from '@/components/growth/crm-labels';
 import { useAreaHref } from '@/components/session/AreaBase';
 import { useOptionalPlatformSession } from '@/components/marketing/PlatformSession';
 import { hasAnyPlatformPermission } from '@/lib/marketing-nav';
+import { Input } from '@/components/ui';
+import { Button } from '@/components/ui/Button';
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex justify-between gap-3 text-sm py-1">
-      <dt style={{ color: 'var(--color-text-muted)' }}>{label}</dt>
-      <dd className="text-right" style={{ color: 'var(--color-text-primary)' }}>
+    <div className="flex justify-between gap-3 py-1">
+      <dt className="ui-text-muted">{label}</dt>
+      <dd className="text-right">
         {value}
       </dd>
     </div>
@@ -47,9 +49,9 @@ function ConsentRow({
   const granted = consent.status === 'GRANTED';
   const id = `consent-evidence-${consent.channel}`;
   return (
-    <li className="py-2 space-y-2 border-t first:border-t-0" style={{ borderColor: 'var(--color-border)' }}>
+    <li className="py-2 space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+        <span className="ui-strong">
           {t(`messaging.channel.${consent.channel}`)}
         </span>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -81,10 +83,10 @@ function ConsentRow({
               <label htmlFor={id} className="sr-only">
                 {t('crm.card.consent.evidence')}
               </label>
-              <input id={id} value={evidence} onChange={(e) => setEvidence(e.target.value)} placeholder={t('crm.card.consent.evidence')} className={inputClass} style={inputStyle} />
+              <Input id={id} value={evidence} onChange={(e) => setEvidence(e.target.value)} placeholder={t('crm.card.consent.evidence')} />
             </div>
           )}
-          <button
+          <Button variant="outline" tone="surface" size="sm"
             type="button"
             disabled={busy || (!granted && !evidence.trim())}
             onClick={async () => {
@@ -93,11 +95,9 @@ function ConsentRow({
               setEvidence('');
               setBusy(false);
             }}
-            className="text-xs font-medium px-3 py-2 disabled:opacity-50"
-            style={{ ...inputStyle, borderRadius: 'var(--radius-button)' }}
           >
             {granted ? t('crm.card.consent.revoke') : t('crm.card.consent.grant')}
-          </button>
+          </Button>
         </div>
       )}
     </li>
@@ -171,11 +171,11 @@ function ContactCard({ contactId }: { contactId: string }) {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <Link href={areaHref('/kisiler')} className="text-xs hover:underline" style={{ color: 'var(--color-text-secondary)' }}>
+        <Link href={areaHref('/kisiler')} className="pui-link pui-surface ui-caption">
           {t('crm.card.back')}
         </Link>
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
+          <h2 className="ui-title">
             {contact.fullName}
           </h2>
           <Badge>{t(`crm.lifecycle.${contact.lifecycleStage}`)}</Badge>
@@ -201,14 +201,12 @@ function ContactCard({ contactId }: { contactId: string }) {
                   <span className="inline-flex items-center gap-2">
                     {t(contact.isBusiness ? 'crm.card.business.yes' : 'crm.card.business.no')}
                     {canManage && (
-                      <button
+                      <Button variant="link" tone="muted" size="sm"
                         type="button"
-                        className="text-xs underline"
-                        style={{ color: 'var(--color-text-secondary)' }}
                         onClick={() => act(() => bffFetch(`${base}/contacts/${contact.id}`, { method: 'PATCH', studioId: activeStudioId, body: { isBusiness: !contact.isBusiness } }))}
                       >
                         {t(contact.isBusiness ? 'crm.card.business.unmark' : 'crm.card.business.mark')}
-                      </button>
+                      </Button>
                     )}
                   </span>
                 }
@@ -230,8 +228,7 @@ function ContactCard({ contactId }: { contactId: string }) {
                     <button
                       type="button"
                       aria-label={t('crm.card.removeTag', { tag })}
-                      className="text-xs px-1"
-                      style={{ color: 'var(--color-text-muted)' }}
+                      className="px-1 ui-caption"
                       onClick={() => act(() => bffFetch(`${base}/contacts/${contact.id}/tags`, { method: 'POST', studioId: activeStudioId, body: { add: [], remove: [tag] } }))}
                     >
                       <X className="w-3 h-3" aria-hidden="true" />
@@ -254,10 +251,10 @@ function ContactCard({ contactId }: { contactId: string }) {
                 <label htmlFor="new-tag" className="sr-only">
                   {t('crm.card.addTag')}
                 </label>
-                <input id="new-tag" value={newTag} onChange={(e) => setNewTag(e.target.value)} placeholder={t('crm.card.addTag')} className={inputClass} style={inputStyle} />
-                <button type="submit" className="text-xs font-medium px-3" style={{ ...inputStyle, borderRadius: 'var(--radius-button)' }}>
+                <Input id="new-tag" value={newTag} onChange={(e) => setNewTag(e.target.value)} placeholder={t('crm.card.addTag')} />
+                <Button variant="outline" tone="surface" size="sm" type="submit">
                   {t('common.add')}
-                </button>
+                </Button>
               </form>
             )}
           </Panel>
@@ -278,7 +275,7 @@ function ContactCard({ contactId }: { contactId: string }) {
 
           <Panel title={t('crm.card.consent')} labelledBy="card-consent">
             <Muted>{t('crm.card.consentHint')}</Muted>
-            <ul>
+            <ul className="ui-divide">
               {contact.consents.map((c) => (
                 <ConsentRow
                   key={c.channel}
@@ -292,7 +289,7 @@ function ContactCard({ contactId }: { contactId: string }) {
             </ul>
             {canResend && contact.consents.some((c) => c.confirmationPending) && (
               <div className="space-y-1">
-                <button
+                <Button variant="outline" tone="surface" size="sm"
                   type="button"
                   onClick={() =>
                     act(async () => {
@@ -301,11 +298,9 @@ function ContactCard({ contactId }: { contactId: string }) {
                       setResendNotice(t('crm.card.consent.resent', { count: res.sentToday }));
                     })
                   }
-                  className="text-xs font-medium px-3 py-2"
-                  style={{ ...inputStyle, borderRadius: 'var(--radius-button)' }}
                 >
                   {t('crm.card.consent.resend')}
-                </button>
+                </Button>
                 <Muted>{resendNotice ?? t('crm.card.consent.resendLimit', { max: CONSENT_CONFIRMATION_DAILY_MAX })}</Muted>
               </div>
             )}
@@ -317,20 +312,18 @@ function ContactCard({ contactId }: { contactId: string }) {
             {contact.tasks.length === 0 && <Muted>{t('crm.card.noTasks')}</Muted>}
             <ul className="space-y-1">
               {contact.tasks.map((task) => (
-                <li key={task.id} className="flex flex-wrap items-center justify-between gap-2 text-sm py-1">
-                  <span style={{ color: 'var(--color-text-primary)', textDecoration: task.status === 'DONE' ? 'line-through' : undefined }}>{task.title}</span>
+                <li key={task.id} className="flex flex-wrap items-center justify-between gap-2 py-1">
+                  <span className={task.status === 'DONE' ? 'line-through' : undefined}>{task.title}</span>
                   <span className="flex items-center gap-2">
                     {task.dueAt && <Muted>{fmt.dateTime(task.dueAt)}</Muted>}
                     <Badge tone={task.status === 'OPEN' ? 'warning' : 'neutral'}>{t(`crm.task.${task.status}`)}</Badge>
                     {canManage && task.status === 'OPEN' && (
-                      <button
+                      <Button variant="link" tone="muted" size="sm"
                         type="button"
-                        className="text-xs underline"
-                        style={{ color: 'var(--color-text-secondary)' }}
                         onClick={() => act(() => bffFetch(`${base}/tasks/${task.id}`, { method: 'PATCH', studioId: activeStudioId, body: { status: 'DONE' } }))}
                       >
                         {t('crm.card.completeTask')}
-                      </button>
+                      </Button>
                     )}
                   </span>
                 </li>
@@ -351,14 +344,14 @@ function ContactCard({ contactId }: { contactId: string }) {
                 <label htmlFor="task-title" className="sr-only">
                   {t('crm.card.taskTitle')}
                 </label>
-                <input id="task-title" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder={t('crm.card.taskTitle')} className={inputClass} style={inputStyle} />
+                <Input id="task-title" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder={t('crm.card.taskTitle')} />
                 <label htmlFor="task-due" className="sr-only">
                   {t('crm.card.taskDue')}
                 </label>
-                <input id="task-due" type="datetime-local" value={taskDue} onChange={(e) => setTaskDue(e.target.value)} className={inputClass} style={inputStyle} />
-                <button type="submit" className="text-xs font-medium px-3 py-2" style={{ ...inputStyle, borderRadius: 'var(--radius-button)' }}>
+                <Input id="task-due" type="datetime-local" value={taskDue} onChange={(e) => setTaskDue(e.target.value)} />
+                <Button variant="outline" tone="surface" size="sm" type="submit">
                   {t('crm.card.addTask')}
-                </button>
+                </Button>
               </form>
             )}
           </Panel>
@@ -378,7 +371,7 @@ function ContactCard({ contactId }: { contactId: string }) {
                 <label htmlFor="note" className="sr-only">
                   {t('crm.card.note')}
                 </label>
-                <input id="note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('crm.card.note')} className={inputClass} style={inputStyle} />
+                <Input id="note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('crm.card.note')} />
                 <PermissionButton required={['crm.manage']} type="submit">
                   {t('crm.card.addNote')}
                 </PermissionButton>
@@ -387,12 +380,12 @@ function ContactCard({ contactId }: { contactId: string }) {
             {contact.activities.length === 0 && <Muted>{t('crm.card.noActivity')}</Muted>}
             <ol className="space-y-2" aria-label={t('crm.card.timeline')}>
               {contact.activities.map((a) => (
-                <li key={a.id} className="text-sm border-l-2 pl-3" style={{ borderColor: 'var(--color-border)' }}>
+                <li key={a.id} className="ui-rail">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge>{t(`crm.activity.${a.type}`)}</Badge>
                     <Muted>{`${fmt.dateTime(a.createdAt)}${a.actorName ? `, ${a.actorName}` : ''}`}</Muted>
                   </div>
-                  <p className="mt-1 whitespace-pre-wrap" style={{ color: 'var(--color-text-primary)' }}>
+                  <p className="mt-1 whitespace-pre-wrap">
                     {a.body}
                   </p>
                 </li>
@@ -407,23 +400,23 @@ function ContactCard({ contactId }: { contactId: string }) {
             </dl>
             {contact.touchpoints.length > 0 && (
               <div className="space-y-1">
-                <p className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                <p className="ui-strong ui-caption">
                   {t('crm.card.touchpoints')}
                 </p>
-                <ul className="text-xs space-y-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+                <ul className="space-y-0.5 ui-caption">
                   {contact.touchpoints.slice(0, 10).map((tp) => (
                     <li key={tp.id}>{`${fmt.dateTime(tp.occurredAt)}: ${[tp.utmSource, tp.utmMedium, tp.utmCampaign].filter(Boolean).join(' / ') || tp.referrerHost || tp.landingPath}`}</li>
                   ))}
                 </ul>
               </div>
             )}
-            <p className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+            <p className="ui-strong ui-caption">
               {t('crm.card.conversions')}
             </p>
             {contact.conversions.length === 0 ? (
               <Muted>{t('crm.card.noConversions')}</Muted>
             ) : (
-              <ul className="text-xs space-y-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+              <ul className="space-y-0.5 ui-caption">
                 {contact.conversions.map((cv) => (
                   <li key={cv.id}>{`${fmt.dateTime(cv.occurredAt)}: ${t(`journeys.event.${cv.type}`)}${cv.valueAmount && cv.currency ? `, ${new Intl.NumberFormat(locale, { style: 'currency', currency: cv.currency }).format(Number(cv.valueAmount))}` : ''}`}</li>
                 ))}
