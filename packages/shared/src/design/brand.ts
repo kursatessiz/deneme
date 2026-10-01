@@ -154,6 +154,19 @@ function mix(a: string, b: string, share: number): string {
   return rgbToHex([ar * share + br * (1 - share), ag * share + bg * (1 - share), ab * share + bb * (1 - share)]);
 }
 
+/** HSL hue (degrees) and saturation of a #RRGGBB color; used only to guard the brand hue. */
+function hslHue(hex: string): { h: number; s: number } {
+  const [r, g, b] = hexToRgb(hex).map((v) => v / 255);
+  const max = Math.max(r, g, b);
+  const d = max - Math.min(r, g, b);
+  if (d === 0) return { h: 0, s: 0 };
+  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return { h: (h * 60 + 360) % 360, s: d / (1 - Math.abs(max + (max - d) - 1)) };
+}
+
+/** Largest HSL hue drift (degrees) a lightness shift may cause; rounding to 8-bit channels can nudge dark colors. */
+const MAX_HUE_DRIFT = 5;
+
 /**
  * Steps lightness from `start` by STEP in `direction` (1 lighter, -1 darker)
  * until `ok` holds, up to `cap` in total. Returns null when the cap is hit first.
@@ -163,18 +176,15 @@ function shiftUntil(start: string, direction: 1 | -1, ok: (hex: string) => boole
   for (let n = 1; n * STEP <= cap + 1e-9; n += 1) {
     const l = Math.max(0, Math.min(1, base.l + direction * n * STEP));
     const hex = fromOklch({ ...base, l });
-    if (ok(hex)) return hex;
+    // Chroma reduction and rounding can move the realised lightness a hair; the cap is on what is rendered.
+    if (Math.abs(toOklch(hex).l - base.l) > cap) break;
+    const from = hslHue(start);
+    const to = hslHue(hex);
+    const drift = Math.min(Math.abs(from.h - to.h), 360 - Math.abs(from.h - to.h));
+    if (ok(hex) && (from.s < 0.1 || drift <= MAX_HUE_DRIFT)) return hex;
     if (l === 0 || l === 1) break;
   }
   return null;
-}
-
-function bestOnColor(background: string): { color: string; ratio: number } {
-  const white = wcagContrast(ON_BRAND_LIGHT, background);
-  // White is preferred whenever it is readable; near-black takes over on light and mid-tone colors.
-  if (white >= MIN_TEXT_CONTRAST) return { color: ON_BRAND_LIGHT, ratio: white };
-  const dark = wcagContrast(ON_BRAND_DARK, background);
-  return dark >= white ? { color: ON_BRAND_DARK, ratio: dark } : { color: ON_BRAND_LIGHT, ratio: white };
 }
 
 /**
@@ -204,21 +214,23 @@ export function deriveBrandPalette(primaryHex: string, options: BrandPaletteOpti
   const mode: ColorMode = options.mode ?? 'light';
   const page = options.background && HEX6.test(options.background) ? options.background : PERFECT_UI_TOKENS.colors[mode].bg;
 
-  // Solid surface: keep the color when white or near-black text already reaches 4.5:1,
-  // otherwise move lightness toward the text color that is closer, at most SOLID_MAX_LIGHTNESS_SHIFT.
+  // Solid surface, white text preferred: (1) keep the color when white reaches 4.5:1; (2) otherwise darken it
+  // in OKLCH until white does, within SOLID_MAX_LIGHTNESS_SHIFT; (3) when the cap is not enough (very light
+  // colors) use near-black text, on the color itself or lightened slightly if it still falls short.
   let primary = input;
-  let on = bestOnColor(primary);
-  if (on.ratio < MIN_TEXT_CONTRAST) {
-    const white = wcagContrast(ON_BRAND_LIGHT, input);
-    const dark = wcagContrast(ON_BRAND_DARK, input);
-    const direction: 1 | -1 = white >= dark ? -1 : 1;
-    const reaches = (hex: string) => bestOnColor(hex).ratio >= MIN_TEXT_CONTRAST;
-    primary =
-      shiftUntil(input, direction, reaches, SOLID_MAX_LIGHTNESS_SHIFT) ??
-      shiftUntil(input, direction === 1 ? -1 : 1, reaches, SOLID_MAX_LIGHTNESS_SHIFT) ??
-      input;
-    on = bestOnColor(primary);
+  let onColor = ON_BRAND_LIGHT;
+  if (wcagContrast(ON_BRAND_LIGHT, input) < MIN_TEXT_CONTRAST) {
+    const darkened = shiftUntil(input, -1, (hex) => wcagContrast(ON_BRAND_LIGHT, hex) >= MIN_TEXT_CONTRAST, SOLID_MAX_LIGHTNESS_SHIFT);
+    if (darkened) {
+      primary = darkened;
+    } else {
+      onColor = ON_BRAND_DARK;
+      if (wcagContrast(ON_BRAND_DARK, input) < MIN_TEXT_CONTRAST) {
+        primary = shiftUntil(input, 1, (hex) => wcagContrast(ON_BRAND_DARK, hex) >= MIN_TEXT_CONTRAST, SOLID_MAX_LIGHTNESS_SHIFT) ?? input;
+      }
+    }
   }
+  const on = { color: onColor, ratio: wcagContrast(onColor, primary) };
 
   const primaryHover = deriveHover(primary, on.color);
 

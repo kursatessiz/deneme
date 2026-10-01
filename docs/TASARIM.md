@@ -91,8 +91,8 @@ oranı; eşik `MIN_TEXT_CONTRAST = 4.5`). Döndürdüğü değerler:
 
 | Alan | Anlamı |
 |------|--------|
-| `primary` | Düz yüzeylerde (birincil buton, üye kartı, paket kartı) kullanılan renk. Beyaz veya yakın siyah yazı 4,5:1'e ulaşıyorsa sahibin rengi aynen kalır; ikisi de ulaşamıyorsa OKLCH açıklığı küçük adımlarla (0,005) yazı renginin yakın olduğu yöne kaydırılır. Kayma en çok `SOLID_MAX_LIGHTNESS_SHIFT = 0,18`dir; ton ve doygunluk korunur (sRGB dışına çıkarsa yalnızca doygunluk azaltılır) |
-| `onPrimary` | `primary` üzerindeki yazı: beyaz okunaklıysa beyaz, değilse yakın siyah `#111827` (`palette.ink[900]`, saf siyah değil) |
+| `primary` | Düz yüzeylerde (birincil buton, üye kartı, paket kartı) kullanılan renk; beyaz yazı tercih edilir. (1) Beyaz yazı 4,5:1'e ulaşıyorsa sahibin rengi aynen kalır; (2) ulaşmıyorsa OKLCH açıklığı küçük adımlarla (0,005) koyulaştırılır (ton ve doygunluk korunur, HSL ton kayması en çok 5 derece) ve beyaz 4,5:1'e ulaşınca durulur; kayma en çok `SOLID_MAX_LIGHTNESS_SHIFT = 0,18`dir; (3) bu sınır yetmezse (sarı, açık gri gibi çok açık renkler) yazı yakın siyaha geçer ve renk olduğu gibi (gerekirse hafifçe açılarak) kalır |
+| `onPrimary` | `primary` üzerindeki yazı: beyaz (kural 1 veya 2), yalnızca kural 3'te yakın siyah `#111827` (`palette.ink[900]`, saf siyah değil) |
 | `primaryHover` | Düz yüzeyin üzerine gelme hali: yazıyla kontrastı artıran uca (beyaz yazı altında siyaha, koyu yazı altında beyaza) yüzde 12 karışım; uçlarda yön döner; yazı kontrastı 4,5:1'in (veya düz yüzeyin kendi değerinin) altına düşmez |
 | `primaryMuted` | Birincil rengin sayfa rengiyle karışımı (yüzde 40): devre dışı düz yüzey ve tonlar. Süs amaçlıdır, yazı garantisi yoktur |
 | `primarySubtleBg` | Birincil rengin sayfaya yüzde 12 karışımı: rozet ve seçili satır zemini |
@@ -112,8 +112,8 @@ bağlar. Mobil `useTheme()` üzerinden aynı değerleri okur; bağlantı ve vurg
 `colors.primaryText`, düz zeminler `colors.primary` / `colors.onPrimary` kullanır.
 
 Kit varsayılan rengi (`#0092CD`) için istisna yoktur: o da diğer her renk gibi
-bu kuraldan geçer (beyaz yazı yaklaşık 3,5:1 olduğundan üzerindeki yazı yakın siyah
-`#111827`, 5,06:1 olur); renk değeri varsayılan olarak kalır ve her iki kipte aynıdır.
+bu kuraldan geçer (beyaz yazı yaklaşık 3,5:1 olduğundan `#0092CD` biraz koyulaşıp `#007db1` olur ve
+üzerinde beyaz yazı 4,5:1'e ulaşır; kitin görünümü korunur); düz renk her iki kipte aynıdır.
 İşletme ayarları ekranları (web `ayarlar/gorunum`,
 mobil `hesabim/isletme-temasi`) artık uyarı göstermez: kısa bir not
 (`themeDesign.contrast.note`), düğme ve bağlantı yazısı örneği ve renk

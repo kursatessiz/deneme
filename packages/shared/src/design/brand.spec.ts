@@ -42,13 +42,16 @@ function hslToHex(h: number, s: number, l: number): string {
 const TABLE = ['#0092cd', '#ffffff', '#000000', '#ffff00', '#ff0000', '#1a1a1a', '#e5e7eb', '#c8443c', '#2b74b9', '#00ff00', '#ff00ff', '#808080', '#777777', '#07b6f0', '#f59e0b'];
 
 describe('deriveBrandPalette', () => {
-  it('white on #0092cd stays under 4.5:1 (about 3.5), which the palette resolves without moving the color', () => {
-    expect(wcagContrast('#ffffff', '#0092cd')).toBeGreaterThan(3.4);
+  it('prefers white: #0092cd is darkened within the cap until white reaches 4.5:1', () => {
     expect(wcagContrast('#ffffff', '#0092cd')).toBeLessThan(MIN_TEXT_CONTRAST);
     const p = deriveBrandPalette('#0092cd');
-    expect(p.onPrimary).toBe(ON_BRAND_DARK);
+    expect(p.onPrimary).toBe(ON_BRAND_LIGHT);
+    expect(p.primary).toBe('#007db1');
     expect(wcagContrast(p.onPrimary, p.primary)).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST);
-    expect(p.primary).toBe('#0092cd');
+    expect(relativeLuminance(p.primary)).toBeLessThan(relativeLuminance('#0092cd'));
+    expect(oklchLightness('#0092cd') - oklchLightness(p.primary)).toBeGreaterThan(0);
+    expect(oklchLightness('#0092cd') - oklchLightness(p.primary)).toBeLessThanOrEqual(SOLID_MAX_LIGHTNESS_SHIFT);
+    expect(hueDrift('#0092cd', p.primary)).toBeLessThanOrEqual(6);
   });
 
   it('uses white when it is readable and near-black (never pure black) otherwise', () => {
@@ -57,6 +60,8 @@ describe('deriveBrandPalette', () => {
     expect(deriveBrandPalette('#c8443c').onPrimary).toBe(ON_BRAND_LIGHT);
     expect(deriveBrandPalette('#ffffff').onPrimary).toBe(ON_BRAND_DARK);
     expect(deriveBrandPalette('#ffff00').onPrimary).toBe(ON_BRAND_DARK);
+    expect(deriveBrandPalette('#ffff00').primary).toBe('#ffff00');
+    expect(deriveBrandPalette('#e5e7eb').onPrimary).toBe(ON_BRAND_DARK);
     expect(ON_BRAND_DARK).toBe(palette.ink[900]);
     for (const hex of TABLE) expect([ON_BRAND_LIGHT, ON_BRAND_DARK]).toContain(deriveBrandPalette(hex).onPrimary);
   });
@@ -72,7 +77,7 @@ describe('deriveBrandPalette', () => {
   });
 
   it('leaves colors that already pass untouched, in their original spelling', () => {
-    for (const hex of ['#C8443C', '#1a1a1a', '#ffff00', '#000000', '#ffffff', '#e5e7eb', '#0092cd']) {
+    for (const hex of ['#C8443C', '#1a1a1a', '#ffff00', '#000000', '#ffffff', '#e5e7eb']) {
       expect(deriveBrandPalette(hex).primary).toBe(hex);
     }
   });
@@ -141,7 +146,7 @@ describe('deriveBrandPalette', () => {
 
   it('falls back to the kit brand color for an invalid input', () => {
     expect(deriveBrandPalette('purple').primary).toBe(deriveBrandPalette('#0092cd').primary);
-    expect(deriveBrandPalette('#fff').primary).toBe('#0092cd');
+    expect(deriveBrandPalette('#fff').primary).toBe('#007db1');
   });
 
   it('deriveHover turns around at the ends of the scale', () => {
@@ -180,8 +185,8 @@ describe('brand palette in the resolved theme and the CSS variables', () => {
     const theme = resolveTheme({ tenant: null, appearance: { colorScheme: 'DARK' }, systemMode: 'light' });
     const vars = themeCssVariables(theme);
     expect(theme.isDefaultPrimary).toBe(true);
-    expect(vars['--pui-theme']).toBe('#0092CD');
-    expect(vars['--pui-on-theme']).toBe(ON_BRAND_DARK);
+    expect(vars['--pui-theme']).toBe('#007db1');
+    expect(vars['--pui-on-theme']).toBe(ON_BRAND_LIGHT);
     expect(wcagContrast(theme.colors.onPrimary, theme.colors.primary)).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST);
     expect(wcagContrast(theme.brand.light.primaryText, PAGE.light)).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST);
     expect(wcagContrast(theme.brand.dark.primaryText, PAGE.dark)).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST);
