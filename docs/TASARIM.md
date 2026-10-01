@@ -378,14 +378,21 @@ tek renk, köşe, boşluk ve boyut kaynağı oldu; `Button`, `Card`, `Badge`, `C
 alıyor; Görünüm ekranı yalnızca açık/koyu/sistem, İşletme teması ekranı yalnızca logo ve ana renk
 düzenliyor (aile ve gradyan seçicileri ile `Swatches` kalktı); gradyan yalnızca üye ve paket kartında.
 
-Kalan: sayfa motoru blokları ve sayfaları (`components/sites/*`) T6'da taşınır. Mobilde
+T6'da sayfa motoru taşındı (ayrıntı: `docs/SAYFA_MOTORU.md`, "Tasarım dili"): tüm bloklar
+(`BlockRenderer`), aday formu (`LeadFormBlock`) ve site kabuğu (`SitePage`) `components/ui` ile
+yazıldı; `SiteEditor` (`/ayarlar/web-sitem`, `/admin/web-sitesi`) kütüphaneye taşındı ve blok
+başına A/B varyant anahtarı alanı kazandı; herkese açık rezervasyon sayfası
+(`/booking/<slug>/book`) sabit örnek veri yerine herkese açık embed uç noktalarını (config,
+şubeler, hizmet türleri, seanslar) okuyor ve markayı `ThemeRoot` ile alıyor, ortak istemci
+`lib/public-booking.ts`; `THEME_FAMILIES.perfect` yerel yazı tipi adları Inter yüzlerine
+çevrildi. Web tarafında kalan yok: `apps/web/src` içinde Tailwind renk/köşe/gölge/tipografi
+sınıfı kalmadı. Mobilde
 kalanlar: durum renkleri (`palette.danger/success/warning`) ekranlarda açık moddaki kit değerleriyle
 kullanılıyor, koyu modda rol rengine (`theme.roles`) geçiş ve ekranların `Card`/`ListRow` ilkellerine tam
 taşınması (şu an yalnızca ana ekran ve Hesabım menüsü; diğer ekranlar token'lı kendi stillerini
 kullanıyor) sonraki iştir; Android widget'ı ve kök hata ekranı tema dışı kalır; gerçek cihazda görsel
-doğrulama yapılmadı. `apps/web/src` içinde
-(`components/sites` hariç) Tailwind renk/köşe/gölge/tipografi sınıfı veya sabit renk
-kalmadı; geriye yalnızca değeri `var(--pui-*)` token'ı olan satır içi `style`'lar
+doğrulama yapılmadı. `apps/web/src` içinde Tailwind renk/köşe/gölge/tipografi
+sınıfı veya sabit renk kalmadı; geriye yalnızca değeri `var(--pui-*)` token'ı olan satır içi `style`'lar
 (`ThemeRoot`, açılış sayfası, üye kartı gradyan alanı, `Header` zemini), marka rengi
 alanının sabit `#0092cd` varsayılanı ve `ui-*` sınıflarıyla çözülemeyen konumlandırma
 stilleri (bal tuzağı alanı) var.

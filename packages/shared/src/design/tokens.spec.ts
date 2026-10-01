@@ -20,6 +20,13 @@ import {
 import { PERFECT_UI_TOKENS, THEME_FAMILIES, THEME_FAMILY_KEYS, getThemeFamily } from './themes';
 
 describe('design tokens (Perfect UI)', () => {
+  it('names only Inter faces for the native fonts', () => {
+    const { display, body } = THEME_FAMILIES.perfect.fonts;
+    for (const face of [...Object.values(display.native), ...Object.values(body.native)]) {
+      expect(face).toMatch(/^Inter_\d{3}[A-Za-z]+$/);
+    }
+  });
+
   it('has exactly one design family and maps every legacy or unknown key to it', () => {
     expect(THEME_FAMILY_KEYS).toEqual(['perfect']);
     for (const key of ['perfect', 'noir', 'nefes', 'saha', 'atolye', 'mor', null, undefined]) {

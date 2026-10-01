@@ -87,26 +87,16 @@ export async function SitePageView({ studioSlug, isPlatform, locale, slugParts }
       {faqItems.length > 0 && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(faqPageJsonLd(faqItems)) }} />}
       {offerItems.length > 0 && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(offerJsonLd(offerItems)) }} />}
 
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <div className="min-h-screen flex flex-col">
         {page.page.kind === 'LEGAL' && !page.localeMeta.legalApproved && (
-          <div
-            role="note"
-            style={{
-              backgroundColor: 'var(--color-warning-surface, #fef3c7)',
-              color: 'var(--color-warning-text, #92400e)',
-              textAlign: 'center',
-              padding: '10px 16px',
-              fontSize: 13,
-              fontWeight: 600,
-            }}
-          >
+          <div role="note" className="ui-panel ui-strong ui-text-warn text-center px-4 py-3">
             {t('sites.legalDraftBanner')}
           </div>
         )}
-        <main style={{ flex: 1 }}>
+        <main className="flex-1">
           <BlockRenderer blocks={page.blocks} locale={locale} defaultLocale={page.defaultLocale} studioSlug={studioSlug} context={page.context} variant={variant} t={t} />
         </main>
-        <footer style={{ padding: '16px', textAlign: 'center', fontSize: 13 }}>
+        <footer className="ui-rule px-4 py-4 text-center ui-caption">
           <CookiePreferencesButton label={t('sites.footer.cookiePreferences')} />
         </footer>
       </div>
