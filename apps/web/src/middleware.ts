@@ -229,7 +229,9 @@ export const config = {
   matcher: [
     // Runs on every request (except static assets) so a tenant subdomain or
     // custom domain is rewritten whatever path it requests; the protected-path
-    // and embed-CSP checks below still only act on their own paths.
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    // and embed-CSP checks below still only act on their own paths. The generated
+    // icons, the web manifest and the Open Graph image (app/icon.tsx, apple-icon.tsx,
+    // manifest.ts, opengraph-image.tsx) are root assets and skip the middleware.
+    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|(?:icon|apple-icon|opengraph-image)(?:/|$)).*)',
   ],
 };

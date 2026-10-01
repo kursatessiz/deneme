@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { DEFAULT_TENANT_THEME } from '@platform/shared';
 import { fetchPublicPage } from '@/lib/sites/api';
+import { siteOrigin, sitePath } from '@/lib/sites/origin';
 import { pickPageVariant } from '@/lib/sites/ab';
 import { getTFor } from '@/lib/i18n/getT';
 import { serializeJsonLd } from '@/lib/sites/json-ld';
@@ -11,20 +12,7 @@ import { PublicTracking } from '@/components/consent/PublicTracking';
 import { BlockRenderer } from './BlockRenderer';
 import { organizationJsonLd, localBusinessJsonLd, faqPageJsonLd, offerJsonLd } from '@/lib/sites/jsonld';
 
-export function sitesBaseDomain(): string {
-  return process.env.SITES_DOMAIN || process.env.WEB_DOMAIN || 'localhost';
-}
-
-export function siteOrigin(studioSlug: string, isPlatform: boolean): string {
-  const base = sitesBaseDomain();
-  const host = isPlatform ? base : `${studioSlug}.${base}`;
-  const protocol = base === 'localhost' ? 'http' : 'https';
-  return `${protocol}://${host}`;
-}
-
-export function sitePath(locale: string, slug: string): string {
-  return slug ? `/${locale}/${slug}` : `/${locale}`;
-}
+export { sitesBaseDomain, siteOrigin, sitePath } from '@/lib/sites/origin';
 const pathFor = sitePath;
 
 /** Shared by the platform's `/[locale]/[[...slug]]` route and a tenant site's `tenant-site/[studioSlug]/[locale]/[[...slug]]` route. */
