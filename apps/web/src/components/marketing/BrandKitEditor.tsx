@@ -17,6 +17,7 @@ import { Badge } from '@/components/common/Badge';
 import { InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader } from '@/components/settings/ui';
 import { marketingErrorText } from '@/lib/marketing/errors';
 import { AreaField, CheckField, InputField, LinkButton, SelectField } from './fields';
+import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui';
 
 const LINK_KEYS = ['website', 'linkedin', 'instagram', 'facebook', 'x', 'youtube'] as const;
 
@@ -268,7 +269,7 @@ export function BrandKitEditor() {
       <SettingsHeader title={t('brandKit.title')} description={t('brandKit.subtitle')} />
       {!canEdit && <InlineMessage text={t('brandKit.readOnly')} />}
       {view.kit && (
-        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+        <p className="ui-caption">
           {t('brandKit.version', { version: view.kit.version })}
           {' - '}
           {t('brandKit.updatedAt', { date: new Intl.DateTimeFormat(uiLocale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(view.kit.updatedAt)) })}
@@ -335,7 +336,7 @@ export function BrandKitEditor() {
 
       <Section title={t('brandKit.icps.title')} description={t('brandKit.icps.hint')}>
         {form.icps.length === 0 && (
-          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="ui-text-muted">
             {t('brandKit.icps.empty')}
           </p>
         )}
@@ -428,33 +429,33 @@ export function BrandKitEditor() {
 
       <Section title={t('brandKit.facts.title')} description={t('brandKit.facts.hint')}>
         {view.facts.length === 0 ? (
-          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="ui-text-muted">
             {t('brandKit.facts.empty')}
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ color: 'var(--color-text-muted)' }}>
+            <Table>
+              <Thead>
+                <Tr>
                   {[t('brandKit.facts.key'), t('brandKit.facts.category'), t('brandKit.facts.statement'), t('brandKit.facts.validUntil'), ''].map((h, i) => (
-                    <th key={i} className="text-left font-medium text-xs py-1.5 pr-3">
+                    <Th key={i} className="ui-small">
                       {h}
-                    </th>
+                    </Th>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
+                </Tr>
+              </Thead>
+              <Tbody>
                 {view.facts.map((f) => {
                   const expired = f.validUntil !== null && f.validUntil < today;
                   return (
-                    <tr key={f.id} className="border-t align-top" style={{ borderColor: 'var(--color-border)' }}>
-                      <td className="py-2 pr-3 font-mono text-xs">{f.key}</td>
-                      <td className="py-2 pr-3 text-xs">{f.category}</td>
-                      <td className="py-2 pr-3">{f.statements[form.defaultLocale] ?? Object.values(f.statements)[0] ?? ''}</td>
-                      <td className="py-2 pr-3 text-xs">
+                    <Tr key={f.id} className="align-top">
+                      <Td className="font-mono ui-small">{f.key}</Td>
+                      <Td className="ui-small">{f.category}</Td>
+                      <Td>{f.statements[form.defaultLocale] ?? Object.values(f.statements)[0] ?? ''}</Td>
+                      <Td className="ui-small">
                         {f.validUntil ?? '-'} {expired && <Badge tone="warning">{t('brandKit.facts.expired')}</Badge>} {!f.isActive && <Badge>{t('brandKit.facts.inactive')}</Badge>}
-                      </td>
-                      <td className="py-2 text-right whitespace-nowrap">
+                      </Td>
+                      <Td className="text-right whitespace-nowrap">
                         {canEdit && (
                           <span className="inline-flex gap-3">
                             <LinkButton onClick={() => editFact(f)}>{t('brandKit.facts.edit')}</LinkButton>
@@ -463,17 +464,17 @@ export function BrandKitEditor() {
                             </LinkButton>
                           </span>
                         )}
-                      </td>
-                    </tr>
+                      </Td>
+                    </Tr>
                   );
                 })}
-              </tbody>
-            </table>
+              </Tbody>
+            </Table>
           </div>
         )}
         {canEdit && !fact && <SecondaryButton onClick={() => setFact(emptyFact(kitLocales))}>{t('brandKit.facts.add')}</SecondaryButton>}
         {canEdit && fact && (
-          <div className="space-y-3 border-t pt-4" style={{ borderColor: 'var(--color-border)' }}>
+          <div className="space-y-3 pt-4 ui-rule">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <InputField label={t('brandKit.facts.key')} value={fact.key} onChange={(v) => setFact({ ...fact, key: v })} hint={t('brandKit.facts.keyHint')} />
               <InputField label={t('brandKit.facts.category')} value={fact.category} onChange={(v) => setFact({ ...fact, category: v })} />

@@ -19,7 +19,7 @@ export function MarketingPlaceholder({
   return (
     <PlatformPageGuard required={required}>
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
+        <h2 className="ui-stat-value">
           {t(titleKey)}
         </h2>
         <EmptyState title={t('marketing.placeholder.soon')} description={t(descriptionKey)} />

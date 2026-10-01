@@ -5,6 +5,7 @@ import { useT } from '@/components/i18n/I18nProvider';
 import { Badge } from '@/components/common/Badge';
 import { Section } from '@/components/settings/ui';
 import { HubTable } from './HubTable';
+import { Tr, Td } from '@/components/ui';
 
 /** Event names contain a dot; message keys use an underscore in its place. */
 const eventKey = (event: string): MessageKey => `automationHub.event.${event.replace('.', '_')}` as MessageKey;
@@ -21,16 +22,16 @@ export function AutomationSection({ data }: { data: IntegrationHubDTO }) {
     <Section title={t('automationHub.title')} description={t('automationHub.description')}>
       <HubTable head={[t('automationHub.events'), '', t('automationHub.subscriptions')]}>
         {data.automation.platformEvents.map((e) => (
-          <tr key={e.event} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
-            <td className="py-2 pr-3 font-mono text-xs">{e.event}</td>
-            <td className="py-2 pr-3 text-sm">{t(eventKey(e.event))}</td>
-            <td className="py-2">
+          <Tr key={e.event}>
+            <Td className="font-mono ui-small">{e.event}</Td>
+            <Td>{t(eventKey(e.event))}</Td>
+            <Td>
               <Badge tone={e.activeSubscriptions > 0 ? 'success' : 'neutral'}>{e.activeSubscriptions}</Badge>
-            </td>
-          </tr>
+            </Td>
+          </Tr>
         ))}
       </HubTable>
-      <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+      <p className="ui-caption">
         {t('automationHub.crmWriteKeys', { count: data.automation.crmWriteKeyCount })}
       </p>
     </Section>

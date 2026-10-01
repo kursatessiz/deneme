@@ -6,6 +6,7 @@ import { useT } from '@/components/i18n/I18nProvider';
 import { Badge } from '@/components/common/Badge';
 import { PrimaryButton, Section } from '@/components/settings/ui';
 import { HubTable } from './HubTable';
+import { Input, Select, Tr, Td } from '@/components/ui';
 
 const STATUS_TONE: Record<SmsRegistrationStatus, 'neutral' | 'success' | 'warning' | 'danger'> = {
   NOT_STARTED: 'neutral',
@@ -14,23 +15,16 @@ const STATUS_TONE: Record<SmsRegistrationStatus, 'neutral' | 'success' | 'warnin
   REJECTED: 'danger',
 };
 
-const fieldStyle = {
-  borderColor: 'var(--color-border)',
-  borderRadius: 'var(--radius-input)',
-  backgroundColor: 'var(--color-background)',
-  color: 'var(--color-text-primary)',
-} as const;
-
 function StatusSelect({ value, onChange, label }: { value: SmsRegistrationStatus; onChange: (v: SmsRegistrationStatus) => void; label: string }) {
   const t = useT();
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value as SmsRegistrationStatus)} aria-label={label} className="px-3 py-1.5 text-sm border" style={fieldStyle}>
+    <Select value={value} onChange={(e) => onChange(e.target.value as SmsRegistrationStatus)} aria-label={label}>
       {SMS_REGISTRATION_STATUSES.map((s) => (
         <option key={s} value={s}>
           {t(`smsSender.status.${s}` as MessageKey)}
         </option>
       ))}
-    </select>
+    </Select>
   );
 }
 
@@ -40,35 +34,35 @@ function ProviderRow({ row, onSave, fmtDate }: { row: HubSmsSenderProviderDTO; o
   const [status, setStatus] = useState<SmsRegistrationStatus>(row.status);
   const valid = senderId.trim() === '' || /^[A-Za-z][A-Za-z0-9 ]{2,10}$/.test(senderId.trim());
   return (
-    <tr className="border-t" style={{ borderColor: 'var(--color-border)' }}>
-      <td className="py-2 pr-3">
-        <span className="font-medium">{row.provider}</span> {row.active && <Badge tone="info">{t('smsSender.active')}</Badge>}
-      </td>
-      <td className="py-2 pr-3">
-        <input
+    <Tr>
+      <Td>
+        <span className="ui-strong">{row.provider}</span> {row.active && <Badge tone="info">{t('smsSender.active')}</Badge>}
+      </Td>
+      <Td>
+        <Input
           value={senderId}
           onChange={(e) => setSenderId(e.target.value)}
           aria-label={t('smsSender.senderId')}
           title={t('smsSender.senderIdHelp')}
-          className="px-3 py-1.5 text-sm border font-mono w-40"
-          style={{ ...fieldStyle, borderColor: valid ? 'var(--color-border)' : 'var(--color-danger)' }}
+          invalid={!valid}
+          className="font-mono w-40"
         />
-      </td>
-      <td className="py-2 pr-3">
+      </Td>
+      <Td>
         <div className="flex items-center gap-2">
           <Badge tone={STATUS_TONE[status]}>{t(`smsSender.status.${status}` as MessageKey)}</Badge>
           <StatusSelect value={status} onChange={setStatus} label={t('smsSender.status')} />
         </div>
-      </td>
-      <td className="py-2 pr-3 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+      </Td>
+      <Td className="ui-caption">
         {row.updatedAt ? t('smsSender.updatedAt', { date: fmtDate(row.updatedAt) }) : ''}
-      </td>
-      <td className="py-2 text-right">
+      </Td>
+      <Td className="text-right">
         <PrimaryButton disabled={!valid} onClick={() => onSave(senderId.trim() || null, status)}>
           {t('smsSender.save')}
         </PrimaryButton>
-      </td>
-    </tr>
+      </Td>
+    </Tr>
   );
 }
 
@@ -104,25 +98,25 @@ export function SmsSenderSection({
           />
         ))}
       </HubTable>
-      <div className="border-t pt-3 space-y-2" style={{ borderColor: 'var(--color-border)' }}>
-        <h4 className="text-sm font-medium">{t('smsSender.tenDlc.title')}</h4>
+      <div className="pt-3 space-y-2 ui-rule">
+        <h4 className="ui-strong">{t('smsSender.tenDlc.title')}</h4>
         {!smsSender.twilio10dlc && (
-          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="ui-caption">
             {t('smsSender.tenDlc.notEntered')}
           </p>
         )}
         <div className="flex flex-wrap items-center gap-3">
-          <label className="text-xs flex items-center gap-2">
+          <label className="flex items-center gap-2 ui-small">
             {t('smsSender.tenDlc.brand')}
             <StatusSelect value={brand} onChange={setBrand} label={t('smsSender.tenDlc.brand')} />
           </label>
-          <label className="text-xs flex items-center gap-2">
+          <label className="flex items-center gap-2 ui-small">
             {t('smsSender.tenDlc.campaign')}
             <StatusSelect value={campaign} onChange={setCampaign} label={t('smsSender.tenDlc.campaign')} />
           </label>
           <PrimaryButton onClick={() => run(() => call('sms-sender', 'PUT', { kind: 'TWILIO_10DLC', brandStatus: brand, campaignStatus: campaign }))}>{t('smsSender.save')}</PrimaryButton>
           {smsSender.twilio10dlc?.updatedAt && (
-            <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            <span className="ui-caption">
               {t('smsSender.updatedAt', { date: fmtDate(smsSender.twilio10dlc.updatedAt) })}
             </span>
           )}

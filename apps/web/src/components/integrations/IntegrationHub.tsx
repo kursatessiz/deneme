@@ -31,6 +31,7 @@ import { HubTable as Table } from './HubTable';
 import { LeadAdsSection } from './LeadAdsSection';
 import { SmsSenderSection } from './SmsSenderSection';
 import { ConnectionAuthBadges, OAuthSection, useOAuthStart } from './OAuthSection';
+import { Tr, Td } from '@/components/ui';
 
 const STATUS_TONE: Record<DnsRecordStatus, 'neutral' | 'success' | 'warning' | 'danger'> = {
   PENDING: 'neutral',
@@ -122,28 +123,28 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
 
       <Section title={t('integrations.ads.title')}>
         {data.adConnections.length === 0 ? (
-          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="ui-text-muted">
             {t('integrations.ads.empty')}
           </p>
         ) : (
           <Table head={['', t('integrations.ads.credential'), t('integrations.ads.lastSync'), t('integrations.ads.lastError'), t('integrations.ads.testMode'), '']}>
             {data.adConnections.map((a) => (
-              <tr key={a.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
-                <td className="py-2 pr-3">
-                  <span className="font-medium">{a.platform}</span> <span style={{ color: 'var(--color-text-secondary)' }}>{a.label}</span>
+              <Tr key={a.id}>
+                <Td>
+                  <span className="ui-strong">{a.platform}</span> <span className="ui-text-muted">{a.label}</span>
                   <span className="block">
                     <ConnectionAuthBadges auth={a} fmtDate={fmtDate} />
                   </span>
-                </td>
-                <td className="py-2 pr-3 font-mono text-xs">{a.credentialPreview}</td>
-                <td className="py-2 pr-3 text-xs">{fmtDate(a.lastSyncAt)}</td>
-                <td className="py-2 pr-3 text-xs" style={{ color: 'var(--color-danger)' }}>
+                </Td>
+                <Td className="font-mono ui-small">{a.credentialPreview}</Td>
+                <Td className="ui-small">{fmtDate(a.lastSyncAt)}</Td>
+                <Td className="ui-text-error ui-small">
                   {a.lastError ?? ''}
-                </td>
-                <td className="py-2 pr-3">
+                </Td>
+                <Td>
                   <Toggle label="" checked={a.isTestMode} onChange={(v) => run(() => call(`ads/${a.id}`, 'PATCH', { isTestMode: v }))} />
-                </td>
-                <td className="py-2 text-right space-x-2 whitespace-nowrap">
+                </Td>
+                <Td className="text-right space-x-2 whitespace-nowrap">
                   {oauthReady(oauthProviderForAdPlatform(a.platform)) && (
                     <SecondaryButton
                       onClick={() => {
@@ -157,42 +158,42 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
                   <SecondaryButton danger onClick={() => window.confirm(t('integrations.confirmDelete')) && run(() => call(`ads/${a.id}`, 'DELETE'))}>
                     {t('integrations.delete')}
                   </SecondaryButton>
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             ))}
           </Table>
         )}
-        <Link href={adsSettingsHref} className="text-sm underline" style={{ color: 'var(--color-text-secondary)' }}>
+        <Link href={adsSettingsHref} className="pui-link pui-surface ui-text-muted">
           {t('integrations.ads.manage')}
         </Link>
       </Section>
 
       <Section title={t('integrations.social.title')} description={t('integrations.social.description')}>
         {data.socialConnections.length === 0 ? (
-          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="ui-text-muted">
             {t('integrations.social.empty')}
           </p>
         ) : (
           <Table head={[t('integrations.social.account'), t('integrations.social.credential'), t('integrations.social.status'), t('integrations.social.lastError'), '']}>
             {data.socialConnections.map((c: SocialConnectionDTO) => (
-              <tr key={c.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
-                <td className="py-2 pr-3">
-                  <span className="font-medium">{c.displayName}</span>
-                  <span className="block text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              <Tr key={c.id}>
+                <Td>
+                  <span className="ui-strong">{c.displayName}</span>
+                  <span className="block ui-caption">
                     {t(`integrations.social.provider.${c.provider}`)}
                   </span>
                   <span className="block">
                     <ConnectionAuthBadges auth={c} fmtDate={fmtDate} />
                   </span>
-                </td>
-                <td className="py-2 pr-3 font-mono text-xs">{c.credentialPreview}</td>
-                <td className="py-2 pr-3">
+                </Td>
+                <Td className="font-mono ui-small">{c.credentialPreview}</Td>
+                <Td>
                   <Badge tone={c.status === 'CONNECTED' ? 'success' : 'danger'}>{t(`integrations.social.status.${c.status}`)}</Badge>
-                </td>
-                <td className="py-2 pr-3 text-xs" style={{ color: 'var(--color-danger)' }}>
+                </Td>
+                <Td className="ui-text-error ui-small">
                   {c.lastError ?? ''}
-                </td>
-                <td className="py-2 text-right space-x-2 whitespace-nowrap">
+                </Td>
+                <Td className="text-right space-x-2 whitespace-nowrap">
                   <SecondaryButton
                     onClick={() =>
                       run(async () => {
@@ -217,8 +218,8 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
                   <SecondaryButton danger onClick={() => window.confirm(t('integrations.confirmDelete')) && run(() => call(`social/${c.id}`, 'DELETE'))}>
                     {t('integrations.delete')}
                   </SecondaryButton>
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             ))}
           </Table>
         )}
@@ -283,10 +284,10 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
             </PrimaryButton>
           </div>
         </form>
-        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+        <p className="ui-caption">
           {t('integrations.social.externalIdHint')}
         </p>
-        <Link href="/pazarlama/sosyal" className="text-sm underline" style={{ color: 'var(--color-text-secondary)' }}>
+        <Link href="/pazarlama/sosyal" className="pui-link pui-surface ui-text-muted">
           {t('integrations.social.openPosts')}
         </Link>
       </Section>
@@ -294,7 +295,7 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
 
       <Section title={t('integrations.email.title')} description={t('integrations.email.description')}>
         {data.emailDomains.length === 0 && (
-          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="ui-text-muted">
             {t('integrations.email.empty')}
           </p>
         )}
@@ -346,26 +347,26 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
 
       <Section title={t('integrations.apiKeys.title')}>
         {newKeyPlaintext && (
-          <div className="text-sm space-y-1">
+          <div className="space-y-1">
             <p>{t('integrations.apiKeys.createdOnce')}</p>
-            <code className="block p-2 border text-xs break-all" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)' }}>
+            <code className="ui-panel block p-2 break-all ui-small font-mono">
               {newKeyPlaintext}
             </code>
           </div>
         )}
         {data.apiKeys.length === 0 ? (
-          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="ui-text-muted">
             {t('integrations.apiKeys.empty')}
           </p>
         ) : (
           <Table head={[t('integrations.apiKeys.name'), '', t('automationHub.scopes'), t('integrations.apiKeys.lastUsed'), '']}>
             {data.apiKeys.map((k) => (
-              <tr key={k.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
-                <td className="py-2 pr-3">{k.name}</td>
-                <td className="py-2 pr-3 font-mono text-xs">{k.prefix}</td>
-                <td className="py-2 pr-3 font-mono text-xs">{k.scopes.join(', ')}</td>
-                <td className="py-2 pr-3 text-xs">{fmtDate(k.lastUsedAt)}</td>
-                <td className="py-2 text-right">
+              <Tr key={k.id}>
+                <Td>{k.name}</Td>
+                <Td className="font-mono ui-small">{k.prefix}</Td>
+                <Td className="font-mono ui-small">{k.scopes.join(', ')}</Td>
+                <Td className="ui-small">{fmtDate(k.lastUsedAt)}</Td>
+                <Td className="text-right">
                   {k.revokedAt ? (
                     <Badge>{t('integrations.apiKeys.revoked')}</Badge>
                   ) : (
@@ -373,8 +374,8 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
                       {t('integrations.apiKeys.revoke')}
                     </SecondaryButton>
                   )}
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             ))}
           </Table>
         )}
@@ -412,25 +413,25 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
 
       <Section title={t('integrations.webhooks.title')}>
         {data.webhooks.length === 0 ? (
-          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="ui-text-muted">
             {t('integrations.webhooks.empty')}
           </p>
         ) : (
           <Table head={[t('integrations.webhooks.host'), t('integrations.webhooks.events'), t('integrations.webhooks.failures'), t('integrations.webhooks.active'), '']}>
             {data.webhooks.map((w) => (
-              <tr key={w.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
-                <td className="py-2 pr-3">{w.host}</td>
-                <td className="py-2 pr-3 text-xs">{w.events.join(', ')}</td>
-                <td className="py-2 pr-3 text-xs">{w.failureCount}</td>
-                <td className="py-2 pr-3">
+              <Tr key={w.id}>
+                <Td>{w.host}</Td>
+                <Td className="ui-small">{w.events.join(', ')}</Td>
+                <Td className="ui-small">{w.failureCount}</Td>
+                <Td>
                   <Toggle label="" checked={w.isActive} onChange={(v) => run(() => call(`webhooks/${w.id}`, 'PATCH', { isActive: v }))} />
-                </td>
-                <td className="py-2 text-right">
+                </Td>
+                <Td className="text-right">
                   <SecondaryButton danger onClick={() => window.confirm(t('integrations.confirmDelete')) && run(() => call(`webhooks/${w.id}`, 'DELETE'))}>
                     {t('integrations.delete')}
                   </SecondaryButton>
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             ))}
           </Table>
         )}
@@ -439,14 +440,14 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
       <AutomationSection data={data} />
 
       <Section title={t('integrations.messaging.title')}>
-        <ul className="space-y-1 text-sm">
+        <ul className="space-y-1">
           {data.messaging.map((m) => (
             <li key={m.channel} className="flex items-center gap-2">
               <span className="w-24">{t(CHANNEL_LABEL[m.channel])}</span>
               <Badge tone={m.configured ? 'success' : 'warning'}>
                 {m.configured ? t('integrations.messaging.configured') : t('integrations.messaging.notConfigured')}
               </Badge>
-              {m.provider && <span className="text-xs font-mono" style={{ color: 'var(--color-text-muted)' }}>{m.provider}</span>}
+              {m.provider && <span className="font-mono ui-caption">{m.provider}</span>}
             </li>
           ))}
         </ul>
@@ -456,14 +457,14 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
 
       {data.platformCards.length > 0 && (
         <Section title={t('integrations.platform.title')}>
-          <ul className="space-y-1 text-sm">
+          <ul className="space-y-1">
             {data.platformCards.map((c) => (
               <li key={c.key} className="flex items-center gap-2">
                 <span className="w-48">{t(PLATFORM_CARD_LABEL[c.key])}</span>
                 <Badge tone={c.configured ? 'success' : 'warning'}>
                   {c.configured ? t('integrations.messaging.configured') : t('integrations.messaging.notConfigured')}
                 </Badge>
-                <Link href={c.href} className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
+                <Link href={c.href} className="pui-link pui-surface ui-caption">
                   {t('integrations.platform.open')}
                 </Link>
               </li>
@@ -494,9 +495,9 @@ function EmailDomainCard({
   const t = useT();
   const statusLabel = (s: DnsRecordStatus) => t(`integrations.email.status.${s}` as MessageKey);
   return (
-    <div className="border-t pt-3 space-y-2" style={{ borderColor: 'var(--color-border)' }}>
+    <div className="pt-3 space-y-2 ui-rule">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-medium">{domain.domain}</span>
+        <span className="ui-strong">{domain.domain}</span>
         <Badge>{t(`integrations.email.purpose.${domain.purpose}` as MessageKey)}</Badge>
         <Badge tone={domain.verified ? 'success' : 'warning'}>{domain.verified ? t('integrations.email.verified') : t('integrations.email.notVerified')}</Badge>
         {domain.sesVerificationStatus && (
@@ -505,21 +506,21 @@ function EmailDomainCard({
           </Badge>
         )}
         {domain.lastCheckedAt && (
-          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          <span className="ui-caption">
             {t('integrations.email.lastChecked', { date: fmtDate(domain.lastCheckedAt) })}
           </span>
         )}
       </div>
       <Table head={[t('integrations.email.record.type'), t('integrations.email.record.name'), t('integrations.email.record.value'), t('integrations.email.record.status')]}>
         {domain.expectedRecords.map((r) => (
-          <tr key={`${r.kind}-${r.name}`} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
-            <td className="py-1.5 pr-3 text-xs">{r.type}</td>
-            <td className="py-1.5 pr-3 font-mono text-xs break-all">{r.name}</td>
-            <td className="py-1.5 pr-3 font-mono text-xs break-all">{r.value}</td>
-            <td className="py-1.5">
+          <Tr key={`${r.kind}-${r.name}`}>
+            <Td className="ui-small">{r.type}</Td>
+            <Td className="font-mono break-all ui-small">{r.name}</Td>
+            <Td className="font-mono break-all ui-small">{r.value}</Td>
+            <Td>
               <Badge tone={STATUS_TONE[r.status]}>{statusLabel(r.status)}</Badge>
-            </td>
-          </tr>
+            </Td>
+          </Tr>
         ))}
       </Table>
       {domain.lastError && <InlineMessage text={domain.lastError} tone="error" />}

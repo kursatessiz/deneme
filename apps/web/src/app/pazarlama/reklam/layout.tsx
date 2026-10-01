@@ -1,9 +1,9 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useT } from '@/components/i18n/I18nProvider';
 import { PlatformPageGuard } from '@/components/marketing/PlatformSession';
+import { LinkButton } from '@/components/ui/LinkButton';
 
 /** Ads section of the marketing panel: performance and, next to it, connections plus the UTM builder (doc 3.2). */
 export default function AdsLayout({ children }: { children: React.ReactNode }) {
@@ -19,20 +19,16 @@ export default function AdsLayout({ children }: { children: React.ReactNode }) {
         {tabs.map((tab) => {
           const active = pathname === tab.href;
           return (
-            <Link
+            <LinkButton
               key={tab.href}
               href={tab.href}
               aria-current={active ? 'page' : undefined}
-              className="px-3 py-1 text-xs font-medium border"
-              style={{
-                borderRadius: 'var(--radius-button)',
-                borderColor: 'var(--color-border)',
-                color: active ? 'var(--color-on-primary)' : 'var(--color-text-secondary)',
-                backgroundColor: active ? 'var(--color-primary)' : 'transparent',
-              }}
+              variant={active ? 'solid' : 'outline'}
+              tone={active ? 'theme' : 'surface'}
+              size="sm"
             >
               {tab.label}
-            </Link>
+            </LinkButton>
           );
         })}
       </div>

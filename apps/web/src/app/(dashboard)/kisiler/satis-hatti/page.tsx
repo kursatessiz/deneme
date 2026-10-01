@@ -9,9 +9,11 @@ import { PageGuard } from '@/components/common/PageGuard';
 import { ErrorState, LoadingState } from '@/components/common/DataState';
 import { bffFetch } from '@/lib/session/client';
 import { hasAnyPermission } from '@/lib/nav';
-import { Muted, Notice, PageHeader, inputStyle, errorMessage } from '@/components/growth/ui';
+import { Muted, Notice, PageHeader, errorMessage } from '@/components/growth/ui';
 import { stageLabel } from '@/components/growth/crm-labels';
 import { useAreaHref } from '@/components/session/AreaBase';
+import { Select } from '@/components/ui';
+import { LinkButton } from '@/components/ui/LinkButton';
 
 function PipelineBoard() {
   const { activeStudioId, permissions, isOwner } = useDashboardSession();
@@ -83,9 +85,9 @@ function PipelineBoard() {
         title={t('crm.pipeline.title')}
         subtitle={t('crm.pipeline.subtitle')}
         actions={
-          <Link href={areaHref('/kisiler')} className="text-xs font-medium px-3 py-1.5" style={{ ...inputStyle, borderRadius: 'var(--radius-button)' }}>
+          <LinkButton variant="outline" tone="surface" size="sm" href={areaHref('/kisiler')}>
             {t('crm.card.back')}
-          </Link>
+          </LinkButton>
         }
       />
       {moveError && <Notice tone="error">{moveError}</Notice>}
@@ -97,11 +99,8 @@ function PipelineBoard() {
             <section
               key={stage.id}
               aria-label={label}
-              className="space-y-2 p-2 min-h-[120px]"
-              style={{
-                borderRadius: 'var(--radius-card)',
-                border: `1px dashed ${over === stage.key ? 'var(--color-primary)' : 'transparent'}`,
-              }}
+              className="ui-drop-col space-y-2 p-2 min-h-[120px]"
+              data-drop={over === stage.key}
               onDragOver={(e) => {
                 if (!canManage || !dragging) return;
                 e.preventDefault();
@@ -116,7 +115,7 @@ function PipelineBoard() {
                 if (contact) move(contact, stage.key);
               }}
             >
-              <div className="flex items-center justify-between text-xs font-semibold px-1" style={{ color: 'var(--color-text-secondary)' }}>
+              <div className="flex items-center justify-between px-1 ui-strong ui-caption">
                 <span>{label}</span>
                 <span>{items.length}</span>
               </div>
@@ -128,27 +127,24 @@ function PipelineBoard() {
                     draggable={canManage}
                     onDragStart={() => setDragging(contact.id)}
                     onDragEnd={() => setDragging(null)}
-                    className="p-3 text-sm space-y-2"
-                    style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)', cursor: canManage ? 'grab' : 'default' }}
+                    className="pui-card ui-draggable p-3 space-y-2"
                   >
-                    <Link href={areaHref(`/kisiler/${encodeURIComponent(contact.id)}`)} className="block font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                    <Link href={areaHref(`/kisiler/${encodeURIComponent(contact.id)}`)} className="block pui-link pui-surface ui-strong">
                       {contact.fullName}
                     </Link>
                     {contact.ownerName && <Muted>{contact.ownerName}</Muted>}
                     {canManage && (
-                      <select
+                      <Select
                         aria-label={t('crm.pipeline.moveTo', { name: contact.fullName })}
                         value={stage.key}
                         onChange={(e) => move(contact, e.target.value)}
-                        className="w-full text-xs px-2 py-1"
-                        style={inputStyle}
                       >
                         {stages.map((s) => (
                           <option key={s.id} value={s.key}>
                             {stageLabel(s, t)}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     )}
                   </li>
                 ))}

@@ -22,6 +22,7 @@ import { InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader 
 import { AreaField, InputField, LinkButton, SelectField } from '../fields';
 import { usePlatformSession } from '../PlatformSession';
 import { IssueList } from '../studio/VariantEditor';
+import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui';
 
 type Tone = 'neutral' | 'success' | 'warning' | 'danger' | 'info';
 
@@ -304,40 +305,40 @@ export function SocialPosts() {
       ) : posts.length === 0 ? (
         <EmptyState title={t('marketingSocial.empty')} />
       ) : (
-        <div className="overflow-x-auto border" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)', backgroundColor: 'var(--color-surface)' }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                <th className="px-4 py-2 font-medium">{t('marketingSocial.col.text')}</th>
-                <th className="px-4 py-2 font-medium">{t('marketingSocial.col.account')}</th>
-                <th className="px-4 py-2 font-medium">{t('marketingSocial.col.status')}</th>
-                <th className="px-4 py-2 font-medium">{t('marketingSocial.col.scheduled')}</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="overflow-x-auto pui-card">
+          <Table>
+            <Thead>
+              <Tr>
+                <Th>{t('marketingSocial.col.text')}</Th>
+                <Th>{t('marketingSocial.col.account')}</Th>
+                <Th>{t('marketingSocial.col.status')}</Th>
+                <Th>{t('marketingSocial.col.scheduled')}</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
               {posts.map((post) => (
-                <tr key={post.id} className="border-t" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}>
-                  <td className="px-4 py-2 max-w-md">
+                <Tr key={post.id}>
+                  <Td className="max-w-md">
                     <LinkButton onClick={() => openPost(post)}>
                       <span className="line-clamp-2 text-left">{post.text}</span>
                     </LinkButton>
-                  </td>
-                  <td className="px-4 py-2">
-                    <span className="font-medium">{post.connectionName}</span>
-                    <span className="block text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                  </Td>
+                  <Td>
+                    <span className="ui-strong">{post.connectionName}</span>
+                    <span className="block ui-caption">
                       {t(`marketingSocial.provider.${post.provider}`)}
                     </span>
-                  </td>
-                  <td className="px-4 py-2">
+                  </Td>
+                  <Td>
                     <Badge tone={STATUS_TONE[post.status]}>{t(`marketingSocial.status.${post.status}`)}</Badge>
-                  </td>
-                  <td className="px-4 py-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                  </Td>
+                  <Td className="ui-caption">
                     {post.scheduledAt ? fmtDate.format(new Date(post.scheduledAt)) : t('marketingSocial.unscheduled')}
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
+            </Tbody>
+          </Table>
         </div>
       )}
 
@@ -346,17 +347,17 @@ export function SocialPosts() {
           {message && <InlineMessage text={message.text} tone={message.tone} />}
           {!editable && <InlineMessage text={t('marketingSocial.composer.readOnly')} />}
           {connections.length === 0 && (
-            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+            <p className="ui-text-muted">
               {t('marketingSocial.composer.noConnections')}{' '}
               {canIntegrations && (
-                <Link href="/pazarlama/entegrasyonlar" className="underline">
+                <Link href="/pazarlama/entegrasyonlar" className="pui-link pui-surface">
                   {t('marketingSocial.composer.connectionsLink')}
                 </Link>
               )}
             </p>
           )}
           {current && (
-            <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+            <div className="flex flex-wrap items-center gap-2 ui-caption">
               <Badge tone={STATUS_TONE[current.status]}>{t(`marketingSocial.status.${current.status}`)}</Badge>
               {current.publishedAt && <span>{t('marketingSocial.detail.published', { date: fmtDate.format(new Date(current.publishedAt)) })}</span>}
               {current.externalPostId && <span>{t('marketingSocial.detail.externalId', { id: current.externalPostId })}</span>}
@@ -397,7 +398,7 @@ export function SocialPosts() {
             }
           />
           {limits?.linkPlacement === 'APPENDED' && (
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            <p className="ui-caption">
               {t('marketingSocial.composer.linkAppended')}
             </p>
           )}
@@ -435,7 +436,7 @@ export function SocialPosts() {
             )}
             <ul className="space-y-1">
               {form.media.map((url, index) => (
-                <li key={`${url}-${index}`} className="flex items-center justify-between gap-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                <li key={`${url}-${index}`} className="flex items-center justify-between gap-2 ui-caption">
                   <span className="truncate font-mono">{url}</span>
                   {canManage && editable && <LinkButton onClick={() => setForm({ ...form, media: form.media.filter((_, i) => i !== index) })}>{t('marketingSocial.composer.mediaRemove')}</LinkButton>}
                 </li>
@@ -455,24 +456,24 @@ export function SocialPosts() {
             disabled={!canManage || !editable}
           />
           {form.calendarItemId && (
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            <p className="ui-caption">
               {t('marketingSocial.composer.calendarLinked')}{' '}
-              <Link href="/pazarlama/takvim" className="underline">
+              <Link href="/pazarlama/takvim" className="pui-link pui-surface">
                 {t('marketingSocial.detail.openCalendar')}
               </Link>
             </p>
           )}
 
           <div className="space-y-1" aria-label={t('marketingSocial.brandCheck.title')}>
-            <h4 className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-secondary)' }}>
+            <h4 className="uppercase ui-strong ui-caption">
               {t('marketingSocial.brandCheck.title')}
             </h4>
             {!current ? (
-              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              <p className="ui-caption">
                 {t('marketingSocial.brandCheck.pending')}
               </p>
             ) : current.brandCheck.issues.length === 0 ? (
-              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              <p className="ui-caption">
                 {t('marketingSocial.brandCheck.clean')}
               </p>
             ) : (
@@ -481,36 +482,36 @@ export function SocialPosts() {
           </div>
 
           {current && (
-            <div className="space-y-2 border-t pt-3" style={{ borderColor: 'var(--color-border)' }}>
-              <h4 className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-secondary)' }}>
+            <div className="space-y-2 pt-3 ui-rule">
+              <h4 className="uppercase ui-strong ui-caption">
                 {t('marketingSocial.approval.title')}
               </h4>
               {!current.approval ? (
-                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                <p className="ui-caption">
                   {t('marketingSocial.approval.none')}
                 </p>
               ) : (
-                <div className="space-y-1 text-sm">
+                <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge tone={current.approval.status === 'PENDING' ? 'warning' : current.approval.status === 'REJECTED' ? 'danger' : 'success'}>
                       {t(`marketingApprovals.status.${current.approval.status}` as MessageKey)}
                     </Badge>
                     {current.approval.status === 'PENDING' && (
-                      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                      <span className="ui-caption">
                         {t('marketingSocial.approval.expires', { date: fmtDate.format(new Date(current.approval.expiresAt)) })}
                       </span>
                     )}
-                    <Link href={`/pazarlama/onaylar?id=${encodeURIComponent(current.approval.id)}`} className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
+                    <Link href={`/pazarlama/onaylar?id=${encodeURIComponent(current.approval.id)}`} className="pui-link pui-surface ui-caption">
                       {t('marketingSocial.approval.openQueue')}
                     </Link>
                   </div>
                   {current.approval.reasons.length > 0 && (
-                    <div className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                    <div className="ui-caption">
                       {t('marketingSocial.approval.reasons')}: {current.approval.reasons.map((r) => t(`marketingApprovals.reason.${r}`)).join(', ')}
                     </div>
                   )}
                   {current.status === 'PENDING_APPROVAL' && (
-                    <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                    <p className="ui-caption">
                       {t('marketingSocial.approval.waiting')}
                     </p>
                   )}

@@ -6,10 +6,10 @@ import { bffFetch, BffError } from '@/lib/session/client';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { Section } from '@/components/settings/ui';
 import { usePlatformSession } from '../PlatformSession';
+import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui';
 
 const HISTORY_LIMIT = 8;
 
-const muted: React.CSSProperties = { color: 'var(--color-text-muted)' };
 
 /**
  * The weekly marketing summary on the dashboard (M3d, docs/PAZARLAMA_MODULU.md
@@ -52,18 +52,18 @@ export function InsightsPanel() {
     const metricLabelOf = new Map(insight.kpis.metrics.map((m) => [m.key, insightMetricLabel(m, t)]));
     return (
       <div className="space-y-4">
-        <p className="text-sm whitespace-pre-line">{insight.summary}</p>
+        <p className="whitespace-pre-line">{insight.summary}</p>
         {insight.actions.length > 0 && (
           <div className="space-y-2">
-            <h4 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+            <h4 className="ui-strong ui-small">
               {t('marketingInsights.actions.title')}
             </h4>
             <ol className="space-y-2 list-decimal pl-5">
               {insight.actions.map((a, i) => (
-                <li key={i} className="text-sm">
-                  <span className="font-medium">{a.title}</span>
-                  <span style={{ color: 'var(--color-text-secondary)' }}>: {a.detail}</span>
-                  <span className="block text-xs" style={muted}>
+                <li key={i}>
+                  <span className="ui-strong">{a.title}</span>
+                  <span className="ui-text-muted">: {a.detail}</span>
+                  <span className="block ui-caption">
                     {t('marketingInsights.actions.basis', { metric: metricLabelOf.get(a.kpiKey) ?? a.kpiKey })}
                   </span>
                 </li>
@@ -72,42 +72,42 @@ export function InsightsPanel() {
           </div>
         )}
         <div className="space-y-2">
-          <h4 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+          <h4 className="ui-strong ui-small">
             {t('marketingInsights.metrics.title')}
           </h4>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs" style={muted}>
-                  <th scope="col" className="py-1 pr-4 font-medium">
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th scope="col">
                     {t('marketingInsights.metrics.metric')}
-                  </th>
-                  <th scope="col" className="py-1 pr-4 font-medium text-right">
+                  </Th>
+                  <Th scope="col" className="text-right">
                     {t('marketingInsights.metrics.thisWeek')}
-                  </th>
-                  <th scope="col" className="py-1 pr-4 font-medium text-right">
+                  </Th>
+                  <Th scope="col" className="text-right">
                     {t('marketingInsights.metrics.previousWeek')}
-                  </th>
-                  <th scope="col" className="py-1 font-medium text-right">
+                  </Th>
+                  <Th scope="col" className="text-right">
                     {t('marketingInsights.metrics.change')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
+                  </Th>
+                </Tr>
+              </Thead>
+              <Tbody>
                 {insight.kpis.metrics
                   .filter((m) => m.current !== null || m.previous !== null)
                   .map((m) => (
-                    <tr key={m.key} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
-                      <th scope="row" className="py-1.5 pr-4 text-left font-normal">
+                    <Tr key={m.key}>
+                      <Th scope="row">
                         {insightMetricLabel(m, t)}
-                      </th>
-                      <td className="py-1.5 pr-4 text-right tabular-nums">{formatInsightValue(m, m.current, locale, hidden)}</td>
-                      <td className="py-1.5 pr-4 text-right tabular-nums">{formatInsightValue(m, m.previous, locale, hidden)}</td>
-                      <td className="py-1.5 text-right tabular-nums">{formatInsightChange(m.changeRatio, locale) ?? t('funnels.noValue')}</td>
-                    </tr>
+                      </Th>
+                      <Td className="text-right tabular-nums">{formatInsightValue(m, m.current, locale, hidden)}</Td>
+                      <Td className="text-right tabular-nums">{formatInsightValue(m, m.previous, locale, hidden)}</Td>
+                      <Td className="text-right tabular-nums">{formatInsightChange(m.changeRatio, locale) ?? t('funnels.noValue')}</Td>
+                    </Tr>
                   ))}
-              </tbody>
-            </table>
+              </Tbody>
+            </Table>
           </div>
         </div>
       </div>
@@ -118,29 +118,29 @@ export function InsightsPanel() {
   return (
     <Section title={t('marketingInsights.title')} description={latest ? period(latest) : t('marketingInsights.subtitle')}>
       {error && (
-        <p role="alert" className="text-sm" style={{ color: 'var(--color-danger)' }}>
+        <p role="alert" className="ui-text-error">
           {error}
         </p>
       )}
       {!error && items === null && (
-        <p className="text-sm" style={muted}>
+        <p className="ui-text-muted">
           {t('marketingInsights.loading')}
         </p>
       )}
       {!error && items !== null && !latest && (
-        <p className="text-sm" style={muted}>
+        <p className="ui-text-muted">
           {t('marketingInsights.empty')}
         </p>
       )}
       {latest && body(latest)}
       {earlier.length > 0 && (
         <div className="space-y-2">
-          <h4 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+          <h4 className="ui-strong ui-small">
             {t('marketingInsights.earlier')}
           </h4>
           {earlier.map((insight) => (
-            <details key={insight.id} className="border-t pt-2" style={{ borderColor: 'var(--color-border)' }}>
-              <summary className="text-sm cursor-pointer">{period(insight)}</summary>
+            <details key={insight.id} className="pt-2 ui-rule">
+              <summary className="cursor-pointer">{period(insight)}</summary>
               <div className="pt-3">{body(insight)}</div>
             </details>
           ))}

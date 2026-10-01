@@ -5,7 +5,11 @@ import type { CampaignAbMetric, CampaignDTO, CampaignSendTimeMode, CampaignVaria
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { Badge } from '@/components/common/Badge';
 import { PermissionButton } from '@/components/common/PermissionButton';
-import { Field, Muted, inputClass, inputStyle, useDateFormat } from './ui';
+import { Field, Muted, useDateFormat } from './ui';
+import { Input, Select, Textarea, Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui';
+import { Button } from '@/components/ui/Button';
+import { Checkbox } from '@/components/ui/Checkbox';
+import { Radio } from '@/components/ui/Radio';
 
 /** One variant as the editor holds it (strings, so an empty field can mean "use the campaign's own"). */
 export interface VariantForm {
@@ -93,15 +97,12 @@ export function SendTimeEditor({ form, onChange, disabled }: { form: SendTimeFor
   const t = useT();
   return (
     <fieldset className="md:col-span-2 space-y-2">
-      <legend className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+      <legend className="ui-strong ui-caption">
         {t('campaigns.sendTime.title')}
       </legend>
-      <div className="flex flex-wrap items-center gap-4 text-sm" style={{ color: 'var(--color-text-primary)' }}>
+      <div className="flex flex-wrap items-center gap-4">
         {CAMPAIGN_SEND_TIME_MODES.map((mode) => (
-          <label key={mode} className="inline-flex items-center gap-2">
-            <input type="radio" name="campaign-send-time-mode" checked={form.mode === mode} disabled={disabled} onChange={() => onChange({ ...form, mode })} />
-            {t(`campaigns.sendTime.mode.${mode}`)}
-          </label>
+          <Radio key={mode} name="campaign-send-time-mode" checked={form.mode === mode} disabled={disabled} onChange={() => onChange({ ...form, mode })} label={t(`campaigns.sendTime.mode.${mode}`)} />
         ))}
       </div>
       {form.mode !== 'FIXED' && (
@@ -111,14 +112,12 @@ export function SendTimeEditor({ form, onChange, disabled }: { form: SendTimeFor
             htmlFor="campaign-send-time-local"
             hint={form.mode === 'BEST_TIME' ? t('campaigns.sendTime.fallbackHint') : undefined}
           >
-            <input
+            <Input
               id="campaign-send-time-local"
               type="time"
               value={form.local}
               disabled={disabled}
               onChange={(e) => onChange({ ...form, local: e.target.value })}
-              className={inputClass}
-              style={inputStyle}
             />
           </Field>
         </div>
@@ -146,21 +145,18 @@ export function AbTestEditor({
   const nextKey = CAMPAIGN_VARIANT_KEYS.find((k) => !form.variants.some((v) => v.key === k));
 
   return (
-    <fieldset className="md:col-span-2 space-y-3 border-t pt-4" style={{ borderColor: 'var(--color-border)' }}>
-      <legend className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+    <fieldset className="md:col-span-2 space-y-3 pt-4 ui-rule">
+      <legend className="ui-strong ui-small">
         {t('campaigns.ab.title')}
       </legend>
-      <label className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-primary)' }}>
-        <input type="checkbox" checked={form.enabled} disabled={disabled} onChange={(e) => onChange({ ...form, enabled: e.target.checked })} />
-        {t('campaigns.ab.enable')}
-      </label>
+      <Checkbox checked={form.enabled} disabled={disabled} onChange={(e) => onChange({ ...form, enabled: e.target.checked })} label={t('campaigns.ab.enable')} />
       {disabled && form.enabled && <Muted>{t('campaigns.ab.locked')}</Muted>}
       {form.enabled && (
         <>
           <Muted>{t('campaigns.ab.hint')}</Muted>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <Field label={t('campaigns.ab.share')} htmlFor="campaign-ab-share">
-              <input
+              <Input
                 id="campaign-ab-share"
                 type="number"
                 min={5}
@@ -168,73 +164,63 @@ export function AbTestEditor({
                 value={form.testShare}
                 disabled={disabled}
                 onChange={(e) => onChange({ ...form, testShare: e.target.value })}
-                className={inputClass}
-                style={inputStyle}
               />
             </Field>
             <Field label={t('campaigns.ab.metric')} htmlFor="campaign-ab-metric" hint={t(`campaigns.ab.metricHint.${form.metric}`)}>
-              <select
+              <Select
                 id="campaign-ab-metric"
                 value={form.metric}
                 disabled={disabled}
                 onChange={(e) => onChange({ ...form, metric: e.target.value as CampaignAbMetric })}
-                className={inputClass}
-                style={inputStyle}
               >
                 {CAMPAIGN_AB_METRICS.map((m) => (
                   <option key={m} value={m}>
                     {t(`campaigns.ab.metric.${m}`)}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
             <Field label={t('campaigns.ab.wait')} htmlFor="campaign-ab-wait" hint={t('campaigns.ab.waitHint')}>
-              <input
+              <Input
                 id="campaign-ab-wait"
                 type="number"
                 min={1}
                 value={form.waitMinutes}
                 disabled={disabled}
                 onChange={(e) => onChange({ ...form, waitMinutes: e.target.value })}
-                className={inputClass}
-                style={inputStyle}
               />
             </Field>
           </div>
 
-          <p className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+          <p className="ui-strong ui-caption">
             {t('campaigns.ab.variants')}
           </p>
           <Muted>{t('campaigns.ab.overridesHint')}</Muted>
           <ul className="space-y-3">
             {form.variants.map((v, index) => (
-              <li key={v.key} className="space-y-2 border-l-2 pl-3" style={{ borderColor: 'var(--color-border)' }}>
+              <li key={v.key} className="space-y-2 ui-rail">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                  <span className="flex items-center gap-2 ui-strong">
                     {t('campaigns.ab.variantLabel', { key: v.key })}
                     {v.aiDraftId && <Badge tone="info">{t('campaigns.ab.aiDraft')}</Badge>}
                   </span>
                   {!disabled && form.variants.length > 2 && (
-                    <button
+                    <Button variant="link" tone="muted" size="sm"
                       type="button"
-                      className="text-xs underline"
-                      style={{ color: 'var(--color-text-secondary)' }}
                       onClick={() => onChange({ ...form, variants: form.variants.filter((_, i) => i !== index) })}
                     >
                       {t('campaigns.ab.removeVariant')}
-                    </button>
+                    </Button>
                   )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <Field label={t('campaigns.ab.templateKey')} htmlFor={`campaign-ab-template-${v.key}`}>
                     {templateKeys ? (
-                      <select
+                      <Select
                         id={`campaign-ab-template-${v.key}`}
                         value={v.templateKey}
                         disabled={disabled}
                         onChange={(e) => setVariant(index, { templateKey: e.target.value })}
-                        className={inputClass}
-                        style={inputStyle}
                       >
                         <option value="">{t('campaigns.ab.templateDefault')}</option>
                         {templateKeys.map((k) => (
@@ -242,65 +228,55 @@ export function AbTestEditor({
                             {k}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     ) : (
-                      <input
+                      <Input
                         id={`campaign-ab-template-${v.key}`}
                         value={v.templateKey}
                         disabled={disabled}
                         onChange={(e) => setVariant(index, { templateKey: e.target.value.toUpperCase() })}
-                        className={inputClass}
-                        style={inputStyle}
                       />
                     )}
                   </Field>
                   <Field label={t('campaigns.ab.subject')} htmlFor={`campaign-ab-subject-${v.key}`}>
-                    <input
+                    <Input
                       id={`campaign-ab-subject-${v.key}`}
                       value={v.subject}
                       maxLength={300}
                       disabled={disabled}
                       onChange={(e) => setVariant(index, { subject: e.target.value })}
-                      className={inputClass}
-                      style={inputStyle}
                     />
                   </Field>
                   <Field label={t('campaigns.ab.preheader')} htmlFor={`campaign-ab-preheader-${v.key}`}>
-                    <input
+                    <Input
                       id={`campaign-ab-preheader-${v.key}`}
                       value={v.preheader}
                       maxLength={300}
                       disabled={disabled}
                       onChange={(e) => setVariant(index, { preheader: e.target.value })}
-                      className={inputClass}
-                      style={inputStyle}
                     />
                   </Field>
                 </div>
                 <Field label={t('campaigns.ab.body')} htmlFor={`campaign-ab-body-${v.key}`}>
-                  <textarea
+                  <Textarea
                     id={`campaign-ab-body-${v.key}`}
                     value={v.body}
                     rows={3}
                     maxLength={10000}
                     disabled={disabled}
                     onChange={(e) => setVariant(index, { body: e.target.value })}
-                    className={inputClass}
-                    style={inputStyle}
                   />
                 </Field>
               </li>
             ))}
           </ul>
           {!disabled && form.variants.length < CAMPAIGN_MAX_VARIANTS && nextKey && (
-            <button
+            <Button variant="link" tone="muted" size="sm"
               type="button"
-              className="text-xs underline"
-              style={{ color: 'var(--color-text-secondary)' }}
               onClick={() => onChange({ ...form, variants: [...form.variants, emptyVariant(nextKey)] })}
             >
               {t('campaigns.ab.addVariant')}
-            </button>
+            </Button>
           )}
         </>
       )}
@@ -333,43 +309,43 @@ export function VariantResults({
         <Muted>{t(`campaigns.ab.metric.${metric}`)}</Muted>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              <th className="py-1 pr-3 font-medium">{t('campaigns.ab.col.variant')}</th>
-              <th className="py-1 pr-3 font-medium">{t('campaigns.ab.col.sent')}</th>
-              <th className="py-1 pr-3 font-medium">{t('campaigns.ab.col.opened')}</th>
-              <th className="py-1 pr-3 font-medium">{t('campaigns.ab.col.clicked')}</th>
-              <th className="py-1 pr-3 font-medium">{t('campaigns.ab.col.converted')}</th>
-              <th className="py-1 pr-3 font-medium">{t('campaigns.ab.col.rate')}</th>
-              <th className="py-1" />
-            </tr>
-          </thead>
-          <tbody style={{ color: 'var(--color-text-primary)' }}>
+        <Table>
+          <Thead>
+            <Tr>
+              <Th>{t('campaigns.ab.col.variant')}</Th>
+              <Th>{t('campaigns.ab.col.sent')}</Th>
+              <Th>{t('campaigns.ab.col.opened')}</Th>
+              <Th>{t('campaigns.ab.col.clicked')}</Th>
+              <Th>{t('campaigns.ab.col.converted')}</Th>
+              <Th>{t('campaigns.ab.col.rate')}</Th>
+              <Th  />
+            </Tr>
+          </Thead>
+          <Tbody>
             {campaign.variants.map((v) => (
-              <tr key={v.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
-                <td className="py-1.5 pr-3">
+              <Tr key={v.id}>
+                <Td>
                   <span className="flex items-center gap-2">
                     {t('campaigns.ab.variantLabel', { key: v.key })}
                     {v.isWinner && <Badge tone="success">{t('campaigns.ab.winner')}</Badge>}
                   </span>
-                </td>
-                <td className="py-1.5 pr-3">{v.stats ? fmt.number(v.stats.sent) : ''}</td>
-                <td className="py-1.5 pr-3">{v.stats ? fmt.number(v.stats.opened) : ''}</td>
-                <td className="py-1.5 pr-3">{v.stats ? fmt.number(v.stats.clicked) : ''}</td>
-                <td className="py-1.5 pr-3">{v.stats ? fmt.number(v.stats.converted) : ''}</td>
-                <td className="py-1.5 pr-3">{v.stats ? percent.format(variantRate(v.stats, metric)) : ''}</td>
-                <td className="py-1.5 text-right">
+                </Td>
+                <Td>{v.stats ? fmt.number(v.stats.sent) : ''}</Td>
+                <Td>{v.stats ? fmt.number(v.stats.opened) : ''}</Td>
+                <Td>{v.stats ? fmt.number(v.stats.clicked) : ''}</Td>
+                <Td>{v.stats ? fmt.number(v.stats.converted) : ''}</Td>
+                <Td>{v.stats ? percent.format(variantRate(v.stats, metric)) : ''}</Td>
+                <Td className="text-right">
                   {canPick && (
                     <PermissionButton required={['campaigns.manage']} onClick={() => onPick(v.key)} disabled={busy}>
                       {t('campaigns.ab.pickThis')}
                     </PermissionButton>
                   )}
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             ))}
-          </tbody>
-        </table>
+          </Tbody>
+        </Table>
       </div>
       {canPick && (
         <div className="space-y-1">

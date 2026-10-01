@@ -34,8 +34,10 @@ import { ErrorState, LoadingState } from '@/components/common/DataState';
 import { bffFetch } from '@/lib/session/client';
 import { hasAnyPermission } from '@/lib/nav';
 import { EMPTY_RULES, SegmentBuilder } from './SegmentBuilder';
-import { Field, Muted, Notice, PageHeader, Panel, inputClass, inputStyle, errorMessage, useDateFormat } from './ui';
+import { Field, Muted, Notice, PageHeader, Panel, errorMessage, useDateFormat } from './ui';
 import { useAreaHref } from '@/components/session/AreaBase';
+import { Input, Select } from '@/components/ui';
+import { Button } from '@/components/ui/Button';
 
 type StepType = JourneyStep['type'];
 const STEP_TYPES: StepType[] = ['wait', 'send', 'branch', 'update_contact', 'create_task', 'award_points'];
@@ -92,14 +94,14 @@ function NextSelect({ label, value, options, onChange, id }: { label: string; va
   const t = useT();
   return (
     <Field label={label} htmlFor={id}>
-      <select id={id} value={value ?? ''} onChange={(e) => onChange(e.target.value || null)} className={inputClass} style={inputStyle}>
+      <Select id={id} value={value ?? ''} onChange={(e) => onChange(e.target.value || null)}>
         <option value="">{t('journeys.step.end')}</option>
         {options.map((o) => (
           <option key={o} value={o}>
             {o}
           </option>
         ))}
-      </select>
+      </Select>
     </Field>
   );
 }
@@ -135,24 +137,20 @@ function StepEditor({
       body = (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Field label={t('journeys.step.minutes')} htmlFor={f('minutes')}>
-            <input
+            <Input
               id={f('minutes')}
               type="number"
               min={1}
               value={step.minutes ?? ''}
               onChange={(e) => onChange({ ...step, minutes: e.target.value ? Number(e.target.value) : undefined, untilLocalTime: e.target.value ? undefined : step.untilLocalTime })}
-              className={inputClass}
-              style={inputStyle}
             />
           </Field>
           <Field label={t('journeys.step.untilLocalTime')} htmlFor={f('until')}>
-            <input
+            <Input
               id={f('until')}
               type="time"
               value={step.untilLocalTime ?? ''}
               onChange={(e) => onChange({ ...step, untilLocalTime: e.target.value || undefined, minutes: e.target.value ? undefined : step.minutes })}
-              className={inputClass}
-              style={inputStyle}
             />
           </Field>
           <NextSelect id={f('next')} label={t('journeys.step.next')} value={step.next} options={otherIds} onChange={(next) => onChange({ ...step, next })} />
@@ -163,12 +161,10 @@ function StepEditor({
       body = (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label={t('journeys.step.channel')} htmlFor={f('channel')}>
-            <select
+            <Select
               id={f('channel')}
               value={step.channel ?? ''}
               onChange={(e) => onChange({ ...step, channel: (e.target.value || undefined) as typeof step.channel })}
-              className={inputClass}
-              style={inputStyle}
             >
               <option value="">{t('journeys.step.channelDefault')}</option>
               {MESSAGE_CHANNELS_V2.map((c) => (
@@ -176,33 +172,31 @@ function StepEditor({
                   {t(`messaging.channel.${c}`)}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
           <Field label={t('journeys.step.templateKey')} htmlFor={f('template')}>
             {templateKeys ? (
-              <select id={f('template')} value={step.templateKey ?? ''} onChange={(e) => onChange({ ...step, templateKey: e.target.value, templateId: undefined })} className={inputClass} style={inputStyle}>
+              <Select id={f('template')} value={step.templateKey ?? ''} onChange={(e) => onChange({ ...step, templateKey: e.target.value, templateId: undefined })}>
                 {!templateKeys.includes(step.templateKey ?? '') && <option value={step.templateKey ?? ''}>{step.templateKey ?? ''}</option>}
                 {templateKeys.map((k) => (
                   <option key={k} value={k}>
                     {k}
                   </option>
                 ))}
-              </select>
+              </Select>
             ) : (
-              <input
+              <Input
                 id={f('template')}
                 value={step.templateKey ?? ''}
                 onChange={(e) => onChange({ ...step, templateKey: e.target.value.toUpperCase(), templateId: undefined })}
-                className={inputClass}
-                style={inputStyle}
               />
             )}
           </Field>
           <Field label={t('journeys.step.purpose')} htmlFor={f('purpose')}>
-            <select id={f('purpose')} value={step.purpose} onChange={(e) => onChange({ ...step, purpose: e.target.value === 'TRANSACTIONAL' ? 'TRANSACTIONAL' : 'COMMERCIAL' })} className={inputClass} style={inputStyle}>
+            <Select id={f('purpose')} value={step.purpose} onChange={(e) => onChange({ ...step, purpose: e.target.value === 'TRANSACTIONAL' ? 'TRANSACTIONAL' : 'COMMERCIAL' })}>
               <option value="COMMERCIAL">{t('journeys.step.purpose.COMMERCIAL')}</option>
               <option value="TRANSACTIONAL">{t('journeys.step.purpose.TRANSACTIONAL')}</option>
-            </select>
+            </Select>
           </Field>
           <NextSelect id={f('next')} label={t('journeys.step.next')} value={step.next} options={otherIds} onChange={(next) => onChange({ ...step, next })} />
         </div>
@@ -223,10 +217,10 @@ function StepEditor({
       body = (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Field label={t('journeys.step.addTags')} htmlFor={f('add')}>
-            <input id={f('add')} defaultValue={step.addTags.join(', ')} onBlur={(e) => onChange({ ...step, addTags: list(e.target.value) })} className={inputClass} style={inputStyle} />
+            <Input id={f('add')} defaultValue={step.addTags.join(', ')} onBlur={(e) => onChange({ ...step, addTags: list(e.target.value) })} />
           </Field>
           <Field label={t('journeys.step.removeTags')} htmlFor={f('remove')}>
-            <input id={f('remove')} defaultValue={step.removeTags.join(', ')} onBlur={(e) => onChange({ ...step, removeTags: list(e.target.value) })} className={inputClass} style={inputStyle} />
+            <Input id={f('remove')} defaultValue={step.removeTags.join(', ')} onBlur={(e) => onChange({ ...step, removeTags: list(e.target.value) })} />
           </Field>
           <NextSelect id={f('next')} label={t('journeys.step.next')} value={step.next} options={otherIds} onChange={(next) => onChange({ ...step, next })} />
         </div>
@@ -236,16 +230,14 @@ function StepEditor({
       body = (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Field label={t('journeys.step.taskTitle')} htmlFor={f('title')}>
-            <input
+            <Input
               id={f('title')}
               value={step.titleKey.startsWith('journeys.task.') ? t(step.titleKey) : step.titleKey}
               onChange={(e) => onChange({ ...step, titleKey: e.target.value })}
-              className={inputClass}
-              style={inputStyle}
             />
           </Field>
           <Field label={t('journeys.step.dueInMinutes')} htmlFor={f('due')}>
-            <input id={f('due')} type="number" min={0} value={step.dueInMinutes} onChange={(e) => onChange({ ...step, dueInMinutes: Number(e.target.value) || 0 })} className={inputClass} style={inputStyle} />
+            <Input id={f('due')} type="number" min={0} value={step.dueInMinutes} onChange={(e) => onChange({ ...step, dueInMinutes: Number(e.target.value) || 0 })} />
           </Field>
           <NextSelect id={f('next')} label={t('journeys.step.next')} value={step.next} options={otherIds} onChange={(next) => onChange({ ...step, next })} />
         </div>
@@ -255,18 +247,16 @@ function StepEditor({
       body = (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Field label={t('journeys.step.points')} htmlFor={f('points')}>
-            <input
+            <Input
               id={f('points')}
               type="number"
               min={1}
               value={step.points}
               onChange={(e) => onChange({ ...step, points: Math.max(1, Math.round(Number(e.target.value) || 1)) })}
-              className={inputClass}
-              style={inputStyle}
             />
           </Field>
           <Field label={t('journeys.step.pointsReason')} htmlFor={f('reason')}>
-            <input id={f('reason')} value={step.reasonKey} maxLength={200} onChange={(e) => onChange({ ...step, reasonKey: e.target.value })} className={inputClass} style={inputStyle} />
+            <Input id={f('reason')} value={step.reasonKey} maxLength={200} onChange={(e) => onChange({ ...step, reasonKey: e.target.value })} />
           </Field>
           <NextSelect id={f('next')} label={t('journeys.step.next')} value={step.next} options={otherIds} onChange={(next) => onChange({ ...step, next })} />
         </div>
@@ -275,13 +265,13 @@ function StepEditor({
   }
 
   return (
-    <li className="p-3 space-y-3" style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)' }} data-testid="journey-step">
+    <li className="ui-panel p-3 space-y-3" data-testid="journey-step">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+          <span className="ui-strong">
             {t(`journeys.step.${step.type}`)}
           </span>
-          <code className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+          <code className="ui-caption">
             {id}
           </code>
           {isEntry && <Badge tone="info">{t('journeys.step.entry')}</Badge>}
@@ -289,13 +279,13 @@ function StepEditor({
         {!locked && (
           <div className="flex gap-3">
             {!isEntry && (
-              <button type="button" className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }} onClick={onMakeEntry}>
+              <Button variant="link" tone="muted" size="sm" type="button" onClick={onMakeEntry}>
                 {t('journeys.step.entry')}
-              </button>
+              </Button>
             )}
-            <button type="button" className="text-xs underline" style={{ color: 'var(--color-text-muted)' }} onClick={onRemove}>
+            <Button variant="link" tone="muted" size="sm" type="button" onClick={onRemove}>
               {t('journeys.step.remove')}
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -449,7 +439,7 @@ export function JourneyEditor({ journeyId }: { journeyId?: string }) {
                 {t('journeys.action.archive')}
               </PermissionButton>
             )}
-            <Link href={areaHref('/akislar')} className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
+            <Link href={areaHref('/akislar')} className="pui-link pui-surface ui-caption">
               {t('journeys.title')}
             </Link>
           </>
@@ -458,7 +448,7 @@ export function JourneyEditor({ journeyId }: { journeyId?: string }) {
       {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
       {journey?.status === 'ACTIVE' && <Muted>{t('journeys.editLocked')}</Muted>}
       {issues.length > 0 && (
-        <ul role="alert" className="text-xs space-y-0.5" style={{ color: 'var(--color-danger, #b42318)' }}>
+        <ul role="alert" className="space-y-0.5 ui-text-error ui-small">
           {issues.map((i) => (
             <li key={i}>{i}</li>
           ))}
@@ -468,10 +458,10 @@ export function JourneyEditor({ journeyId }: { journeyId?: string }) {
       <Panel>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label={t('journeys.field.name')} htmlFor="journey-name">
-            <input id="journey-name" value={name} onChange={(e) => setName(e.target.value)} disabled={!canManage || journey?.status === 'ARCHIVED'} className={inputClass} style={inputStyle} />
+            <Input id="journey-name" value={name} onChange={(e) => setName(e.target.value)} disabled={!canManage || journey?.status === 'ARCHIVED'} />
           </Field>
           <Field label={t('journeys.field.description')} htmlFor="journey-description">
-            <input id="journey-description" value={description} onChange={(e) => setDescription(e.target.value)} disabled={!canManage || journey?.status === 'ARCHIVED'} className={inputClass} style={inputStyle} />
+            <Input id="journey-description" value={description} onChange={(e) => setDescription(e.target.value)} disabled={!canManage || journey?.status === 'ARCHIVED'} />
           </Field>
         </div>
       </Panel>
@@ -479,34 +469,32 @@ export function JourneyEditor({ journeyId }: { journeyId?: string }) {
       <Panel title={t('journeys.section.trigger')} labelledBy="journey-trigger">
         <fieldset disabled={locked} className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Field label={t('journeys.section.trigger')} htmlFor="trigger-kind">
-            <select
+            <Select
               id="trigger-kind"
               value={trigger.kind}
               onChange={(e) =>
                 setTrigger(e.target.value === 'segment_entered' ? { kind: 'segment_entered', segmentId: segments[0]?.id ?? '' } : { kind: 'event', event: 'lead' })
               }
-              className={inputClass}
-              style={inputStyle}
             >
               <option value="event">{t('journeys.trigger.kind.event')}</option>
               <option value="segment_entered">{t('journeys.trigger.kind.segment_entered')}</option>
-            </select>
+            </Select>
           </Field>
           {trigger.kind === 'segment_entered' ? (
             <Field label={t('journeys.trigger.segment')} htmlFor="trigger-segment">
-              <select id="trigger-segment" value={trigger.segmentId} onChange={(e) => setTrigger({ kind: 'segment_entered', segmentId: e.target.value })} className={inputClass} style={inputStyle}>
+              <Select id="trigger-segment" value={trigger.segmentId} onChange={(e) => setTrigger({ kind: 'segment_entered', segmentId: e.target.value })}>
                 {!segments.some((s) => s.id === trigger.segmentId) && <option value={trigger.segmentId}>{trigger.segmentId}</option>}
                 {segments.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
           ) : (
             <>
               <Field label={t('journeys.trigger.event')} htmlFor="trigger-event">
-                <select
+                <Select
                   id="trigger-event"
                   value={trigger.event}
                   onChange={(e) => {
@@ -520,36 +508,32 @@ export function JourneyEditor({ journeyId }: { journeyId?: string }) {
                       ...(next === 'birthday' ? { daysBefore: 0 } : {}),
                     });
                   }}
-                  className={inputClass}
-                  style={inputStyle}
                 >
                   {JOURNEY_EVENT_TRIGGERS.map((ev) => (
                     <option key={ev} value={ev}>
                       {t(`journeys.event.${ev}`)}
                     </option>
                   ))}
-                </select>
+                </Select>
               </Field>
               {event === 'booking_upcoming' && (
                 <Field label={t('journeys.trigger.leadMinutes')} htmlFor="trigger-lead">
-                  <input id="trigger-lead" type="number" min={15} value={trigger.leadMinutes ?? ''} onChange={(e) => setTrigger({ ...trigger, leadMinutes: Number(e.target.value) || undefined })} className={inputClass} style={inputStyle} />
+                  <Input id="trigger-lead" type="number" min={15} value={trigger.leadMinutes ?? ''} onChange={(e) => setTrigger({ ...trigger, leadMinutes: Number(e.target.value) || undefined })} />
                 </Field>
               )}
               {(event === 'package_expiring' || event === 'birthday') && (
                 <Field label={t('journeys.trigger.daysBefore')} htmlFor="trigger-days">
-                  <input id="trigger-days" type="number" min={0} value={trigger.daysBefore ?? ''} onChange={(e) => setTrigger({ ...trigger, daysBefore: e.target.value === '' ? undefined : Number(e.target.value) })} className={inputClass} style={inputStyle} />
+                  <Input id="trigger-days" type="number" min={0} value={trigger.daysBefore ?? ''} onChange={(e) => setTrigger({ ...trigger, daysBefore: e.target.value === '' ? undefined : Number(e.target.value) })} />
                 </Field>
               )}
               {event === 'package_expiring' && (
                 <Field label={t('journeys.trigger.remainingUnitsAtMost')} htmlFor="trigger-units">
-                  <input
+                  <Input
                     id="trigger-units"
                     type="number"
                     min={0}
                     value={trigger.remainingUnitsAtMost ?? ''}
                     onChange={(e) => setTrigger({ ...trigger, remainingUnitsAtMost: e.target.value === '' ? undefined : Number(e.target.value) })}
-                    className={inputClass}
-                    style={inputStyle}
                   />
                 </Field>
               )}
@@ -558,7 +542,7 @@ export function JourneyEditor({ journeyId }: { journeyId?: string }) {
         </fieldset>
         {trigger.kind === 'event' && (
           <fieldset disabled={locked} className="space-y-2">
-            <label className="inline-flex items-center gap-2 text-xs" style={{ color: 'var(--color-text-primary)' }}>
+            <label className="inline-flex items-center gap-2 ui-small">
               <input
                 type="checkbox"
                 checked={Boolean(trigger.filter)}
@@ -603,24 +587,24 @@ export function JourneyEditor({ journeyId }: { journeyId?: string }) {
         {!locked && (
           <div className="flex flex-wrap items-end gap-2">
             <Field label={t('journeys.step.add')} htmlFor="new-step-type">
-              <select id="new-step-type" value={newType} onChange={(e) => setNewType(e.target.value as StepType)} className={inputClass} style={inputStyle}>
+              <Select id="new-step-type" value={newType} onChange={(e) => setNewType(e.target.value as StepType)}>
                 {STEP_TYPES.filter((s) => !(s in UNAVAILABLE_JOURNEY_STEP_TYPES)).map((s) => (
                   <option key={s} value={s}>
                     {t(`journeys.step.${s}`)}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
-            <button type="button" onClick={addStep} className="text-xs font-medium px-3 py-2" style={{ ...inputStyle, borderRadius: 'var(--radius-button)' }}>
+            <Button variant="outline" tone="surface" size="sm" type="button" onClick={addStep}>
               {t('journeys.step.add')}
-            </button>
+            </Button>
           </div>
         )}
       </Panel>
 
       <Panel title={t('journeys.section.goal')} labelledBy="journey-goal">
         <fieldset disabled={locked} className="space-y-2">
-          <label className="inline-flex items-center gap-2 text-xs" style={{ color: 'var(--color-text-primary)' }}>
+          <label className="inline-flex items-center gap-2 ui-small">
             <input
               type="checkbox"
               checked={Boolean(def.goal)}
@@ -638,20 +622,18 @@ export function JourneyEditor({ journeyId }: { journeyId?: string }) {
           {def.goal && <SegmentBuilder value={def.goal} onChange={(goal: SegmentGroup) => setDef({ ...def, goal })} catalogue={catalogue} />}
         </fieldset>
         <Field label={t('journeys.section.reentry')} htmlFor="journey-reentry">
-          <select
+          <Select
             id="journey-reentry"
             value={def.reentry}
             disabled={locked}
             onChange={(e) => setDef({ ...def, reentry: e.target.value as JourneyDefinition['reentry'] })}
-            className={inputClass}
-            style={inputStyle}
           >
             {(['NEVER', 'AFTER_EXIT', 'ALWAYS'] as const).map((r) => (
               <option key={r} value={r}>
                 {t(`journeys.reentry.${r}`)}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
       </Panel>
 
@@ -671,7 +653,7 @@ export function JourneyEditor({ journeyId }: { journeyId?: string }) {
               ))}
           </div>
           {Object.keys(journey.stats.steps).length > 0 && (
-            <ul className="text-xs space-y-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+            <ul className="space-y-0.5 ui-caption">
               {Object.entries(journey.stats.steps).map(([stepId, s]) => (
                 <li key={stepId}>{`${stepId}: ${t('journeys.stats.done')} ${fmt.number(s.done)}, ${t('journeys.stats.skipped')} ${fmt.number(s.skipped)}, ${t('journeys.stats.failed')} ${fmt.number(s.failed)}`}</li>
               ))}
@@ -679,13 +661,13 @@ export function JourneyEditor({ journeyId }: { journeyId?: string }) {
           )}
           {enrollments.length > 0 && (
             <div className="space-y-1">
-              <p className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+              <p className="ui-strong ui-caption">
                 {t('journeys.section.enrollments')}
               </p>
-              <ul className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
+              <ul className="ui-divide">
                 {enrollments.map((e) => (
-                  <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5 text-sm">
-                    <Link href={areaHref(`/kisiler/${encodeURIComponent(e.contactId)}`)} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                  <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+                    <Link href={areaHref(`/kisiler/${encodeURIComponent(e.contactId)}`)} className="pui-link pui-surface">
                       {e.fullName}
                     </Link>
                     <span className="flex items-center gap-2">

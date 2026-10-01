@@ -12,6 +12,8 @@ import { useBff } from '@/lib/session/use-bff';
 import { PageHeader, useDateFormat } from '@/components/growth/ui';
 import { campaignStatusTone } from '@/components/growth/CampaignEditor';
 import { useAreaHref } from '@/components/session/AreaBase';
+import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui';
+import { LinkButton } from '@/components/ui/LinkButton';
 
 function CampaignList() {
   const { activeStudioId, permissions, isOwner } = useDashboardSession();
@@ -28,9 +30,9 @@ function CampaignList() {
         subtitle={t('campaigns.subtitle')}
         actions={
           canManage ? (
-            <Link href={areaHref('/kampanyalar/yeni')} className="text-xs font-medium px-3 py-1.5" style={{ background: 'var(--gradient-brand)', color: 'var(--color-on-primary)', borderRadius: 'var(--radius-button)' }}>
+            <LinkButton size="sm" href={areaHref('/kampanyalar/yeni')}>
               {t('campaigns.new')}
-            </Link>
+            </LinkButton>
           ) : undefined
         }
       />
@@ -44,41 +46,41 @@ function CampaignList() {
         />
       )}
       {!loading && !error && data && data.items.length > 0 && (
-        <div className="overflow-x-auto" style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-          <table className="w-full text-sm" aria-label={t('campaigns.title')}>
-            <thead>
-              <tr className="text-left text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                <th className="px-4 py-2 font-medium">{t('campaigns.col.name')}</th>
-                <th className="px-4 py-2 font-medium">{t('campaigns.col.segment')}</th>
-                <th className="px-4 py-2 font-medium">{t('campaigns.col.status')}</th>
-                <th className="px-4 py-2 font-medium">{t('campaigns.col.sent')}</th>
-                <th className="px-4 py-2 font-medium">{t('campaigns.col.scheduledAt')}</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="overflow-x-auto pui-card">
+          <Table aria-label={t('campaigns.title')}>
+            <Thead>
+              <Tr>
+                <Th>{t('campaigns.col.name')}</Th>
+                <Th>{t('campaigns.col.segment')}</Th>
+                <Th>{t('campaigns.col.status')}</Th>
+                <Th>{t('campaigns.col.sent')}</Th>
+                <Th>{t('campaigns.col.scheduledAt')}</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
               {data.items.map((c) => (
-                <tr key={c.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
-                  <td className="px-4 py-2.5">
-                    <Link href={areaHref(`/kampanyalar/${encodeURIComponent(c.id)}`)} className="font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                <Tr key={c.id}>
+                  <Td>
+                    <Link href={areaHref(`/kampanyalar/${encodeURIComponent(c.id)}`)} className="pui-link pui-surface ui-strong">
                       {c.name}
                     </Link>
-                  </td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
+                  </Td>
+                  <Td className="ui-text-muted">
                     {c.segmentName ?? ''}
-                  </td>
-                  <td className="px-4 py-2.5">
+                  </Td>
+                  <Td>
                     <Badge tone={campaignStatusTone(c.status)}>{t(`campaigns.status.${c.status}`)}</Badge>
-                  </td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
+                  </Td>
+                  <Td className="ui-text-muted">
                     {`${fmt.number(c.stats.sent)} / ${fmt.number(c.stats.audience)}`}
-                  </td>
-                  <td className="px-4 py-2.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                  </Td>
+                  <Td className="ui-caption">
                     {fmt.dateTime(c.completedAt ?? c.scheduledAt)}
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
+            </Tbody>
+          </Table>
         </div>
       )}
     </div>

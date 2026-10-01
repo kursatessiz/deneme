@@ -6,14 +6,16 @@ import type { SegmentCondition, SegmentFieldCatalogueDTO, SegmentFieldKind, Segm
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { Badge } from '@/components/common/Badge';
 import { bffFetch, BffError } from '@/lib/session/client';
-import { Muted, inputStyle } from './ui';
+import { Muted } from './ui';
+import { Input, Select } from '@/components/ui';
+import { Button } from '@/components/ui/Button';
 
 type Rule = SegmentCondition | SegmentGroup;
 type Scalar = string | number | boolean;
 
 const NO_VALUE = new Set(['is_empty', 'is_not_empty', 'is_true', 'is_false']);
 const LIST_OPS = new Set(['in', 'not_in', 'has_any', 'has_all', 'has_none']);
-const smallInput = 'text-xs px-2 py-1.5 outline-none';
+const smallInput = 'ui-small';
 
 export const DEFAULT_CONDITION: SegmentCondition = { field: 'contact.lifecycleStage', op: 'in', value: ['MEMBER'] };
 export const EMPTY_RULES: SegmentGroup = { combinator: 'and', rules: [DEFAULT_CONDITION] };
@@ -80,7 +82,7 @@ function ConditionEditor({
         <fieldset className="flex flex-wrap gap-2">
           <legend className="sr-only">{t('segments.builder.value')}</legend>
           {enumOptions.map((opt) => (
-            <label key={opt} className="inline-flex items-center gap-1 text-xs" style={{ color: 'var(--color-text-primary)' }}>
+            <label key={opt} className="inline-flex items-center gap-1 ui-small">
               <input
                 type="checkbox"
                 checked={values.includes(opt)}
@@ -98,7 +100,7 @@ function ConditionEditor({
       valueEditor = (
         <div className="flex gap-2">
           {[0, 1].map((i) => (
-            <input
+            <Input
               key={i}
               type={inputType}
               aria-label={i === 0 ? t('segments.builder.from') : t('segments.builder.to')}
@@ -109,14 +111,13 @@ function ConditionEditor({
                 onChange({ ...condition, value: next as Scalar[] });
               }}
               className={`${smallInput} w-28`}
-              style={inputStyle}
             />
           ))}
         </div>
       );
     } else if (LIST_OPS.has(condition.op)) {
       valueEditor = (
-        <input
+        <Input
           id={`${id}-value`}
           aria-label={t('segments.builder.valueList')}
           placeholder={t('segments.builder.valueList')}
@@ -132,19 +133,17 @@ function ConditionEditor({
             })
           }
           className={`${smallInput} flex-1 min-w-[10rem]`}
-          style={inputStyle}
         />
       );
     } else {
       const numeric = kind === 'number' || kind === 'relative_days' || condition.op === 'in_last_days' || condition.op === 'not_in_last_days';
       valueEditor = (
-        <input
+        <Input
           aria-label={t('segments.builder.value')}
           type={numeric ? 'number' : kind === 'date' ? 'date' : 'text'}
           value={String(values[0] ?? '')}
           onChange={(e) => onChange({ ...condition, value: coerce(kind, condition.op, e.target.value) })}
           className={`${smallInput} w-40`}
-          style={inputStyle}
         />
       );
     }
@@ -152,7 +151,7 @@ function ConditionEditor({
 
   return (
     <li className="flex flex-wrap items-center gap-2 py-1.5" data-testid="segment-condition">
-      <select
+      <Select
         aria-label={t('segments.builder.field')}
         value={condition.field}
         onChange={(e) => {
@@ -162,7 +161,6 @@ function ConditionEditor({
           onChange(defaultsFor(field, nextKind, opts));
         }}
         className={smallInput}
-        style={inputStyle}
       >
         {catalogue.groups.map((g) => (
           <optgroup key={g.key} label={t(`segments.group.${g.key}`)}>
@@ -182,8 +180,8 @@ function ConditionEditor({
             ))}
           </optgroup>
         )}
-      </select>
-      <select
+      </Select>
+      <Select
         aria-label={t('segments.builder.operator')}
         value={condition.op}
         onChange={(e) => {
@@ -192,18 +190,17 @@ function ConditionEditor({
           onChange(NO_VALUE.has(op) ? { field: condition.field, op } : { field: condition.field, op, value: LIST_OPS.has(op) ? (kind === 'enum' ? enumOptions.slice(0, 1) : []) : op === 'between' ? [0, 1] : base.value ?? '' });
         }}
         className={smallInput}
-        style={inputStyle}
       >
         {(SEGMENT_OPERATORS[kind] as readonly string[]).map((op) => (
           <option key={op} value={op}>
             {t(`segments.op.${op}`)}
           </option>
         ))}
-      </select>
+      </Select>
       {valueEditor}
-      <button type="button" onClick={onRemove} className="text-xs underline" style={{ color: 'var(--color-text-muted)' }}>
+      <Button variant="link" tone="muted" size="sm" type="button" onClick={onRemove}>
         {t('segments.builder.removeCondition')}
-      </button>
+      </Button>
     </li>
   );
 }
@@ -234,24 +231,22 @@ export function SegmentBuilder({
     <div
       role="group"
       aria-label={depth === 1 ? t('segments.builder.title') : t('segments.builder.group')}
-      className="space-y-2"
-      style={depth > 1 ? { borderLeft: '2px solid var(--color-border)', paddingLeft: '0.75rem' } : undefined}
+      className={depth > 1 ? 'space-y-2 ui-rail' : 'space-y-2'}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <select
+        <Select
           aria-label={t('segments.builder.title')}
           value={value.combinator}
           onChange={(e) => onChange({ ...value, combinator: e.target.value === 'or' ? 'or' : 'and' })}
           className={smallInput}
-          style={inputStyle}
         >
           <option value="and">{t('segments.builder.match.and')}</option>
           <option value="or">{t('segments.builder.match.or')}</option>
-        </select>
+        </Select>
         {onRemove && (
-          <button type="button" onClick={onRemove} className="text-xs underline" style={{ color: 'var(--color-text-muted)' }}>
+          <Button variant="link" tone="muted" size="sm" type="button" onClick={onRemove}>
             {t('segments.builder.removeGroup')}
-          </button>
+          </Button>
         )}
       </div>
       <ul>
@@ -278,18 +273,16 @@ export function SegmentBuilder({
         )}
       </ul>
       <div className="flex gap-3">
-        <button type="button" onClick={() => onChange({ ...value, rules: [...value.rules, DEFAULT_CONDITION] })} className="text-xs font-medium underline" style={{ color: 'var(--color-text-secondary)' }}>
+        <Button variant="link" tone="muted" size="sm" type="button" onClick={() => onChange({ ...value, rules: [...value.rules, DEFAULT_CONDITION] })}>
           {t('segments.builder.addCondition')}
-        </button>
+        </Button>
         {depth < MAX_SEGMENT_DEPTH && (
-          <button
+          <Button variant="link" tone="muted" size="sm"
             type="button"
             onClick={() => onChange({ ...value, rules: [...value.rules, { combinator: 'or', rules: [DEFAULT_CONDITION] }] })}
-            className="text-xs font-medium underline"
-            style={{ color: 'var(--color-text-secondary)' }}
           >
             {t('segments.builder.addGroup')}
-          </button>
+          </Button>
         )}
       </div>
     </div>
@@ -331,18 +324,18 @@ export function SegmentPreview({ studioId, rules }: { studioId: string; rules: S
       {state === 'error' && <Muted>{t('common.error.generic')}</Muted>}
       {state === 'idle' && preview && (
         <>
-          <p className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+          <p className="ui-heading">
             {t('segments.preview.count', { count: preview.count })}
           </p>
           {preview.sample.length > 0 && (
             <div className="space-y-1">
-              <p className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+              <p className="ui-strong ui-caption">
                 {t('segments.preview.sample')}
               </p>
               <ul className="space-y-1">
                 {preview.sample.map((c) => (
-                  <li key={c.id} className="flex items-center justify-between gap-2 text-sm">
-                    <span style={{ color: 'var(--color-text-primary)' }}>{c.fullName}</span>
+                  <li key={c.id} className="flex items-center justify-between gap-2">
+                    <span>{c.fullName}</span>
                     <Badge>{t(`crm.lifecycle.${c.lifecycleStage}`)}</Badge>
                   </li>
                 ))}

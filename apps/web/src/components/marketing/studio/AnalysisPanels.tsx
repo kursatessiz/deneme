@@ -25,16 +25,16 @@ function InsightTable({ insight }: { insight: SegmentInsightDTO }) {
   }
   return (
     <div className="space-y-3">
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+      <p className="ui-caption">
         {t('marketingStudio.segments.insightNote', { k: insight.k, total: insight.totalContacts })}
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
         {insight.dimensions.map((d) => (
           <div key={d.key}>
-            <h4 className="text-xs font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>
+            <h4 className="mb-1 ui-strong ui-small">
               {t(`marketingStudio.segments.dimension.${d.key}`)}
             </h4>
-            <ul className="text-sm space-y-0.5">
+            <ul className="space-y-0.5">
               {d.cells.map((c) => (
                 <li key={c.label} className="flex justify-between gap-3">
                   <span>{c.label === 'unknown' ? t('marketingStudio.segments.unknown') : c.label}</span>
@@ -42,7 +42,7 @@ function InsightTable({ insight }: { insight: SegmentInsightDTO }) {
                 </li>
               ))}
               {d.otherCount > 0 && (
-                <li className="flex justify-between gap-3" style={{ color: 'var(--color-text-muted)' }}>
+                <li className="flex justify-between gap-3 ui-text-muted">
                   <span>{t('marketingStudio.segments.other')}</span>
                   <span className="tabular-nums">{d.otherCount}</span>
                 </li>
@@ -173,7 +173,7 @@ export function ResearchPanel({ kit, disabled }: { kit: BrandKitDTO; disabled: b
       <Section title={t('marketingStudio.research.title')} description={t('marketingStudio.research.hint')}>
         <InputField label={t('marketingStudio.research.question')} value={question} onChange={setQuestion} />
         {sources.map((source, index) => (
-          <div key={index} className="space-y-2 border-t pt-3" style={{ borderColor: 'var(--color-border)' }}>
+          <div key={index} className="space-y-2 pt-3 ui-rule">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <InputField label={t('marketingStudio.research.sourceTitle', { n: index + 1 })} value={source.title} onChange={(v) => setSource(index, { title: v })} />
               <InputField label={t('marketingStudio.research.sourceUrl', { n: index + 1 })} value={source.url} onChange={(v) => setSource(index, { url: v })} placeholder="https://" />
@@ -192,7 +192,7 @@ export function ResearchPanel({ kit, disabled }: { kit: BrandKitDTO; disabled: b
         {sources.length < RESEARCH_MAX_SOURCES && (
           <SecondaryButton onClick={() => setSources([...sources, { title: '', url: '', text: '' }])}>{t('marketingStudio.research.addSource')}</SecondaryButton>
         )}
-        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+        <p className="ui-caption">
           {t('marketingStudio.generate.piiNote')}
         </p>
         <div className="flex flex-wrap items-end gap-4">

@@ -14,9 +14,9 @@ export function IssueList({ issues }: { issues: readonly MarketingCheckIssue[] }
   return (
     <ul className="space-y-1" aria-label={t('marketingStudio.issues.title')}>
       {issues.map((issue, index) => (
-        <li key={index} className="flex items-start gap-2 text-xs">
+        <li key={index} className="flex items-start gap-2 ui-small">
           <Badge tone={issue.severity === 'BLOCKING' ? 'danger' : 'warning'}>{t(`marketingStudio.issues.severity.${issue.severity}`)}</Badge>
-          <span style={{ color: 'var(--color-text-secondary)' }}>
+          <span className="ui-text-muted">
             {t(`marketingStudio.check.${issue.code}`, {
               field: issue.field,
               detail: issue.detail ?? '',
@@ -95,7 +95,7 @@ export function VariantEditor({
         );
       })}
       {kind === 'SMS' && (
-        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+        <p className="ui-caption">
           {(() => {
             const info = smsSegmentInfo(values.text ?? '');
             return t('marketingStudio.smsSegments', { encoding: info.encoding, length: info.length, segments: info.segments });

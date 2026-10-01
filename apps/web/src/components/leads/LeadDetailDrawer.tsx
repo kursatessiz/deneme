@@ -9,13 +9,7 @@ import { Badge } from '@/components/common/Badge';
 import { Modal } from '@/components/common/Modal';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { upcomingTrialSessions, type TrialSessionRow } from '@/lib/leads/trial-sessions';
-
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
+import { Input, Select } from '@/components/ui';
 
 export function LeadDetailDrawer({
   studioId,
@@ -132,19 +126,19 @@ export function LeadDetailDrawer({
         <div className="flex items-center gap-2">
           <Badge tone={lead.stage === 'WON' ? 'success' : lead.stage === 'LOST' ? 'danger' : 'info'}>{stageLabel(lead.stage)}</Badge>
           {lead.ownerName && (
-            <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+            <span className="ui-caption">
               {t('leads.detail.owner', { name: lead.ownerName })}
             </span>
           )}
         </div>
 
-        <div className="text-sm space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
+        <div className="space-y-1 ui-text-muted">
           <div>{t('leads.detail.phone', { phone: lead.phone })}</div>
           {lead.email && <div>{t('leads.detail.email', { email: lead.email })}</div>}
           {lead.interestServiceTypeName && <div>{t('leads.detail.interestedService', { name: lead.interestServiceTypeName })}</div>}
         </div>
 
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {error && <p className="ui-text-error ui-small">{error}</p>}
 
         {lead.stage !== 'WON' && lead.stage !== 'LOST' && (
           <div className="space-y-2">
@@ -164,11 +158,10 @@ export function LeadDetailDrawer({
             </div>
             {canBookTrial && (
               <div className="flex items-center gap-2">
-                <select
+                <Select
                   value={scheduleId}
                   onChange={(e) => setScheduleId(e.target.value)}
-                  className="flex-1 text-xs px-2 py-1.5"
-                  style={inputStyle}
+                  className="flex-1"
                   disabled={sessionsLoading}
                 >
                   <option value="">
@@ -191,7 +184,7 @@ export function LeadDetailDrawer({
                       {s.serviceType?.name ?? s.title} ({s.bookedCount}/{s.capacity})
                     </option>
                   ))}
-                </select>
+                </Select>
                 <PermissionButton required={['leads.manage']} onClick={bookTrial} disabled={busy || !scheduleId}>
                   {t('leads.detail.bookTrial')}
                 </PermissionButton>
@@ -199,12 +192,11 @@ export function LeadDetailDrawer({
             )}
             {transitions.includes(LeadStage.LOST) && (
               <div className="flex items-center gap-2">
-                <input
+                <Input
                   placeholder={t('leads.detail.lostReasonPlaceholder')}
                   value={lostReason}
                   onChange={(e) => setLostReason(e.target.value)}
-                  className="flex-1 text-xs px-2 py-1.5"
-                  style={inputStyle}
+                  className="flex-1"
                 />
                 <PermissionButton required={['leads.manage']} variant="danger" onClick={() => changeStage(LeadStage.LOST)} disabled={busy}>
                   {t('leads.detail.markLost')}
@@ -215,18 +207,18 @@ export function LeadDetailDrawer({
         )}
 
         <div>
-          <h4 className="text-xs font-semibold mb-1.5" style={{ color: 'var(--color-text-primary)' }}>
+          <h4 className="mb-1.5 ui-strong ui-small">
             {t('leads.detail.history')}
           </h4>
           <div className="space-y-1.5 max-h-48 overflow-y-auto">
             {lead.activities.length === 0 && (
-              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              <p className="ui-caption">
                 {t('leads.detail.noHistory')}
               </p>
             )}
             {lead.activities.map((a) => (
-              <div key={a.id} className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+              <div key={a.id} className="ui-caption">
+                <span className="ui-strong">
                   {a.actorName ?? t('leads.detail.system')}
                 </span>{' '}
                 {a.body} - {new Date(a.createdAt).toLocaleString(locale)}
@@ -236,12 +228,11 @@ export function LeadDetailDrawer({
         </div>
 
         <div className="flex items-center gap-2">
-          <input
+          <Input
             placeholder={t('leads.detail.addNotePlaceholder')}
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            className="flex-1 text-sm px-3 py-1.5"
-            style={inputStyle}
+            className="flex-1"
           />
           <PermissionButton required={['leads.manage']} onClick={addNote} disabled={busy}>
             {t('leads.detail.addNote')}

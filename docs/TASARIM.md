@@ -163,6 +163,30 @@ T2a'da eklenen yardımcı sınıflar (hepsi `ui` katmanında, yalnızca token'la
 | `ui-heat`, `ui-heat-cell` | Isı haritası: `--ui-heat` (yüzde) satır içi verilir, marka rengi soluk zeminle karışır |
 | `ui-cal`, `ui-cal-gutter`, `ui-cal-head`, `ui-cal-hour`, `ui-cal-col`, `ui-cal-line`, `ui-cal-chip`, `ui-cal-month`, `ui-cal-weekhead`, `ui-cal-cell`, `ui-cal-mini` | Takvim ızgarası (gün/hafta/ay). `data-load` (`full`, `busy`, `normal`) seansı doluluğa göre boyar, `data-selected`, `data-cancelled`, `data-drop`, `data-outside` durumları |
 
+T2b'de (CRM ve pazarlama) eklenen yardımcı sınıflar (hepsi `ui` katmanında, yalnızca token'larla):
+
+| Sınıf | Ne için |
+|-------|---------|
+| `ui-small` | Mevcut rengi koruyan küçük metin (soluk renkli karşılığı `ui-caption`). Tailwind `text-xs` yerine |
+| `ui-rail` | Liste öğesi veya alıntının solunda ince dikey çizgi (etkinlik akışı, iç içe segment grubu, kaynak alıntısı) |
+| `ui-drop-col`, `ui-draggable` | Satış hattı sütunu: `data-drop="true"` iken kesik marka çerçevesi; `draggable` kart `grab` imleci alır |
+| `ui-drawer-backdrop`, `ui-drawer` | Soluklaştırılmış sayfa üstünde sağdan açılan panel (onay kuyruğu detayı) |
+| `ui-banner` | Solunda marka renkli şerit olan bildirim kartı (`pui-card` ile birlikte; abonelik bandı). `data-urgent="true"` çerçeveyi de boyar |
+| `ui-pick` | Seçilebilir satır (konuşma listesi): üzerine gelince ve `aria-current="true"` iken soluk zemin |
+| `ui-rule-b`, `ui-split-start` | Tek alt çizgi (panel başlığı); iki panelli görünümde ilk panelin çizgisi (dar ekranda altta, 1024 px'den sonra sağda) |
+| `ui-bar-fill[data-level]` | Bütçeyi aşan ölçer: `warning` uyarı, `exceeded` hata renginde dolar |
+| `ui-status-item`, `ui-status-dot` | İçerik takvimi öğesi ve gösterge noktası; `data-status` (`PLANNED`, `DRAFTED`, `APPROVED`, `SENT`, `CANCELLED`) sol kenar rengini seçer |
+| `ui-dashed-item`, `ui-dashed-swatch` | Kesik çizgili satır (takvimde kampanya) ve göstergedeki küçük örneği |
+
+Kalıplar: sekme şeridi gibi görünen gezinme `ui-tabs` + `LinkButton`
+(`solid theme` etkin, `link surface` diğerleri); filtre düğmeleri `ChipButton`;
+panelin içindeki ikincil blok (adım, çıktı, kod) `ui-panel`; metin içi
+bağlantılar `pui-link pui-surface`; satır içi kaldır/aç eylemleri
+`Button variant="link"`. `components/growth/ui.tsx` (`Panel`, `Field`,
+`Notice`, `Muted`, `PageHeader`) bileşen kütüphanesinin üstüne yazıldı;
+etkinlikler ve topluluk ekranları taşınana kadar `inputClass`/`inputStyle`
+`components/growth/legacy-controls.ts` içinde kalır, yeni kod bunları kullanmaz.
+
 `components/common` (Badge, Modal, Tabs, DataState, PermissionButton,
 Forbidden, DateRangeFilter, BranchSelect) ve `components/settings/ui.tsx` bu
 kütüphanenin üstüne yeniden yazıldı; dışa açılan API'leri aynı kaldığı için
@@ -286,7 +310,17 @@ aktarımı), raporlar, takvim ızgarası (gün/hafta/ay) ve seans formları,
 yoklama, paketler, antrenörler, paket satış diyaloğu, sadakat paneli ve
 düşük stok bileşeni.
 
-Sonraki fazlarda kalan ekranlar (CRM ve pazarlama, mağaza, etkinlikler,
+T2b'de CRM ve pazarlama ekranları taşındı: kişiler (liste, kart, satış hattı),
+adaylar, gelen kutusu, riskli üyeler, tavsiye, reklam performansı, segmentler,
+kampanyalar (A/B ve gönderim zamanı bölümleri dahil), akışlar (şablonlar ve
+editör), entegrasyon merkezi (OAuth, aday reklamları, SMS gönderici,
+otomasyon) ve platform pazarlama paneli (pano, marka kiti, yapay zeka
+stüdyosu, içerik takvimi, onaylar, sosyal gönderiler, içgörüler, reklam
+sekmeleri) ile bunların kullandığı `components/growth`, `components/marketing`,
+`components/leads`, `components/churn`, `components/integrations`,
+`components/ai` ve `components/billing` bileşenleri.
+
+Sonraki fazlarda kalan ekranlar (mağaza, etkinlikler,
 topluluk, abonelik, süper admin alt sayfaları, sayfa motoru blokları)
 bileşen kütüphanesine taşınır ve Tailwind renk/köşe/gölge
 sınıflarından arındırılır; o zamana kadar eski `--color-*` takma adları

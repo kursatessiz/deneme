@@ -48,14 +48,13 @@ function TemplateGallery() {
             return (
               <li
                 key={tpl.key}
-                className="p-4 flex flex-col justify-between gap-3"
-                style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}
+                className="p-4 flex flex-col justify-between gap-3 pui-card"
               >
                 <div className="space-y-2">
-                  <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                  <h3 className="ui-strong">
                     {t(`journeys.template.${tpl.key}.name`)}
                   </h3>
-                  <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                  <p className="ui-caption">
                     {t(`journeys.template.${tpl.key}.description`)}
                   </p>
                   <div className="flex flex-wrap gap-1.5">
