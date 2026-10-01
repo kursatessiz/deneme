@@ -15,6 +15,7 @@ import { ErrorState, LoadingState } from '@/components/common/DataState';
 import { InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader } from '@/components/settings/ui';
 import { CheckField, InputField, LinkButton } from '@/components/marketing/fields';
 import { bffFetch, BffError } from '@/lib/session/client';
+import { Chip } from '@/components/ui/Chip';
 
 interface Form {
   selfApproveEmailMax: string;
@@ -195,7 +196,7 @@ export default function AdminMarketingSettingsPage() {
   return (
     <div className="space-y-5 max-w-3xl">
       <SettingsHeader title={t('adminMarketingSettings.title')} description={t('adminMarketingSettings.subtitle')} />
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+      <p className="ui-caption">
         {updatedAt
           ? t('adminMarketingSettings.updatedAt', { date: new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(updatedAt)) })
           : t('adminMarketingSettings.defaults')}
@@ -213,24 +214,22 @@ export default function AdminMarketingSettingsPage() {
 
       <Section title={t('adminMarketingSettings.consent.title')} description={t('adminMarketingSettings.consent.description')}>
         <fieldset className="space-y-2">
-          <legend className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+          <legend className="ui-small ui-strong">
             {t('adminMarketingSettings.consent.doubleOptIn')}
           </legend>
-          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="ui-caption">
             {t('adminMarketingSettings.consent.doubleOptInHint')}
           </p>
           {form.doubleOptInRegions.length === 0 && <InlineMessage text={t('adminMarketingSettings.consent.noRegions')} />}
           <ul className="flex flex-wrap gap-2">
             {form.doubleOptInRegions.map((code) => (
-              <li
-                key={code}
-                className="inline-flex items-center gap-2 px-2 py-1 text-xs border"
-                style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)', color: 'var(--color-text-primary)' }}
-              >
-                <span className="font-mono">{code}</span>
-                <LinkButton danger onClick={() => set('doubleOptInRegions', form.doubleOptInRegions.filter((c) => c !== code))}>
-                  {t('adminMarketingSettings.consent.removeRegion', { code })}
-                </LinkButton>
+              <li key={code}>
+                <Chip className="gap-2">
+                  <span className="ui-mono">{code}</span>
+                  <LinkButton danger onClick={() => set('doubleOptInRegions', form.doubleOptInRegions.filter((c) => c !== code))}>
+                    {t('adminMarketingSettings.consent.removeRegion', { code })}
+                  </LinkButton>
+                </Chip>
               </li>
             ))}
           </ul>
@@ -257,7 +256,7 @@ export default function AdminMarketingSettingsPage() {
             checked={form.trMerchantExemptionEnabled}
             onChange={(v) => set('trMerchantExemptionEnabled', v)}
           />
-          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="ui-caption">
             {t('adminMarketingSettings.consent.trExemptionHint')}
           </p>
         </div>
@@ -305,7 +304,7 @@ export default function AdminMarketingSettingsPage() {
         <SecondaryButton onClick={() => set('adSpend', [...form.adSpend, { currency: '', amount: '' }])}>{t('adminMarketingSettings.adSpend.add')}</SecondaryButton>
         <div className="space-y-1">
           <CheckField label={t('adminMarketingSettings.field.adCapAutoPause')} checked={form.adCapAutoPause} onChange={(v) => set('adCapAutoPause', v)} />
-          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="ui-caption">
             {t('adminMarketingSettings.adSpend.autoPauseHint')}
           </p>
         </div>
@@ -321,7 +320,7 @@ export default function AdminMarketingSettingsPage() {
       <Section title={t('adminMarketingSettings.weekly.title')} description={t('adminMarketingSettings.weekly.description')}>
         <CheckField label={t('adminMarketingSettings.field.weeklySummaryEnabled')} checked={form.weeklySummaryEnabled} onChange={(v) => set('weeklySummaryEnabled', v)} />
         <fieldset className="space-y-2">
-          <legend className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+          <legend className="ui-small ui-strong">
             {t('adminMarketingSettings.weekly.recipients')}
           </legend>
           {view.recipients.length === 0 && <InlineMessage text={t('adminMarketingSettings.weekly.noRecipients')} />}
@@ -340,7 +339,7 @@ export default function AdminMarketingSettingsPage() {
           <SecondaryButton onClick={generateNow} disabled={generating}>
             {t('adminMarketingSettings.weekly.generateNow')}
           </SecondaryButton>
-          <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="ui-caption">
             {t('adminMarketingSettings.weekly.generateHint')}
           </p>
         </div>

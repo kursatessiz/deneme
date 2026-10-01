@@ -5,6 +5,7 @@ import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, ErrorState } from '@/components/common/DataState';
 import { InlineMessage, PrimaryButton, Section, TextField } from '@/components/settings/ui';
 import { SiteEditor } from '@/components/sites/SiteEditor';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { useT } from '@/components/i18n/I18nProvider';
 
 interface CompanyInfo {
@@ -79,15 +80,8 @@ export default function AdminWebSitesiPage() {
   }, []);
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-          {t('adminWebSitesi.title')}
-        </h2>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('adminWebSitesi.subtitle')}
-        </p>
-      </div>
+    <div className="grid gap-8">
+      <PageHeader title={t('adminWebSitesi.title')} description={t('adminWebSitesi.subtitle')} />
       <CompanyInfoForm />
       {error && <ErrorState message={error} />}
       {!error && !studioId && <LoadingState />}

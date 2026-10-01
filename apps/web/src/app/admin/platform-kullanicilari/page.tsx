@@ -13,6 +13,9 @@ import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { Badge } from '@/components/common/Badge';
 import { EmptyState, ErrorState, LoadingState } from '@/components/common/DataState';
 import { InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader, TextField, Toggle } from '@/components/settings/ui';
+import { FieldGroup } from '@/components/ui/FieldGroup';
+import { Select } from '@/components/ui/Select';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
 
 type Channel = 'SHOWN' | 'SMS' | 'WHATSAPP';
 
@@ -23,13 +26,6 @@ function permissionLabelKey(key: PlatformPermissionKey): MessageKey {
 }
 
 const STATUS_TONE = { INVITED: 'info', ACTIVE: 'success', PASSIVE: 'neutral' } as const;
-
-const selectStyle = {
-  borderColor: 'var(--color-border)',
-  borderRadius: 'var(--radius-input)',
-  backgroundColor: 'var(--color-background)',
-  color: 'var(--color-text-primary)',
-};
 
 /**
  * Super admin: platform users (docs/PAZARLAMA_MODULU.md 2.6). Invite by
@@ -88,7 +84,7 @@ export default function PlatformUsersPage() {
   if (!members || !settings) return <LoadingState />;
 
   return (
-    <div className="space-y-6">
+    <div className="grid gap-6">
       <SettingsHeader title={t('adminPlatformUsers.title')} description={t('adminPlatformUsers.subtitle')} />
       {message && <InlineMessage text={message.text} tone={message.ok ? 'success' : 'error'} />}
 
@@ -110,30 +106,24 @@ export default function PlatformUsersPage() {
         >
           <TextField label={t('adminPlatformUsers.invite.fullName')} value={fullName} onChange={setFullName} />
           <TextField label={t('adminPlatformUsers.invite.phone')} value={phone} onChange={setPhone} placeholder="+90 532 111 22 33" />
-          <label className="block space-y-1">
-            <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('adminPlatformUsers.invite.role')}
-            </span>
-            <select value={roleTemplateId} onChange={(e) => setRoleTemplateId(e.target.value)} className="w-full px-3 py-2 text-sm border" style={selectStyle}>
+          <FieldGroup label={t('adminPlatformUsers.invite.role')}>
+            <Select value={roleTemplateId} onChange={(e) => setRoleTemplateId(e.target.value)}>
               {roles.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('adminPlatformUsers.invite.channel')}
-            </span>
-            <select value={channel} onChange={(e) => setChannel(e.target.value as Channel)} className="w-full px-3 py-2 text-sm border" style={selectStyle}>
+            </Select>
+          </FieldGroup>
+          <FieldGroup label={t('adminPlatformUsers.invite.channel')}>
+            <Select value={channel} onChange={(e) => setChannel(e.target.value as Channel)}>
               {(['SHOWN', 'SMS', 'WHATSAPP'] as const).map((c) => (
                 <option key={c} value={c}>
                   {t(`adminPlatformUsers.invite.channel.${c}`)}
                 </option>
               ))}
-            </select>
-          </label>
+            </Select>
+          </FieldGroup>
           <div>
             <PrimaryButton type="submit" disabled={fullName.trim().length < 3 || phone.trim().length < 10 || !roleTemplateId}>
               {t('adminPlatformUsers.invite.submit')}
@@ -141,14 +131,10 @@ export default function PlatformUsersPage() {
           </div>
         </form>
         {invite && (
-          <div className="text-sm space-y-1">
+          <div className="grid gap-1">
             <p>{t('adminPlatformUsers.invite.created', { date: fmtDate(invite.expiresAt) })}</p>
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              {t('adminPlatformUsers.invite.link')}
-            </p>
-            <code className="block p-2 border text-xs break-all" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)' }}>
-              {invite.inviteUrl}
-            </code>
+            <p className="ui-caption">{t('adminPlatformUsers.invite.link')}</p>
+            <code className="ui-panel ui-mono block p-2 break-all">{invite.inviteUrl}</code>
           </div>
         )}
       </Section>
@@ -158,36 +144,33 @@ export default function PlatformUsersPage() {
           <EmptyState title={t('adminPlatformUsers.empty')} />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ color: 'var(--color-text-muted)' }}>
+            <Table>
+              <Thead>
+                <Tr>
                   {(['name', 'phone', 'role', 'status', 'mfa', 'actions'] as const).map((c) => (
-                    <th key={c} className="text-left font-medium text-xs py-1.5 pr-3">
-                      {t(`adminPlatformUsers.col.${c}`)}
-                    </th>
+                    <Th key={c}>{t(`adminPlatformUsers.col.${c}`)}</Th>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
+                </Tr>
+              </Thead>
+              <Tbody>
                 {members.map((m) => (
-                  <tr key={m.id} className="border-t align-top" style={{ borderColor: 'var(--color-border)' }}>
-                    <td className="py-2 pr-3 font-medium">{m.fullName}</td>
-                    <td className="py-2 pr-3 font-mono text-xs">{m.phoneMasked}</td>
-                    <td className="py-2 pr-3">
+                  <Tr key={m.id} className="align-top">
+                    <Td className="ui-strong">{m.fullName}</Td>
+                    <Td className="ui-mono">{m.phoneMasked}</Td>
+                    <Td>
                       <div className="flex gap-2 items-center">
-                        <select
+                        <Select
                           aria-label={`${t('adminPlatformUsers.col.role')} ${m.fullName}`}
                           value={roleDraft[m.userId] ?? m.roleTemplateId}
                           onChange={(e) => setRoleDraft({ ...roleDraft, [m.userId]: e.target.value })}
-                          className="px-2 py-1 text-xs border"
-                          style={selectStyle}
+                          className="w-auto"
                         >
                           {roles.map((r) => (
                             <option key={r.id} value={r.id}>
                               {r.name}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                         {roleDraft[m.userId] && roleDraft[m.userId] !== m.roleTemplateId && (
                           <SecondaryButton
                             onClick={() =>
@@ -198,14 +181,14 @@ export default function PlatformUsersPage() {
                           </SecondaryButton>
                         )}
                       </div>
-                    </td>
-                    <td className="py-2 pr-3">
+                    </Td>
+                    <Td>
                       <Badge tone={STATUS_TONE[m.status]}>{t(`adminPlatformUsers.status.${m.status}`)}</Badge>
-                    </td>
-                    <td className="py-2 pr-3">
+                    </Td>
+                    <Td>
                       <Badge tone={m.mfaEnabled ? 'success' : 'warning'}>{m.mfaEnabled ? t('twoFactor.status.on') : t('twoFactor.status.off')}</Badge>
-                    </td>
-                    <td className="py-2">
+                    </Td>
+                    <Td>
                       <div className="flex flex-wrap gap-2">
                         {m.status === 'PASSIVE' ? (
                           <SecondaryButton onClick={() => run(() => bffFetch(`admin/platform-users/${m.userId}/reactivate`, { method: 'POST' }))}>
@@ -233,23 +216,23 @@ export default function PlatformUsersPage() {
                           </SecondaryButton>
                         )}
                       </div>
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                 ))}
-              </tbody>
-            </table>
+              </Tbody>
+            </Table>
           </div>
         )}
       </Section>
 
       <Section title={t('adminPlatformUsers.role.title')}>
         {roles.map((r) => (
-          <div key={r.id} className="space-y-1">
+          <div key={r.id} className="grid gap-1">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-sm">{r.name}</span>
+              <span className="ui-strong">{r.name}</span>
               {r.isSystem && <Badge>{t('adminPlatformUsers.role.system')}</Badge>}
             </div>
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            <p className="ui-caption">
               {t('adminPlatformUsers.role.permissions')}: {r.permissions.map((p) => t(permissionLabelKey(p))).join(', ')}
             </p>
           </div>
