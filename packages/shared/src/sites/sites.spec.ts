@@ -7,6 +7,10 @@ import {
   buildHreflangAlternates,
   buildSitemapXml,
   buildRobotsTxt,
+  isNonIndexablePath,
+  isProtectedPath,
+  NON_INDEXABLE_PATH_PREFIXES,
+  PROTECTED_PATHS,
   isValidDomain,
   expectedDnsRecords,
   HeroBlockSchema,
@@ -90,6 +94,38 @@ describe('sites/sitemap', () => {
 
   it('builds robots.txt with a sitemap reference', () => {
     expect(buildRobotsTxt('https://x.com/sitemap.xml')).toContain('Sitemap: https://x.com/sitemap.xml');
+  });
+});
+
+describe('sites/indexing', () => {
+  it('disallows every non-indexable prefix in robots.txt and keeps public content allowed', () => {
+    const txt = buildRobotsTxt('https://x.com/sitemap.xml');
+    expect(txt).toContain('Allow: /\n');
+    for (const p of NON_INDEXABLE_PATH_PREFIXES) {
+      expect(txt).toContain(`Disallow: ${p}/\n`);
+      expect(txt).toContain(`Disallow: ${p}$\n`);
+    }
+    expect(txt).toContain('Disallow: /giris/');
+    expect(txt).toContain('Disallow: /m/u/');
+    expect(txt.trimEnd().endsWith('Sitemap: https://x.com/sitemap.xml')).toBe(true);
+  });
+
+  it('matches whole path segments only', () => {
+    expect(isNonIndexablePath('/members')).toBe(true);
+    expect(isNonIndexablePath('/members/42')).toBe(true);
+    expect(isNonIndexablePath('/membership-plans')).toBe(false);
+    expect(isNonIndexablePath('/j/abc')).toBe(true);
+    expect(isNonIndexablePath('/m/u/abc')).toBe(true);
+    expect(isNonIndexablePath('/api/bff/x')).toBe(true);
+    expect(isNonIndexablePath('/tr/pilates')).toBe(false);
+    expect(isNonIndexablePath('/booking/studio/book')).toBe(false);
+    expect(isNonIndexablePath('/')).toBe(false);
+  });
+
+  it('keeps the protected list a subset of the non-indexable list', () => {
+    for (const p of PROTECTED_PATHS) expect(isNonIndexablePath(p)).toBe(true);
+    expect(isProtectedPath('/giris')).toBe(false);
+    expect(isProtectedPath('/admin/plans')).toBe(true);
   });
 });
 

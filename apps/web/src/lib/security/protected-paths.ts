@@ -1,33 +1,6 @@
 /**
- * Route group `(dashboard)` and `/admin` pages, matched without the group
- * segment: they need a session (middleware.ts) and report client errors
- * through the BFF, while every other page reports through the dedicated
- * public telemetry route (lib/errors/reporter.ts).
+ * The protected-path list lives in `@platform/shared` (sites/indexing.ts) so
+ * robots.txt, the middleware's X-Robots-Tag and the session check share one
+ * source. Re-exported here for the existing web imports.
  */
-export const PROTECTED_PATHS = [
-  '/dashboard',
-  '/calendar',
-  '/members',
-  '/packages',
-  '/trainers',
-  '/attendance',
-  '/ayarlar',
-  '/finans',
-  '/raporlar',
-  '/adaylar',
-  '/reklam-performansi',
-  '/riskli-uyeler',
-  '/gelen-kutusu',
-  '/etkinlikler',
-  '/topluluk',
-  '/abonelik',
-  '/tavsiye',
-  '/admin',
-  // M1: marketing panel and the two-step verification screen.
-  '/pazarlama',
-  '/guvenlik',
-] as const;
-
-export function isProtectedPath(pathname: string): boolean {
-  return PROTECTED_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
-}
+export { PROTECTED_PATHS, isProtectedPath } from '@platform/shared';

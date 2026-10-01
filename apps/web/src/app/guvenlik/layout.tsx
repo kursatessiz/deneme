@@ -1,6 +1,12 @@
+import type { Metadata } from 'next';
+import { noindexMetadata } from '@/lib/seo/noindex';
 import { redirect } from 'next/navigation';
 import { AdminTheme } from '@/components/admin/AdminTheme';
 import { getSessionUser } from '@/lib/session/admin-session';
+
+export async function generateMetadata(): Promise<Metadata> {
+  return noindexMetadata('seo.panel.title');
+}
 
 /** Neutral shell for account security screens (M1 two-step verification); needs a session, no tenant. */
 export default async function SecurityLayout({ children }: { children: React.ReactNode }) {

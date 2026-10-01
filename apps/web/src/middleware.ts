@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { EMBED_ORIGIN_PATTERN, LocaleCodeSchema, STUDIO_SLUG_PATTERN } from '@platform/shared';
+import { EMBED_ORIGIN_PATTERN, LocaleCodeSchema, NOINDEX_ROBOTS_VALUE, STUDIO_SLUG_PATTERN, isNonIndexablePath } from '@platform/shared';
 import { PAGE_LOCALE_HEADER } from '@/lib/i18n/constants';
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE, accessTokenCookieOptions, refreshTokenCookieOptions } from '@/lib/bff/cookies';
 import { dashboardCsp, generateNonce } from '@/lib/security/csp';
@@ -168,7 +168,14 @@ async function embedCsp(request: NextRequest): Promise<NextResponse> {
  * server-side in `(dashboard)/layout.tsx` via `GET /auth/me`; this check is
  * cheap and only about routing, not authorization.
  */
-export async function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest): Promise<NextResponse> {
+  const response = await route(request);
+  // Header-level noindex covers client-component pages, route handlers and redirects, where page metadata cannot reach (docs/SEO.md).
+  if (isNonIndexablePath(request.nextUrl.pathname)) response.headers.set('X-Robots-Tag', NOINDEX_ROBOTS_VALUE);
+  return response;
+}
+
+async function route(request: NextRequest): Promise<NextResponse> {
   const tenantRewrite = await tenantSiteRewrite(request);
   if (tenantRewrite) return publicAdsCsp(tenantRewrite);
 
