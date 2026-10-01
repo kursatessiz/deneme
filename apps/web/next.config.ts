@@ -18,6 +18,28 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  /**
+   * Baseline security and cache headers (docs/SEO.md, "Basliklar"). Caddy sets HSTS on every site block
+   * (deploy/caddy/Caddyfile), so Strict-Transport-Security is deliberately not repeated here. The CSP
+   * stays in src/middleware.ts. Caddy overrides the same headers on the web domain; the tenant-site
+   * block has no Permissions-Policy of its own, which this supplies.
+   */
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(self), geolocation=(), microphone=()' },
+        ],
+      },
+      // Build output is content-hashed (fonts and chunks under /_next/static), so it never changes under a URL.
+      ...(process.env.NODE_ENV === 'production'
+        ? [{ source: '/_next/static/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] }]
+        : []),
+    ];
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**' },
