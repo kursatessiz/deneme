@@ -84,6 +84,12 @@ describe('Sites: IndexNow and search verification (e2e)', () => {
   const pageSlug = `s3-indexnow-${suffix}`;
   let pageId: string;
   const owner = () => as(tokens.owner, ZEN);
+  /** Polls until the fake queue holds at least `count` jobs (notifications are enqueued off the request path). */
+  const waitForJobs = async (count: number): Promise<void> => {
+    const deadline = Date.now() + 3000;
+    while (queue.jobs.length < count && Date.now() < deadline) await new Promise((r) => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, 100));
+  };
 
   it('does not enqueue anything while the flag is off (the default)', async () => {
     const created = await owner().post(`/sites/studio/${ZEN}/pages`).send({ kind: 'CUSTOM', internalLabel: `S3 indexnow ${suffix}` });
@@ -94,13 +100,15 @@ describe('Sites: IndexNow and search verification (e2e)', () => {
     await owner().put(`/sites/studio/${ZEN}/pages/${pageId}/blocks`).send([{ type: 'hero', position: 0, data: hero }]);
     expect((await owner().post(`/sites/studio/${ZEN}/pages/${pageId}/publish`)).status).toBe(201);
     expect((await owner().post(`/sites/studio/${ZEN}/pages/${pageId}/unpublish`)).status).toBe(201);
+    // Notifications are fire-and-forget: let the in-flight flag reads settle before the flag changes below.
+    await new Promise((r) => setTimeout(r, 400));
     expect(queue.jobs).toEqual([]);
   });
 
   it('enqueues one job per publish and unpublish once the super admin turns the flag on', async () => {
     expect((await setFlag(true)).status).toBeLessThan(300);
     expect((await owner().post(`/sites/studio/${ZEN}/pages/${pageId}/publish`)).status).toBe(201);
-    await new Promise((r) => setTimeout(r, 150));
+    await waitForJobs(1);
     expect(queue.jobs).toHaveLength(1);
     expect(queue.jobs[0].studioId).toBe(ZEN);
     expect(queue.jobs[0].urls).toHaveLength(1);
@@ -109,7 +117,7 @@ describe('Sites: IndexNow and search verification (e2e)', () => {
     expect(url.hostname.startsWith(`${ZEN_SLUG}.`)).toBe(true);
 
     expect((await owner().post(`/sites/studio/${ZEN}/pages/${pageId}/unpublish`)).status).toBe(201);
-    await new Promise((r) => setTimeout(r, 150));
+    await waitForJobs(2);
     expect(queue.jobs).toHaveLength(2);
   });
 
