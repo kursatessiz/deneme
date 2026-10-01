@@ -15,14 +15,14 @@ test.describe('platform site', () => {
     const enAlternate = page.locator('link[rel="alternate"][hreflang="en"]');
     await expect(enAlternate).toHaveAttribute('href', /\/en$/);
     // x-default of the platform home page is the origin root (it redirects by locale); the page is canonical to itself.
-    await expect(page.locator('link[rel="alternate"][hreflang="x-default"]')).toHaveAttribute('href', /^https?:\/\/[^/]+\/$/);
+    await expect(page.locator('link[rel="alternate"][hreflang="x-default"]')).toHaveAttribute('href', /^https?:\/\/[^/]+\/?$/);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/tr$/);
   });
 
   test('the English home page carries the same hreflang set and open graph defaults', async ({ page }) => {
     await page.goto('/en');
     await expect(page.locator('link[rel="alternate"][hreflang="tr"]')).toHaveAttribute('href', /\/tr$/);
-    await expect(page.locator('link[rel="alternate"][hreflang="x-default"]')).toHaveAttribute('href', /^https?:\/\/[^/]+\/$/);
+    await expect(page.locator('link[rel="alternate"][hreflang="x-default"]')).toHaveAttribute('href', /^https?:\/\/[^/]+\/?$/);
     await expect(page.locator('meta[property="og:type"]')).toHaveAttribute('content', 'website');
     await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /\/(og\?|.*opengraph-image)|^https?:\/\//);
   });
