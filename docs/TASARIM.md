@@ -103,7 +103,7 @@ Katı kısım (`primary`, `onPrimary`, `primaryHover`) kipten bağımsızdır; `
 `resolveTheme()` her iki kipin paletini `theme.brand` içinde, etkin kipinkini
 `theme.colors` içinde (`primary`, `onPrimary`, `primaryHover`, `primaryMuted`,
 `primarySubtleBg`, `primaryText`) verir; gradyan düzeltilmiş `primary` renginden
-türetilir. `themeCssVariables()` şunları yayar: `--pui-theme` (düzeltilmiş düz renk),
+türetilir. `themeCssVariables()` şunları yayar: `--pui-theme` (düzeltilmiş düz renk; her iki kipte tek değer),
 `--pui-on-theme`, `--pui-theme-hover`, `--pui-theme-muted`, `--pui-theme-subtle`,
 `--pui-theme-text` (açık/koyu çifti) ve eski adlar `--color-primary-text`,
 `--color-primary-hover`. `globals.css` bunları kitin `pui-solid pui-theme:hover`
@@ -111,9 +111,10 @@ durumuna ve soft/outline/link yazısına (`--pui-ink`) ve `ui-text-theme` sını
 bağlar. Mobil `useTheme()` üzerinden aynı değerleri okur; bağlantı ve vurgu yazıları
 `colors.primaryText`, düz zeminler `colors.primary` / `colors.onPrimary` kullanır.
 
-Kit varsayılan rengi (`#0092cd`, koyu modda `#07b6f0`) görsel referans olduğu için
-aynen korunur (üzerindeki yazı sayfa rengidir); bu durumda yalnızca vurgu yazısı
-ve hover değerleri türetilir. İşletme ayarları ekranları (web `ayarlar/gorunum`,
+Kit varsayılan rengi (`#0092CD`) için istisna yoktur: o da diğer her renk gibi
+bu kuraldan geçer (beyaz yazı yaklaşık 3,5:1 olduğundan üzerindeki yazı yakın siyah
+`#111827`, 5,06:1 olur); renk değeri varsayılan olarak kalır ve her iki kipte aynıdır.
+İşletme ayarları ekranları (web `ayarlar/gorunum`,
 mobil `hesabim/isletme-temasi`) artık uyarı göstermez: kısa bir not
 (`themeDesign.contrast.note`), düğme ve bağlantı yazısı örneği ve renk
 düzeltildiyse uygulanan renk (`themeDesign.contrast.adjusted`) görünür. Birim
@@ -146,7 +147,7 @@ tektir:
 | Metin | `#000000` | `#ffffff` | `--pui-text` |
 | Soluk metin | `#676d7b` | `#9ca3af` | `--pui-text-muted` |
 | Çizgi | `#d1d5db` | `#374151` | `--pui-border` |
-| Marka (varsayılan) | `#0092cd` | `#07b6f0` | `--pui-theme` |
+| Marka (varsayılan, kit değeri) | `#0092cd` | `#07b6f0` | kit çifti; ürün `--pui-theme` olarak tek düzeltilmiş değer yayar (bölüm 1b) |
 | Başarı | `#16a34a` | `#22c55e` | `--pui-success` |
 | Uyarı | `#d97706` | `#f59e0b` | `--pui-warn` |
 | Hata | `#dc2626` | `#ef4444` | `--pui-error` |

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ON_BRAND_DARK, ON_BRAND_LIGHT, deriveBrandPalette, deriveHover, wcagContrast } from './brand';
+import { ON_BRAND_DARK, ON_BRAND_LIGHT, deriveBrandPalette, wcagContrast } from './brand';
 import type { BrandPalette } from './brand';
 import {
   COLOR_SCHEME_PREFERENCES,
@@ -218,7 +218,7 @@ export interface ResolvedTheme {
   /** Derived from the primary color; only for GRADIENT_SLOTS. */
   gradient: GradientPreset;
   logoUrl: string | null;
-  /** True when the tenant keeps the kit's default color (rendered as the kit's light/dark pair). */
+  /** True when the tenant keeps the kit's default color (informational; it is corrected like any other color). */
   isDefaultPrimary: boolean;
 }
 
@@ -243,21 +243,11 @@ export function resolveTheme(params: {
   const mode: ColorMode =
     appearance.colorScheme === 'LIGHT' ? 'light' : appearance.colorScheme === 'DARK' ? 'dark' : (params.systemMode ?? 'light');
   const valid = typeof tenant.themePrimary === 'string' && HEX.test(tenant.themePrimary);
-  // The kit's own light/dark brand pair applies to the default family with the default color only.
-  const isDefaultPrimary =
-    family.key === DEFAULT_THEME_FAMILY &&
-    (!valid || tenant.themePrimary.toLowerCase() === DEFAULT_TENANT_THEME.themePrimary.toLowerCase());
-  // The brand color the owner picked; the kit's own pair stands in for an invalid or default value.
-  const chosen = valid ? tenant.themePrimary : family.roles.light.theme;
-  const brandOf = (m: ColorMode): BrandPalette => {
-    const background = family.colors[m].background;
-    if (!isDefaultPrimary) return deriveBrandPalette(chosen, { mode: m, background });
-    // The kit default keeps its own light/dark pair and the page color as text on it (the visual reference);
-    // only the accent variants are derived from it.
-    const kit = family.roles[m].theme;
-    const onKit = family.colors[m].background;
-    return { ...deriveBrandPalette(kit, { mode: m, background }), primary: kit, onPrimary: onKit, primaryHover: deriveHover(kit, onKit) };
-  };
+  // True when the tenant keeps the kit's default color. It gets no special treatment: the default goes
+  // through the same contrast rule as every other color (brand.ts).
+  const isDefaultPrimary = !valid || tenant.themePrimary.toLowerCase() === DEFAULT_TENANT_THEME.themePrimary.toLowerCase();
+  const chosen = valid ? tenant.themePrimary : DEFAULT_TENANT_THEME.themePrimary;
+  const brandOf = (m: ColorMode): BrandPalette => deriveBrandPalette(chosen, { mode: m, background: family.colors[m].background });
   const brand = { light: brandOf('light'), dark: brandOf('dark') };
   const current = brand[mode];
   return {
@@ -275,7 +265,7 @@ export function resolveTheme(params: {
     brand,
     roles: { ...family.roles[mode], theme: current.primary },
     // The gradient starts from the corrected solid color so the cards and buttons agree.
-    gradient: brandGradient(isDefaultPrimary ? DEFAULT_TENANT_THEME.themePrimary : current.primary),
+    gradient: brandGradient(current.primary),
     logoUrl: tenant.logoUrl ?? null,
     isDefaultPrimary,
   };
@@ -320,7 +310,7 @@ export function themeCssVariables(theme: ResolvedTheme): Record<string, string> 
     '--pui-font-size': `${PERFECT_UI_TOKENS.fontSize / 16}rem`,
     '--pui-border-width': `${PERFECT_UI_TOKENS.borderWidth}px`,
     // Text on the brand color: the kit uses the page color; a tenant color gets a contrast-checked one.
-    '--pui-on-theme': theme.isDefaultPrimary ? 'var(--pui-bg)' : b.light.onPrimary,
+    '--pui-on-theme': b.light.onPrimary,
     '--pui-theme-hover': lightDark(b.light.primaryHover, b.dark.primaryHover),
     '--pui-theme-muted': lightDark(b.light.primaryMuted, b.dark.primaryMuted),
     '--pui-theme-subtle': lightDark(b.light.primarySubtleBg, b.dark.primarySubtleBg),

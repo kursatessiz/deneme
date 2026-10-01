@@ -201,7 +201,7 @@ describe('design tokens (Perfect UI)', () => {
     });
     expect(t.family.key).toBe('perfect');
     expect(t.isDefaultPrimary).toBe(true);
-    expect(t.colors.primary).toBe(PERFECT_UI_TOKENS.colors.light.theme);
+    expect(t.colors.primary.toLowerCase()).toBe(PERFECT_UI_TOKENS.colors.light.theme);
     expect(Object.keys(themeCssVariables(t))).toContain('--gradient-brand');
   });
 
@@ -231,8 +231,8 @@ describe('design tokens (Perfect UI)', () => {
     expect(vars['--gradient-brand']).toBe(gradientCss('#C8443C'));
 
     const kitDefault = themeCssVariables(resolveTheme({ tenant: null, appearance: null, systemMode: 'light' }));
-    expect(kitDefault['--pui-theme']).toBe('light-dark(#0092cd, #07b6f0)');
-    expect(kitDefault['--pui-on-theme']).toBe('var(--pui-bg)');
+    expect(kitDefault['--pui-theme']).toBe('#0092CD');
+    expect(kitDefault['--pui-on-theme']).toBe(palette.ink[900]);
   });
 
   it('maps the light/dark/system choice to color-scheme and data-pui-mode', () => {

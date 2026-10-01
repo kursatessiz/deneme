@@ -176,11 +176,13 @@ describe('brand palette in the resolved theme and the CSS variables', () => {
     }
   });
 
-  it('keeps the kit default brand pair, with accent text derived for each mode', () => {
+  it('resolves the kit default color like any tenant color, with no exception', () => {
     const theme = resolveTheme({ tenant: null, appearance: { colorScheme: 'DARK' }, systemMode: 'light' });
     const vars = themeCssVariables(theme);
-    expect(vars['--pui-theme']).toBe('light-dark(#0092cd, #07b6f0)');
-    expect(vars['--pui-on-theme']).toBe('var(--pui-bg)');
+    expect(theme.isDefaultPrimary).toBe(true);
+    expect(vars['--pui-theme']).toBe('#0092CD');
+    expect(vars['--pui-on-theme']).toBe(ON_BRAND_DARK);
+    expect(wcagContrast(theme.colors.onPrimary, theme.colors.primary)).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST);
     expect(wcagContrast(theme.brand.light.primaryText, PAGE.light)).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST);
     expect(wcagContrast(theme.brand.dark.primaryText, PAGE.dark)).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST);
   });

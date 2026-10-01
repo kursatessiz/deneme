@@ -6,7 +6,7 @@ describe('previewThemeFromForm / previewCssVariables', () => {
     const preview = previewThemeFromForm(DEFAULT_TENANT_THEME);
     expect(preview.mode).toBe('light');
     expect(preview.family.key).toBe('perfect');
-    expect(preview.colors.primary).toBe(PERFECT_UI_TOKENS.colors.light.theme);
+    expect(preview.colors.primary.toLowerCase()).toBe(PERFECT_UI_TOKENS.colors.light.theme);
   });
 
   it('renders a legacy family with the single design language', () => {
