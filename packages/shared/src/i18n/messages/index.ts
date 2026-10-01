@@ -87,6 +87,7 @@ import { trSettings } from './tr/settings';
 import { trSites } from './tr/sites';
 import { trArticles } from './tr/articles';
 import { trSeo } from './tr/seo';
+import { trBranding } from './tr/branding';
 import { trBilling } from './tr/billing';
 import { trAdminBilling } from './tr/admin-billing';
 import { trAddOns } from './tr/addOns';
@@ -186,6 +187,7 @@ import { enSettings } from './en/settings';
 import { enSites } from './en/sites';
 import { enArticles } from './en/articles';
 import { enSeo } from './en/seo';
+import { enBranding } from './en/branding';
 import { enBilling } from './en/billing';
 import { enAdminBilling } from './en/admin-billing';
 import { enAddOns } from './en/addOns';
@@ -341,6 +343,7 @@ export const TR_NAMESPACES = [
   trSites,
   trArticles,
   trSeo,
+  trBranding,
   trBilling,
   trAdminBilling,
   trAddOns,
@@ -464,6 +467,7 @@ export const EN_NAMESPACES = [
   enSites,
   enArticles,
   enSeo,
+  enBranding,
   enBilling,
   enAdminBilling,
   enAddOns,

@@ -8,6 +8,7 @@ import {
   blogTagPath,
   buildHreflangAlternates,
   type PublicArticleSiteDTO,
+  type PublicSiteSettingsDTO,
   type PublicArticleSummaryDTO,
   type Translate,
 } from '@platform/shared';
@@ -18,9 +19,10 @@ import { fetchPublicArticle, fetchPublicArticles } from '@/lib/sites/articles-ap
 import { serializeJsonLd } from '@/lib/sites/json-ld';
 import { articleJsonLd, breadcrumbJsonLd } from '@/lib/sites/jsonld';
 import { sitePath } from '@/lib/sites/origin';
-import { requestSiteOrigin } from '@/lib/sites/request-origin';
 import { ArticleBody } from './ArticleBody';
-import { SiteShell } from './SiteShell';
+import { fetchSiteSettings } from '@/lib/sites/api';
+import { verificationMetadata } from '@/lib/seo/verification';
+import { SiteShell, poweredByOf } from './SiteShell';
 
 /**
  * Blog pages of the page engine (S2b, docs/SAYFA_MOTORU.md "Yazılar / blog"): the article list (optionally
@@ -41,6 +43,12 @@ function formatDate(iso: string, locale: string): string {
   } catch {
     return iso.slice(0, 10);
   }
+}
+
+/** The `verification` metadata field, only when a token is set. */
+function verificationFields(settings: PublicSiteSettingsDTO): Pick<Metadata, 'verification'> {
+  const verification = verificationMetadata(settings);
+  return verification ? { verification } : {};
 }
 
 function feedAlternate(origin: string, locale: string, site: PublicArticleSiteDTO, t: Translate) {
@@ -92,10 +100,11 @@ function TagBadges({ tags, locale }: { tags: PublicArticleSummaryDTO['tags']; lo
 // Blog index (and tag listing)
 // ---------------------------------------------------------------------------
 
-export async function buildBlogIndexMetadata({ studioSlug, isPlatform, locale }: BlogRouteParams, page: number, tag?: string): Promise<Metadata> {
+export async function buildBlogIndexMetadata({ studioSlug, locale }: BlogRouteParams, page: number, tag?: string): Promise<Metadata> {
   const list = await fetchPublicArticles(studioSlug, locale, { page, tag });
   if (!list) return {};
-  const [t, origin] = await Promise.all([getTFor(locale), requestSiteOrigin(studioSlug, isPlatform)]);
+  const [t, settings] = await Promise.all([getTFor(locale), fetchSiteSettings(studioSlug)]);
+  const origin = settings.canonicalOrigin;
   const site = list.site;
   const heading = list.tag ? t('articles.public.tagTitle', { tag: list.tag.label }) : t('articles.public.title');
   const title = t('articles.public.metaTitle', { title: heading, site: site.siteName });
@@ -109,6 +118,7 @@ export async function buildBlogIndexMetadata({ studioSlug, isPlatform, locale }:
   return {
     title,
     description,
+    ...verificationFields(settings),
     alternates: { canonical: url, ...(languages ? { languages } : {}), types: feedAlternate(origin, locale, site, t) },
     // An empty listing is not worth indexing.
     ...(list.items.length === 0 ? { robots: { index: false, follow: true } } : {}),
@@ -117,12 +127,13 @@ export async function buildBlogIndexMetadata({ studioSlug, isPlatform, locale }:
   };
 }
 
-export async function BlogIndexView({ studioSlug, isPlatform, locale, page, tag }: BlogRouteParams & { page: number; tag?: string }) {
+export async function BlogIndexView({ studioSlug, locale, page, tag }: BlogRouteParams & { page: number; tag?: string }) {
   const list = await fetchPublicArticles(studioSlug, locale, { page, tag });
   if (!list) notFound();
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize));
   if (page > pages) notFound();
-  const [t, origin] = await Promise.all([getTFor(locale), requestSiteOrigin(studioSlug, isPlatform)]);
+  const [t, settings] = await Promise.all([getTFor(locale), fetchSiteSettings(studioSlug)]);
+  const origin = settings.canonicalOrigin;
   const { site } = list;
   const heading = list.tag ? t('articles.public.tagTitle', { tag: list.tag.label }) : t('articles.public.title');
   const listPath = list.tag ? blogTagPath(locale, list.tag.slug) : blogIndexPath(locale);
@@ -135,7 +146,7 @@ export async function BlogIndexView({ studioSlug, isPlatform, locale, page, tag 
   ];
 
   return (
-    <SiteShell theme={site.theme} studioSlug={studioSlug} cookieLabel={t('sites.footer.cookiePreferences')} jsonLd={[serializeJsonLd(breadcrumbJsonLd(crumbs))]}>
+    <SiteShell theme={site.theme} studioSlug={studioSlug} cookieLabel={t('sites.footer.cookiePreferences')} jsonLd={[serializeJsonLd(breadcrumbJsonLd(crumbs))]} poweredBy={poweredByOf(settings, t)}>
       <BlogHeader site={site} locale={locale} t={t} />
       <div className="mx-auto max-w-3xl px-4 py-10 grid gap-8">
         <div className="grid gap-2">
@@ -200,10 +211,11 @@ export async function BlogIndexView({ studioSlug, isPlatform, locale, page, tag 
 // One article
 // ---------------------------------------------------------------------------
 
-export async function buildArticleMetadata({ studioSlug, isPlatform, locale }: BlogRouteParams, slug: string): Promise<Metadata> {
+export async function buildArticleMetadata({ studioSlug, locale }: BlogRouteParams, slug: string): Promise<Metadata> {
   const article = await fetchPublicArticle(studioSlug, locale, slug);
   if (!article) return {};
-  const [t, origin] = await Promise.all([getTFor(locale), requestSiteOrigin(studioSlug, isPlatform)]);
+  const [t, settings] = await Promise.all([getTFor(locale), fetchSiteSettings(studioSlug)]);
+  const origin = settings.canonicalOrigin;
   const { site } = article;
   const title = article.seoTitle ?? t('articles.public.metaTitle', { title: article.title, site: site.siteName });
   const description = article.seoDescription ?? article.excerpt;
@@ -217,6 +229,7 @@ export async function buildArticleMetadata({ studioSlug, isPlatform, locale }: B
   return {
     title,
     description,
+    ...verificationFields(settings),
     alternates: { canonical: url, languages, types: feedAlternate(origin, locale, site, t) },
     openGraph: {
       type: 'article',
@@ -236,10 +249,11 @@ export async function buildArticleMetadata({ studioSlug, isPlatform, locale }: B
   };
 }
 
-export async function ArticleView({ studioSlug, isPlatform, locale, slug }: BlogRouteParams & { slug: string }) {
+export async function ArticleView({ studioSlug, locale, slug }: BlogRouteParams & { slug: string }) {
   const article = await fetchPublicArticle(studioSlug, locale, slug);
   if (!article) notFound();
-  const [t, origin] = await Promise.all([getTFor(locale), requestSiteOrigin(studioSlug, isPlatform)]);
+  const [t, settings] = await Promise.all([getTFor(locale), fetchSiteSettings(studioSlug)]);
+  const origin = settings.canonicalOrigin;
   const { site } = article;
   const url = `${origin}${articlePath(locale, article.slug)}`;
   const updated = article.updatedAt.slice(0, 10) !== article.publishedAt.slice(0, 10);
@@ -265,7 +279,7 @@ export async function ArticleView({ studioSlug, isPlatform, locale, slug }: Blog
   ];
 
   return (
-    <SiteShell theme={site.theme} studioSlug={studioSlug} cookieLabel={t('sites.footer.cookiePreferences')} jsonLd={jsonLd.map((doc) => serializeJsonLd(doc))}>
+    <SiteShell theme={site.theme} studioSlug={studioSlug} cookieLabel={t('sites.footer.cookiePreferences')} jsonLd={jsonLd.map((doc) => serializeJsonLd(doc))} poweredBy={poweredByOf(settings, t)}>
       <BlogHeader site={site} locale={locale} t={t} />
       <article className="mx-auto max-w-3xl px-4 py-10 grid gap-6">
         <Link href={blogIndexPath(locale)} className="pui-link ui-caption justify-self-start">

@@ -7,4 +7,10 @@ export const trSeo = {
   'seo.panel.title': 'Yönetim paneli | {product}',
   'seo.booking.title': '{studio} | {booking}',
   'seo.booking.description': '{studio} için online randevu: hizmeti ve uygun saati seçin.',
+  'seo.llms.pages': 'Sayfalar',
+  'seo.llms.blog': 'Blog',
+  'seo.llms.services': 'Hizmetler',
+  'seo.llms.booking': 'Randevu',
+  'seo.llms.bookingLink': 'Online randevu',
+  'seo.llms.tenantSummary': '{name}: hizmetler ve online randevu',
 } as const;

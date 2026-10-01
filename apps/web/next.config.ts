@@ -12,6 +12,14 @@ const nextConfig: NextConfig = {
     ['/icon', '/apple-icon', '/opengraph-image', '/og'].map((route) => [route, ['./node_modules/@fontsource/inter/files/inter-latin{,-ext}-{400,700}-normal.woff']]),
   ),
   transpilePackages: ['@platform/shared'],
+  // ISR for the page engine (docs/SEO.md "ISR"): the production container has a read-only root filesystem, so
+  // cached pages live in memory only and are re-rendered after a restart. 64 MB of the 512 MB Node heap
+  // (deploy/docker/web.Dockerfile) holds many pages; the least recently used entries are evicted first.
+  cacheMaxMemorySize: 64 * 1024 * 1024,
+  experimental: { isrFlushToDisk: false },
+  // Streaming metadata puts <title> and <meta name="description"> into <body> for browser user agents. Every
+  // agent (Lighthouse, link-preview and search crawlers outside Next's built-in bot list) gets them in <head>.
+  htmlLimitedBots: /.*/,
   eslint: {
     ignoreDuringBuilds: true,
   },

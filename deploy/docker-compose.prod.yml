@@ -61,6 +61,9 @@ services:
       # Tenant sites: <slug>.<SITES_DOMAIN>; empty falls back to WEB_DOMAIN.
       SITES_DOMAIN: ${SITES_DOMAIN:-}
       WEB_DOMAIN: ${WEB_DOMAIN}
+      # Page cache purge (docs/SEO.md "ISR"): the web app's internal address and the shared secret of its /api/revalidate.
+      WEB_INTERNAL_URL: http://web:3000
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:-}
       SMS_PROVIDER_LOW_BALANCE_THRESHOLD: ${SMS_PROVIDER_LOW_BALANCE_THRESHOLD:-}
       ILETI_MERKEZI_USER: ${ILETI_MERKEZI_USER:-}
       ILETI_MERKEZI_PASSWORD: ${ILETI_MERKEZI_PASSWORD:-}
@@ -167,6 +170,8 @@ services:
       # never baked into client bundles (no NEXT_PUBLIC_ prefix). See
       # docs/WEB_PANEL.md.
       API_INTERNAL_URL: http://api:4000
+      # Shared secret of POST /api/revalidate, called by the API when a site's public content changes (docs/SEO.md "ISR").
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:-}
       APP_RELEASE: ${RELEASE_TAG:-dev}
     networks: [web_net, internal_net]
     read_only: true

@@ -15,6 +15,8 @@ import {
   type BlockDTO,
 } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { SiteCacheService } from './site-cache.service';
+import { IndexNowService } from './indexnow/indexnow.service';
 
 function toLocaleDto(l: { locale: string; slug: string; seoTitle: string | null; seoDescription: string | null; ogImageUrl: string | null; legalApproved: boolean; legalApprovedAt: Date | null }): PageLocaleDTO {
   return {
@@ -49,7 +51,16 @@ function toPageSummary(page: Prisma.PageGetPayload<{ include: typeof PAGE_INCLUD
 
 @Injectable()
 export class PagesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly siteCache: SiteCacheService,
+    private readonly indexNow: IndexNowService,
+  ) {}
+
+  /** The web app caches published pages (ISR, docs/SEO.md): a change to live content drops the site's cache. */
+  private purgeWhenLive(studioId: string, status: string): void {
+    if (status === 'PUBLISHED') void this.siteCache.purgeStudio(studioId);
+  }
 
   async listPages(studioId: string): Promise<PageSummaryDTO[]> {
     const siteId = await this.siteIdOf(studioId);
@@ -85,6 +96,7 @@ export class PagesService {
         create: { pageId: page.id, siteId: page.siteId, locale, slug: input.slug, seoTitle: input.seoTitle ?? null, seoDescription: input.seoDescription ?? null, ogImageUrl: input.ogImageUrl ?? null },
         update: { slug: input.slug, seoTitle: input.seoTitle ?? null, seoDescription: input.seoDescription ?? null, ogImageUrl: input.ogImageUrl ?? null },
       });
+      this.purgeWhenLive(studioId, page.status);
       return toLocaleDto(row);
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
@@ -97,6 +109,7 @@ export class PagesService {
   async removeLocale(studioId: string, pageId: string, locale: string): Promise<void> {
     const page = await this.pageOrThrow(studioId, pageId, {});
     await this.prisma.pageLocale.deleteMany({ where: { pageId: page.id, locale } });
+    this.purgeWhenLive(studioId, page.status);
   }
 
   async setLegalApproval(studioId: string, pageId: string, locale: string, approved: boolean): Promise<PageLocaleDTO> {
@@ -106,6 +119,7 @@ export class PagesService {
       where: { pageId_locale: { pageId: page.id, locale } },
       data: { legalApproved: approved, legalApprovedAt: approved ? new Date() : null },
     });
+    this.purgeWhenLive(studioId, page.status);
     return toLocaleDto(row);
   }
 
@@ -131,6 +145,7 @@ export class PagesService {
       this.prisma.block.deleteMany({ where: { pageId: page.id } }),
       ...validated.map((b) => this.prisma.block.create({ data: { pageId: page.id, ...b } })),
     ]);
+    this.purgeWhenLive(studioId, page.status);
     const rows = await this.prisma.block.findMany({ where: { pageId: page.id }, orderBy: { position: 'asc' } });
     return rows.map(toBlockDto);
   }
@@ -144,12 +159,16 @@ export class PagesService {
       this.prisma.pageVersion.create({ data: { pageId: page.id, version: nextVersion, snapshot, publishedByUserId: userId } }),
       this.prisma.page.update({ where: { id: page.id }, data: { status: 'PUBLISHED', publishedAt: new Date() }, include: PAGE_INCLUDE }),
     ]);
+    void this.siteCache.purgeStudio(studioId);
+    void this.indexNow.notifyPage(studioId, page.id);
     return toPageSummary(updated);
   }
 
   async unpublish(studioId: string, pageId: string): Promise<PageSummaryDTO> {
     const page = await this.pageOrThrow(studioId, pageId, {});
     const updated = await this.prisma.page.update({ where: { id: page.id }, data: { status: 'DRAFT' }, include: PAGE_INCLUDE });
+    void this.siteCache.purgeStudio(studioId);
+    void this.indexNow.notifyPage(studioId, page.id);
     return toPageSummary(updated);
   }
 

@@ -3,7 +3,6 @@
  * tested without a running Next.js server.
  */
 
-import { NON_INDEXABLE_PATH_PREFIXES } from './indexing';
 import { buildHreflangAlternates, type SitemapPageEntry } from './site';
 import { articlePath, blogIndexPath, type ArticleSitemapEntry } from './articles';
 
@@ -77,10 +76,4 @@ export function buildSitemapXml(entries: readonly SitemapEntry[]): string {
     })
     .join('');
   return `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${urls}</urlset>`;
-}
-
-/** Public content stays allowed; every non-indexable prefix gets a Disallow line (sites/indexing.ts). */
-export function buildRobotsTxt(sitemapUrl: string): string {
-  const disallow = NON_INDEXABLE_PATH_PREFIXES.map((p) => `Disallow: ${p}/\nDisallow: ${p}$\n`).join('');
-  return `User-agent: *\nAllow: /\n${disallow}Sitemap: ${sitemapUrl}\n`;
 }

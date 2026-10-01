@@ -32,6 +32,8 @@ export const FEATURE_FLAGS = {
   leads_pipeline: 'Potansiyel musteri (lead) hattı',
   public_api: 'Herkese acik API ve API anahtarlari',
   webhooks: 'Giden webhook bildirimleri',
+  'branding.hide_badge': 'Herkese acik sayfalarda "Powered by" rozetini gizle (premium)',
+  'seo.indexnow': 'IndexNow: sayfa ve yazi yayininda arama motorlarina bildirim gonder (varsayilan kapali)',
   'theme_family.noir': 'Tema ailesi: Studio Noir (isletme icin izin)',
   'theme_family.nefes': 'Tema ailesi: Nefes (isletme icin izin)',
   'theme_family.saha': 'Tema ailesi: Saha (isletme icin izin)',

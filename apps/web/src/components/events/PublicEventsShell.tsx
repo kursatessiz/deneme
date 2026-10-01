@@ -2,6 +2,9 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
 import { ThemeRoot } from '@/components/theme/ThemeRoot';
+import { PoweredByBadge } from '@/components/branding/PoweredByBadge';
+import { PRODUCT_NAME } from '@platform/shared';
+import { getT } from '@/lib/i18n/getT';
 import type { EmbedConfig } from '@/lib/public-booking';
 
 /**
@@ -9,7 +12,8 @@ import type { EmbedConfig } from '@/lib/public-booking';
  * public config, the same resolution as the booking page) around a centered reading column, with the
  * language switch in the header. Server-rendered; only the theme root and the switch are client components.
  */
-export function PublicEventsShell({ config, listHref, children }: { config: EmbedConfig; listHref: string; children: ReactNode }) {
+export async function PublicEventsShell({ config, listHref, children }: { config: EmbedConfig; listHref: string; children: ReactNode }) {
+  const { t } = await getT();
   return (
     <ThemeRoot
       tenantTheme={{ themeFamily: config.themeFamily, themePrimary: config.themePrimary, gradientPresetKey: config.gradientPresetKey, logoUrl: config.logoUrl }}
@@ -28,6 +32,7 @@ export function PublicEventsShell({ config, listHref, children }: { config: Embe
             <LanguageSwitcher mode="cookie" className="pui-input ui-btn-sm w-auto" />
           </header>
           {children}
+          {config.showPoweredBy && <PoweredByBadge href={config.poweredByUrl} label={t('branding.poweredBy', { product: PRODUCT_NAME })} className="text-center" />}
         </div>
       </main>
     </ThemeRoot>

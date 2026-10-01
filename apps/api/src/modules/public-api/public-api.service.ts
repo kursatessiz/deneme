@@ -7,6 +7,7 @@ import type { TenantContext } from '../auth/tenant-context';
 import { assertStudioWritable } from '../auth/guards/billing-write.guard';
 
 import { loadAllowedThemeFamiliesForStudio } from '../appearance/theme-families';
+import { loadPoweredBy } from '../sites/powered-by';
 /**
  * The read/write logic behind both `/v1/public/*` (API-key authenticated
  * third-party integrations, see PublicApiController) and the embeddable
@@ -145,10 +146,16 @@ export class PublicApiService {
   async resolveStudioForEmbed(slug: string) {
     const studio = await this.prisma.studio.findFirst({
       where: { slug, isActive: true },
-      select: { id: true, name: true, embedAllowedOrigins: true, logoUrl: true, themeFamily: true, themePrimary: true, gradientPresetKey: true, timezone: true },
+      select: { id: true, slug: true, isPlatform: true, name: true, embedAllowedOrigins: true, logoUrl: true, themeFamily: true, themePrimary: true, gradientPresetKey: true, timezone: true },
     });
     if (!studio) throw new NotFoundException(`'${slug}' stüdyosu bulunamadı`);
     return { ...studio, allowedThemeFamilies: await loadAllowedThemeFamiliesForStudio(this.prisma, studio.id) };
+  }
+
+  /** The widget/booking page config: the embed studio plus the plan-gated "Powered by" badge (docs/SEO.md). */
+  async resolveEmbedConfig(slug: string) {
+    const studio = await this.resolveStudioForEmbed(slug);
+    return { ...studio, ...(await loadPoweredBy(this.prisma, studio)) };
   }
 
   private async resolveMemberByPhone(studioId: string, phone: string) {

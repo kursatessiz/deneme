@@ -69,7 +69,7 @@ Personel uçları `studios/:studioId/community` altındadır, üye uçları `stu
 - Belirteç CSPRNG'den 32 bayttır (256 bit), base64url (43 karakter); `community_posts.share_token` benzersizdir. Tekrar açmak mevcut belirteci korur; kapatıp açmak yeni belirteç üretir, eski bağlantı hemen 404 olur. Arşivleme de bağlantıyı kapatır.
 - Belirteç personelin bağlantıyı yeniden kopyalayabilmesi için düz saklanır; yalnızca o tek gönderiyi okumaya yarar.
 - Herkese açık görünüm salt okunurdur: işletme adı, tür, başlık, gövde, yayın tarihi, dosya bağlantısı ve video özeti (başlık, süre, küçük resim). Yorum, beğeni, yazar, katman ve video kaynak bağlantısı dönmez. Biçimi hatalı belirteç veritabanına gitmez; bilinmeyen, kapatılmış ve arşivlenmiş bağlantılar aynı 404'ü alır. Aktif olmayan işletmenin bağlantıları da 404'tür.
-- Web sayfası: `/paylasim/<belirteç>` (`apps/web/src/app/paylasim/[token]/page.tsx`), belirteci API yoluna koymadan önce biçimini doğrular.
+- Web sayfası: `/paylasim/<belirteç>` (`apps/web/src/app/(app)/paylasim/[token]/page.tsx`), belirteci API yoluna koymadan önce biçimini doğrular.
 
 ## 6. İzinler
 

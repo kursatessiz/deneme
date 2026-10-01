@@ -4052,6 +4052,9 @@ model Site {
   primaryDomain  String?  @map("primary_domain") @db.VarChar(190)
   defaultLocale  String   @default("tr") @map("default_locale") @db.VarChar(10)
   enabledLocales String[] @default(["tr"]) @map("enabled_locales")
+  /// Search and crawler settings (S3): Search Console / Bing verification tokens, the IndexNow key, AI crawler
+  /// policy and the review aggregate switch. Shape and defaults: SiteSeoSettingsSchema in packages/shared.
+  seoSettings    Json     @default("{}") @map("seo_settings")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 

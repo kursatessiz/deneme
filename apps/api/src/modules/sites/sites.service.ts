@@ -1,9 +1,10 @@
 import { randomBytes } from 'crypto';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { isValidDomain, expectedDnsRecords } from '@platform/shared';
+import { isValidDomain, expectedDnsRecords, mergeSiteSeoSettings, parseSiteSeoSettings } from '@platform/shared';
 import type { SiteDTO, SiteDomainDTO, UpdateSiteInput } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { DnsVerificationService } from './dns.service';
+import { SiteCacheService } from './site-cache.service';
 
 /** Base domain tenant sites are served on as `<slug>.<SITES_DOMAIN>`. */
 export function sitesBaseDomain(): string {
@@ -31,6 +32,7 @@ export class SitesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly dns: DnsVerificationService,
+    private readonly siteCache: SiteCacheService,
   ) {}
 
   /** Every studio may have at most one site; it is created lazily on first access. */
@@ -57,15 +59,20 @@ export class SitesService {
     if (input.enabledLocales && !input.enabledLocales.includes(input.defaultLocale ?? site.defaultLocale)) {
       throw new BadRequestException('Varsayılan dil, etkin diller listesinde olmalıdır');
     }
+    const seoSettings = input.seo ? mergeSiteSeoSettings(parseSiteSeoSettings(site.seoSettings), input.seo) : undefined;
     const updated = await this.prisma.site.update({
       where: { id: site.id },
       data: {
         defaultLocale: input.defaultLocale,
         enabledLocales: input.enabledLocales,
         primaryDomain: input.primaryDomain === undefined ? undefined : input.primaryDomain,
+        // The IndexNow key lives in the same JSON and is carried through the merge untouched.
+        seoSettings: seoSettings ? { ...seoSettings } : undefined,
       },
       include: { domains: true },
     });
+    // Locales and the primary domain change canonical URLs and hreflang of every cached page (ISR, docs/SEO.md).
+    void this.siteCache.purgeStudio(studioId);
     return this.toSiteDto(updated);
   }
 
@@ -85,6 +92,7 @@ export class SitesService {
     const domain = await this.prisma.siteDomain.findFirst({ where: { id: domainId, siteId: site.id } });
     if (!domain) throw new NotFoundException('Alan adı bulunamadı');
     await this.prisma.siteDomain.delete({ where: { id: domainId } });
+    void this.siteCache.purgeStudio(studioId);
   }
 
   dnsInstructions(domain: string, verificationToken: string) {
@@ -100,6 +108,8 @@ export class SitesService {
       where: { id: domainId },
       data: { status: ok ? 'VERIFIED' : 'FAILED', verifiedAt: ok ? new Date() : null },
     });
+    // A verified domain becomes the canonical origin of every cached page.
+    void this.siteCache.purgeStudio(studioId);
     return toDomainDto(updated);
   }
 
@@ -131,7 +141,7 @@ export class SitesService {
     return site;
   }
 
-  private toSiteDto(site: { id: string; kind: string; primaryDomain: string | null; defaultLocale: string; enabledLocales: string[]; domains: Array<{ id: string; domain: string; status: string; verificationToken: string; verifiedAt: Date | null }> }): SiteDTO {
+  private toSiteDto(site: { id: string; kind: string; primaryDomain: string | null; defaultLocale: string; enabledLocales: string[]; seoSettings: unknown; domains: Array<{ id: string; domain: string; status: string; verificationToken: string; verifiedAt: Date | null }> }): SiteDTO {
     return {
       id: site.id,
       kind: site.kind as SiteDTO['kind'],
@@ -139,6 +149,9 @@ export class SitesService {
       defaultLocale: site.defaultLocale,
       enabledLocales: site.enabledLocales,
       domains: site.domains.map(toDomainDto),
+      seo: (({ googleSiteVerification, bingSiteVerification, aiCrawlers, showAggregateRating }) => ({ googleSiteVerification, bingSiteVerification, aiCrawlers, showAggregateRating }))(
+        parseSiteSeoSettings(site.seoSettings),
+      ),
     };
   }
 }

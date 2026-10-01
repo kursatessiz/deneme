@@ -1,13 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BLOCK_TYPES, TENANT_ONLY_BLOCK_TYPES, type BlockType, type PageKind } from '@platform/shared';
 import type { Translate } from '@platform/shared';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, ErrorState, EmptyState } from '@/components/common/DataState';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { Badge, InlineMessage, PrimaryButton, SecondaryButton, Section, TextField } from '@/components/settings/ui';
-import { ChipButton, FieldGroup, List, ListItem, Select, Textarea } from '@/components/ui';
+import { ChipButton, List, ListItem, Select } from '@/components/ui';
+import { blockErrors, newBlockData } from '@/lib/sites/block-form';
+import { BlockForm, type SectorOption } from './BlockForm';
+import { SiteSeoSettings } from './SiteSeoSettings';
 
 interface PageLocaleRow {
   locale: string;
@@ -46,24 +49,8 @@ interface SiteRow {
   defaultLocale: string;
   enabledLocales: string[];
   domains: Array<{ id: string; domain: string; status: string; verificationToken: string }>;
+  seo: { googleSiteVerification: string | null; bingSiteVerification: string | null; aiCrawlers: 'allow' | 'block'; showAggregateRating: boolean };
 }
-
-const BLOCK_TEMPLATE: Record<BlockType, unknown> = {
-  hero: { config: {}, text: { tr: { title: 'Başlık' } } },
-  feature_grid: { config: {}, text: { tr: { title: 'Özellikler', items: [] } } },
-  sector_cards: { config: { sectorKeys: [] }, text: { tr: {} } },
-  how_it_works: { config: {}, text: { tr: { title: 'Nasıl çalışır', steps: [] } } },
-  pricing: { config: { hidden: false }, text: { tr: {} } },
-  testimonials: { config: {}, text: { tr: { items: [] } } },
-  faq: { config: {}, text: { tr: { items: [] } } },
-  stats: { config: {}, text: { tr: { items: [] } } },
-  cta: { config: {}, text: { tr: { title: 'Hemen başlayın', buttonLabel: 'İletişime geçin', buttonHref: '#iletisim' } } },
-  lead_form: { config: { fields: ['fullName', 'phone'] }, text: { tr: { title: 'Bize ulaşın', submitLabel: 'Gönder' } } },
-  booking_widget: { config: {}, text: { tr: { title: 'Randevu al', buttonLabel: 'Randevu al' } } },
-  trainers: { config: {}, text: { tr: { title: 'Eğitmenlerimiz', items: [] } } },
-  contact: { config: { showAddress: true, showPhone: true, showEmail: true }, text: { tr: {} } },
-  legal_text: { config: {}, text: { tr: { title: 'Başlık', body: 'Metin' } } },
-};
 
 /**
  * Page engine editor (docs/SAYFA_MOTORU.md), shared by the super admin
@@ -88,8 +75,17 @@ export function SiteEditor({ studioId, variant }: { studioId: string; variant: '
   const [wizardSector, setWizardSector] = useState('');
   const [wizardOffer, setWizardOffer] = useState('');
   const [wizardError, setWizardError] = useState<string | null>(null);
+  // Sector choices of `sector_cards` (super admin only: the template list is an admin endpoint); null: free text keys.
+  const [sectorOptions, setSectorOptions] = useState<SectorOption[] | null>(null);
+  useEffect(() => {
+    if (variant !== 'platform') return;
+    bffFetch<{ items: Array<{ key: string; name: string }> }>('admin/business-type-templates')
+      .then((res) => setSectorOptions(res.items.map((i) => ({ value: i.key, label: i.name }))))
+      .catch(() => setSectorOptions(null));
+  }, [variant]);
 
-  if (siteLoading || pagesLoading) return <LoadingState />;
+  // A refresh keeps the editor on screen (and the page being edited mounted); only the first load shows the spinner.
+  if ((siteLoading && !site) || (pagesLoading && !pages)) return <LoadingState />;
   if (siteError) return <ErrorState message={siteError} />;
   if (pagesError) return <ErrorState message={pagesError} />;
   if (!site || !pages) return null;
@@ -194,6 +190,8 @@ export function SiteEditor({ studioId, variant }: { studioId: string; variant: '
         )}
       </Section>
 
+      <SiteSeoSettings studioId={studioId} seo={site.seo} variant={variant} onSaved={refresh} />
+
       {variant === 'platform' && (
         <Section title={t('sites.editor.wizard.title')} description={t('sites.editor.wizard.description')}>
           <div className="grid grid-cols-2 gap-3">
@@ -241,6 +239,9 @@ export function SiteEditor({ studioId, variant }: { studioId: string; variant: '
           studioId={studioId}
           page={selectedPage}
           siteKind={site.kind}
+          locales={site.enabledLocales}
+          defaultLocale={site.defaultLocale}
+          sectorOptions={sectorOptions}
           onChanged={refresh}
           onClose={() => setSelectedPageId(null)}
         />
@@ -279,12 +280,18 @@ function PageDetailEditor({
   studioId,
   page,
   siteKind,
+  locales,
+  defaultLocale,
+  sectorOptions,
   onChanged,
   onClose,
 }: {
   studioId: string;
   page: PageRow;
   siteKind: 'PLATFORM' | 'TENANT';
+  locales: string[];
+  defaultLocale: string;
+  sectorOptions: SectorOption[] | null;
   onChanged: () => void;
   onClose: () => void;
 }) {
@@ -302,15 +309,21 @@ function PageDetailEditor({
   const [blocksDraft, setBlocksDraft] = useState<BlockRow[] | null>(null);
   const [blocksError, setBlocksError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const reloadBlocks = useRef(false);
 
   useEffect(() => {
     if (!detail) return;
-    setBlocksDraft(detail.blocks);
+    // The draft is replaced on the first load and after the blocks themselves changed on the server (a save or a
+    // rollback); saving only the slug or publishing keeps unsaved block edits.
+    setBlocksDraft((current) => (current === null || reloadBlocks.current ? detail.blocks : current));
+    reloadBlocks.current = false;
     const l = detail.locales.find((x) => x.locale === activeLocale);
     setSlug(l?.slug ?? '');
     setSeoTitle(l?.seoTitle ?? '');
+    // Runs when a fetched page arrives (a refresh keeps the old page until the new one is there, so keying on the
+    // refresh counter would reload the stale blocks and drop what was just saved).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detail?.id, refreshKey]);
+  }, [detail]);
 
   useEffect(() => {
     const l = detail?.locales.find((x) => x.locale === activeLocale);
@@ -319,7 +332,7 @@ function PageDetailEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLocale]);
 
-  if (loading) return <LoadingState />;
+  if (loading && !detail) return <LoadingState />;
   if (error) return <ErrorState message={error} />;
   if (!detail || !blocksDraft) return null;
 
@@ -347,14 +360,21 @@ function PageDetailEditor({
 
   const saveBlocks = async () => {
     setBlocksError(null);
+    // The same schema the API validates with: a block with an invalid field is not sent.
+    const invalidBlocks = blocksDraft.filter((b) => Object.keys(blockErrors(b.type, b.data)).length > 0).length;
+    if (invalidBlocks > 0) {
+      setBlocksError(t('sites.editor.blocks.hasErrors', { count: invalidBlocks }));
+      return;
+    }
     try {
-      const parsed = blocksDraft.map((b, i) => ({ ...b, position: i, data: typeof b.data === 'string' ? JSON.parse(b.data) : b.data }));
+      const parsed = blocksDraft.map((b, i) => ({ ...b, position: i }));
       await bffFetch(`sites/studio/${studioId}/pages/${page.id}/blocks`, {
         method: 'PUT',
         studioId,
         body: parsed.map((b) => ({ type: b.type, position: b.position, abVariantKey: b.abVariantKey, data: b.data })),
       });
       setActionMessage(t('sites.editor.blocks.saved'));
+      reloadBlocks.current = true;
       refresh();
     } catch (err) {
       setBlocksError(err instanceof BffError ? err.message : t('sites.editor.blocks.saveFailed'));
@@ -372,7 +392,7 @@ function PageDetailEditor({
   const removeBlock = (index: number) => setBlocksDraft(blocksDraft.filter((_, i) => i !== index));
 
   const addBlock = (type: BlockType) => {
-    setBlocksDraft([...blocksDraft, { id: `new-${Date.now()}`, type, position: blocksDraft.length, abVariantKey: null, data: BLOCK_TEMPLATE[type] }]);
+    setBlocksDraft([...blocksDraft, { id: `new-${Date.now()}`, type, position: blocksDraft.length, abVariantKey: null, data: newBlockData(type, defaultLocale, t) }]);
   };
 
   const publish = async () => {
@@ -390,6 +410,7 @@ function PageDetailEditor({
   const rollback = async (versionId: string) => {
     await bffFetch(`sites/studio/${studioId}/pages/${page.id}/versions/${versionId}/rollback`, { method: 'POST', studioId });
     setActionMessage(t('sites.editor.versions.rolledBack'));
+    reloadBlocks.current = true;
     refresh();
     onChanged();
   };
@@ -479,18 +500,17 @@ function PageDetailEditor({
                 setBlocksDraft(next);
               }}
             />
-            <FieldGroup label={t('sites.editor.blocks.data')} hint={t('sites.editor.blocks.dataHint')}>
-              <Textarea
-                value={typeof b.data === 'string' ? b.data : JSON.stringify(b.data, null, 2)}
-                onChange={(e) => {
-                  const next = [...blocksDraft];
-                  next[i] = { ...b, data: e.target.value };
-                  setBlocksDraft(next);
-                }}
-                rows={6}
-                className="ui-mono"
-              />
-            </FieldGroup>
+            <BlockForm
+              type={b.type}
+              data={b.data}
+              locales={locales}
+              sectorOptions={sectorOptions}
+              onChange={(next) => {
+                const draft = [...blocksDraft];
+                draft[i] = { ...b, data: next };
+                setBlocksDraft(draft);
+              }}
+            />
           </div>
         ))}
         <div className="flex gap-2 items-center flex-wrap">

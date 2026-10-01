@@ -3,6 +3,7 @@ import { PublicSitesService } from './public-sites.service';
 import { SitesService } from './sites.service';
 import { SitesPublicRateLimitGuard } from './sites-rate-limit.guard';
 import { PublicArticlesService } from './public-articles.service';
+import { IndexNowKeyService } from './indexnow/indexnow-key.service';
 
 /**
  * Unauthenticated read routes the web app's rendering layer and Caddy call.
@@ -14,6 +15,7 @@ export class PublicSitesController {
     private readonly publicSites: PublicSitesService,
     private readonly sites: SitesService,
     private readonly articles: PublicArticlesService,
+    private readonly indexNowKeys: IndexNowKeyService,
   ) {}
 
   /** Web middleware: which site does this Host header belong to. */
@@ -30,6 +32,26 @@ export class PublicSitesController {
   async getPage(@Param('studioSlug') studioSlug: string, @Query('locale') locale: string, @Query('slug') slug: string) {
     if (!locale || slug === undefined) throw new NotFoundException('Sayfa bulunamadı');
     return this.publicSites.getPage(studioSlug, locale, slug || '');
+  }
+
+  /** Presentation settings of a site (plan-gated "Powered by" badge); 404 for an unknown site. */
+  @Get('public/sites/:studioSlug/settings')
+  async getSettings(@Param('studioSlug') studioSlug: string) {
+    return this.publicSites.getSettings(studioSlug);
+  }
+
+  /** The site's IndexNow key (the content of its `/<key>.txt` file); 404 until the first notification generated one. */
+  @Get('public/sites/:studioSlug/indexnow-key')
+  async indexNowKey(@Param('studioSlug') studioSlug: string) {
+    const key = await this.indexNowKeys.keyForSlug(studioSlug);
+    if (!key) throw new NotFoundException();
+    return { key };
+  }
+
+  /** Published pages with A/B variants: the only ones the web app renders per request (docs/SEO.md "ISR"). */
+  @Get('public/sites/:studioSlug/variant-pages')
+  async variantPages(@Param('studioSlug') studioSlug: string) {
+    return this.publicSites.variantPages(studioSlug);
   }
 
   /** Published pages (`items`), the site default locale and, additively since S2b, published article variants (`articles`). */

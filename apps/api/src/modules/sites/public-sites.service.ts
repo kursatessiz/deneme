@@ -1,10 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@platform/database';
-import { DEFAULT_TENANT_THEME, studioBillingCurrency } from '@platform/shared';
-import type { PublicPageDTO, PublicPageContext, PageLocaleDTO, BlockDTO, SitemapPageEntry, TenantThemeView } from '@platform/shared';
+import { DEFAULT_TENANT_THEME, parseSiteSeoSettings, studioBillingCurrency } from '@platform/shared';
+import type { PublicPageDTO, PublicPageContext, PageLocaleDTO, BlockDTO, PublicSiteSettingsDTO, SitemapPageEntry, TenantThemeView, VariantPagesDTO } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { sitesBaseDomain } from './sites.service';
+import { canonicalOriginOf } from './canonical-origin';
+import { SiteAggregateRatingService } from './site-aggregate-rating.service';
 import { loadAllowedThemeFamiliesForStudio } from '../appearance/theme-families';
+import { loadPoweredBy } from './powered-by';
 
 function toLocaleDto(l: { locale: string; slug: string; seoTitle: string | null; seoDescription: string | null; ogImageUrl: string | null; legalApproved: boolean; legalApprovedAt: Date | null }): PageLocaleDTO {
   return {
@@ -29,7 +32,10 @@ export interface ResolvedHost {
 
 @Injectable()
 export class PublicSitesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ratings: SiteAggregateRatingService,
+  ) {}
 
   /** Host -> site, for the web app's middleware (platform domain, `<slug>.<base>`, or a verified custom domain). */
   async resolveHost(host: string): Promise<ResolvedHost | null> {
@@ -93,6 +99,53 @@ export class PublicSitesService {
       blocks: page.blocks.map(toBlockDto),
       context,
     };
+  }
+
+  /**
+   * Per-site presentation settings for the public renderer: the "Powered by" badge and the canonical origin.
+   * 404 when the site does not exist. The canonical origin does not depend on the request host, so the web
+   * app can cache a page for every host that serves it (docs/SEO.md "ISR").
+   */
+  async getSettings(studioSlug: string): Promise<PublicSiteSettingsDTO> {
+    const studio = await this.prisma.studio.findFirst({
+      where: { slug: studioSlug, isActive: true },
+      select: { id: true, slug: true, isPlatform: true, site: { select: { id: true, primaryDomain: true, seoSettings: true, domains: { select: { domain: true, status: true, verifiedAt: true } } } } },
+    });
+    if (!studio?.site) throw new NotFoundException('Site bulunamadı');
+    const seo = parseSiteSeoSettings(studio.site.seoSettings);
+    return {
+      ...(await loadPoweredBy(this.prisma, studio)),
+      canonicalOrigin: canonicalOriginOf({ isPlatform: studio.isPlatform, slug: studio.slug, primaryDomain: studio.site.primaryDomain, domains: studio.site.domains }),
+      googleSiteVerification: seo.googleSiteVerification,
+      bingSiteVerification: seo.bingSiteVerification,
+      aiCrawlers: seo.aiCrawlers,
+      // Real member ratings only, from 5 up, tenant sites that did not opt out (the platform has no ratings).
+      aggregateRating: !studio.isPlatform && seo.showAggregateRating ? await this.ratings.forStudio(studio.id) : null,
+    };
+  }
+
+  /**
+   * Published page paths with two or more A/B variants. The web middleware sends exactly these to the
+   * per-request renderer; every other page is served from the ISR cache (docs/SEO.md "ISR").
+   */
+  async variantPages(studioSlug: string): Promise<VariantPagesDTO> {
+    const studio = await this.prisma.studio.findFirst({ where: { slug: studioSlug, isActive: true }, select: { site: { select: { id: true } } } });
+    if (!studio?.site) return { items: [] };
+    const blocks = await this.prisma.block.findMany({
+      where: { abVariantKey: { not: null }, page: { siteId: studio.site.id, status: 'PUBLISHED' } },
+      select: { pageId: true, abVariantKey: true },
+    });
+    const keysByPage = new Map<string, Set<string>>();
+    for (const b of blocks) {
+      if (!b.abVariantKey) continue;
+      const keys = keysByPage.get(b.pageId) ?? new Set<string>();
+      keys.add(b.abVariantKey);
+      keysByPage.set(b.pageId, keys);
+    }
+    const pageIds = [...keysByPage.entries()].filter(([, keys]) => keys.size >= 2).map(([id]) => id);
+    if (pageIds.length === 0) return { items: [] };
+    const locales = await this.prisma.pageLocale.findMany({ where: { siteId: studio.site.id, pageId: { in: pageIds } }, select: { locale: true, slug: true } });
+    return { items: locales.map((l) => ({ locale: l.locale, slug: l.slug })) };
   }
 
   /** The site's default locale, for the sitemap's x-default alternates; null when the studio has no site. */

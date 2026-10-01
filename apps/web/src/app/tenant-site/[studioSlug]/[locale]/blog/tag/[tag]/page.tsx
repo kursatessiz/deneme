@@ -1,18 +1,21 @@
 import type { Metadata } from 'next';
 import { BlogIndexView, buildBlogIndexMetadata } from '@/components/sites/BlogPages';
-import { parsePageParam } from '@/lib/sites/articles-api';
 
-/** A tenant site's articles with one tag (S2b): `/<locale>/blog/tag/<tag>` on the tenant host. */
-export const dynamic = 'force-dynamic';
+/** Tenant articles with one tag, page 1; later pages are `blog/tag/[tag]/page/[page]` (middleware rewrite of `?page=N`). An unknown tag is a 404. Cached with ISR (docs/SEO.md "ISR"). */
+export const revalidate = 300;
 
-type Props = { params: Promise<{ studioSlug: string; locale: string; tag: string }>; searchParams: Promise<{ page?: string | string[] }> };
-
-export default async function TenantBlogTagPage({ params, searchParams }: Props) {
-  const [{ studioSlug, locale, tag }, query] = await Promise.all([params, searchParams]);
-  return <BlogIndexView studioSlug={studioSlug} isPlatform={false} locale={locale} page={parsePageParam(query.page)} tag={tag} />;
+export function generateStaticParams(): Array<{ studioSlug: string; locale: string; tag: string }> {
+  return [];
 }
 
-export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
-  const [{ studioSlug, locale, tag }, query] = await Promise.all([params, searchParams]);
-  return buildBlogIndexMetadata({ studioSlug, isPlatform: false, locale }, parsePageParam(query.page), tag);
+type Props = { params: Promise<{ studioSlug: string; locale: string; tag: string }> };
+
+export default async function TenantBlogTagPage({ params }: Props) {
+  const { studioSlug, locale, tag } = await params;
+  return <BlogIndexView studioSlug={studioSlug} isPlatform={false} locale={locale} page={1} tag={tag} />;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { studioSlug, locale, tag } = await params;
+  return buildBlogIndexMetadata({ studioSlug: studioSlug, isPlatform: false, locale }, 1, tag);
 }

@@ -8,9 +8,13 @@ import { VISITOR_COOKIE, SESSION_COOKIE, assignVariant, fallbackStickyId } from 
  * given); without it, falls back to a value derived from request signals
  * that are never stored, just hashed for this one decision, so the choice
  * still holds for repeat requests within the same day.
+ *
+ * Only the per-request renderer (`_dynamic` route, `perRequest`) may read cookies and headers. A cached (ISR)
+ * render has no visitor, so it shows the first variant: that happens only when the middleware's variant-page
+ * lookup was briefly unavailable (docs/SEO.md "ISR").
  */
-export async function pickPageVariant(variantKeys: readonly string[]): Promise<{ variant: string; stickyId: string }> {
-  if (variantKeys.length <= 1) return { variant: variantKeys[0] ?? 'control', stickyId: '' };
+export async function pickPageVariant(variantKeys: readonly string[], perRequest: boolean): Promise<{ variant: string; stickyId: string }> {
+  if (variantKeys.length <= 1 || !perRequest) return { variant: variantKeys[0] ?? 'control', stickyId: '' };
 
   const jar = await cookies();
   const h = await headers();

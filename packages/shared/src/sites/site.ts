@@ -1,5 +1,9 @@
 import { z } from 'zod';
 import { isReservedPageSlug, type ArticleSitemapEntry } from './articles';
+import type { PoweredByDTO } from '../branding';
+import { UpdateSiteSeoSettingsSchema, type SiteSeoSettings } from './seo-settings';
+import type { AiCrawlerPolicy } from './robots';
+import type { PublicAggregateRatingDTO } from './aggregate-rating';
 
 /**
  * Page engine core contracts (docs/SAYFA_MOTORU.md). `Site` -> `Page` ->
@@ -37,6 +41,8 @@ export const UpdateSiteSchema = z
     defaultLocale: LocaleCode.optional(),
     enabledLocales: z.array(LocaleCode).min(1).max(20).optional(),
     primaryDomain: z.string().trim().max(190).optional().nullable(),
+    /** Search settings (S3): verification tokens; omitted fields keep their stored value. */
+    seo: UpdateSiteSeoSettingsSchema.optional(),
   })
   .strict();
 export type UpdateSiteInput = z.infer<typeof UpdateSiteSchema>;
@@ -150,6 +156,8 @@ export interface SiteDTO {
   defaultLocale: string;
   enabledLocales: string[];
   domains: SiteDomainDTO[];
+  /** Search settings (S3); the IndexNow key is internal and not part of the DTO. */
+  seo: Pick<SiteSeoSettings, 'googleSiteVerification' | 'bingSiteVerification' | 'aiCrawlers' | 'showAggregateRating'>;
 }
 
 // ---------------------------------------------------------------------------
@@ -232,3 +240,52 @@ export function buildHreflangAlternates<T extends { locale: string; slug: string
   }
   return out;
 }
+
+/**
+ * What GET /public/sites/:slug/settings returns: per-site presentation settings the public renderer needs
+ * outside a page body (badge, and since S3 verification tags, crawler policy and the review aggregate).
+ */
+export interface PublicSiteSettingsDTO extends PoweredByDTO {
+  /** Search Console / Bing verification tokens rendered as meta tags (S3); null when not set. */
+  googleSiteVerification: string | null;
+  bingSiteVerification: string | null;
+  /** AI crawler policy of the site: drives robots.txt and llms.txt (S3). */
+  aiCrawlers: AiCrawlerPolicy;
+  /**
+   * Real review aggregate for the tenant site's LocalBusiness structured data: null when the owner opted out, on
+   * the platform site, or with fewer than 5 member ratings (never fabricated). Computed server-side and cached.
+   */
+  aggregateRating: PublicAggregateRatingDTO | null;
+  /**
+   * The site's one canonical origin, independent of the request host so cached pages stay correct (ISR): the
+   * verified primary custom domain, else the earliest verified one, else `<slug>.<base domain>`; the platform
+   * site is its base domain.
+   */
+  canonicalOrigin: string;
+}
+
+/**
+ * The host a site's canonical URLs use (`PublicSiteSettingsDTO.canonicalOrigin`): the platform site is the base
+ * domain; a tenant site prefers its primary domain when that one is verified, else the earliest verified custom
+ * domain, else `<slug>.<base domain>`.
+ */
+export function pickCanonicalHost(input: {
+  isPlatform: boolean;
+  slug: string;
+  baseDomain: string;
+  primaryDomain: string | null;
+  verifiedDomains: ReadonlyArray<{ domain: string; verifiedAt: number }>;
+}): string {
+  if (input.isPlatform) return input.baseDomain;
+  const verified = [...input.verifiedDomains].sort((a, b) => a.verifiedAt - b.verifiedAt || a.domain.localeCompare(b.domain));
+  const primary = input.primaryDomain ? verified.find((d) => d.domain === input.primaryDomain?.toLowerCase()) : undefined;
+  return (primary ?? verified[0])?.domain ?? `${input.slug}.${input.baseDomain}`;
+}
+
+/** What GET /public/sites/:slug/variant-pages returns: published page paths whose blocks carry two or more A/B variants. */
+export interface VariantPagesDTO {
+  items: Array<{ locale: string; slug: string }>;
+}
+
+/** Internal path segment the web middleware rewrites an A/B page to (the folder is `%5Fdynamic` because Next treats a leading underscore as a private folder): the same page, rendered per request (docs/SEO.md "ISR"). */
+export const DYNAMIC_PAGE_SEGMENT = '_dynamic';

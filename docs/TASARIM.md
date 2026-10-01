@@ -309,7 +309,7 @@ mevcut çağrı noktaları değişmeden derlenir.
 
 ## 5. Web entegrasyonu: katmanlar, reset, Tailwind
 
-- Kit CSS'i (`@chrissgon/perfectui/perfectui.css`) `app/layout.tsx` içinde bir
+- Kit CSS'i (`@chrissgon/perfectui/perfectui.css`) `app/(app)/layout.tsx` içinde bir
   kez içe aktarılır. Kit CSS katmanları (cascade layers) kullanır. Katman
   sırası `globals.css`'in ilk satırındadır:
   `@layer reset, pui.tokens, pui.components, ui, pui.utilities, pui.styles, pui.colors, pui.states;`

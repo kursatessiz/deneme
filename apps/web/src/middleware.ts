@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { EMBED_ORIGIN_PATTERN, LocaleCodeSchema, NOINDEX_ROBOTS_VALUE, STUDIO_SLUG_PATTERN, isNonIndexablePath } from '@platform/shared';
+import { DYNAMIC_PAGE_SEGMENT, EMBED_ORIGIN_PATTERN, LocaleCodeSchema, NOINDEX_ROBOTS_VALUE, STUDIO_SLUG_PATTERN, isNonIndexablePath } from '@platform/shared';
 import { PAGE_LOCALE_HEADER } from '@/lib/i18n/constants';
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE, accessTokenCookieOptions, refreshTokenCookieOptions } from '@/lib/bff/cookies';
 import { dashboardCsp, generateNonce } from '@/lib/security/csp';
 import { isProtectedPath } from '@/lib/security/protected-paths';
 import { tenantRewritePath } from '@/lib/sites/tenant-path';
+import { blogPagingRewrite } from '@/lib/sites/blog-paging';
+import { isVariantPage } from '@/lib/sites/variant-pages';
+import { ORIGINAL_HOST_HEADER, indexNowKeyFromPath } from '@/lib/sites/indexnow-key';
 import { apiOrigin, serverPublicApiUrl } from '@/lib/public-api-url';
 
 /** Server-side API base (docker network) for host resolution, session refresh and the embed CSP; same variable the BFF uses. */
@@ -21,8 +24,8 @@ const SITES_BASE_DOMAIN = process.env.SITES_DOMAIN || process.env.WEB_DOMAIN || 
  * serving the dashboard, admin panel and the platform's own site exactly as
  * before.
  */
-/** These resolve the host for themselves (see sitemap.xml/robots.txt/og route handlers), so they are never rewritten. */
-const HOST_AWARE_PATHS = ['/sitemap.xml', '/robots.txt', '/og'];
+/** These resolve the host for themselves (see sitemap.xml/robots.txt/llms.txt/og route handlers), so they are never rewritten. */
+const HOST_AWARE_PATHS = ['/sitemap.xml', '/robots.txt', '/llms.txt', '/og'];
 
 /** Adds PAGE_LOCALE_HEADER for a `/<locale>/...` path; any client-sent value is dropped first. */
 function requestHeadersWithPageLocale(request: NextRequest): Headers {
@@ -31,6 +34,22 @@ function requestHeadersWithPageLocale(request: NextRequest): Headers {
   const first = request.nextUrl.pathname.split('/').filter(Boolean)[0];
   if (first && first !== 'api' && LocaleCodeSchema.safeParse(first).success) headers.set(PAGE_LOCALE_HEADER, first);
   return headers;
+}
+
+/**
+ * The internal path of a page engine request: paginated blog lists use cached path-based routes, and a page
+ * with A/B variants goes to the per-request `_dynamic` twin (docs/SEO.md "ISR"). Everything else is the cached
+ * route at the visitor's own path. The visitor's URL never changes.
+ */
+async function pageEnginePath(request: NextRequest, studioSlug: string): Promise<string> {
+  const pathname = request.nextUrl.pathname;
+  const paging = blogPagingRewrite(pathname, request.nextUrl.searchParams.get('page'));
+  if (paging) return paging;
+  if (request.method !== 'GET' && request.method !== 'HEAD') return pathname;
+  const [locale, ...rest] = pathname.split('/').filter(Boolean);
+  if (!locale || !LocaleCodeSchema.safeParse(locale).success || locale === 'api' || rest[0] === 'blog') return pathname;
+  const slug = rest.join('/');
+  return (await isVariantPage(API_INTERNAL_BASE_URL, studioSlug, locale, slug)) ? `/${locale}/${DYNAMIC_PAGE_SEGMENT}${slug ? `/${slug}` : ''}` : pathname;
 }
 
 async function tenantSiteRewrite(request: NextRequest): Promise<NextResponse | null> {
@@ -52,7 +71,7 @@ async function tenantSiteRewrite(request: NextRequest): Promise<NextResponse | n
   if (!studioSlug || !STUDIO_SLUG_PATTERN.test(studioSlug)) return null;
 
   const url = request.nextUrl.clone();
-  url.pathname = tenantRewritePath(studioSlug, request.nextUrl.pathname);
+  url.pathname = tenantRewritePath(studioSlug, await pageEnginePath(request, studioSlug));
   return NextResponse.rewrite(url, { request: { headers: requestHeadersWithPageLocale(request) } });
 }
 
@@ -177,6 +196,17 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 }
 
 async function route(request: NextRequest): Promise<NextResponse> {
+  // IndexNow key file: answered per host by app/indexnow-key (platform, tenant subdomain or custom domain alike).
+  const indexNowKey = indexNowKeyFromPath(request.nextUrl.pathname);
+  if (indexNowKey) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/indexnow-key/${indexNowKey}`;
+    // The rewrite target is served as a different URL; the handler needs the host the visitor asked for.
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set(ORIGINAL_HOST_HEADER, request.headers.get('host') ?? '');
+    return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+  }
+
   const tenantRewrite = await tenantSiteRewrite(request);
   if (tenantRewrite) return publicAdsCsp(tenantRewrite);
 
@@ -223,6 +253,13 @@ async function route(request: NextRequest): Promise<NextResponse> {
   // place the ad pixel scripts (loaded client-side, gated on consent) are
   // allowed to run.
   if (request.nextUrl.pathname.startsWith('/api/')) return NextResponse.next();
+  // Platform site: paginated blog lists and A/B pages are rewritten internally (see pageEnginePath).
+  const enginePath = await pageEnginePath(request, 'platform');
+  if (enginePath !== request.nextUrl.pathname) {
+    const url = request.nextUrl.clone();
+    url.pathname = enginePath;
+    return publicAdsCsp(NextResponse.rewrite(url, { request: { headers: requestHeadersWithPageLocale(request) } }));
+  }
   return publicAdsCsp(NextResponse.next({ request: { headers: requestHeadersWithPageLocale(request) } }));
 }
 

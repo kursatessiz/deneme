@@ -39,7 +39,7 @@ BFF proxy kullanır:
   `authorization`, ...) iki yön arasında asla ham kopyalanmaz
   (`apps/web/src/lib/bff/headers.ts`); proxy bunları açıkça yeniden kurar.
 
-Herkese açık rezervasyon sayfası (`apps/web/src/app/(public)/booking/[studioSlug]/book/page.tsx`,
+Herkese açık rezervasyon sayfası (`apps/web/src/app/(app)/(public)/booking/[studioSlug]/book/page.tsx`,
 T6) gömülebilir widget ile aynı kimliksiz, salt okunur embed uç noktalarını
 (`config`, `branches`, `service-types`, `schedules`) `apps/web/src/lib/public-booking.ts`
 üzerinden çağırır: işletme adı, logosu ve markası config'ten, hizmet türleri,
@@ -52,7 +52,7 @@ açık aday formunu gönderir. Sabit örnek veri yoktur. Playwright:
 `apps/web/e2e/public-booking.e2e.ts`.
 
 Tarayıcının doğrudan çağırdığı kimliksiz herkese açık uç noktalar (embed
-widget'ı `apps/web/src/app/embed/[studioSlug]/page.tsx`, sayfa motorunun
+widget'ı `apps/web/src/app/(app)/embed/[studioSlug]/page.tsx`, sayfa motorunun
 aday formu, ziyaretçi izleme ve reklam pikseli ayarı) jeton taşımaz ve API
 adresini **çalışma anında** alır (D1): sunucu tarafı (`middleware.ts`, sunucu
 bileşenleri) `PUBLIC_API_URL` ortam değişkenini okur, kök layout bu değeri
@@ -125,7 +125,7 @@ sayfası ve embed widget'ı kendi temasını kendi kiracısından çözer; süpe
 admin ve pazarlama panelleri `AdminTheme` ile kit varsayılanlarını ve
 platform kiracısının rengini alır.
 
-Kit CSS'i `app/layout.tsx` içinde bir kez, `globals.css`'ten sonra içe
+Kit CSS'i `app/(app)/layout.tsx` içinde bir kez, `globals.css`'ten sonra içe
 aktarılır (katman sırası `globals.css`'in ilk satırındadır); Tailwind
 preflight'ı kapalıdır ve yalnızca yerleşim için kullanılır. Yazı tipi Inter
 `@fontsource/inter` ile derlemeye gömülür (latin ve latin-ext, 400-700);
@@ -264,7 +264,7 @@ vardır; çıkış butonu menünün dışında, her zaman görünür kalır.
 
 ## Ayarlar (2.3)
 
-`apps/web/src/app/(dashboard)/ayarlar/` altında sekiz sayfa; hepsi
+`apps/web/src/app/(app)/(dashboard)/ayarlar/` altında sekiz sayfa; hepsi
 `PageGuard` ile korunur ve içindeki her aksiyon (buton, form bölümü)
 `useDashboardSession()`'dan okuduğu izinlere göre gizlenir. Nav'da tek bir
 "Ayarlar" girişi vardır (`lib/nav.ts`), görünürlüğü sekiz sayfanın izinlerinin
@@ -325,7 +325,7 @@ Ayrıntılar: `docs/KAMPANYA_VE_AKISLAR.md`. Tarayıcı testleri: `e2e/crm-conta
 
 ## Gelen kutusu (G1c)
 
-`apps/web/src/app/(dashboard)/gelen-kutusu/page.tsx`, menüde "Gelen Kutusu"
+`apps/web/src/app/(app)/(dashboard)/gelen-kutusu/page.tsx`, menüde "Gelen Kutusu"
 (`inbox.view`). Durum, atama, kanal ve kişi araması filtreli konuşma listesi
 ile seçili konuşma yan yana (dar ekranda alt alta). Cevap kutusu ve hazır
 cevaplar `inbox.reply` ister; WhatsApp 24 saatlik penceresi kapalıysa serbest

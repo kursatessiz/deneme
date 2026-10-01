@@ -23,7 +23,7 @@ tek guard'a taşındı (davranış değişmedi, sadece tekilleştirildi):
 `FeedbackAdminController`, `SmsWalletAdminController`,
 `StudiosController#findAll`.
 
-Web tarafında `apps/web/src/app/admin/layout.tsx` sunucu bileşeninde
+Web tarafında `apps/web/src/app/(app)/admin/layout.tsx` sunucu bileşeninde
 `getAdminSession()` (`apps/web/src/lib/session/admin-session.ts`) ile
 ayrıca kontrol edilir; gerçek yetkilendirme sınırı yine API guard'ıdır, bu
 sadece panel kabuğunun gösterilmemesi içindir. `middleware.ts` da `/admin`
@@ -129,7 +129,7 @@ cron'unun (`backup.sh`) yedekleri de aynı listede görünür. Son başarılı y
 
 ## Web paneli
 
-`/admin` route grubu (`apps/web/src/app/admin/`), yalnızca oturum
+`/admin` route grubu (`apps/web/src/app/(app)/admin/`), yalnızca oturum
 kullanıcısı `isSuperAdmin` olduğunda görünür. Kiracı temasını kullanmaz
 (CLAUDE.md kural 10: süper admin bir kiracı değildir); `packages/shared/
 src/design`'daki nötr semantik renkleri ve ölçüleri doğrudan okur
@@ -236,7 +236,7 @@ platform davetinde yalnızca KVKK aydınlatma metni istenir. Kabulde
 
 - `/admin/platform-kullanicilari`, `/admin/entegrasyonlar` ve AdminNav'da
   "Pazarlama" bağlantısı; sahip için tek konsol `/admin` kalır.
-- `/pazarlama/*` kabuğu (`apps/web/src/app/pazarlama/layout.tsx`): platform
+- `/pazarlama/*` kabuğu (`apps/web/src/app/(app)/pazarlama/layout.tsx`): platform
   kiracısını `DashboardSessionProvider` ile bağlar, `(dashboard)`
   sayfalarını yeniden dışa aktarır, bağlantıları `useAreaHref()`
   (`components/session/AreaBase.tsx`) ile `/pazarlama` altında tutar.
@@ -305,3 +305,12 @@ Hepsi `@SuperAdminOnly()`; ayrıntı `docs/HATA_RAPORLAMA.md`.
 | `/admin/hatalar/ayarlar` | Ani artış eşikleri, grup başına bekleme süresi, imzalı webhook (adres, imza anahtarı) ve Slack (gelen webhook adresi); değerler şifrelenir ve tekrar gösterilmez |
 
 Tenant sahibi kendi işletmesi için `/ayarlar/hatalar` üstünden yeni grup ve ani artışta e-posta bildirimini açıp kapatır (varsayılan kapalı).
+
+## Pasif pazarlama ve SEO ayarları (S3)
+
+Ayrıntılar `docs/SEO.md` bölüm 9 ve sonrasıdır; süper adminin elindeki düğmeler:
+
+- **Rozet**: "Özellik Bayrakları" ekranında `branding.hide_badge` anahtarı `TENANT` kapsamında açılırsa o işletmenin herkese açık sayfalarında "Powered by" rozeti gizlenir (premium işletme). Varsayılan kapalıdır, yani rozet görünür; platform kiracısında hiçbir zaman görünmez. Uygulama pazarı eklentisinin `featureFlagKey` alanına aynı anahtar yazılırsa eklentiyi alan işletme için bayrak kendiliğinden açılır.
+- **IndexNow**: `seo.indexnow` bayrağı (varsayılan kapalı) açılırsa o kapsamdaki sitelerde sayfa ve yazı yayınlama/yayından kaldırma arama motorlarına bildirilir (`docs/SEO.md` bölüm 13). Gönderimler denetim kaydındadır (`indexnow.submitted`).
+- **Doğrulama etiketleri**: "Web sitesi" ekranındaki "Arama motoru doğrulaması" bölümü platform sitesinin Google Search Console ve Bing Webmaster Tools kodlarını yazar (yalnızca platform alan adında yayınlanır); işletmeler kendi kodlarını "Web sitem" ekranından girer (`docs/SEO.md` bölüm 12).
+- **Yapay zeka tarayıcıları**: "Web sitesi" ekranındaki aynı bölümden platform sitesi için `aiCrawlers` (izin ver / engelle) seçilir; engellenirse platform alan adının `robots.txt` dosyası GPTBot, ClaudeBot, CCBot, Google-Extended, PerplexityBot, Bytespider ve anthropic-ai için `Disallow: /` yazar ve `llms.txt` yayınlanmaz (`docs/SEO.md` bölüm 14 ve 15). İşletmeler kendi siteleri için aynı seçimi "Web sitem" ekranında yapar.

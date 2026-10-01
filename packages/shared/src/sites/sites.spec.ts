@@ -16,6 +16,9 @@ import {
   expectedDnsRecords,
   HeroBlockSchema,
   SAFE_HREF_PATTERN,
+  siteCacheTag,
+  isSiteCacheTag,
+  pickCanonicalHost,
 } from './index';
 
 describe('sites/blocks', () => {
@@ -216,5 +219,27 @@ describe('sites/block links', () => {
   });
   it.each(['javascript:alert(1)', 'JaVaScRiPt:alert(1)', 'data:text/html,x', '//evil.example', 'vbscript:x', ' /x y'])('rejects %s', (href) => {
     expect(SAFE_HREF_PATTERN.test(href)).toBe(false);
+  });
+});
+
+describe('sites/cache tags and canonical host', () => {
+  it('tags a site with a coarse, validated key', () => {
+    expect(siteCacheTag('zen-studio')).toBe('site:zen-studio');
+    expect(isSiteCacheTag('site:zen-studio')).toBe(true);
+    expect(isSiteCacheTag('site:../etc')).toBe(false);
+    expect(isSiteCacheTag('other:zen')).toBe(false);
+  });
+
+  it('keeps tenants apart: two studios never share a tag', () => {
+    expect(siteCacheTag('a')).not.toBe(siteCacheTag('b'));
+  });
+
+  it('picks the canonical host: platform base, verified primary, earliest verified, else subdomain', () => {
+    const base = { slug: 'zen', baseDomain: 'platform.example', isPlatform: false };
+    expect(pickCanonicalHost({ ...base, isPlatform: true, primaryDomain: 'x.com', verifiedDomains: [] })).toBe('platform.example');
+    expect(pickCanonicalHost({ ...base, primaryDomain: null, verifiedDomains: [] })).toBe('zen.platform.example');
+    expect(pickCanonicalHost({ ...base, primaryDomain: 'pending.com', verifiedDomains: [] })).toBe('zen.platform.example');
+    expect(pickCanonicalHost({ ...base, primaryDomain: 'b.com', verifiedDomains: [{ domain: 'a.com', verifiedAt: 1 }, { domain: 'b.com', verifiedAt: 2 }] })).toBe('b.com');
+    expect(pickCanonicalHost({ ...base, primaryDomain: null, verifiedDomains: [{ domain: 'b.com', verifiedAt: 2 }, { domain: 'a.com', verifiedAt: 1 }] })).toBe('a.com');
   });
 });

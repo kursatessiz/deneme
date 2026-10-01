@@ -2,12 +2,16 @@ import type { Metadata } from 'next';
 import { SitePageView, buildSiteMetadata } from '@/components/sites/SitePage';
 
 /**
- * Rendered per request: the root layout reads the locale header and cookies,
- * and the A/B variant is cookie-sticky. The API responses are still cached
- * (fetch revalidate + publish tags in lib/sites/api.ts), so a request costs
- * one render, not one API round trip.
+ * Cached with ISR (docs/SEO.md "ISR"): rendered on first request, then served from the cache for up to 300
+ * seconds and purged on publish (POST /api/revalidate, tag `site:<slug>`). Nothing here reads cookies or
+ * headers; a page whose blocks carry A/B variants reads the visitor's cookies and so renders per request.
  */
-export const dynamic = 'force-dynamic';
+export const revalidate = 300;
+
+/** No page is generated at build time: the first request of each path fills the cache. */
+export function generateStaticParams(): Array<{ locale: string; slug: string[] }> {
+  return [];
+}
 
 /**
  * Platform site: `/tr`, `/en` (home), `/tr/pilates` (sector landing),

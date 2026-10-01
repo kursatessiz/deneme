@@ -170,6 +170,12 @@ export const EnvSchema = z
     /** pg_dump binary; the API image ships the PostgreSQL 16 client. */
     BACKUP_PG_DUMP_PATH: z.string().min(1).default('pg_dump'),
 
+    // S3 page cache purge (docs/SEO.md "ISR"). Both unset: pages refresh by their 300 second window only.
+    /** Internal (docker network) base URL of the web app, e.g. http://web:3000; the API calls POST /api/revalidate on it. */
+    WEB_INTERNAL_URL: emptyAsUnset(z.string().url().optional()),
+    /** Shared secret of POST /api/revalidate; the web app reads the same variable. */
+    REVALIDATE_SECRET: emptyAsUnset(z.string().min(16, 'REVALIDATE_SECRET must be at least 16 characters').optional()),
+
     /** Base URL for JITSI-generated meeting rooms (W19). Must be https. */
     JITSI_BASE_URL: z.string().url().default('https://meet.jit.si'),
   })
