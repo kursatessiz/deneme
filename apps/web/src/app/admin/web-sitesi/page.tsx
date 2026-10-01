@@ -5,6 +5,8 @@ import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, ErrorState } from '@/components/common/DataState';
 import { InlineMessage, PrimaryButton, Section, TextField } from '@/components/settings/ui';
 import { SiteEditor } from '@/components/sites/SiteEditor';
+import { ArticleEditor } from '@/components/sites/ArticleEditor';
+import { Tabs } from '@/components/ui';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { useT } from '@/components/i18n/I18nProvider';
 
@@ -71,6 +73,7 @@ export default function AdminWebSitesiPage() {
   const t = useT();
   const [studioId, setStudioId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<'pages' | 'articles'>('pages');
 
   useEffect(() => {
     bffFetch<{ studioId: string }>('admin/company-info/platform-studio-id')
@@ -85,7 +88,20 @@ export default function AdminWebSitesiPage() {
       <CompanyInfoForm />
       {error && <ErrorState message={error} />}
       {!error && !studioId && <LoadingState />}
-      {studioId && <SiteEditor studioId={studioId} variant="platform" />}
+      {studioId && (
+        <>
+          <Tabs
+            tabs={[
+              { key: 'pages', label: t('articles.editor.tab.pages') },
+              { key: 'articles', label: t('articles.editor.tab.articles') },
+            ]}
+            active={tab}
+            onChange={(key) => setTab(key === 'articles' ? 'articles' : 'pages')}
+            label={t('adminWebSitesi.title')}
+          />
+          {tab === 'pages' ? <SiteEditor studioId={studioId} variant="platform" /> : <ArticleEditor studioId={studioId} variant="platform" />}
+        </>
+      )}
     </div>
   );
 }
