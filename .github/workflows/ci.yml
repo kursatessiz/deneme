@@ -165,6 +165,16 @@ jobs:
           path: apps/web/playwright-report/
           retention-days: 7
 
+      # Light and dark screenshots of the main screens (e2e/screenshots.e2e.ts, docs/TASARIM.md).
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: web-screenshots
+          path: apps/web/screenshots/
+          retention-days: 14
+          if-no-files-found: warn
+
   scripts:
     name: Scripts and workflows lint
     runs-on: ubuntu-latest
