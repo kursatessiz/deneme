@@ -251,7 +251,11 @@ export interface PageDefault {
   blocks: PageBlockDefault[];
 }
 
-/** The platform site's home page, so `/` (and the deploy smoke test) render on a fresh environment. */
+/**
+ * The platform site's home page, so `/` (which redirects to it) and the deploy smoke test work on a fresh
+ * environment. It carries the content of the former hand-coded landing page (hero, features, steps, sectors);
+ * as seed data the copy is plain tenant content, not i18n keys.
+ */
 export const PLATFORM_HOME_PAGE_DEFAULT: PageDefault = {
   kind: 'HOME',
   internalLabel: 'Ana sayfa',
@@ -265,14 +269,26 @@ export const PLATFORM_HOME_PAGE_DEFAULT: PageDefault = {
       data: {
         config: {},
         text: {
-          tr: { title: 'Uyelik ve randevu tabanli isletmeniz icin tek platform', subtitle: 'Takvim, paket/kredi yonetimi, odeme ve raporlama; kod degisikligi gerektirmeden isletmenize gore yapilandirilir.', primaryCtaLabel: 'Ucretsiz deneyin', primaryCtaHref: '#iletisim' },
-          en: { title: 'The all-in-one platform for membership and booking businesses', subtitle: 'Scheduling, packages, payments and reporting, configured for your business without code changes.', primaryCtaLabel: 'Start free trial', primaryCtaHref: '#contact' },
+          tr: {
+            eyebrow: 'Üyelik ve randevu tabanlı işletmeler için',
+            title: 'Takvim, üyelik ve ödemeler tek panelde.',
+            subtitle: 'Seanslarınızı, kapasite sınırlı kaynaklarınızı ve paket kredilerinizi kod değişikliği olmadan kendi iş modelinize göre yönetin. Web paneli ve her rol için tek mobil uygulama.',
+            primaryCtaLabel: 'Ücretsiz deneyin',
+            primaryCtaHref: '#iletisim',
+            secondaryCtaLabel: 'Panele giriş yap',
+            secondaryCtaHref: '/giris',
+          },
+          en: {
+            eyebrow: 'For membership and appointment based businesses',
+            title: 'Schedule, members and payments in one panel.',
+            subtitle: 'Run your sessions, capacity-limited resources and package credits the way your business works, without code changes. A web panel and one mobile app for every role.',
+            primaryCtaLabel: 'Start free trial',
+            primaryCtaHref: '#contact',
+            secondaryCtaLabel: 'Sign in to the panel',
+            secondaryCtaHref: '/giris',
+          },
         },
       },
-    },
-    {
-      type: 'sector_cards',
-      data: { config: { sectorKeys: [] }, text: { tr: { title: 'Isletme turunuzu secin' }, en: { title: 'Choose your business type' } } },
     },
     {
       type: 'feature_grid',
@@ -280,21 +296,64 @@ export const PLATFORM_HOME_PAGE_DEFAULT: PageDefault = {
         config: {},
         text: {
           tr: {
-            title: 'Ozellikler',
+            title: 'Günlük işin tamamı',
             items: [
-              { title: 'Online rezervasyon', description: 'Uyeler seans ve randevularini kendi telefonlarindan planlar.' },
-              { title: 'Paket ve kredi takibi', description: 'Seans sayisi, sinirsiz sure veya kredi tabanli paketler.' },
-              { title: 'Odeme ve raporlama', description: 'Tahsilat, iade ve gelir raporlari tek ekrandan.' },
+              { title: 'Takvim ve rezervasyon', description: 'Gün, hafta ve ay görünümü, kaynak ve eğitmen çakışma kontrolü, bekleme listesi ve eğitmen değişikliği.' },
+              { title: 'Paket ve kredi', description: 'Seans adedi, süreli sınırsız veya kredi tabanlı haklar; dondurma, transfer ve aile hesabı.' },
+              { title: 'Üye kartı ve check-in', description: 'QR ile davet ve giriş, rezervasyon geçmişi, ölçümler, onaylar ve sadakat puanı tek kartta.' },
+              { title: 'Ödeme ve hakediş', description: 'Ödemeler, giderler, faturalar ve eğitmen komisyonları kiracının para birimiyle.' },
+              { title: 'Mesajlaşma', description: 'WhatsApp, SMS ve e-posta tek motordan; izin ve sessiz saat kontrolüyle.' },
+              { title: 'Raporlar', description: 'Doluluk, iptal, gelir ve yenileme oranları; şube bazında karşılaştırma ve dışa aktarma.' },
             ],
           },
           en: {
-            title: 'Features',
+            title: 'The whole working day',
             items: [
-              { title: 'Online booking', description: 'Members schedule sessions and appointments from their phone.' },
-              { title: 'Packages and credits', description: 'Session count, unlimited time or credit based packages.' },
-              { title: 'Payments and reporting', description: 'Collections, refunds and revenue reports in one place.' },
+              { title: 'Calendar and booking', description: 'Day, week and month views, resource and trainer conflict checks, waitlists and trainer substitution.' },
+              { title: 'Packages and credits', description: 'Session counts, time-based unlimited or credit-based entitlements; freezing, transfers and family accounts.' },
+              { title: 'Member card and check-in', description: 'QR invitations and check-in, booking history, measurements, consents and loyalty points on one card.' },
+              { title: 'Payments and payouts', description: "Payments, expenses, invoices and trainer commissions in the business's own currency." },
+              { title: 'Messaging', description: 'WhatsApp, SMS and email from one engine, with consent and quiet-hour checks.' },
+              { title: 'Reports', description: 'Occupancy, cancellations, revenue and renewal rates; per-branch comparison and export.' },
             ],
           },
+        },
+      },
+    },
+    {
+      type: 'how_it_works',
+      data: {
+        config: {},
+        text: {
+          tr: {
+            title: 'Nasıl çalışır',
+            steps: [
+              { title: 'İş türünüzü seçin', description: 'Şablon; hizmet türlerini, kaynakları ve kelime dağarcığını sizin için hazırlar.' },
+              { title: 'Hizmet ve paketleri tanımlayın', description: 'Süre, kapasite, iptal politikası ve kredi kuralları sizin verinizdir.' },
+              { title: 'Üyelerinizi davet edin', description: 'Ekranda gösterilen QR ya da WhatsApp ve SMS ile gönderilen bağlantıyla.' },
+              { title: 'Takvimden yönetin', description: 'Rezervasyon, yoklama, satış ve ödeme aynı panelden.' },
+            ],
+          },
+          en: {
+            title: 'How it works',
+            steps: [
+              { title: 'Pick your business type', description: 'A template prepares service types, resources and vocabulary for you.' },
+              { title: 'Define services and packages', description: 'Duration, capacity, cancellation policy and credit rules are your data.' },
+              { title: 'Invite your members', description: 'With a QR code on screen or a link sent over WhatsApp and SMS.' },
+              { title: 'Run it from the calendar', description: 'Bookings, attendance, sales and payments from the same panel.' },
+            ],
+          },
+        },
+      },
+    },
+    {
+      // The cards themselves are generated from the business type templates; the description keeps the full sector list.
+      type: 'sector_cards',
+      data: {
+        config: { sectorKeys: [] },
+        text: {
+          tr: { title: 'Kimler için', description: 'Pilates ve reformer, Kişisel antrenörlük, Fizyoterapi, Yoga, Wellness ve spa, Dövüş sanatları, Yüzme okulları, Tenis ve padel kortları, Müzik ve dil kursları, Çocuk aktivite merkezleri, Coworking odaları' },
+          en: { title: 'Who it is for', description: "Pilates and reformer, Personal training, Physiotherapy, Yoga, Wellness and spa, Martial arts, Swimming schools, Tennis and padel courts, Music and language courses, Children's activity centers, Coworking rooms" },
         },
       },
     },

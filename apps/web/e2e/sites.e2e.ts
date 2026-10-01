@@ -14,15 +14,15 @@ test.describe('platform site', () => {
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     const enAlternate = page.locator('link[rel="alternate"][hreflang="en"]');
     await expect(enAlternate).toHaveAttribute('href', /\/en$/);
-    // x-default points at the site default locale (Turkish in the seed) and the page is canonical to itself.
-    await expect(page.locator('link[rel="alternate"][hreflang="x-default"]')).toHaveAttribute('href', /\/tr$/);
+    // x-default of the platform home page is the origin root (it redirects by locale); the page is canonical to itself.
+    await expect(page.locator('link[rel="alternate"][hreflang="x-default"]')).toHaveAttribute('href', /^https?:\/\/[^/]+\/?$/);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/tr$/);
   });
 
   test('the English home page carries the same hreflang set and open graph defaults', async ({ page }) => {
     await page.goto('/en');
     await expect(page.locator('link[rel="alternate"][hreflang="tr"]')).toHaveAttribute('href', /\/tr$/);
-    await expect(page.locator('link[rel="alternate"][hreflang="x-default"]')).toHaveAttribute('href', /\/tr$/);
+    await expect(page.locator('link[rel="alternate"][hreflang="x-default"]')).toHaveAttribute('href', /^https?:\/\/[^/]+\/?$/);
     await expect(page.locator('meta[property="og:type"]')).toHaveAttribute('content', 'website');
     await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /\/(og\?|.*opengraph-image)|^https?:\/\//);
   });
@@ -34,7 +34,20 @@ test.describe('platform site', () => {
     expect(xml).toMatch(/<loc>[^<]*\/tr<\/loc>/);
     expect(xml).toMatch(/<loc>[^<]*\/en<\/loc>/);
     expect(xml).toContain('hreflang="x-default"');
-    expect(xml).toMatch(/<loc>[^<]*\/<\/loc>/);
+    // The root is a redirect: it is the x-default of the home page, never a listed url of its own.
+    expect(xml).not.toMatch(/<loc>https?:\/\/[^/<]+\/<\/loc>/);
+    expect(xml).toMatch(/hreflang="x-default" href="https?:\/\/[^/"]+\/"/);
+  });
+
+  test('the root redirects to the home page in the visitor locale', async ({ request }) => {
+    const tr = await request.get('/', { headers: { 'Accept-Language': 'tr-TR,tr;q=0.9' }, maxRedirects: 0 });
+    expect(tr.status()).toBe(302);
+    expect(tr.headers()['location']).toBe('/tr');
+    expect(tr.headers()['vary']).toContain('Accept-Language');
+    const en = await request.get('/', { headers: { 'Accept-Language': 'en-GB,en;q=0.8' }, maxRedirects: 0 });
+    expect(en.headers()['location']).toBe('/en');
+    const cookie = await request.get('/', { headers: { 'Accept-Language': 'tr', Cookie: 'pw_locale=en' }, maxRedirects: 0 });
+    expect(cookie.headers()['location']).toBe('/en');
   });
 
   test('robots.txt keeps public content allowed and disallows private areas', async ({ request }) => {

@@ -206,16 +206,22 @@ export const HREFLANG_X_DEFAULT = 'x-default';
 /**
  * hreflang alternates: only locales that actually have a published variant of the page.
  * With `defaultLocale`, `x-default` points at that locale's variant, or at the first
- * available variant when the page has none in the site default locale.
+ * available variant when the page has none in the site default locale. `xDefaultUrl`
+ * overrides that: the platform home page points x-default at the origin root, which
+ * redirects to the visitor's locale (docs/SEO.md).
  */
 export function buildHreflangAlternates<T extends { locale: string; slug: string }>(
   pageLocales: readonly T[],
   basePath: (locale: string, slug: string) => string,
   defaultLocale?: string | null,
+  xDefaultUrl?: string | null,
 ): Record<string, string> {
   const out: Record<string, string> = {};
   for (const pl of pageLocales) out[pl.locale] = basePath(pl.locale, pl.slug);
-  if (defaultLocale !== undefined && pageLocales.length > 0) {
+  if (xDefaultUrl && pageLocales.length > 0) {
+    // An explicit x-default (the origin root, which negotiates the locale) wins over the default locale variant.
+    out[HREFLANG_X_DEFAULT] = xDefaultUrl;
+  } else if (defaultLocale !== undefined && pageLocales.length > 0) {
     const fallback = pageLocales.find((pl) => pl.locale === defaultLocale) ?? pageLocales[0];
     out[HREFLANG_X_DEFAULT] = basePath(fallback.locale, fallback.slug);
   }

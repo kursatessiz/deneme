@@ -444,6 +444,14 @@ describe('Events G3c-1 (e2e)', () => {
       expect(ids).not.toContain(membersId);
       expect(ids).not.toContain(draftId);
       expect(list.body.items.find((e: { id: string }) => e.id === publicId)).not.toHaveProperty('seatsTaken');
+      // The public DTO carries what an event page needs: the zone the dates are held in and where it takes place.
+      const publicItem = list.body.items.find((e: { id: string }) => e.id === publicId) as { timezone: string; location: { name: string; address: string | null } };
+      expect(typeof publicItem.timezone).toBe('string');
+      expect(publicItem.location.name).toBeTruthy();
+      const detail = await request(server).get(`/public/studios/${ZEN_SLUG}/events/${publicId}`);
+      expect(detail.status).toBe(200);
+      expect(detail.body.timezone).toBe(publicItem.timezone);
+      expect(detail.body.location.name).toBe(publicItem.location.name);
       expect((await request(server).get(`/public/studios/${ZEN_SLUG}/events/${membersId}`)).status).toBe(404);
       expect((await request(server).get(`/public/studios/${ZEN_SLUG}/events/${draftId}`)).status).toBe(404);
       expect((await request(server).get(`/public/studios/no-such-studio-g3c1/events`)).status).toBe(404);

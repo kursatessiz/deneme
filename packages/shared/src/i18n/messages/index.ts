@@ -40,7 +40,6 @@ import { trMInvoices } from './tr/mInvoices';
 import { trMHome } from './tr/mHome';
 import { trMIntegrations } from './tr/mIntegrations';
 import { trLanguage } from './tr/language';
-import { trLanding } from './tr/landing';
 import { trLayout } from './tr/layout';
 import { trLeads } from './tr/leads';
 import { trLoyalty } from './tr/loyalty';
@@ -139,7 +138,6 @@ import { enMInvoices } from './en/mInvoices';
 import { enMHome } from './en/mHome';
 import { enMIntegrations } from './en/mIntegrations';
 import { enLanguage } from './en/language';
-import { enLanding } from './en/landing';
 import { enLayout } from './en/layout';
 import { enLeads } from './en/leads';
 import { enLoyalty } from './en/loyalty';
@@ -294,7 +292,6 @@ export const TR_NAMESPACES = [
   trMInvoices,
   trMIntegrations,
   trLanguage,
-  trLanding,
   trLayout,
   trLeads,
   trLoyalty,
@@ -417,7 +414,6 @@ export const EN_NAMESPACES = [
   enMInvoices,
   enMIntegrations,
   enLanguage,
-  enLanding,
   enLayout,
   enLeads,
   enLoyalty,

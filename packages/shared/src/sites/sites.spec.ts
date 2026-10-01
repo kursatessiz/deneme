@@ -119,6 +119,27 @@ describe('sites/hreflang and localized sitemap entries', () => {
     expect(buildHreflangAlternates([{ locale: 'tr', slug: '' }], path)).toEqual({ tr: '/tr' });
   });
 
+  it('lets an explicit x-default override the default locale variant', () => {
+    const out = buildHreflangAlternates([{ locale: 'tr', slug: '' }, { locale: 'en', slug: '' }], path, 'tr', 'https://x.com/');
+    expect(out).toEqual({ tr: '/tr', en: '/en', 'x-default': 'https://x.com/' });
+  });
+
+  it('points only the home page x-default at the root when homeXDefaultUrl is given', () => {
+    const entries = buildLocalizedSitemapEntries(
+      [
+        { pageId: 'h', locale: 'tr', slug: '', updatedAt: '2026-01-01T00:00:00.000Z' },
+        { pageId: 'h', locale: 'en', slug: '', updatedAt: '2026-01-01T00:00:00.000Z' },
+        { pageId: 'p', locale: 'tr', slug: 'pilates', updatedAt: '2026-01-01T00:00:00.000Z' },
+      ],
+      'tr',
+      (locale, slug) => `https://x.com${path(locale, slug)}`,
+      { homeXDefaultUrl: 'https://x.com/' },
+    );
+    expect(entries.map((e) => e.loc)).toEqual(['https://x.com/tr', 'https://x.com/en', 'https://x.com/tr/pilates']);
+    expect(entries[0].alternates?.['x-default']).toBe('https://x.com/');
+    expect(entries[2].alternates?.['x-default']).toBe('https://x.com/tr/pilates');
+  });
+
   it('emits one url per locale, each with the full alternate set', () => {
     const entries = buildLocalizedSitemapEntries(
       [

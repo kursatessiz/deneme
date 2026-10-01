@@ -6,6 +6,7 @@ export const trEmbed = {
   'embed.errors.loadFailedRetry': 'Bilgiler yüklenemedi, lütfen daha sonra tekrar deneyin.',
   'embed.chooseSession': 'Seans seçin',
   'embed.choosePlaceholder': 'Bir seans seçin',
+  'embed.timeZoneHint': 'Saatler seansın şubesinin saat dilimindedir.',
   'embed.selectionHint': 'Bu, yalnızca bir zaman/hizmet seçimidir; rezervasyon bu sayfada oluşturulmaz.',
   'embed.openApp': 'Üyeyim, uygulamada rezervasyon yapacağım',
   'embed.firstTime': 'İlk kez geliyorum, benimle iletişime geçin',

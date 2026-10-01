@@ -44,12 +44,17 @@ export class PublicApiService {
   // Read endpoints
   // ---------------------------------------------------------------------------
 
+  /** `timezone` is the effective zone: the branch's own, otherwise the studio's, so a client never has to guess. */
   async listBranches(studioId: string) {
-    return this.prisma.branch.findMany({
-      where: { studioId, isActive: true },
-      select: { id: true, name: true, address: true, phone: true, timezone: true },
-      orderBy: { sortOrder: 'asc' },
-    });
+    const [studio, branches] = await Promise.all([
+      this.prisma.studio.findUnique({ where: { id: studioId }, select: { timezone: true } }),
+      this.prisma.branch.findMany({
+        where: { studioId, isActive: true },
+        select: { id: true, name: true, address: true, phone: true, timezone: true },
+        orderBy: { sortOrder: 'asc' },
+      }),
+    ]);
+    return branches.map((b) => ({ ...b, timezone: b.timezone ?? studio?.timezone ?? null }));
   }
 
   async listServiceTypes(studioId: string) {
@@ -140,7 +145,7 @@ export class PublicApiService {
   async resolveStudioForEmbed(slug: string) {
     const studio = await this.prisma.studio.findFirst({
       where: { slug, isActive: true },
-      select: { id: true, name: true, embedAllowedOrigins: true, logoUrl: true, themeFamily: true, themePrimary: true, gradientPresetKey: true },
+      select: { id: true, name: true, embedAllowedOrigins: true, logoUrl: true, themeFamily: true, themePrimary: true, gradientPresetKey: true, timezone: true },
     });
     if (!studio) throw new NotFoundException(`'${slug}' stüdyosu bulunamadı`);
     return { ...studio, allowedThemeFamilies: await loadAllowedThemeFamiliesForStudio(this.prisma, studio.id) };

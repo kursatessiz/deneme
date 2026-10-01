@@ -33,6 +33,8 @@ export class EmbedPublicController {
       themePrimary: studio.themePrimary,
       gradientPresetKey: studio.gradientPresetKey,
       allowedThemeFamilies: studio.allowedThemeFamilies,
+      // Studio zone: the effective zone of any session or branch without its own (branches report theirs).
+      timezone: studio.timezone,
     };
   }
 

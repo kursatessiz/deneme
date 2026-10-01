@@ -12,6 +12,7 @@ export const enBooking = {
   'booking.allBranches': 'All branches',
   'booking.dateSelection': 'Date',
   'booking.availableSlots': 'Available times',
+  'booking.timeZone': 'Times are shown in {zone}.',
   'booking.spotsLeft.one': '{count} spot left',
   'booking.spotsLeft.other': '{count} spots left',
   'booking.noSlots': 'There are no available times in the coming days for this service and branch.',

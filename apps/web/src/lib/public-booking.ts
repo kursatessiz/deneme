@@ -1,4 +1,5 @@
 import { publicApiBaseUrl } from '@/lib/public-api-url';
+import { resolveTimeZone } from '@/lib/zoned-time';
 
 /**
  * Client for the unauthenticated, read-only public embed endpoints
@@ -22,11 +23,15 @@ export interface EmbedConfig {
   gradientPresetKey: string;
   /** Families the super admin allowed; absent means the default family only. */
   allowedThemeFamilies?: string[];
+  /** The studio's IANA time zone: the zone of any session whose branch has none of its own. */
+  timezone: string;
 }
 
 export interface EmbedBranch {
   id: string;
   name: string;
+  /** Effective IANA zone (the branch's own, else the studio's), as the API resolves it. */
+  timezone: string | null;
 }
 
 export interface EmbedServiceType {
@@ -59,6 +64,19 @@ export async function embedFetch<T>(slug: string, path: string, init?: RequestIn
     throw new EmbedApiError(typeof body.message === 'string' ? body.message : '');
   }
   return res.json() as Promise<T>;
+}
+
+/**
+ * The zone a session's times are shown in: its branch's, else the studio's. Undefined (the viewer's own zone)
+ * only when neither is a usable zone name.
+ */
+export function scheduleTimeZone(
+  schedule: { branchId: string | null },
+  branches: readonly EmbedBranch[],
+  config: Pick<EmbedConfig, 'timezone'> | null,
+): string | undefined {
+  const branch = schedule.branchId ? branches.find((b) => b.id === schedule.branchId) : undefined;
+  return resolveTimeZone(branch?.timezone, config?.timezone);
 }
 
 /** Opens the member app's own session screen (apps/mobile app/(app)/seans/[scheduleId].tsx). Only a well-formed id is ever put in the link. */

@@ -502,4 +502,8 @@ export interface PublicEventDTO {
   registrationOpen: boolean;
   occurrences: { startsAt: string; endsAt: string }[];
   ticketTypes: { id: string; name: string; description: string | null; priceAmount: string; currency: string; onSale: boolean }[];
+  /** IANA zone the event's dates are held in: the branch's own, else the studio's. */
+  timezone: string;
+  /** Where it takes place: the branch when the event has one, otherwise the studio itself. Tenant data, never translated. */
+  location: { name: string; address: string | null };
 }

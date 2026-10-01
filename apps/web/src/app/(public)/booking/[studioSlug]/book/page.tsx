@@ -8,18 +8,14 @@ import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
 import { ThemeRoot } from '@/components/theme/ThemeRoot';
 import { Button, Card, CardContent, ChipButton, Checkbox, FieldGroup, Input, Radio, Select, Skeleton } from '@/components/ui';
 import { publicApiBaseUrl } from '@/lib/public-api-url';
-import { embedFetch, openMemberAppSession } from '@/lib/public-booking';
+import { embedFetch, openMemberAppSession, scheduleTimeZone } from '@/lib/public-booking';
 import type { EmbedBranch, EmbedConfig, EmbedScheduleItem, EmbedServiceType } from '@/lib/public-booking';
 import { trackingHeaders } from '@/lib/tracking/client';
+import { createZonedFormatters } from '@/lib/zoned-time';
+import type { ZonedFormatters } from '@/lib/zoned-time';
 
 /** How many days ahead the page lists sessions; same window as the embeddable widget. */
 const WINDOW_DAYS = 14;
-
-/** Local calendar day key (the visitor's own time zone), used only to group sessions by day. */
-function dayKey(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 /**
  * Public booking page of a studio. It reads the same unauthenticated embed
@@ -90,18 +86,35 @@ export default function PublicBookingPage() {
   const serviceName = (id: string) => serviceTypes.find((s) => s.id === id)?.name ?? '';
   const branchName = (id: string | null) => branches.find((b) => b.id === id)?.name ?? '';
 
-  const dayFormat = useMemo(() => new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short' }), [locale]);
-  const timeFormat = useMemo(() => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }), [locale]);
-  const dateTimeFormat = useMemo(() => new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }), [locale]);
+  // Every date and time is shown on the clock of the session's branch (its zone, else the studio's), never the visitor's.
+  const fmt = useMemo(() => {
+    const cache = new Map<string, ZonedFormatters>();
+    return (s: EmbedScheduleItem): ZonedFormatters => {
+      const zone = scheduleTimeZone(s, branches, config);
+      const key = zone ?? '';
+      let formatters = cache.get(key);
+      if (!formatters) {
+        formatters = createZonedFormatters(locale, zone);
+        cache.set(key, formatters);
+      }
+      return formatters;
+    };
+  }, [locale, branches, config]);
   const durationFormat = useMemo(() => new Intl.NumberFormat(locale, { style: 'unit', unit: 'minute', unitDisplay: 'short' }), [locale]);
 
   const filtered = useMemo(
     () => schedules.filter((s) => (!serviceFilter || s.serviceTypeId === serviceFilter) && (!branchFilter || s.branchId === branchFilter)),
     [schedules, serviceFilter, branchFilter],
   );
-  const days = useMemo(() => Array.from(new Set(filtered.map((s) => dayKey(s.startTime)))), [filtered]);
+  const days = useMemo(() => Array.from(new Set(filtered.map((s) => fmt(s).dayKey(s.startTime)))), [filtered, fmt]);
   const activeDay = days.includes(selectedDay) ? selectedDay : (days[0] ?? '');
-  const slots = filtered.filter((s) => dayKey(s.startTime) === activeDay);
+  const slots = filtered.filter((s) => fmt(s).dayKey(s.startTime) === activeDay);
+  // The zone name is shown once per day group; only a day mixing branches in different zones names it per slot.
+  const zoneNames = Array.from(new Set(slots.map((s) => fmt(s).zoneName(s.startTime)).filter(Boolean)));
+  const dateTimeLabel = (s: EmbedScheduleItem) => {
+    const f = fmt(s);
+    return `${f.dateTime(s.startTime)} ${f.zoneName(s.startTime)}`.trim();
+  };
   const selected = schedules.find((s) => s.id === selectedScheduleId && slots.some((x) => x.id === s.id)) ?? null;
 
   const submitLead = async (e: React.FormEvent) => {
@@ -111,7 +124,7 @@ export default function PublicBookingPage() {
     setLeadError(false);
     try {
       const interest = selected
-        ? t('booking.lead.interestWithSchedule', { service: serviceName(selected.serviceTypeId), time: dateTimeFormat.format(new Date(selected.startTime)) }) +
+        ? t('booking.lead.interestWithSchedule', { service: serviceName(selected.serviceTypeId), time: dateTimeLabel(selected) }) +
           (selected.branchId ? t('booking.lead.interestWithBranch', { branch: branchName(selected.branchId) }) : '')
         : t('booking.lead.interestNoSchedule');
       await fetch(`${publicApiBaseUrl()}/public/studios/${encodeURIComponent(slug)}/leads`, {
@@ -196,10 +209,10 @@ export default function PublicBookingPage() {
                       <span className="ui-caption ui-strong">{t('booking.dateSelection')}</span>
                       <div className="flex flex-wrap gap-2">
                         {days.map((d) => {
-                          const first = filtered.find((s) => dayKey(s.startTime) === d);
+                          const first = filtered.find((s) => fmt(s).dayKey(s.startTime) === d);
                           return (
                             <ChipButton key={d} selected={d === activeDay} className="ui-capitalize" onClick={() => setSelectedDay(d)}>
-                              {first ? dayFormat.format(new Date(first.startTime)) : d}
+                              {first ? fmt(first).day(first.startTime) : d}
                             </ChipButton>
                           );
                         })}
@@ -208,13 +221,15 @@ export default function PublicBookingPage() {
 
                     <fieldset className="grid gap-2">
                       <legend className="ui-caption ui-strong mb-2">{t('booking.availableSlots')}</legend>
+                      {zoneNames.length === 1 && <p className="ui-caption ui-text-muted">{t('booking.timeZone', { zone: zoneNames[0] })}</p>}
                       {slots.map((s) => (
                         <label key={s.id} className="ui-choice flex items-center justify-between gap-3">
                           <span className="flex items-center gap-3">
                             <Radio name="timeSlot" checked={selectedScheduleId === s.id} onChange={() => setSelectedScheduleId(s.id)} />
                             <span className="grid">
                               <span className="ui-strong">
-                                {timeFormat.format(new Date(s.startTime))} - {timeFormat.format(new Date(s.endTime))}
+                                {fmt(s).time(s.startTime)} - {fmt(s).time(s.endTime)}
+                                {zoneNames.length > 1 ? ` ${fmt(s).zoneName(s.startTime)}` : ''}
                               </span>
                               <span className="ui-caption">
                                 {serviceName(s.serviceTypeId) || s.title}
@@ -231,7 +246,7 @@ export default function PublicBookingPage() {
 
                 {selected && mode === 'choose' && (
                   <div className="grid gap-3 ui-rule pt-4">
-                    <p className="ui-strong">{t('booking.selected', { service: serviceName(selected.serviceTypeId) || selected.title, time: dateTimeFormat.format(new Date(selected.startTime)) })}</p>
+                    <p className="ui-strong">{t('booking.selected', { service: serviceName(selected.serviceTypeId) || selected.title, time: dateTimeLabel(selected) })}</p>
                     <p className="ui-caption">{t('booking.selectionHint')}</p>
                     <Button block onClick={() => openMemberAppSession(selected.id)}>
                       {t('booking.openApp')}

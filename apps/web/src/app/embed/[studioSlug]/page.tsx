@@ -7,18 +7,17 @@ import { resolveTheme, themeCssVariables, STUDIO_SLUG_PATTERN } from '@platform/
 import { trackingHeaders } from '@/lib/tracking/client';
 import { Button, Card, CardContent, Checkbox, FieldGroup, Input, Select } from '@/components/ui';
 import { publicApiBaseUrl } from '@/lib/public-api-url';
-import { embedFetch, openMemberAppSession } from '@/lib/public-booking';
+import { embedFetch, openMemberAppSession, scheduleTimeZone } from '@/lib/public-booking';
+import { createZonedFormatters } from '@/lib/zoned-time';
 import type { EmbedBranch as Branch, EmbedConfig, EmbedScheduleItem as ScheduleItem, EmbedServiceType as ServiceType } from '@/lib/public-booking';
 
-/** No signed-in session here: the locale comes from the root layout (cookie or Accept-Language), the same on server and client. */
-function formatTime(iso: string, locale: string) {
-  return new Date(iso).toLocaleString(locale, {
-    weekday: 'short',
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+/**
+ * No signed-in session here: the locale comes from the root layout (cookie or Accept-Language), the same on server and client.
+ * The time is shown on the clock of the session's branch (`zone`), with its short zone name, never the visitor's own zone.
+ */
+function formatTime(iso: string, locale: string, zone: string | undefined) {
+  const f = createZonedFormatters(locale, zone);
+  return `${f.dateTime(iso)} ${f.zoneName(iso)}`.trim();
 }
 
 /**
@@ -132,7 +131,7 @@ export default function EmbedBookingPage() {
     setLeadError(null);
     try {
       const interest = selectedSchedule
-        ? t('embed.leadInterest.withSchedule', { service: serviceTypeName(selectedSchedule.serviceTypeId), time: formatTime(selectedSchedule.startTime, locale) }) +
+        ? t('embed.leadInterest.withSchedule', { service: serviceTypeName(selectedSchedule.serviceTypeId), time: formatTime(selectedSchedule.startTime, locale, scheduleTimeZone(selectedSchedule, branches, config)) }) +
           (selectedSchedule.branchId ? t('embed.leadInterest.withBranch', { branch: branchName(selectedSchedule.branchId) }) : '')
         : t('embed.leadInterest.noSchedule');
       await fetch(`${publicApiBaseUrl()}/public/studios/${encodeURIComponent(slug)}/leads`, {
@@ -175,12 +174,12 @@ export default function EmbedBookingPage() {
 
           {status === 'idle' && (
             <div className="grid gap-4">
-              <FieldGroup label={t('embed.chooseSession')} hint={t('embed.selectionHint')}>
+              <FieldGroup label={t('embed.chooseSession')} hint={`${t('embed.selectionHint')} ${t('embed.timeZoneHint')}`}>
                 <Select value={selectedScheduleId} onChange={(e) => setSelectedScheduleId(e.target.value)}>
                   <option value="">{t('embed.choosePlaceholder')}</option>
                   {schedules.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {formatTime(s.startTime, locale)} - {serviceTypeName(s.serviceTypeId)}
+                      {formatTime(s.startTime, locale, scheduleTimeZone(s, branches, config))} - {serviceTypeName(s.serviceTypeId)}
                       {s.branchId ? ` (${branchName(s.branchId)})` : ''}
                     </option>
                   ))}
