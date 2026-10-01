@@ -39,6 +39,18 @@ BFF proxy kullanır:
   `authorization`, ...) iki yön arasında asla ham kopyalanmaz
   (`apps/web/src/lib/bff/headers.ts`); proxy bunları açıkça yeniden kurar.
 
+Herkese açık rezervasyon sayfası (`apps/web/src/app/(public)/booking/[studioSlug]/book/page.tsx`,
+T6) gömülebilir widget ile aynı kimliksiz, salt okunur embed uç noktalarını
+(`config`, `branches`, `service-types`, `schedules`) `apps/web/src/lib/public-booking.ts`
+üzerinden çağırır: işletme adı, logosu ve markası config'ten, hizmet türleri,
+şubeler ve önümüzdeki 14 günün kalan kontenjanlı seansları API'den gelir;
+tarih ve saatler `Intl` ile etkin dilde, tüm metin `booking.*` i18n anahtarlarıyla
+yazılır ve dil seçici çerez modunda çalışır. Sayfa rezervasyon oluşturmaz
+(kimliksiz yazma ucu yoktur): üye "uygulamada rezervasyon yapacağım" ile mobil
+uygulamanın seans ekranına derin bağlantı açar, ilk kez gelen ziyaretçi herkese
+açık aday formunu gönderir. Sabit örnek veri yoktur. Playwright:
+`apps/web/e2e/public-booking.e2e.ts`.
+
 Tarayıcının doğrudan çağırdığı kimliksiz herkese açık uç noktalar (embed
 widget'ı `apps/web/src/app/embed/[studioSlug]/page.tsx`, sayfa motorunun
 aday formu, ziyaretçi izleme ve reklam pikseli ayarı) jeton taşımaz ve API
