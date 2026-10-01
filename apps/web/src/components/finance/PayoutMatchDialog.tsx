@@ -8,6 +8,7 @@ import { formatMoney } from '@/lib/money';
 import { Badge } from '@/components/common/Badge';
 import { Modal } from '@/components/common/Modal';
 import { PermissionButton } from '@/components/common/PermissionButton';
+import { List, ListItem } from '@/components/ui/List';
 
 /**
  * Manual match of one payout item to a payment (G5d-2): lists the payments
@@ -61,35 +62,23 @@ export function PayoutMatchDialog({
   return (
     <Modal title={t('payouts.match.title')} onClose={onClose}>
       <div className="space-y-3">
-        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('payouts.match.description')}
-        </p>
-        <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+        <p className="ui-caption">{t('payouts.match.description')}</p>
+        <p className="ui-strong">
           {t(`payouts.itemType.${item.type}`)}: {formatMoney(item.amount, item.currency, locale)}
         </p>
-        {error && <p className="text-xs text-red-600">{error}</p>}
-        {!candidates && !error && (
-          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {t('payouts.match.loading')}
-          </p>
-        )}
-        {candidates && candidates.length === 0 && (
-          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {t('payouts.match.empty')}
-          </p>
-        )}
+        {error && <p className="ui-caption ui-text-error">{error}</p>}
+        {!candidates && !error && <p className="ui-caption">{t('payouts.match.loading')}</p>}
+        {candidates && candidates.length === 0 && <p className="ui-caption">{t('payouts.match.empty')}</p>}
         {candidates && candidates.length > 0 && (
-          <ul className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
+          <List className="ui-divide">
             {candidates.map((c) => (
-              <li key={c.id} className="flex items-center justify-between gap-3 py-2" style={{ borderColor: 'var(--color-border)' }}>
+              <ListItem key={c.id} className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+                  <p>
                     {c.receiptNumber ?? t('payouts.item.noReceipt')}
-                    <span className="ml-2 font-medium">{formatMoney(c.amount, c.currency, locale)}</span>
+                    <span className="ml-2 ui-strong">{formatMoney(c.amount, c.currency, locale)}</span>
                   </p>
-                  <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                    {new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(c.paidAt))}
-                  </p>
+                  <p className="ui-caption">{new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(c.paidAt))}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {c.exactAmount && <Badge tone="success">{t('payouts.match.exact')}</Badge>}
@@ -97,9 +86,9 @@ export function PayoutMatchDialog({
                     {t('payouts.match.select')}
                   </PermissionButton>
                 </div>
-              </li>
+              </ListItem>
             ))}
-          </ul>
+          </List>
         )}
       </div>
     </Modal>

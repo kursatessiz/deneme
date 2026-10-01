@@ -20,19 +20,16 @@ import { CompareStrip } from '@/components/reports/CompareStrip';
 import { FunnelsTab } from '@/components/reports/FunnelsTab';
 import { previousPeriodWindow } from '@/lib/reports/compare';
 import { extractReportKpis } from '@/lib/reports/kpis';
+import { Checkbox } from '@/components/ui/Checkbox';
+import { Select } from '@/components/ui/Select';
+import { AnchorButton } from '@/components/ui/LinkButton';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 const REPORT_KEYS = ['occupancy', 'revenue', 'members', 'renewal', 'cohorts', 'trainers', 'funnels'] as const;
 
 type ReportKey = (typeof REPORT_KEYS)[number];
 
 type AnyReport = OccupancyReportDTO | RevenueReportDTO | MembersReportDTO | RenewalReportDTO | CohortReportDTO | TrainerReportDTO;
-
-const selectStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
 
 function ReportsPage() {
   const t = useT();
@@ -54,7 +51,8 @@ function ReportsPage() {
     if (!activeStudioId || tab === 'funnels') return;
     setLoading(true);
     setError(null);
-    const filters = tab === 'cohorts' ? { branchId: branchId || null } : { from, to, branchId: branchId || null, granularity: tab === 'revenue' ? granularity : undefined };
+    const filters =
+      tab === 'cohorts' ? { branchId: branchId || null } : { from, to, branchId: branchId || null, granularity: tab === 'revenue' ? granularity : undefined };
     const path = `reports/studio/${activeStudioId}/${tab}`;
     const qs = buildReportQuery(filters);
     bffFetch<AnyReport>(`${path}${qs ? `?${qs}` : ''}`, { studioId: activeStudioId })
@@ -101,22 +99,18 @@ function ReportsPage() {
   })();
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-            {t('reports.title')}
-          </h2>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('reports.subtitle')}
-          </p>
-        </div>
-        {tab !== 'funnels' && (
-          <a href={exportHref} className="text-xs font-medium px-3 py-1.5" style={{ ...selectStyle, background: 'var(--color-surface-muted)' }}>
-            {t('reports.downloadCsv')}
-          </a>
-        )}
-      </div>
+    <div className="grid gap-6">
+      <PageHeader
+        title={t('reports.title')}
+        description={t('reports.subtitle')}
+        actions={
+          tab !== 'funnels' ? (
+            <AnchorButton href={exportHref} variant="outline" tone="surface" size="sm">
+              {t('reports.downloadCsv')}
+            </AnchorButton>
+          ) : undefined
+        }
+      />
 
       <Tabs
         tabs={reportTabs}
@@ -145,17 +139,19 @@ function ReportsPage() {
         )}
         <BranchSelect value={branchId} onChange={setBranchId} />
         {tab === 'revenue' && (
-          <select value={granularity} onChange={(e) => setGranularity(e.target.value as 'day' | 'week' | 'month')} className="text-xs px-2.5 py-1.5" style={selectStyle}>
+          <Select value={granularity} onChange={(e) => setGranularity(e.target.value as 'day' | 'week' | 'month')}>
             <option value="day">{t('reports.granularity.day')}</option>
             <option value="week">{t('reports.granularity.week')}</option>
             <option value="month">{t('reports.granularity.month')}</option>
-          </select>
+          </Select>
         )}
         {tab !== 'cohorts' && (
-          <label className="flex items-center gap-1.5 text-xs font-medium ml-auto" style={{ color: 'var(--color-text-secondary)' }}>
-            <input type="checkbox" checked={compare} onChange={(e) => setCompare(e.target.checked)} />
-            {t('reports.compare.toggle')}
-          </label>
+          <Checkbox
+            label={t('reports.compare.toggle')}
+            className="ui-caption ui-strong ml-auto"
+            checked={compare}
+            onChange={(e) => setCompare(e.target.checked)}
+          />
         )}
       </div>
 

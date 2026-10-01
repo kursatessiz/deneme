@@ -5,21 +5,13 @@ import { UpdateScheduleSchema } from '@platform/shared';
 import type { UpdateScheduleInput } from '@platform/shared';
 import { useT } from '@/components/i18n/I18nProvider';
 import type { BranchRow, ResourceRow, ScheduleRow, TrainerRow } from '@/lib/calendar/types';
-
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { Button } from '@/components/ui/Button';
+import { FieldGroup } from '@/components/ui/FieldGroup';
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1 text-xs">
-      <span style={{ color: 'var(--color-text-secondary)' }}>{label}</span>
-      {children}
-    </label>
-  );
+  return <FieldGroup label={label}>{children}</FieldGroup>;
 }
 
 function toDate(iso: string): string {
@@ -71,7 +63,7 @@ export function EditSessionForm({
     };
     const result = UpdateScheduleSchema.safeParse(payload);
     if (!result.success) {
-      setError(result.error.issues[0]?.message ?? 'Form geçersiz');
+      setError(result.error.issues[0]?.message ?? t('common.invalidForm'));
       return;
     }
     setError(null);
@@ -84,80 +76,66 @@ export function EditSessionForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={handleSubmit} className="grid gap-3">
       <Field label={t('calendar.form.title')}>
-        <input className="px-2.5 py-1.5 text-sm" style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} required />
+        <Input value={title} onChange={(e) => setTitle(e.target.value)} required />
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label={t('calendar.form.branch')}>
-          <select className="px-2.5 py-1.5 text-sm" style={inputStyle} value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+          <Select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
             <option value="">{t('calendar.form.branchNone')}</option>
             {branches.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label={t('calendar.form.resourceShort')}>
-          <select className="px-2.5 py-1.5 text-sm" style={inputStyle} value={resourceId} onChange={(e) => setResourceId(e.target.value)}>
+          <Select value={resourceId} onChange={(e) => setResourceId(e.target.value)}>
             <option value="">{t('calendar.form.branchNone')}</option>
             {resources.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
       </div>
       <Field label={t('calendar.form.trainer')}>
-        <select className="px-2.5 py-1.5 text-sm" style={inputStyle} value={trainerId} onChange={(e) => setTrainerId(e.target.value)}>
+        <Select value={trainerId} onChange={(e) => setTrainerId(e.target.value)}>
           <option value="">{t('calendar.form.branchNone')}</option>
           {trainers.map((tr) => (
             <option key={tr.id} value={tr.id}>
               {tr.firstName} {tr.lastName}
             </option>
           ))}
-        </select>
+        </Select>
       </Field>
       <div className="grid grid-cols-3 gap-3">
         <Field label={t('calendar.form.date')}>
-          <input type="date" className="px-2.5 py-1.5 text-sm" style={inputStyle} value={date} onChange={(e) => setDate(e.target.value)} required />
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
         </Field>
         <Field label={t('calendar.form.startTime')}>
-          <input type="time" className="px-2.5 py-1.5 text-sm" style={inputStyle} value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
+          <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
         </Field>
         <Field label={t('calendar.form.endTime')}>
-          <input type="time" className="px-2.5 py-1.5 text-sm" style={inputStyle} value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
+          <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
         </Field>
       </div>
       <Field label={t('calendar.detail.capacity')}>
-        <input type="number" min={1} className="px-2.5 py-1.5 text-sm w-24" style={inputStyle} value={capacity} onChange={(e) => setCapacity(e.target.value)} />
+        <Input type="number" min={1} className="w-24" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
       </Field>
 
-      {error && (
-        <p className="text-xs" style={{ color: '#b42318' }}>
-          {error}
-        </p>
-      )}
+      {error && <p className="ui-caption ui-text-error">{error}</p>}
 
       <div className="flex justify-end gap-2 pt-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="text-xs font-medium px-3 py-1.5"
-          style={{ borderRadius: 'var(--radius-button)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
-        >
+        <Button variant="outline" tone="surface" onClick={onCancel}>
           {t('common.cancel')}
-        </button>
-        <button
-          type="submit"
-          disabled={submitting}
-          className="text-xs font-medium px-4 py-1.5 disabled:opacity-60"
-          style={{ borderRadius: 'var(--radius-button)', background: 'var(--gradient-brand)', color: 'var(--color-on-primary)' }}
-        >
+        </Button>
+        <Button type="submit" disabled={submitting}>
           {submitting ? t('calendar.form.saving') : t('calendar.form.saveChanges')}
-        </button>
+        </Button>
       </div>
     </form>
   );

@@ -82,7 +82,7 @@ export function SessionDetailPanel({
     <aside className="pui-card w-full lg:w-[380px] shrink-0 overflow-y-auto">
       <div className="pui-card-header flex items-start justify-between gap-3">
         <div className="grid gap-0.5">
-          <h3 className="ui-heading" style={{ color: 'var(--pui-text)' }}>
+          <h3 className="ui-heading">
             {schedule.title || schedule.serviceType?.name || t('calendar.detail.defaultTitle')}
           </h3>
           <p className="ui-caption">
@@ -113,7 +113,7 @@ export function SessionDetailPanel({
 
         <div className="flex items-center justify-between gap-3">
           <span className="ui-caption">{t('calendar.detail.capacity')}</span>
-          <span className="ui-heading" style={{ fontVariantNumeric: 'tabular-nums' }}>
+          <span className="ui-heading tabular-nums">
             {schedule.bookedCount}/{schedule.capacity}
           </span>
         </div>
@@ -169,7 +169,7 @@ export function SessionDetailPanel({
         )}
 
         <div className="grid gap-2">
-          <h4 className="ui-caption" style={{ fontWeight: 600 }}>
+          <h4 className="ui-caption ui-strong">
             {t('calendar.detail.attendees', { count: roster.length })}
           </h4>
           {roster.length === 0 ? (
@@ -222,7 +222,7 @@ export function SessionDetailPanel({
 
         {waitlist.length > 0 && (
           <div className="grid gap-2">
-            <h4 className="ui-caption" style={{ fontWeight: 600 }}>
+            <h4 className="ui-caption ui-strong">
               {t('calendar.detail.waitlist', { count: waitlist.length })}
             </h4>
             <ol className="pui-list pui-striped">

@@ -14,15 +14,14 @@ import { Badge } from '@/components/common/Badge';
 import { Modal } from '@/components/common/Modal';
 import { BranchSelect } from '@/components/common/BranchSelect';
 import { DateRangeFilter } from '@/components/common/DateRangeFilter';
+import { Input } from '@/components/ui/Input';
+import { Radio } from '@/components/ui/Radio';
+import { Select } from '@/components/ui/Select';
+import { Textarea } from '@/components/ui/Textarea';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
+import { Card } from '@/components/ui/Card';
 
 type PaymentRow = PaymentDTO;
-
-const selectStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
 
 function RefundDialog({ payment, studioId, onClose, onDone }: { payment: PaymentRow; studioId: string; onClose: () => void; onDone: () => void }) {
   const t = useT();
@@ -58,36 +57,13 @@ function RefundDialog({ payment, studioId, onClose, onDone }: { payment: Payment
 
   return (
     <Modal title={t('finance.refund.title')} onClose={onClose}>
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('finance.refund.remaining', { amount: formatMoney(String(remaining)) })}
-        </p>
-        <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-primary)' }}>
-          <input type="radio" checked={full} onChange={() => setFull(true)} /> {t('finance.refund.full')}
-        </label>
-        <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-primary)' }}>
-          <input type="radio" checked={!full} onChange={() => setFull(false)} /> {t('finance.refund.partial')}
-        </label>
-        {!full && (
-          <input
-            type="number"
-            min="0.01"
-            max={remaining}
-            step="0.01"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="w-full text-sm px-3 py-1.5"
-            style={selectStyle}
-          />
-        )}
-        <textarea
-          placeholder={t('finance.refund.reasonPlaceholder')}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          className="w-full text-sm px-3 py-1.5"
-          style={{ ...selectStyle, minHeight: 70 }}
-        />
-        {error && <p className="text-xs text-red-600">{error}</p>}
+      <form onSubmit={handleSubmit} className="grid gap-3">
+        <p className="ui-caption">{t('finance.refund.remaining', { amount: formatMoney(String(remaining)) })}</p>
+        <Radio label={t('finance.refund.full')} checked={full} onChange={() => setFull(true)} />
+        <Radio label={t('finance.refund.partial')} checked={!full} onChange={() => setFull(false)} />
+        {!full && <Input type="number" min="0.01" max={remaining} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full" />}
+        <Textarea placeholder={t('finance.refund.reasonPlaceholder')} value={reason} onChange={(e) => setReason(e.target.value)} className="w-full" />
+        {error && <p className="ui-caption ui-text-error">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <PermissionButton type="button" variant="ghost" onClick={onClose}>
             {t('common.cancel')}
@@ -156,7 +132,7 @@ export function PaymentsTab() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-2">
         <DateRangeFilter
           from={from}
@@ -167,22 +143,22 @@ export function PaymentsTab() {
           }}
         />
         <BranchSelect value={branchId} onChange={setBranchId} />
-        <select value={method} onChange={(e) => setMethod(e.target.value)} className="text-xs px-2.5 py-1.5" style={selectStyle}>
+        <Select value={method} onChange={(e) => setMethod(e.target.value)}>
           <option value="">{t('finance.payments.allMethods')}</option>
           {Object.values(PaymentMethod).map((m) => (
             <option key={m} value={m}>
               {methodLabel(m)}
             </option>
           ))}
-        </select>
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className="text-xs px-2.5 py-1.5" style={selectStyle}>
+        </Select>
+        <Select value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">{t('finance.payments.allStatuses')}</option>
           {Object.values(PaymentStatus).map((s) => (
             <option key={s} value={s}>
               {statusLabel(s)}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       {loading && <LoadingState />}
@@ -191,10 +167,10 @@ export function PaymentsTab() {
         <EmptyState title={t('finance.payments.empty.title')} description={t('finance.payments.empty.description')} />
       )}
       {!loading && !error && payments && payments.length > 0 && (
-        <div className="border overflow-x-auto" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)' }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
+        <Card className="overflow-x-auto">
+          <Table>
+            <Thead>
+              <Tr>
                 {[
                   t('finance.payments.col.date'),
                   t('finance.payments.col.member'),
@@ -204,47 +180,39 @@ export function PaymentsTab() {
                   t('finance.payments.col.status'),
                   '',
                 ].map((h, i) => (
-                  <th key={i} className="text-left px-4 py-2.5 font-medium whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
+                  <Th key={i} className="whitespace-nowrap">
                     {h}
-                  </th>
+                  </Th>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </Tr>
+            </Thead>
+            <Tbody>
               {payments.map((p) => (
-                <tr key={p.id} className="border-t" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-                  <td className="px-4 py-2.5 whitespace-nowrap" style={{ color: 'var(--color-text-primary)' }}>
-                    {new Date(p.paidAt).toLocaleString(locale)}
-                  </td>
-                  <td className="px-4 py-2.5">
+                <Tr key={p.id}>
+                  <Td className="whitespace-nowrap">{new Date(p.paidAt).toLocaleString(locale)}</Td>
+                  <Td>
                     {p.memberId ? (
-                      <a href={`/members/${p.memberId}`} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                      <a href={`/members/${p.memberId}`} className="pui-link pui-surface">
                         {p.memberDisplayName ?? `${p.memberId.slice(0, 8)}...`}
                       </a>
                     ) : p.contactId ? (
                       <span className="inline-flex items-center gap-2">
-                        <a href={`/kisiler/${p.contactId}`} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                        <a href={`/kisiler/${p.contactId}`} className="pui-link pui-surface">
                           {p.contactDisplayName ?? `${p.contactId.slice(0, 8)}...`}
                         </a>
                         <Badge tone="neutral">{t('finance.payments.guest')}</Badge>
                       </span>
                     ) : (
-                      <span style={{ color: 'var(--color-text-secondary)' }}>{t('finance.payments.walkIn')}</span>
+                      <span className="ui-text-muted">{t('finance.payments.walkIn')}</span>
                     )}
-                  </td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
-                    {methodLabel(p.paymentMethod)}
-                  </td>
-                  <td className="px-4 py-2.5 font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                    {formatMoney(p.amount)}
-                  </td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
-                    {Number(p.refundedAmount) > 0 ? formatMoney(p.refundedAmount) : '-'}
-                  </td>
-                  <td className="px-4 py-2.5">
+                  </Td>
+                  <Td>{methodLabel(p.paymentMethod)}</Td>
+                  <Td className="ui-strong">{formatMoney(p.amount)}</Td>
+                  <Td>{Number(p.refundedAmount) > 0 ? formatMoney(p.refundedAmount) : '-'}</Td>
+                  <Td>
                     <Badge tone={statusTone[p.paymentStatus] ?? 'neutral'}>{statusLabel(p.paymentStatus)}</Badge>
-                  </td>
-                  <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                  </Td>
+                  <Td className="text-right whitespace-nowrap">
                     {p.paymentStatus === 'PENDING' && p.paymentMethod === 'BANK_TRANSFER' && (
                       <PermissionButton
                         required={['finance.manage']}
@@ -260,12 +228,12 @@ export function PaymentsTab() {
                         {t('finance.payments.refundAction')}
                       </PermissionButton>
                     )}
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Tbody>
+          </Table>
+        </Card>
       )}
 
       {refunding && activeStudioId && (

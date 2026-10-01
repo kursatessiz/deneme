@@ -6,7 +6,8 @@ import { useDashboardSession } from '@/components/session/DashboardSessionProvid
 import { useT } from '@/components/i18n/I18nProvider';
 import { useBff } from '@/lib/session/use-bff';
 import { hasAnyPermission } from '@/lib/nav';
-import { sectionStyle } from './styles';
+import { Card, CardContent } from '@/components/ui/Card';
+import { List, ListItem } from '@/components/ui/List';
 
 function LowStockList() {
   const t = useT();
@@ -16,29 +17,27 @@ function LowStockList() {
   const items = data.items.slice(0, 8);
 
   return (
-    <section className="p-5 space-y-2" style={sectionStyle} aria-label={t('retail.lowStock.title')} data-testid="low-stock-widget">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          {t('retail.lowStock.title')}
-        </h3>
-        <Link href="/magaza" className="text-xs font-medium hover:underline" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('retail.lowStock.manage')}
-        </Link>
-      </div>
-      {items.length === 0 ? (
-        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          {t('retail.lowStock.empty')}
-        </p>
-      ) : (
-        <ul className="text-sm space-y-1" style={{ color: 'var(--color-text-primary)' }}>
-          {items.map((i) => (
-            <li key={`${i.productId}-${i.branchId}`}>
-              {t('retail.lowStock.row', { product: i.productName, branch: i.branchName, quantity: i.quantity, threshold: i.lowStockThreshold })}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+    <Card as="section" aria-label={t('retail.lowStock.title')} data-testid="low-stock-widget">
+      <CardContent>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="ui-heading">{t('retail.lowStock.title')}</h3>
+          <Link href="/magaza" className="pui-link pui-surface">
+            {t('retail.lowStock.manage')}
+          </Link>
+        </div>
+        {items.length === 0 ? (
+          <p className="ui-caption">{t('retail.lowStock.empty')}</p>
+        ) : (
+          <List>
+            {items.map((i) => (
+              <ListItem key={`${i.productId}-${i.branchId}`}>
+                {t('retail.lowStock.row', { product: i.productName, branch: i.branchName, quantity: i.quantity, threshold: i.lowStockThreshold })}
+              </ListItem>
+            ))}
+          </List>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

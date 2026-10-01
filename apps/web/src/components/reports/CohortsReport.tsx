@@ -4,13 +4,17 @@ import type { CohortReportDTO } from '@platform/shared';
 import { formatPercent as formatPercentShared } from '@/lib/money';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import type { CSSProperties } from 'react';
 
 type CohortsReport = CohortReportDTO;
 
-function cellColor(ratio: number): string {
-  if (ratio <= 0) return 'var(--color-surface-muted)';
-  const alpha = Math.min(1, 0.12 + ratio * 0.7);
-  return `rgba(var(--color-primary-rgb, 99, 102, 241), ${alpha})`;
+/** Strength of the heat cell fill in percent (0 means the muted surface); the .ui-heat class mixes the brand color in. */
+function cellStrength(ratio: number): string {
+  if (ratio <= 0) return '0%';
+  return `${Math.round(Math.min(1, 0.12 + ratio * 0.7) * 100)}%`;
 }
 
 export function CohortsReport({ report, loading, error }: { report: CohortsReport | null; loading: boolean; error: string | null }) {
@@ -24,53 +28,42 @@ export function CohortsReport({ report, loading, error }: { report: CohortsRepor
   const maxMonths = Math.max(...report.cohorts.map((c) => c.retention.length));
 
   return (
-    <div className="overflow-x-auto">
-      <table className="text-xs border-collapse">
-        <thead>
-          <tr>
-            <th className="text-left px-3 py-2 font-medium sticky left-0" style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-text-secondary)' }}>
-              {t('reports.cohorts.col.cohort')}
-            </th>
-            <th className="text-left px-3 py-2 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('reports.cohorts.col.members')}
-            </th>
+    <Card className="overflow-x-auto">
+      <Table>
+        <Thead>
+          <Tr>
+            <Th className="sticky left-0">{t('reports.cohorts.col.cohort')}</Th>
+            <Th>{t('reports.cohorts.col.members')}</Th>
             {Array.from({ length: maxMonths }, (_, i) => (
-              <th key={i} className="text-center px-2 py-2 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+              <Th key={i} className="text-center">
                 {t('reports.cohorts.col.month', { index: i })}
-              </th>
+              </Th>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </Tr>
+        </Thead>
+        <Tbody>
           {report.cohorts.map((c) => (
-            <tr key={c.cohortMonth}>
-              <td className="px-3 py-1.5 font-medium sticky left-0" style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-text-primary)' }}>
-                {c.cohortMonth}
-              </td>
-              <td className="px-3 py-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-                {c.cohortSize}
-              </td>
+            <Tr key={c.cohortMonth}>
+              <Td className="ui-strong sticky left-0">{c.cohortMonth}</Td>
+              <Td>{c.cohortSize}</Td>
               {Array.from({ length: maxMonths }, (_, i) => {
                 const ratio = c.retention[i];
                 return (
-                  <td key={i} className="text-center px-1 py-1.5">
+                  <Td key={i} className="text-center">
                     {ratio !== undefined ? (
-                      <span
-                        className="inline-block px-2 py-1 rounded"
-                        style={{ backgroundColor: cellColor(ratio), color: 'var(--color-text-primary)' }}
-                      >
+                      <Badge className="ui-heat" style={{ '--ui-heat': cellStrength(ratio) } as CSSProperties}>
                         {formatPercent(ratio)}
-                      </span>
+                      </Badge>
                     ) : (
                       ''
                     )}
-                  </td>
+                  </Td>
                 );
               })}
-            </tr>
+            </Tr>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </Tbody>
+      </Table>
+    </Card>
   );
 }

@@ -5,11 +5,12 @@ import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { formatPercent as formatPercentShared } from '@/lib/money';
 import { compareKpi } from '@/lib/reports/compare';
 import type { ReportKpi } from '@/lib/reports/kpis';
+import { StatTile } from '@/components/ui/StatTile';
 
-const DIRECTION_COLOR: Record<'up' | 'down' | 'neutral', string> = {
-  up: '#15803d',
-  down: '#b42318',
-  neutral: 'var(--color-text-muted)',
+const DIRECTION_CLASS: Record<'up' | 'down' | 'neutral', string> = {
+  up: 'ui-text-success',
+  down: 'ui-text-error',
+  neutral: 'ui-text-muted',
 };
 
 const DIRECTION_ARROW: Record<'up' | 'down' | 'neutral', string> = {
@@ -45,23 +46,22 @@ export function CompareStrip({ current, previous }: { current: ReportKpi[]; prev
         const prev = previousByKey.get(kpi.key);
         const change = prev ? compareKpi(kpi.value, prev.value) : null;
         return (
-          <div key={kpi.key} className="p-4" style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-            <div className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              {t(kpi.labelKey)}
-            </div>
-            <div className="text-xl font-bold mt-1" style={{ color: 'var(--color-text-primary)' }}>
-              {formatValue(kpi)}
-            </div>
-            {prev && change && (
-              <div className="text-xs mt-1.5 space-y-0.5">
-                <div className="flex items-center gap-1" style={{ color: DIRECTION_COLOR[change.direction] }}>
-                  <span>{DIRECTION_ARROW[change.direction]}</span>
-                  <span>{change.changeRatio === null ? t('reports.compare.noPrevious') : formatPercent(Math.abs(change.changeRatio))}</span>
-                </div>
-                <div style={{ color: 'var(--color-text-muted)' }}>{t('reports.compare.previous', { value: formatValue(prev) })}</div>
-              </div>
-            )}
-          </div>
+          <StatTile
+            key={kpi.key}
+            label={t(kpi.labelKey)}
+            value={formatValue(kpi)}
+            hint={
+              prev && change ? (
+                <span className="grid gap-0.5">
+                  <span className={`flex items-center gap-1 ${DIRECTION_CLASS[change.direction]}`}>
+                    <span>{DIRECTION_ARROW[change.direction]}</span>
+                    <span>{change.changeRatio === null ? t('reports.compare.noPrevious') : formatPercent(Math.abs(change.changeRatio))}</span>
+                  </span>
+                  <span>{t('reports.compare.previous', { value: formatValue(prev) })}</span>
+                </span>
+              ) : undefined
+            }
+          />
         );
       })}
     </div>

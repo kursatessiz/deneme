@@ -11,6 +11,9 @@ import { PermissionButton } from '@/components/common/PermissionButton';
 import { Badge } from '@/components/common/Badge';
 import { rangeForView } from '@/lib/calendar/range';
 import { bookingMemberName, trainerName, type ScheduleRow } from '@/lib/calendar/types';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Card, CardHeader } from '@/components/ui/Card';
+import { List, ListItem } from '@/components/ui/List';
 
 /** Reception quick check-in: today's sessions with a one-tap check-in per confirmed booking. */
 function AttendanceList() {
@@ -51,15 +54,8 @@ function AttendanceList() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-          {t('screens.attendance.title')}
-        </h2>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('screens.attendance.subtitle')}
-        </p>
-      </div>
+    <div className="grid gap-6">
+      <PageHeader title={t('screens.attendance.title')} description={t('screens.attendance.subtitle')} />
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
@@ -70,29 +66,26 @@ function AttendanceList() {
         schedules.map((s) => {
           const roster = s.bookings.filter((b) => b.status !== 'WAITLIST');
           return (
-            <div key={s.id} className="border" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)', backgroundColor: 'var(--color-surface)' }}>
-              <div className="px-4 py-3 flex items-center justify-between border-b" style={{ borderColor: 'var(--color-border)' }}>
-                <div>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                    {s.title || s.serviceType?.name}
-                  </p>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                    {new Date(s.startTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })} · {trainerName(s.trainer) ?? t('screens.attendance.noTrainer')}
+            <Card key={s.id}>
+              <CardHeader>
+                <div className="grid gap-0.5">
+                  <p className="ui-strong">{s.title || s.serviceType?.name}</p>
+                  <p className="ui-caption">
+                    {new Date(s.startTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })} ·{' '}
+                    {trainerName(s.trainer) ?? t('screens.attendance.noTrainer')}
                   </p>
                 </div>
-                <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                <Badge>
                   {s.bookedCount}/{s.capacity}
-                </span>
-              </div>
+                </Badge>
+              </CardHeader>
               {roster.length === 0 ? (
-                <p className="text-xs px-4 py-3" style={{ color: 'var(--color-text-muted)' }}>
-                  {t('screens.attendance.noBookings')}
-                </p>
+                <p className="ui-caption p-4">{t('screens.attendance.noBookings')}</p>
               ) : (
-                <div className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
+                <List className="ui-divide">
                   {roster.map((b) => (
-                    <div key={b.id} className="px-4 py-2.5 flex items-center justify-between" style={{ borderColor: 'var(--color-border)' }}>
-                      <Link href={`/members/${b.memberId}`} className="text-sm hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                    <ListItem key={b.id} className="flex items-center justify-between">
+                      <Link href={`/members/${b.memberId}`} className="pui-link pui-surface">
                         {bookingMemberName(b, t('common.member'))}
                       </Link>
                       {b.status === 'CONFIRMED' ? (
@@ -101,14 +94,18 @@ function AttendanceList() {
                         </PermissionButton>
                       ) : (
                         <Badge tone={b.status === 'ATTENDED' ? 'success' : b.status === 'NO_SHOW' ? 'danger' : 'neutral'}>
-                          {b.status === 'ATTENDED' ? t('screens.attendance.status.ATTENDED') : b.status === 'NO_SHOW' ? t('screens.attendance.status.NO_SHOW') : b.status}
+                          {b.status === 'ATTENDED'
+                            ? t('screens.attendance.status.ATTENDED')
+                            : b.status === 'NO_SHOW'
+                              ? t('screens.attendance.status.NO_SHOW')
+                              : b.status}
                         </Badge>
                       )}
-                    </div>
+                    </ListItem>
                   ))}
-                </div>
+                </List>
               )}
-            </div>
+            </Card>
           );
         })}
     </div>

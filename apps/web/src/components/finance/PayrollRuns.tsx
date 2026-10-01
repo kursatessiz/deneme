@@ -12,19 +12,19 @@ import { PermissionButton } from '@/components/common/PermissionButton';
 import { Badge } from '@/components/common/Badge';
 import { Modal } from '@/components/common/Modal';
 import { BranchSelect } from '@/components/common/BranchSelect';
+import { Input } from '@/components/ui/Input';
+import { Textarea } from '@/components/ui/Textarea';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
+import { Card } from '@/components/ui/Card';
+import { AnchorButton } from '@/components/ui/LinkButton';
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 type RunStatus = PayrollRunStatus;
 type PayrollLineDetail = PayrollLineDTO;
 type PayrollRun = PayrollRunDTO;
 
 const STATUS_TONE: Record<RunStatus, 'neutral' | 'warning' | 'success'> = { DRAFT: 'neutral', APPROVED: 'warning', PAID: 'success' };
-
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
 
 function NewRunDialog({ studioId, onClose, onDone }: { studioId: string; onClose: () => void; onDone: () => void }) {
   const t = useT();
@@ -62,14 +62,12 @@ function NewRunDialog({ studioId, onClose, onDone }: { studioId: string; onClose
     <Modal title={t('finance.payroll.newRunTitle')} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="flex items-center gap-2">
-          <input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} className="flex-1 text-sm px-3 py-1.5" style={inputStyle} />
-          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            -
-          </span>
-          <input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} className="flex-1 text-sm px-3 py-1.5" style={inputStyle} />
+          <Input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} className="flex-1" />
+          <span className="ui-caption">-</span>
+          <Input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} className="flex-1" />
         </div>
         <BranchSelect value={branchId} onChange={setBranchId} className="w-full" />
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {error && <p className="ui-caption ui-text-error">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <PermissionButton type="button" variant="ghost" onClick={onClose}>
             {t('common.cancel')}
@@ -127,18 +125,10 @@ function AdjustLineDialog({
   return (
     <Modal title={t('finance.payroll.adjustTitle', { name: line.trainerFullName })} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-3">
-        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('finance.payroll.adjustHint')}
-        </p>
-        <input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full text-sm px-3 py-1.5" style={inputStyle} />
-        <textarea
-          placeholder={t('finance.payroll.notePlaceholder')}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          className="w-full text-sm px-3 py-1.5"
-          style={{ ...inputStyle, minHeight: 60 }}
-        />
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        <p className="ui-caption">{t('finance.payroll.adjustHint')}</p>
+        <Input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full" />
+        <Textarea placeholder={t('finance.payroll.notePlaceholder')} value={note} onChange={(e) => setNote(e.target.value)} className="w-full" />
+        {error && <p className="ui-caption ui-text-error">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <PermissionButton type="button" variant="ghost" onClick={onClose}>
             {t('common.cancel')}
@@ -189,18 +179,14 @@ function RunDetail({ studioId, run, onReload }: { studioId: string; run: Payroll
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Badge tone={STATUS_TONE[run.status]}>{statusLabel(run.status)}</Badge>
-          <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+          <span className="ui-text-muted">
             {new Date(run.periodStart).toLocaleDateString(locale)} - {new Date(run.periodEnd).toLocaleDateString(locale)}
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <a
-            href={`/api/bff/payroll/studio/${studioId}/runs/${run.id}/export.csv`}
-            className="text-xs font-medium px-3 py-1.5"
-            style={{ ...inputStyle, background: 'var(--color-surface-muted)' }}
-          >
+          <AnchorButton href={`/api/bff/payroll/studio/${studioId}/runs/${run.id}/export.csv`} variant="outline" tone="surface" size="sm">
             {t('finance.payroll.downloadCsv')}
-          </a>
+          </AnchorButton>
           {run.status === 'DRAFT' && (
             <PermissionButton required={['payroll.manage']} variant="primary" onClick={handleApprove} disabled={busy}>
               {t('finance.payroll.approve')}
@@ -214,10 +200,10 @@ function RunDetail({ studioId, run, onReload }: { studioId: string; run: Payroll
         </div>
       </div>
 
-      <div className="border overflow-x-auto" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)' }}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
+      <Card className="overflow-x-auto">
+        <Table>
+          <Thead>
+            <Tr>
               {[
                 t('finance.payroll.col.trainer'),
                 t('finance.payroll.col.sessions'),
@@ -227,60 +213,46 @@ function RunDetail({ studioId, run, onReload }: { studioId: string; run: Payroll
                 t('finance.payroll.col.net'),
                 '',
               ].map((h, i) => (
-                <th key={i} className="text-left px-4 py-2.5 font-medium whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
+                <Th key={i} className="whitespace-nowrap">
                   {h}
-                </th>
+                </Th>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </Tr>
+          </Thead>
+          <Tbody>
             {(run.lines ?? []).map((l) => (
-              <tr key={l.id} className="border-t" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-                <td className="px-4 py-2.5" style={{ color: 'var(--color-text-primary)' }}>
-                  {l.trainerFullName}
-                </td>
-                <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
-                  {l.sessions}
-                </td>
-                <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
-                  {l.attendees}
-                </td>
-                <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
-                  {formatMoney(l.grossAmount)}
-                </td>
-                <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
+              <Tr key={l.id}>
+                <Td>{l.trainerFullName}</Td>
+                <Td>{l.sessions}</Td>
+                <Td>{l.attendees}</Td>
+                <Td>{formatMoney(l.grossAmount)}</Td>
+                <Td>
                   {formatMoney(l.adjustments)}
-                  {l.note && (
-                    <span className="block text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-                      {l.note}
-                    </span>
-                  )}
-                </td>
-                <td className="px-4 py-2.5 font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  {formatMoney(l.netAmount)}
-                </td>
-                <td className="px-4 py-2.5 text-right">
+                  {l.note && <span className="block ui-caption">{l.note}</span>}
+                </Td>
+                <Td className="ui-strong">{formatMoney(l.netAmount)}</Td>
+                <Td className="text-right">
                   {run.status === 'DRAFT' && (
                     <PermissionButton required={['payroll.manage']} onClick={() => setAdjustingLine(l)}>
                       {t('finance.payroll.adjust')}
                     </PermissionButton>
                   )}
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             ))}
-          </tbody>
+          </Tbody>
           <tfoot>
-            <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
-              <td colSpan={5} className="px-4 py-2.5 font-semibold text-right" style={{ color: 'var(--color-text-primary)' }}>
+            <Tr>
+              <Td colSpan={5} className="ui-strong text-right">
                 {t('finance.payroll.totalNet')}
-              </td>
-              <td colSpan={2} className="px-4 py-2.5 font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+              </Td>
+              <Td colSpan={2} className="ui-strong">
                 {formatMoney(run.totalNet)}
-              </td>
-            </tr>
+              </Td>
+            </Tr>
           </tfoot>
-        </table>
-      </div>
+        </Table>
+      </Card>
 
       {adjustingLine && (
         <AdjustLineDialog
@@ -337,19 +309,17 @@ export function PayrollRuns() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-            {t('finance.payroll.title')}
-          </h2>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('finance.payroll.subtitle')}
-          </p>
-        </div>
-        <PermissionButton required={['payroll.manage']} variant="primary" onClick={() => setShowNew(true)}>
-          {t('finance.payroll.newPeriod')}
-        </PermissionButton>
-      </div>
+      <PageHeader
+        title={t('finance.payroll.title')}
+        description={t('finance.payroll.subtitle')}
+        actions={
+          <>
+            <PermissionButton required={['payroll.manage']} variant="primary" onClick={() => setShowNew(true)}>
+              {t('finance.payroll.newPeriod')}
+            </PermissionButton>
+          </>
+        }
+      />
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
@@ -360,20 +330,15 @@ export function PayrollRuns() {
       {!loading && !error && runs && runs.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {runs.map((r) => (
-            <button
+            <Button
               key={r.id}
-              type="button"
+              variant={r.id === selectedRunId ? 'solid' : 'outline'}
+              tone={r.id === selectedRunId ? 'theme' : 'surface'}
+              size="sm"
               onClick={() => setSelectedRunId(r.id)}
-              className="text-xs font-medium px-3 py-1.5"
-              style={{
-                borderRadius: 'var(--radius-button)',
-                border: '1px solid var(--color-border)',
-                background: r.id === selectedRunId ? 'var(--gradient-brand)' : 'var(--color-surface)',
-                color: r.id === selectedRunId ? 'var(--color-on-primary)' : 'var(--color-text-primary)',
-              }}
             >
               {new Date(r.periodStart).toLocaleDateString(locale)} - {new Date(r.periodEnd).toLocaleDateString(locale)} ({statusLabel(r.status)})
-            </button>
+            </Button>
           ))}
         </div>
       )}

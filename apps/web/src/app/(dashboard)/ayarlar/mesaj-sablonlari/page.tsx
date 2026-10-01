@@ -1,14 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import {
-  EMAIL_BLOCK_TYPES,
-  SMS_PROVIDER_KEYS,
-  emailBrandOf,
-  interpolateEmailBlocks,
-  renderEmail,
-  renderMessageTextLenient,
-} from '@platform/shared';
+import { EMAIL_BLOCK_TYPES, SMS_PROVIDER_KEYS, emailBrandOf, interpolateEmailBlocks, renderEmail, renderMessageTextLenient } from '@platform/shared';
 import type {
   EmailBlock,
   EmailBlockType,
@@ -26,6 +19,11 @@ import { EmptyState, ErrorState, LoadingState } from '@/components/common/DataSt
 import { InlineMessage, PrimaryButton, Section, SecondaryButton, SettingsHeader, TextField, Toggle } from '@/components/settings/ui';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { AiDraftPanel } from '@/components/ai/AiDraftPanel';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { Textarea } from '@/components/ui/Textarea';
+import { FieldGroup } from '@/components/ui/FieldGroup';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
 
 type EditableChannel = 'SMS' | 'WHATSAPP' | 'EMAIL';
 const CHANNELS: readonly EditableChannel[] = ['SMS', 'WHATSAPP', 'EMAIL'];
@@ -41,13 +39,6 @@ interface Draft {
   isTransactional: boolean;
   isActive: boolean;
 }
-
-const fieldStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-background)',
-  color: 'var(--color-text-primary)',
-};
 
 function draftFrom(t: MessageTemplateDTO): Draft {
   return {
@@ -92,30 +83,19 @@ function BlockEditor({ blocks, onChange }: { blocks: EmailBlock[]; onChange: (ne
     onChange(next);
   };
   const input = (label: string, value: string, set: (v: string) => void, multiline = false) => (
-    <label className="block space-y-1">
-      <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-        {label}
-      </span>
-      {multiline ? (
-        <textarea value={value} onChange={(e) => set(e.target.value)} rows={3} className="w-full text-sm px-3 py-1.5" style={fieldStyle} />
-      ) : (
-        <input value={value} onChange={(e) => set(e.target.value)} className="w-full text-sm px-3 py-1.5" style={fieldStyle} />
-      )}
-    </label>
+    <FieldGroup label={label}>
+      {multiline ? <Textarea value={value} onChange={(e) => set(e.target.value)} rows={3} /> : <Input value={value} onChange={(e) => set(e.target.value)} />}
+    </FieldGroup>
   );
 
   return (
     <div className="space-y-2">
-      <span className="block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-        {t('messaging.templates.blocks')}
-      </span>
+      <span className="block ui-caption ui-strong">{t('messaging.templates.blocks')}</span>
       <ol className="space-y-2">
         {blocks.map((b, i) => (
-          <li key={i} className="border p-3 space-y-2" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)' }}>
+          <li key={i} className="ui-panel grid gap-2 p-3">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                {t(`messaging.templates.blockType.${b.type}`)}
-              </span>
+              <span className="ui-caption ui-strong">{t(`messaging.templates.blockType.${b.type}`)}</span>
               <div className="flex gap-1">
                 <SecondaryButton onClick={() => move(i, -1)} disabled={i === 0}>
                   {t('messaging.templates.block.up')}
@@ -147,13 +127,13 @@ function BlockEditor({ blocks, onChange }: { blocks: EmailBlock[]; onChange: (ne
         ))}
       </ol>
       <div className="flex items-center gap-2">
-        <select value={newType} onChange={(e) => setNewType(e.target.value as EmailBlockType)} className="text-sm px-3 py-1.5" style={fieldStyle}>
+        <Select value={newType} onChange={(e) => setNewType(e.target.value as EmailBlockType)}>
           {EMAIL_BLOCK_TYPES.map((type) => (
             <option key={type} value={type}>
               {t(`messaging.templates.blockType.${type}`)}
             </option>
           ))}
-        </select>
+        </Select>
         <SecondaryButton onClick={() => onChange([...blocks, emptyBlock(newType)])}>{t('messaging.templates.addBlock')}</SecondaryButton>
       </div>
     </div>
@@ -166,7 +146,12 @@ function EmailPreview({ draft, brand, origin }: { draft: Draft; brand: TemplateP
   const html = useMemo(() => {
     const variables = { studioName: brand.studioName };
     const source: EmailBlock[] =
-      draft.blocks.length > 0 ? draft.blocks : [{ type: 'heading', text: draft.subject || ' ' }, { type: 'paragraph', text: draft.body || ' ' }];
+      draft.blocks.length > 0
+        ? draft.blocks
+        : [
+            { type: 'heading', text: draft.subject || ' ' },
+            { type: 'paragraph', text: draft.body || ' ' },
+          ];
     const commercial = !draft.isTransactional;
     return renderEmail({
       lang: draft.locale,
@@ -189,17 +174,11 @@ function EmailPreview({ draft, brand, origin }: { draft: Draft; brand: TemplateP
 
   return (
     <div className="space-y-1">
-      <span className="block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-        {t('messaging.templates.preview')}
-      </span>
+      <span className="block ui-caption ui-strong">{t('messaging.templates.preview')}</span>
       {/* Empty sandbox: no scripts, no navigation, no same-origin access from the rendered email. */}
-      <iframe
-        title={t('messaging.templates.previewFrame')}
-        sandbox=""
-        srcDoc={html}
-        className="w-full border"
-        style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)', height: 560, backgroundColor: '#ffffff' }}
-      />
+      <div className="ui-panel p-2">
+        <iframe title={t('messaging.templates.previewFrame')} sandbox="" srcDoc={html} className="w-full" style={{ height: 560, colorScheme: 'light' }} />
+      </div>
       {!draft.isTransactional && !brand.address && <InlineMessage tone="error" text={t('messaging.templates.addressMissing')} />}
     </div>
   );
@@ -272,29 +251,23 @@ function TemplateEditor({
           {isNew && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <TextField label={t('messaging.templates.keyLabel')} value={draft.key} onChange={(v) => set('key', v.toUpperCase())} placeholder="SPRING_OFFER" />
-              <label className="block space-y-1">
-                <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                  {t('messaging.templates.filter.channel')}
-                </span>
-                <select value={draft.channel} onChange={(e) => set('channel', e.target.value as EditableChannel)} className="w-full text-sm px-3 py-2" style={fieldStyle}>
+              <FieldGroup label={t('messaging.templates.filter.channel')}>
+                <Select value={draft.channel} onChange={(e) => set('channel', e.target.value as EditableChannel)}>
                   {CHANNELS.map((c) => (
                     <option key={c} value={c}>
                       {t(`messaging.channel.${c}`)}
                     </option>
                   ))}
-                </select>
-              </label>
+                </Select>
+              </FieldGroup>
               <TextField label={t('messaging.templates.localeLabel')} value={draft.locale} onChange={(v) => set('locale', v.trim())} placeholder="tr" />
             </div>
           )}
           {isNew && <InlineMessage text={t('messaging.templates.keyHint')} />}
           {draft.channel === 'EMAIL' && <TextField label={t('messaging.templates.subject')} value={draft.subject} onChange={(v) => set('subject', v)} />}
-          <label className="block space-y-1">
-            <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('messaging.templates.body')}
-            </span>
-            <textarea value={draft.body} onChange={(e) => set('body', e.target.value)} rows={4} maxLength={2000} className="w-full text-sm px-3 py-2" style={fieldStyle} />
-          </label>
+          <FieldGroup label={t('messaging.templates.body')}>
+            <Textarea value={draft.body} onChange={(e) => set('body', e.target.value)} rows={4} maxLength={2000} />
+          </FieldGroup>
           {draft.channel === 'EMAIL' && <InlineMessage text={t('messaging.templates.bodyHintEmail')} />}
           <AiDraftPanel
             kinds={draft.channel === 'EMAIL' ? ['EMAIL'] : draft.channel === 'SMS' ? ['SMS', 'CAMPAIGN'] : ['CAMPAIGN', 'SMS']}
@@ -309,20 +282,12 @@ function TemplateEditor({
               <InlineMessage text={t('messaging.templates.whatsappPendingHint')} />
             </>
           )}
-          <label className="block space-y-1">
-            <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('messaging.templates.purpose')}
-            </span>
-            <select
-              value={draft.isTransactional ? 'T' : 'C'}
-              onChange={(e) => set('isTransactional', e.target.value === 'T')}
-              className="w-full text-sm px-3 py-2"
-              style={fieldStyle}
-            >
+          <FieldGroup label={t('messaging.templates.purpose')}>
+            <Select value={draft.isTransactional ? 'T' : 'C'} onChange={(e) => set('isTransactional', e.target.value === 'T')}>
               <option value="T">{t('messaging.templates.purpose.transactional')}</option>
               <option value="C">{t('messaging.templates.purpose.commercial')}</option>
-            </select>
-          </label>
+            </Select>
+          </FieldGroup>
           {!draft.isTransactional && <InlineMessage text={t('messaging.templates.purposeHint')} />}
           <Toggle label={t('messaging.templates.active')} checked={draft.isActive} onChange={(v) => set('isActive', v)} />
           {draft.channel === 'EMAIL' && <BlockEditor blocks={draft.blocks} onChange={(blocks) => set('blocks', blocks)} />}
@@ -339,15 +304,8 @@ function TemplateEditor({
             <EmailPreview draft={draft} brand={brand} origin={origin} />
           ) : (
             <div className="space-y-1">
-              <span className="block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                {t('messaging.templates.previewText')}
-              </span>
-              <p
-                className="text-sm whitespace-pre-wrap border p-3"
-                style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)', color: 'var(--color-text-primary)' }}
-              >
-                {textPreview}
-              </p>
+              <span className="block ui-caption ui-strong">{t('messaging.templates.previewText')}</span>
+              <p className="ui-panel whitespace-pre-wrap p-3">{textPreview}</p>
             </div>
           )}
         </div>
@@ -408,25 +366,20 @@ function SendingSettings({ studioId }: { studioId: string }) {
         <TextField label={t('messaging.settings.perDay')} type="number" value={perDay} onChange={setPerDay} />
         <TextField label={t('messaging.settings.perWeek')} type="number" value={perWeek} onChange={setPerWeek} />
         <TextField label={t('messaging.settings.defaultSendTime')} type="time" value={sendTime} onChange={setSendTime} />
-        <label className="block space-y-1">
-          <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('messaging.settings.smsProvider')}
-          </span>
-          <select value={smsProvider} onChange={(e) => setSmsProvider(e.target.value as SmsProviderKey | '')} className="w-full text-sm px-3 py-2" style={fieldStyle}>
+        <FieldGroup label={t('messaging.settings.smsProvider')}>
+          <Select value={smsProvider} onChange={(e) => setSmsProvider(e.target.value as SmsProviderKey | '')}>
             <option value="">{t('messaging.settings.smsProvider.auto')}</option>
             {SMS_PROVIDER_KEYS.map((k) => (
               <option key={k} value={k}>
                 {k}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </FieldGroup>
         <TextField label={t('messaging.settings.emailFromName')} value={fromName} onChange={setFromName} />
         <TextField label={t('messaging.settings.emailReplyTo')} type="email" value={replyTo} onChange={setReplyTo} />
       </div>
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-        {t('messaging.settings.defaultSendTimeHint')}
-      </p>
+      <p className="ui-caption">{t('messaging.settings.defaultSendTimeHint')}</p>
       {message && <InlineMessage text={message.text} tone={message.tone} />}
       <PrimaryButton onClick={save}>{t('messaging.settings.save')}</PrimaryButton>
     </Section>
@@ -480,7 +433,7 @@ function Templates() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="grid gap-6">
       <SettingsHeader title={t('messaging.templates.title')} description={t('messaging.templates.subtitle')} />
       <SendingSettings studioId={activeStudioId} />
 
@@ -497,45 +450,36 @@ function Templates() {
 
       <Section title={t('messaging.templates.list')}>
         <div className="flex flex-wrap items-end gap-3">
-          <label className="space-y-1">
-            <span className="block text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('messaging.templates.filter.key')}
-            </span>
-            <select value={keyFilter} onChange={(e) => setKeyFilter(e.target.value)} className="text-sm px-3 py-1.5" style={fieldStyle}>
+          <FieldGroup label={t('messaging.templates.filter.key')}>
+            <Select value={keyFilter} onChange={(e) => setKeyFilter(e.target.value)}>
               <option value="">{t('messaging.inbox.filter.all')}</option>
               {keys.map((k) => (
                 <option key={k} value={k}>
                   {k}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="space-y-1">
-            <span className="block text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('messaging.templates.filter.channel')}
-            </span>
-            <select value={channel} onChange={(e) => setChannel(e.target.value as EditableChannel | '')} className="text-sm px-3 py-1.5" style={fieldStyle}>
+            </Select>
+          </FieldGroup>
+          <FieldGroup label={t('messaging.templates.filter.channel')}>
+            <Select value={channel} onChange={(e) => setChannel(e.target.value as EditableChannel | '')}>
               <option value="">{t('messaging.inbox.filter.anyChannel')}</option>
               {CHANNELS.map((c) => (
                 <option key={c} value={c}>
                   {t(`messaging.channel.${c}`)}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="space-y-1">
-            <span className="block text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('messaging.templates.filter.locale')}
-            </span>
-            <select value={locale} onChange={(e) => setLocale(e.target.value)} className="text-sm px-3 py-1.5" style={fieldStyle}>
+            </Select>
+          </FieldGroup>
+          <FieldGroup label={t('messaging.templates.filter.locale')}>
+            <Select value={locale} onChange={(e) => setLocale(e.target.value)}>
               <option value="">{t('messaging.inbox.filter.all')}</option>
               {locales.map((l) => (
                 <option key={l} value={l}>
                   {l}
                 </option>
               ))}
-            </select>
-          </label>
+            </Select>
+          </FieldGroup>
           <SecondaryButton
             onClick={() =>
               setEditing({
@@ -563,29 +507,25 @@ function Templates() {
         {!error && data && rows.length === 0 && <EmptyState title={t('messaging.templates.empty')} />}
         {!error && data && rows.length > 0 && (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  <th className="py-2 pr-3 font-medium">{t('messaging.templates.filter.key')}</th>
-                  <th className="py-2 pr-3 font-medium">{t('messaging.templates.filter.channel')}</th>
-                  <th className="py-2 pr-3 font-medium">{t('messaging.templates.filter.locale')}</th>
-                  <th className="py-2 pr-3 font-medium">{t('messaging.templates.purpose')}</th>
-                  <th className="py-2 pr-3 font-medium" />
-                  <th className="py-2 font-medium" />
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th>{t('messaging.templates.filter.key')}</Th>
+                  <Th>{t('messaging.templates.filter.channel')}</Th>
+                  <Th>{t('messaging.templates.filter.locale')}</Th>
+                  <Th>{t('messaging.templates.purpose')}</Th>
+                  <Th />
+                  <Th />
+                </Tr>
+              </Thead>
+              <Tbody>
                 {rows.map((row) => (
-                  <tr key={`${row.key}-${row.channel}-${row.locale}`} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
-                    <td className="py-2 pr-3 font-mono text-xs" style={{ color: 'var(--color-text-primary)' }}>
-                      {row.key}
-                    </td>
-                    <td className="py-2 pr-3">{t(`messaging.channel.${row.channel}`)}</td>
-                    <td className="py-2 pr-3">{row.locale}</td>
-                    <td className="py-2 pr-3">
-                      {row.isTransactional ? t('messaging.templates.purpose.transactional') : t('messaging.templates.purpose.commercial')}
-                    </td>
-                    <td className="py-2 pr-3 space-x-1">
+                  <Tr key={`${row.key}-${row.channel}-${row.locale}`}>
+                    <Td className="font-mono ui-caption">{row.key}</Td>
+                    <Td>{t(`messaging.channel.${row.channel}`)}</Td>
+                    <Td>{row.locale}</Td>
+                    <Td>{row.isTransactional ? t('messaging.templates.purpose.transactional') : t('messaging.templates.purpose.commercial')}</Td>
+                    <Td className="space-x-1">
                       <Badge tone={row.source === 'TENANT' ? 'info' : 'neutral'}>{t(`messaging.templates.source.${row.source}`)}</Badge>
                       {row.channel === 'WHATSAPP' && row.whatsappStatus && (
                         <Badge tone={row.whatsappStatus === 'APPROVED' ? 'success' : 'warning'}>
@@ -593,19 +533,19 @@ function Templates() {
                         </Badge>
                       )}
                       {!row.isActive && <Badge>{t('messaging.templates.inactive')}</Badge>}
-                    </td>
-                    <td className="py-2 text-right whitespace-nowrap space-x-1">
+                    </Td>
+                    <Td className="text-right whitespace-nowrap space-x-1">
                       <SecondaryButton onClick={() => setEditing({ isNew: false, draft: draftFrom(row) })}>{t('messaging.templates.edit')}</SecondaryButton>
                       {row.source === 'TENANT' && row.id && (
                         <SecondaryButton danger onClick={() => removeOverride(row.id!)}>
                           {t('messaging.templates.removeOverride')}
                         </SecondaryButton>
                       )}
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                 ))}
-              </tbody>
-            </table>
+              </Tbody>
+            </Table>
           </div>
         )}
       </Section>

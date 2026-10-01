@@ -2,14 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { LOYALTY_EXPIRY_MODES, LOYALTY_REWARD_TYPES, LOYALTY_RULE_KINDS } from '@platform/shared';
-import type {
-  LoyaltyExpiryMode,
-  LoyaltyRewardDTO,
-  LoyaltyRewardType,
-  LoyaltyRuleDTO,
-  LoyaltyRuleKind,
-  LoyaltySettingsDTO,
-} from '@platform/shared';
+import type { LoyaltyExpiryMode, LoyaltyRewardDTO, LoyaltyRewardType, LoyaltyRuleDTO, LoyaltyRuleKind, LoyaltySettingsDTO } from '@platform/shared';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { useBff } from '@/lib/session/use-bff';
@@ -19,25 +12,29 @@ import { PageGuard } from '@/components/common/PageGuard';
 import { hasAnyPermission } from '@/lib/nav';
 import { Badge, InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader, TextField, Toggle } from '@/components/settings/ui';
 import { loyaltyErrorMessage, rewardSummary, ruleSummary } from '@/components/loyalty/labels';
+import { Select } from '@/components/ui/Select';
+import { FieldGroup } from '@/components/ui/FieldGroup';
+import { List, ListItem } from '@/components/ui/List';
 
-const selectClass = 'w-full px-3 py-2 text-sm border';
-const selectStyle = {
-  borderColor: 'var(--color-border)',
-  borderRadius: 'var(--radius-input)',
-  backgroundColor: 'var(--color-background)',
-  color: 'var(--color-text-primary)',
-} as const;
-
-function SelectField({ id, label, value, onChange, children }: { id: string; label: string; value: string; onChange: (v: string) => void; children: React.ReactNode }) {
+function SelectField({
+  id,
+  label,
+  value,
+  onChange,
+  children,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="space-y-1">
-      <label htmlFor={id} className="block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-        {label}
-      </label>
-      <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className={selectClass} style={selectStyle}>
+    <FieldGroup label={label}>
+      <Select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
         {children}
-      </select>
-    </div>
+      </Select>
+    </FieldGroup>
   );
 }
 
@@ -96,7 +93,9 @@ function ProgramSection({ canManage }: { canManage: boolean }) {
             id="loyalty-expiry-mode"
             label={t('loyalty.program.expiryMode')}
             value={form.expiryMode}
-            onChange={(v) => setForm({ ...form, expiryMode: v as LoyaltyExpiryMode, expiryMonths: v === 'MONTHS_AFTER_EARN' ? (form.expiryMonths ?? 12) : null })}
+            onChange={(v) =>
+              setForm({ ...form, expiryMode: v as LoyaltyExpiryMode, expiryMonths: v === 'MONTHS_AFTER_EARN' ? (form.expiryMonths ?? 12) : null })
+            }
           >
             {LOYALTY_EXPIRY_MODES.map((mode) => (
               <option key={mode} value={mode}>
@@ -187,14 +186,12 @@ function RulesSection({ canManage, currency }: { canManage: boolean; currency: s
       {loading && !data && <LoadingState />}
       {error && <ErrorState message={error} />}
       {!loading && rules.length === 0 && <InlineMessage text={t('loyalty.rules.empty')} />}
-      <ul className="divide-y" style={{ borderColor: 'var(--color-border)' }} data-testid="loyalty-rules">
+      <List className="ui-divide" data-testid="loyalty-rules">
         {rules.map((rule) => (
-          <li key={rule.id} className="py-2 flex flex-wrap items-center justify-between gap-3">
+          <ListItem key={rule.id} className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                {rule.name}
-              </p>
-              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              <p className="ui-strong">{rule.name}</p>
+              <p className="ui-caption">
                 {t(`loyalty.rules.kind.${rule.kind}`)} - {ruleSummary(t, rule, locale)}
               </p>
             </div>
@@ -206,19 +203,21 @@ function RulesSection({ canManage, currency }: { canManage: boolean; currency: s
                   disabled={busy}
                   onChange={(v) => run(() => bffFetch(`${base}/${rule.id}`, { method: 'PATCH', studioId: activeStudioId, body: { isActive: v } }))}
                 />
-                <SecondaryButton danger disabled={busy} onClick={() => run(() => bffFetch(`${base}/${rule.id}`, { method: 'DELETE', studioId: activeStudioId }))}>
+                <SecondaryButton
+                  danger
+                  disabled={busy}
+                  onClick={() => run(() => bffFetch(`${base}/${rule.id}`, { method: 'DELETE', studioId: activeStudioId }))}
+                >
                   {t('loyalty.rules.delete')}
                 </SecondaryButton>
               </div>
             )}
-          </li>
+          </ListItem>
         ))}
-      </ul>
+      </List>
       {canManage && (
         <div className="space-y-3 pt-2 max-w-xl">
-          <h4 className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('loyalty.rules.new')}
-          </h4>
+          <h4 className="ui-caption ui-strong">{t('loyalty.rules.new')}</h4>
           <SelectField id="loyalty-rule-kind" label={t('loyalty.rules.kind')} value={kind} onChange={(v) => setKind(v as LoyaltyRuleKind)}>
             {LOYALTY_RULE_KINDS.map((k) => (
               <option key={k} value={k}>
@@ -230,7 +229,9 @@ function RulesSection({ canManage, currency }: { canManage: boolean; currency: s
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <TextField label={t('loyalty.rules.name')} value={name} onChange={setName} placeholder={t(`loyalty.rules.kind.${kind}`)} />
             <TextField label={t('loyalty.rules.points')} type="number" value={points} onChange={setPoints} />
-            {kind === 'PURCHASE_AMOUNT' && <TextField label={`${t('loyalty.rules.perAmount')} (${currency})`} type="number" value={perAmount} onChange={setPerAmount} />}
+            {kind === 'PURCHASE_AMOUNT' && (
+              <TextField label={`${t('loyalty.rules.perAmount')} (${currency})`} type="number" value={perAmount} onChange={setPerAmount} />
+            )}
           </div>
           <PrimaryButton onClick={add} disabled={busy}>
             {t('loyalty.rules.add')}
@@ -293,7 +294,9 @@ function RewardsSection({ canManage, currency }: { canManage: boolean; currency:
   };
 
   const remove = async (reward: LoyaltyRewardDTO) => {
-    const result = (await run(() => bffFetch<{ deleted: boolean; deactivated: boolean }>(`${base}/${reward.id}`, { method: 'DELETE', studioId: activeStudioId }))) as {
+    const result = (await run(() =>
+      bffFetch<{ deleted: boolean; deactivated: boolean }>(`${base}/${reward.id}`, { method: 'DELETE', studioId: activeStudioId }),
+    )) as {
       deactivated?: boolean;
     } | null;
     if (result?.deactivated) setMessage({ text: t('loyalty.rewards.deactivated'), tone: 'neutral' });
@@ -306,15 +309,15 @@ function RewardsSection({ canManage, currency }: { canManage: boolean; currency:
       {loading && !data && <LoadingState />}
       {error && <ErrorState message={error} />}
       {!loading && rewards.length === 0 && <InlineMessage text={t('loyalty.rewards.empty')} />}
-      <ul className="divide-y" style={{ borderColor: 'var(--color-border)' }} data-testid="loyalty-rewards">
+      <List className="ui-divide" data-testid="loyalty-rewards">
         {rewards.map((reward) => (
-          <li key={reward.id} className="py-2 flex flex-wrap items-center justify-between gap-3">
+          <ListItem key={reward.id} className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
+              <p className="ui-strong flex items-center gap-2">
                 {reward.name}
                 <Badge>{t('loyalty.points', { count: reward.costPoints })}</Badge>
               </p>
-              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              <p className="ui-caption">
                 {t(`loyalty.rewards.type.${reward.type}`)} - {rewardSummary(t, reward, locale)}
               </p>
             </div>
@@ -331,14 +334,12 @@ function RewardsSection({ canManage, currency }: { canManage: boolean; currency:
                 </SecondaryButton>
               </div>
             )}
-          </li>
+          </ListItem>
         ))}
-      </ul>
+      </List>
       {canManage && (
         <div className="space-y-3 pt-2 max-w-xl">
-          <h4 className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('loyalty.rewards.new')}
-          </h4>
+          <h4 className="ui-caption ui-strong">{t('loyalty.rewards.new')}</h4>
           <SelectField id="loyalty-reward-type" label={t('loyalty.rewards.type')} value={type} onChange={(v) => setType(v as LoyaltyRewardType)}>
             {LOYALTY_REWARD_TYPES.map((k) => (
               <option key={k} value={k}>

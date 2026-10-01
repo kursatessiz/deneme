@@ -12,15 +12,12 @@ import { PermissionButton } from '@/components/common/PermissionButton';
 import { Modal } from '@/components/common/Modal';
 import { BranchSelect } from '@/components/common/BranchSelect';
 import { DateRangeFilter } from '@/components/common/DateRangeFilter';
+import { Input } from '@/components/ui/Input';
+import { Textarea } from '@/components/ui/Textarea';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
+import { Card } from '@/components/ui/Card';
 
 type ExpenseRow = ExpenseDTO;
-
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
 
 function NewExpenseDialog({ studioId, onClose, onDone }: { studioId: string; onClose: () => void; onDone: () => void }) {
   const t = useT();
@@ -62,32 +59,19 @@ function NewExpenseDialog({ studioId, onClose, onDone }: { studioId: string; onC
   return (
     <Modal title={t('finance.expenses.newTitle')} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-3">
-        <input
-          placeholder={t('finance.expenses.categoryPlaceholder')}
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          className="w-full text-sm px-3 py-1.5"
-          style={inputStyle}
-        />
-        <input
+        <Input placeholder={t('finance.expenses.categoryPlaceholder')} value={category} onChange={(e) => setCategory(e.target.value)} className="w-full" />
+        <Input
           type="number"
           min="0.01"
           step="0.01"
           placeholder={t('finance.expenses.amountPlaceholder')}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="w-full text-sm px-3 py-1.5"
-          style={inputStyle}
+          className="w-full"
         />
-        <input type="date" value={spentAt} onChange={(e) => setSpentAt(e.target.value)} className="w-full text-sm px-3 py-1.5" style={inputStyle} />
-        <textarea
-          placeholder={t('finance.expenses.notePlaceholder')}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          className="w-full text-sm px-3 py-1.5"
-          style={{ ...inputStyle, minHeight: 60 }}
-        />
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        <Input type="date" value={spentAt} onChange={(e) => setSpentAt(e.target.value)} className="w-full" />
+        <Textarea placeholder={t('finance.expenses.notePlaceholder')} value={note} onChange={(e) => setNote(e.target.value)} className="w-full" />
+        {error && <p className="ui-caption ui-text-error">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <PermissionButton type="button" variant="ghost" onClick={onClose}>
             {t('common.cancel')}
@@ -165,10 +149,10 @@ export function ExpensesTab() {
         <EmptyState title={t('finance.expenses.empty.title')} description={t('finance.expenses.empty.description')} />
       )}
       {!loading && !error && expenses && expenses.length > 0 && (
-        <div className="border overflow-x-auto" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)' }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
+        <Card className="overflow-x-auto">
+          <Table>
+            <Thead>
+              <Tr>
                 {[
                   t('finance.expenses.col.date'),
                   t('finance.expenses.col.category'),
@@ -177,51 +161,39 @@ export function ExpensesTab() {
                   t('finance.expenses.col.addedBy'),
                   '',
                 ].map((h, i) => (
-                  <th key={i} className="text-left px-4 py-2.5 font-medium whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
+                  <Th key={i} className="whitespace-nowrap">
                     {h}
-                  </th>
+                  </Th>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </Tr>
+            </Thead>
+            <Tbody>
               {expenses.map((e) => (
-                <tr key={e.id} className="border-t" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-                  <td className="px-4 py-2.5 whitespace-nowrap" style={{ color: 'var(--color-text-primary)' }}>
-                    {new Date(e.spentAt).toLocaleDateString(locale)}
-                  </td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-primary)' }}>
-                    {e.category}
-                  </td>
-                  <td className="px-4 py-2.5 font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                    {formatMoney(e.amount)}
-                  </td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
-                    {e.note ?? '-'}
-                  </td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
-                    {e.createdByName ?? '-'}
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
+                <Tr key={e.id}>
+                  <Td className="whitespace-nowrap">{new Date(e.spentAt).toLocaleDateString(locale)}</Td>
+                  <Td>{e.category}</Td>
+                  <Td className="ui-strong">{formatMoney(e.amount)}</Td>
+                  <Td>{e.note ?? '-'}</Td>
+                  <Td>{e.createdByName ?? '-'}</Td>
+                  <Td className="text-right">
                     <PermissionButton required={['finance.manage']} variant="danger" onClick={() => handleDelete(e.id)}>
                       {t('common.delete')}
                     </PermissionButton>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
+            </Tbody>
             <tfoot>
-              <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
-                <td colSpan={2} className="px-4 py-2.5 font-semibold text-right" style={{ color: 'var(--color-text-primary)' }}>
+              <Tr>
+                <Td colSpan={2} className="ui-strong text-right">
                   {t('finance.expenses.total')}
-                </td>
-                <td className="px-4 py-2.5 font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  {formatMoney(total)}
-                </td>
-                <td colSpan={3} />
-              </tr>
+                </Td>
+                <Td className="ui-strong">{formatMoney(total)}</Td>
+                <Td colSpan={3} />
+              </Tr>
             </tfoot>
-          </table>
-        </div>
+          </Table>
+        </Card>
       )}
 
       {showNew && activeStudioId && (
