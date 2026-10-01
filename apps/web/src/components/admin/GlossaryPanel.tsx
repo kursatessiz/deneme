@@ -4,13 +4,12 @@ import { useCallback, useEffect, useState } from 'react';
 import type { GlossaryTermDTO } from '@platform/shared';
 import { useT } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
-
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
+import { Checkbox } from '@/components/ui/Checkbox';
+import { FieldGroup } from '@/components/ui/FieldGroup';
+import { Input } from '@/components/ui/Input';
+import { List, ListItem } from '@/components/ui/List';
 
 /** Per-language glossary sent with every AI translation request (G3b). */
 export function GlossaryPanel({ code }: { code: string }) {
@@ -53,80 +52,56 @@ export function GlossaryPanel({ code }: { code: string }) {
   }
 
   return (
-    <section aria-labelledby="glossary-title" className="p-5 space-y-3 border" style={{ borderRadius: 'var(--radius-card)', borderColor: 'var(--color-border)' }}>
-      <h3 id="glossary-title" className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-        {t('adminI18n.glossary.title')}
-      </h3>
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-        {t('adminI18n.glossary.hint')}
-      </p>
-      {items.length === 0 ? (
-        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          {t('adminI18n.glossary.empty')}
-        </p>
-      ) : (
-        <ul className="text-sm divide-y" style={{ borderColor: 'var(--color-border)' }}>
-          {items.map((item) => (
-            <li key={item.id} className="flex items-center justify-between gap-2 py-1.5">
-              <span>
-                <span className="font-medium">{item.term}</span>
-                <span style={{ color: 'var(--color-text-secondary)' }}> {'->'} {item.translation ?? t('adminI18n.glossary.keep')}</span>
-                {item.note && <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{` (${item.note})`}</span>}
-              </span>
-              <button type="button" onClick={() => remove(item.id)} className="text-xs underline" style={{ color: 'var(--color-text-muted)' }}>
-                {t('adminI18n.glossary.delete')}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <form onSubmit={add} className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
-        <label className="block space-y-1" htmlFor="glossary-term">
-          <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('adminI18n.glossary.term')}
-          </span>
-          <input id="glossary-term" value={term} onChange={(e) => setTerm(e.target.value)} maxLength={120} className="w-full text-sm px-2 py-1.5" style={inputStyle} />
-        </label>
-        <label className="block space-y-1" htmlFor="glossary-translation">
-          <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('adminI18n.glossary.translation')}
-          </span>
-          <input
-            id="glossary-translation"
-            value={keep ? '' : translation}
-            disabled={keep}
-            onChange={(e) => setTranslation(e.target.value)}
-            maxLength={200}
-            className="w-full text-sm px-2 py-1.5 disabled:opacity-50"
-            style={inputStyle}
-          />
-        </label>
-        <label className="block space-y-1" htmlFor="glossary-note">
-          <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('adminI18n.glossary.note')}
-          </span>
-          <input id="glossary-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} className="w-full text-sm px-2 py-1.5" style={inputStyle} />
-        </label>
-        <div className="flex items-center gap-3">
-          <label className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-            <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} />
-            {t('adminI18n.glossary.keep')}
-          </label>
-          <button
-            type="submit"
-            disabled={!term.trim() || (!keep && !translation.trim())}
-            className="px-3 py-1.5 text-xs font-medium disabled:opacity-40"
-            style={{ borderRadius: 'var(--radius-button)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
-          >
-            {t('adminI18n.glossary.add')}
-          </button>
-        </div>
-      </form>
-      {error && (
-        <p className="text-xs" role="alert" style={{ color: 'var(--color-danger, #b42318)' }}>
-          {error}
-        </p>
-      )}
-    </section>
+    <Card as="section" aria-labelledby="glossary-title">
+      <CardContent>
+        <h3 id="glossary-title" className="ui-heading">
+          {t('adminI18n.glossary.title')}
+        </h3>
+        <p className="ui-caption">{t('adminI18n.glossary.hint')}</p>
+        {items.length === 0 ? (
+          <p className="ui-caption">{t('adminI18n.glossary.empty')}</p>
+        ) : (
+          <List className="ui-divide">
+            {items.map((item) => (
+              <ListItem key={item.id} className="flex items-center justify-between gap-2">
+                <span>
+                  <span className="ui-strong">{item.term}</span>
+                  <span className="ui-text-muted">
+                    {' '}
+                    {'->'} {item.translation ?? t('adminI18n.glossary.keep')}
+                  </span>
+                  {item.note && <span className="ui-caption">{` (${item.note})`}</span>}
+                </span>
+                <Button variant="link" tone="muted" size="sm" onClick={() => remove(item.id)}>
+                  {t('adminI18n.glossary.delete')}
+                </Button>
+              </ListItem>
+            ))}
+          </List>
+        )}
+        <form onSubmit={add} className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
+          <FieldGroup label={t('adminI18n.glossary.term')}>
+            <Input id="glossary-term" value={term} onChange={(e) => setTerm(e.target.value)} maxLength={120} />
+          </FieldGroup>
+          <FieldGroup label={t('adminI18n.glossary.translation')}>
+            <Input id="glossary-translation" value={keep ? '' : translation} disabled={keep} onChange={(e) => setTranslation(e.target.value)} maxLength={200} />
+          </FieldGroup>
+          <FieldGroup label={t('adminI18n.glossary.note')}>
+            <Input id="glossary-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} />
+          </FieldGroup>
+          <div className="flex items-center gap-3">
+            <Checkbox label={t('adminI18n.glossary.keep')} checked={keep} onChange={(e) => setKeep(e.target.checked)} />
+            <Button type="submit" variant="outline" tone="surface" size="sm" disabled={!term.trim() || (!keep && !translation.trim())}>
+              {t('adminI18n.glossary.add')}
+            </Button>
+          </div>
+        </form>
+        {error && (
+          <p className="ui-caption ui-text-error" role="alert">
+            {error}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }

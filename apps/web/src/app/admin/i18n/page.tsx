@@ -7,27 +7,22 @@ import { useBff } from '@/lib/session/use-bff';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { LoadingState, ErrorState } from '@/components/common/DataState';
 import { useT } from '@/components/i18n/I18nProvider';
-
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  borderColor: 'var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { LinkButton } from '@/components/ui/LinkButton';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
 
 function CompletionBar({ completion }: { completion: number }) {
   const pct = Math.round(completion * 100);
   return (
     <div className="flex items-center gap-2 w-40">
-      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--color-surface-muted)' }}>
-        <div
-          className="h-full rounded-full"
-          style={{ width: `${pct}%`, backgroundColor: pct === 100 ? 'var(--color-success, #12a150)' : 'var(--color-primary)' }}
-        />
+      <div className="flex-1 h-1.5 overflow-hidden ui-panel">
+        <div className="h-full ui-bar-fill" data-level={pct === 100 ? 'complete' : undefined} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-xs tabular-nums" style={{ color: 'var(--color-text-muted)' }}>
-        {pct}%
-      </span>
+      <span className="ui-caption tabular-nums">{pct}%</span>
     </div>
   );
 }
@@ -75,135 +70,89 @@ export default function AdminI18nPage() {
   const items = data?.items ?? [];
 
   return (
-    <div className="space-y-6" key={refreshKey}>
-      <div>
-        <h2 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          {t('adminI18n.title')}
-        </h2>
-        <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('adminI18n.subtitle')}
-        </p>
-      </div>
+    <div className="grid gap-6" key={refreshKey}>
+      <PageHeader title={t('adminI18n.title')} description={t('adminI18n.subtitle')} />
 
-      <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left border-b" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-muted)' }}>
-              <th className="px-4 py-2 font-medium">{t('adminI18n.code')}</th>
-              <th className="px-4 py-2 font-medium">{t('adminI18n.name')}</th>
-              <th className="px-4 py-2 font-medium">{t('adminI18n.completion')}</th>
-              <th className="px-4 py-2 font-medium">{t('adminI18n.enabled')}</th>
-              <th className="px-4 py-2 font-medium text-right">{t('adminI18n.actions')}</th>
-            </tr>
-          </thead>
-          <tbody>
+      <Card className="overflow-x-auto">
+        <Table>
+          <Thead>
+            <Tr>
+              <Th>{t('adminI18n.code')}</Th>
+              <Th>{t('adminI18n.name')}</Th>
+              <Th>{t('adminI18n.completion')}</Th>
+              <Th>{t('adminI18n.enabled')}</Th>
+              <Th className="text-right">{t('adminI18n.actions')}</Th>
+            </Tr>
+          </Thead>
+          <Tbody>
             {items.map((lang) => (
-              <tr key={lang.code} className="border-b last:border-0" style={{ borderColor: 'var(--color-border)' }}>
-                <td className="px-4 py-2 font-mono text-xs">{lang.code}</td>
-                <td className="px-4 py-2">
-                  <Link href={`/admin/i18n/${lang.code}`} className="font-medium hover:underline" style={{ color: 'var(--color-primary)' }}>
+              <Tr key={lang.code}>
+                <Td className="ui-mono">{lang.code}</Td>
+                <Td>
+                  <Link href={`/admin/i18n/${lang.code}`} className="pui-link pui-theme ui-strong">
                     {lang.name}
                   </Link>
-                  <span className="ml-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    ({lang.nativeName})
-                  </span>
-                </td>
-                <td className="px-4 py-2">
+                  <span className="ui-caption"> ({lang.nativeName})</span>
+                </Td>
+                <Td>
                   <CompletionBar completion={lang.completion} />
-                </td>
-                <td className="px-4 py-2">
-                  <span
-                    className="text-xs font-medium px-2 py-0.5 rounded-full"
-                    style={{
-                      backgroundColor: lang.isEnabled ? 'var(--color-success-bg, #e7f8ee)' : 'var(--color-surface-muted)',
-                      color: lang.isEnabled ? 'var(--color-success, #12a150)' : 'var(--color-text-muted)',
-                    }}
-                  >
-                    {lang.isEnabled ? t('adminI18n.enabled') : t('adminI18n.disabled')}
-                  </span>
-                </td>
-                <td className="px-4 py-2 text-right space-x-2">
-                  <Link href={`/admin/i18n/${lang.code}`} className="text-xs font-medium hover:underline" style={{ color: 'var(--color-primary)' }}>
-                    {t('adminI18n.open')}
-                  </Link>
-                  <button
-                    onClick={() => toggleEnabled(lang)}
-                    disabled={lang.isBase && lang.isEnabled}
-                    className="text-xs font-medium hover:underline disabled:opacity-40"
-                    style={{ color: 'var(--color-text-secondary)' }}
-                    title={lang.isBase ? t('adminI18n.cannotDisableBase') : undefined}
-                  >
-                    {lang.isEnabled ? t('adminI18n.disable') : t('adminI18n.enable')}
-                  </button>
-                  {!lang.isBundled &&
-                    (pendingDelete === lang.code ? (
-                      <span className="inline-flex items-center gap-2">
-                        <span className="text-xs" style={{ color: 'var(--color-danger, #b42318)' }}>
-                          {t('adminI18n.deleteConfirmMessage', { name: lang.name })}
+                </Td>
+                <Td>
+                  <Badge tone={lang.isEnabled ? 'success' : 'muted'}>{lang.isEnabled ? t('adminI18n.enabled') : t('adminI18n.disabled')}</Badge>
+                </Td>
+                <Td className="text-right">
+                  <span className="inline-flex flex-wrap items-center justify-end gap-2">
+                    <LinkButton href={`/admin/i18n/${lang.code}`} variant="link" size="sm">
+                      {t('adminI18n.open')}
+                    </LinkButton>
+                    <Button
+                      variant="link"
+                      tone="surface"
+                      size="sm"
+                      onClick={() => toggleEnabled(lang)}
+                      disabled={lang.isBase && lang.isEnabled}
+                      title={lang.isBase ? t('adminI18n.cannotDisableBase') : undefined}
+                    >
+                      {lang.isEnabled ? t('adminI18n.disable') : t('adminI18n.enable')}
+                    </Button>
+                    {!lang.isBundled &&
+                      (pendingDelete === lang.code ? (
+                        <span className="inline-flex flex-wrap items-center gap-2">
+                          <span className="ui-small ui-text-error">{t('adminI18n.deleteConfirmMessage', { name: lang.name })}</span>
+                          <Button variant="link" tone="error" size="sm" onClick={() => deleteLanguage(lang.code)}>
+                            {t('adminI18n.deleteConfirm')}
+                          </Button>
+                          <Button variant="link" tone="muted" size="sm" onClick={() => setPendingDelete(null)}>
+                            {t('common.cancel')}
+                          </Button>
                         </span>
-                        <button onClick={() => deleteLanguage(lang.code)} className="text-xs font-semibold" style={{ color: 'var(--color-danger, #b42318)' }}>
-                          {t('adminI18n.deleteConfirm')}
-                        </button>
-                        <button onClick={() => setPendingDelete(null)} className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                          {t('common.cancel')}
-                        </button>
-                      </span>
-                    ) : (
-                      <button onClick={() => setPendingDelete(lang.code)} className="text-xs font-medium hover:underline" style={{ color: 'var(--color-danger, #b42318)' }}>
-                        {t('adminI18n.delete')}
-                      </button>
-                    ))}
-                </td>
-              </tr>
+                      ) : (
+                        <Button variant="link" tone="error" size="sm" onClick={() => setPendingDelete(lang.code)}>
+                          {t('adminI18n.delete')}
+                        </Button>
+                      ))}
+                  </span>
+                </Td>
+              </Tr>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </Tbody>
+        </Table>
+      </Card>
 
-      <div className="rounded-2xl border p-5 max-w-lg" style={{ borderColor: 'var(--color-border)' }}>
-        <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-          {t('adminI18n.addLanguage')}
-        </h3>
-        <form onSubmit={createLanguage} className="grid grid-cols-3 gap-3">
-          <input
-            required
-            placeholder={t('adminI18n.code')}
-            value={form.code}
-            onChange={(e) => setForm({ ...form, code: e.target.value.trim() })}
-            className="px-2 py-1.5 border text-sm"
-            style={inputStyle}
-          />
-          <input
-            required
-            placeholder={t('adminI18n.name')}
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="px-2 py-1.5 border text-sm"
-            style={inputStyle}
-          />
-          <input
-            required
-            placeholder={t('adminI18n.nativeName')}
-            value={form.nativeName}
-            onChange={(e) => setForm({ ...form, nativeName: e.target.value })}
-            className="px-2 py-1.5 border text-sm"
-            style={inputStyle}
-          />
-          <button
-            type="submit"
-            disabled={submitting}
-            className="col-span-3 px-3 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-60"
-            style={{ backgroundColor: 'var(--color-primary)', borderRadius: 'var(--radius-button)' }}
-          >
-            {t('adminI18n.addLanguage')}
-          </button>
-        </form>
-        {formError && (
-          <p className="text-xs mt-2" style={{ color: 'var(--color-danger, #b42318)' }}>
-            {formError}
-          </p>
-        )}
-      </div>
+      <Card as="section" className="max-w-lg">
+        <CardContent>
+          <h3 className="ui-heading">{t('adminI18n.addLanguage')}</h3>
+          <form onSubmit={createLanguage} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Input required placeholder={t('adminI18n.code')} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.trim() })} />
+            <Input required placeholder={t('adminI18n.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <Input required placeholder={t('adminI18n.nativeName')} value={form.nativeName} onChange={(e) => setForm({ ...form, nativeName: e.target.value })} />
+            <Button type="submit" disabled={submitting} className="sm:col-span-3">
+              {t('adminI18n.addLanguage')}
+            </Button>
+          </form>
+          {formError && <p className="ui-caption ui-text-error">{formError}</p>}
+        </CardContent>
+      </Card>
     </div>
   );
 }
