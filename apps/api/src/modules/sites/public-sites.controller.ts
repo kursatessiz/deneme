@@ -32,6 +32,12 @@ export class PublicSitesController {
     return this.publicSites.getPage(studioSlug, locale, slug || '');
   }
 
+  /** Presentation settings of a site (plan-gated "Powered by" badge); 404 for an unknown site. */
+  @Get('public/sites/:studioSlug/settings')
+  async getSettings(@Param('studioSlug') studioSlug: string) {
+    return this.publicSites.getSettings(studioSlug);
+  }
+
   /** Published pages (`items`), the site default locale and, additively since S2b, published article variants (`articles`). */
   @Get('public/sites/:studioSlug/sitemap-entries')
   async sitemapEntries(@Param('studioSlug') studioSlug: string) {

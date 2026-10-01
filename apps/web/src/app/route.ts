@@ -6,7 +6,7 @@ import { negotiateRootLocale } from '@/lib/sites/root-locale';
 /**
  * The origin root belongs to the page engine (docs/SAYFA_MOTORU.md): it redirects to the platform home page
  * in the visitor's locale (`pw_locale` cookie, then Accept-Language), limited to the locales the home page
- * is published in. 302 because the target depends on the request; Vary tells caches why. A tenant host is
+ * is published in; the query string (the badge's UTM attribution) is kept. 302 because the target depends on the request; Vary tells caches why. A tenant host is
  * rewritten by the middleware before it gets here.
  */
 export const dynamic = 'force-dynamic';
@@ -21,6 +21,6 @@ export async function GET(request: NextRequest) {
   });
   return new Response(null, {
     status: 302,
-    headers: { Location: `/${locale}`, Vary: 'Accept-Language, Cookie', 'Cache-Control': 'private, max-age=0' },
+    headers: { Location: `/${locale}${request.nextUrl.search}`, Vary: 'Accept-Language, Cookie', 'Cache-Control': 'private, max-age=0' },
   });
 }

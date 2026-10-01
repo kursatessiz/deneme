@@ -106,7 +106,17 @@ Kök (`/`) bir sayfa değil, dil müzakereli bir `302` yönlendirmesidir (`app/r
 5. Açık Grafik önizlemesi için bir sayfa adresini bir paylaşım hata ayıklayıcısında (Facebook Sharing Debugger, LinkedIn Post Inspector) açın.
 6. Komut satırı: `curl -sI https://<alan-adı>/giris | grep -i x-robots-tag` ve `curl -s https://<alan-adı>/robots.txt`.
 
-## 9. Açık işler
+## 9. "Powered by" rozeti (S3)
+
+Pasif edinim: işletme sitelerinin altbilgisinde (`SiteShell`: sayfa motoru sayfaları ve blog), herkese açık rezervasyon sayfasında, herkese açık etkinlik sayfalarında (`PublicEventsShell`) ve gömülebilir widget'ta küçük bir "{ürün} ile hazırlandı" bağlantısı görünür (`branding.poweredBy`, `packages/shared/src/i18n/messages/{tr,en}/branding.ts`).
+
+- **Bağlantı**: `buildPoweredByUrl()` (`packages/shared/src/branding.ts`) platform alan adının kökünü `utm_source=tenant-site&utm_medium=badge&utm_campaign=<studioSlug>` ile üretir. Kök `/` dil müzakereli yönlendirmedir ve artık sorgu dizesini korur (`app/route.ts`), böylece UTM atıf kaydı açılış sayfasına ulaşır. Bağlantı `rel="noopener"` taşır, `nofollow` taşımaz (geri bağlantı amaçtır); bileşen `components/branding/PoweredByBadge.tsx`.
+- **Plan kapısı**: `branding.hide_badge` özellik bayrağı (varsayılan kapalı, yani rozet görünür). Bayrak diğer bayraklarla aynı çözümlenir (kiracı satırı, uygulama pazarı eklentisi, işletme türü, global; `FeatureFlagsService`), dolayısıyla premium bir eklenti `featureFlagKey = 'branding.hide_badge'` ile rozeti gizleyebilir veya süper admin "Özellik Bayrakları" ekranından tek kiracı için `TENANT` kapsamında açabilir. Bayrak kataloğu: `FEATURE_FLAGS` (`packages/shared/src/admin.ts`).
+- **API**: `GET /public/studios/:slug/embed/config` (rezervasyon sayfası, etkinlik sayfaları, widget) ve yeni `GET /public/sites/:slug/settings` (sayfa motoru) `showPoweredBy` ve `poweredByUrl` döner; gizliyken `poweredByUrl` `null`dır. Platform kiracısı için her zaman `showPoweredBy: false`. Kural tek yerde: `apps/api/src/modules/sites/powered-by.ts`.
+- **Önbellek**: web tarafında ayar okuması 300 saniye önbellekli (`fetchSiteSettings`, etiket `site-settings:<slug>`); bayrak değişimi en geç 5 dakikada yansır. API hatasında rozet gösterilmez (güvenli kapalı).
+- **Testler**: `packages/shared/src/branding.spec.ts` (URL oluşturucu), `apps/api/test/e2e/branding.e2e-spec.ts` (varsayılan görünür, bayrakla gizlenir, platform kiracısı, bilinmeyen site 404).
+
+## 17. Açık işler
 
 - Blog için görsel seçici, yazı önizlemesi ve zamanlanmış yayın (S2b'de yok).
 - ISR: sayfalar `force-dynamic` ve her istekte render ediliyor; API yanıtları önbellekli.

@@ -25,7 +25,7 @@ export class EmbedPublicController {
 
   @Get('config')
   async config(@Param('slug') slug: string) {
-    const studio = await this.publicApi.resolveStudioForEmbed(slug);
+    const studio = await this.publicApi.resolveEmbedConfig(slug);
     return {
       name: studio.name,
       logoUrl: studio.logoUrl,
@@ -35,6 +35,9 @@ export class EmbedPublicController {
       allowedThemeFamilies: studio.allowedThemeFamilies,
       // Studio zone: the effective zone of any session or branch without its own (branches report theirs).
       timezone: studio.timezone,
+      // Passive acquisition badge (docs/SEO.md): plan-gated by the branding.hide_badge flag, never on the platform tenant.
+      showPoweredBy: studio.showPoweredBy,
+      poweredByUrl: studio.poweredByUrl,
     };
   }
 

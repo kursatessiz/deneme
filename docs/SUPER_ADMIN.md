@@ -305,3 +305,9 @@ Hepsi `@SuperAdminOnly()`; ayrıntı `docs/HATA_RAPORLAMA.md`.
 | `/admin/hatalar/ayarlar` | Ani artış eşikleri, grup başına bekleme süresi, imzalı webhook (adres, imza anahtarı) ve Slack (gelen webhook adresi); değerler şifrelenir ve tekrar gösterilmez |
 
 Tenant sahibi kendi işletmesi için `/ayarlar/hatalar` üstünden yeni grup ve ani artışta e-posta bildirimini açıp kapatır (varsayılan kapalı).
+
+## Pasif pazarlama ve SEO ayarları (S3)
+
+Ayrıntılar `docs/SEO.md` bölüm 9 ve sonrasıdır; süper adminin elindeki düğmeler:
+
+- **Rozet**: "Özellik Bayrakları" ekranında `branding.hide_badge` anahtarı `TENANT` kapsamında açılırsa o işletmenin herkese açık sayfalarında "Powered by" rozeti gizlenir (premium işletme). Varsayılan kapalıdır, yani rozet görünür; platform kiracısında hiçbir zaman görünmez. Uygulama pazarı eklentisinin `featureFlagKey` alanına aynı anahtar yazılırsa eklentiyi alan işletme için bayrak kendiliğinden açılır.

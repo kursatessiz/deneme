@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { STUDIO_SLUG_PATTERN } from '@platform/shared';
+import { PRODUCT_NAME, STUDIO_SLUG_PATTERN } from '@platform/shared';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
 import { ThemeRoot } from '@/components/theme/ThemeRoot';
+import { PoweredByBadge } from '@/components/branding/PoweredByBadge';
 import { Button, Card, CardContent, ChipButton, Checkbox, FieldGroup, Input, Radio, Select, Skeleton } from '@/components/ui';
 import { publicApiBaseUrl } from '@/lib/public-api-url';
 import { embedFetch, openMemberAppSession, scheduleTimeZone } from '@/lib/public-booking';
@@ -298,6 +299,11 @@ export default function PublicBookingPage() {
             )}
           </CardContent>
         </Card>
+        {config?.showPoweredBy && (
+          <div className="mx-auto w-full max-w-xl pt-4 text-center">
+            <PoweredByBadge href={config.poweredByUrl} label={t('branding.poweredBy', { product: PRODUCT_NAME })} />
+          </div>
+        )}
       </main>
     </ThemeRoot>
   );

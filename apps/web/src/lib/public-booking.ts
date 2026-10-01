@@ -25,6 +25,9 @@ export interface EmbedConfig {
   allowedThemeFamilies?: string[];
   /** The studio's IANA time zone: the zone of any session whose branch has none of its own. */
   timezone: string;
+  /** Plan-gated "Powered by" badge (docs/SEO.md); absent from an older API. */
+  showPoweredBy?: boolean;
+  poweredByUrl?: string | null;
 }
 
 export interface EmbedBranch {

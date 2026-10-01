@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@platform/database';
 import { DEFAULT_TENANT_THEME, studioBillingCurrency } from '@platform/shared';
-import type { PublicPageDTO, PublicPageContext, PageLocaleDTO, BlockDTO, SitemapPageEntry, TenantThemeView } from '@platform/shared';
+import type { PublicPageDTO, PublicPageContext, PageLocaleDTO, BlockDTO, PublicSiteSettingsDTO, SitemapPageEntry, TenantThemeView } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { sitesBaseDomain } from './sites.service';
 import { loadAllowedThemeFamiliesForStudio } from '../appearance/theme-families';
+import { loadPoweredBy } from './powered-by';
 
 function toLocaleDto(l: { locale: string; slug: string; seoTitle: string | null; seoDescription: string | null; ogImageUrl: string | null; legalApproved: boolean; legalApprovedAt: Date | null }): PageLocaleDTO {
   return {
@@ -93,6 +94,13 @@ export class PublicSitesService {
       blocks: page.blocks.map(toBlockDto),
       context,
     };
+  }
+
+  /** Per-site presentation settings for the public renderer (the "Powered by" badge today); 404 when the site does not exist. */
+  async getSettings(studioSlug: string): Promise<PublicSiteSettingsDTO> {
+    const studio = await this.prisma.studio.findFirst({ where: { slug: studioSlug, isActive: true }, select: { id: true, slug: true, isPlatform: true, site: { select: { id: true } } } });
+    if (!studio?.site) throw new NotFoundException('Site bulunamadı');
+    return { ...(await loadPoweredBy(this.prisma, studio)) };
   }
 
   /** The site's default locale, for the sitemap's x-default alternates; null when the studio has no site. */

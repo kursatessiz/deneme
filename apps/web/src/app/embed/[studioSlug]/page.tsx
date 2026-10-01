@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
-import { resolveTheme, themeCssVariables, STUDIO_SLUG_PATTERN } from '@platform/shared';
+import { resolveTheme, themeCssVariables, PRODUCT_NAME, STUDIO_SLUG_PATTERN } from '@platform/shared';
+import { PoweredByBadge } from '@/components/branding/PoweredByBadge';
 import { trackingHeaders } from '@/lib/tracking/client';
 import { Button, Card, CardContent, Checkbox, FieldGroup, Input, Select } from '@/components/ui';
 import { publicApiBaseUrl } from '@/lib/public-api-url';
@@ -238,6 +239,11 @@ export default function EmbedBookingPage() {
           )}
         </CardContent>
       </Card>
+      {config?.showPoweredBy && (
+        <div className="mx-auto max-w-md pt-3 text-center">
+          <PoweredByBadge href={config.poweredByUrl} label={t('branding.poweredBy', { product: PRODUCT_NAME })} />
+        </div>
+      )}
     </div>
   );
 }

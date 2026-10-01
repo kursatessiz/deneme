@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isReservedPageSlug, type ArticleSitemapEntry } from './articles';
+import type { PoweredByDTO } from '../branding';
 
 /**
  * Page engine core contracts (docs/SAYFA_MOTORU.md). `Site` -> `Page` ->
@@ -232,3 +233,9 @@ export function buildHreflangAlternates<T extends { locale: string; slug: string
   }
   return out;
 }
+
+/**
+ * What GET /public/sites/:slug/settings returns: per-site presentation settings the public renderer needs
+ * outside a page body (badge, and since S3 verification tags, crawler policy and the review aggregate).
+ */
+export interface PublicSiteSettingsDTO extends PoweredByDTO {}

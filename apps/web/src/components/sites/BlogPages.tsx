@@ -20,7 +20,8 @@ import { articleJsonLd, breadcrumbJsonLd } from '@/lib/sites/jsonld';
 import { sitePath } from '@/lib/sites/origin';
 import { requestSiteOrigin } from '@/lib/sites/request-origin';
 import { ArticleBody } from './ArticleBody';
-import { SiteShell } from './SiteShell';
+import { fetchSiteSettings } from '@/lib/sites/api';
+import { SiteShell, poweredByOf } from './SiteShell';
 
 /**
  * Blog pages of the page engine (S2b, docs/SAYFA_MOTORU.md "Yazılar / blog"): the article list (optionally
@@ -122,7 +123,7 @@ export async function BlogIndexView({ studioSlug, isPlatform, locale, page, tag 
   if (!list) notFound();
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize));
   if (page > pages) notFound();
-  const [t, origin] = await Promise.all([getTFor(locale), requestSiteOrigin(studioSlug, isPlatform)]);
+  const [t, origin, settings] = await Promise.all([getTFor(locale), requestSiteOrigin(studioSlug, isPlatform), fetchSiteSettings(studioSlug)]);
   const { site } = list;
   const heading = list.tag ? t('articles.public.tagTitle', { tag: list.tag.label }) : t('articles.public.title');
   const listPath = list.tag ? blogTagPath(locale, list.tag.slug) : blogIndexPath(locale);
@@ -135,7 +136,7 @@ export async function BlogIndexView({ studioSlug, isPlatform, locale, page, tag 
   ];
 
   return (
-    <SiteShell theme={site.theme} studioSlug={studioSlug} cookieLabel={t('sites.footer.cookiePreferences')} jsonLd={[serializeJsonLd(breadcrumbJsonLd(crumbs))]}>
+    <SiteShell theme={site.theme} studioSlug={studioSlug} cookieLabel={t('sites.footer.cookiePreferences')} jsonLd={[serializeJsonLd(breadcrumbJsonLd(crumbs))]} poweredBy={poweredByOf(settings, t)}>
       <BlogHeader site={site} locale={locale} t={t} />
       <div className="mx-auto max-w-3xl px-4 py-10 grid gap-8">
         <div className="grid gap-2">
@@ -239,7 +240,7 @@ export async function buildArticleMetadata({ studioSlug, isPlatform, locale }: B
 export async function ArticleView({ studioSlug, isPlatform, locale, slug }: BlogRouteParams & { slug: string }) {
   const article = await fetchPublicArticle(studioSlug, locale, slug);
   if (!article) notFound();
-  const [t, origin] = await Promise.all([getTFor(locale), requestSiteOrigin(studioSlug, isPlatform)]);
+  const [t, origin, settings] = await Promise.all([getTFor(locale), requestSiteOrigin(studioSlug, isPlatform), fetchSiteSettings(studioSlug)]);
   const { site } = article;
   const url = `${origin}${articlePath(locale, article.slug)}`;
   const updated = article.updatedAt.slice(0, 10) !== article.publishedAt.slice(0, 10);
@@ -265,7 +266,7 @@ export async function ArticleView({ studioSlug, isPlatform, locale, slug }: Blog
   ];
 
   return (
-    <SiteShell theme={site.theme} studioSlug={studioSlug} cookieLabel={t('sites.footer.cookiePreferences')} jsonLd={jsonLd.map((doc) => serializeJsonLd(doc))}>
+    <SiteShell theme={site.theme} studioSlug={studioSlug} cookieLabel={t('sites.footer.cookiePreferences')} jsonLd={jsonLd.map((doc) => serializeJsonLd(doc))} poweredBy={poweredByOf(settings, t)}>
       <BlogHeader site={site} locale={locale} t={t} />
       <article className="mx-auto max-w-3xl px-4 py-10 grid gap-6">
         <Link href={blogIndexPath(locale)} className="pui-link ui-caption justify-self-start">

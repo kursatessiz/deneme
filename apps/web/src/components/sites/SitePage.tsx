@@ -2,14 +2,14 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { PRODUCT_NAME, buildHreflangAlternates } from '@platform/shared';
 import { toOgLocale } from '@/lib/seo/og-locale';
-import { fetchPublicPage } from '@/lib/sites/api';
+import { fetchPublicPage, fetchSiteSettings } from '@/lib/sites/api';
 import { sitePath } from '@/lib/sites/origin';
 import { requestSiteOrigin } from '@/lib/sites/request-origin';
 import { pickPageVariant } from '@/lib/sites/ab';
 import { getTFor } from '@/lib/i18n/getT';
 import { serializeJsonLd } from '@/lib/sites/json-ld';
 import { BlockRenderer } from './BlockRenderer';
-import { SiteShell } from './SiteShell';
+import { SiteShell, poweredByOf } from './SiteShell';
 import {
   breadcrumbJsonLd,
   faqPageJsonLd,
@@ -99,7 +99,7 @@ export async function SitePageView({ studioSlug, isPlatform, locale, slugParts }
 
   const variantKeys = Array.from(new Set(page.blocks.map((b) => b.abVariantKey).filter((v): v is string => !!v))).sort();
   const { variant } = await pickPageVariant(variantKeys);
-  const t = await getTFor(locale);
+  const [t, settings] = await Promise.all([getTFor(locale), fetchSiteSettings(studioSlug)]);
 
   const origin = await requestSiteOrigin(studioSlug, isPlatform);
   const pageUrl = `${origin}${pathFor(locale, slug)}`;
@@ -134,6 +134,7 @@ export async function SitePageView({ studioSlug, isPlatform, locale, slugParts }
       studioSlug={studioSlug}
       cookieLabel={t('sites.footer.cookiePreferences')}
       jsonLd={jsonLd.map(serializeJsonLd)}
+      poweredBy={poweredByOf(settings, t)}
       banner={
         page.page.kind === 'LEGAL' && !page.localeMeta.legalApproved ? (
           <div role="note" className="ui-panel ui-strong ui-text-warn text-center px-4 py-3">

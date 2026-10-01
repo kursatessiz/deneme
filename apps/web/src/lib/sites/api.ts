@@ -1,5 +1,5 @@
 import { apiInternalBaseUrl } from '@/lib/server-env';
-import type { ArticleSitemapEntry, PublicPageDTO, SitemapPageEntry, SitemapResponseDTO } from '@platform/shared';
+import type { ArticleSitemapEntry, PublicPageDTO, PublicSiteSettingsDTO, SitemapPageEntry, SitemapResponseDTO } from '@platform/shared';
 import { originForHost, siteOrigin } from './origin';
 
 /**
@@ -18,6 +18,24 @@ export async function fetchPublicPage(studioSlug: string, locale: string, slug: 
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Sayfa yüklenemedi (${res.status})`);
   return (await res.json()) as PublicPageDTO;
+}
+
+/**
+ * Presentation settings of a site (the plan-gated "Powered by" badge today), cached like the page reads and
+ * purged with the site's other tags on publish. An unknown site or an unreachable API fails closed: no badge.
+ */
+export async function fetchSiteSettings(studioSlug: string): Promise<PublicSiteSettingsDTO> {
+  const fallback: PublicSiteSettingsDTO = { showPoweredBy: false, poweredByUrl: null };
+  try {
+    const res = await fetch(`${apiInternalBaseUrl()}/public/sites/${encodeURIComponent(studioSlug)}/settings`, {
+      next: { revalidate: PAGE_REVALIDATE_SECONDS, tags: [`site-settings:${studioSlug}`] },
+      signal: AbortSignal.timeout(2000),
+    });
+    if (!res.ok) return fallback;
+    return (await res.json()) as PublicSiteSettingsDTO;
+  } catch {
+    return fallback;
+  }
 }
 
 export async function fetchSitemapEntries(studioSlug: string): Promise<SitemapResponseDTO> {
