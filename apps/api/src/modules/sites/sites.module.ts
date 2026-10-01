@@ -8,13 +8,29 @@ import { DnsVerificationService } from './dns.service';
 import { SitesTenantController } from './sites-tenant.controller';
 import { CompanyInfoController } from './company-info.controller';
 import { PublicSitesController } from './public-sites.controller';
-import { SitesPublicRateLimitGuard } from './sites-rate-limit.guard';
+import { SitesFeedRateLimitGuard, SitesPublicRateLimitGuard } from './sites-rate-limit.guard';
+import { ArticlesService } from './articles.service';
+import { PublicArticlesService } from './public-articles.service';
+import { ArticlesFeedCache } from './articles-feed-cache.service';
+import { ArticlesTenantController } from './articles-tenant.controller';
+import { PublicArticlesController } from './public-articles.controller';
 
-/** Page engine (G2c): Site -> Page -> Block, tenant sites and the platform site. See docs/SAYFA_MOTORU.md. */
+/** Page engine (G2c): Site -> Page -> Block, tenant sites and the platform site, plus blog articles (S2b). See docs/SAYFA_MOTORU.md. */
 @Module({
   imports: [AuthModule],
-  controllers: [SitesTenantController, CompanyInfoController, PublicSitesController],
-  providers: [SitesService, PagesService, CompanyInfoService, PublicSitesService, DnsVerificationService, SitesPublicRateLimitGuard],
+  controllers: [SitesTenantController, ArticlesTenantController, CompanyInfoController, PublicSitesController, PublicArticlesController],
+  providers: [
+    SitesService,
+    PagesService,
+    CompanyInfoService,
+    PublicSitesService,
+    DnsVerificationService,
+    SitesPublicRateLimitGuard,
+    SitesFeedRateLimitGuard,
+    ArticlesService,
+    PublicArticlesService,
+    ArticlesFeedCache,
+  ],
   exports: [SitesService, PagesService, PublicSitesService],
 })
 export class SitesModule {}

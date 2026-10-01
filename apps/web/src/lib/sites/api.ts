@@ -1,5 +1,5 @@
 import { apiInternalBaseUrl } from '@/lib/server-env';
-import type { PublicPageDTO, SitemapPageEntry, SitemapResponseDTO } from '@platform/shared';
+import type { ArticleSitemapEntry, PublicPageDTO, SitemapPageEntry, SitemapResponseDTO } from '@platform/shared';
 import { originForHost, siteOrigin } from './origin';
 
 /**
@@ -27,11 +27,11 @@ export async function fetchSitemapEntries(studioSlug: string): Promise<SitemapRe
     const res = await fetch(`${apiInternalBaseUrl()}/public/sites/${encodeURIComponent(studioSlug)}/sitemap-entries`, {
       next: { revalidate: PAGE_REVALIDATE_SECONDS },
     });
-    if (!res.ok) return { items: [], defaultLocale: null };
-    const data = (await res.json()) as { items: SitemapPageEntry[]; defaultLocale?: string | null };
-    return { items: data.items, defaultLocale: data.defaultLocale ?? null };
+    if (!res.ok) return { items: [], defaultLocale: null, articles: [] };
+    const data = (await res.json()) as { items: SitemapPageEntry[]; defaultLocale?: string | null; articles?: ArticleSitemapEntry[] };
+    return { items: data.items, defaultLocale: data.defaultLocale ?? null, articles: data.articles ?? [] };
   } catch {
-    return { items: [], defaultLocale: null };
+    return { items: [], defaultLocale: null, articles: [] };
   }
 }
 

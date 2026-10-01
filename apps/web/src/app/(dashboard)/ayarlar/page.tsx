@@ -104,7 +104,7 @@ const CARDS: SettingsCard[] = [
     titleKey: 'settings.hub.site.title',
     descriptionKey: 'settings.hub.site.description',
     icon: Globe,
-    permissions: ['site.view', 'site.manage'],
+    permissions: ['site.view', 'site.manage', 'sites.articles.manage'],
   },
   {
     key: 'entegrasyonlar',

@@ -70,6 +70,7 @@ export const PLATFORM_TENANT_GRANTS: Readonly<Record<PlatformPermissionKey, read
     'journeys.manage',
     'funnels.manage',
     'site.manage',
+    'sites.articles.manage',
     'notifications.manage',
   ],
   'platform.marketing.send': [],

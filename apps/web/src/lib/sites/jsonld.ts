@@ -170,3 +170,42 @@ export function eventJsonLd(input: EventJsonLdInput) {
       : {}),
   };
 }
+
+export interface ArticleJsonLdInput {
+  headline: string;
+  url: string;
+  description?: string | null;
+  imageUrl?: string | null;
+  /** ISO 8601. */
+  datePublished: string;
+  dateModified: string;
+  locale: string;
+  author: { name: string; kind: 'Person' | 'Organization' };
+  publisher: { name: string; url: string; logoUrl?: string | null };
+}
+
+/**
+ * schema.org Article for a published blog article (docs/SEO.md). The headline is capped at 110 characters
+ * as search engines expect; the publisher is the platform company or the studio, with its logo when set.
+ */
+export function articleJsonLd(input: ArticleJsonLdInput) {
+  return {
+    '@context': CONTEXT,
+    '@type': 'Article',
+    headline: input.headline.length > 110 ? `${input.headline.slice(0, 109)}…` : input.headline,
+    url: input.url,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': input.url },
+    inLanguage: input.locale,
+    datePublished: input.datePublished,
+    dateModified: input.dateModified,
+    ...(input.description ? { description: input.description } : {}),
+    ...(input.imageUrl ? { image: [input.imageUrl] } : {}),
+    author: { '@type': input.author.kind, name: input.author.name },
+    publisher: {
+      '@type': 'Organization',
+      name: input.publisher.name,
+      url: input.publisher.url,
+      ...(input.publisher.logoUrl ? { logo: { '@type': 'ImageObject', url: input.publisher.logoUrl } } : {}),
+    },
+  };
+}

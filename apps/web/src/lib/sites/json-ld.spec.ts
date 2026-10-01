@@ -1,5 +1,6 @@
 import { serializeJsonLd } from './json-ld';
 import {
+  articleJsonLd,
   breadcrumbJsonLd,
   eventJsonLd,
   faqPageJsonLd,
@@ -141,5 +142,43 @@ describe('eventJsonLd', () => {
   it('is safe to serialize into a script tag', () => {
     const out = serializeJsonLd(eventJsonLd({ ...base, name: '</script>' }));
     expect(out).not.toContain('<');
+  });
+});
+
+describe('articleJsonLd', () => {
+  const base = {
+    headline: 'Hello',
+    url: 'https://acme.test/en/blog/hello',
+    datePublished: '2026-09-15T08:00:00.000Z',
+    dateModified: '2026-09-16T08:00:00.000Z',
+    locale: 'en',
+    author: { name: 'Ayse', kind: 'Person' as const },
+    publisher: { name: 'Acme', url: 'https://acme.test', logoUrl: 'https://cdn.test/l.png' },
+  };
+
+  it('carries dates, language, author, publisher with logo and the main entity', () => {
+    expect(articleJsonLd({ ...base, imageUrl: 'https://cdn.test/c.png', description: 'Short' })).toEqual({
+      '@context': 'https://schema.org',
+      '@type': 'Article',
+      headline: 'Hello',
+      url: 'https://acme.test/en/blog/hello',
+      mainEntityOfPage: { '@type': 'WebPage', '@id': 'https://acme.test/en/blog/hello' },
+      inLanguage: 'en',
+      datePublished: '2026-09-15T08:00:00.000Z',
+      dateModified: '2026-09-16T08:00:00.000Z',
+      description: 'Short',
+      image: ['https://cdn.test/c.png'],
+      author: { '@type': 'Person', name: 'Ayse' },
+      publisher: { '@type': 'Organization', name: 'Acme', url: 'https://acme.test', logo: { '@type': 'ImageObject', url: 'https://cdn.test/l.png' } },
+    });
+  });
+
+  it('omits empty optional fields and caps the headline', () => {
+    const doc = articleJsonLd({ ...base, headline: 'x'.repeat(200), publisher: { name: 'Acme', url: 'https://acme.test' }, author: { name: 'Acme', kind: 'Organization' } });
+    expect(doc.headline).toHaveLength(110);
+    expect(doc).not.toHaveProperty('image');
+    expect(doc).not.toHaveProperty('description');
+    expect(doc.publisher).not.toHaveProperty('logo');
+    expect(doc.author).toEqual({ '@type': 'Organization', name: 'Acme' });
   });
 });

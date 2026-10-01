@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isReservedPageSlug, type ArticleSitemapEntry } from './articles';
 
 /**
  * Page engine core contracts (docs/SAYFA_MOTORU.md). `Site` -> `Page` ->
@@ -27,6 +28,8 @@ const Slug = z
   .max(160)
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*(\/[a-z0-9]+(-[a-z0-9]+)*)*$/, 'Geçersiz yol (slug)');
 const LocaleCode = z.string().trim().min(2).max(10);
+/** A page slug may not start with the blog segment: `/<locale>/blog/...` belongs to the article routes (S2b). */
+const PageSlug = Slug.refine((slug) => !isReservedPageSlug(slug), 'Reserved path (blog)');
 
 // ---------------------------------------------------------------------------
 export const UpdateSiteSchema = z
@@ -58,7 +61,7 @@ export const CreatePageSchema = z.object({
 export type CreatePageInput = z.infer<typeof CreatePageSchema>;
 
 export const UpsertPageLocaleSchema = z.object({
-  slug: Slug,
+  slug: PageSlug,
   seoTitle: z.string().trim().max(200).optional().nullable(),
   seoDescription: z.string().trim().max(400).optional().nullable(),
   ogImageUrl: z.string().trim().url().max(2000).optional().nullable(),
@@ -198,6 +201,8 @@ export interface SitemapPageEntry {
 export interface SitemapResponseDTO {
   items: SitemapPageEntry[];
   defaultLocale: string | null;
+  /** Published article variants (S2b); absent from an older API. */
+  articles?: ArticleSitemapEntry[];
 }
 
 /** hreflang value for the fallback variant (docs/SEO.md). */

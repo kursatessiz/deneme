@@ -2,6 +2,7 @@ import { Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, Query,
 import { PublicSitesService } from './public-sites.service';
 import { SitesService } from './sites.service';
 import { SitesPublicRateLimitGuard } from './sites-rate-limit.guard';
+import { PublicArticlesService } from './public-articles.service';
 
 /**
  * Unauthenticated read routes the web app's rendering layer and Caddy call.
@@ -12,6 +13,7 @@ export class PublicSitesController {
   constructor(
     private readonly publicSites: PublicSitesService,
     private readonly sites: SitesService,
+    private readonly articles: PublicArticlesService,
   ) {}
 
   /** Web middleware: which site does this Host header belong to. */
@@ -30,10 +32,15 @@ export class PublicSitesController {
     return this.publicSites.getPage(studioSlug, locale, slug || '');
   }
 
+  /** Published pages (`items`), the site default locale and, additively since S2b, published article variants (`articles`). */
   @Get('public/sites/:studioSlug/sitemap-entries')
   async sitemapEntries(@Param('studioSlug') studioSlug: string) {
-    const [items, defaultLocale] = await Promise.all([this.publicSites.sitemapEntries(studioSlug), this.publicSites.siteDefaultLocale(studioSlug)]);
-    return { items, defaultLocale };
+    const [items, defaultLocale, articles] = await Promise.all([
+      this.publicSites.sitemapEntries(studioSlug),
+      this.publicSites.siteDefaultLocale(studioSlug),
+      this.articles.sitemapEntries(studioSlug),
+    ]);
+    return { items, defaultLocale, articles };
   }
 
   /**

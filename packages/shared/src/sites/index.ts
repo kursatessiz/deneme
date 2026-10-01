@@ -4,3 +4,6 @@ export * from './ab';
 export * from './domain';
 export * from './sitemap';
 export * from './indexing';
+export * from './articles';
+export * from './article-markup';
+export * from './rss';

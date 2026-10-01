@@ -1,10 +1,14 @@
 import { headers } from 'next/headers';
 import { LocaleCodeSchema, PRODUCT_NAME } from '@platform/shared';
 import { fetchPublicPage, studioSlugForHost } from '@/lib/sites/api';
+import { fetchPublicArticle } from '@/lib/sites/articles-api';
 import { fetchLogoDataUri } from '@/lib/og/logo';
 import { renderOgCard } from '@/lib/og/card';
 
-/** Generated Open Graph image of a page-engine page; host-aware like sitemap.xml (docs/SEO.md). */
+/**
+ * Generated Open Graph image of a page-engine page (`?locale=&slug=`) or of a blog article without its own
+ * image (`?locale=&article=`); host-aware like sitemap.xml (docs/SEO.md).
+ */
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9/_-]{0,199}$/;
 
 export async function GET(request: Request): Promise<Response> {
@@ -15,6 +19,20 @@ export async function GET(request: Request): Promise<Response> {
 
   const h = await headers();
   const { studioSlug, isPlatform } = await studioSlugForHost(h.get('host') ?? '');
+
+  const articleSlug = params.get('article');
+  if (articleSlug !== null) {
+    const article = await fetchPublicArticle(studioSlug, locale.data, articleSlug);
+    if (!article) return new Response(null, { status: 404 });
+    return renderOgCard({
+      title: article.title,
+      description: article.excerpt,
+      name: article.site.siteName,
+      primary: article.site.theme.themePrimary,
+      logoDataUri: await fetchLogoDataUri(article.site.logoUrl),
+    });
+  }
+
   const page = await fetchPublicPage(studioSlug, locale.data, slug);
   if (!page) return new Response(null, { status: 404 });
 
