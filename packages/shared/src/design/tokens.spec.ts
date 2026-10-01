@@ -1,81 +1,118 @@
 import {
-  GRADIENT_PRESETS,
-  TenantThemeSchema,
+  AppearancePreferenceSchema,
   DEFAULT_TENANT_THEME,
+  GRADIENT_PRESET_KEYS,
+  GRADIENT_SLOTS,
+  TenantThemeSchema,
+  brandGradient,
   contrastRatio,
+  familyOfGradient,
   gradientCss,
   onColor,
   palette,
-  semanticColors,
   resolveTheme,
-  familyOfGradient,
+  semanticColors,
+  shade,
+  themeColorScheme,
   themeCssVariables,
-  AppearancePreferenceSchema,
+  themePuiMode,
 } from './tokens';
-import { THEME_FAMILIES, THEME_FAMILY_KEYS } from './themes';
+import { PERFECT_UI_TOKENS, THEME_FAMILIES, THEME_FAMILY_KEYS, getThemeFamily } from './themes';
 
-describe('design tokens', () => {
-  it('has unique gradient preset keys', () => {
-    const keys = GRADIENT_PRESETS.map((p) => p.key);
-    expect(new Set(keys).size).toBe(keys.length);
+describe('design tokens (Perfect UI)', () => {
+  it('has exactly one design family and maps every legacy or unknown key to it', () => {
+    expect(THEME_FAMILY_KEYS).toEqual(['perfect']);
+    for (const key of ['perfect', 'noir', 'nefes', 'saha', 'atolye', 'mor', null, undefined]) {
+      expect(getThemeFamily(key).key).toBe('perfect');
+    }
+  });
+
+  it('copies the kit core.css colors exactly', () => {
+    expect(PERFECT_UI_TOKENS.colors.light).toMatchObject({
+      bg: '#ffffff',
+      bgMuted: '#f3f4f6',
+      bgEmphasis: '#e5e7eb',
+      text: '#000000',
+      textMuted: '#676d7b',
+      border: '#d1d5db',
+      theme: '#0092cd',
+      success: '#16a34a',
+      warn: '#d97706',
+      error: '#dc2626',
+      muted: '#6b7280',
+    });
+    expect(PERFECT_UI_TOKENS.colors.dark).toMatchObject({
+      bg: '#000000',
+      bgMuted: '#111827',
+      bgEmphasis: '#1f2937',
+      text: '#ffffff',
+      textMuted: '#9ca3af',
+      border: '#374151',
+      theme: '#07b6f0',
+      success: '#22c55e',
+      warn: '#f59e0b',
+      error: '#ef4444',
+      muted: '#9ca3af',
+    });
+    expect([PERFECT_UI_TOKENS.radius, PERFECT_UI_TOKENS.space, PERFECT_UI_TOKENS.fontSize]).toEqual([6, 4, 14]);
+    expect(THEME_FAMILIES.perfect.radii).toEqual({ card: 9, button: 6, chip: 9999, input: 6 });
+  });
+
+  it('keeps exactly two gradient slots', () => {
+    expect(GRADIENT_SLOTS).toEqual(['memberCard', 'packageCard']);
   });
 
   it('accepts the default theme and rejects free-form values', () => {
     expect(TenantThemeSchema.parse(DEFAULT_TENANT_THEME)).toEqual(DEFAULT_TENANT_THEME);
     expect(TenantThemeSchema.safeParse({ ...DEFAULT_TENANT_THEME, themePrimary: 'purple' }).success).toBe(false);
     expect(TenantThemeSchema.safeParse({ ...DEFAULT_TENANT_THEME, gradientPresetKey: 'neon' }).success).toBe(false);
+    expect(TenantThemeSchema.safeParse({ ...DEFAULT_TENANT_THEME, themeFamily: 'mor' }).success).toBe(false);
   });
 
-  it('rejects a gradient from another family', () => {
-    expect(
-      TenantThemeSchema.safeParse({ ...DEFAULT_TENANT_THEME, themeFamily: 'noir', gradientPresetKey: 'atolye-kil' }).success,
-    ).toBe(false);
-    expect(
-      TenantThemeSchema.safeParse({ ...DEFAULT_TENANT_THEME, themeFamily: 'noir', gradientPresetKey: 'noir-zumrut' }).success,
-    ).toBe(true);
+  it('keeps accepting stored legacy keys without rewriting them', () => {
+    const legacy = { logoUrl: null, themeFamily: 'saha', themePrimary: '#1FA37A', gradientPresetKey: 'saha-yesil' };
+    expect(TenantThemeSchema.parse(legacy)).toEqual(legacy);
+    // The old contract still holds for legacy families: the preset must belong to the family.
+    expect(TenantThemeSchema.safeParse({ ...legacy, gradientPresetKey: 'nefes-lavanta' }).success).toBe(false);
+    // The current family takes any known preset key and ignores it.
+    expect(TenantThemeSchema.safeParse({ ...legacy, themeFamily: 'perfect', gradientPresetKey: 'nefes-lavanta' }).success).toBe(true);
+    expect(new Set(GRADIENT_PRESET_KEYS).size).toBe(GRADIENT_PRESET_KEYS.length);
+    expect(familyOfGradient('atolye-kil')).toBe('atolye');
+    expect(familyOfGradient('perfect-brand')).toBe('perfect');
   });
 
-  it('every family has five gradients that belong to it', () => {
-    for (const key of THEME_FAMILY_KEYS) {
-      expect(THEME_FAMILIES[key].gradients).toHaveLength(5);
-      for (const g of THEME_FAMILIES[key].gradients) expect(familyOfGradient(g.key)).toBe(key);
-    }
-  });
-
-  it('every family keeps text readable in light and dark', () => {
-    for (const key of THEME_FAMILY_KEYS) {
-      for (const mode of ['light', 'dark'] as const) {
-        const c = THEME_FAMILIES[key].colors[mode];
-        for (const bg of [c.background, c.surface, c.surfaceMuted]) {
-          expect(contrastRatio(c.textPrimary, bg)).toBeGreaterThanOrEqual(7);
-          expect(contrastRatio(c.textSecondary, bg)).toBeGreaterThanOrEqual(4.5);
-          expect(contrastRatio(c.textMuted, bg)).toBeGreaterThanOrEqual(3);
-        }
+  it('kit neutrals keep text readable in light and dark', () => {
+    for (const mode of ['light', 'dark'] as const) {
+      const c = semanticColors[mode];
+      for (const bg of [c.background, c.surface, c.surfaceMuted]) {
+        expect(contrastRatio(c.textPrimary, bg)).toBeGreaterThanOrEqual(7);
+        expect(contrastRatio(c.textSecondary, bg)).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(c.textMuted, bg)).toBeGreaterThanOrEqual(3);
       }
     }
   });
 
-  it('gradient start colors carry readable button text', () => {
-    for (const key of THEME_FAMILY_KEYS) {
-      for (const g of THEME_FAMILIES[key].gradients) {
-        const text = onColor(g.stops[0]);
-        expect(contrastRatio(text, g.stops[0])).toBeGreaterThanOrEqual(4.5);
-      }
-    }
+  it('derives one two-stop gradient from the primary color and ignores the preset key', () => {
+    expect(shade('#0092cd', 0.37)).toBe('#005c81');
+    expect(brandGradient('#2B74B9').stops).toEqual(['#2b74b9', shade('#2b74b9', 0.37)]);
+    expect(gradientCss('#0092CD')).toBe('linear-gradient(135deg, #0092cd, #005c81)');
+    const a = resolveTheme({ tenant: { themePrimary: '#2B74B9', gradientPresetKey: 'saha-mavi' }, appearance: null, systemMode: 'light' });
+    const b = resolveTheme({ tenant: { themePrimary: '#2B74B9', gradientPresetKey: 'noir-grafit' }, appearance: null, systemMode: 'light' });
+    expect(a.gradient).toEqual(b.gradient);
   });
 
-  it('resolveTheme: tenant family by default, user override keeps tenant brand', () => {
+  it('resolveTheme: the user mode wins, the tenant brand always stays', () => {
     const tenant = { ...DEFAULT_TENANT_THEME, themeFamily: 'saha' as const, gradientPresetKey: 'saha-mavi' as const, themePrimary: '#2B74B9' };
-    const byTenant = resolveTheme({ tenant, appearance: null, systemMode: 'dark' });
-    expect(byTenant.family.key).toBe('saha');
-    expect(byTenant.mode).toBe('dark');
-    expect(byTenant.colors.background).toBe(THEME_FAMILIES.saha.colors.dark.background);
+    const bySystem = resolveTheme({ tenant, appearance: null, systemMode: 'dark' });
+    expect(bySystem.family.key).toBe('perfect');
+    expect(bySystem.mode).toBe('dark');
+    expect(bySystem.colors.background).toBe(PERFECT_UI_TOKENS.colors.dark.bg);
 
     const byUser = resolveTheme({ tenant, appearance: { themeFamily: 'nefes', colorScheme: 'LIGHT' }, systemMode: 'dark' });
-    expect(byUser.family.key).toBe('nefes');
+    expect(byUser.family.key).toBe('perfect');
     expect(byUser.mode).toBe('light');
-    expect(byUser.gradient.key).toBe('saha-mavi');
     expect(byUser.colors.primary).toBe('#2B74B9');
+    expect(byUser.colors.onPrimary).toBe(onColor('#2B74B9'));
   });
 
   it('resolveTheme never throws on stale values', () => {
@@ -84,26 +121,51 @@ describe('design tokens', () => {
       appearance: { themeFamily: 'yok' as never },
       systemMode: null,
     });
-    expect(t.family.key).toBe('atolye');
-    expect(t.gradient.key).toBe('atolye-orman');
-    expect(t.colors.primary).toBe(DEFAULT_TENANT_THEME.themePrimary);
+    expect(t.family.key).toBe('perfect');
+    expect(t.isDefaultPrimary).toBe(true);
+    expect(t.colors.primary).toBe(PERFECT_UI_TOKENS.colors.light.theme);
     expect(Object.keys(themeCssVariables(t))).toContain('--gradient-brand');
   });
 
-  it('appearance schema accepts follow-tenant and rejects unknown families', () => {
+  it('themeCssVariables emits the kit variables and the legacy aliases', () => {
+    const tenant = resolveTheme({ tenant: { themePrimary: '#C8443C' }, appearance: { colorScheme: 'DARK' }, systemMode: 'light' });
+    const vars = themeCssVariables(tenant);
+    expect(vars['--pui-theme']).toBe('#C8443C');
+    expect(vars['--pui-on-theme']).toBe(onColor('#C8443C'));
+    expect(vars['--pui-bg']).toBe('light-dark(#ffffff, #000000)');
+    expect(vars['--pui-text-muted']).toBe('light-dark(#676d7b, #9ca3af)');
+    expect(vars['--pui-radius']).toBe('0.375rem');
+    expect(vars['--pui-space']).toBe('0.25rem');
+    expect(vars['--pui-font-size']).toBe('0.875rem');
+    expect(vars['--color-background']).toBe('var(--pui-bg)');
+    expect(vars['--color-surface']).toBe('var(--pui-bg)');
+    expect(vars['--color-surface-muted']).toBe('var(--pui-bg-muted)');
+    expect(vars['--color-border']).toBe('var(--pui-border)');
+    expect(vars['--color-text-primary']).toBe('var(--pui-text)');
+    expect(vars['--color-text-muted']).toBe('var(--pui-text-muted)');
+    expect(vars['--color-primary']).toBe('var(--pui-theme)');
+    expect(vars['--color-on-primary']).toBe('var(--pui-on-theme)');
+    expect(vars['--radius-card']).toBe('9px');
+    expect(vars['--radius-button']).toBe('6px');
+    expect(vars['--radius-chip']).toBe('9999px');
+    expect(vars['--radius-input']).toBe('6px');
+    expect(vars['--font-body']).toContain('Inter');
+    expect(vars['--gradient-brand']).toBe(gradientCss('#C8443C'));
+
+    const kitDefault = themeCssVariables(resolveTheme({ tenant: null, appearance: null, systemMode: 'light' }));
+    expect(kitDefault['--pui-theme']).toBe('light-dark(#0092cd, #07b6f0)');
+    expect(kitDefault['--pui-on-theme']).toBe('var(--pui-bg)');
+  });
+
+  it('maps the light/dark/system choice to color-scheme and data-pui-mode', () => {
+    expect([themeColorScheme('LIGHT'), themeColorScheme('DARK'), themeColorScheme('SYSTEM')]).toEqual(['light', 'dark', 'light dark']);
+    expect([themePuiMode('LIGHT'), themePuiMode('DARK'), themePuiMode('SYSTEM')]).toEqual(['light', 'dark', undefined]);
+  });
+
+  it('appearance schema accepts follow-tenant and legacy families, rejects unknown ones', () => {
     expect(AppearancePreferenceSchema.safeParse({ themeFamily: null, colorScheme: 'SYSTEM' }).success).toBe(true);
+    expect(AppearancePreferenceSchema.safeParse({ themeFamily: 'nefes', colorScheme: 'DARK' }).success).toBe(true);
     expect(AppearancePreferenceSchema.safeParse({ themeFamily: 'mor', colorScheme: 'SYSTEM' }).success).toBe(false);
-  });
-
-  it('builds CSS gradients from presets', () => {
-    expect(gradientCss('atolye-orman')).toBe('linear-gradient(135deg, #2F6F5E, #173D33)');
-  });
-
-  it('keeps body text readable (WCAG AA) in both schemes', () => {
-    for (const scheme of Object.values(semanticColors)) {
-      expect(contrastRatio(scheme.textPrimary, scheme.background)).toBeGreaterThanOrEqual(4.5);
-      expect(contrastRatio(scheme.textSecondary, scheme.surface)).toBeGreaterThanOrEqual(4.5);
-    }
   });
 
   it('picks a readable text color on tenant primaries', () => {

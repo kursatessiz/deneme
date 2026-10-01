@@ -1,24 +1,318 @@
+@layer reset, pui.tokens, pui.components, ui, pui.utilities, pui.styles, pui.colors, pui.states;
+
+/*
+ * Design system: Perfect UI (docs/TASARIM.md). The layer statement above
+ * must come before @chrissgon/perfectui/perfectui.css, which is why the root
+ * layout imports this file first. Order, weakest first: our reset, the
+ * kit's tokens and component shapes, our own component additions (`ui`),
+ * then the kit's utilities, styles, colors and states. Tailwind utilities
+ * below stay unlayered and therefore win, so they are used for layout only
+ * (flex, grid, gap, padding, width); never for colors, borders, radii,
+ * shadows or type.
+ */
+
+@import '@fontsource/inter/latin-400.css';
+@import '@fontsource/inter/latin-ext-400.css';
+@import '@fontsource/inter/latin-500.css';
+@import '@fontsource/inter/latin-ext-500.css';
+@import '@fontsource/inter/latin-600.css';
+@import '@fontsource/inter/latin-ext-600.css';
+@import '@fontsource/inter/latin-700.css';
+@import '@fontsource/inter/latin-ext-700.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-}
+/* Tailwind's preflight is off (tailwind.config.ts); this is the minimal reset, below every kit layer. */
+@layer reset {
+  *,
+  ::before,
+  ::after {
+    box-sizing: border-box;
+    border-width: 0;
+    border-style: solid;
+    border-color: var(--pui-border);
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #090d16;
-    --foreground: #f8fafc;
+  html {
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+  }
+
+  body,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  p,
+  figure,
+  blockquote,
+  dl,
+  dd,
+  pre,
+  hr {
+    margin: 0;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+
+  ol,
+  ul,
+  menu {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: inherit;
+  }
+
+  b,
+  strong {
+    font-weight: 600;
+  }
+
+  img,
+  svg,
+  video,
+  canvas,
+  iframe {
+    display: block;
+    vertical-align: middle;
+  }
+
+  img,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
+
+  button,
+  input,
+  optgroup,
+  select,
+  textarea {
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+  }
+
+  button,
+  [role='button'] {
+    cursor: pointer;
+  }
+
+  :disabled {
+    cursor: default;
+  }
+
+  table {
+    border-collapse: collapse;
+    text-indent: 0;
+    border-color: inherit;
+  }
+
+  hr {
+    height: 0;
+    color: inherit;
+    border-top-width: 1px;
+  }
+
+  [hidden]:where(:not([hidden='until-found'])) {
+    display: none;
   }
 }
 
+/* Additions on top of the kit's shapes, used by apps/web/src/components/ui. */
+@layer ui {
+  .ui-btn-sm {
+    padding: calc(var(--pui-space) * 1.25) calc(var(--pui-space) * 3);
+    font-size: calc(var(--pui-font-size) * 0.857);
+  }
+
+  .ui-btn-icon {
+    padding: calc(var(--pui-space) * 2);
+  }
+
+  .ui-btn-icon.ui-btn-sm {
+    padding: calc(var(--pui-space) * 1.25);
+  }
+
+  .ui-btn-block {
+    width: 100%;
+  }
+
+  .ui-icon {
+    width: calc(var(--pui-space) * 4);
+    height: calc(var(--pui-space) * 4);
+    flex: none;
+  }
+
+  .ui-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    font-size: calc(var(--pui-font-size) * 0.857);
+    font-weight: 600;
+    overflow: hidden;
+    border: var(--pui-border-width) solid transparent;
+  }
+
+  .ui-avatar > img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .ui-text-muted {
+    color: var(--pui-text-muted);
+  }
+
+  .ui-title {
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .ui-display {
+    font-size: clamp(2.25rem, 5vw, 3.75rem);
+    line-height: 1.05;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  .ui-lead {
+    font-size: 1.125rem;
+    line-height: 1.6;
+    max-width: 36rem;
+  }
+
+  .ui-heading {
+    font-size: var(--pui-font-size);
+    font-weight: 600;
+  }
+
+  .ui-caption {
+    font-size: calc(var(--pui-font-size) * 0.857);
+    color: var(--pui-text-muted);
+  }
+
+  .ui-stat-value {
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ui-tabs {
+    display: flex;
+    gap: var(--pui-space);
+    overflow-x: auto;
+    border-bottom: var(--pui-border-width) solid var(--pui-border);
+  }
+
+  .ui-tab {
+    margin-bottom: calc(var(--pui-border-width) * -1);
+    border-radius: var(--pui-radius) var(--pui-radius) 0 0;
+    border-bottom: 2px solid transparent;
+    color: var(--pui-text-muted);
+  }
+
+  .ui-tab[aria-pressed='true'] {
+    border-bottom-color: var(--pui-theme);
+    color: var(--pui-text);
+    font-weight: 600;
+  }
+
+  .ui-skeleton {
+    background-color: var(--pui-bg-emphasis);
+    border-radius: var(--pui-radius);
+    animation: ui-pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes ui-pulse {
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ui-skeleton {
+      animation: none;
+    }
+  }
+
+  .ui-empty {
+    display: grid;
+    justify-items: center;
+    text-align: center;
+    gap: calc(var(--pui-space) * 2);
+    padding: calc(var(--pui-space) * 16) calc(var(--pui-space) * 6);
+    border: var(--pui-border-width) dashed var(--pui-border);
+    border-radius: calc(var(--pui-radius) * 1.5);
+  }
+
+  .ui-nav-link {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: calc(var(--pui-space) * 3);
+    width: 100%;
+    color: var(--pui-text-muted);
+  }
+
+  .ui-nav-link:hover {
+    background-color: var(--pui-bg-muted);
+    color: var(--pui-text);
+  }
+
+  /* Only the two gradient slots of the design system (packages/shared GRADIENT_SLOTS). */
+  .ui-gradient-member-card,
+  .ui-gradient-package-card {
+    background-image: var(--gradient-brand);
+    color: var(--gradient-brand-on, #fff);
+    border-color: transparent;
+  }
+}
+
+/*
+ * Text on the brand color. The kit puts the page color on `pui-theme`;
+ * ThemeRoot sets `--pui-on-theme` to a contrast-checked color for a tenant
+ * primary. Unlayered on purpose so it wins over the kit's color layer.
+ */
+.pui-theme {
+  --pui-on-color: var(--pui-on-theme, var(--pui-bg));
+}
+
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--pui-bg);
+  color: var(--pui-text);
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: var(--pui-font-size);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Custom scrollbars */

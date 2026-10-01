@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import { resolveTheme } from './design/tokens';
 import type { TenantTheme } from './design/tokens';
-import { THEME_FAMILY_KEYS } from './design/themes';
-import type { ThemeFamilyKey } from './design/themes';
+import { isStoredThemeFamilyKey } from './design/themes';
 import type { MessageParams } from './i18n/translator';
 import { renderMessageText, renderMessageTextLenient } from './messaging-engine';
 
@@ -67,10 +66,8 @@ export function emailBrandOf(studio: {
   gradientPresetKey?: string | null;
 }): EmailBrand {
   const tenant: Partial<TenantTheme> = { logoUrl: studio.logoUrl ?? null };
-  if (isThemeFamilyKey(studio.themeFamily)) tenant.themeFamily = studio.themeFamily;
+  if (isStoredThemeFamilyKey(studio.themeFamily)) tenant.themeFamily = studio.themeFamily;
   if (studio.themePrimary) tenant.themePrimary = studio.themePrimary;
-  // resolveTheme falls back to the family's first preset for an unknown key.
-  if (studio.gradientPresetKey) Object.assign(tenant, { gradientPresetKey: studio.gradientPresetKey });
   const theme = resolveTheme({ tenant, appearance: null, systemMode: 'light' });
   const logo = studio.logoUrl && /^https:\/\//.test(studio.logoUrl) ? studio.logoUrl : null;
   return {
@@ -87,10 +84,6 @@ export function emailBrandOf(studio: {
     headingFontFamily: `${theme.family.fonts.display.web}, Arial, sans-serif`,
     buttonRadius: Math.min(theme.family.radii.button, 24),
   };
-}
-
-function isThemeFamilyKey(value: string | null | undefined): value is ThemeFamilyKey {
-  return !!value && (THEME_FAMILY_KEYS as readonly string[]).includes(value);
 }
 
 export interface EmailFooter {

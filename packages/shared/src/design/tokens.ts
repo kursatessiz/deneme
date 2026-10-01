@@ -2,104 +2,117 @@ import { z } from 'zod';
 import {
   COLOR_SCHEME_PREFERENCES,
   DEFAULT_THEME_FAMILY,
+  PERFECT_UI_TOKENS,
+  STORED_THEME_FAMILY_KEYS,
   THEME_FAMILIES,
-  THEME_FAMILY_KEYS,
   getThemeFamily,
 } from './themes';
-import type { ColorMode, GradientPreset, ThemeColors, ThemeFamily, ThemeFamilyKey } from './themes';
+import type { ColorMode, GradientPreset, PerfectRoleColors, StoredThemeFamilyKey, ThemeColors, ThemeFamily } from './themes';
 
 /**
- * Design tokens shared by web and mobile. Apps must read colors, spacing,
- * radii and type from here instead of hardcoding values.
- *
- * Theme families (fonts, radii, neutrals, gradient sets) live in themes.ts;
- * resolveTheme() combines the tenant's brand with the user's appearance.
+ * Design tokens shared by web and mobile: the Perfect UI tokens
+ * (themes.ts, PERFECT_UI_TOKENS) plus the tenant brand. Apps must read
+ * colors, spacing, radii and type from here instead of hardcoding values.
+ * resolveTheme() combines the tenant's brand with the user's light/dark
+ * choice; themeCssVariables() turns the result into `--pui-*` variables.
  */
 
-// Warm neutral base. Deliberately not the default Tailwind/shadcn slate and
-// no purple: avoid the generic "AI dashboard" look.
+const PUI_L = PERFECT_UI_TOKENS.colors.light;
+const PUI_D = PERFECT_UI_TOKENS.colors.dark;
+
+// Neutral scale of the kit (cool gray). Semantic colors are the kit's light values.
 export const palette = {
   ink: {
-    950: '#14120f',
-    900: '#1f1c18',
-    800: '#2e2a25',
-    700: '#45403a',
-    500: '#78716a',
-    300: '#b8b1a8',
-    200: '#d9d3cb',
-    100: '#eeeae4',
-    50: '#f8f6f2',
+    950: '#030712',
+    900: '#111827',
+    800: '#1f2937',
+    700: '#374151',
+    500: '#6b7280',
+    300: '#d1d5db',
+    200: '#e5e7eb',
+    100: '#f3f4f6',
+    50: '#f9fafb',
   },
   white: '#ffffff',
-  success: '#2f7d4f',
-  warning: '#b7791f',
-  danger: '#b42318',
-  info: '#2b6cb0',
+  black: '#000000',
+  success: PUI_L.success,
+  warning: PUI_L.warn,
+  danger: PUI_L.error,
+  info: PUI_L.theme,
 } as const;
 
 export const semanticColors = {
-  light: {
-    background: palette.ink[50],
-    surface: palette.white,
-    surfaceMuted: palette.ink[100],
-    border: palette.ink[200],
-    textPrimary: palette.ink[950],
-    textSecondary: palette.ink[700],
-    textMuted: palette.ink[500],
-  },
-  dark: {
-    background: palette.ink[950],
-    surface: palette.ink[900],
-    surfaceMuted: palette.ink[800],
-    border: palette.ink[700],
-    textPrimary: palette.ink[50],
-    textSecondary: palette.ink[200],
-    textMuted: palette.ink[300],
-  },
+  light: THEME_FAMILIES.perfect.colors.light,
+  dark: THEME_FAMILIES.perfect.colors.dark,
 } as const;
 
+/** Multiples of the kit's `--pui-space` (4px). */
 export const spacing = { 0: 0, 1: 4, 2: 8, 3: 12, 4: 16, 5: 20, 6: 24, 8: 32, 10: 40, 12: 48, 16: 64 } as const;
 
-export const radii = { sm: 6, md: 10, lg: 16, xl: 24, full: 9999 } as const;
+/** sm is the kit's `--pui-radius`, md the card radius (1.5x). */
+export const radii = { sm: PERFECT_UI_TOKENS.radius, md: PERFECT_UI_TOKENS.radius * 1.5, lg: 12, xl: 16, full: 9999 } as const;
 
 export const typography = {
   fontFamily: {
-    sans: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-    mono: '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
+    sans: PERFECT_UI_TOKENS.fontFamily,
+    mono: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
   },
-  size: { xs: 12, sm: 14, md: 16, lg: 18, xl: 22, '2xl': 28, '3xl': 36 },
+  size: { xs: 12, sm: PERFECT_UI_TOKENS.fontSize, md: 16, lg: 18, xl: 22, '2xl': 28, '3xl': 36 },
   weight: { regular: '400', medium: '500', semibold: '600', bold: '700' },
   lineHeight: { tight: 1.2, normal: 1.5 },
 } as const;
 
 /**
- * The only places a gradient may be rendered. Components outside these
- * slots use flat colors.
+ * The only places a gradient may be rendered. Everything else, including
+ * primary buttons and header bands, is flat (`pui-solid pui-theme`).
  */
-export const GRADIENT_SLOTS = ['appHeaderBand', 'memberCard', 'packageCard', 'primaryButton'] as const;
+export const GRADIENT_SLOTS = ['memberCard', 'packageCard'] as const;
 export type GradientSlot = (typeof GRADIENT_SLOTS)[number];
 
-/** Every preset of every family; tenants pick one, custom gradients are not allowed. */
-export const GRADIENT_PRESETS: readonly GradientPreset[] = THEME_FAMILY_KEYS.flatMap((k) => THEME_FAMILIES[k].gradients);
+/**
+ * Gradient preset keys that may be stored on a studio. Since T1 the value is
+ * accepted and ignored: the gradient is derived from the primary color.
+ * The legacy catalog is kept so stored values and old clients stay valid.
+ */
+export const GRADIENT_PRESET_KEYS_BY_FAMILY = {
+  perfect: ['perfect-brand'],
+  noir: ['noir-kiremit', 'noir-zumrut', 'noir-gece', 'noir-kehribar', 'noir-grafit'],
+  nefes: ['nefes-adacayi', 'nefes-seftali', 'nefes-gok', 'nefes-lavanta', 'nefes-bugday'],
+  saha: ['saha-turuncu', 'saha-yesil', 'saha-mavi', 'saha-sari', 'saha-komur'],
+  atolye: ['atolye-orman', 'atolye-kil', 'atolye-lacivert', 'atolye-toprak', 'atolye-duman'],
+} as const satisfies Record<StoredThemeFamilyKey, readonly string[]>;
 
-type FamilyGradientKey<K extends ThemeFamilyKey> = (typeof THEME_FAMILIES)[K]['gradients'][number]['key'];
-export type GradientPresetKey = { [K in ThemeFamilyKey]: FamilyGradientKey<K> }[ThemeFamilyKey];
+export type GradientPresetKey = (typeof GRADIENT_PRESET_KEYS_BY_FAMILY)[StoredThemeFamilyKey][number];
 
-const presetKeys = GRADIENT_PRESETS.map((p) => p.key) as [GradientPresetKey, ...GradientPresetKey[]];
+export const GRADIENT_PRESET_KEYS = Object.values(GRADIENT_PRESET_KEYS_BY_FAMILY).flat() as readonly GradientPresetKey[];
+
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
-/** Everything a tenant may customise: logo, theme family, primary color, gradient preset. */
+/** The stored family of a preset key, or null for an unknown key. */
+export function familyOfGradient(key: string): StoredThemeFamilyKey | null {
+  for (const family of STORED_THEME_FAMILY_KEYS) {
+    if ((GRADIENT_PRESET_KEYS_BY_FAMILY[family] as readonly string[]).includes(key)) return family;
+  }
+  return null;
+}
+
+/**
+ * Everything a tenant may customise: logo and primary color. The family and
+ * gradient fields are still validated as before (legacy keys allowed, a
+ * legacy gradient must belong to its legacy family) so the API contract is
+ * unchanged, but neither changes what renders.
+ */
 export const TenantThemeSchema = z
   .object({
     logoUrl: z.string().url().nullable(),
-    themeFamily: z.enum(THEME_FAMILY_KEYS),
+    themeFamily: z.enum(STORED_THEME_FAMILY_KEYS),
     themePrimary: z.string().regex(HEX, 'Renk #RRGGBB formatında olmalı'),
-    gradientPresetKey: z.enum(presetKeys),
+    gradientPresetKey: z.enum(GRADIENT_PRESET_KEYS as [GradientPresetKey, ...GradientPresetKey[]]),
   })
-  .refine((t) => familyOfGradient(t.gradientPresetKey) === t.themeFamily, {
-    path: ['gradientPresetKey'],
-    message: 'Gradyan seçilen tema ailesine ait olmalı',
-  });
+  .refine(
+    (t) => t.themeFamily === DEFAULT_THEME_FAMILY || familyOfGradient(t.gradientPresetKey) === t.themeFamily,
+    { path: ['gradientPresetKey'], message: 'Gradyan seçilen tema ailesine ait olmalı' },
+  );
 export type TenantTheme = z.infer<typeof TenantThemeSchema>;
 
 export const UpdateTenantThemeSchema = TenantThemeSchema;
@@ -108,95 +121,176 @@ export type UpdateTenantThemeInput = TenantTheme;
 export const DEFAULT_TENANT_THEME: TenantTheme = {
   logoUrl: null,
   themeFamily: DEFAULT_THEME_FAMILY,
-  themePrimary: '#2F6F5E',
-  gradientPresetKey: 'atolye-orman',
+  themePrimary: '#0092CD',
+  gradientPresetKey: 'perfect-brand',
 };
 
-/** A user's own appearance choice; null family follows the tenant. */
+/** A user's own appearance choice. The family is legacy and ignored when rendering. */
 export const AppearancePreferenceSchema = z.object({
-  themeFamily: z.enum(THEME_FAMILY_KEYS).nullable(),
+  themeFamily: z.enum(STORED_THEME_FAMILY_KEYS).nullable(),
   colorScheme: z.enum(COLOR_SCHEME_PREFERENCES),
 });
 export type AppearancePreference = z.infer<typeof AppearancePreferenceSchema>;
 
 export const DEFAULT_APPEARANCE: AppearancePreference = { themeFamily: null, colorScheme: 'SYSTEM' };
 
-export function familyOfGradient(key: string): ThemeFamilyKey | null {
-  for (const k of THEME_FAMILY_KEYS) {
-    if (THEME_FAMILIES[k].gradients.some((g) => g.key === key)) return k;
-  }
-  return null;
+function channel(hex: string, i: number): number {
+  return parseInt(hex.slice(i, i + 2), 16);
 }
 
-export function getGradientPreset(key: string): GradientPreset {
-  const preset = GRADIENT_PRESETS.find((p) => p.key === key);
-  if (!preset) throw new Error(`Unknown gradient preset: ${key}`);
-  return preset;
+function toHex(r: number, g: number, b: number): string {
+  return `#${[r, g, b].map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('')}`;
 }
 
-/** CSS value for web. Mobile passes preset.stops to its gradient component. */
-export function gradientCss(key: string): string {
-  const { angle, stops } = getGradientPreset(key);
+/** Mixes a #RRGGBB color toward black by `amount` (0..1). */
+export function shade(hex: string, amount: number): string {
+  const k = 1 - amount;
+  return toHex(channel(hex, 1) * k, channel(hex, 3) * k, channel(hex, 5) * k);
+}
+
+/** The single brand gradient: the primary color into a 37% darker shade, at 135deg. */
+export function brandGradient(primary: string): GradientPreset {
+  const from = HEX.test(primary) ? primary.toLowerCase() : DEFAULT_TENANT_THEME.themePrimary.toLowerCase();
+  return { key: 'perfect-brand', label: 'Perfect UI', angle: 135, stops: [from, shade(from, 0.37)] };
+}
+
+/**
+ * Text color on the brand gradient: white when it stays readable over the
+ * whole gradient (large text on the light end, body text on the dark end),
+ * otherwise the darkest ink.
+ */
+export function onGradient(gradient: GradientPreset): string {
+  const [from] = gradient.stops;
+  const to = gradient.stops[gradient.stops.length - 1];
+  return contrastRatio(palette.white, from) >= 3 && contrastRatio(palette.white, to) >= 4.5 ? palette.white : palette.ink[950];
+}
+
+/** CSS value for web. Mobile passes `brandGradient(primary).stops` to its gradient component. */
+export function gradientCss(primary: string): string {
+  const { angle, stops } = brandGradient(primary);
   return `linear-gradient(${angle}deg, ${stops.join(', ')})`;
+}
+
+/** What resolveTheme() accepts: stored rows, API payloads or form state, validated or not. */
+export interface TenantThemeInput {
+  logoUrl?: string | null;
+  themeFamily?: string | null;
+  themePrimary?: string | null;
+  gradientPresetKey?: string | null;
 }
 
 export interface ResolvedTheme {
   family: ThemeFamily;
   mode: ColorMode;
   colors: ThemeColors & { primary: string; onPrimary: string };
+  roles: PerfectRoleColors;
+  /** Derived from the primary color; only for GRADIENT_SLOTS. */
   gradient: GradientPreset;
   logoUrl: string | null;
+  /** True when the tenant keeps the kit's default color (rendered as the kit's light/dark pair). */
+  isDefaultPrimary: boolean;
 }
 
 /**
- * The theme a screen renders: the user's family (or the tenant's), the
- * user's mode (or the OS mode), and always the tenant's brand colors.
- * Unknown or stale values fall back to defaults instead of throwing, so a
- * removed preset can never break an app.
+ * The theme a screen renders: the Perfect UI family, the user's mode (or
+ * the OS mode) and always the tenant's primary color and logo. Unknown or
+ * stale values fall back to defaults instead of throwing.
  */
 export function resolveTheme(params: {
-  tenant: Partial<TenantTheme> | null | undefined;
+  tenant: TenantThemeInput | null | undefined;
   appearance: Partial<AppearancePreference> | null | undefined;
   systemMode: ColorMode | null | undefined;
 }): ResolvedTheme {
-  const tenant = { ...DEFAULT_TENANT_THEME, ...(params.tenant ?? {}) };
+  const tenant = {
+    logoUrl: params.tenant?.logoUrl ?? null,
+    themePrimary: params.tenant?.themePrimary ?? DEFAULT_TENANT_THEME.themePrimary,
+  };
   const appearance = { ...DEFAULT_APPEARANCE, ...(params.appearance ?? {}) };
-  const family = getThemeFamily(appearance.themeFamily ?? tenant.themeFamily);
+  const family = getThemeFamily(DEFAULT_THEME_FAMILY);
   const mode: ColorMode =
     appearance.colorScheme === 'LIGHT' ? 'light' : appearance.colorScheme === 'DARK' ? 'dark' : (params.systemMode ?? 'light');
-  const gradient =
-    GRADIENT_PRESETS.find((p) => p.key === tenant.gradientPresetKey) ?? getThemeFamily(tenant.themeFamily).gradients[0];
-  const primary = HEX.test(tenant.themePrimary) ? tenant.themePrimary : DEFAULT_TENANT_THEME.themePrimary;
+  const valid = typeof tenant.themePrimary === 'string' && HEX.test(tenant.themePrimary);
+  const isDefaultPrimary = !valid || tenant.themePrimary.toLowerCase() === DEFAULT_TENANT_THEME.themePrimary.toLowerCase();
+  const primary = isDefaultPrimary ? family.roles[mode].theme : tenant.themePrimary;
   return {
     family,
     mode,
-    colors: { ...family.colors[mode], primary, onPrimary: onColor(primary) },
-    gradient,
+    colors: { ...family.colors[mode], primary, onPrimary: isDefaultPrimary ? family.colors[mode].background : onColor(primary) },
+    roles: { ...family.roles[mode], theme: primary },
+    gradient: brandGradient(valid ? tenant.themePrimary : DEFAULT_TENANT_THEME.themePrimary),
     logoUrl: tenant.logoUrl ?? null,
+    isDefaultPrimary,
   };
 }
 
-/** CSS custom properties for web roots (`style` of <html> or a wrapper). */
+/** `light-dark()` pair of one kit color token. */
+function pair(token: keyof typeof PUI_L): string {
+  return `light-dark(${PUI_L[token]}, ${PUI_D[token]})`;
+}
+
+/**
+ * CSS custom properties for a web theme root (the `style` of a wrapper).
+ *
+ * Neutrals and roles are emitted as the kit's `light-dark()` pairs, so the
+ * wrapper's `color-scheme` (set from the user's light/dark/system choice)
+ * picks the mode. `--pui-theme` is the tenant primary; the kit default
+ * keeps its own light/dark pair. The `--color-*`, `--font-*`,
+ * `--radius-*` and `--gradient-brand` names are aliases kept for screens
+ * that were not yet moved to the component library.
+ */
 export function themeCssVariables(theme: ResolvedTheme): Record<string, string> {
-  const c = theme.colors;
-  return {
-    '--color-background': c.background,
-    '--color-surface': c.surface,
-    '--color-surface-muted': c.surfaceMuted,
-    '--color-border': c.border,
-    '--color-text-primary': c.textPrimary,
-    '--color-text-secondary': c.textSecondary,
-    '--color-text-muted': c.textMuted,
-    '--color-primary': c.primary,
-    '--color-on-primary': c.onPrimary,
-    '--gradient-brand': gradientCss(theme.gradient.key),
-    '--font-display': theme.family.fonts.display.web,
-    '--font-body': theme.family.fonts.body.web,
+  const brand = theme.isDefaultPrimary ? pair('theme') : theme.colors.primary;
+  const vars: Record<string, string> = {
+    '--pui-bg': pair('bg'),
+    '--pui-bg-muted': pair('bgMuted'),
+    '--pui-bg-emphasis': pair('bgEmphasis'),
+    '--pui-text': pair('text'),
+    '--pui-text-muted': pair('textMuted'),
+    '--pui-border': pair('border'),
+    '--pui-theme': brand,
+    '--pui-success': pair('success'),
+    '--pui-warn': pair('warn'),
+    '--pui-error': pair('error'),
+    '--pui-muted': pair('muted'),
+    '--pui-radius': `${PERFECT_UI_TOKENS.radius / 16}rem`,
+    '--pui-space': `${PERFECT_UI_TOKENS.space / 16}rem`,
+    '--pui-font-size': `${PERFECT_UI_TOKENS.fontSize / 16}rem`,
+    '--pui-border-width': `${PERFECT_UI_TOKENS.borderWidth}px`,
+    // Text on the brand color: the kit uses the page color; a tenant color gets a contrast-checked one.
+    '--pui-on-theme': theme.isDefaultPrimary ? 'var(--pui-bg)' : theme.colors.onPrimary,
+    '--color-background': 'var(--pui-bg)',
+    '--color-surface': 'var(--pui-bg)',
+    '--color-surface-muted': 'var(--pui-bg-muted)',
+    '--color-surface-emphasis': 'var(--pui-bg-emphasis)',
+    '--color-border': 'var(--pui-border)',
+    '--color-text-primary': 'var(--pui-text)',
+    '--color-text-secondary': 'color-mix(in oklab, var(--pui-text) 80%, transparent)',
+    '--color-text-muted': 'var(--pui-text-muted)',
+    '--color-primary': 'var(--pui-theme)',
+    '--color-on-primary': 'var(--pui-on-theme)',
+    '--color-success': 'var(--pui-success)',
+    '--color-warning': 'var(--pui-warn)',
+    '--color-danger': 'var(--pui-error)',
+    '--gradient-brand': gradientCss(theme.gradient.stops[0]),
+    '--gradient-brand-on': onGradient(theme.gradient),
+    '--font-display': PERFECT_UI_TOKENS.fontFamily,
+    '--font-body': PERFECT_UI_TOKENS.fontFamily,
     '--radius-card': `${theme.family.radii.card}px`,
     '--radius-button': `${theme.family.radii.button}px`,
     '--radius-chip': `${theme.family.radii.chip}px`,
     '--radius-input': `${theme.family.radii.input}px`,
   };
+  return vars;
+}
+
+/** The `color-scheme` a theme root sets: a fixed mode, or both for "follow the OS". */
+export function themeColorScheme(colorScheme: AppearancePreference['colorScheme'] | null | undefined): 'light' | 'dark' | 'light dark' {
+  return colorScheme === 'LIGHT' ? 'light' : colorScheme === 'DARK' ? 'dark' : 'light dark';
+}
+
+/** The `data-pui-mode` a theme root sets; undefined lets the OS decide. */
+export function themePuiMode(colorScheme: AppearancePreference['colorScheme'] | null | undefined): ColorMode | undefined {
+  return colorScheme === 'LIGHT' ? 'light' : colorScheme === 'DARK' ? 'dark' : undefined;
 }
 
 /** WCAG relative luminance contrast ratio between two #RRGGBB colors. */

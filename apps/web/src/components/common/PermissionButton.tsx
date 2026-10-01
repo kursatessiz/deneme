@@ -6,6 +6,8 @@ import { hasAnyPermission } from '@/lib/nav';
 import { firstMissingPermissionLabel } from '@/lib/permission-note';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { useT } from '@/components/i18n/I18nProvider';
+import { Button } from '@/components/ui/Button';
+import type { UiTone, UiVariant } from '@/components/ui/types';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
 
@@ -15,22 +17,18 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   /**
    * 'hide' (default): the button disappears entirely when `required` isn't
-   * met, same as before. 'disable': the button stays visible but disabled,
-   * with a small inline note naming the missing permission underneath, for
-   * spots where silently removing the action would be confusing.
+   * met. 'disable': the button stays visible but disabled, with a small
+   * inline note naming the missing permission underneath, for spots where
+   * silently removing the action would be confusing.
    */
   mode?: 'hide' | 'disable';
 }
 
-const VARIANT_STYLE: Record<Variant, (primary: boolean) => React.CSSProperties> = {
-  primary: () => ({ background: 'var(--gradient-brand)', color: 'var(--color-on-primary)', border: 'none' }),
-  secondary: () => ({
-    background: 'var(--color-surface)',
-    color: 'var(--color-text-primary)',
-    border: '1px solid var(--color-border)',
-  }),
-  danger: () => ({ background: 'transparent', color: '#b42318', border: '1px solid #f3a19a' }),
-  ghost: () => ({ background: 'transparent', color: 'var(--color-text-secondary)', border: '1px solid transparent' }),
+const LOOK: Record<Variant, { variant: UiVariant; tone: UiTone }> = {
+  primary: { variant: 'solid', tone: 'theme' },
+  secondary: { variant: 'outline', tone: 'surface' },
+  danger: { variant: 'outline', tone: 'error' },
+  ghost: { variant: 'link', tone: 'muted' },
 };
 
 /**
@@ -41,22 +39,16 @@ const VARIANT_STYLE: Record<Variant, (primary: boolean) => React.CSSProperties> 
  * permission catalogue) underneath. Either way the API still enforces the
  * same permission independently -- this only controls what the UI offers.
  */
-export function PermissionButton({ required = [], variant = 'secondary', mode = 'hide', className, style, children, disabled, ...rest }: Props) {
+export function PermissionButton({ required = [], variant = 'secondary', mode = 'hide', className, children, disabled, ...rest }: Props) {
   const { permissions, isOwner } = useDashboardSession();
   const t = useT();
   const allowed = hasAnyPermission(required, permissions, isOwner);
   if (!allowed && mode === 'hide') return null;
 
   const button = (
-    <button
-      type="button"
-      disabled={disabled || !allowed}
-      className={`text-xs font-medium px-3 py-1.5 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 ${className ?? ''}`}
-      style={{ borderRadius: 'var(--radius-button)', ...VARIANT_STYLE[variant](true), ...style }}
-      {...rest}
-    >
+    <Button variant={LOOK[variant].variant} tone={LOOK[variant].tone} size="sm" disabled={disabled || !allowed} className={className} {...rest}>
       {children}
-    </button>
+    </Button>
   );
 
   if (allowed) return button;
@@ -65,11 +57,7 @@ export function PermissionButton({ required = [], variant = 'secondary', mode = 
   return (
     <span className="inline-flex flex-col items-start gap-1">
       {button}
-      {missingLabel && (
-        <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-          {t('common.permissionRequired', { permission: missingLabel })}
-        </span>
-      )}
+      {missingLabel && <span className="ui-caption">{t('common.permissionRequired', { permission: missingLabel })}</span>}
     </span>
   );
 }

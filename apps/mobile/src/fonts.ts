@@ -32,4 +32,4 @@ export const THEME_FONT_ASSETS = {
   Manrope_400Regular,
   Manrope_600SemiBold,
   Manrope_800ExtraBold,
-} as const satisfies Record<NativeFontName, unknown>;
+} as const satisfies Record<string, unknown> & Record<NativeFontName, unknown>;

@@ -1,20 +1,21 @@
 'use client';
 
-import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import type { MessageKey, PermissionKey } from '@platform/shared';
 import { useT } from '@/components/i18n/I18nProvider';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { hasAnyPermission } from '@/lib/nav';
 import { useAreaHref } from '@/components/session/AreaBase';
+import { EmptyState as UiEmptyState } from '@/components/ui/EmptyState';
+import { LinkButton } from '@/components/ui/LinkButton';
 
-/** `label` defaults to the translated "Loading..." when the caller does not pass its own Turkish copy. */
+/** `label` defaults to the translated "Loading..." when the caller does not pass its own copy. */
 export function LoadingState({ label }: { label?: string }) {
   const t = useT();
   return (
-    <div className="flex items-center justify-center py-20 gap-2" style={{ color: 'var(--color-text-muted)' }}>
-      <Loader2 className="w-4 h-4 animate-spin" />
-      <span className="text-sm">{label ?? t('common.loading')}</span>
+    <div className="ui-text-muted flex items-center justify-center py-20 gap-2">
+      <Loader2 className="ui-icon animate-spin" aria-hidden="true" />
+      <span>{label ?? t('common.loading')}</span>
     </div>
   );
 }
@@ -39,13 +40,9 @@ function EmptyStateActionLink({ action }: { action: EmptyStateAction }) {
   const areaHref = useAreaHref();
   if (!hasAnyPermission(action.permissions ?? [], permissions, isOwner)) return null;
   return (
-    <Link
-      href={areaHref(action.href)}
-      className="text-xs font-medium px-3.5 py-2 mt-4 transition-opacity hover:opacity-90"
-      style={{ borderRadius: 'var(--radius-button)', background: 'var(--gradient-brand)', color: 'var(--color-on-primary)' }}
-    >
+    <LinkButton href={areaHref(action.href)} size="sm">
       {t(action.labelKey)}
-    </Link>
+    </LinkButton>
   );
 }
 
@@ -58,27 +55,18 @@ function EmptyStateActionLink({ action }: { action: EmptyStateAction }) {
 export function EmptyState({ title, description, action }: { title?: string; description?: string; action?: EmptyStateAction }) {
   const t = useT();
   return (
-    <div
-      className="flex flex-col items-center justify-center text-center py-20 rounded-2xl border"
-      style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}
-    >
-      <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-        {title ?? t('common.empty')}
-      </h3>
-      {description && (
-        <p className="text-xs mt-1 max-w-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          {description}
-        </p>
-      )}
-      {action && <EmptyStateActionLink action={action} />}
-    </div>
+    <UiEmptyState
+      title={title ?? t('common.empty')}
+      description={description}
+      action={action ? <EmptyStateActionLink action={action} /> : undefined}
+    />
   );
 }
 
 export function ErrorState({ message }: { message?: string }) {
   const t = useT();
   return (
-    <div className="rounded-2xl border py-10 px-6 text-center text-sm" style={{ borderColor: 'var(--color-border)', color: 'var(--color-danger, #b42318)' }}>
+    <div className="pui-card px-6 py-10 text-center" style={{ color: 'var(--pui-error)', borderColor: 'currentColor' }}>
       {message ?? t('common.error.generic')}
     </div>
   );

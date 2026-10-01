@@ -39,8 +39,8 @@ tamamı Türkçedir; kod, tanımlayıcılar ve commit mesajları İngilizcedir.
 - **Mobil uygulama (`apps/mobile`, Expo)**: üye, eğitmen, resepsiyon ve sahip için tek
   uygulama; navigasyon rol ve izinlerden üretilir, tablet için iki panelli düzen, QR ile üye
   kaydı ve check-in, takvim aboneliği ve ana ekran widget'ları, EAS build profilleri.
-- **`packages/shared`**: tipler, Zod şemaları, enum'lar, izin kataloğu, tasarım tokenları ve
-  dört tema ailesi, i18n mesajları (Türkçe ve İngilizce), saf iş kuralları.
+- **`packages/shared`**: tipler, Zod şemaları, enum'lar, izin kataloğu, Perfect UI tasarım
+  token'ları (`docs/TASARIM.md`), i18n mesajları (Türkçe ve İngilizce), saf iş kuralları.
 - **`packages/database`**: Prisma şeması, yalnızca ileri yönlü migration'lar, geliştirme seed'i.
 
 Ayrıntılı işleyiş her modülün kendi dokümanındadır (aşağıdaki liste).

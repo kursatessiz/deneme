@@ -7,7 +7,6 @@ import { ACCESS_TOKEN_COOKIE } from '@/lib/bff/cookies';
 import { ThemeRoot } from '@/components/theme/ThemeRoot';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
-import './fonts.css';
 import { DashboardSessionProvider } from '@/components/session/DashboardSessionProvider';
 import { BillingBanner } from '@/components/billing/BillingBanner';
 
@@ -31,8 +30,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
               membership={activeMembership}
               branches={branches}
               activeBranchId={activeBranchId}
+              appearance={user.appearance}
             />
-            <main className="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto">
+            <main className="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto grid gap-6 content-start">
               <BillingBanner
                 billing={activeMembership.billing}
                 canActivate={activeMembership.isOwner || activeMembership.permissions.includes('billing.manage')}

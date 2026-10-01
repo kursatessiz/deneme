@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
+// Order matters: globals.css declares the cascade layer order before the kit's own layers appear.
 import './globals.css';
+import '@chrissgon/perfectui/perfectui.css';
 import { I18nProvider } from '@/components/i18n/I18nProvider';
 import { resolveRequestLocale } from '@/lib/i18n/locale';
 import { getLocaleMessages } from '@/lib/i18n/messages';

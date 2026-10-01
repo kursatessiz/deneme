@@ -1,10 +1,9 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { onColor } from '@platform/shared';
 
 import { appBreadcrumbs } from '../errors/breadcrumbs';
-import { GradientSurface } from './GradientSurface';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../theme';
 
 interface PrimaryButtonProps {
@@ -15,7 +14,7 @@ interface PrimaryButtonProps {
   variant?: 'primary' | 'secondary' | 'danger';
 }
 
-/** Action button, minimum 44pt touch target. The primary variant carries the tenant gradient. */
+/** Action button, minimum 44pt touch target. The primary variant is flat in the tenant color. */
 export function PrimaryButton({ label, onPress, disabled, loading, variant = 'primary' }: PrimaryButtonProps) {
   const { theme } = useTheme();
   const fonts = useThemeFonts();
@@ -27,7 +26,7 @@ export function PrimaryButton({ label, onPress, disabled, loading, variant = 'pr
       ? theme.colors.textPrimary
       : variant === 'danger'
         ? onColor(palette.danger)
-        : onColor(theme.gradient.stops[0]);
+        : theme.colors.onPrimary;
 
   const content = loading ? (
     <ActivityIndicator color={textColor} />
@@ -56,9 +55,9 @@ export function PrimaryButton({ label, onPress, disabled, loading, variant = 'pr
       ]}
     >
       {variant === 'primary' ? (
-        <GradientSurface slot="primaryButton" style={[styles.fill, { borderRadius: radius }]}>
+        <View style={[styles.fill, { borderRadius: radius, backgroundColor: theme.colors.primary }]}>
           {content}
-        </GradientSurface>
+        </View>
       ) : (
         content
       )}

@@ -1,9 +1,9 @@
 'use client';
 
-import Link from 'next/link';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { useT } from '@/components/i18n/I18nProvider';
 import { visibleQuickActions } from '@/lib/quick-actions';
+import { LinkButton } from '@/components/ui/LinkButton';
 
 /**
  * Row of shortcuts into the existing screens that perform the most common
@@ -21,23 +21,19 @@ export function QuickActionBar() {
 
   return (
     <div role="group" aria-label={t('screens.dashboard.quickActions.title')} className="flex flex-wrap gap-2">
-      {actions.map((action) => {
+      {actions.map((action, index) => {
         const Icon = action.icon;
         return (
-          <Link
+          <LinkButton
             key={action.key}
             href={action.href}
-            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 transition-opacity hover:opacity-90"
-            style={{
-              borderRadius: 'var(--radius-button)',
-              border: '1px solid var(--color-border)',
-              backgroundColor: 'var(--color-surface)',
-              color: 'var(--color-text-primary)',
-            }}
+            size="sm"
+            variant={index === 0 ? 'solid' : 'outline'}
+            tone={index === 0 ? 'theme' : 'surface'}
+            icon={<Icon className="ui-icon" aria-hidden="true" />}
           >
-            <Icon className="w-3.5 h-3.5" />
             {t(action.labelKey)}
-          </Link>
+          </LinkButton>
         );
       })}
     </div>

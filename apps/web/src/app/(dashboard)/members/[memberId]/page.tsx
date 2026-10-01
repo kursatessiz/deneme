@@ -11,6 +11,12 @@ import { PageGuard } from '@/components/common/PageGuard';
 import { PermissionButton } from '@/components/common/PermissionButton';
 import { Badge } from '@/components/common/Badge';
 import { Modal } from '@/components/common/Modal';
+import { AlertTriangle, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { Avatar } from '@/components/ui/Avatar';
+import { Input } from '@/components/ui/Input';
+import { StatTile } from '@/components/ui/StatTile';
+import { Table, Tbody, Td, Tr } from '@/components/ui/Table';
 import { PackageSaleDialog } from '@/components/members/PackageSaleDialog';
 import { LoyaltyPanel } from '@/components/loyalty/LoyaltyPanel';
 import { hasAnyPermission } from '@/lib/nav';
@@ -112,251 +118,248 @@ function MemberCard() {
   const activePackages = member.packages.filter((p) => p.status === 'ACTIVE' || p.status === 'FROZEN');
   const otherPackages = member.packages.filter((p) => p.status !== 'ACTIVE' && p.status !== 'FROZEN');
 
+  const fullName = `${member.firstName} ${member.lastName}`;
+
   return (
-    <div className="space-y-6">
-      <button onClick={() => router.push('/members')} className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-        ← {t('members.card.back')}
-      </button>
+    <div className="grid gap-6">
+      <div>
+        <Button variant="link" tone="muted" size="sm" onClick={() => router.push('/members')} icon={<ArrowLeft className="ui-icon" aria-hidden="true" />}>
+          {t('members.card.back')}
+        </Button>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 space-y-4">
-          <div className="p-5" style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-            <div className="flex items-start justify-between flex-wrap gap-2">
-              <div>
-                <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                  {member.firstName} {member.lastName}
-                </h2>
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {member.isPartnerGuest && <Badge tone="info">{t('members.partnerGuest')}</Badge>}
-                  {churn && <Badge tone={RISK_TONE[churn.level]}>{riskLabel(churn.level)}</Badge>}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+        <div className="lg:col-span-2 grid gap-6">
+          <section className="pui-card ui-gradient-member-card">
+            <div className="pui-card-content gap-4">
+              <div className="flex items-start justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <Avatar name={fullName} tone="inverse" />
+                  <div className="grid gap-1">
+                    <h2 className="ui-title">{fullName}</h2>
+                    <div className="flex flex-wrap gap-1.5">
+                      {member.isPartnerGuest && <Badge tone="info">{t('members.partnerGuest')}</Badge>}
+                      {churn && <Badge tone={RISK_TONE[churn.level]}>{riskLabel(churn.level)}</Badge>}
+                    </div>
+                  </div>
                 </div>
+                <PermissionButton required={['packages.sell']} variant="secondary" mode="disable" onClick={() => setShowSell(true)} style={{ backgroundColor: 'var(--pui-bg)' }}>
+                  {t('members.card.sellPackage')}
+                </PermissionButton>
               </div>
-              <PermissionButton required={['packages.sell']} variant="primary" mode="disable" onClick={() => setShowSell(true)}>
-                {t('members.card.sellPackage')}
-              </PermissionButton>
-            </div>
 
-            <dl className="grid grid-cols-2 gap-3 mt-4 text-sm">
-              {canViewContact && (
-                <>
-                  <div>
-                    <dt style={{ color: 'var(--color-text-muted)' }}>{t('members.card.phone')}</dt>
-                    <dd style={{ color: 'var(--color-text-primary)' }}>{member.phone ?? '—'}</dd>
-                  </div>
-                  <div>
-                    <dt style={{ color: 'var(--color-text-muted)' }}>{t('members.card.email')}</dt>
-                    <dd style={{ color: 'var(--color-text-primary)' }}>{member.email ?? '—'}</dd>
-                  </div>
-                </>
+              <dl className="grid grid-cols-2 gap-3">
+                {canViewContact && (
+                  <>
+                    <div className="grid gap-0.5">
+                      <dt className="ui-caption" style={{ color: 'inherit', opacity: 0.8 }}>{t('members.card.phone')}</dt>
+                      <dd>{member.phone ?? '—'}</dd>
+                    </div>
+                    <div className="grid gap-0.5">
+                      <dt className="ui-caption" style={{ color: 'inherit', opacity: 0.8 }}>{t('members.card.email')}</dt>
+                      <dd>{member.email ?? '—'}</dd>
+                    </div>
+                  </>
+                )}
+                <div className="grid gap-0.5">
+                  <dt className="ui-caption" style={{ color: 'inherit', opacity: 0.8 }}>{t('members.card.homeBranch')}</dt>
+                  <dd>{member.homeBranchId ?? t('members.card.unspecified')}</dd>
+                </div>
+                <div className="grid gap-0.5">
+                  <dt className="ui-caption" style={{ color: 'inherit', opacity: 0.8 }}>{t('members.card.totalBookings')}</dt>
+                  <dd>{member.bookingsCount ?? member.bookings.length}</dd>
+                </div>
+              </dl>
+
+              {member.notes && (
+                <div className="grid gap-0.5">
+                  <span className="ui-caption" style={{ color: 'inherit', opacity: 0.8 }}>
+                    {t('members.card.notes')}
+                  </span>
+                  <p>{member.notes}</p>
+                </div>
               )}
-              <div>
-                <dt style={{ color: 'var(--color-text-muted)' }}>{t('members.card.homeBranch')}</dt>
-                <dd style={{ color: 'var(--color-text-primary)' }}>{member.homeBranchId ?? t('members.card.unspecified')}</dd>
-              </div>
-              <div>
-                <dt style={{ color: 'var(--color-text-muted)' }}>{t('members.card.totalBookings')}</dt>
-                <dd style={{ color: 'var(--color-text-primary)' }}>{member.bookingsCount ?? member.bookings.length}</dd>
-              </div>
-            </dl>
+            </div>
+          </section>
 
-            {member.notes && (
-              <div className="mt-4">
-                <dt className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  {t('members.card.notes')}
-                </dt>
-                <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-                  {member.notes}
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-              {t('members.card.activePackages')}
-            </h3>
+          <div className="grid gap-3">
+            <h3 className="ui-heading">{t('members.card.activePackages')}</h3>
             {activePackages.length === 0 ? (
-              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                {t('members.card.noActivePackages')}
-              </p>
+              <p className="ui-caption">{t('members.card.noActivePackages')}</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {activePackages.map((pkg) => (
-                  <div key={pkg.id} className="p-4 flex flex-col justify-between" style={{ borderRadius: 'var(--radius-card)', background: 'var(--gradient-brand)', color: 'var(--color-on-primary)' }}>
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-semibold text-sm">{pkg.packageDefinition?.name ?? t('members.card.defaultPackageName')}</h4>
-                        <span className="text-[10px] px-2 py-0.5" style={{ borderRadius: 'var(--radius-chip)', backgroundColor: 'rgba(255,255,255,0.2)' }}>
-                          {packageStatusLabel(t, pkg.status)}
+                  <div key={pkg.id} className="pui-card ui-gradient-package-card">
+                    <div className="pui-card-content">
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="ui-heading">{pkg.packageDefinition?.name ?? t('members.card.defaultPackageName')}</h4>
+                        <span className="pui-badge pui-solid pui-inverse">{packageStatusLabel(t, pkg.status)}</span>
+                      </div>
+                      <div className="grid">
+                        <span className="ui-stat-value">
+                          {pkg.entitlementKind === 'TIME_UNLIMITED' ? t('members.card.unlimited') : `${pkg.remainingUnits ?? 0}/${pkg.totalUnits ?? '—'}`}
+                        </span>
+                        <span className="ui-caption" style={{ color: 'inherit', opacity: 0.85 }}>
+                          {t('members.card.remainingUnits')}
                         </span>
                       </div>
-                      <p className="text-2xl font-extrabold mt-2">
-                        {pkg.entitlementKind === 'TIME_UNLIMITED' ? t('members.card.unlimited') : `${pkg.remainingUnits ?? 0}/${pkg.totalUnits ?? '—'}`}
-                      </p>
-                      <p className="text-xs opacity-90 mt-1">{t('members.card.remainingUnits')}</p>
+                      <div className="ui-caption grid gap-0.5" style={{ color: 'inherit', opacity: 0.85 }}>
+                        <span>{t('members.card.endDate', { date: new Date(pkg.endDate).toLocaleDateString(locale) })}</span>
+                        {pkg.frozenUntil && <span>{t('members.card.frozenUntil', { date: new Date(pkg.frozenUntil).toLocaleDateString(locale) })}</span>}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <PermissionButton
+                          required={['packages.sell']}
+                          variant="secondary"
+                          style={{ backgroundColor: 'var(--pui-bg)' }}
+                          disabled={busyPackageId === pkg.id}
+                          onClick={() => {
+                            if (pkg.status === 'FROZEN') {
+                              runPackageAction(pkg.id, () => bffFetch(`members/packages/${pkg.id}/unfreeze`, { method: 'POST', studioId: activeStudioId, body: { studioId: activeStudioId } }));
+                            } else {
+                              const days = Number(freezeDays[pkg.id] ?? '7');
+                              runPackageAction(pkg.id, () => bffFetch(`members/packages/${pkg.id}/freeze`, { method: 'POST', studioId: activeStudioId, body: { studioId: activeStudioId, days } }));
+                            }
+                          }}
+                        >
+                          {pkg.status === 'FROZEN' ? t('members.card.unfreeze') : t('members.card.freeze')}
+                        </PermissionButton>
+                        {pkg.status !== 'FROZEN' && (
+                          <Input
+                            type="number"
+                            min={1}
+                            placeholder={t('members.card.daysPlaceholder')}
+                            className="w-24"
+                            style={{ backgroundColor: 'var(--pui-bg)', color: 'var(--pui-text)' }}
+                            value={freezeDays[pkg.id] ?? ''}
+                            onChange={(e) => setFreezeDays((f) => ({ ...f, [pkg.id]: e.target.value }))}
+                          />
+                        )}
+                      </div>
                     </div>
-                    <div className="mt-3 text-xs opacity-90 space-y-0.5">
-                      <div>{t('members.card.endDate', { date: new Date(pkg.endDate).toLocaleDateString(locale) })}</div>
-                      {pkg.frozenUntil && <div>{t('members.card.frozenUntil', { date: new Date(pkg.frozenUntil).toLocaleDateString(locale) })}</div>}
-                    </div>
-                    <PermissionButton required={['packages.sell']} variant="secondary" className="mt-3 self-start" style={{ backgroundColor: 'rgba(255,255,255,0.9)' }}
-                      disabled={busyPackageId === pkg.id}
-                      onClick={() => {
-                        if (pkg.status === 'FROZEN') {
-                          runPackageAction(pkg.id, () => bffFetch(`members/packages/${pkg.id}/unfreeze`, { method: 'POST', studioId: activeStudioId, body: { studioId: activeStudioId } }));
-                        } else {
-                          const days = Number(freezeDays[pkg.id] ?? '7');
-                          runPackageAction(pkg.id, () => bffFetch(`members/packages/${pkg.id}/freeze`, { method: 'POST', studioId: activeStudioId, body: { studioId: activeStudioId, days } }));
-                        }
-                      }}
-                    >
-                      {pkg.status === 'FROZEN' ? t('members.card.unfreeze') : t('members.card.freeze')}
-                    </PermissionButton>
-                    {pkg.status !== 'FROZEN' && (
-                      <input
-                        type="number"
-                        min={1}
-                        placeholder={t('members.card.daysPlaceholder')}
-                        className="mt-1.5 w-20 text-xs px-2 py-1"
-                        style={{ borderRadius: 'var(--radius-input)', border: '1px solid rgba(255,255,255,0.4)', backgroundColor: 'rgba(255,255,255,0.15)', color: 'inherit' }}
-                        value={freezeDays[pkg.id] ?? ''}
-                        onChange={(e) => setFreezeDays((f) => ({ ...f, [pkg.id]: e.target.value }))}
-                      />
-                    )}
                   </div>
                 ))}
               </div>
             )}
             {actionError && (
-              <p className="text-xs mt-2" style={{ color: '#b42318' }}>
+              <p className="ui-caption" style={{ color: 'var(--pui-error)' }}>
                 {actionError}
               </p>
             )}
           </div>
 
           {otherPackages.length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                {t('members.card.pastPackages')}
-              </h3>
-              <div className="space-y-1.5">
-                {otherPackages.map((pkg) => (
-                  <div key={pkg.id} className="flex items-center justify-between px-3 py-2 text-xs" style={{ borderRadius: 'var(--radius-chip)', backgroundColor: 'var(--color-surface-muted)' }}>
-                    <span style={{ color: 'var(--color-text-primary)' }}>{pkg.packageDefinition?.name ?? t('members.card.defaultPackageName')}</span>
-                    <Badge tone="neutral">{packageStatusLabel(t, pkg.status)}</Badge>
-                  </div>
-                ))}
+            <div className="grid gap-3">
+              <h3 className="ui-heading">{t('members.card.pastPackages')}</h3>
+              <div className="pui-card">
+                <ul className="pui-list">
+                  {otherPackages.map((pkg) => (
+                    <li key={pkg.id} className="pui-list-item flex items-center justify-between gap-3">
+                      <span>{pkg.packageDefinition?.name ?? t('members.card.defaultPackageName')}</span>
+                      <Badge tone="neutral">{packageStatusLabel(t, pkg.status)}</Badge>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           )}
 
-          <div>
-            <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-              {t('members.card.bookingHistory')}
-            </h3>
+          <div className="grid gap-3">
+            <h3 className="ui-heading">{t('members.card.bookingHistory')}</h3>
             {member.bookings.length === 0 ? (
-              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                {t('members.card.noBookingsYet')}
-              </p>
+              <p className="ui-caption">{t('members.card.noBookingsYet')}</p>
             ) : (
-              <div className="border overflow-hidden" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)' }}>
-                <table className="w-full text-sm">
-                  <tbody>
+              <div className="pui-card overflow-x-auto">
+                <Table>
+                  <Tbody>
                     {member.bookings.map((b) => (
-                      <tr key={b.id} className="border-t first:border-t-0" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-                        <td className="px-3 py-2" style={{ color: 'var(--color-text-primary)' }}>
-                          {b.schedule?.title ?? t('members.card.defaultSessionName')}
-                        </td>
-                        <td className="px-3 py-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                          {b.schedule ? new Date(b.schedule.startTime).toLocaleString(locale) : '—'}
-                        </td>
-                        <td className="px-3 py-2 text-right">
+                      <Tr key={b.id}>
+                        <Td>{b.schedule?.title ?? t('members.card.defaultSessionName')}</Td>
+                        <Td className="ui-text-muted">{b.schedule ? new Date(b.schedule.startTime).toLocaleString(locale) : '—'}</Td>
+                        <Td style={{ textAlign: 'end' }}>
                           <Badge tone="neutral">{bookingStatusLabel(t, b.status)}</Badge>
-                        </td>
-                      </tr>
+                        </Td>
+                      </Tr>
                     ))}
-                  </tbody>
-                </table>
+                  </Tbody>
+                </Table>
               </div>
             )}
           </div>
 
-          <div>
-            <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-              {t('members.card.payments')}
-            </h3>
+          <div className="grid gap-3">
+            <h3 className="ui-heading">{t('members.card.payments')}</h3>
             {member.payments.length === 0 ? (
-              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                {t('members.card.noPaymentsYet')}
-              </p>
+              <p className="ui-caption">{t('members.card.noPaymentsYet')}</p>
             ) : (
-              <div className="space-y-1.5">
-                {member.payments.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between px-3 py-2 text-xs" style={{ borderRadius: 'var(--radius-chip)', backgroundColor: 'var(--color-surface-muted)' }}>
-                    <span style={{ color: 'var(--color-text-primary)' }}>{formatMoney(p.amount)}</span>
-                    <span style={{ color: 'var(--color-text-secondary)' }}>{p.paidAt ? new Date(p.paidAt).toLocaleDateString(locale) : '—'}</span>
-                    <Badge tone="neutral">{p.status}</Badge>
-                  </div>
-                ))}
+              <div className="pui-card">
+                <ul className="pui-list">
+                  {member.payments.map((p) => (
+                    <li key={p.id} className="pui-list-item flex items-center justify-between gap-3">
+                      <span className="ui-heading">{formatMoney(p.amount)}</span>
+                      <span className="ui-text-muted">{p.paidAt ? new Date(p.paidAt).toLocaleDateString(locale) : '—'}</span>
+                      <Badge tone="neutral">{p.status}</Badge>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="grid gap-4">
           <LoyaltyPanel memberId={memberId} />
 
           {(member.bookingsCount ?? 0) >= 0 && (
-            <div className="p-4" style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-              <h3 className="text-xs font-semibold mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                {t('members.card.attendanceStats')}
-              </h3>
-              <p className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                {member.bookings.filter((b) => b.status === 'ATTENDED').length}
-              </p>
-              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                {t('members.card.attendedSessions')}
-              </p>
-            </div>
+            <StatTile
+              label={t('members.card.attendanceStats')}
+              value={member.bookings.filter((b) => b.status === 'ATTENDED').length}
+              hint={t('members.card.attendedSessions')}
+              icon={<CheckCircle2 className="ui-icon" aria-hidden="true" />}
+              tone="success"
+            />
           )}
 
           {achievement && (
-            <div className="p-4" style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-              <h3 className="text-xs font-semibold mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                {t('members.card.gamification')}
-              </h3>
-              <dl className="text-xs space-y-1">
-                <div className="flex justify-between">
-                  <dt style={{ color: 'var(--color-text-muted)' }}>{t('members.card.totalAttendance')}</dt>
-                  <dd style={{ color: 'var(--color-text-primary)' }}>{achievement.totalAttendedSessions}</dd>
+            <section className="pui-card">
+              <div className="pui-card-header">
+                <h3 className="ui-heading">{t('members.card.gamification')}</h3>
+              </div>
+              <dl className="pui-card-content gap-2">
+                <div className="flex justify-between gap-3">
+                  <dt className="ui-text-muted">{t('members.card.totalAttendance')}</dt>
+                  <dd>{achievement.totalAttendedSessions}</dd>
                 </div>
-                <div className="flex justify-between">
-                  <dt style={{ color: 'var(--color-text-muted)' }}>{t('members.card.currentStreak')}</dt>
-                  <dd style={{ color: 'var(--color-text-primary)' }}>{t('members.card.weeksUnit', { count: achievement.currentStreakWeeks })}</dd>
+                <div className="flex justify-between gap-3">
+                  <dt className="ui-text-muted">{t('members.card.currentStreak')}</dt>
+                  <dd>{t('members.card.weeksUnit', { count: achievement.currentStreakWeeks })}</dd>
                 </div>
-                <div className="flex justify-between">
-                  <dt style={{ color: 'var(--color-text-muted)' }}>{t('members.card.bestStreak')}</dt>
-                  <dd style={{ color: 'var(--color-text-primary)' }}>{t('members.card.weeksUnit', { count: achievement.bestStreakWeeks })}</dd>
+                <div className="flex justify-between gap-3">
+                  <dt className="ui-text-muted">{t('members.card.bestStreak')}</dt>
+                  <dd>{t('members.card.weeksUnit', { count: achievement.bestStreakWeeks })}</dd>
                 </div>
-                <div className="flex justify-between">
-                  <dt style={{ color: 'var(--color-text-muted)' }}>{t('members.card.badgeCount')}</dt>
-                  <dd style={{ color: 'var(--color-text-primary)' }}>{achievement.badgeCount}</dd>
+                <div className="flex justify-between gap-3">
+                  <dt className="ui-text-muted">{t('members.card.badgeCount')}</dt>
+                  <dd>{achievement.badgeCount}</dd>
                 </div>
               </dl>
-            </div>
+            </section>
           )}
 
           {churn && churn.reasons.length > 0 && (
-            <div className="p-4" style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-              <h3 className="text-xs font-semibold mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                {t('members.card.riskReasons')}
-              </h3>
-              <ul className="text-xs space-y-1" style={{ color: 'var(--color-text-primary)' }}>
+            <section className="pui-card">
+              <div className="pui-card-header">
+                <h3 className="ui-heading">{t('members.card.riskReasons')}</h3>
+              </div>
+              <ul className="pui-list">
                 {churn.reasons.map((r, i) => (
-                  <li key={i}>• {r.label}</li>
+                  <li key={i} className="pui-list-item flex items-center gap-2">
+                    <AlertTriangle className="ui-icon" style={{ color: 'var(--pui-warn)' }} aria-hidden="true" />
+                    {r.label}
+                  </li>
                 ))}
               </ul>
-            </div>
+            </section>
           )}
         </div>
       </div>
