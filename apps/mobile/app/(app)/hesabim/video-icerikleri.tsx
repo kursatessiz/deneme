@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import type { VideoContentDTO, VideoContentVisibility } from '@platform/shared';
 
@@ -9,8 +9,10 @@ import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, TOUCH_TARGET, typography, useThemeColors, useThemeFonts } from '../../../src/theme';
 import type { Translate } from '@platform/shared';
+import { Text } from '../../../src/components/Text';
+import { TextInput } from '../../../src/components/TextInput';
 
 function visibilityLabels(t: Translate): Record<VideoContentVisibility, string> {
   return {
@@ -216,15 +218,15 @@ export default function VideoIcerikleriScreen() {
 const styles = StyleSheet.create({
   sectionTitle: { fontSize: typography.size.sm, marginBottom: spacing[2] },
   input: {
-    minHeight: 44,
-    borderWidth: 1,
-    borderRadius: radii.md,
+    minHeight: TOUCH_TARGET,
+    borderWidth: borderWidth,
+    borderRadius: radii.sm,
     paddingHorizontal: spacing[3],
     marginBottom: spacing[2],
     fontSize: typography.size.sm,
   },
   visibilityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginBottom: spacing[3] },
-  visibilityChip: { minHeight: 36, paddingHorizontal: spacing[3], justifyContent: 'center', borderRadius: radii.md, borderWidth: 1 },
+  visibilityChip: { minHeight: 36, paddingHorizontal: spacing[3], justifyContent: 'center', borderRadius: radii.full, borderWidth: borderWidth },
   message: { fontSize: typography.size.sm, marginBottom: spacing[2] },
   itemRow: {
     flexDirection: 'row',
@@ -232,12 +234,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     minHeight: 56,
     padding: spacing[3],
-    borderWidth: 1,
+    borderWidth: borderWidth,
     borderRadius: radii.md,
     marginBottom: spacing[2],
   },
   itemText: { flex: 1, gap: 2 },
   itemTitle: { fontSize: typography.size.md },
   itemSubtitle: { fontSize: typography.size.xs },
-  publishButton: { minHeight: 36, minWidth: 44, paddingHorizontal: spacing[3], justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderRadius: radii.md },
+  publishButton: { minHeight: 36, minWidth: 44, paddingHorizontal: spacing[3], justifyContent: 'center', alignItems: 'center', borderWidth: borderWidth, borderRadius: radii.sm },
 });

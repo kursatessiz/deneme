@@ -1,6 +1,9 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+
+import { Card } from '../../../src/components/Card';
+import { ListRow } from '../../../src/components/ListRow';
 
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
@@ -8,31 +11,13 @@ import { useT } from '../../../src/i18n';
 import { usePlatformAccess } from '../../../src/lib/platformContext';
 import { buildHesabimMenu } from '../../../src/lib/staffMenu';
 import { useSession } from '../../../src/lib/session';
-import { radii, spacing, typography, useThemeColors } from '../../../src/theme';
-
-interface MenuLinkProps {
-  label: string;
-  onPress: () => void;
-}
-
-function MenuLink({ label, onPress }: MenuLinkProps) {
-  const colors = useThemeColors();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={[styles.menuRow, { borderColor: colors.border }]}
-    >
-      <Text style={[styles.menuLabel, { color: colors.textPrimary }]}>{label}</Text>
-      <Text style={[styles.menuChevron, { color: colors.textMuted }]}>›</Text>
-    </Pressable>
-  );
-}
+import { spacing, typography, useThemeColors, useThemeFonts } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 export default function HesabimScreen() {
   const router = useRouter();
   const colors = useThemeColors();
+  const fonts = useThemeFonts();
   const t = useT();
   const { user, memberships, activeMembership, signOut } = useSession();
   const isMember = Boolean(activeMembership?.memberProfileId);
@@ -59,27 +44,39 @@ export default function HesabimScreen() {
   return (
     <ScreenContainer>
       <View style={styles.profile}>
-        <Text style={[styles.name, { color: colors.textPrimary }]}>
+        <Text style={[styles.name, fonts.display, { color: colors.textPrimary }]}>
           {user?.firstName ?? ''} {user?.lastName ?? ''}
         </Text>
-        <Text style={[styles.phone, { color: colors.textSecondary }]}>{user?.phone ?? ''}</Text>
+        <Text style={[styles.phone, fonts.body, { color: colors.textSecondary }]}>{user?.phone ?? ''}</Text>
       </View>
 
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{t('mAccount.memberships.title')}</Text>
-      <View style={[styles.membershipsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        {memberships.map((membership) => (
-          <View key={membership.id} style={styles.membershipRow}>
-            <Text style={[styles.membershipStudio, { color: colors.textPrimary }]}>{membership.studioName}</Text>
-            <Text style={[styles.membershipRole, { color: colors.textMuted }]}>{membership.roleName}</Text>
-          </View>
-        ))}
-      </View>
+      <Text style={[styles.sectionTitle, fonts.bodyMedium, { color: colors.textSecondary }]}>{t('mAccount.memberships.title')}</Text>
+      <Card flush style={styles.membershipsCard}>
+        <View style={styles.cardRows}>
+          {memberships.map((membership, index) => (
+            <ListRow
+              key={membership.id}
+              title={membership.studioName}
+              trailing={<Text style={[styles.membershipRole, fonts.body, { color: colors.textMuted }]}>{membership.roleName}</Text>}
+              divider={index < memberships.length - 1}
+            />
+          ))}
+        </View>
+      </Card>
 
-      <View style={styles.menu}>
-        {menu.map((item) => (
-          <MenuLink key={item.key} label={t(item.labelKey)} onPress={() => router.push(item.route as never)} />
-        ))}
-      </View>
+      <Card flush style={styles.menu}>
+        <View style={styles.cardRows}>
+          {menu.map((item, index) => (
+            <ListRow
+              key={item.key}
+              title={t(item.labelKey)}
+              onPress={() => router.push(item.route as never)}
+              trailing={<Text style={[styles.menuChevron, fonts.body, { color: colors.textMuted }]}>›</Text>}
+              divider={index < menu.length - 1}
+            />
+          ))}
+        </View>
+      </Card>
 
       <PrimaryButton label={t('mAccount.signOut')} onPress={handleSignOut} loading={isSigningOut} variant="danger" />
     </ScreenContainer>
@@ -104,40 +101,16 @@ const styles = StyleSheet.create({
     marginBottom: spacing[2],
   },
   membershipsCard: {
-    borderWidth: 1,
-    borderRadius: radii.md,
     marginBottom: spacing[6],
-    overflow: 'hidden',
   },
-  membershipRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  cardRows: {
     paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-    minHeight: 44,
-  },
-  membershipStudio: {
-    fontSize: typography.size.md,
-    fontWeight: typography.weight.medium,
   },
   membershipRole: {
     fontSize: typography.size.sm,
   },
   menu: {
     marginBottom: spacing[6],
-  },
-  menuRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    minHeight: 44,
-    paddingVertical: spacing[3],
-    borderBottomWidth: 1,
-  },
-  menuLabel: {
-    fontSize: typography.size.md,
-    fontWeight: typography.weight.medium,
   },
   menuChevron: {
     fontSize: typography.size.lg,

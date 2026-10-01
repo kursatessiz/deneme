@@ -48,10 +48,6 @@ export const trMAccount = {
   'mAccount.contacts.loadError': 'Kişiler yüklenemedi.',
   'mAccount.menu.inbox': 'Gelen kutusu',
 
-  'mAccount.appearance.section.theme': 'Tema',
-  'mAccount.appearance.studioTheme': 'İşletmenin teması',
-  'mAccount.appearance.studioThemeDescription': '{family}, işletmenin seçtiği tema',
-  'mAccount.appearance.studioThemeDescriptionFallback': 'İşletmenin seçtiği tema',
   'mAccount.appearance.section.colorScheme': 'Açık veya koyu',
   'mAccount.appearance.system': 'Sistem',
   'mAccount.appearance.systemDescription': 'Telefonun açık veya koyu ayarını izler',
@@ -59,7 +55,7 @@ export const trMAccount = {
   'mAccount.appearance.lightDescription': 'Her zaman açık zemin',
   'mAccount.appearance.dark': 'Koyu',
   'mAccount.appearance.darkDescription': 'Her zaman koyu zemin',
-  'mAccount.appearance.note': 'Logo, ana renk ve gradyan işletmeye aittir; burada yalnızca yazı tipi, köşe yapısı ve zemin renkleri değişir.',
+  'mAccount.appearance.note': 'Logo ve ana renk işletmeye aittir; burada yalnızca açık veya koyu zemin seçilir.',
   'mAccount.appearance.saveError': 'Görünüm kaydedilemedi.',
 
   'mAccount.language.section.title': 'Dil',

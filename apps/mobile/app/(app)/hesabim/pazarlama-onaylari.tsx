@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { APPROVAL_NOTE_MAX } from '@platform/shared';
 import type { ApprovalListDTO, ApprovalRequestDTO, MessageKey } from '@platform/shared';
@@ -12,7 +12,8 @@ import { formatDate, useLocale, useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { usePlatformAccess } from '../../../src/lib/platformContext';
 import { useSession } from '../../../src/lib/session';
-import { palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 type DecisionAction = 'approve' | 'reject';
 
@@ -172,7 +173,7 @@ export default function PazarlamaOnaylariScreen() {
 const styles = StyleSheet.create({
   title: { fontSize: typography.size.xl, fontWeight: typography.weight.bold, marginBottom: spacing[2] },
   description: { fontSize: typography.size.sm, marginBottom: spacing[4] },
-  row: { borderWidth: 1, borderRadius: radii.md, padding: spacing[3], marginBottom: spacing[3] },
+  row: { borderWidth: borderWidth, borderRadius: radii.md, padding: spacing[3], marginBottom: spacing[3] },
   name: { fontSize: typography.size.md, fontWeight: typography.weight.semibold, marginBottom: spacing[1] },
   detail: { fontSize: typography.size.sm, marginBottom: spacing[1] },
   actions: { gap: spacing[2], marginTop: spacing[2] },

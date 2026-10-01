@@ -1,7 +1,7 @@
 import type { HealthConsentStatusDTO, HealthSettingsDTO } from '@platform/shared';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
@@ -9,7 +9,8 @@ import { SwitchRow } from '../../../src/components/SwitchRow';
 import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 /**
  * Hesabım > Sağlık entegrasyonu (W21). Privacy-first: every toggle defaults
@@ -176,7 +177,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   card: {
-    borderWidth: 1,
+    borderWidth: borderWidth,
     borderRadius: radii.md,
     padding: spacing[4],
     marginBottom: spacing[4],

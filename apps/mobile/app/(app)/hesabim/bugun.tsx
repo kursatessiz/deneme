@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { PermissionGate } from '../../../src/components/PermissionGate';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
@@ -12,7 +12,8 @@ import { dayRange } from '../../../src/lib/dateRange';
 import { isTabletWidth } from '../../../src/lib/layout';
 import { trainerName, type ScheduleRow } from '../../../src/lib/scheduleTypes';
 import { useSession } from '../../../src/lib/session';
-import { palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 function formatTime(iso: string, locale: string): string {
   return new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
@@ -147,7 +148,7 @@ export default function BugunScreen() {
 
 const styles = StyleSheet.create({
   tabletWrap: { flex: 1, flexDirection: 'row' },
-  detailPane: { flex: 1, borderLeftWidth: 1 },
+  detailPane: { flex: 1, borderLeftWidth: borderWidth },
   placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   quickLinks: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginBottom: spacing[4] },
   row: {
@@ -155,7 +156,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing[3],
     borderRadius: radii.md,
-    borderWidth: 1,
+    borderWidth: borderWidth,
     marginBottom: spacing[2],
     gap: spacing[3],
   },

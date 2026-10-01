@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { CreateInviteSchema, InviteChannel } from '@platform/shared';
@@ -12,7 +12,8 @@ import { useT } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { fieldErrorsFromZod } from '../../../../src/lib/formErrors';
 import { useSession } from '../../../../src/lib/session';
-import { palette, radii, spacing, typography, useThemeColors } from '../../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useThemeColors } from '../../../../src/theme';
+import { Text } from '../../../../src/components/Text';
 
 interface InviteResponse {
   id: string;
@@ -111,7 +112,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing[6],
-    borderWidth: 1,
+    borderWidth: borderWidth,
     borderRadius: radii.md,
     marginBottom: spacing[4],
   },

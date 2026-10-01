@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { BranchSummaryDTO, PortfolioSummaryDTO } from '@platform/shared';
 
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { formatCurrency, useLocale, useT } from '../../../src/i18n';
-import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 const percent = (v: number) => `%${Math.round(v * 100)}`;
 
@@ -46,7 +47,7 @@ export default function SubelerScreen() {
     load();
   }, [load]);
 
-  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: theme.family.radii.card };
+  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: radii.md };
 
   return (
     <ScrollView
@@ -68,7 +69,7 @@ export default function SubelerScreen() {
       {error ? <Text style={{ color: palette.danger }}>{error}</Text> : null}
 
       {rows?.map((r) => (
-        <View key={r.branchId ?? 'none'} style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+        <View key={r.branchId ?? 'none'} style={[styles.card, card, styles.bordered]}>
           <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{r.branchName}</Text>
           <View style={styles.metrics}>
             <Metric label={t('mBranchSummary.metric.occupancy')} value={percent(r.occupancy)} />
@@ -85,7 +86,7 @@ export default function SubelerScreen() {
         <>
           <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mBranchSummary.allMyBusinesses')}</Text>
           {portfolio.studios.map((s) => (
-            <View key={s.studioId} style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+            <View key={s.studioId} style={[styles.card, card, styles.bordered]}>
               <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{s.studioName}</Text>
               <View style={styles.metrics}>
                 <Metric label={t('mBranchSummary.metric.branches')} value={String(s.branchCount)} />
@@ -117,7 +118,7 @@ const styles = StyleSheet.create({
   caption: { fontSize: typography.size.sm },
   section: { fontSize: typography.size.sm, marginTop: spacing[4] },
   card: { padding: spacing[4] },
-  bordered: { borderWidth: 1 },
+  bordered: { borderWidth: borderWidth },
   title: { fontSize: typography.size.lg, marginBottom: spacing[3] },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', rowGap: spacing[3] },
   metric: { width: '33%' },

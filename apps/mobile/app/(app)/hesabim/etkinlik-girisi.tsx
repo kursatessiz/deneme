@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { EventDTO, EventRegistrationDTO } from '@platform/shared';
 
@@ -9,7 +9,8 @@ import { formatDateTime, useLocale, useT } from '../../../src/i18n';
 import { apiRequest } from '../../../src/lib/api';
 import { eventErrorText } from '../../../src/lib/events';
 import { useSession } from '../../../src/lib/session';
-import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 const DOOR_STATUSES = new Set(['CONFIRMED', 'ATTENDED', 'NO_SHOW', 'PENDING_PAYMENT']);
 
@@ -73,7 +74,7 @@ function EtkinlikGirisiContent() {
     }
   };
 
-  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: theme.family.radii.card };
+  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: radii.md };
   const attended = (registrations ?? []).filter((r) => r.status === 'ATTENDED').length;
 
   return (
@@ -101,7 +102,7 @@ function EtkinlikGirisiContent() {
           {!events && !error ? <ActivityIndicator /> : null}
           {events && events.length === 0 ? <Text style={[styles.note, fonts.body, { color: c.textMuted }]}>{t('mEvents.checkin.noEvents')}</Text> : null}
           {(events ?? []).map((e) => (
-            <Pressable key={e.id} accessibilityRole="button" onPress={() => setSelected(e)} style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+            <Pressable key={e.id} accessibilityRole="button" onPress={() => setSelected(e)} style={[styles.card, card, styles.bordered]}>
               <Text style={[fonts.bodyStrong, { color: c.textPrimary }]}>{e.title}</Text>
               <Text style={[styles.meta, fonts.body, { color: c.textMuted }]}>{e.startsAt ? formatDateTime(e.startsAt, locale) : t('mEvents.noDate')}</Text>
             </Pressable>
@@ -119,7 +120,7 @@ function EtkinlikGirisiContent() {
           ) : null}
           {registrations && registrations.length === 0 ? <Text style={[styles.note, fonts.body, { color: c.textMuted }]}>{t('mEvents.checkin.empty')}</Text> : null}
           {(registrations ?? []).map((r) => (
-            <View key={r.id} style={[styles.row, card, theme.family.cardBorder && styles.bordered]}>
+            <View key={r.id} style={[styles.row, card, styles.bordered]}>
               <View style={styles.rowText}>
                 <Text style={[fonts.bodyStrong, { color: c.textPrimary }]}>{r.displayName}</Text>
                 <Text style={[styles.meta, fonts.body, { color: c.textMuted }]}>
@@ -151,7 +152,7 @@ const styles = StyleSheet.create({
   content: { padding: spacing[4], gap: spacing[3] },
   title: { fontSize: typography.size.lg },
   card: { padding: spacing[4], gap: spacing[1] },
-  bordered: { borderWidth: 1 },
+  bordered: { borderWidth: borderWidth },
   meta: { fontSize: typography.size.sm },
   note: { fontSize: typography.size.sm },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2], padding: spacing[3] },

@@ -1,15 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import type { ConversationDetailDTO, ConversationSummaryDTO } from '@platform/shared';
 
@@ -19,7 +9,9 @@ import { formatDateTime, useLocale, useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { isTabletWidth } from '../../../src/lib/layout';
 import { useSession } from '../../../src/lib/session';
-import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, TOUCH_TARGET, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
+import { TextInput } from '../../../src/components/TextInput';
 
 /**
  * Hesabım > Gelen kutusu (reception and owner, inbox.view): open
@@ -125,7 +117,7 @@ function Inbox() {
     setRefreshing(false);
   };
 
-  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: theme.family.radii.card };
+  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: radii.md };
 
   const list = (
     <View style={styles.pane}>
@@ -189,7 +181,7 @@ function Inbox() {
             accessibilityLabel={t('mMessaging.inbox.reply')}
             multiline
             maxLength={4000}
-            style={[styles.input, fonts.body, { borderColor: c.border, color: c.textPrimary, backgroundColor: c.surface, borderRadius: theme.family.radii.input }]}
+            style={[styles.input, fonts.body, { borderColor: c.border, color: c.textPrimary, backgroundColor: c.surface, borderRadius: radii.sm }]}
           />
           <PrimaryButton label={t('mMessaging.inbox.send')} onPress={reply} loading={busy} disabled={!draft.trim()} />
         </>
@@ -235,19 +227,19 @@ const styles = StyleSheet.create({
   pane: { gap: spacing[3] },
   spinner: { marginTop: spacing[6] },
   empty: { fontSize: typography.size.md },
-  card: { padding: spacing[3], borderWidth: 1, gap: spacing[1] },
+  card: { padding: spacing[3], borderWidth: borderWidth, gap: spacing[1] },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing[2] },
   name: { fontSize: typography.size.md, flexShrink: 1 },
   unread: { fontSize: typography.size.sm },
   preview: { fontSize: typography.size.sm },
-  back: { minHeight: 44, justifyContent: 'center' },
+  back: { minHeight: TOUCH_TARGET, justifyContent: 'center' },
   title: { fontSize: typography.size.lg },
   row: { flexDirection: 'row' },
   rowEnd: { justifyContent: 'flex-end' },
   rowStart: { justifyContent: 'flex-start' },
-  bubble: { maxWidth: '85%', padding: spacing[3], borderWidth: 1, gap: spacing[1] },
+  bubble: { maxWidth: '85%', padding: spacing[3], borderWidth: borderWidth, gap: spacing[1] },
   body: { fontSize: typography.size.md },
   meta: { fontSize: typography.size.xs },
-  input: { minHeight: 88, borderWidth: 1, padding: spacing[3], textAlignVertical: 'top', fontSize: typography.size.md },
+  input: { minHeight: 88, borderWidth: borderWidth, padding: spacing[3], textAlignVertical: 'top', fontSize: typography.size.md },
   actions: { gap: spacing[2] },
 });

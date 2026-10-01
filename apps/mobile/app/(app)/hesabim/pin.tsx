@@ -1,7 +1,7 @@
 import { PinSchema } from '@platform/shared';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
@@ -9,6 +9,7 @@ import { TextField } from '../../../src/components/TextField';
 import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { palette, spacing, typography, useThemeColors } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 export default function ChangePinScreen() {
   const router = useRouter();

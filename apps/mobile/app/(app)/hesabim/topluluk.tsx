@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { COMMUNITY_COMMENT_MAX } from '@platform/shared';
 import type { CommunityCommentDTO, CommunityFeedItemDTO, CommunityLikeResultDTO } from '@platform/shared';
@@ -8,7 +8,9 @@ import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { formatDateTime, useLocale, useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, TOUCH_TARGET, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
+import { TextInput } from '../../../src/components/TextInput';
 
 const PAGE_SIZE = 20;
 
@@ -129,7 +131,7 @@ export default function ToplulukScreen() {
     }
   };
 
-  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: theme.family.radii.card };
+  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: radii.md };
 
   return (
     <ScrollView
@@ -151,7 +153,7 @@ export default function ToplulukScreen() {
       {posts && posts.length === 0 ? <Text style={[styles.note, fonts.body, { color: c.textMuted }]}>{t('mCommunity.empty')}</Text> : null}
 
       {(posts ?? []).map((post) => (
-        <View key={post.id} style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+        <View key={post.id} style={[styles.card, card, styles.bordered]}>
           <Text style={[styles.meta, fonts.body, { color: c.textMuted }]}>
             {t(`mCommunity.type.${post.type}`)}
             {post.pinned ? ` - ${t('mCommunity.pinned')}` : ''} - {formatDateTime(post.publishedAt, locale)}
@@ -239,15 +241,15 @@ export default function ToplulukScreen() {
 const styles = StyleSheet.create({
   content: { padding: spacing[4], gap: spacing[3] },
   card: { padding: spacing[4], gap: spacing[2] },
-  bordered: { borderWidth: 1 },
+  bordered: { borderWidth: borderWidth },
   title: { fontSize: typography.size.md },
   body: { fontSize: typography.size.sm },
   meta: { fontSize: typography.size.sm },
   note: { fontSize: typography.size.sm },
   actions: { flexDirection: 'row', gap: spacing[4], flexWrap: 'wrap' },
-  action: { minHeight: 44, justifyContent: 'center' },
+  action: { minHeight: TOUCH_TARGET, justifyContent: 'center' },
   comments: { gap: spacing[2] },
   comment: { gap: spacing[1] },
-  input: { borderWidth: 1, borderRadius: radii.md, padding: spacing[3], minHeight: 44, fontSize: typography.size.sm },
+  input: { borderWidth: borderWidth, borderRadius: radii.sm, padding: spacing[3], minHeight: TOUCH_TARGET, fontSize: typography.size.sm },
   spacer: { height: spacing[4] },
 });

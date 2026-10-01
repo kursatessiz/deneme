@@ -1,15 +1,17 @@
 import { Redirect, Tabs } from 'expo-router';
 import React, { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-
-import { contrastRatio } from '@platform/shared';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { useT } from '../../src/i18n';
 import { useSession } from '../../src/lib/session';
-import { palette, radii, spacing, typography, useThemeColors } from '../../src/theme';
+import { useNavigationStyle } from '../../src/navigation';
+import { SCRIM, TOUCH_TARGET, borderWidth, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../src/theme';
+import { Text } from '../../src/components/Text';
 
 function StudioSwitcher() {
   const colors = useThemeColors();
+  const fonts = useThemeFonts();
+  const accent = useNavigationStyle().accent;
   const t = useT();
   const { memberships, activeStudioId, setActiveStudioId } = useSession();
   const [isOpen, setIsOpen] = useState(false);
@@ -19,7 +21,7 @@ function StudioSwitcher() {
   if (memberships.length <= 1) {
     return (
       <View style={styles.badge}>
-        <Text style={[styles.badgeText, { color: colors.textPrimary }]}>{activeMembership?.studioName ?? ''}</Text>
+        <Text style={[styles.badgeText, fonts.bodyMedium, { color: colors.textPrimary }]}>{activeMembership?.studioName ?? ''}</Text>
       </View>
     );
   }
@@ -32,13 +34,13 @@ function StudioSwitcher() {
         onPress={() => setIsOpen(true)}
         style={styles.badge}
       >
-        <Text style={[styles.badgeText, { color: colors.textPrimary }]}>
+        <Text style={[styles.badgeText, fonts.bodyMedium, { color: colors.textPrimary }]}>
           {activeMembership?.studioName ?? t('mNav.studioSwitcher.select')} v
         </Text>
       </Pressable>
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
         <Pressable style={styles.overlay} onPress={() => setIsOpen(false)}>
-          <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
+          <View style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             {memberships.map((membership) => (
               <Pressable
                 key={membership.studioId}
@@ -50,9 +52,9 @@ function StudioSwitcher() {
                   setIsOpen(false);
                 }}
               >
-                <Text style={[styles.sheetRowText, { color: colors.textPrimary }]}>{membership.studioName}</Text>
+                <Text style={[styles.sheetRowText, fonts.body, { color: colors.textPrimary }]}>{membership.studioName}</Text>
                 {membership.studioId === activeStudioId ? (
-                  <Text style={styles.checkmark}>{t('mNav.studioSwitcher.selected')}</Text>
+                  <Text style={[styles.checkmark, fonts.bodyStrong, { color: accent }]}>{t('mNav.studioSwitcher.selected')}</Text>
                 ) : null}
               </Pressable>
             ))}
@@ -65,7 +67,7 @@ function StudioSwitcher() {
 
 export default function AppLayout() {
   const { user, isLoading } = useSession();
-  const colors = useThemeColors();
+  const navigation = useNavigationStyle();
   const t = useT();
 
   if (!isLoading && !user) {
@@ -76,12 +78,8 @@ export default function AppLayout() {
     <Tabs
       screenOptions={{
         headerRight: () => <StudioSwitcher />,
-        headerStyle: { backgroundColor: colors.surface },
-        headerTitleStyle: { color: colors.textPrimary },
-        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
-        // A pale brand color would vanish on the tab bar; fall back to text color.
-        tabBarActiveTintColor: contrastRatio(colors.primary, colors.surface) >= 3 ? colors.primary : colors.textPrimary,
-        tabBarInactiveTintColor: colors.textMuted,
+        // A pale brand color would vanish on the tab bar; the navigation style falls back to the text color.
+        ...navigation.tabs,
       }}
     >
       <Tabs.Screen name="index" options={{ title: t('mNav.tab.home') }} />
@@ -95,35 +93,34 @@ export default function AppLayout() {
 const styles = StyleSheet.create({
   badge: {
     marginRight: spacing[4],
-    minHeight: 44,
+    minHeight: TOUCH_TARGET,
     justifyContent: 'center',
   },
   badgeText: {
     fontSize: typography.size.sm,
-    fontWeight: typography.weight.semibold,
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(20, 18, 15, 0.4)',
+    backgroundColor: SCRIM,
     justifyContent: 'flex-end',
   },
   sheet: {
     padding: spacing[4],
-    borderTopLeftRadius: radii.lg,
-    borderTopRightRadius: radii.lg,
+    borderTopLeftRadius: radii.md,
+    borderTopRightRadius: radii.md,
+    borderWidth: borderWidth,
   },
   sheetRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 44,
+    minHeight: TOUCH_TARGET,
     paddingVertical: spacing[2],
   },
   sheetRowText: {
     fontSize: typography.size.md,
   },
   checkmark: {
-    color: palette.success,
-    fontWeight: typography.weight.bold,
+    fontSize: typography.size.sm,
   },
 });
