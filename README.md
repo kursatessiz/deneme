@@ -135,7 +135,7 @@ yerelde geçmelidir (`CLAUDE.md`).
 Backlog'daki tüm planlı modüller (`HANDOVER.md` bölüm 6, 6b, 6c ve büyüme, pazarlama, hata
 raporlama, ön üretim maddeleri) main'de birleşmiş durumdadır. Bekleyenler:
 
-- Sahibin kararına bağlı maddeler: nihai ürün adı ve tema, sunucu ve alan adı, sağlayıcı
+- Sahibin kararına bağlı maddeler: nihai ürün adı, sunucu ve alan adı, sağlayıcı
   hesapları ve uygulama başvuruları (Meta, Google Ads, LinkedIn, TikTok, iyzico, PayTR, SES,
   Netgsm), Apple ve Google mağaza hesapları, GitHub Environments sırları. Liste `HANDOVER.md`
   bölüm 7'dedir.
@@ -158,6 +158,7 @@ Mimari
 - Mobil uygulama: [`docs/MOBILE_APP.md`](docs/MOBILE_APP.md), takvim ve widget'lar: [`docs/MOBILE_WIDGETS.md`](docs/MOBILE_WIDGETS.md)
 - Süper admin paneli: [`docs/SUPER_ADMIN.md`](docs/SUPER_ADMIN.md)
 - Çoklu dil: [`docs/I18N.md`](docs/I18N.md)
+- Tasarım sistemi (Perfect UI kiti, tema aileleri, token'lar): [`docs/TASARIM.md`](docs/TASARIM.md)
 - Büyüme ve global mimari (bağlayıcı tasarım): [`docs/BUYUME_VE_GLOBAL_MIMARI.md`](docs/BUYUME_VE_GLOBAL_MIMARI.md)
 
 İşletme modülleri

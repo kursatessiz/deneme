@@ -302,7 +302,7 @@ iki yola ayrılır:
    not edilmiştir.
 2. **"İlk kez geliyorum"**: mevcut, kimliksiz genel potansiyel müşteri
    (lead) formunu kullanır: `POST /public/studios/:slug/leads`
-   (`PublicLeadFormSchema`, bkz. `apps/api/src/modules/leads`). Seçilen
+   (`PublicLeadFormSchema`, bkz. `apps/api/src/modules/crm/leads-compat`). Seçilen
    seans, bu şemanın desteklediği bir alan olmadığı için serbest metin
    `interest` alanına yazılır (`Lead.sourceDetail`); form onay (consent)
    kutusu ve bot yakalama (honeypot) alanı zaten bu uç noktanın parçasıdır.

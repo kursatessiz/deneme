@@ -60,7 +60,7 @@ Sahip kararı: bir partner misafiri, kendisi stüdyoya gerçekten katılana kada
   1. Kişi normal onboarding akışını tamamlar (davet kabulü: `InvitesService.accept`, `apps/api/src/modules/invites/invites.service.ts`) - telefonuna ait mevcut bir üyelik varsa `isPartnerGuest=false` ile güncellenir.
   2. Personel aynı telefonla `POST /members` üzerinden yeni üye oluşturur veya bir lead'i (`LeadsService.convert`/`bookTrial`, ikisi de `MembersService.createMember`'ı çağırır) üyeliğe dönüştürür - mevcut partner misafiri üyeliği bulunur, güncellenir (bayrak temizlenir) ve `MemberProfile` `upsert` ile doldurulur; sadece gerçek bir üyeliğin telefonuyla çakışma hâlâ 409 döner.
 - **Hariç tutulan akışlar** (`isPartnerGuest=true` iken):
-  - Otomasyon kural hedeflemesi: `WIN_BACK`, `BIRTHDAY`, `PACKAGE_EXPIRING` değerlendiricileri (`apps/api/src/modules/automations/evaluators/`) partner misafirlerini sorgudan filtreler.
+  - Otomasyon kural hedeflemesi: `WIN_BACK`, `BIRTHDAY`, `PACKAGE_EXPIRING` değerlendiricileri (`apps/api/src/modules/growth/journeys/journey-scanners.service.ts`) partner misafirlerini sorgudan filtreler.
   - Churn (kayıp riski) skorlaması: `ChurnService.recomputeStudio` partner misafirleri için hiç `MemberRiskSnapshot` üretmez.
   - Oyunlaştırma: rozet kazanma push bildirimleri (`GamificationService.notifyNewBadges`) ve aylık liderlik tablosu (`leaderboard`) partner misafirlerini atlar.
   - Geri bildirim: puanlama (rating) anımsatmaları (`RatingPromptService`) ve tavsiye (referral) kodu üretimi (`ReferralsService.myCode`) partner misafirleri için çalışmaz.
