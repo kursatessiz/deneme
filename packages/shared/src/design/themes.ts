@@ -148,14 +148,14 @@ export const THEME_FAMILIES = {
     fonts: {
       display: {
         web: PERFECT_UI_TOKENS.fontFamily,
-        // Mobile keeps its bundled faces until phase T5 moves it to Inter.
-        native: { regular: 'Manrope_600SemiBold', strong: 'Manrope_800ExtraBold' },
+        // Face names the mobile app registers (apps/mobile/src/interFaces.ts).
+        native: { regular: 'Inter_600SemiBold', strong: 'Inter_700Bold' },
         weight: '700',
         letterSpacing: -0.01,
       },
       body: {
         web: PERFECT_UI_TOKENS.fontFamily,
-        native: { regular: 'Manrope_400Regular', strong: 'Manrope_600SemiBold' },
+        native: { regular: 'Inter_400Regular', strong: 'Inter_600SemiBold' },
         weight: '400',
         letterSpacing: 0,
       },
