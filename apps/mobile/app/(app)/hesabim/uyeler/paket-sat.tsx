@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { PaymentMethod, SellPackageSchema } from '@platform/shared';
 
@@ -12,8 +12,9 @@ import { useT } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { fieldErrorsFromZod } from '../../../../src/lib/formErrors';
 import { useSession } from '../../../../src/lib/session';
-import { palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../../src/theme';
 import type { Translate } from '@platform/shared';
+import { Text } from '../../../../src/components/Text';
 
 interface PackageDefinitionRow {
   id: string;
@@ -165,6 +166,6 @@ const styles = StyleSheet.create({
   title: { fontSize: typography.size.xl, fontWeight: typography.weight.bold, marginBottom: spacing[3] },
   label: { fontSize: typography.size.sm, marginBottom: spacing[1] },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginBottom: spacing[4] },
-  chip: { minHeight: 40, paddingHorizontal: spacing[3], justifyContent: 'center', borderRadius: radii.full, borderWidth: 1 },
+  chip: { minHeight: 40, paddingHorizontal: spacing[3], justifyContent: 'center', borderRadius: radii.full, borderWidth: borderWidth },
   error: { fontSize: typography.size.sm, marginBottom: spacing[3] },
 });

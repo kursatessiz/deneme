@@ -49,10 +49,6 @@ export const enMAccount: Record<keyof typeof trMAccount, string> = {
   'mAccount.contacts.loadError': 'Contacts could not be loaded.',
   'mAccount.menu.inbox': 'Inbox',
 
-  'mAccount.appearance.section.theme': 'Theme',
-  'mAccount.appearance.studioTheme': "The business's theme",
-  'mAccount.appearance.studioThemeDescription': "{family}, the business's chosen theme",
-  'mAccount.appearance.studioThemeDescriptionFallback': "The business's chosen theme",
   'mAccount.appearance.section.colorScheme': 'Light or dark',
   'mAccount.appearance.system': 'System',
   'mAccount.appearance.systemDescription': "Follows the phone's light or dark setting",
@@ -60,7 +56,7 @@ export const enMAccount: Record<keyof typeof trMAccount, string> = {
   'mAccount.appearance.lightDescription': 'Always a light background',
   'mAccount.appearance.dark': 'Dark',
   'mAccount.appearance.darkDescription': 'Always a dark background',
-  'mAccount.appearance.note': "The logo, primary color and gradient belong to the business; only the typeface, corner shapes and background colors change here.",
+  'mAccount.appearance.note': 'The logo and primary color belong to the business; only the light or dark background is chosen here.',
   'mAccount.appearance.saveError': 'Could not save the appearance.',
 
   'mAccount.language.section.title': 'Language',

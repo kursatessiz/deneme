@@ -1,7 +1,7 @@
 import type { BranchDTO } from '@platform/shared';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
@@ -9,7 +9,8 @@ import { TextField } from '../../../src/components/TextField';
 import { useT } from '../../../src/i18n';
 import { apiRequest, ApiError } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import { borderWidth, radii, spacing, TOUCH_TARGET, typography, useThemeColors } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 interface KioskDeviceDTO {
   id: string;
@@ -171,15 +172,15 @@ export default function KioskModuScreen() {
 const styles = StyleSheet.create({
   title: { fontSize: typography.size.xl, fontWeight: typography.weight.bold, marginBottom: spacing[2] },
   subtitle: { fontSize: typography.size.sm, marginBottom: spacing[6] },
-  pairingCard: { borderWidth: 1, borderRadius: radii.lg, padding: spacing[5], marginBottom: spacing[6], alignItems: 'center' },
+  pairingCard: { borderWidth: borderWidth, borderRadius: radii.lg, padding: spacing[5], marginBottom: spacing[6], alignItems: 'center' },
   pairingLabel: { fontSize: typography.size.sm, marginBottom: spacing[2] },
-  pairingCode: { fontSize: 32, fontWeight: typography.weight.bold, letterSpacing: 4, marginBottom: spacing[2] },
+  pairingCode: { fontSize: typography.size.xl, fontWeight: typography.weight.bold, letterSpacing: 4, marginBottom: spacing[2] },
   pairingHint: { fontSize: typography.size.sm, textAlign: 'center' },
   branchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginBottom: spacing[4] },
-  branchChip: { borderWidth: 1, borderRadius: radii.md, paddingHorizontal: spacing[3], paddingVertical: spacing[2], minHeight: 44, justifyContent: 'center' },
+  branchChip: { borderWidth: borderWidth, borderRadius: radii.full, paddingHorizontal: spacing[3], paddingVertical: spacing[2], minHeight: TOUCH_TARGET, justifyContent: 'center' },
   error: { fontSize: typography.size.sm, marginTop: spacing[3] },
   sectionTitle: { fontSize: typography.size.sm, fontWeight: typography.weight.medium, marginTop: spacing[6], marginBottom: spacing[2] },
-  deviceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 44, borderBottomWidth: 1, paddingVertical: spacing[3] },
+  deviceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: TOUCH_TARGET, borderBottomWidth: borderWidth, paddingVertical: spacing[3] },
   deviceName: { fontSize: typography.size.md, fontWeight: typography.weight.medium },
   deviceStatus: { fontSize: typography.size.sm },
 });

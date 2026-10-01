@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import type { LeaderboardDTO, MyGamificationStatsDTO } from '@platform/shared';
 
@@ -7,7 +7,9 @@ import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { TOUCH_TARGET, borderWidth, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
+import { TextInput } from '../../../src/components/TextInput';
 
 const currentMonthKey = () => {
   const now = new Date();
@@ -82,7 +84,7 @@ export default function BasarilarimScreen() {
     }
   };
 
-  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: theme.family.radii.card };
+  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: radii.md };
   const goalRatio = stats?.currentMonth.targetSessions
     ? Math.max(0, Math.min(1, stats.currentMonth.progress / stats.currentMonth.targetSessions))
     : 0;
@@ -106,7 +108,7 @@ export default function BasarilarimScreen() {
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {stats ? (
-        <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+        <View style={[styles.card, card, styles.bordered]}>
           <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mAchievements.streak')}</Text>
           <View style={styles.streakRow}>
             <View style={styles.streakItem}>
@@ -126,7 +128,7 @@ export default function BasarilarimScreen() {
       ) : null}
 
       {stats ? (
-        <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+        <View style={[styles.card, card, styles.bordered]}>
           <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mAchievements.thisMonthsGoal')}</Text>
           {stats.currentMonth.targetSessions ? (
             <>
@@ -155,7 +157,7 @@ export default function BasarilarimScreen() {
       ) : null}
 
       {stats ? (
-        <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+        <View style={[styles.card, card, styles.bordered]}>
           <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mAchievements.badges')}</Text>
           <View style={styles.badgeGrid}>
             {stats.earnedBadges.map((b) => (
@@ -172,7 +174,7 @@ export default function BasarilarimScreen() {
                   {b.name}
                 </Text>
                 <Text style={[styles.badgeMeta, fonts.body, { color: c.textMuted }]}>{b.progressLabel}</Text>
-                <View style={styles.badgeProgressTrack}>
+                <View style={[styles.badgeProgressTrack, { backgroundColor: c.surfaceEmphasis }]}>
                   <View style={[styles.badgeProgressFill, { width: `${Math.round(b.progressRatio * 100)}%`, backgroundColor: c.primary }]} />
                 </View>
               </View>
@@ -184,7 +186,7 @@ export default function BasarilarimScreen() {
         </View>
       ) : null}
 
-      <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+      <View style={[styles.card, card, styles.bordered]}>
         <View style={styles.optInRow}>
           <Text style={[styles.title, fonts.display, { color: c.textPrimary, marginBottom: 0 }]}>{t('mAchievements.leaderboard')}</Text>
           <Switch
@@ -232,23 +234,23 @@ const styles = StyleSheet.create({
   content: { padding: spacing[4], gap: spacing[3] },
   caption: { fontSize: typography.size.sm },
   card: { padding: spacing[4] },
-  bordered: { borderWidth: 1 },
+  bordered: { borderWidth: borderWidth },
   title: { fontSize: typography.size.lg, marginBottom: spacing[2] },
   bigValue: { fontSize: typography.size.xl, fontVariant: ['tabular-nums'] },
   metricLabel: { fontSize: typography.size.xs, marginTop: 2, textAlign: 'center' },
   streakRow: { flexDirection: 'row', justifyContent: 'space-between' },
   streakItem: { alignItems: 'center', flex: 1 },
-  barTrack: { height: 8, borderRadius: 4, overflow: 'hidden' },
-  barFill: { height: 8, borderRadius: 4 },
+  barTrack: { height: spacing[2], borderRadius: radii.full, overflow: 'hidden' },
+  barFill: { height: spacing[2], borderRadius: radii.full },
   goalRow: { flexDirection: 'row', gap: spacing[2], marginTop: spacing[2], alignItems: 'center' },
-  goalInput: { flex: 1, borderWidth: 1, borderRadius: 8, paddingHorizontal: spacing[3], minHeight: 44 },
+  goalInput: { flex: 1, borderWidth: borderWidth, borderRadius: radii.sm, paddingHorizontal: spacing[3], minHeight: TOUCH_TARGET },
   badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  badge: { width: '47%', borderWidth: 1, borderRadius: 8, padding: spacing[3] },
-  badgeEarned: { borderWidth: 2 },
+  badge: { width: '47%', borderWidth: borderWidth, borderRadius: radii.md, padding: spacing[3] },
+  badgeEarned: { borderWidth: borderWidth * 2 },
   badgeName: { fontSize: typography.size.sm, marginBottom: spacing[1] },
   badgeMeta: { fontSize: typography.size.xs, marginBottom: spacing[1] },
-  badgeProgressTrack: { height: 4, borderRadius: 2, overflow: 'hidden', backgroundColor: 'rgba(128,128,128,0.25)' },
-  badgeProgressFill: { height: 4, borderRadius: 2 },
+  badgeProgressTrack: { height: spacing[1], borderRadius: radii.full, overflow: 'hidden' },
+  badgeProgressFill: { height: spacing[1], borderRadius: radii.full },
   optInRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing[1] },
   leaderRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginTop: spacing[2] },
   leaderRank: { width: 24 },

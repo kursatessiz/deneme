@@ -1,7 +1,7 @@
 import { PhoneSchema } from '@platform/shared';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../src/components/ScreenContainer';
@@ -10,6 +10,7 @@ import { useT } from '../../src/i18n';
 import { ApiError } from '../../src/lib/api';
 import { useSession } from '../../src/lib/session';
 import { palette, spacing, typography, useThemeColors } from '../../src/theme';
+import { Text } from '../../src/components/Text';
 
 export default function PinLoginScreen() {
   const router = useRouter();
@@ -84,7 +85,7 @@ export default function PinLoginScreen() {
 
 const styles = StyleSheet.create({
   title: {
-    fontSize: typography.size['2xl'],
+    fontSize: typography.size.xl,
     fontWeight: typography.weight.bold,
     marginBottom: spacing[2],
   },

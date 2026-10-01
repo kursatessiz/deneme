@@ -1,7 +1,7 @@
 import * as Clipboard from 'expo-clipboard';
 import { Redirect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { API_KEY_SCOPES } from '@platform/shared';
 import type { ApiKeyScope, WebhookEvent } from '@platform/shared';
@@ -11,7 +11,9 @@ import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
+import { TextInput } from '../../../src/components/TextInput';
 
 interface ApiKeySummary {
   id: string;
@@ -252,7 +254,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing[3],
   },
   card: {
-    borderWidth: 1,
+    borderWidth: borderWidth,
     borderRadius: radii.md,
     padding: spacing[4],
     marginBottom: spacing[3],
@@ -285,7 +287,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing[3],
   },
   input: {
-    borderWidth: 1,
+    borderWidth: borderWidth,
     borderRadius: radii.sm,
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[2],
@@ -299,7 +301,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing[3],
   },
   scopeChip: {
-    borderWidth: 1,
+    borderWidth: borderWidth,
     borderRadius: radii.sm,
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[2],

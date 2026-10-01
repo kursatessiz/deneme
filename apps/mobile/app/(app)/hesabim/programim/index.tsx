@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { PermissionGate } from '../../../../src/components/PermissionGate';
 import { ScreenContainer } from '../../../../src/components/ScreenContainer';
@@ -11,7 +11,8 @@ import { dayRange, weekRange } from '../../../../src/lib/dateRange';
 import { isTabletWidth } from '../../../../src/lib/layout';
 import { trainerName, type ScheduleRow } from '../../../../src/lib/scheduleTypes';
 import { useSession } from '../../../../src/lib/session';
-import { palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../../src/theme';
+import { borderWidth, palette, radii, spacing, TOUCH_TARGET, typography, useThemeColors, useThemeFonts } from '../../../../src/theme';
+import { Text } from '../../../../src/components/Text';
 
 function formatDayTime(startTime: string, endTime: string, locale: string): string {
   const start = new Date(startTime);
@@ -156,11 +157,11 @@ export default function ProgramimScreen() {
 
 const styles = StyleSheet.create({
   tabletWrap: { flex: 1, flexDirection: 'row' },
-  detailPane: { flex: 1, borderLeftWidth: 1 },
+  detailPane: { flex: 1, borderLeftWidth: borderWidth },
   placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   toggleRow: { flexDirection: 'row', gap: spacing[2], marginBottom: spacing[4] },
-  toggle: { minHeight: 44, paddingHorizontal: spacing[4], justifyContent: 'center', borderRadius: radii.md, borderWidth: 1 },
-  row: { padding: spacing[3], borderRadius: radii.md, borderWidth: 1, marginBottom: spacing[3], gap: 2 },
+  toggle: { minHeight: TOUCH_TARGET, paddingHorizontal: spacing[4], justifyContent: 'center', borderRadius: radii.sm, borderWidth: borderWidth },
+  row: { padding: spacing[3], borderRadius: radii.md, borderWidth: borderWidth, marginBottom: spacing[3], gap: 2 },
   title: { fontSize: typography.size.md },
   subtitle: { fontSize: typography.size.sm },
   capacity: { fontSize: typography.size.sm, marginTop: 2 },

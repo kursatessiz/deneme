@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, View } from 'react-native';
 
 import { evaluateEventRefund } from '@platform/shared';
 import type { EventDTO, EventRegisterResultDTO, EventRegistrationDTO, EventTicketTypeDTO, MyEventRegistrationDTO } from '@platform/shared';
@@ -10,7 +10,8 @@ import { formatDateTime, useLocale, useT } from '../../../src/i18n';
 import { apiRequest } from '../../../src/lib/api';
 import { eventErrorText, ticketPriceLabel } from '../../../src/lib/events';
 import { useSession } from '../../../src/lib/session';
-import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 /** One event for a member (G3c-1): sessions, tickets and registering, and the member's own registration with pay and cancel. */
 export default function EtkinlikScreen() {
@@ -123,7 +124,7 @@ export default function EtkinlikScreen() {
     ]);
   };
 
-  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: theme.family.radii.card };
+  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: radii.md };
   const refundDeadline =
     event?.startsAt != null
       ? evaluateEventRefund({ startsAt: new Date(event.startsAt), now: new Date(), fullRefundHoursBefore: event.fullRefundHoursBefore }).deadline
@@ -149,7 +150,7 @@ export default function EtkinlikScreen() {
           ) : null}
 
           {registration ? (
-            <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+            <View style={[styles.card, card, styles.bordered]}>
               <Text style={[fonts.bodyStrong, { color: c.textPrimary }]}>{t(`mEvents.status.${registration.status}`)}</Text>
               <Text style={[styles.meta, fonts.body, { color: c.textMuted }]}>{registration.ticketTypeName}</Text>
               {registration.status === 'PENDING_PAYMENT' ? (
@@ -162,13 +163,13 @@ export default function EtkinlikScreen() {
           ) : null}
 
           {event.description ? (
-            <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+            <View style={[styles.card, card, styles.bordered]}>
               <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mEvents.description')}</Text>
               <Text style={[fonts.body, { color: c.textSecondary }]}>{event.description}</Text>
             </View>
           ) : null}
 
-          <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+          <View style={[styles.card, card, styles.bordered]}>
             <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mEvents.occurrences')}</Text>
             {event.occurrences.length === 0 ? <Text style={[styles.meta, fonts.body, { color: c.textMuted }]}>{t('mEvents.noDate')}</Text> : null}
             {event.occurrences.map((o) => (
@@ -179,7 +180,7 @@ export default function EtkinlikScreen() {
             ))}
           </View>
 
-          <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+          <View style={[styles.card, card, styles.bordered]}>
             <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mEvents.tickets')}</Text>
             {event.ticketTypes
               .filter((ticket) => ticket.isActive)
@@ -218,9 +219,9 @@ const styles = StyleSheet.create({
   heading: { fontSize: typography.size.xl },
   title: { fontSize: typography.size.lg, marginBottom: spacing[1] },
   card: { padding: spacing[4], gap: spacing[2] },
-  bordered: { borderWidth: 1 },
+  bordered: { borderWidth: borderWidth },
   meta: { fontSize: typography.size.sm },
   note: { fontSize: typography.size.sm },
-  ticketRow: { borderBottomWidth: 1, paddingVertical: spacing[2], gap: spacing[1] },
+  ticketRow: { borderBottomWidth: borderWidth, paddingVertical: spacing[2], gap: spacing[1] },
   actions: { gap: spacing[2], marginTop: spacing[1] },
 });

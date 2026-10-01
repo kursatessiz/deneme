@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import type { AutomationRuleType } from '@platform/shared';
 
@@ -9,8 +9,9 @@ import { SwitchRow } from '../../../src/components/SwitchRow';
 import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
 import type { Translate } from '@platform/shared';
+import { Text } from '../../../src/components/Text';
 
 /** Mirrors AutomationRule as returned by the API; @platform/database types stay server-side. */
 interface AutomationRuleDTO {
@@ -146,7 +147,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing[3],
   },
   card: {
-    borderWidth: 1,
+    borderWidth: borderWidth,
     borderRadius: radii.md,
     padding: spacing[4],
     marginBottom: spacing[3],
@@ -174,7 +175,7 @@ const styles = StyleSheet.create({
     gap: spacing[2],
     marginTop: spacing[3],
     paddingTop: spacing[3],
-    borderTopWidth: 1,
+    borderTopWidth: borderWidth,
   },
   statText: {
     fontSize: typography.size.xs,

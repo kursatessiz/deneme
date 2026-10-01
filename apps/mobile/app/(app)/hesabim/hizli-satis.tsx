@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { RETAIL_PAYMENT_METHODS, computeCartTotals } from '@platform/shared';
 import type { BranchDTO, ProductDTO, RetailPaymentMethod, RetailSettingsDTO, SaleDTO } from '@platform/shared';
@@ -10,7 +10,8 @@ import { TextField } from '../../../src/components/TextField';
 import { formatCurrency, useLocale, useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, TOUCH_TARGET, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 const KNOWN_ERRORS = ['RETAIL_INSUFFICIENT_STOCK', 'RETAIL_PRODUCT_INACTIVE', 'RETAIL_PRODUCT_NOT_FOUND', 'RETAIL_BRANCH_NOT_FOUND'];
 
@@ -119,14 +120,14 @@ export default function HizliSatisScreen() {
     }
   };
 
-  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: theme.family.radii.card };
+  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: radii.md };
 
   return (
     <ScrollView style={{ backgroundColor: c.background }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={[styles.note, fonts.body, { color: c.textMuted }]}>{t('mRetail.walkInNote')}</Text>
 
       {branches.length > 1 ? (
-        <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+        <View style={[styles.card, card, styles.bordered]}>
           <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mRetail.branch')}</Text>
           {branches.map((b) => (
             <ChoiceRow key={b.id} label={b.name} selected={b.id === branchId} onPress={() => setBranchId(b.id)} />
@@ -140,7 +141,7 @@ export default function HizliSatisScreen() {
       {products?.map((p) => {
         const stock = p.trackStock ? (p.stock.find((s) => s.branchId === branchId)?.quantity ?? 0) : null;
         return (
-          <View key={p.id} style={[styles.row, card, theme.family.cardBorder && styles.bordered]}>
+          <View key={p.id} style={[styles.row, card, styles.bordered]}>
             <View style={styles.rowText}>
               <Text style={[fonts.bodyStrong, { color: c.textPrimary }]}>{p.name}</Text>
               <Text style={[styles.meta, fonts.body, { color: c.textMuted }]}>
@@ -152,7 +153,7 @@ export default function HizliSatisScreen() {
         );
       })}
 
-      <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+      <View style={[styles.card, card, styles.bordered]}>
         <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mRetail.cart')}</Text>
         {cart.length === 0 ? <Text style={[styles.note, fonts.body, { color: c.textMuted }]}>{t('mRetail.cartEmpty')}</Text> : null}
         {cart.map((l) => (
@@ -161,10 +162,10 @@ export default function HizliSatisScreen() {
               <Text style={[fonts.body, { color: c.textPrimary }]}>{l.product.name}</Text>
               <Text style={[styles.meta, fonts.body, { color: c.textMuted }]}>{t('mRetail.lineQuantity', { count: l.quantity, price: money(l.product.price) })}</Text>
             </View>
-            <Pressable accessibilityRole="button" accessibilityLabel={`${t('mRetail.decrease')} ${l.product.name}`} onPress={() => setQuantity(l.product.id, l.quantity - 1)} style={[styles.step, { borderColor: c.border, borderRadius: theme.family.radii.button }]}>
+            <Pressable accessibilityRole="button" accessibilityLabel={`${t('mRetail.decrease')} ${l.product.name}`} onPress={() => setQuantity(l.product.id, l.quantity - 1)} style={[styles.step, { borderColor: c.border, borderRadius: radii.sm }]}>
               <Text style={[fonts.bodyStrong, { color: c.textPrimary }]}>-</Text>
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={`${t('mRetail.increase')} ${l.product.name}`} onPress={() => setQuantity(l.product.id, l.quantity + 1)} style={[styles.step, { borderColor: c.border, borderRadius: theme.family.radii.button }]}>
+            <Pressable accessibilityRole="button" accessibilityLabel={`${t('mRetail.increase')} ${l.product.name}`} onPress={() => setQuantity(l.product.id, l.quantity + 1)} style={[styles.step, { borderColor: c.border, borderRadius: radii.sm }]}>
               <Text style={[fonts.bodyStrong, { color: c.textPrimary }]}>+</Text>
             </Pressable>
           </View>
@@ -178,7 +179,7 @@ export default function HizliSatisScreen() {
         ) : null}
       </View>
 
-      <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+      <View style={[styles.card, card, styles.bordered]}>
         <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mRetail.paymentMethod')}</Text>
         {RETAIL_PAYMENT_METHODS.map((m) => (
           <ChoiceRow key={m} label={t(`mRetail.method.${m}`)} selected={method === m} onPress={() => setMethod(m)} />
@@ -194,14 +195,14 @@ export default function HizliSatisScreen() {
 const styles = StyleSheet.create({
   content: { padding: spacing[4], gap: spacing[3] },
   card: { padding: spacing[4], gap: spacing[2] },
-  bordered: { borderWidth: 1 },
+  bordered: { borderWidth: borderWidth },
   title: { fontSize: typography.size.lg, marginBottom: spacing[1] },
   note: { fontSize: typography.size.sm },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], padding: spacing[3] },
   rowText: { flex: 1, gap: 2 },
   meta: { fontSize: typography.size.xs },
-  cartRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], borderBottomWidth: 1, paddingVertical: spacing[2] },
-  step: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  cartRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], borderBottomWidth: borderWidth, paddingVertical: spacing[2] },
+  step: { minWidth: 44, minHeight: TOUCH_TARGET, alignItems: 'center', justifyContent: 'center', borderWidth: borderWidth },
   totals: { gap: 2, marginTop: spacing[2] },
   total: { fontSize: typography.size.lg },
 });

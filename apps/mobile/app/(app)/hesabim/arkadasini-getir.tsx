@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, Share, StyleSheet, View } from 'react-native';
 
 import type { ReferralCodeDTO, ReferralDTO } from '@platform/shared';
 
@@ -7,8 +7,9 @@ import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { useLocale, useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
 import type { Translate } from '@platform/shared';
+import { Text } from '../../../src/components/Text';
 
 function statusLabels(t: Translate): Record<ReferralDTO['status'], string> {
   return {
@@ -76,7 +77,7 @@ export default function ArkadasiniGetirScreen() {
     }
   };
 
-  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: theme.family.radii.card };
+  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: radii.md };
 
   return (
     <ScrollView
@@ -100,7 +101,7 @@ export default function ArkadasiniGetirScreen() {
       {error ? <Text style={{ color: palette.danger }}>{error}</Text> : null}
 
       {code ? (
-        <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+        <View style={[styles.card, card, styles.bordered]}>
           <Text style={[styles.codeLabel, fonts.body, { color: c.textSecondary }]}>{t('mReferral.yourCode')}</Text>
           <Text style={[styles.code, fonts.display, { color: c.textPrimary }]}>{code.code}</Text>
           <PrimaryButton label={t('mReferral.share')} onPress={handleShare} />
@@ -112,7 +113,7 @@ export default function ArkadasiniGetirScreen() {
         <Text style={[styles.empty, fonts.body, { color: c.textMuted }]}>{t('mReferral.noReferralsYet')}</Text>
       ) : null}
       {referrals?.map((r) => (
-        <View key={r.id} style={[styles.referralRow, card, theme.family.cardBorder && styles.bordered]}>
+        <View key={r.id} style={[styles.referralRow, card, styles.bordered]}>
           <View style={styles.referralInfo}>
             <Text style={[styles.referralName, fonts.bodyStrong, { color: c.textPrimary }]}>{r.referredName}</Text>
             <Text style={[styles.referralDate, fonts.body, { color: c.textMuted }]}>
@@ -131,9 +132,9 @@ const styles = StyleSheet.create({
   title: { fontSize: typography.size.xl, marginBottom: spacing[1] },
   subtitle: { fontSize: typography.size.sm, marginBottom: spacing[2] },
   card: { padding: spacing[4], gap: spacing[3], alignItems: 'center' },
-  bordered: { borderWidth: 1 },
+  bordered: { borderWidth: borderWidth },
   codeLabel: { fontSize: typography.size.sm },
-  code: { fontSize: typography.size['2xl'], letterSpacing: 4, fontVariant: ['tabular-nums'] },
+  code: { fontSize: typography.size.xl, letterSpacing: 4, fontVariant: ['tabular-nums'] },
   sectionTitle: { fontSize: typography.size.sm, marginTop: spacing[3] },
   empty: { fontSize: typography.size.md },
   referralRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing[4] },

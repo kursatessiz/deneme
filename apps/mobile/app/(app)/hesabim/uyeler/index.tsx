@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import type { MemberDetailDTO } from '@platform/shared';
 
@@ -12,8 +12,9 @@ import { useT } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { isTabletWidth } from '../../../../src/lib/layout';
 import { useSession } from '../../../../src/lib/session';
-import { palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../../src/theme';
 import { TextField } from '../../../../src/components/TextField';
+import { Text } from '../../../../src/components/Text';
 
 function MemberListContent() {
   const router = useRouter();
@@ -132,14 +133,14 @@ export default function UyelerScreen() {
 const styles = StyleSheet.create({
   tabletWrap: { flex: 1, flexDirection: 'row' },
   listPane: { width: '100%' },
-  detailPane: { flex: 1, borderLeftWidth: 1 },
+  detailPane: { flex: 1, borderLeftWidth: borderWidth },
   placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   inviteButton: { marginBottom: spacing[4] },
   row: {
     minHeight: 56,
     padding: spacing[3],
     borderRadius: radii.md,
-    borderWidth: 1,
+    borderWidth: borderWidth,
     marginBottom: spacing[2],
   },
   rowTitle: { fontSize: typography.size.md },

@@ -1,8 +1,7 @@
 import React from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 
-import { palette, spacing, typography } from '../theme';
-import { useThemeColors } from '../theme';
+import { TOUCH_TARGET, spacing, typography, useTheme, useThemeFonts } from '../theme';
 
 interface SwitchRowProps {
   label: string;
@@ -11,21 +10,24 @@ interface SwitchRowProps {
   disabled?: boolean;
 }
 
-/** A single labeled switch, laid out for a >=44pt touch target. */
+/** A single labeled switch (tenant color when on), laid out for a >=44pt touch target. */
 export function SwitchRow({ label, value, onValueChange, disabled }: SwitchRowProps) {
-  const colors = useThemeColors();
+  const { theme } = useTheme();
+  const fonts = useThemeFonts();
+  const colors = theme.colors;
 
   return (
     <View style={styles.row}>
-      <Text style={[styles.label, { color: colors.textPrimary }]}>{label}</Text>
+      <Text style={[styles.label, fonts.bodyMedium, { color: colors.textPrimary }]}>{label}</Text>
       <Switch
         accessibilityLabel={label}
         accessibilityRole="switch"
         value={value}
         onValueChange={onValueChange}
         disabled={disabled}
-        trackColor={{ false: palette.ink[200], true: palette.success }}
-        thumbColor={palette.white}
+        trackColor={{ false: colors.surfaceEmphasis, true: colors.primary }}
+        thumbColor={value ? colors.onPrimary : colors.background}
+        ios_backgroundColor={colors.surfaceEmphasis}
       />
     </View>
   );
@@ -36,11 +38,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 44,
+    minHeight: TOUCH_TARGET,
   },
   label: {
+    flex: 1,
     fontSize: typography.size.sm,
-    fontWeight: typography.weight.medium,
     marginRight: spacing[3],
   },
 });

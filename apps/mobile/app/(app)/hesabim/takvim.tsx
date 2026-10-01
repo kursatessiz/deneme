@@ -2,13 +2,14 @@ import type { CalendarFeedCreatedDTO } from '@platform/shared';
 import * as Clipboard from 'expo-clipboard';
 import * as Linking from 'expo-linking';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
-import { palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 /**
  * "Takvim aboneliği": creates the personal ICS feed (GET /calendar/:token.ics)
@@ -103,7 +104,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing[4],
   },
   card: {
-    borderWidth: 1,
+    borderWidth: borderWidth,
     borderRadius: radii.md,
     padding: spacing[4],
     marginBottom: spacing[4],

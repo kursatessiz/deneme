@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import type { MemberPackageDTO, MemberVideoContentDTO } from '@platform/shared';
 
@@ -7,8 +7,9 @@ import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../src/theme';
 import type { Translate } from '@platform/shared';
+import { Text } from '../../../src/components/Text';
 
 function formatDuration(seconds: number, t: Translate): string {
   const minutes = Math.round(seconds / 60);
@@ -160,7 +161,7 @@ export default function VideolarScreen() {
 
 const styles = StyleSheet.create({
   filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginBottom: spacing[4] },
-  chip: { minHeight: 36, paddingHorizontal: spacing[3], justifyContent: 'center', borderRadius: radii.md, borderWidth: 1 },
+  chip: { minHeight: 36, paddingHorizontal: spacing[3], justifyContent: 'center', borderRadius: radii.full, borderWidth: borderWidth },
   loader: { marginTop: spacing[4] },
   message: { fontSize: typography.size.sm, marginBottom: spacing[3] },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },
@@ -168,7 +169,7 @@ const styles = StyleSheet.create({
     width: '47%',
     minHeight: 96,
     padding: spacing[3],
-    borderWidth: 1,
+    borderWidth: borderWidth,
     borderRadius: radii.md,
     gap: 4,
   },

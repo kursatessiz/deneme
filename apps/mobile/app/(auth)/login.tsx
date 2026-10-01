@@ -1,7 +1,7 @@
 import { PhoneSchema } from '@platform/shared';
 import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../src/components/ScreenContainer';
@@ -9,7 +9,8 @@ import { TextField } from '../../src/components/TextField';
 import { useT } from '../../src/i18n';
 import { ApiError } from '../../src/lib/api';
 import { useSession } from '../../src/lib/session';
-import { palette, spacing, typography, useThemeColors } from '../../src/theme';
+import { palette, spacing, TOUCH_TARGET, typography, useThemeColors } from '../../src/theme';
+import { Text } from '../../src/components/Text';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -70,7 +71,7 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   title: {
-    fontSize: typography.size['2xl'],
+    fontSize: typography.size.xl,
     fontWeight: typography.weight.bold,
     marginBottom: spacing[2],
   },
@@ -86,7 +87,7 @@ const styles = StyleSheet.create({
   linkWrap: {
     marginTop: spacing[5],
     alignSelf: 'center',
-    minHeight: 44,
+    minHeight: TOUCH_TARGET,
     justifyContent: 'center',
   },
   link: {

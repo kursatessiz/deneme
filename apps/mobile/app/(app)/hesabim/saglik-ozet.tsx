@@ -1,12 +1,13 @@
 import type { HealthDailySummaryDTO } from '@platform/shared';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { useLocale, useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, TOUCH_TARGET, typography, useThemeColors } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 type RangeDays = 7 | 30;
 
@@ -147,15 +148,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing[4],
   },
   rangeButton: {
-    borderWidth: 1,
-    borderRadius: radii.md,
+    borderWidth: borderWidth,
+    borderRadius: radii.sm,
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[2],
-    minHeight: 44,
+    minHeight: TOUCH_TARGET,
     justifyContent: 'center',
   },
   card: {
-    borderWidth: 1,
+    borderWidth: borderWidth,
     borderRadius: radii.md,
     padding: spacing[4],
     marginBottom: spacing[4],

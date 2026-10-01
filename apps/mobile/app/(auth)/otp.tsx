@@ -1,7 +1,7 @@
 import { OtpCodeSchema } from '@platform/shared';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../src/components/ScreenContainer';
@@ -10,6 +10,7 @@ import { useT } from '../../src/i18n';
 import { ApiError } from '../../src/lib/api';
 import { useSession } from '../../src/lib/session';
 import { palette, spacing, typography, useThemeColors } from '../../src/theme';
+import { Text } from '../../src/components/Text';
 
 const RESEND_COOLDOWN_SECONDS = 60;
 
@@ -108,7 +109,7 @@ export default function OtpScreen() {
 
 const styles = StyleSheet.create({
   title: {
-    fontSize: typography.size['2xl'],
+    fontSize: typography.size.xl,
     fontWeight: typography.weight.bold,
     marginBottom: spacing[2],
   },

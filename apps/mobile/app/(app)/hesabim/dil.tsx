@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ChoiceRow } from '../../../src/components/ChoiceRow';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
@@ -7,6 +7,7 @@ import { useLocale, useT } from '../../../src/i18n';
 import { ApiError } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { palette, spacing, typography, useThemeColors, useThemeFonts } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 /**
  * The user's own language choice (Hesabım > Dil). Mirrors gorunum.tsx: a

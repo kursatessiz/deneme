@@ -1,10 +1,11 @@
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import React, { useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { PrimaryButton } from './PrimaryButton';
 import { useLocale, useT } from '../i18n';
-import { palette, radii, spacing, typography, useThemeColors } from '../theme';
+import { SCRIM, TOUCH_TARGET, borderWidth, palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../theme';
+import { Text } from './Text';
 
 interface DateTimeFieldProps {
   label: string;
@@ -27,6 +28,7 @@ interface DateTimeFieldProps {
  */
 export function DateTimeField({ label, value, onChange, errorMessage }: DateTimeFieldProps) {
   const colors = useThemeColors();
+  const fonts = useThemeFonts();
   const { locale } = useLocale();
   const t = useT();
   const [mode, setMode] = useState<'date' | 'time' | null>(null);
@@ -81,13 +83,13 @@ export function DateTimeField({ label, value, onChange, errorMessage }: DateTime
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
+      <Text style={[styles.label, fonts.bodyMedium, { color: colors.textSecondary }]}>{label}</Text>
       <View style={styles.row}>
         <Pressable accessibilityRole="button" accessibilityLabel={t('mDateTimeField.a11y.dateButton', { label })} onPress={() => open('date')} style={buttonStyle}>
-          <Text style={{ color: colors.textPrimary }}>{dateLabel}</Text>
+          <Text style={[fonts.body, { color: colors.textPrimary, fontSize: typography.size.sm }]}>{dateLabel}</Text>
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel={t('mDateTimeField.a11y.timeButton', { label })} onPress={() => open('time')} style={buttonStyle}>
-          <Text style={{ color: colors.textPrimary }}>{timeLabel}</Text>
+          <Text style={[fonts.body, { color: colors.textPrimary, fontSize: typography.size.sm }]}>{timeLabel}</Text>
         </Pressable>
       </View>
       {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
@@ -121,18 +123,18 @@ export function DateTimeField({ label, value, onChange, errorMessage }: DateTime
 
 const styles = StyleSheet.create({
   container: { marginBottom: spacing[4] },
-  label: { fontSize: typography.size.sm, fontWeight: typography.weight.medium, marginBottom: spacing[1] },
+  label: { fontSize: typography.size.sm, marginBottom: spacing[1] },
   row: { flexDirection: 'row', gap: spacing[2] },
   button: {
     flex: 1,
-    minHeight: 44,
-    borderWidth: 1,
-    borderRadius: radii.md,
+    minHeight: TOUCH_TARGET,
+    borderWidth: borderWidth,
+    borderRadius: radii.sm,
     paddingHorizontal: spacing[3],
     justifyContent: 'center',
   },
   error: { marginTop: spacing[1], color: palette.danger, fontSize: typography.size.xs },
-  modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
-  modalCard: { padding: spacing[4], borderTopLeftRadius: radii.lg, borderTopRightRadius: radii.lg },
+  modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: SCRIM },
+  modalCard: { padding: spacing[4], borderTopLeftRadius: radii.md, borderTopRightRadius: radii.md },
   modalActions: { flexDirection: 'row', gap: spacing[2], marginTop: spacing[3] },
 });

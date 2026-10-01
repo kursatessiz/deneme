@@ -1,13 +1,14 @@
 import React from 'react';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { PermissionKey } from '@platform/shared';
 
 import { useT } from '../i18n';
 import { useSession } from '../lib/session';
-import { spacing, typography, useThemeColors } from '../theme';
+import { spacing, typography, useThemeColors, useThemeFonts } from '../theme';
 import { ScreenContainer } from './ScreenContainer';
+import { Text } from './Text';
 
 interface PermissionGateProps {
   /** Screen renders only when the active membership holds at least one of these. */
@@ -23,6 +24,7 @@ interface PermissionGateProps {
  */
 export function PermissionGate({ anyOf, children }: PermissionGateProps) {
   const colors = useThemeColors();
+  const fonts = useThemeFonts();
   const t = useT();
   const { activeMembership } = useSession();
   const permissions = activeMembership?.permissions ?? [];
@@ -32,8 +34,8 @@ export function PermissionGate({ anyOf, children }: PermissionGateProps) {
     return (
       <ScreenContainer>
         <View style={styles.wrap}>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mAccount.permissionGate.title')}</Text>
-          <Text style={[styles.body, { color: colors.textSecondary }]}>{t('mAccount.permissionGate.body')}</Text>
+          <Text style={[styles.title, fonts.display, { color: colors.textPrimary }]}>{t('mAccount.permissionGate.title')}</Text>
+          <Text style={[styles.body, fonts.body, { color: colors.textSecondary }]}>{t('mAccount.permissionGate.body')}</Text>
         </View>
       </ScreenContainer>
     );
@@ -49,8 +51,7 @@ const styles = StyleSheet.create({
     gap: spacing[2],
   },
   title: {
-    fontSize: typography.size.lg,
-    fontWeight: typography.weight.bold,
+    fontSize: typography.size.md,
     textAlign: 'center',
   },
   body: {

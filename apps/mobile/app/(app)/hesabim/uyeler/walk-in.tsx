@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { BookSessionSchema } from '@platform/shared';
 
@@ -12,7 +12,8 @@ import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { weekRange } from '../../../../src/lib/dateRange';
 import { trainerName, type ScheduleRow } from '../../../../src/lib/scheduleTypes';
 import { useSession } from '../../../../src/lib/session';
-import { palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../../src/theme';
+import { Text } from '../../../../src/components/Text';
 
 function formatDayTime(startTime: string, endTime: string, locale: string): string {
   const start = new Date(startTime);
@@ -139,13 +140,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: spacing[3],
     borderRadius: radii.md,
-    borderWidth: 1,
+    borderWidth: borderWidth,
     marginBottom: spacing[2],
   },
   rowText: { flex: 1, gap: 2, marginRight: spacing[2] },
   rowTitle: { fontSize: typography.size.md },
   rowMeta: { fontSize: typography.size.sm },
-  bookButton: { minHeight: 40, paddingHorizontal: spacing[3], justifyContent: 'center', borderRadius: radii.md, borderWidth: 1 },
+  bookButton: { minHeight: 40, paddingHorizontal: spacing[3], justifyContent: 'center', borderRadius: radii.sm, borderWidth: borderWidth },
   empty: { fontSize: typography.size.sm },
   error: { fontSize: typography.size.sm, marginBottom: spacing[3] },
 });

@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { isWithinJoinWindow, onColor } from '@platform/shared';
 import type { JoinSessionResultDTO, MemberPackageDTO, ScheduleSpotsDTO, SpotDTO, SpotGroupDTO, SpotStatus } from '@platform/shared';
@@ -10,8 +10,9 @@ import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { useLocale, useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { palette, spacing, typography, useTheme, useThemeColors, useThemeFonts } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, TOUCH_TARGET, typography, useTheme, useThemeColors, useThemeFonts } from '../../../src/theme';
 import type { Translate } from '@platform/shared';
+import { Text } from '../../../src/components/Text';
 
 const SPOT_SIZE = 48;
 const SPOT_GAP = spacing[2];
@@ -370,8 +371,8 @@ const styles = StyleSheet.create({
     width: SPOT_SIZE,
     height: SPOT_SIZE,
     minWidth: 44,
-    minHeight: 44,
-    borderWidth: 2,
+    minHeight: TOUCH_TARGET,
+    borderWidth: borderWidth * 2,
     borderRadius: SPOT_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -379,7 +380,7 @@ const styles = StyleSheet.create({
   spotLabel: { fontSize: typography.size.sm },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3], marginBottom: spacing[3] },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
-  legendDot: { width: 12, height: 12, borderRadius: 6 },
+  legendDot: { width: spacing[3], height: spacing[3], borderRadius: radii.full },
   legendLabel: { fontSize: typography.size.xs },
   packageInfo: { fontSize: typography.size.sm, marginBottom: spacing[3] },
   message: { fontSize: typography.size.sm, marginBottom: spacing[3] },

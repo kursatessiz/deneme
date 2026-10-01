@@ -369,9 +369,21 @@ rezervasyon aracı (`/embed`; işletmenin marka rengini kendisi çözmeye devam 
 Tailwind `font-mono`, `uppercase`, `italic` ve `capitalize` sınıfları tüm
 ekranlarda `ui-mono`, `ui-eyebrow`, `ui-capitalize` yardımcılarına çevrildi.
 
-Kalan: sayfa motoru blokları ve sayfaları (`components/sites/*`) T6'da, mobil uygulama
-(yazı tipi Inter'e geçiş dahil) T5'te taşınır; T1'de mobilde yalnızca paylaşılan tip
-değişikliklerinin gerektirdiği derleme düzeltmeleri yapıldı. `apps/web/src` içinde
+T5'te mobil uygulama taşındı (ayrıntı: `docs/MOBILE_APP.md`, "Tasarım dili"): yedi eski
+yazı tipi paketi kalktı ve yazı tipi yalnızca Inter (400, 500, 600, 700); `PERFECT_UI_TOKENS`
+tek renk, köşe, boşluk ve boyut kaynağı oldu; `Button`, `Card`, `Badge`, `Chip`, `ListRow`,
+`EmptyState`, `SectionTitle`, `StatTile`, `Skeleton` ilkelleri eklendi ve eski bileşenler (`PrimaryButton`,
+`TextField`, `ChoiceRow`, `SwitchRow`, `DateTimeField`, `SessionDetail`, `MemberCard`, `PackageCard`,
+`PermissionGate`) bunların üzerine yeniden yazıldı; sekme çubuğu ve tüm yığın başlıkları token'dan stil
+alıyor; Görünüm ekranı yalnızca açık/koyu/sistem, İşletme teması ekranı yalnızca logo ve ana renk
+düzenliyor (aile ve gradyan seçicileri ile `Swatches` kalktı); gradyan yalnızca üye ve paket kartında.
+
+Kalan: sayfa motoru blokları ve sayfaları (`components/sites/*`) T6'da taşınır. Mobilde
+kalanlar: durum renkleri (`palette.danger/success/warning`) ekranlarda açık moddaki kit değerleriyle
+kullanılıyor, koyu modda rol rengine (`theme.roles`) geçiş ve ekranların `Card`/`ListRow` ilkellerine tam
+taşınması (şu an yalnızca ana ekran ve Hesabım menüsü; diğer ekranlar token'lı kendi stillerini
+kullanıyor) sonraki iştir; Android widget'ı ve kök hata ekranı tema dışı kalır; gerçek cihazda görsel
+doğrulama yapılmadı. `apps/web/src` içinde
 (`components/sites` hariç) Tailwind renk/köşe/gölge/tipografi sınıfı veya sabit renk
 kalmadı; geriye yalnızca değeri `var(--pui-*)` token'ı olan satır içi `style`'lar
 (`ThemeRoot`, açılış sayfası, üye kartı gradyan alanı, `Header` zemini), marka rengi

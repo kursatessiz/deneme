@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { PayrollRunDTO } from '@platform/shared';
 
@@ -7,8 +7,9 @@ import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { formatCurrency, useLocale, useT } from '../../../src/i18n';
-import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
 import type { Translate } from '@platform/shared';
+import { Text } from '../../../src/components/Text';
 
 
 const dateRange = (isoStart: string, isoEnd: string, locale: string) => {
@@ -85,7 +86,7 @@ export default function BordroScreen() {
     }
   };
 
-  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: theme.family.radii.card };
+  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: radii.md };
 
   return (
     <ScrollView
@@ -110,7 +111,7 @@ export default function BordroScreen() {
       ) : null}
 
       {runs?.map((run) => (
-        <View key={run.id} style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+        <View key={run.id} style={[styles.card, card, styles.bordered]}>
           <View style={styles.headerRow}>
             <Text style={[styles.period, fonts.display, { color: c.textPrimary }]}>{dateRange(run.periodStart, run.periodEnd, locale)}</Text>
             <Text style={[styles.status, fonts.bodyStrong, { color: statusColor(run.status, c) }]}>{STATUS_LABEL[run.status]}</Text>
@@ -141,7 +142,7 @@ const styles = StyleSheet.create({
   caption: { fontSize: typography.size.sm },
   empty: { fontSize: typography.size.md, marginTop: spacing[4] },
   card: { padding: spacing[4], gap: spacing[3] },
-  bordered: { borderWidth: 1 },
+  bordered: { borderWidth: borderWidth },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   period: { fontSize: typography.size.md },
   status: { fontSize: typography.size.sm },

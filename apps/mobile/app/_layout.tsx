@@ -9,7 +9,7 @@ import { ErrorBoundary as RootErrorBoundary } from '../src/errors/ErrorBoundary'
 import { ErrorFallback } from '../src/errors/ErrorFallback';
 import { ErrorTelemetry } from '../src/errors/ErrorTelemetry';
 import { installErrorReporting } from '../src/errors/runtime';
-import { THEME_FONT_ASSETS } from '../src/fonts';
+import { INTER_FONT_ASSETS } from '../src/fonts';
 import { I18nProvider } from '../src/i18n';
 import { SessionProvider } from '../src/lib/session';
 import { ThemeProvider, useTheme } from '../src/theme';
@@ -42,8 +42,8 @@ function ThemedStack() {
 }
 
 export default function RootLayout() {
-  // System fonts render until the theme faces load; a failed load keeps them.
-  const [fontsLoaded] = useFonts(THEME_FONT_ASSETS);
+  // System fonts render until Inter loads; a failed load keeps them.
+  const [fontsLoaded] = useFonts(INTER_FONT_ASSETS);
 
   useEffect(() => {
     // Widgets refresh on foreground so "next session" and remaining units

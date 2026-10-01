@@ -1,19 +1,22 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { ChurnListResponseDTO, ChurnMemberSummaryDTO } from '@platform/shared';
 
 import { useLocale, useT } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { useSession } from '../../../../src/lib/session';
-import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../../src/theme';
+import { borderWidth, palette, radii, spacing, TOUCH_TARGET, typography, useTheme, useThemeFonts } from '../../../../src/theme';
 import type { Translate } from '@platform/shared';
+import { Badge } from '../../../../src/components/Badge';
+import { Text } from '../../../../src/components/Text';
+import type { Tone } from '../../../../src/components/tones';
 
 function levelLabels(t: Translate): Record<string, string> {
   return { HIGH: t('mRiskyMembers.level.high'), MEDIUM: t('mRiskyMembers.level.medium'), LOW: t('mRiskyMembers.level.low') };
 }
 const LEVEL_ORDER: Record<string, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
-const LEVEL_COLOR: Record<string, string> = { HIGH: palette.danger, MEDIUM: palette.warning, LOW: palette.success };
+const LEVEL_TONE: Record<string, Tone> = { HIGH: 'error', MEDIUM: 'warn', LOW: 'success' };
 
 /** W12 mobile: HIGH then MEDIUM churn-risk members, top 2 reasons, quick "contacted" action. */
 export default function RiskliUyelerScreen() {
@@ -66,7 +69,7 @@ export default function RiskliUyelerScreen() {
     }
   };
 
-  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: theme.family.radii.card };
+  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: radii.md };
 
   return (
     <ScrollView
@@ -94,14 +97,12 @@ export default function RiskliUyelerScreen() {
         const topReasons = [...m.reasons].sort((a, b) => b.points - a.points).slice(0, 2);
         const alreadyContactedToday = m.contactedAt ? new Date(m.contactedAt).toDateString() === new Date().toDateString() : false;
         return (
-          <View key={m.memberId} style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+          <View key={m.memberId} style={[styles.card, card, styles.bordered]}>
             <View style={styles.headerRow}>
               <Text style={[styles.name, fonts.display, { color: c.textPrimary }]} numberOfLines={1}>
                 {m.firstName} {m.lastName}
               </Text>
-              <View style={[styles.badge, { backgroundColor: LEVEL_COLOR[m.level] }]}>
-                <Text style={styles.badgeText}>{t('mRiskyMembers.levelScore', { level: LEVEL_LABEL[m.level], score: m.score })}</Text>
-              </View>
+              <Badge solid tone={LEVEL_TONE[m.level] ?? 'muted'} label={t('mRiskyMembers.levelScore', { level: LEVEL_LABEL[m.level], score: m.score })} />
             </View>
             {m.phone ? <Text style={[styles.meta, fonts.body, { color: c.textSecondary }]}>{m.phone}</Text> : null}
             <Text style={[styles.meta, fonts.body, { color: c.textMuted }]}>{t('mRiskyMembers.lastAttended', { date: dateLabel(m.lastAttendedAt) })}</Text>
@@ -134,18 +135,16 @@ const styles = StyleSheet.create({
   spinner: { marginTop: spacing[6] },
   empty: { fontSize: typography.size.md, marginTop: spacing[4] },
   card: { padding: spacing[4] },
-  bordered: { borderWidth: 1 },
+  bordered: { borderWidth: borderWidth },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing[1] },
   name: { fontSize: typography.size.lg, flexShrink: 1, marginRight: spacing[2] },
-  badge: { paddingHorizontal: spacing[2], paddingVertical: 2, borderRadius: 999 },
-  badgeText: { color: '#FFFFFF', fontSize: typography.size.xs, fontWeight: typography.weight.bold },
   meta: { fontSize: typography.size.sm },
   reason: { fontSize: typography.size.sm, marginTop: spacing[1] },
   contactButton: {
     marginTop: spacing[3],
-    minHeight: 44,
-    borderWidth: 1,
-    borderRadius: 8,
+    minHeight: TOUCH_TARGET,
+    borderWidth: borderWidth,
+    borderRadius: radii.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },

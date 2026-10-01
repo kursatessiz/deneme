@@ -1,13 +1,14 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { EntitlementKind, onColor } from '@platform/shared';
+import { EntitlementKind, onGradient } from '@platform/shared';
 import type { MemberPackageDTO } from '@platform/shared';
 
 import { GradientSurface } from './GradientSurface';
 import { useLocale, useT } from '../i18n';
-import { spacing, typography, useTheme, useThemeFonts } from '../theme';
+import { radii, spacing, typography, useTheme, useThemeFonts } from '../theme';
 import type { Translate } from '@platform/shared';
+import { Text } from './Text';
 
 function entitlementLabel(pkg: MemberPackageDTO, t: Translate): string {
   if (pkg.entitlementKind === EntitlementKind.TIME_UNLIMITED) return t('mPackageCard.unlimitedDuration');
@@ -27,17 +28,17 @@ function statusLabels(t: Translate): Record<string, string> {
   };
 }
 
-/** Active-package card: the tenant gradient (CLAUDE.md design rule 10, packageCard slot). */
+/** Active-package card: the tenant gradient (CLAUDE.md design rule 10, packageCard slot; brand gradient of the tenant primary). */
 export function PackageCard({ pkg }: { pkg: MemberPackageDTO }) {
   const { theme } = useTheme();
   const fonts = useThemeFonts();
   const { locale } = useLocale();
   const t = useT();
   const STATUS_LABEL = statusLabels(t);
-  const textColor = onColor(theme.gradient.stops[0]);
+  const textColor = onGradient(theme.gradient);
 
   return (
-    <GradientSurface slot="packageCard" style={[styles.card, { borderRadius: theme.family.radii.card }]}>
+    <GradientSurface slot="packageCard" style={[styles.card, { borderRadius: radii.md }]}>
       <Text style={[styles.name, fonts.bodyStrong, { color: textColor }]} numberOfLines={1}>
         {pkg.packageDefinitionName}
       </Text>

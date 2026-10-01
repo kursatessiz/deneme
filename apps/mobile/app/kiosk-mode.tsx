@@ -2,7 +2,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { PhoneSchema } from '@platform/shared';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PrimaryButton } from '../src/components/PrimaryButton';
@@ -13,7 +13,9 @@ import { kioskRequest } from '../src/lib/kioskApi';
 import { clearKioskSession, getKioskSession, setKioskSession } from '../src/lib/kioskStore';
 import type { KioskSession } from '../src/lib/kioskStore';
 import { useSession } from '../src/lib/session';
-import { radii, spacing, typography, useThemeColors } from '../src/theme';
+import { SCRIM, TOUCH_TARGET, borderWidth, radii, spacing, typography, useThemeColors } from '../src/theme';
+import { withAlpha } from '../src/components/tones';
+import { Text } from '../src/components/Text';
 
 interface PairResponse {
   token: string;
@@ -149,9 +151,9 @@ export default function KioskModeScreen() {
   return (
     <SafeAreaView style={[styles.fill, { backgroundColor: colors.background }]}>
       <View style={[styles.headerBand, { backgroundColor: colors.primary }]}>
-        <Text style={styles.headerTitle}>{session.deviceName}</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('mKiosk.a11y.exitKiosk')} style={styles.exitButton} onPress={() => setExitVisible(true)}>
-          <Text style={styles.exitButtonLabel}>{t('mKiosk.exit')}</Text>
+        <Text style={[styles.headerTitle, { color: colors.onPrimary }]}>{session.deviceName}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('mKiosk.a11y.exitKiosk')} style={[styles.exitButton, { backgroundColor: withAlpha(colors.onPrimary, 0.2) }]} onPress={() => setExitVisible(true)}>
+          <Text style={[styles.exitButtonLabel, { color: colors.onPrimary }]}>{t('mKiosk.exit')}</Text>
         </Pressable>
       </View>
 
@@ -200,14 +202,14 @@ const styles = StyleSheet.create({
   title: { fontSize: typography.size.xl, fontWeight: typography.weight.bold, marginBottom: spacing[2] },
   subtitle: { fontSize: typography.size.sm, marginBottom: spacing[6] },
   headerBand: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing[5], paddingVertical: spacing[4] },
-  headerTitle: { fontSize: typography.size.lg, fontWeight: typography.weight.bold, color: '#FFFFFF' },
-  exitButton: { minHeight: 44, minWidth: 88, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing[4], borderRadius: radii.md, backgroundColor: 'rgba(0,0,0,0.25)' },
-  exitButtonLabel: { color: '#FFFFFF', fontSize: typography.size.md, fontWeight: typography.weight.semibold },
+  headerTitle: { fontSize: typography.size.lg, fontWeight: typography.weight.bold },
+  exitButton: { minHeight: TOUCH_TARGET, minWidth: spacing[16] + spacing[6], alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing[4], borderRadius: radii.sm },
+  exitButtonLabel: { fontSize: typography.size.md, fontWeight: typography.weight.semibold },
   body: { flex: 1, padding: spacing[6], alignItems: 'center', justifyContent: 'center' },
-  cameraWrap: { width: '100%', maxWidth: 480, aspectRatio: 1, borderWidth: 1, borderRadius: radii.lg, overflow: 'hidden' },
+  cameraWrap: { width: '100%', maxWidth: 480, aspectRatio: 1, borderWidth: borderWidth, borderRadius: radii.lg, overflow: 'hidden' },
   hint: { fontSize: typography.size.md, marginTop: spacing[5], textAlign: 'center' },
   resultTitle: { fontSize: typography.size.xl, fontWeight: typography.weight.bold, textAlign: 'center' },
   error: { fontSize: typography.size.sm, textAlign: 'center', marginTop: spacing[3] },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: spacing[6] },
+  modalOverlay: { flex: 1, backgroundColor: SCRIM, alignItems: 'center', justifyContent: 'center', padding: spacing[6] },
   modalCard: { width: '100%', maxWidth: 420, borderRadius: radii.lg, padding: spacing[6] },
 });
