@@ -198,7 +198,19 @@ Site ayarı `aiCrawlers: 'allow' | 'block'` (`Site.seoSettings`, varsayılan `al
 - **Nerede görünür**: `LocalBusiness` yalnızca işletme sitesinde bir `contact` bloğu olan sayfalarda üretilir (bölüm 6); `aggregateRating` onunla birlikte gider.
 - **Test**: `packages/shared/src/sites/aggregate-rating.spec.ts` (toplama: 5 altı yok, ortalama, geçersiz puanlar), `site-aggregate-rating.service.spec.ts` (sorgu kapsamı, önbellek), `apps/web/src/lib/sites/json-ld.spec.ts`, `apps/api/test/e2e/site-rating.e2e-spec.ts` (gerçek puanlarla, başka işletme, vazgeçme).
 
-## 17. Açık işler
+## 17. Yayına alma kontrol listesi
+
+Yeni bir alan adı (platform veya işletme) yayına alınırken sırayla:
+
+1. **Ortam**: sunucuda `SITE_ENV=production` (preprod `noindex` yazar) ve `REVALIDATE_SECRET` dolu olmalı (en az 16 karakter; boşsa yayın sonrası önbellek yalnızca 300 saniyelik pencereyle yenilenir, bölüm 11). Değişkenler: `docs/CICD_GUIDE.md` "Ortam değişkenleri envanteri".
+2. **Doğrulama alanları**: süper admin "Web sitesi" (platform) veya kiracı "Web sitem" ekranı, "Arama motoru doğrulaması" bölümü: Search Console kodu (`googleSiteVerification`) ve Bing Webmaster Tools kodu (`bingSiteVerification`); etiketlerin sayfa `<head>` bölümünde göründüğünü kontrol edin (bölüm 12).
+3. **Sitemap gönderimi**: Search Console ve Bing'de `https://<alan-adı>/sitemap.xml` adresini gönderin (bölüm 8); keşfedilen URL sayısı dil varyantı sayısıyla uymalı.
+4. **IndexNow**: `seo.indexnow` özellik bayrağını ilgili kiracı veya global için açın (varsayılan kapalı) ve `https://<alan-adı>/<anahtar>.txt` adresinin anahtarı döndürdüğünü doğrulayın (bölüm 13).
+5. **robots ve llms.txt**: `curl -s https://<alan-adı>/robots.txt` Disallow satırlarını ve sitemap adresini, `curl -s https://<alan-adı>/llms.txt` sayfa ve blog bölümlerini göstermeli; yapay zeka tarayıcıları engelliyse (`aiCrawlers: block`) `llms.txt` 404 döner (bölüm 14 ve 15). `curl -sI https://<alan-adı>/giris | grep -i x-robots-tag` noindex göstermeli.
+6. **Lighthouse raporu**: son çalıştırmanın raporu GitHub Actions'ta `lighthouse.yml` çalıştırmasının `lighthouse-results` artifact'ındadır (herkese açık depoya gönderilmez, bölüm 10).
+7. **"Powered by" rozeti**: işletme sitesinde rozetin görünmesi beklenir; `branding.hide_badge` bayrağı yalnızca ilgili plan veya eklenti için açılır, platform sitesinde rozet hiç görünmez (bölüm 9).
+
+## 18. Açık işler
 
 - Blog için görsel seçici, yazı önizlemesi ve zamanlanmış yayın (S2b'de yok).
 - GA4 (yalnızca reklam piksellerinin onay kapısı var; analitik kurulu değil).
