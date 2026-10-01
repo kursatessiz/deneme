@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { ERROR_FEEDBACK_MAX_LENGTH } from '@platform/shared';
 import type { Translate } from '@platform/shared';
 import { sendErrorFeedback } from '@/lib/errors/reporter';
+import { Button } from '@/components/ui/Button';
+import { Textarea } from '@/components/ui/Textarea';
 
 type State = 'idle' | 'sending' | 'sent' | 'failed';
 
@@ -19,7 +21,7 @@ export function ErrorFeedbackBox({ eventId, t }: { eventId: string; t: Translate
 
   if (state === 'sent') {
     return (
-      <p role="status" className="text-sm" style={{ color: 'var(--color-text-secondary)' }} data-testid="error-feedback-sent">
+      <p role="status" className="ui-text-muted" data-testid="error-feedback-sent">
         {t('errors.feedback.sent')}
       </p>
     );
@@ -31,36 +33,26 @@ export function ErrorFeedbackBox({ eventId, t }: { eventId: string; t: Translate
   };
 
   return (
-    <div className="space-y-2">
-      <label htmlFor="error-feedback" className="block text-sm font-medium">
+    <div className="grid gap-2">
+      <label htmlFor="error-feedback" className="ui-strong">
         {t('errors.feedback.label')}
       </label>
-      <textarea
+      <Textarea
         id="error-feedback"
         value={text}
         onChange={(e) => setText(e.target.value)}
         maxLength={ERROR_FEEDBACK_MAX_LENGTH}
         rows={3}
         placeholder={t('errors.feedback.placeholder')}
-        className="w-full border px-3 py-2 text-sm"
-        style={{ borderRadius: 'var(--radius-input)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', color: 'var(--color-text-primary)' }}
       />
       <div className="flex items-center justify-between gap-3">
-        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          {t('errors.feedback.counter', { count: text.length, max: ERROR_FEEDBACK_MAX_LENGTH })}
-        </span>
-        <button
-          type="button"
-          disabled={state === 'sending' || text.trim().length === 0}
-          onClick={submit}
-          className="px-4 py-2 text-sm font-medium border"
-          style={{ borderRadius: 'var(--radius-button)', borderColor: 'var(--color-border)' }}
-        >
+        <span className="ui-caption">{t('errors.feedback.counter', { count: text.length, max: ERROR_FEEDBACK_MAX_LENGTH })}</span>
+        <Button variant="outline" tone="surface" disabled={state === 'sending' || text.trim().length === 0} onClick={submit}>
           {t('errors.feedback.submit')}
-        </button>
+        </Button>
       </div>
       {state === 'failed' && (
-        <p role="alert" className="text-xs" style={{ color: 'var(--color-danger)' }}>
+        <p role="alert" className="ui-caption ui-text-error">
           {t('errors.feedback.failed')}
         </p>
       )}
