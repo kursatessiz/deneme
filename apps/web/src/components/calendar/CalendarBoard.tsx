@@ -16,12 +16,13 @@ function minutesFromDayStart(date: Date): number {
   return (date.getHours() - START_HOUR) * 60 + date.getMinutes();
 }
 
-function occupancyTone(bookedCount: number, capacity: number): string {
-  if (capacity <= 0) return 'var(--color-surface-muted)';
+/** How full a session is; the .ui-cal-chip and .ui-cal-mini classes tint themselves from this (data-load). */
+function occupancyLoad(bookedCount: number, capacity: number): 'full' | 'busy' | 'normal' {
+  if (capacity <= 0) return 'normal';
   const ratio = bookedCount / capacity;
-  if (ratio >= 1) return 'rgba(220, 38, 38, 0.16)';
-  if (ratio >= 0.7) return 'rgba(217, 119, 6, 0.16)';
-  return 'var(--color-surface-muted)';
+  if (ratio >= 1) return 'full';
+  if (ratio >= 0.7) return 'busy';
+  return 'normal';
 }
 
 interface Props {
@@ -50,11 +51,11 @@ export function CalendarBoard({ view, anchor, schedules, selectedId, onSelect, o
   const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
 
   return (
-    <div className="flex border" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
-      <div className="w-14 shrink-0 border-r" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-        <div className="h-10 border-b" style={{ borderColor: 'var(--color-border)' }} />
+    <div className="ui-cal">
+      <div className="ui-cal-gutter">
+        <div className="ui-cal-head" />
         {hours.map((h) => (
-          <div key={h} className="text-[10px] text-right pr-1.5 pt-0.5" style={{ height: PX_PER_HOUR, color: 'var(--color-text-muted)' }}>
+          <div key={h} className="ui-caption ui-cal-hour" style={{ height: PX_PER_HOUR }}>
             {String(h).padStart(2, '0')}:00
           </div>
         ))}
@@ -63,18 +64,10 @@ export function CalendarBoard({ view, anchor, schedules, selectedId, onSelect, o
       {days.map((day, dayIndex) => {
         const daySchedules = schedules.filter((s) => isSameDay(new Date(s.startTime), day));
         return (
-          <div
-            key={day.toISOString()}
-            className="flex-1 min-w-0 border-r last:border-r-0"
-            style={{ borderColor: 'var(--color-border)', backgroundColor: dragOverDay === dayIndex ? 'var(--color-surface-muted)' : 'var(--color-surface)' }}
-          >
-            <div className="h-10 border-b flex flex-col items-center justify-center" style={{ borderColor: 'var(--color-border)' }}>
-              <span className="text-[10px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                {weekdayLabel(day, locale)}
-              </span>
-              <span className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                {day.getDate()}
-              </span>
+          <div key={day.toISOString()} className="ui-cal-col" data-drop={dragOverDay === dayIndex ? 'true' : undefined}>
+            <div className="ui-cal-head flex flex-col items-center justify-center">
+              <span className="ui-caption ui-strong">{weekdayLabel(day, locale)}</span>
+              <span className="ui-caption ui-strong">{day.getDate()}</span>
             </div>
             <div
               className="relative"
@@ -105,7 +98,7 @@ export function CalendarBoard({ view, anchor, schedules, selectedId, onSelect, o
               }}
             >
               {hours.map((h, i) => (
-                <div key={h} className="absolute left-0 right-0 border-t" style={{ top: i * PX_PER_HOUR, borderColor: 'var(--color-border)', opacity: 0.5 }} />
+                <div key={h} className="ui-cal-line" style={{ top: i * PX_PER_HOUR }} />
               ))}
               {daySchedules.map((s) => {
                 const start = new Date(s.startTime);
@@ -124,21 +117,14 @@ export function CalendarBoard({ view, anchor, schedules, selectedId, onSelect, o
                       e.dataTransfer.effectAllowed = 'move';
                     }}
                     onClick={() => onSelect(s)}
-                    className="absolute left-1 right-1 text-left px-1.5 py-1 overflow-hidden"
-                    style={{
-                      top,
-                      height,
-                      borderRadius: 'var(--radius-chip)',
-                      backgroundColor: occupancyTone(s.bookedCount, s.capacity),
-                      border: selected ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
-                      opacity: s.isCancelled ? 0.5 : 1,
-                      cursor: canDrag && !s.isCancelled ? 'grab' : 'pointer',
-                    }}
+                    className="ui-cal-chip"
+                    data-load={occupancyLoad(s.bookedCount, s.capacity)}
+                    data-selected={selected ? 'true' : undefined}
+                    data-cancelled={s.isCancelled ? 'true' : undefined}
+                    style={{ top, height }}
                   >
-                    <p className="text-[11px] font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
-                      {s.title || s.serviceType?.name}
-                    </p>
-                    <p className="text-[10px] truncate" style={{ color: 'var(--color-text-secondary)' }}>
+                    <p className="ui-caption ui-strong truncate">{s.title || s.serviceType?.name}</p>
+                    <p className="ui-caption truncate">
                       {start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })} · {s.bookedCount}/{s.capacity}
                       {trainerName(s.trainer) ? ` · ${trainerName(s.trainer)}` : ''}
                     </p>
@@ -161,10 +147,10 @@ export function MonthGrid({ anchor, schedules, onSelectDay }: { anchor: Date; sc
   const weekdays = shortWeekdayLabels(locale);
 
   return (
-    <div className="border" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
-      <div className="grid grid-cols-7" style={{ backgroundColor: 'var(--color-surface)' }}>
+    <div className="ui-cal-month">
+      <div className="ui-cal-weekhead">
         {weekdays.map((w) => (
-          <div key={w} className="text-[10px] font-medium text-center py-2 border-b" style={{ color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)' }}>
+          <div key={w} className="ui-caption ui-strong text-center py-2">
             {w}
           </div>
         ))}
@@ -174,27 +160,15 @@ export function MonthGrid({ anchor, schedules, onSelectDay }: { anchor: Date; sc
           const daySchedules = schedules.filter((s) => isSameDay(new Date(s.startTime), day));
           const inMonth = day.getMonth() === anchor.getMonth();
           return (
-            <button
-              key={day.toISOString()}
-              type="button"
-              onClick={() => onSelectDay(day)}
-              className="min-h-[92px] text-left p-1.5 border-r border-b last:border-r-0"
-              style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', opacity: inMonth ? 1 : 0.45 }}
-            >
-              <span className="text-[11px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                {day.getDate()}
-              </span>
+            <button key={day.toISOString()} type="button" onClick={() => onSelectDay(day)} className="ui-cal-cell" data-outside={inMonth ? undefined : 'true'}>
+              <span className="ui-caption ui-strong">{day.getDate()}</span>
               <div className="mt-1 space-y-0.5">
                 {daySchedules.slice(0, 3).map((s) => (
-                  <div key={s.id} className="text-[10px] truncate px-1 py-0.5" style={{ borderRadius: 'var(--radius-chip)', backgroundColor: occupancyTone(s.bookedCount, s.capacity) }}>
+                  <div key={s.id} className="ui-caption ui-cal-mini" data-load={occupancyLoad(s.bookedCount, s.capacity)}>
                     {new Date(s.startTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })} {s.title || s.serviceType?.name}
                   </div>
                 ))}
-                {daySchedules.length > 3 && (
-                  <div className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
-                    {t('calendar.monthGrid.more', { count: daySchedules.length - 3 })}
-                  </div>
-                )}
+                {daySchedules.length > 3 && <div className="ui-caption">{t('calendar.monthGrid.more', { count: daySchedules.length - 3 })}</div>}
               </div>
             </button>
           );

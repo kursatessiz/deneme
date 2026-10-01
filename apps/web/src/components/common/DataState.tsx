@@ -66,8 +66,6 @@ export function EmptyState({ title, description, action }: { title?: string; des
 export function ErrorState({ message }: { message?: string }) {
   const t = useT();
   return (
-    <div className="pui-card px-6 py-10 text-center" style={{ color: 'var(--pui-error)', borderColor: 'currentColor' }}>
-      {message ?? t('common.error.generic')}
-    </div>
+    <div className="ui-alert">{message ?? t('common.error.generic')}</div>
   );
 }
