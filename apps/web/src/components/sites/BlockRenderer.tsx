@@ -2,22 +2,19 @@ import Link from 'next/link';
 import { leadFormConsentVersion, resolveBlockText } from '@platform/shared';
 import type { BlockDTO, PublicPageContext, Translate } from '@platform/shared';
 import { formatMoney } from '@/lib/money';
+import { Accordion, AccordionItem, Badge, Card, CardContent, LinkButton } from '@/components/ui';
 import { LeadFormBlock } from './LeadFormBlock';
 
-const container: React.CSSProperties = { maxWidth: 1040, margin: '0 auto', padding: '48px 24px' };
-const heading: React.CSSProperties = { fontSize: 'clamp(22px, 4vw, 32px)', fontWeight: 800, letterSpacing: '-0.01em', margin: 0 };
-const body: React.CSSProperties = { color: 'var(--color-text-secondary)', lineHeight: 1.6, marginTop: 10 };
-const grid: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginTop: 24 };
-const card: React.CSSProperties = { border: '1px solid var(--color-border)', borderRadius: 'var(--radius-card)', padding: 20, backgroundColor: 'var(--color-surface)' };
-const primaryLink: React.CSSProperties = {
-  display: 'inline-block',
-  padding: '13px 26px',
-  borderRadius: 'var(--radius-button)',
-  fontWeight: 700,
-  color: '#fff',
-  textDecoration: 'none',
-  backgroundImage: 'var(--gradient-brand)',
-};
+/*
+ * Layout only: the page engine renders on the component library and the
+ * kit tokens (docs/TASARIM.md). Colors, borders, radii and type come from
+ * the pui-* and ui-* classes; Tailwind utilities below are flex, grid, gap,
+ * spacing and width.
+ */
+const SECTION = 'max-w-6xl mx-auto px-6 py-16 grid gap-6';
+const SECTION_NARROW = 'max-w-3xl mx-auto px-6 py-16 grid gap-6';
+const SECTION_CENTER = `${SECTION} justify-items-center text-center`;
+const CARD_GRID = 'grid gap-4 grid-cols-[repeat(auto-fit,minmax(220px,1fr))]';
 
 function slugifySectorKey(key: string): string {
   return key.replace(/_/g, '-');
@@ -86,24 +83,21 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
       const t = text<{ eyebrow?: string; title: string; subtitle?: string; primaryCtaLabel?: string; primaryCtaHref?: string; secondaryCtaLabel?: string; secondaryCtaHref?: string }>(block.data, ctx);
       if (!t) return null;
       return (
-        <section style={{ ...container, textAlign: 'center', paddingTop: 72 }}>
-          {t.eyebrow && <p style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-primary)' }}>{t.eyebrow}</p>}
-          <h1 style={heading}>{t.title}</h1>
-          {t.subtitle && <p style={{ ...body, fontSize: 17, maxWidth: 640, margin: '14px auto 0' }}>{t.subtitle}</p>}
+        <section className={`${SECTION_CENTER} pt-20 pb-16`}>
+          {t.eyebrow && (
+            <Badge tone="theme" className="ui-eyebrow">
+              {t.eyebrow}
+            </Badge>
+          )}
+          <h1 className="ui-display">{t.title}</h1>
+          {t.subtitle && <p className="ui-lead ui-text-muted">{t.subtitle}</p>}
           {(t.primaryCtaLabel || t.secondaryCtaLabel) && (
-            <div style={{ marginTop: 28, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-              {t.primaryCtaLabel && t.primaryCtaHref && (
-                <Link href={t.primaryCtaHref} style={primaryLink}>
-                  {t.primaryCtaLabel}
-                </Link>
-              )}
+            <div className="flex flex-wrap justify-center gap-3">
+              {t.primaryCtaLabel && t.primaryCtaHref && <LinkButton href={t.primaryCtaHref}>{t.primaryCtaLabel}</LinkButton>}
               {t.secondaryCtaLabel && t.secondaryCtaHref && (
-                <Link
-                  href={t.secondaryCtaHref}
-                  style={{ display: 'inline-block', padding: '13px 26px', borderRadius: 'var(--radius-button)', fontWeight: 600, color: 'var(--color-text-primary)', textDecoration: 'none', border: '1px solid var(--color-border)' }}
-                >
+                <LinkButton href={t.secondaryCtaHref} variant="outline" tone="surface">
                   {t.secondaryCtaLabel}
-                </Link>
+                </LinkButton>
               )}
             </div>
           )}
@@ -115,14 +109,16 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
       const t = text<{ title?: string; items: { title: string; description: string }[] }>(block.data, ctx);
       if (!t) return null;
       return (
-        <section style={container}>
-          {t.title && <h2 style={heading}>{t.title}</h2>}
-          <div style={grid}>
+        <section className={SECTION}>
+          {t.title && <h2 className="ui-title">{t.title}</h2>}
+          <div className={CARD_GRID}>
             {t.items.map((item, i) => (
-              <div key={i} style={card}>
-                <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{item.title}</h3>
-                <p style={body}>{item.description}</p>
-              </div>
+              <Card key={i}>
+                <CardContent>
+                  <h3 className="ui-heading">{item.title}</h3>
+                  <p className="ui-text-muted">{item.description}</p>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </section>
@@ -133,13 +129,15 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
       const t = text<{ title?: string; description?: string }>(block.data, ctx);
       const businessTypes = ctx.context.businessTypes ?? [];
       return (
-        <section style={container}>
-          {t?.title && <h2 style={heading}>{t.title}</h2>}
-          {t?.description && <p style={body}>{t.description}</p>}
-          <div style={grid}>
+        <section className={SECTION}>
+          {t?.title && <h2 className="ui-title">{t.title}</h2>}
+          {t?.description && <p className="ui-text-muted">{t.description}</p>}
+          <div className={CARD_GRID}>
             {businessTypes.map((bt) => (
-              <Link key={bt.key} href={`/${ctx.locale}/${slugifySectorKey(bt.key)}`} style={{ ...card, textDecoration: 'none', color: 'var(--color-text-primary)' }}>
-                <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{bt.name}</h3>
+              <Link key={bt.key} href={`/${ctx.locale}/${slugifySectorKey(bt.key)}`} className="pui-card ui-card-link">
+                <span className="pui-card-content">
+                  <span className="ui-heading">{bt.name}</span>
+                </span>
               </Link>
             ))}
           </div>
@@ -151,14 +149,18 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
       const t = text<{ title?: string; steps: { title: string; description: string }[] }>(block.data, ctx);
       if (!t) return null;
       return (
-        <section style={container}>
-          {t.title && <h2 style={heading}>{t.title}</h2>}
-          <ol style={{ ...grid, listStyle: 'none', padding: 0 }}>
+        <section className={SECTION}>
+          {t.title && <h2 className="ui-title">{t.title}</h2>}
+          <ol className={CARD_GRID}>
             {t.steps.map((s, i) => (
-              <li key={i} style={card}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-primary)' }}>{i + 1}</span>
-                <h3 style={{ fontSize: 16, fontWeight: 700, margin: '4px 0 0' }}>{s.title}</h3>
-                <p style={body}>{s.description}</p>
+              <li key={i} className="pui-card">
+                <div className="pui-card-content">
+                  <Badge tone="theme" className="justify-self-start">
+                    {i + 1}
+                  </Badge>
+                  <h3 className="ui-heading">{s.title}</h3>
+                  <p className="ui-text-muted">{s.description}</p>
+                </div>
               </li>
             ))}
           </ol>
@@ -173,20 +175,24 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
       const plans = ctx.context.plans ?? [];
       const packages = ctx.context.packages ?? [];
       return (
-        <section style={container}>
-          {t?.title && <h2 style={heading}>{t.title}</h2>}
-          {t?.description && <p style={body}>{t.description}</p>}
-          <div style={grid}>
+        <section className={SECTION}>
+          {t?.title && <h2 className="ui-title">{t.title}</h2>}
+          {t?.description && <p className="ui-text-muted">{t.description}</p>}
+          <div className={CARD_GRID}>
             {plans.map((p) => (
-              <div key={p.key} style={card}>
-                <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{p.name}</h3>
-                <p style={{ ...body, fontSize: 20, fontWeight: 800, color: 'var(--color-text-primary)' }}>{formatMoney(p.priceMonthly, p.currency, ctx.locale)}</p>
-              </div>
+              <Card key={p.key}>
+                <CardContent>
+                  <h3 className="ui-heading">{p.name}</h3>
+                  <p className="ui-stat-value">{formatMoney(p.priceMonthly, p.currency, ctx.locale)}</p>
+                </CardContent>
+              </Card>
             ))}
             {packages.map((p) => (
-              <div key={p.id} style={card}>
-                <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{p.name}</h3>
-                <p style={{ ...body, fontSize: 20, fontWeight: 800, color: 'var(--color-text-primary)' }}>{formatMoney(p.price, p.currency, ctx.locale)}</p>
+              <div key={p.id} className="pui-card ui-gradient-package-card">
+                <div className="pui-card-content">
+                  <h3 className="ui-heading">{p.name}</h3>
+                  <p className="ui-stat-value">{formatMoney(p.price, p.currency, ctx.locale)}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -198,17 +204,19 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
       const t = text<{ title?: string; items: { quote: string; authorName: string; authorRole?: string }[] }>(block.data, ctx);
       if (!t) return null;
       return (
-        <section style={container}>
-          {t.title && <h2 style={heading}>{t.title}</h2>}
-          <div style={grid}>
+        <section className={SECTION}>
+          {t.title && <h2 className="ui-title">{t.title}</h2>}
+          <div className={CARD_GRID}>
             {t.items.map((it, i) => (
-              <blockquote key={i} style={{ ...card, margin: 0 }}>
-                <p style={body}>&ldquo;{it.quote}&rdquo;</p>
-                <footer style={{ marginTop: 10, fontSize: 13, fontWeight: 600 }}>
-                  {it.authorName}
-                  {it.authorRole && <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}> · {it.authorRole}</span>}
-                </footer>
-              </blockquote>
+              <Card as="article" key={i}>
+                <blockquote className="pui-card-content">
+                  <p className="ui-rail">&ldquo;{it.quote}&rdquo;</p>
+                  <footer className="ui-caption">
+                    <span className="ui-strong">{it.authorName}</span>
+                    {it.authorRole && <span> &middot; {it.authorRole}</span>}
+                  </footer>
+                </blockquote>
+              </Card>
             ))}
           </div>
         </section>
@@ -219,16 +227,15 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
       const t = text<{ title?: string; items: { question: string; answer: string }[] }>(block.data, ctx);
       if (!t) return null;
       return (
-        <section style={container}>
-          {t.title && <h2 style={heading}>{t.title}</h2>}
-          <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <section className={SECTION_NARROW}>
+          {t.title && <h2 className="ui-title">{t.title}</h2>}
+          <Accordion>
             {t.items.map((item, i) => (
-              <details key={i} style={{ ...card, padding: 16 }}>
-                <summary style={{ fontWeight: 600, cursor: 'pointer' }}>{item.question}</summary>
-                <p style={body}>{item.answer}</p>
-              </details>
+              <AccordionItem key={i} title={item.question}>
+                <p className="ui-text-muted">{item.answer}</p>
+              </AccordionItem>
             ))}
-          </div>
+          </Accordion>
         </section>
       );
     }
@@ -237,12 +244,12 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
       const t = text<{ items: { label: string; value: string }[] }>(block.data, ctx);
       if (!t) return null;
       return (
-        <section style={container}>
-          <div style={grid}>
+        <section className={SECTION}>
+          <div className={`${CARD_GRID} text-center`}>
             {t.items.map((s, i) => (
-              <div key={i} style={{ textAlign: 'center' }}>
-                <p style={{ fontSize: 30, fontWeight: 800, margin: 0 }}>{s.value}</p>
-                <p style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{s.label}</p>
+              <div key={i} className="grid gap-1">
+                <p className="ui-title">{s.value}</p>
+                <p className="ui-caption">{s.label}</p>
               </div>
             ))}
           </div>
@@ -254,12 +261,12 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
       const t = text<{ title: string; description?: string; buttonLabel: string; buttonHref: string }>(block.data, ctx);
       if (!t) return null;
       return (
-        <section style={{ ...container, textAlign: 'center', borderTop: '1px solid var(--color-border)' }}>
-          <h2 style={heading}>{t.title}</h2>
-          {t.description && <p style={body}>{t.description}</p>}
-          <Link href={t.buttonHref} style={{ ...primaryLink, marginTop: 20 }}>
-            {t.buttonLabel}
-          </Link>
+        <section className="ui-rule">
+          <div className={SECTION_CENTER}>
+            <h2 className="ui-title">{t.title}</h2>
+            {t.description && <p className="ui-text-muted">{t.description}</p>}
+            <LinkButton href={t.buttonHref}>{t.buttonLabel}</LinkButton>
+          </div>
         </section>
       );
     }
@@ -269,26 +276,28 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
       const cfg = (block.data as { config?: { fields?: string[]; marketingConsent?: boolean } })?.config;
       const marketingText = cfg?.marketingConsent ? t?.marketingConsentText || ctx.t('sites.leadForm.marketingConsent') : null;
       return (
-        <section style={{ ...container, borderTop: '1px solid var(--color-border)' }} id={contactAnchorId(ctx.locale)}>
-          <LeadFormBlock
-            studioSlug={ctx.studioSlug}
-            fields={(cfg?.fields as ('fullName' | 'phone' | 'email' | 'interest')[]) ?? ['fullName', 'phone']}
-            title={t?.title}
-            submitLabel={t?.submitLabel}
-            consentText={t?.consentText}
-            marketingConsent={marketingText ? { text: marketingText, formVersion: leadFormConsentVersion(ctx.locale, marketingText) } : undefined}
-            locale={ctx.locale}
-            i18n={{
-              fullName: ctx.t('sites.leadForm.fullName'),
-              phone: ctx.t('sites.leadForm.phone'),
-              email: ctx.t('sites.leadForm.email'),
-              message: ctx.t('sites.leadForm.message'),
-              defaultConsent: ctx.t('sites.leadForm.defaultConsent'),
-              submit: ctx.t('sites.leadForm.submit'),
-              sent: ctx.t('sites.leadForm.sent'),
-              error: ctx.t('sites.leadForm.error'),
-            }}
-          />
+        <section className="ui-rule" id={contactAnchorId(ctx.locale)}>
+          <div className={SECTION}>
+            <LeadFormBlock
+              studioSlug={ctx.studioSlug}
+              fields={(cfg?.fields as ('fullName' | 'phone' | 'email' | 'interest')[]) ?? ['fullName', 'phone']}
+              title={t?.title}
+              submitLabel={t?.submitLabel}
+              consentText={t?.consentText}
+              marketingConsent={marketingText ? { text: marketingText, formVersion: leadFormConsentVersion(ctx.locale, marketingText) } : undefined}
+              locale={ctx.locale}
+              i18n={{
+                fullName: ctx.t('sites.leadForm.fullName'),
+                phone: ctx.t('sites.leadForm.phone'),
+                email: ctx.t('sites.leadForm.email'),
+                message: ctx.t('sites.leadForm.message'),
+                defaultConsent: ctx.t('sites.leadForm.defaultConsent'),
+                submit: ctx.t('sites.leadForm.submit'),
+                sent: ctx.t('sites.leadForm.sent'),
+                error: ctx.t('sites.leadForm.error'),
+              }}
+            />
+          </div>
         </section>
       );
     }
@@ -296,11 +305,9 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
     case 'booking_widget': {
       const t = text<{ title?: string; buttonLabel?: string }>(block.data, ctx);
       return (
-        <section style={{ ...container, textAlign: 'center' }}>
-          {t?.title && <h2 style={heading}>{t.title}</h2>}
-          <Link href={`/booking/${ctx.studioSlug}/book`} style={{ ...primaryLink, marginTop: 20 }}>
-            {t?.buttonLabel || ctx.t('sites.bookingWidget.defaultButton')}
-          </Link>
+        <section className={SECTION_CENTER}>
+          {t?.title && <h2 className="ui-title">{t.title}</h2>}
+          <LinkButton href={`/booking/${ctx.studioSlug}/book`}>{t?.buttonLabel || ctx.t('sites.bookingWidget.defaultButton')}</LinkButton>
         </section>
       );
     }
@@ -309,14 +316,16 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
       const t = text<{ title?: string; items: { name: string; photoUrl?: string; bio?: string }[] }>(block.data, ctx);
       if (!t) return null;
       return (
-        <section style={container}>
-          {t.title && <h2 style={heading}>{t.title}</h2>}
-          <div style={grid}>
+        <section className={SECTION}>
+          {t.title && <h2 className="ui-title">{t.title}</h2>}
+          <div className={CARD_GRID}>
             {t.items.map((tr, i) => (
-              <div key={i} style={card}>
-                <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{tr.name}</h3>
-                {tr.bio && <p style={body}>{tr.bio}</p>}
-              </div>
+              <Card key={i}>
+                <CardContent>
+                  <h3 className="ui-heading">{tr.name}</h3>
+                  {tr.bio && <p className="ui-text-muted">{tr.bio}</p>}
+                </CardContent>
+              </Card>
             ))}
           </div>
         </section>
@@ -328,16 +337,18 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
       const cfg = (block.data as { config?: { showAddress?: boolean; showPhone?: boolean; showEmail?: boolean } })?.config;
       const info = ctx.context.companyInfo ?? ctx.context.studioContact;
       return (
-        <section style={{ ...container, textAlign: 'center', borderTop: '1px solid var(--color-border)' }} id={contactAnchorId(ctx.locale)}>
-          {t?.title && <h2 style={heading}>{t.title}</h2>}
-          {t?.description && <p style={body}>{t.description}</p>}
-          {info && (
-            <div style={{ marginTop: 16, fontSize: 14, color: 'var(--color-text-secondary)' }}>
-              {cfg?.showAddress !== false && info.address && <p>{info.address}</p>}
-              {cfg?.showPhone !== false && info.phone && <p>{info.phone}</p>}
-              {cfg?.showEmail !== false && info.email && <p>{info.email}</p>}
-            </div>
-          )}
+        <section className="ui-rule" id={contactAnchorId(ctx.locale)}>
+          <div className={SECTION_CENTER}>
+            {t?.title && <h2 className="ui-title">{t.title}</h2>}
+            {t?.description && <p className="ui-text-muted">{t.description}</p>}
+            {info && (
+              <div className="grid gap-1 ui-text-muted">
+                {cfg?.showAddress !== false && info.address && <p>{info.address}</p>}
+                {cfg?.showPhone !== false && info.phone && <p>{info.phone}</p>}
+                {cfg?.showEmail !== false && info.email && <p>{info.email}</p>}
+              </div>
+            )}
+          </div>
         </section>
       );
     }
@@ -347,11 +358,11 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
       if (!t) return null;
       const paragraphs = t.body.split(/\n{2,}/);
       return (
-        <section style={{ ...container, maxWidth: 760 }}>
-          {t.title && <h1 style={heading}>{t.title}</h1>}
-          <div style={{ marginTop: 20 }}>
+        <section className={SECTION_NARROW}>
+          {t.title && <h1 className="ui-title">{t.title}</h1>}
+          <div className="grid gap-4">
             {paragraphs.map((p, i) => (
-              <p key={i} style={body}>
+              <p key={i} className="ui-text-muted">
                 {p}
               </p>
             ))}
