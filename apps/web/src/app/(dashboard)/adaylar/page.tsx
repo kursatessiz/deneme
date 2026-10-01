@@ -11,6 +11,7 @@ import { PermissionButton } from '@/components/common/PermissionButton';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { LeadDetailDrawer } from '@/components/leads/LeadDetailDrawer';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 const STAGES: LeadStage[] = [LeadStage.NEW, LeadStage.CONTACTED, LeadStage.TRIAL_BOOKED, LeadStage.TRIAL_DONE, LeadStage.WON, LeadStage.LOST];
 
@@ -48,19 +49,15 @@ function LeadsBoard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-            {t('leads.title')}
-          </h2>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('leads.subtitle')}
-          </p>
-        </div>
-        <PermissionButton required={['leads.manage']} variant="primary" onClick={() => setShowNew(true)}>
-          {t('leads.new')}
-        </PermissionButton>
-      </div>
+      <PageHeader
+        title={t('leads.title')}
+        description={t('leads.subtitle')}
+        actions={
+          <PermissionButton required={['leads.manage']} variant="primary" onClick={() => setShowNew(true)}>
+            {t('leads.new')}
+          </PermissionButton>
+        }
+      />
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
@@ -72,7 +69,7 @@ function LeadsBoard() {
             const items = leads.filter((l) => l.stage === col.stage);
             return (
               <div key={col.stage} className="space-y-2">
-                <div className="flex items-center justify-between text-xs font-semibold px-1" style={{ color: 'var(--color-text-secondary)' }}>
+                <div className="flex items-center justify-between px-1 ui-strong ui-caption">
                   <span>{col.label}</span>
                   <span>{items.length}</span>
                 </div>
@@ -82,17 +79,16 @@ function LeadsBoard() {
                       key={lead.id}
                       type="button"
                       onClick={() => openLead(lead.id)}
-                      className="w-full text-left p-3 text-sm"
-                      style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}
+                      className="w-full text-left p-3 pui-card"
                     >
-                      <div className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                      <div className="ui-strong">
                         {lead.fullName}
                       </div>
-                      <div className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+                      <div className="mt-0.5 ui-caption">
                         {lead.phone}
                       </div>
                       {lead.ownerName && (
-                        <div className="text-[11px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                        <div className="mt-1 ui-caption">
                           {lead.ownerName}
                         </div>
                       )}

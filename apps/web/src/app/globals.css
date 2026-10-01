@@ -474,6 +474,15 @@
     color: var(--pui-on-theme, var(--pui-bg));
   }
 
+  /* A meter that crosses a budget: data-level warning or exceeded recolors the fill. */
+  .ui-bar-fill[data-level='warning'] {
+    background-color: var(--pui-warn);
+  }
+
+  .ui-bar-fill[data-level='exceeded'] {
+    background-color: var(--pui-error);
+  }
+
   /* A whole card that is a link (settings hub). */
   .ui-card-link {
     transition: background-color 0.15s;
@@ -481,6 +490,158 @@
 
   .ui-card-link:hover {
     background-color: var(--pui-bg-muted);
+  }
+
+  /* Smaller body text that keeps the current color (the muted variant is ui-caption). */
+  .ui-small {
+    font-size: calc(var(--pui-font-size) * 0.857);
+  }
+
+  /* A quiet vertical rule on the left of a list item or quote (activity feeds, variants). */
+  .ui-rail {
+    border-left: 2px solid var(--pui-border);
+    padding-left: calc(var(--pui-space) * 3);
+  }
+
+  /* A drop target column (pipeline board): a dashed theme outline while a card is dragged over it. */
+  .ui-drop-col {
+    border: var(--pui-border-width) dashed transparent;
+    border-radius: calc(var(--pui-radius) * 1.5);
+  }
+
+  .ui-drop-col[data-drop='true'] {
+    border-color: var(--pui-theme);
+  }
+
+  .ui-draggable[draggable='true'] {
+    cursor: grab;
+  }
+
+  /* A side drawer over a dimmed page (approvals queue): the backdrop and the sliding panel. */
+  .ui-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    justify-content: flex-end;
+    background-color: color-mix(in srgb, black 50%, transparent);
+  }
+
+  .ui-drawer {
+    width: 100%;
+    max-width: 36rem;
+    height: 100%;
+    overflow-y: auto;
+    background-color: var(--pui-bg);
+    border-left: var(--pui-border-width) solid var(--pui-border);
+  }
+
+  /* A full-width notice card with a brand-colored left accent (billing banner). */
+  .ui-banner {
+    background-color: var(--pui-bg-muted);
+    border-left: 4px solid var(--pui-theme);
+  }
+
+  .ui-banner[data-urgent='true'] {
+    border-color: var(--pui-theme);
+  }
+
+  /* A row you can pick (conversation list): hover and the current row take the muted surface. */
+  .ui-pick:hover,
+  .ui-pick[aria-current='true'] {
+    background-color: var(--pui-bg-muted);
+  }
+
+  /* One bottom hairline (a pane header). */
+  .ui-rule-b {
+    border-bottom: var(--pui-border-width) solid var(--pui-border);
+  }
+
+  /* The first pane of a split view: a hairline below it when stacked, to its right from 1024px. */
+  .ui-split-start {
+    border-bottom: var(--pui-border-width) solid var(--pui-border);
+  }
+
+  @media (min-width: 1024px) {
+    .ui-split-start {
+      border-bottom: none;
+      border-right: var(--pui-border-width) solid var(--pui-border);
+    }
+  }
+
+  /* Content calendar items: a quiet row with a left edge in the status color, and the legend dot in the same color. */
+  .ui-status-item,
+  .ui-status-dot {
+    --ui-status: var(--pui-muted);
+  }
+
+  .ui-status-item[data-status='DRAFTED'],
+  .ui-status-dot[data-status='DRAFTED'] {
+    --ui-status: var(--pui-theme);
+  }
+
+  .ui-status-item[data-status='APPROVED'],
+  .ui-status-dot[data-status='APPROVED'] {
+    --ui-status: var(--pui-success);
+  }
+
+  .ui-status-item[data-status='SENT'],
+  .ui-status-dot[data-status='SENT'] {
+    --ui-status: var(--pui-text-muted);
+  }
+
+  .ui-status-item[data-status='CANCELLED'],
+  .ui-status-dot[data-status='CANCELLED'] {
+    --ui-status: var(--pui-error);
+  }
+
+  .ui-status-item {
+    display: block;
+    width: 100%;
+    padding: 0.25rem 0.375rem;
+    overflow: hidden;
+    text-align: start;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+    background-color: var(--pui-bg-muted);
+    border-left: 2px solid var(--ui-status);
+    border-radius: calc(var(--pui-radius) / 2);
+  }
+
+  .ui-status-item[draggable='true'] {
+    cursor: grab;
+  }
+
+  .ui-status-item[data-status='CANCELLED'] {
+    text-decoration: line-through;
+  }
+
+  .ui-status-dot {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    background-color: var(--ui-status);
+  }
+
+  /* A dashed outline row (a campaign shown on the content calendar) and its legend swatch. */
+  .ui-dashed-item {
+    display: block;
+    padding: 0.25rem 0.375rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--pui-text-muted);
+    border: var(--pui-border-width) dashed var(--pui-border);
+    border-radius: calc(var(--pui-radius) / 2);
+  }
+
+  .ui-dashed-swatch {
+    display: inline-block;
+    width: 0.75rem;
+    height: 0.5rem;
+    padding: 0;
   }
 
   /* Only the two gradient slots of the design system (packages/shared GRADIENT_SLOTS). */

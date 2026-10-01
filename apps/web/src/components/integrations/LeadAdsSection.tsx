@@ -17,6 +17,7 @@ import { useT } from '@/components/i18n/I18nProvider';
 import { Badge } from '@/components/common/Badge';
 import { InlineMessage, PrimaryButton, SecondaryButton, Section, TextField } from '@/components/settings/ui';
 import { HubTable } from './HubTable';
+import { Input, Select, Tr, Td } from '@/components/ui';
 
 const STATUS_TONE: Record<LeadAdsConnectionStatus, 'neutral' | 'success' | 'warning' | 'danger'> = {
   NOT_CONFIGURED: 'warning',
@@ -31,13 +32,6 @@ const EVENT_TONE: Record<LeadAdEventDTO['status'], 'neutral' | 'success' | 'warn
   PROCESSED: 'success',
   FAILED: 'danger',
 };
-
-const fieldStyle = {
-  borderColor: 'var(--color-border)',
-  borderRadius: 'var(--radius-input)',
-  backgroundColor: 'var(--color-background)',
-  color: 'var(--color-text-primary)',
-} as const;
 
 interface Props {
   data: IntegrationHubDTO;
@@ -93,12 +87,12 @@ export function LeadAdsSection({ data, run, call, fmtDate, entryHeaders, showPla
     <>
       <Section title={t('leadAds.title')} description={t('leadAds.description')}>
         {leadAds.connections.length === 0 ? (
-          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="ui-text-muted">
             {t('leadAds.noConnection')}
           </p>
         ) : (
           <>
-            <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+            <p className="ui-caption">
               {t('leadAds.callback')} <code className="font-mono">/{leadAds.webhookPath}</code>
             </p>
             {leadAds.connections.map((c) => (
@@ -111,14 +105,14 @@ export function LeadAdsSection({ data, run, call, fmtDate, entryHeaders, showPla
       {leadAds.connections.length > 0 && (
         <Section title={t('leadAds.forms.title')} description={t('leadAds.forms.description')}>
           {leadAds.forms.length === 0 && !draft && (
-            <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+            <p className="ui-text-muted">
               {t('leadAds.forms.empty')}
             </p>
           )}
           {leadAds.forms.map((f) => (
-            <div key={f.id} className="border-t pt-3 flex flex-wrap items-center gap-2" style={{ borderColor: 'var(--color-border)' }}>
-              <span className="font-mono text-sm">{f.formId}</span>
-              {f.formName && <span className="text-sm">{f.formName}</span>}
+            <div key={f.id} className="pt-3 flex flex-wrap items-center gap-2 ui-rule">
+              <span className="font-mono">{f.formId}</span>
+              {f.formName && <span>{f.formName}</span>}
               {f.consentQuestionKey ? <Badge>{t('leadAds.forms.consentSet', { key: f.consentQuestionKey })}</Badge> : <Badge tone="warning">{t('leadAds.forms.noConsent')}</Badge>}
               <span className="flex-1" />
               <SecondaryButton onClick={() => setDraft(draftOf(f))}>{t('leadAds.forms.edit')}</SecondaryButton>
@@ -152,27 +146,27 @@ export function LeadAdsSection({ data, run, call, fmtDate, entryHeaders, showPla
       {leadAds.connections.length > 0 && (
         <Section title={t('leadAds.events.title')}>
           {events.length === 0 ? (
-            <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+            <p className="ui-text-muted">
               {t('leadAds.events.empty')}
             </p>
           ) : (
             <HubTable head={[t('leadAds.events.received'), t('leadAds.forms.formId'), t('leadAds.events.status'), '']}>
               {events.map((e) => (
-                <tr key={e.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
-                  <td className="py-2 pr-3 text-xs">{fmtDate(e.receivedAt)}</td>
-                  <td className="py-2 pr-3 font-mono text-xs">{e.formId}</td>
-                  <td className="py-2 pr-3">
+                <Tr key={e.id}>
+                  <Td className="ui-small">{fmtDate(e.receivedAt)}</Td>
+                  <Td className="font-mono ui-small">{e.formId}</Td>
+                  <Td>
                     <Badge tone={EVENT_TONE[e.status]}>{t(`leadAds.events.status.${e.status}` as MessageKey)}</Badge>
                     {e.lastError && (
-                      <span className="ml-2 text-xs" style={{ color: 'var(--color-danger)' }}>
+                      <span className="ml-2 ui-text-error ui-small">
                         {e.lastError}
                       </span>
                     )}
-                  </td>
-                  <td className="py-2 text-right">
+                  </Td>
+                  <Td className="text-right">
                     {e.status === 'FAILED' && <SecondaryButton onClick={() => run(() => call(`lead-ads/events/${e.id}/retry`, 'POST'))}>{t('leadAds.events.retry')}</SecondaryButton>}
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
             </HubTable>
           )}
@@ -205,14 +199,14 @@ function ConnectionCard({
   const dirty = pageId.trim() !== (connection.pageId ?? '') || appSecret.trim().length > 0;
 
   return (
-    <div className="border-t pt-3 space-y-3" style={{ borderColor: 'var(--color-border)' }}>
+    <div className="pt-3 space-y-3 ui-rule">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-medium">{connection.label}</span>
+        <span className="ui-strong">{connection.label}</span>
         <Badge tone={STATUS_TONE[connection.status]}>{t(`leadAds.status.${connection.status}` as MessageKey)}</Badge>
         <Badge tone={connection.appSecretConfigured ? 'success' : 'warning'}>
           {connection.appSecretConfigured ? t('leadAds.appSecret.set') : t('leadAds.appSecret.missing')}
         </Badge>
-        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+        <span className="ui-caption">
           {t('leadAds.lastLead')}: {connection.lastLeadAt ? fmtDate(connection.lastLeadAt) : t('leadAds.never')}
         </span>
         {connection.failedCount > 0 && (
@@ -254,11 +248,11 @@ function ConnectionCard({
           </SecondaryButton>
         </div>
       </form>
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+      <p className="ui-caption">
         {t('leadAds.appSecret.note')}
       </p>
       {(subscription !== null || connection.subscribedAt) && (
-        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+        <p className="ui-caption">
           {(subscription ?? Boolean(connection.subscribedAt)) ? t('leadAds.subscription.ok') : t('leadAds.subscription.none')}
           {connection.subscribedAt && ` ${t('leadAds.subscription.at', { date: fmtDate(connection.subscribedAt) })}`}
         </p>
@@ -281,48 +275,45 @@ function FormMappingEditor({
   const t = useT();
   const formIdValid = /^\d{5,40}$/.test(draft.formId.trim());
   return (
-    <div className="border-t pt-3 space-y-3" style={{ borderColor: 'var(--color-border)' }}>
+    <div className="pt-3 space-y-3 ui-rule">
       <div className="grid gap-3 md:grid-cols-2">
         <TextField label={t('leadAds.forms.formId')} value={draft.formId} onChange={(v) => draft.isNew && onChange({ ...draft, formId: v })} placeholder="1234567890" />
         <TextField label={t('leadAds.forms.formName')} value={draft.formName} onChange={(v) => onChange({ ...draft, formName: v })} />
       </div>
       <HubTable head={[t('leadAds.forms.question'), t('leadAds.forms.target'), '']}>
         {draft.rows.map((row, index) => (
-          <tr key={index} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
-            <td className="py-1.5 pr-3">
-              <input
+          <Tr key={index}>
+            <Td>
+              <Input
                 value={row.key}
                 onChange={(e) => onChange({ ...draft, rows: draft.rows.map((r, i) => (i === index ? { ...r, key: e.target.value } : r)) })}
                 aria-label={t('leadAds.forms.question')}
-                className="w-full px-3 py-1.5 text-sm border font-mono"
-                style={fieldStyle}
+                className="font-mono"
               />
-            </td>
-            <td className="py-1.5 pr-3">
-              <select
+            </Td>
+            <Td>
+              <Select
                 value={row.target}
                 onChange={(e) => onChange({ ...draft, rows: draft.rows.map((r, i) => (i === index ? { ...r, target: e.target.value as LeadAdFieldTarget } : r)) })}
                 aria-label={t('leadAds.forms.target')}
-                className="w-full px-3 py-1.5 text-sm border"
-                style={fieldStyle}
               >
                 {LEAD_AD_FIELD_TARGETS.map((target) => (
                   <option key={target} value={target}>
                     {t(`leadAds.target.${target}` as MessageKey)}
                   </option>
                 ))}
-              </select>
-            </td>
-            <td className="py-1.5 text-right">
+              </Select>
+            </Td>
+            <Td className="text-right">
               <SecondaryButton onClick={() => onChange({ ...draft, rows: draft.rows.filter((_, i) => i !== index) })}>{t('leadAds.forms.removeQuestion')}</SecondaryButton>
-            </td>
-          </tr>
+            </Td>
+          </Tr>
         ))}
       </HubTable>
       <SecondaryButton onClick={() => onChange({ ...draft, rows: [...draft.rows, { key: '', target: 'email' }] })}>{t('leadAds.forms.addQuestion')}</SecondaryButton>
       <div className="space-y-1">
         <TextField label={t('leadAds.forms.consentQuestion')} value={draft.consentQuestionKey} onChange={(v) => onChange({ ...draft, consentQuestionKey: v })} />
-        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+        <p className="ui-caption">
           {t('leadAds.forms.consentHelp')}
         </p>
       </div>
@@ -364,16 +355,16 @@ function VerifyTokenSection({
 
   return (
     <Section title={t('leadAds.verifyToken.title')} description={t('leadAds.verifyToken.description')}>
-      <p className="text-sm">{state.configured ? t('leadAds.verifyToken.configured', { last4: state.last4 ?? '' }) : t('leadAds.verifyToken.notConfigured')}</p>
+      <p>{state.configured ? t('leadAds.verifyToken.configured', { last4: state.last4 ?? '' }) : t('leadAds.verifyToken.notConfigured')}</p>
       {state.setAt && (
-        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+        <p className="ui-caption">
           {t('leadAds.verifyToken.setAt', { date: fmtDate(state.setAt) })}
         </p>
       )}
       {shown && (
-        <div className="text-sm space-y-1">
+        <div className="space-y-1">
           <p>{t('leadAds.verifyToken.shownOnce')}</p>
-          <code className="block p-2 border text-xs break-all" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)' }}>
+          <code className="ui-panel block p-2 break-all ui-small font-mono">
             {shown}
           </code>
         </div>

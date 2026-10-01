@@ -82,12 +82,12 @@ export function GenerateForm({
         />
       </div>
       <AreaField label={t('marketingStudio.generate.notes')} value={notes} onChange={setNotes} rows={2} />
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+      <p className="ui-caption">
         {t('marketingStudio.generate.piiNote')}
       </p>
 
       <fieldset className="space-y-2">
-        <legend className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+        <legend className="ui-strong ui-caption">
           {t('marketingStudio.generate.locales')}
         </legend>
         <div className="flex flex-wrap gap-4">
@@ -103,7 +103,7 @@ export function GenerateForm({
       </fieldset>
 
       <fieldset className="space-y-2">
-        <legend className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+        <legend className="ui-strong ui-caption">
           {t('marketingStudio.generate.kinds')}
         </legend>
         <div className="flex flex-wrap gap-x-5 gap-y-2">

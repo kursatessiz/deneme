@@ -6,13 +6,7 @@ import { bffFetch, BffError } from '@/lib/session/client';
 import { useT } from '@/components/i18n/I18nProvider';
 import { PermissionButton } from '@/components/common/PermissionButton';
 import { Modal } from '@/components/common/Modal';
-
-const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
+import { Input, Select } from '@/components/ui';
 
 export function NewLeadDialog({ studioId, onClose, onDone }: { studioId: string; onClose: () => void; onDone: () => void }) {
   const t = useT();
@@ -48,35 +42,29 @@ export function NewLeadDialog({ studioId, onClose, onDone }: { studioId: string;
   return (
     <Modal title={t('leads.newDialog.title')} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-3">
-        <input
+        <Input
           placeholder={t('leads.newDialog.fullNamePlaceholder')}
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
-          className="w-full text-sm px-3 py-1.5"
-          style={inputStyle}
         />
-        <input
+        <Input
           placeholder={t('leads.newDialog.phonePlaceholder')}
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          className="w-full text-sm px-3 py-1.5"
-          style={inputStyle}
         />
-        <input
+        <Input
           placeholder={t('leads.newDialog.emailPlaceholder')}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full text-sm px-3 py-1.5"
-          style={inputStyle}
         />
-        <select value={source} onChange={(e) => setSource(e.target.value as LeadSource)} className="w-full text-sm px-3 py-1.5" style={inputStyle}>
+        <Select value={source} onChange={(e) => setSource(e.target.value as LeadSource)}>
           {Object.values(LeadSource).map((s) => (
             <option key={s} value={s}>
               {t(`leads.source.${s}`)}
             </option>
           ))}
-        </select>
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        </Select>
+        {error && <p className="ui-text-error ui-small">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <PermissionButton type="button" variant="ghost" onClick={onClose}>
             {t('common.cancel')}

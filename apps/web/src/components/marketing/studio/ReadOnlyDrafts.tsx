@@ -61,23 +61,23 @@ export function SegmentSuggestionView({ draft, platformStudioId, canSave }: { dr
   }
 
   return (
-    <div className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
+    <div className="ui-divide">
       {draft.variants.map((variant) => {
         const parsed = SegmentSuggestionContentSchema.safeParse(variant.content);
         if (!parsed.success) return null;
         const content = parsed.data;
         return (
-          <div key={variant.id} className="py-4 first:pt-0 space-y-2" style={{ borderColor: 'var(--color-border)' }}>
-            <h4 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+          <div key={variant.id} className="py-4 first:pt-0 space-y-2">
+            <h4 className="ui-strong">
               {content.name}
             </h4>
-            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+            <p className="ui-text-muted">
               {content.rationale}
             </p>
-            <pre className="text-xs font-mono whitespace-pre-wrap p-3" style={{ backgroundColor: 'var(--color-surface-muted)', borderRadius: 'var(--radius-input)' }}>
+            <pre className="ui-panel font-mono whitespace-pre-wrap p-3 ui-small">
               {ruleLines(content.rules).join('\n')}
             </pre>
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            <p className="ui-caption">
               {content.approxCount === null ? t('marketingStudio.segments.sizeHidden', { k: MARKETING_MIN_CELL }) : t('marketingStudio.segments.size', { count: content.approxCount })}
             </p>
             <IssueList issues={variant.issues} />
@@ -107,27 +107,27 @@ export function ResearchNoteView({ draft }: { draft: MarketingDraftDTO }) {
   const sources = new Map(note.sources.map((s) => [s.id, s]));
   return (
     <div className="space-y-3">
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+      <p className="ui-caption">
         {t('marketingStudio.research.mode')}
       </p>
-      <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+      <p>
         {note.summary}
       </p>
       <ol className="space-y-3 list-decimal pl-5">
         {note.points.map((point, index) => {
           const source = sources.get(point.sourceId);
           return (
-            <li key={index} className="text-sm space-y-1">
-              <p style={{ color: 'var(--color-text-primary)' }}>{point.claim}</p>
-              <blockquote className="text-xs italic border-l-2 pl-3" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+            <li key={index} className="space-y-1">
+              <p>{point.claim}</p>
+              <blockquote className="italic ui-rail ui-caption">
                 {point.quote}
               </blockquote>
-              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              <p className="ui-caption">
                 {point.sourceId}: {source?.title}
                 {source?.url ? (
                   <>
                     {' - '}
-                    <a href={source.url} target="_blank" rel="noopener noreferrer" className="underline">
+                    <a href={source.url} target="_blank" rel="noopener noreferrer" className="pui-link pui-surface">
                       {source.url}
                     </a>
                   </>

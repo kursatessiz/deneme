@@ -1,86 +1,55 @@
 'use client';
 
 import { useLocale } from '@/components/i18n/I18nProvider';
+import { PageHeader as UiPageHeader } from '@/components/ui/PageHeader';
 
-/** Form control style shared by the CRM, segment, campaign and journey screens (design tokens only). */
-export const inputStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
-
-export const inputClass = 'w-full text-sm px-3 py-2 outline-none';
+export { inputClass, inputStyle } from './legacy-controls';
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-          {title}
-        </h2>
-        {subtitle && (
-          <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-            {subtitle}
-          </p>
-        )}
-      </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
-    </div>
-  );
+  return <UiPageHeader title={title} description={subtitle} actions={actions} />;
 }
 
 /** One flat bordered section; never nested inside another panel. */
 export function Panel({ title, actions, children, labelledBy }: { title?: string; actions?: React.ReactNode; children: React.ReactNode; labelledBy?: string }) {
   return (
-    <section
-      aria-labelledby={labelledBy}
-      className="p-4 space-y-3"
-      style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}
-    >
-      {(title || actions) && (
-        <div className="flex items-center justify-between gap-2">
-          {title && (
-            <h3 id={labelledBy} className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-              {title}
-            </h3>
-          )}
-          {actions}
-        </div>
-      )}
-      {children}
+    <section aria-labelledby={labelledBy} className="pui-card">
+      <div className="pui-card-content">
+        {(title || actions) && (
+          <div className="flex items-center justify-between gap-2">
+            {title && (
+              <h3 id={labelledBy} className="ui-heading">
+                {title}
+              </h3>
+            )}
+            {actions}
+          </div>
+        )}
+        {children}
+      </div>
     </section>
   );
 }
 
 export function Field({ label, htmlFor, children, hint }: { label: string; htmlFor: string; children: React.ReactNode; hint?: string }) {
   return (
-    <div className="space-y-1">
-      <label htmlFor={htmlFor} className="block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+    <div className="pui-field-group">
+      <label htmlFor={htmlFor} className="ui-small">
         {label}
       </label>
       {children}
-      {hint && (
-        <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-          {hint}
-        </p>
-      )}
+      {hint && <small>{hint}</small>}
     </div>
   );
 }
 
 export function Muted({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-      {children}
-    </p>
-  );
+  return <p className="ui-caption">{children}</p>;
 }
 
 export function Notice({ tone = 'info', children }: { tone?: 'info' | 'error' | 'success'; children: React.ReactNode }) {
-  const color = tone === 'error' ? 'var(--color-danger, #b42318)' : tone === 'success' ? 'var(--color-success, #15803d)' : 'var(--color-text-secondary)';
+  const toneClass = tone === 'error' ? 'ui-text-error' : tone === 'success' ? 'ui-text-success' : '';
   return (
-    <p role={tone === 'error' ? 'alert' : 'status'} className="text-xs" style={{ color }}>
+    <p role={tone === 'error' ? 'alert' : 'status'} className={toneClass ? `ui-caption ${toneClass}` : 'ui-caption'}>
       {children}
     </p>
   );

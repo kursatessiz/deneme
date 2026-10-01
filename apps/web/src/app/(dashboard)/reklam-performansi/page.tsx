@@ -9,13 +9,8 @@ import { useBff } from '@/lib/session/use-bff';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { PageGuard } from '@/components/common/PageGuard';
 import { DateRangeFilter } from '@/components/common/DateRangeFilter';
-
-const selectStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
+import { Select, Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 function money(rec: Record<string, string>): string {
   const entries = Object.entries(rec);
@@ -32,46 +27,48 @@ function ratio(rec: Record<string, number | null>): string {
 function ReportTable({ report }: { report: AttributionReportDTO }) {
   const t = useT();
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr style={{ color: 'var(--color-text-secondary)' }}>
-            <th className="text-left py-2 pr-4">{t(`ads.report.groupBy.${report.groupBy}` as never)}</th>
-            <th className="text-right py-2 pr-4">{t('ads.report.spend')}</th>
-            <th className="text-right py-2 pr-4">{t('ads.report.leads')}</th>
-            <th className="text-right py-2 pr-4">{t('ads.report.purchases')}</th>
-            <th className="text-right py-2 pr-4">{t('ads.report.revenue')}</th>
-            <th className="text-right py-2 pr-4">{t('ads.report.cpl')}</th>
-            <th className="text-right py-2 pr-4">{t('ads.report.cac')}</th>
-            <th className="text-right py-2">{t('ads.report.roas')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {report.rows.map((row) => (
-            <tr key={row.key} className="border-t" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}>
-              <td className="py-2 pr-4">{row.key}</td>
-              <td className="text-right py-2 pr-4">{money(row.spend)}</td>
-              <td className="text-right py-2 pr-4">{row.conversions.lead ?? 0}</td>
-              <td className="text-right py-2 pr-4">{row.conversions.purchase ?? 0}</td>
-              <td className="text-right py-2 pr-4">{money(row.revenue)}</td>
-              <td className="text-right py-2 pr-4">{ratio(row.cpl)}</td>
-              <td className="text-right py-2 pr-4">{ratio(row.cac)}</td>
-              <td className="text-right py-2">{ratio(row.roas)}</td>
-            </tr>
-          ))}
-          <tr className="border-t font-semibold" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}>
-            <td className="py-2 pr-4">{t('ads.report.totals')}</td>
-            <td className="text-right py-2 pr-4">{money(report.totals.spend)}</td>
-            <td className="text-right py-2 pr-4">{report.totals.conversions.lead ?? 0}</td>
-            <td className="text-right py-2 pr-4">{report.totals.conversions.purchase ?? 0}</td>
-            <td className="text-right py-2 pr-4">{money(report.totals.revenue)}</td>
-            <td className="text-right py-2 pr-4">{ratio(report.totals.cpl)}</td>
-            <td className="text-right py-2 pr-4">{ratio(report.totals.cac)}</td>
-            <td className="text-right py-2">{ratio(report.totals.roas)}</td>
-          </tr>
-        </tbody>
-      </table>
-      <p className="text-xs mt-3" style={{ color: 'var(--color-text-muted)' }}>
+    <div className="space-y-3">
+      <div className="pui-card overflow-x-auto">
+        <Table>
+          <Thead>
+            <Tr>
+              <Th>{t(`ads.report.groupBy.${report.groupBy}` as never)}</Th>
+              <Th className="text-right">{t('ads.report.spend')}</Th>
+              <Th className="text-right">{t('ads.report.leads')}</Th>
+              <Th className="text-right">{t('ads.report.purchases')}</Th>
+              <Th className="text-right">{t('ads.report.revenue')}</Th>
+              <Th className="text-right">{t('ads.report.cpl')}</Th>
+              <Th className="text-right">{t('ads.report.cac')}</Th>
+              <Th className="text-right">{t('ads.report.roas')}</Th>
+            </Tr>
+          </Thead>
+          <Tbody>
+            {report.rows.map((row) => (
+              <Tr key={row.key}>
+                <Td>{row.key}</Td>
+                <Td className="text-right">{money(row.spend)}</Td>
+                <Td className="text-right">{row.conversions.lead ?? 0}</Td>
+                <Td className="text-right">{row.conversions.purchase ?? 0}</Td>
+                <Td className="text-right">{money(row.revenue)}</Td>
+                <Td className="text-right">{ratio(row.cpl)}</Td>
+                <Td className="text-right">{ratio(row.cac)}</Td>
+                <Td className="text-right">{ratio(row.roas)}</Td>
+              </Tr>
+            ))}
+            <Tr className="ui-strong">
+              <Td>{t('ads.report.totals')}</Td>
+              <Td className="text-right">{money(report.totals.spend)}</Td>
+              <Td className="text-right">{report.totals.conversions.lead ?? 0}</Td>
+              <Td className="text-right">{report.totals.conversions.purchase ?? 0}</Td>
+              <Td className="text-right">{money(report.totals.revenue)}</Td>
+              <Td className="text-right">{ratio(report.totals.cpl)}</Td>
+              <Td className="text-right">{ratio(report.totals.cac)}</Td>
+              <Td className="text-right">{ratio(report.totals.roas)}</Td>
+            </Tr>
+          </Tbody>
+        </Table>
+      </div>
+      <p className="ui-caption">
         {t('ads.report.untaggedPaidTraffic')}: {report.untaggedPaidTouchpoints}
       </p>
     </div>
@@ -94,39 +91,32 @@ function AdsReport() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-          {t('ads.report.title')}
-        </h2>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('ads.report.description')}
-        </p>
-      </div>
+      <PageHeader title={t('ads.report.title')} description={t('ads.report.description')} />
 
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <span className="text-xs font-medium block mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+          <span className="block mb-1 ui-strong ui-caption">
             {t('ads.report.model')}
           </span>
-          <select value={model} onChange={(e) => setModel(e.target.value as AttributionModel)} className="px-3 py-2 text-sm" style={selectStyle}>
+          <Select value={model} onChange={(e) => setModel(e.target.value as AttributionModel)}>
             {ATTRIBUTION_MODELS.map((m) => (
               <option key={m} value={m}>
                 {m}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div>
-          <span className="text-xs font-medium block mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+          <span className="block mb-1 ui-strong ui-caption">
             {t('ads.report.groupBy')}
           </span>
-          <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as AttributionGroupBy)} className="px-3 py-2 text-sm" style={selectStyle}>
+          <Select value={groupBy} onChange={(e) => setGroupBy(e.target.value as AttributionGroupBy)}>
             {ATTRIBUTION_GROUP_BY.map((g) => (
               <option key={g} value={g}>
                 {t(`ads.report.groupBy.${g}` as never)}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <DateRangeFilter
           from={from}

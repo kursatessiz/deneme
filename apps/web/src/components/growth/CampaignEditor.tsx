@@ -13,13 +13,15 @@ import { Badge } from '@/components/common/Badge';
 import { ErrorState, LoadingState } from '@/components/common/DataState';
 import { bffFetch } from '@/lib/session/client';
 import { hasAnyPermission } from '@/lib/nav';
-import { Field, Muted, Notice, PageHeader, Panel, inputClass, inputStyle, errorMessage, useDateFormat } from './ui';
+import { Field, Muted, Notice, PageHeader, Panel, errorMessage, useDateFormat } from './ui';
 import { useAreaHref } from '@/components/session/AreaBase';
 import { useOptionalPlatformSession } from '@/components/marketing/PlatformSession';
 import { hasAnyPlatformPermission } from '@/lib/marketing-nav';
 import { approvalErrorText } from '@/lib/marketing/errors';
 import { AbTestEditor, SendTimeEditor, VariantResults, abFormFromCampaign, abPayload, abSendTimeError, emptyAbForm, sendTimePayload } from './CampaignAbSection';
 import type { AbForm, SendTimeForm } from './CampaignAbSection';
+import { Input, Select } from '@/components/ui';
+import { Radio } from '@/components/ui/Radio';
 
 /** PENDING_APPROVAL only occurs on the platform tenant (M3b); an edit there replaces the approval request. */
 const EDITABLE = new Set(['DRAFT', 'SCHEDULED', 'PENDING_APPROVAL']);
@@ -42,10 +44,10 @@ function toLocalInput(iso: string | null): string {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="py-1">
-      <dt className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+      <dt className="ui-caption">
         {label}
       </dt>
-      <dd className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+      <dd className="ui-heading">
         {value}
       </dd>
     </div>
@@ -267,7 +269,7 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
         actions={
           <>
             {campaign && <Badge tone={campaignStatusTone(campaign.status)}>{t(`campaigns.status.${campaign.status}`)}</Badge>}
-            <Link href={areaHref('/kampanyalar')} className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
+            <Link href={areaHref('/kampanyalar')} className="pui-link pui-surface ui-caption">
               {t('campaigns.title')}
             </Link>
           </>
@@ -279,7 +281,7 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
         <Notice tone="info">
           {t('marketingApprovals.campaign.pending')}{' '}
           {campaign.approvalRequestId && (
-            <Link href={`/pazarlama/onaylar?id=${encodeURIComponent(campaign.approvalRequestId)}`} className="underline">
+            <Link href={`/pazarlama/onaylar?id=${encodeURIComponent(campaign.approvalRequestId)}`} className="pui-link pui-surface">
               {t('marketingApprovals.campaign.viewRequest')}
             </Link>
           )}
@@ -294,14 +296,14 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
       <Panel>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label={t('campaigns.field.name')} htmlFor="campaign-name">
-            <input id="campaign-name" value={name} onChange={(e) => setName(e.target.value)} disabled={!editable || !canManage} className={inputClass} style={inputStyle} />
+            <Input id="campaign-name" value={name} onChange={(e) => setName(e.target.value)} disabled={!editable || !canManage} />
           </Field>
           <Field
             label={t('campaigns.field.segment')}
             htmlFor="campaign-segment"
             hint={selectedSegment ? t('campaigns.audience', { count: selectedSegment.cachedCount }) : undefined}
           >
-            <select id="campaign-segment" value={segmentId} onChange={(e) => setSegmentId(e.target.value)} disabled={!editable || !canManage} className={inputClass} style={inputStyle}>
+            <Select id="campaign-segment" value={segmentId} onChange={(e) => setSegmentId(e.target.value)} disabled={!editable || !canManage}>
               <option value="" disabled>
                 {t('campaigns.field.segment')}
               </option>
@@ -310,21 +312,21 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
                   {s.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
           <Field label={t('campaigns.field.channel')} htmlFor="campaign-channel">
-            <select id="campaign-channel" value={channel} onChange={(e) => setChannel(e.target.value)} disabled={!editable || !canManage} className={inputClass} style={inputStyle}>
+            <Select id="campaign-channel" value={channel} onChange={(e) => setChannel(e.target.value)} disabled={!editable || !canManage}>
               <option value="">{t('campaigns.field.channelDefault')}</option>
               {MESSAGE_CHANNELS_V2.map((c) => (
                 <option key={c} value={c}>
                   {t(`messaging.channel.${c}`)}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
           <Field label={t('campaigns.field.template')} htmlFor="campaign-template" hint={t('campaigns.field.templateHint')}>
             {templateKeys ? (
-              <select id="campaign-template" value={templateKey} onChange={(e) => setTemplateKey(e.target.value)} disabled={!editable || !canManage} className={inputClass} style={inputStyle}>
+              <Select id="campaign-template" value={templateKey} onChange={(e) => setTemplateKey(e.target.value)} disabled={!editable || !canManage}>
                 <option value="" disabled>
                   {t('campaigns.field.template')}
                 </option>
@@ -333,40 +335,31 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
                     {k}
                   </option>
                 ))}
-              </select>
+              </Select>
             ) : (
-              <input
+              <Input
                 id="campaign-template"
                 value={templateKey}
                 onChange={(e) => setTemplateKey(e.target.value.toUpperCase())}
                 disabled={!editable || !canManage}
-                className={inputClass}
-                style={inputStyle}
               />
             )}
           </Field>
           {editable && (
             <fieldset className="md:col-span-2 space-y-2">
-              <legend className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+              <legend className="ui-strong ui-caption">
                 {t('campaigns.field.scheduledAt')}
               </legend>
-              <div className="flex flex-wrap items-center gap-4 text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                <label className="inline-flex items-center gap-2">
-                  <input type="radio" name="campaign-when" checked={when === 'now'} onChange={() => setWhen('now')} />
-                  {t('campaigns.field.scheduleNow')}
-                </label>
-                <label className="inline-flex items-center gap-2">
-                  <input type="radio" name="campaign-when" checked={when === 'later'} onChange={() => setWhen('later')} />
-                  {t('campaigns.field.scheduleLater')}
-                </label>
+              <div className="flex flex-wrap items-center gap-4">
+                <Radio name="campaign-when" checked={when === 'now'} onChange={() => setWhen('now')} label={t('campaigns.field.scheduleNow')} />
+                <Radio name="campaign-when" checked={when === 'later'} onChange={() => setWhen('later')} label={t('campaigns.field.scheduleLater')} />
                 {when === 'later' && (
-                  <input
+                  <Input
                     type="datetime-local"
                     aria-label={t('campaigns.field.scheduledAt')}
                     value={scheduledAt}
                     onChange={(e) => setScheduledAt(e.target.value)}
-                    className={`${inputClass} max-w-xs`}
-                    style={inputStyle}
+                    className="max-w-xs"
                   />
                 )}
               </div>
@@ -459,13 +452,13 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
             />
           </dl>
           {stats.deferredByCap > 0 && (
-            <p role="status" className="text-sm" style={{ color: 'var(--color-warning)' }}>
+            <p role="status" className="ui-text-warn">
               {t('campaigns.capDeferred', { count: stats.deferredByCap, date: fmt.dateTime(stats.deferredUntil) })}
             </p>
           )}
           {Object.keys(stats.skippedByReason).length > 0 && (
             <div className="space-y-1">
-              <p className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+              <p className="ui-strong ui-caption">
                 {t('campaigns.stats.skippedByReason')}
               </p>
               <ul className="flex flex-wrap gap-2">
@@ -488,10 +481,10 @@ export function CampaignEditor({ campaignId }: { campaignId?: string }) {
 
       {recipients.length > 0 && (
         <Panel title={t('campaigns.recipients.title')} labelledBy="campaign-recipients">
-          <ul className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
+          <ul className="ui-divide">
             {recipients.map((r) => (
-              <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5 text-sm">
-                <Link href={areaHref(`/kisiler/${encodeURIComponent(r.contactId)}`)} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+              <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+                <Link href={areaHref(`/kisiler/${encodeURIComponent(r.contactId)}`)} className="pui-link pui-surface">
                   {r.fullName}
                 </Link>
                 <span className="flex items-center gap-2">

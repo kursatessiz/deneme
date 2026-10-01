@@ -62,7 +62,7 @@ export function ConnectionAuthBadges({ auth, fmtDate }: { auth: HubConnectionAut
       {auth.reauthRequired && <Badge tone="danger">{t('integrationsOAuth.reauthRequired')}</Badge>}
       {!auth.reauthRequired && soon && <Badge tone="warning">{t('integrationsOAuth.expiringSoon')}</Badge>}
       {auth.tokenExpiresAt && (
-        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+        <span className="ui-caption">
           {t('integrationsOAuth.expiresAt', { date: fmtDate(auth.tokenExpiresAt) })}
         </span>
       )}
@@ -112,7 +112,7 @@ export function OAuthSection({ data, entry, run, fmtDate }: { data: IntegrationH
         {data.oauth.providers.map((p) => (
           <ProviderConnect key={p.provider} provider={p} entry={entry} run={run} />
         ))}
-        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+        <p className="ui-caption">
           {t('integrationsOAuth.pastedFallback')}
         </p>
       </Section>
@@ -153,13 +153,13 @@ function ProviderConnect({ provider, entry, run }: { provider: HubOAuthProviderD
     (choice !== 'AD' || (label.trim().length > 0 && (provider.adPlatform !== 'META' || pixelId.trim().length > 0) && (provider.adPlatform !== 'GOOGLE' || conversionId.trim().length > 0)));
 
   return (
-    <div className="border-t pt-3 space-y-2" style={{ borderColor: 'var(--color-border)' }}>
+    <div className="pt-3 space-y-2 ui-rule">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-medium">{name}</span>
+        <span className="ui-strong">{name}</span>
         <Badge tone={provider.configured ? 'success' : 'warning'}>{provider.configured ? t('integrationsOAuth.configured') : t('integrationsOAuth.notConfigured')}</Badge>
       </div>
       {!provider.configured ? (
-        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+        <p className="ui-caption">
           {t('integrationsOAuth.notConfiguredHint')}
         </p>
       ) : (
@@ -249,26 +249,26 @@ function ClientForm({ client, redirectUri, run, fmtDate }: { client: OAuthClient
     });
 
   return (
-    <div className="border-t pt-3 space-y-2" style={{ borderColor: 'var(--color-border)' }}>
+    <div className="pt-3 space-y-2 ui-rule">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-medium">{t(`integrationsOAuth.provider.${client.provider}`)}</span>
+        <span className="ui-strong">{t(`integrationsOAuth.provider.${client.provider}`)}</span>
         <Badge tone={client.configured ? 'success' : 'warning'}>{client.configured ? t('integrationsOAuth.configured') : t('integrationsOAuth.notConfigured')}</Badge>
         {client.updatedAt && (
-          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          <span className="ui-caption">
             {t('integrationsOAuth.clients.updatedAt', { date: fmtDate(client.updatedAt) })}
           </span>
         )}
       </div>
-      <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+      <p className="ui-caption">
         {t('integrationsOAuth.clients.redirectUri')} <code className="font-mono break-all">{redirectUri}</code>
       </p>
       {def.pkce && (
-        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+        <p className="ui-caption">
           {t('integrationsOAuth.clients.pkce')}
         </p>
       )}
       {client.clientIdPreview && (
-        <p className="text-xs font-mono" style={{ color: 'var(--color-text-muted)' }}>
+        <p className="font-mono ui-caption">
           {t('integrationsOAuth.clients.stored', { clientId: client.clientIdPreview, secret: client.clientSecretPreview ?? '****' })}
           {client.developerTokenPreview ? ` ${t('integrationsOAuth.clients.developerTokenStored', { token: client.developerTokenPreview })}` : ''}
         </p>

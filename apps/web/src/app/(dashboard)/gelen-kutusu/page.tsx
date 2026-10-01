@@ -17,6 +17,9 @@ import { EmptyState, ErrorState, LoadingState } from '@/components/common/DataSt
 import { bffFetch, BffError } from '@/lib/session/client';
 import { hasAnyPermission } from '@/lib/nav';
 import { aiErrorText } from '@/lib/ai/errors';
+import { Input, Select, Textarea } from '@/components/ui';
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 type AssignedFilter = 'any' | 'me' | 'unassigned';
 
@@ -24,13 +27,6 @@ interface ReplyTemplateOption {
   key: string;
   variables: string[];
 }
-
-const fieldStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
 
 function formatTime(iso: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(iso));
@@ -48,7 +44,7 @@ function ConversationList({
   const t = useT();
   const locale = useLocale();
   return (
-    <ul className="divide-y" style={{ borderColor: 'var(--color-border)' }} aria-label={t('messaging.inbox.conversations')}>
+    <ul className="ui-divide" aria-label={t('messaging.inbox.conversations')}>
       {items.map((c) => {
         const active = c.id === selectedId;
         return (
@@ -56,19 +52,18 @@ function ConversationList({
             <button
               type="button"
               onClick={() => onSelect(c.id)}
-              className="w-full text-left px-4 py-3 space-y-1"
-              style={{ backgroundColor: active ? 'var(--color-surface-muted)' : 'transparent' }}
+              className="ui-pick w-full text-left px-4 py-3 space-y-1"
               aria-current={active ? 'true' : undefined}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
+                <span className="truncate ui-strong">
                   {c.contact.displayName}
                 </span>
-                <span className="text-[11px] shrink-0" style={{ color: 'var(--color-text-muted)' }}>
+                <span className="shrink-0 ui-caption">
                   {formatTime(c.lastMessageAt, locale)}
                 </span>
               </div>
-              <p className="text-xs truncate" style={{ color: 'var(--color-text-secondary)' }}>
+              <p className="truncate ui-caption">
                 {c.lastMessagePreview}
               </p>
               <div className="flex flex-wrap items-center gap-1.5">
@@ -76,7 +71,7 @@ function ConversationList({
                 {c.status === 'CLOSED' && <Badge>{t('messaging.status.CLOSED')}</Badge>}
                 {c.unreadCount > 0 && <Badge tone="info">{t('messaging.inbox.unread', { count: c.unreadCount })}</Badge>}
                 {c.assignedName && (
-                  <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                  <span className="ui-caption">
                     {t('messaging.inbox.assignedTo', { name: c.assignedName })}
                   </span>
                 )}
@@ -172,22 +167,20 @@ function Composer({
 
   if (windowClosed) {
     return (
-      <div className="border-t p-4 space-y-3" style={{ borderColor: 'var(--color-border)' }}>
-        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+      <div className="p-4 space-y-3 ui-rule">
+        <p className="ui-caption">
           {t('messaging.inbox.windowClosed')}
         </p>
         <label className="block space-y-1">
-          <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+          <span className="ui-strong ui-caption">
             {t('messaging.inbox.templateLabel')}
           </span>
-          <select
+          <Select
             value={templateKey}
             onChange={(e) => {
               setTemplateKey(e.target.value);
               setVariables({});
             }}
-            className="w-full text-sm px-3 py-2"
-            style={fieldStyle}
           >
             <option value="">{t('messaging.inbox.templatePick')}</option>
             {(templates ?? []).map((tpl) => (
@@ -195,28 +188,26 @@ function Composer({
                 {tpl.key}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         {selectedTemplate && selectedTemplate.variables.length > 0 && (
           <fieldset className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <legend className="text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+            <legend className="mb-1 ui-strong ui-caption">
               {t('messaging.inbox.variables')}
             </legend>
             {selectedTemplate.variables.map((name) => (
               <label key={name} className="block space-y-1">
-                <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{`{${name}}`}</span>
-                <input
+                <span className="ui-caption">{`{${name}}`}</span>
+                <Input
                   value={variables[name] ?? ''}
                   onChange={(e) => setVariables({ ...variables, [name]: e.target.value })}
-                  className="w-full text-sm px-3 py-1.5"
-                  style={fieldStyle}
                 />
               </label>
             ))}
           </fieldset>
         )}
         {error && (
-          <p className="text-xs" role="alert" style={{ color: 'var(--color-danger, #b42318)' }}>
+          <p className="ui-text-error ui-small" role="alert">
             {error}
           </p>
         )}
@@ -234,8 +225,7 @@ function Composer({
 
   return (
     <form
-      className="border-t p-4 space-y-2"
-      style={{ borderColor: 'var(--color-border)' }}
+      className="p-4 space-y-2 ui-rule"
       onSubmit={(e) => {
         e.preventDefault();
         if (body.trim()) void send({ body: body.trim() });
@@ -243,42 +233,34 @@ function Composer({
     >
       {savedReplies.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] font-medium" style={{ color: 'var(--color-text-muted)' }}>
+          <span className="ui-strong ui-caption">
             {t('messaging.inbox.savedReplies')}
           </span>
           {savedReplies.map((r) => (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => setBody(r.body)}
-              className="text-[11px] px-2 py-0.5 border"
-              style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-chip)', color: 'var(--color-text-secondary)' }}
-            >
+            <Button key={r.id} variant="outline" tone="surface" size="sm" onClick={() => setBody(r.body)}>
               {r.title}
-            </button>
+            </Button>
           ))}
         </div>
       )}
       <label className="block">
         <span className="sr-only">{t('messaging.inbox.replyLabel')}</span>
-        <textarea
+        <Textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder={t('messaging.inbox.replyPlaceholder')}
           aria-label={t('messaging.inbox.replyLabel')}
           maxLength={4000}
           rows={3}
-          className="w-full text-sm px-3 py-2"
-          style={fieldStyle}
         />
       </label>
       {error && (
-        <p className="text-xs" role="alert" style={{ color: 'var(--color-danger, #b42318)' }}>
+        <p className="ui-text-error ui-small" role="alert">
           {error}
         </p>
       )}
       {suggested && (
-        <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+        <p className="ui-caption">
           {t('ai.suggest.hint')}
         </p>
       )}
@@ -351,12 +333,12 @@ function ConversationPanel({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex flex-wrap items-start justify-between gap-3 p-4 border-b" style={{ borderColor: 'var(--color-border)' }}>
+      <div className="flex flex-wrap items-start justify-between gap-3 p-4 ui-rule-b">
         <div className="min-w-0">
-          <h3 className="text-base font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
+          <h3 className="truncate ui-strong">
             {detail.contact.displayName}
           </h3>
-          <div className="flex flex-wrap items-center gap-2 mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          <div className="flex flex-wrap items-center gap-2 mt-1 ui-caption">
             <Badge>{t(`messaging.channel.${detail.channel as ConversationChannel}`)}</Badge>
             <Badge tone={detail.status === 'OPEN' ? 'success' : 'neutral'}>{t(`messaging.status.${detail.status}`)}</Badge>
             {detail.contact.phone && <span>{t('messaging.inbox.contactPhone', { phone: detail.contact.phone })}</span>}
@@ -386,7 +368,7 @@ function ConversationPanel({
         </div>
       </div>
       {actionError && (
-        <p className="text-xs px-4 pt-2" role="alert" style={{ color: 'var(--color-danger, #b42318)' }}>
+        <p className="px-4 pt-2 ui-text-error ui-small" role="alert">
           {actionError}
         </p>
       )}
@@ -396,22 +378,17 @@ function ConversationPanel({
           return (
             <li key={m.id} className={`flex ${outgoing ? 'justify-end' : 'justify-start'}`}>
               <div
-                className="max-w-[80%] px-3 py-2 space-y-1 border"
-                style={{
-                  borderColor: 'var(--color-border)',
-                  borderRadius: 'var(--radius-card)',
-                  backgroundColor: outgoing ? 'var(--color-surface-muted)' : 'var(--color-surface)',
-                }}
+                className="max-w-[80%] px-3 py-2 space-y-1 pui-card"
               >
-                <p className="text-sm whitespace-pre-wrap break-words" style={{ color: 'var(--color-text-primary)' }}>
+                <p className="whitespace-pre-wrap break-words">
                   {m.body}
                 </p>
                 {m.attachments.map((a, i) => (
-                  <p key={i} className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                  <p key={i} className="ui-caption">
                     {t('messaging.inbox.attachment', { kind: a.fileName ?? a.kind })}
                   </p>
                 ))}
-                <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                <p className="ui-caption">
                   {[
                     outgoing ? (m.authorName ?? t('messaging.inbox.staff')) : detail.contact.displayName,
                     formatTime(m.createdAt, locale),
@@ -436,7 +413,7 @@ function ConversationPanel({
           }}
         />
       ) : (
-        <p className="border-t p-4 text-xs" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
+        <p className="p-4 ui-caption ui-rule">
           {t('messaging.inbox.readOnly')}
         </p>
       )}
@@ -474,13 +451,13 @@ function SavedRepliesManager({ studioId, items, onChanged }: { studioId: string;
   }
 
   return (
-    <details className="border p-4" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)', backgroundColor: 'var(--color-surface)' }}>
-      <summary className="text-sm font-semibold cursor-pointer" style={{ color: 'var(--color-text-primary)' }}>
+    <details className="p-4 pui-card">
+      <summary className="cursor-pointer ui-strong">
         {t('messaging.inbox.savedReplies')}
       </summary>
       <div className="mt-3 space-y-3">
         {items.length === 0 ? (
-          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="ui-caption">
             {t('messaging.inbox.savedReplies.empty')}
           </p>
         ) : (
@@ -488,10 +465,10 @@ function SavedRepliesManager({ studioId, items, onChanged }: { studioId: string;
             {items.map((r) => (
               <li key={r.id} className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                  <p className="ui-strong">
                     {r.title}
                   </p>
-                  <p className="text-xs whitespace-pre-wrap" style={{ color: 'var(--color-text-secondary)' }}>
+                  <p className="whitespace-pre-wrap ui-caption">
                     {r.body}
                   </p>
                 </div>
@@ -505,16 +482,16 @@ function SavedRepliesManager({ studioId, items, onChanged }: { studioId: string;
         <PermissionGateForm>
           <form onSubmit={create} className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
             <label className="block space-y-1">
-              <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              <span className="ui-caption">
                 {t('messaging.inbox.savedReplies.titleLabel')}
               </span>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80} className="w-full text-sm px-3 py-1.5" style={fieldStyle} />
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80} />
             </label>
             <label className="block space-y-1 sm:col-span-2">
-              <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              <span className="ui-caption">
                 {t('messaging.inbox.savedReplies.bodyLabel')}
               </span>
-              <input value={body} onChange={(e) => setBody(e.target.value)} maxLength={2000} className="w-full text-sm px-3 py-1.5" style={fieldStyle} />
+              <Input value={body} onChange={(e) => setBody(e.target.value)} maxLength={2000} />
             </label>
             <div className="sm:col-span-3 flex justify-end">
               <PermissionButton required={['inbox.manage']} type="submit" variant="primary" disabled={!title.trim() || !body.trim()}>
@@ -524,7 +501,7 @@ function SavedRepliesManager({ studioId, items, onChanged }: { studioId: string;
           </form>
         </PermissionGateForm>
         {error && (
-          <p className="text-xs" role="alert" style={{ color: 'var(--color-danger, #b42318)' }}>
+          <p className="ui-text-error ui-small" role="alert">
             {error}
           </p>
         )}
@@ -587,62 +564,54 @@ function Inbox() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-          {t('messaging.inbox.title')}
-        </h2>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('messaging.inbox.subtitle')}
-        </p>
-      </div>
+      <PageHeader title={t('messaging.inbox.title')} description={t('messaging.inbox.subtitle')} />
 
       <div className="flex flex-wrap items-end gap-3">
         <label className="space-y-1">
-          <span className="block text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+          <span className="block ui-caption">
             {t('messaging.inbox.filter.status')}
           </span>
-          <select value={status} onChange={(e) => setStatus(e.target.value as ConversationStatus | '')} className="text-sm px-3 py-1.5" style={fieldStyle}>
+          <Select value={status} onChange={(e) => setStatus(e.target.value as ConversationStatus | '')}>
             <option value="OPEN">{t('messaging.status.OPEN')}</option>
             <option value="CLOSED">{t('messaging.status.CLOSED')}</option>
             <option value="">{t('messaging.inbox.filter.all')}</option>
-          </select>
+          </Select>
         </label>
         <label className="space-y-1">
-          <span className="block text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+          <span className="block ui-caption">
             {t('messaging.inbox.filter.assigned')}
           </span>
-          <select value={assigned} onChange={(e) => setAssigned(e.target.value as AssignedFilter)} className="text-sm px-3 py-1.5" style={fieldStyle}>
+          <Select value={assigned} onChange={(e) => setAssigned(e.target.value as AssignedFilter)}>
             <option value="any">{t('messaging.inbox.filter.anyone')}</option>
             <option value="me">{t('messaging.inbox.filter.mine')}</option>
             <option value="unassigned">{t('messaging.inbox.filter.unassigned')}</option>
-          </select>
+          </Select>
         </label>
         <label className="space-y-1">
-          <span className="block text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+          <span className="block ui-caption">
             {t('messaging.inbox.filter.channel')}
           </span>
-          <select value={channel} onChange={(e) => setChannel(e.target.value as ConversationChannel | '')} className="text-sm px-3 py-1.5" style={fieldStyle}>
+          <Select value={channel} onChange={(e) => setChannel(e.target.value as ConversationChannel | '')}>
             <option value="">{t('messaging.inbox.filter.anyChannel')}</option>
             {(['WHATSAPP', 'SMS', 'EMAIL', 'IN_APP'] as const).map((c) => (
               <option key={c} value={c}>
                 {t(`messaging.channel.${c}`)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="space-y-1 flex-1 min-w-[180px]">
-          <span className="block text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+          <span className="block ui-caption">
             {t('messaging.inbox.search')}
           </span>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} maxLength={100} className="w-full text-sm px-3 py-1.5" style={fieldStyle} />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} maxLength={100} />
         </label>
       </div>
 
       <div
-        className="grid grid-cols-1 lg:grid-cols-[minmax(260px,1fr)_2fr] border overflow-hidden"
-        style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)', backgroundColor: 'var(--color-surface)', minHeight: 480 }}
+        className="pui-card grid grid-cols-1 lg:grid-cols-[minmax(260px,1fr)_2fr] overflow-hidden min-h-[480px]"
       >
-        <div className="border-b lg:border-b-0 lg:border-r overflow-y-auto" style={{ borderColor: 'var(--color-border)', maxHeight: 640 }}>
+        <div className="ui-split-start overflow-y-auto max-h-[640px]">
           {error && <ErrorState message={error} />}
           {!error && items === null && <LoadingState />}
           {!error && items !== null && items.length === 0 && <EmptyState title={t('messaging.inbox.empty')} />}
@@ -652,7 +621,7 @@ function Inbox() {
           {selectedId ? (
             <ConversationPanel studioId={activeStudioId} conversationId={selectedId} savedReplies={savedReplies} onChanged={refreshList} />
           ) : (
-            <div className="h-full flex items-center justify-center p-8 text-sm" style={{ color: 'var(--color-text-muted)' }}>
+            <div className="h-full flex items-center justify-center p-8 ui-text-muted">
               {t('messaging.inbox.selectConversation')}
             </div>
           )}

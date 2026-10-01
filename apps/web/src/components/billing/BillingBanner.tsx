@@ -1,13 +1,13 @@
-import Link from 'next/link';
 import type { MembershipBillingSummary } from '@platform/shared';
 import { getT } from '@/lib/i18n/getT';
 import { billingBannerFor } from '@/lib/billing/banner';
+import { LinkButton } from '@/components/ui/LinkButton';
 
 /**
  * Days-left / restricted-mode band at the top of every dashboard page
  * (G5c-1). Only the owner holds billing.manage, so only the owner gets the
  * "Hesabı etkinleştir" link; other staff are told who can activate.
- * Design tokens only: a muted surface with the brand color as the accent.
+ * A muted card with the brand color as the accent (ui-banner).
  */
 export async function BillingBanner({ billing, canActivate }: { billing: MembershipBillingSummary | undefined; canActivate: boolean }) {
   const banner = billingBannerFor(billing);
@@ -26,27 +26,16 @@ export async function BillingBanner({ billing, canActivate }: { billing: Members
     <section
       aria-label={t('billing.page.title')}
       data-testid="billing-banner"
-      className="mb-6 flex flex-wrap items-center justify-between gap-3 px-4 py-3 border"
-      style={{
-        borderRadius: 'var(--radius-card)',
-        borderColor: urgent ? 'var(--color-primary)' : 'var(--color-border)',
-        borderLeftWidth: 4,
-        borderLeftColor: 'var(--color-primary)',
-        backgroundColor: 'var(--color-surface-muted)',
-        color: 'var(--color-text-primary)',
-      }}
+      className="pui-card ui-banner mb-6 flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+      data-urgent={urgent}
     >
-      <p className="text-sm font-medium">{text}</p>
+      <p className="ui-strong">{text}</p>
       {canActivate ? (
-        <Link
-          href="/abonelik"
-          className="text-xs font-semibold px-3.5 py-2"
-          style={{ borderRadius: 'var(--radius-button)', background: 'var(--gradient-brand)', color: 'var(--color-on-primary)' }}
-        >
+        <LinkButton size="sm" href="/abonelik">
           {t('billing.banner.cta')}
-        </Link>
+        </LinkButton>
       ) : (
-        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+        <p className="ui-caption">
           {t('billing.banner.askOwner')}
         </p>
       )}

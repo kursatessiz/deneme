@@ -11,6 +11,8 @@ import { hasAnyPermission } from '@/lib/nav';
 import { useBff } from '@/lib/session/use-bff';
 import { PageHeader, useDateFormat } from '@/components/growth/ui';
 import { useAreaHref } from '@/components/session/AreaBase';
+import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui';
+import { LinkButton } from '@/components/ui/LinkButton';
 
 function SegmentList() {
   const { activeStudioId, permissions, isOwner } = useDashboardSession();
@@ -27,9 +29,9 @@ function SegmentList() {
         subtitle={t('segments.subtitle')}
         actions={
           canManage ? (
-            <Link href={areaHref('/segmentler/yeni')} className="text-xs font-medium px-3 py-1.5" style={{ background: 'var(--gradient-brand)', color: 'var(--color-on-primary)', borderRadius: 'var(--radius-button)' }}>
+            <LinkButton size="sm" href={areaHref('/segmentler/yeni')}>
               {t('segments.new')}
-            </Link>
+            </LinkButton>
           ) : undefined
         }
       />
@@ -43,37 +45,37 @@ function SegmentList() {
         />
       )}
       {!loading && !error && data && data.items.length > 0 && (
-        <div className="overflow-x-auto" style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-          <table className="w-full text-sm" aria-label={t('segments.title')}>
-            <thead>
-              <tr className="text-left text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                <th className="px-4 py-2 font-medium">{t('segments.col.name')}</th>
-                <th className="px-4 py-2 font-medium">{t('segments.col.kind')}</th>
-                <th className="px-4 py-2 font-medium">{t('segments.col.count')}</th>
-                <th className="px-4 py-2 font-medium">{t('segments.col.refreshedAt')}</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="overflow-x-auto pui-card">
+          <Table aria-label={t('segments.title')}>
+            <Thead>
+              <Tr>
+                <Th>{t('segments.col.name')}</Th>
+                <Th>{t('segments.col.kind')}</Th>
+                <Th>{t('segments.col.count')}</Th>
+                <Th>{t('segments.col.refreshedAt')}</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
               {data.items.map((s) => (
-                <tr key={s.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
-                  <td className="px-4 py-2.5">
-                    <Link href={areaHref(`/segmentler/${encodeURIComponent(s.id)}`)} className="font-medium hover:underline" style={{ color: 'var(--color-text-primary)' }}>
+                <Tr key={s.id}>
+                  <Td>
+                    <Link href={areaHref(`/segmentler/${encodeURIComponent(s.id)}`)} className="pui-link pui-surface ui-strong">
                       {s.name}
                     </Link>
-                  </td>
-                  <td className="px-4 py-2.5">
+                  </Td>
+                  <Td>
                     <Badge>{t(`segments.kind.${s.kind}`)}</Badge>
-                  </td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
+                  </Td>
+                  <Td className="ui-text-muted">
                     {fmt.number(s.cachedCount)}
-                  </td>
-                  <td className="px-4 py-2.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                  </Td>
+                  <Td className="ui-caption">
                     {fmt.dateTime(s.refreshedAt)}
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
+            </Tbody>
+          </Table>
         </div>
       )}
     </div>
