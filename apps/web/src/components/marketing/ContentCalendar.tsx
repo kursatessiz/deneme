@@ -24,6 +24,8 @@ import { InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader 
 import { marketingErrorText } from '@/lib/marketing/errors';
 import { AreaField, InputField, LinkButton, SelectField } from './fields';
 import { usePlatformSession } from './PlatformSession';
+import { Button } from '@/components/ui/Button';
+import { ChipButton } from '@/components/ui/Chip';
 
 type ViewMode = 'month' | 'week';
 
@@ -38,14 +40,6 @@ interface ItemForm {
   socialPostId: string;
   notes: string;
 }
-
-const STATUS_COLOR: Record<CalendarStatus, string> = {
-  PLANNED: 'var(--color-text-muted)',
-  DRAFTED: 'var(--color-primary)',
-  APPROVED: 'var(--color-success)',
-  SENT: 'var(--color-text-secondary)',
-  CANCELLED: 'var(--color-danger)',
-};
 
 const newForm = (date: string): ItemForm => ({ id: null, title: '', channel: 'EMAIL', scheduledDate: date, status: 'PLANNED', ownerUserId: '', draftId: '', socialPostId: '', notes: '' });
 
@@ -201,33 +195,22 @@ export function ContentCalendar() {
   return (
     <div className="space-y-6">
       <SettingsHeader title={t('contentCalendar.title')} description={t('contentCalendar.subtitle')} />
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+      <p className="ui-caption">
         {t('contentCalendar.noSend')}
       </p>
 
       <div className="flex flex-wrap items-center gap-3">
-        <div role="group" aria-label={t('contentCalendar.view')} className="flex gap-1">
+        <div role="group" aria-label={t('contentCalendar.view')} className="flex gap-2">
           {(['month', 'week'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              aria-pressed={mode === m}
-              onClick={() => setMode(m)}
-              className="px-3 py-1.5 text-sm font-medium"
-              style={{
-                borderRadius: 'var(--radius-chip)',
-                color: mode === m ? 'var(--color-on-primary)' : 'var(--color-text-secondary)',
-                backgroundColor: mode === m ? 'var(--color-primary)' : 'transparent',
-              }}
-            >
+            <ChipButton key={m} selected={mode === m} onClick={() => setMode(m)}>
               {t(`contentCalendar.mode.${m}`)}
-            </button>
+            </ChipButton>
           ))}
         </div>
         <SecondaryButton onClick={() => setAnchor(shift(anchor, mode, -1))}>{t('contentCalendar.prev')}</SecondaryButton>
         <SecondaryButton onClick={() => setAnchor(today)}>{t('contentCalendar.today')}</SecondaryButton>
         <SecondaryButton onClick={() => setAnchor(shift(anchor, mode, 1))}>{t('contentCalendar.next')}</SecondaryButton>
-        <h3 className="text-sm font-semibold capitalize" style={{ color: 'var(--color-text-primary)' }} aria-live="polite">
+        <h3 className="capitalize ui-strong" aria-live="polite">
           {title}
         </h3>
         {canManage && (
@@ -239,15 +222,15 @@ export function ContentCalendar() {
       {message && <InlineMessage text={message.text} tone={message.ok ? 'success' : 'error'} />}
 
       <div className="overflow-x-auto">
-        <div className="min-w-[840px]" role="grid" aria-label={title}>
-          <div className="grid grid-cols-7 gap-px" role="row">
+        <div className="ui-cal-month min-w-[840px]" role="grid" aria-label={title}>
+          <div className="ui-cal-weekhead" role="row">
             {dates.slice(0, 7).map((date) => (
-              <div key={date} role="columnheader" className="px-2 py-1 text-xs font-medium capitalize" style={{ color: 'var(--color-text-muted)' }}>
+              <div key={date} role="columnheader" className="px-2 py-1 capitalize ui-strong ui-caption">
                 {weekday.format(new Date(`${date}T00:00:00.000Z`))}
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-7 gap-px border" style={{ backgroundColor: 'var(--color-border)', borderColor: 'var(--color-border)' }}>
+          <div className="grid grid-cols-7">
             {dates.map((date) => {
               const cell = byDate.get(date)!;
               const outside = mode === 'month' && !date.startsWith(anchorMonth);
@@ -263,29 +246,23 @@ export function ContentCalendar() {
                     setDragging(null);
                     if (id) void move(id, date);
                   }}
-                  className="p-1.5 space-y-1 align-top"
-                  style={{
-                    backgroundColor: outside ? 'var(--color-surface-muted)' : 'var(--color-surface)',
-                    minHeight: mode === 'week' ? 240 : 110,
-                  }}
+                  className={`ui-cal-cell space-y-1${mode === 'week' ? ' min-h-[240px]' : ''}`}
+                  data-outside={outside ? 'true' : undefined}
                 >
                   <div className="flex items-center justify-between">
-                    <span
-                      className="text-xs tabular-nums"
-                      style={{ color: date === today ? 'var(--color-primary)' : 'var(--color-text-muted)', fontWeight: date === today ? 700 : 400 }}
-                    >
+                    <span className={date === today ? 'tabular-nums ui-small ui-text-theme ui-strong' : 'tabular-nums ui-caption'}>
                       {Number(date.slice(8))}
                     </span>
                     {canManage && (
-                      <button
-                        type="button"
+                      <Button
+                        variant="link"
+                        tone="muted"
+                        size="sm"
                         aria-label={t('contentCalendar.addOn', { date: fmtDay.format(new Date(`${date}T00:00:00.000Z`)) })}
                         onClick={() => setForm(newForm(date))}
-                        className="text-xs px-1"
-                        style={{ color: 'var(--color-text-muted)' }}
                       >
                         +
-                      </button>
+                      </Button>
                     )}
                   </div>
                   {cell.items.map((item) => {
@@ -294,6 +271,7 @@ export function ContentCalendar() {
                       <div key={item.id}>
                         <button
                           type="button"
+                          data-status={item.status}
                           draggable={movable}
                           onDragStart={(e) => {
                             e.dataTransfer.setData('text/plain', item.id);
@@ -301,20 +279,13 @@ export function ContentCalendar() {
                           }}
                           onDragEnd={() => setDragging(null)}
                           onClick={() => setForm(formOf(item))}
-                          className="w-full text-left text-xs px-1.5 py-1 border-l-2 truncate"
-                          style={{
-                            borderColor: STATUS_COLOR[item.status],
-                            backgroundColor: 'var(--color-surface-muted)',
-                            color: 'var(--color-text-primary)',
-                            textDecoration: item.status === 'CANCELLED' ? 'line-through' : undefined,
-                            cursor: movable ? 'grab' : 'pointer',
-                          }}
+                          className="ui-status-item ui-small"
                           title={`${item.title} (${t(`contentCalendar.status.${item.status}`)})`}
                         >
-                          <span className="font-medium">{t(`contentCalendar.channel.${item.channel}`)}</span> {item.title}
+                          <span className="ui-strong">{t(`contentCalendar.channel.${item.channel}`)}</span> {item.title}
                         </button>
                         {item.channel === 'SOCIAL' && item.socialPostId && (
-                          <Link href={`/pazarlama/sosyal?id=${encodeURIComponent(item.socialPostId)}`} className="block text-xs px-1.5 underline" style={{ color: 'var(--color-text-secondary)' }}>
+                          <Link href={`/pazarlama/sosyal?id=${encodeURIComponent(item.socialPostId)}`} className="block px-1.5 pui-link pui-surface ui-caption">
                             {t('contentCalendar.social.open')}
                           </Link>
                         )}
@@ -325,8 +296,7 @@ export function ContentCalendar() {
                     <Link
                       key={c.id}
                       href={`/pazarlama/kampanyalar/${c.id}`}
-                      className="block text-xs px-1.5 py-1 border border-dashed truncate"
-                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                      className="ui-dashed-item ui-small"
                       title={`${c.name} (${c.status})`}
                     >
                       {t('contentCalendar.campaign')}: {c.name}
@@ -339,15 +309,15 @@ export function ContentCalendar() {
         </div>
       </div>
 
-      <ul className="flex flex-wrap gap-3 text-xs" aria-label={t('contentCalendar.legend')}>
+      <ul className="flex flex-wrap gap-3 ui-small" aria-label={t('contentCalendar.legend')}>
         {CALENDAR_STATUSES.map((s) => (
-          <li key={s} className="flex items-center gap-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-            <span className="inline-block w-2 h-2" style={{ backgroundColor: STATUS_COLOR[s], borderRadius: 'var(--radius-chip)' }} />
+          <li key={s} className="flex items-center gap-1.5 ui-text-muted">
+            <span className="ui-status-dot" data-status={s} />
             {t(`contentCalendar.status.${s}`)}
           </li>
         ))}
-        <li className="flex items-center gap-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-          <span className="inline-block w-3 h-2 border border-dashed" style={{ borderColor: 'var(--color-border)' }} />
+        <li className="flex items-center gap-1.5 ui-text-muted">
+          <span className="ui-dashed-item ui-dashed-swatch" />
           {t('contentCalendar.campaignLegend')}
         </li>
       </ul>
@@ -401,14 +371,13 @@ export function ContentCalendar() {
                   ? `/pazarlama/sosyal?id=${encodeURIComponent(form.socialPostId)}`
                   : `/pazarlama/sosyal?calendarItemId=${encodeURIComponent(form.id)}&title=${encodeURIComponent(form.title)}`
               }
-              className="text-xs underline"
-              style={{ color: 'var(--color-text-secondary)' }}
+              className="pui-link pui-surface ui-caption"
             >
               {form.socialPostId ? t('contentCalendar.social.open') : t('contentCalendar.social.create')}
             </Link>
           )}
           {form.draftId && (
-            <Link href="/pazarlama/yapay-zeka" className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
+            <Link href="/pazarlama/yapay-zeka" className="pui-link pui-surface ui-caption">
               {t('contentCalendar.openStudio')}
             </Link>
           )}
@@ -429,7 +398,7 @@ export function ContentCalendar() {
         </Section>
       )}
       {data.items.length === 0 && data.campaigns.length === 0 && (
-        <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+        <p className="ui-text-muted">
           {t('contentCalendar.empty')} <Badge>{title}</Badge>
         </p>
       )}

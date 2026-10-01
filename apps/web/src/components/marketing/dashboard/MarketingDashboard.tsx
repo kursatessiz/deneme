@@ -25,6 +25,7 @@ import { formatPercent } from '@/lib/money';
 import { InputField } from '../fields';
 import { usePlatformSession } from '../PlatformSession';
 import { InsightsPanel } from './InsightsPanel';
+import { Checkbox, ChipButton, Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui';
 
 type Preset = (typeof DASHBOARD_PERIOD_PRESET_DAYS)[number] | 'custom';
 
@@ -48,15 +49,6 @@ function requestRange(from: string, to: string): { from: string; to: string } | 
   if ((end.getTime() - start.getTime()) / DAY_MS > DASHBOARD_MAX_RANGE_DAYS) return null;
   return { from: start.toISOString(), to: end.toISOString() };
 }
-
-const muted: React.CSSProperties = { color: 'var(--color-text-muted)' };
-const secondary: React.CSSProperties = { color: 'var(--color-text-secondary)' };
-const controlStyle: React.CSSProperties = {
-  borderRadius: 'var(--radius-input)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-};
 
 /**
  * Marketing dashboard (/pazarlama, M3a, docs/PAZARLAMA_MODULU.md 3.3): funnel,
@@ -134,7 +126,7 @@ export function MarketingDashboard() {
   function delta(text: string | null) {
     if (text === null) return null;
     return (
-      <div className="text-xs mt-0.5" style={muted}>
+      <div className="mt-0.5 ui-caption">
         {text}
       </div>
     );
@@ -148,11 +140,11 @@ export function MarketingDashboard() {
   ) {
     return (
       <div key={label}>
-        <div className="text-xs font-medium" style={secondary}>
+        <div className="ui-strong ui-caption">
           {label}
         </div>
         {values.length === 0 ? (
-          <div className="text-sm mt-1" style={muted}>
+          <div className="mt-1 ui-text-muted">
             {t('marketingDashboard.acquisition.noValue')}
           </div>
         ) : (
@@ -161,7 +153,7 @@ export function MarketingDashboard() {
               const cmp = comparison?.find((c) => c.currency === v.currency) ?? null;
               return (
                 <li key={v.currency}>
-                  <div className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                  <div className="ui-stat-value">
                     {v.text}
                   </div>
                   {cmp && delta(deltaText(cmp.changeRatio, cmp.previous === null ? noValue : comparisonFormat(v.currency, cmp.previous)))}
@@ -177,10 +169,10 @@ export function MarketingDashboard() {
   function countTile(label: string, value: number, comparison: { previous: number; changeRatio: number | null } | null) {
     return (
       <div key={label}>
-        <div className="text-xs font-medium" style={secondary}>
+        <div className="ui-strong ui-caption">
           {label}
         </div>
-        <div className="text-xl font-bold mt-1" style={{ color: 'var(--color-text-primary)' }}>
+        <div className="mt-1 ui-stat-value">
           {number.format(value)}
         </div>
         {comparison && delta(deltaText(comparison.changeRatio, number.format(comparison.previous)))}
@@ -205,77 +197,64 @@ export function MarketingDashboard() {
     const cell = (list: readonly Money[]) => (list.length === 0 ? noValue : list.map((m) => fmtMoney(m)).join(' / '));
     return (
       <div key={title} className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <caption className="text-left text-xs font-semibold pb-2" style={{ color: 'var(--color-text-primary)' }}>
+        <Table>
+          <caption className="text-left pb-2 ui-strong ui-small">
             {title}
           </caption>
-          <thead>
-            <tr className="text-xs text-left" style={secondary}>
-              <th scope="col" className="py-1.5 pr-3 font-medium">
+          <Thead>
+            <Tr className="ui-caption">
+              <Th scope="col">
                 {t('marketingDashboard.channels.col.name')}
-              </th>
-              <th scope="col" className="py-1.5 pr-3 font-medium text-right">
+              </Th>
+              <Th scope="col" className="text-right">
                 {t('marketingDashboard.channels.col.studioPaid')}
-              </th>
-              <th scope="col" className="py-1.5 pr-3 font-medium text-right">
+              </Th>
+              <Th scope="col" className="text-right">
                 {t('marketingDashboard.channels.col.spend')}
-              </th>
-              <th scope="col" className="py-1.5 pr-3 font-medium text-right">
+              </Th>
+              <Th scope="col" className="text-right">
                 {t('marketingDashboard.channels.col.revenue')}
-              </th>
-              <th scope="col" className="py-1.5 font-medium text-right">
+              </Th>
+              <Th scope="col" className="text-right">
                 {t('marketingDashboard.channels.col.roas')}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
+              </Th>
+            </Tr>
+          </Thead>
+          <Tbody>
             {rows.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="py-3 text-xs" style={muted}>
+              <Tr>
+                <Td colSpan={5} className="ui-caption">
                   {t('marketingDashboard.channels.empty')}
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             ) : (
               rows.map((row) => (
-                <tr key={row.key} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
-                  <td className="py-2 pr-3 break-all">{nameOf(row)}</td>
-                  <td className="py-2 pr-3 text-right">{decimal.format(row.studioPaid)}</td>
-                  <td className="py-2 pr-3 text-right">{cell(row.spend)}</td>
-                  <td className="py-2 pr-3 text-right">{cell(row.revenue)}</td>
-                  <td className="py-2 text-right">{row.roas.length === 0 ? noValue : row.roas.map((r) => `${r.currency} ${fmtRoas(r.value)}`).join(' / ')}</td>
-                </tr>
+                <Tr key={row.key}>
+                  <Td className="break-all">{nameOf(row)}</Td>
+                  <Td className="text-right">{decimal.format(row.studioPaid)}</Td>
+                  <Td className="text-right">{cell(row.spend)}</Td>
+                  <Td className="text-right">{cell(row.revenue)}</Td>
+                  <Td className="text-right">{row.roas.length === 0 ? noValue : row.roas.map((r) => `${r.currency} ${fmtRoas(r.value)}`).join(' / ')}</Td>
+                </Tr>
               ))
             )}
-          </tbody>
-        </table>
+          </Tbody>
+        </Table>
       </div>
     );
   }
 
   const controls = (
     <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
-      <div role="group" aria-label={t('marketingDashboard.period.label')} className="flex flex-wrap gap-1">
+      <div role="group" aria-label={t('marketingDashboard.period.label')} className="flex flex-wrap gap-2">
         {DASHBOARD_PERIOD_PRESET_DAYS.map((days) => (
-          <button
-            key={days}
-            type="button"
-            aria-pressed={preset === days}
-            onClick={() => setPreset(days)}
-            className="text-xs font-medium px-2.5 py-1.5"
-            style={{ ...controlStyle, ...(preset === days ? { backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' } : {}) }}
-          >
+          <ChipButton key={days} selected={preset === days} onClick={() => setPreset(days)}>
             {t('marketingDashboard.period.days', { days })}
-          </button>
+          </ChipButton>
         ))}
-        <button
-          type="button"
-          aria-pressed={preset === 'custom'}
-          onClick={() => setPreset('custom')}
-          className="text-xs font-medium px-2.5 py-1.5"
-          style={{ ...controlStyle, ...(preset === 'custom' ? { backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' } : {}) }}
-        >
+        <ChipButton selected={preset === 'custom'} onClick={() => setPreset('custom')}>
           {t('marketingDashboard.period.custom')}
-        </button>
+        </ChipButton>
       </div>
       {preset === 'custom' && (
         <div className="flex flex-wrap items-end gap-3">
@@ -283,10 +262,7 @@ export function MarketingDashboard() {
           <InputField label={t('marketingDashboard.period.to')} type="date" value={customTo} onChange={setCustomTo} />
         </div>
       )}
-      <label className="flex items-center gap-2 text-xs font-medium" style={secondary}>
-        <input type="checkbox" checked={compare} onChange={(e) => setCompare(e.target.checked)} />
-        {t('marketingDashboard.compare.toggle')}
-      </label>
+      <Checkbox label={t('marketingDashboard.compare.toggle')} checked={compare} onChange={(e) => setCompare(e.target.checked)} />
     </div>
   );
 
@@ -295,7 +271,7 @@ export function MarketingDashboard() {
       <SettingsHeader title={t('marketingDashboard.title')} description={t('marketingDashboard.subtitle')} />
       {controls}
       {!range && (
-        <p className="text-xs" role="alert" style={{ color: 'var(--color-danger)' }}>
+        <p className="ui-text-error ui-small" role="alert">
           {t('marketingDashboard.period.invalid')}
         </p>
       )}
@@ -327,20 +303,20 @@ export function MarketingDashboard() {
   return (
     <div className="space-y-4">
       {header}
-      <div className="text-xs" style={muted} aria-live="polite">
+      <div className="ui-caption" aria-live="polite">
         {fmtRange(current.from, current.to)}
         {previous && ` - ${t('marketingDashboard.compare.previousRange', { range: fmtRange(previous.from, previous.to) })}`}
         {loading && ` - ${t('marketingDashboard.updating')}`}
       </div>
       {error && (
-        <p className="text-xs" role="alert" style={{ color: 'var(--color-danger)' }}>
+        <p className="ui-text-error ui-small" role="alert">
           {error}
         </p>
       )}
 
       <Section title={t('marketingDashboard.funnel.title')} description={t('marketingDashboard.funnel.description')}>
         {funnelFirst && funnelFirst.reached === 0 && (
-          <p className="text-sm" style={muted}>
+          <p className="ui-text-muted">
             {t('marketingDashboard.funnel.empty')}
           </p>
         )}
@@ -349,18 +325,18 @@ export function MarketingDashboard() {
             const cmp = deltas?.funnel[k]?.reached ?? null;
             return (
               <li key={step.key}>
-                <div className="text-xs font-medium" style={secondary}>
+                <div className="ui-strong ui-caption">
                   {t(funnelStepMessageKey(step.key) as MessageKey)}
                 </div>
-                <div className="text-2xl font-bold mt-1" style={{ color: 'var(--color-text-primary)' }}>
+                <div className="mt-1 ui-stat-value">
                   {number.format(step.reached)}
                 </div>
                 {k > 0 && (
                   <>
-                    <div className="text-xs mt-1" style={secondary}>
+                    <div className="mt-1 ui-caption">
                       {t('marketingDashboard.funnel.fromPrevious', { rate: fmtPercent(step.rateFromPrevious) })}
                     </div>
-                    <div className="text-xs" style={muted}>
+                    <div className="ui-caption">
                       {t('marketingDashboard.funnel.median', { duration: fmtDuration(step.medianSecondsFromPrevious) })}
                     </div>
                   </>
@@ -371,11 +347,11 @@ export function MarketingDashboard() {
           })}
         </ol>
         {funnelFirst && funnelLast && funnelFirst.reached > 0 && (
-          <p className="text-xs" style={secondary}>
+          <p className="ui-caption">
             {t('marketingDashboard.funnel.overall', { rate: fmtPercent(funnelLast.rateFromFirst) })}
           </p>
         )}
-        <p className="text-xs" style={muted}>
+        <p className="ui-caption">
           {t('marketingDashboard.funnel.stages')}
         </p>
       </Section>
@@ -391,7 +367,7 @@ export function MarketingDashboard() {
           {currencyLines(t('marketingDashboard.acquisition.roas'), ratioLines(a.roas, fmtRoas), deltas?.roas ?? null, (_currency, value) => fmtRoas(value))}
         </div>
         {a.spend.length === 0 && (
-          <p className="text-xs" style={muted}>
+          <p className="ui-caption">
             {t('marketingDashboard.acquisition.noSpend')}
           </p>
         )}
@@ -402,10 +378,10 @@ export function MarketingDashboard() {
           {countTile(t('marketingDashboard.trial.trials'), current.trial.trials, deltas?.trials ?? null)}
           {countTile(t('marketingDashboard.trial.converted'), current.trial.converted, deltas?.converted ?? null)}
           <div>
-            <div className="text-xs font-medium" style={secondary}>
+            <div className="ui-strong ui-caption">
               {t('marketingDashboard.trial.rate')}
             </div>
-            <div className="text-xl font-bold mt-1" style={{ color: 'var(--color-text-primary)' }}>
+            <div className="mt-1 ui-stat-value">
               {fmtPercent(current.trial.rate)}
             </div>
             {deltas && (
@@ -417,10 +393,10 @@ export function MarketingDashboard() {
             )}
           </div>
           <div>
-            <div className="text-xs font-medium" style={secondary}>
+            <div className="ui-strong ui-caption">
               {t('marketingDashboard.trial.median')}
             </div>
-            <div className="text-xl font-bold mt-1" style={{ color: 'var(--color-text-primary)' }}>
+            <div className="mt-1 ui-stat-value">
               {fmtDuration(current.trial.medianSeconds)}
             </div>
             {previous && delta(t('marketingDashboard.compare.previousValue', { value: fmtDuration(previous.trial.medianSeconds) }))}
@@ -432,38 +408,38 @@ export function MarketingDashboard() {
         <Section title={t('marketingDashboard.mrr.title')} description={t('marketingDashboard.mrr.description')}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6">
             <div>
-              <div className="text-xs font-medium" style={secondary}>
+              <div className="ui-strong ui-caption">
                 {t('marketingDashboard.mrr.new')}
               </div>
               {mrr.newMrr.length === 0 ? (
-                <div className="text-sm mt-1" style={muted}>
+                <div className="mt-1 ui-text-muted">
                   {t('marketingDashboard.mrr.none')}
                 </div>
               ) : (
                 <ul className="mt-1 space-y-1">
                   {mrr.newMrr.map((m) => (
-                    <li key={m.currency} className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                    <li key={m.currency} className="ui-stat-value">
                       {fmtMoney(m)}
                     </li>
                   ))}
                 </ul>
               )}
-              <div className="text-xs mt-1" style={muted}>
+              <div className="mt-1 ui-caption">
                 {t('marketingDashboard.mrr.newStudios', { count: mrr.newPayingStudios })}
               </div>
             </div>
             <div>
-              <div className="text-xs font-medium" style={secondary}>
+              <div className="ui-strong ui-caption">
                 {t('marketingDashboard.mrr.active')}
               </div>
               {mrr.activeMrr.length === 0 ? (
-                <div className="text-sm mt-1" style={muted}>
+                <div className="mt-1 ui-text-muted">
                   {t('marketingDashboard.mrr.none')}
                 </div>
               ) : (
                 <ul className="mt-1 space-y-1">
                   {mrr.activeMrr.map((m) => (
-                    <li key={m.currency} className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                    <li key={m.currency} className="ui-stat-value">
                       {fmtMoney(m)}
                     </li>
                   ))}
@@ -472,7 +448,7 @@ export function MarketingDashboard() {
             </div>
           </div>
           {mrr.unpricedStudios > 0 && (
-            <p className="text-xs" style={muted}>
+            <p className="ui-caption">
               {t('marketingDashboard.mrr.unpriced', { count: mrr.unpricedStudios })}
             </p>
           )}
@@ -491,24 +467,24 @@ export function MarketingDashboard() {
       <Section title={t('marketingDashboard.health.title')} description={t('marketingDashboard.health.description')}>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-8">
           <div className="space-y-4">
-            <h4 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+            <h4 className="ui-strong ui-small">
               {t('marketingDashboard.email.title')}
             </h4>
             {health.email.map((w) => (
               <div key={w.days} className="space-y-1">
-                <div className="text-xs font-medium" style={secondary}>
+                <div className="ui-strong ui-caption">
                   {t('marketingDashboard.health.window', { days: w.days })} - {t('marketingDashboard.email.sent', { count: w.sent })}
                 </div>
-                <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-                  <span style={w.bounceWarning ? { color: 'var(--color-danger)', fontWeight: 600 } : undefined}>
+                <div className="flex flex-wrap gap-x-6 gap-y-1">
+                  <span className={w.bounceWarning ? 'ui-text-error ui-strong' : undefined}>
                     {t('marketingDashboard.email.bounce')}: {w.bounceRate === null ? t('marketingDashboard.health.noData') : fmtPercent(w.bounceRate, 2)}
                   </span>
-                  <span style={w.complaintWarning ? { color: 'var(--color-danger)', fontWeight: 600 } : undefined}>
+                  <span className={w.complaintWarning ? 'ui-text-error ui-strong' : undefined}>
                     {t('marketingDashboard.email.complaint')}: {w.complaintRate === null ? t('marketingDashboard.health.noData') : fmtPercent(w.complaintRate, 2)}
                   </span>
                 </div>
                 {w.bounceWarning && (
-                  <p role="status" className="flex items-start gap-1.5 text-xs" style={{ color: 'var(--color-danger)' }}>
+                  <p role="status" className="flex items-start gap-1.5 ui-text-error ui-small">
                     <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden="true" />
                     <span>
                       {t('marketingDashboard.health.warning')}: {t('marketingDashboard.email.bounceWarning', { threshold: formatPercent(EMAIL_BOUNCE_WARNING_RATE, locale, 0) })}
@@ -516,7 +492,7 @@ export function MarketingDashboard() {
                   </p>
                 )}
                 {w.complaintWarning && (
-                  <p role="status" className="flex items-start gap-1.5 text-xs" style={{ color: 'var(--color-danger)' }}>
+                  <p role="status" className="flex items-start gap-1.5 ui-text-error ui-small">
                     <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden="true" />
                     <span>
                       {t('marketingDashboard.health.warning')}: {t('marketingDashboard.email.complaintWarning', { threshold: formatPercent(EMAIL_COMPLAINT_WARNING_RATE, locale, 2) })}
@@ -528,17 +504,17 @@ export function MarketingDashboard() {
           </div>
 
           <div className="space-y-4">
-            <h4 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+            <h4 className="ui-strong ui-small">
               {t('marketingDashboard.sms.title')}
             </h4>
             {health.sms.map((w) => (
-              <div key={w.days} className="text-sm">
-                <span className="text-xs font-medium" style={secondary}>
+              <div key={w.days}>
+                <span className="ui-strong ui-caption">
                   {t('marketingDashboard.health.window', { days: w.days })}
                 </span>
                 <div>
                   {w.deliveryRate === null ? t('marketingDashboard.health.noData') : fmtPercent(w.deliveryRate, 1)}
-                  <span className="text-xs ml-2" style={muted}>
+                  <span className="ml-2 ui-caption">
                     {t('marketingDashboard.sms.attempted', { count: w.attempted })}
                   </span>
                 </div>
@@ -547,37 +523,34 @@ export function MarketingDashboard() {
           </div>
 
           <div className="space-y-2">
-            <h4 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+            <h4 className="ui-strong ui-small">
               {t('marketingDashboard.ai.title')}
             </h4>
             {health.ai.budgetCents <= 0 ? (
-              <p className="text-sm" style={muted}>
+              <p className="ui-text-muted">
                 {t('marketingDashboard.ai.off')}
               </p>
             ) : (
               <>
-                <div className="text-sm">{t('marketingDashboard.ai.usage', { used: fmtUsd(health.ai.usedMicroUsd), budget: fmtUsd(health.ai.budgetCents * 10_000) })}</div>
+                <div>{t('marketingDashboard.ai.usage', { used: fmtUsd(health.ai.usedMicroUsd), budget: fmtUsd(health.ai.budgetCents * 10_000) })}</div>
                 <div
                   role="progressbar"
                   aria-label={t('marketingDashboard.ai.barLabel')}
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={Math.min(100, Math.round((health.ai.usedRatio ?? 0) * 100))}
-                  className="h-2.5 overflow-hidden"
-                  style={{ backgroundColor: 'var(--color-surface-muted)', borderRadius: 'var(--radius-chip)' }}
+                  className="h-2.5 overflow-hidden ui-panel"
                 >
                   <div
-                    className="h-full"
-                    style={{
-                      width: `${Math.min(100, (health.ai.usedRatio ?? 0) * 100)}%`,
-                      backgroundColor: health.ai.level === 'exceeded' ? 'var(--color-danger)' : health.ai.level === 'warning' ? 'var(--color-warning)' : 'var(--color-primary)',
-                    }}
+                    className="h-full ui-bar-fill"
+                    data-level={health.ai.level}
+                    style={{ width: `${Math.min(100, (health.ai.usedRatio ?? 0) * 100)}%` }}
                   />
                 </div>
               </>
             )}
             {health.ai.level !== 'ok' && health.ai.budgetCents > 0 && (
-              <p role="status" className="flex items-start gap-1.5 text-xs" style={{ color: health.ai.level === 'exceeded' ? 'var(--color-danger)' : 'var(--color-warning)' }}>
+              <p role="status" className={`flex items-start gap-1.5 ui-small ${health.ai.level === 'exceeded' ? 'ui-text-error' : 'ui-text-warn'}`}>
                 <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden="true" />
                 <span>{health.ai.level === 'exceeded' ? t('marketingDashboard.ai.exceeded') : t('marketingDashboard.ai.warning')}</span>
               </p>
@@ -585,35 +558,35 @@ export function MarketingDashboard() {
           </div>
 
           <div className="space-y-2">
-            <h4 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+            <h4 className="ui-strong ui-small">
               {t('marketingDashboard.approvals.title')}
             </h4>
-            <p className="text-sm" style={health.approvals.available ? undefined : muted}>
+            <p className={health.approvals.available ? undefined : 'ui-text-muted'}>
               {health.approvals.available ? t('marketingDashboard.approvals.pending', { count: health.approvals.pending }) : t('marketingDashboard.approvals.unavailable')}
             </p>
           </div>
 
           <div className="space-y-2">
-            <h4 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+            <h4 className="ui-strong ui-small">
               {t('marketingDashboard.caps.title')}
             </h4>
-            <p className="text-sm">
+            <p>
               {health.caps.email.cap === null
                 ? t('marketingDashboard.caps.emailNoCap', { sent: number.format(health.caps.email.sent) })
                 : t('marketingDashboard.caps.email', { sent: number.format(health.caps.email.sent), cap: number.format(health.caps.email.cap) })}
             </p>
             {health.caps.email.source === 'WARMUP' && health.caps.email.warmupDay !== null && (
-              <p className="text-xs" style={secondary}>
+              <p className="ui-caption">
                 {t('marketingDashboard.caps.warmup', { day: health.caps.email.warmupDay })}
               </p>
             )}
-            <p className="text-sm">
+            <p>
               {health.caps.sms.cap === null
                 ? t('marketingDashboard.caps.smsNoCap', { credits: number.format(health.caps.sms.credits) })
                 : t('marketingDashboard.caps.sms', { credits: number.format(health.caps.sms.credits), cap: number.format(health.caps.sms.cap) })}
             </p>
             {health.caps.deferredRecipients > 0 && (
-              <p role="status" className="flex items-start gap-1.5 text-xs" style={{ color: 'var(--color-warning)' }}>
+              <p role="status" className="flex items-start gap-1.5 ui-small ui-text-warn">
                 <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden="true" />
                 <span>{t('marketingDashboard.caps.deferred', { count: health.caps.deferredRecipients })}</span>
               </p>
@@ -621,18 +594,18 @@ export function MarketingDashboard() {
           </div>
 
           <div className="space-y-2">
-            <h4 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+            <h4 className="ui-strong ui-small">
               {t('marketingDashboard.autoPause.title')}
             </h4>
             {health.autoPause.active ? (
-              <p role="status" className="flex items-start gap-1.5 text-sm" style={{ color: 'var(--color-danger)', fontWeight: 600 }}>
+              <p role="status" className="flex items-start gap-1.5 ui-text-error ui-strong">
                 <AlertTriangle className="w-3.5 h-3.5 mt-1 shrink-0" aria-hidden="true" />
                 <span>
                   {t('marketingDashboard.autoPause.active', { count: health.autoPause.pausedCampaigns, reasons: health.autoPause.reasons.map((r) => t(`marketingGuards.reason.${r}`)).join(', ') })}
                 </span>
               </p>
             ) : (
-              <p className="text-sm" style={muted}>
+              <p className="ui-text-muted">
                 {t('marketingDashboard.autoPause.none')}
               </p>
             )}
@@ -640,31 +613,31 @@ export function MarketingDashboard() {
 
           {health.adSpendCaps.length > 0 && (
             <div className="space-y-2 lg:col-span-2">
-              <h4 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+              <h4 className="ui-strong ui-small">
                 {t('marketingDashboard.adCap.title')}
               </h4>
               <ul className="space-y-1">
                 {health.adSpendCaps.map((c) => (
-                  <li key={c.currency} className="text-sm" style={c.exceeded ? { color: 'var(--color-danger)', fontWeight: 600 } : undefined}>
+                  <li key={c.currency} className={c.exceeded ? 'ui-text-error ui-strong' : undefined}>
                     {t('marketingDashboard.adCap.line', {
                       spent: fmtMoney({ amount: c.spent, currency: c.currency }),
                       cap: fmtMoney({ amount: c.cap, currency: c.currency }),
                     })}
                     {c.exceeded && (
-                      <span className="inline-flex items-center gap-1 ml-2 text-xs">
+                      <span className="inline-flex items-center gap-1 ml-2 ui-small">
                         <AlertTriangle className="w-3.5 h-3.5" aria-hidden="true" />
                         {t('marketingDashboard.adCap.exceeded')}
                       </span>
                     )}
-                    <span className="ml-2 text-xs font-normal" style={muted}>
+                    <span className="ml-2 ui-caption">
                       {t(c.autoPause ? 'marketingDashboard.adCap.autoPauseOn' : 'marketingDashboard.adCap.autoPauseOff')}
                     </span>
                     {c.pauses.length > 0 && (
-                      <div className="mt-1 font-normal" style={{ color: 'var(--color-text-primary)' }}>
-                        <p className="text-xs font-semibold">{t('marketingDashboard.adCap.pausedTitle')}</p>
+                      <div className="mt-1">
+                        <p className="ui-strong ui-small">{t('marketingDashboard.adCap.pausedTitle')}</p>
                         <ul className="space-y-0.5">
                           {c.pauses.map((p) => (
-                            <li key={`${p.platform}:${p.campaignExternalId}`} className="text-xs">
+                            <li key={`${p.platform}:${p.campaignExternalId}`} className="ui-small">
                               {p.status === 'PAUSED' && p.pausedAt
                                 ? t('marketingDashboard.adCap.pausedLine', {
                                     name: p.campaignName,
@@ -674,7 +647,7 @@ export function MarketingDashboard() {
                                     cap: fmtMoney({ amount: p.cap, currency: p.currency }),
                                   })
                                 : t('marketingDashboard.adCap.failedLine', { name: p.campaignName, platform: p.platform, attempts: p.attempts, error: p.lastError ?? '-' })}
-                              {p.status === 'PAUSED' && <span style={muted}> {t('marketingDashboard.adCap.reason')}</span>}
+                              {p.status === 'PAUSED' && <span className="ui-text-muted"> {t('marketingDashboard.adCap.reason')}</span>}
                             </li>
                           ))}
                         </ul>
@@ -687,26 +660,26 @@ export function MarketingDashboard() {
           )}
 
           <div className="space-y-2 lg:col-span-2">
-            <h4 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+            <h4 className="ui-strong ui-small">
               {t('marketingDashboard.connections.title')}
             </h4>
             {health.connections.items.length === 0 ? (
-              <p className="text-sm" style={muted}>
+              <p className="ui-text-muted">
                 {t('marketingDashboard.connections.none')}
               </p>
             ) : (
               <>
-                <p className="text-sm">{t('marketingDashboard.connections.count', { count: health.connections.errorCount })}</p>
-                <ul className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
+                <p>{t('marketingDashboard.connections.count', { count: health.connections.errorCount })}</p>
+                <ul className="ui-divide">
                   {health.connections.items.map((c) => (
-                    <li key={c.id} className="py-2 text-sm" style={{ borderColor: 'var(--color-border)' }}>
-                      <div className="font-medium">
-                        {c.label} <span className="text-xs font-normal" style={muted}>({c.platform})</span>
+                    <li key={c.id} className="py-2">
+                      <div className="ui-strong">
+                        {c.label} <span className="ui-caption">({c.platform})</span>
                       </div>
-                      <div className="text-xs mt-0.5 break-words" style={{ color: 'var(--color-danger)' }}>
+                      <div className="mt-0.5 break-words ui-text-error ui-small">
                         {c.lastError}
                       </div>
-                      <div className="text-xs mt-0.5" style={muted}>
+                      <div className="mt-0.5 ui-caption">
                         {c.lastSyncAt ? t('marketingDashboard.connections.lastSync', { date: dateTimeFormat.format(new Date(c.lastSyncAt)) }) : t('marketingDashboard.connections.neverSynced')}
                       </div>
                     </li>
@@ -714,7 +687,7 @@ export function MarketingDashboard() {
                 </ul>
               </>
             )}
-            <p className="text-sm" style={health.connections.failedDeliveries > 0 ? { color: 'var(--color-danger)' } : muted}>
+            <p className={health.connections.failedDeliveries > 0 ? 'ui-text-error' : 'ui-text-muted'}>
               {health.connections.failedDeliveries > 0
                 ? t('marketingDashboard.connections.failedDeliveries', { count: health.connections.failedDeliveries })
                 : t('marketingDashboard.connections.noFailedDeliveries')}

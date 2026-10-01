@@ -65,8 +65,7 @@ export function DraftCard({ draft, onChange }: { draft: MarketingDraftDTO; onCha
   return (
     <article
       aria-label={draft.title}
-      className="p-5 border space-y-4"
-      style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-card)' }}
+      className="p-5 space-y-4 pui-card"
     >
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
@@ -76,10 +75,10 @@ export function DraftCard({ draft, onChange }: { draft: MarketingDraftDTO; onCha
             <Badge tone={STATUS_TONE[draft.status]}>{t(`marketingStudio.status.${draft.status}`)}</Badge>
             {draft.exportedCampaignId && <Badge tone="success">{t('marketingStudio.exported')}</Badge>}
           </div>
-          <h3 className="text-sm font-semibold mt-2 break-words" style={{ color: 'var(--color-text-primary)' }}>
+          <h3 className="mt-2 break-words ui-strong">
             {draft.title}
           </h3>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="mt-0.5 ui-caption">
             {new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(draft.createdAt))}
           </p>
         </div>
@@ -102,9 +101,9 @@ export function DraftCard({ draft, onChange }: { draft: MarketingDraftDTO; onCha
       {draft.kind === 'RESEARCH_NOTE' && <ResearchNoteView draft={draft} />}
 
       {isGeneratable(draft.kind) && (
-        <div className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
+        <div className="ui-divide">
           {draft.variants.map((variant) => (
-            <div key={`${variant.id}:${variant.editedAt}`} className="py-4 first:pt-0" style={{ borderColor: 'var(--color-border)' }}>
+            <div key={`${variant.id}:${variant.editedAt}`} className="py-4 first:pt-0">
               <VariantEditor
                 kind={draft.kind as GeneratableDraftKind}
                 variant={variant}
@@ -161,11 +160,11 @@ function AbSetup({ draft, locked, busy, run, onChange }: { draft: MarketingDraft
   const [ids, setIds] = useState<string[]>(stored?.variantIds ?? draft.variants.slice(0, 2).map((v) => v.id));
 
   return (
-    <fieldset className="space-y-3 border-t pt-4" style={{ borderColor: 'var(--color-border)' }}>
-      <legend className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+    <fieldset className="space-y-3 pt-4 ui-rule">
+      <legend className="ui-strong ui-small">
         {t('marketingStudio.ab.title')}
       </legend>
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+      <p className="ui-caption">
         {t('marketingStudio.ab.hint')}
       </p>
       <CheckField label={t('marketingStudio.ab.enabled')} checked={enabled} onChange={setEnabled} disabled={locked} />
@@ -217,7 +216,7 @@ function CalendarShortcut({ draft, busy, run }: { draft: MarketingDraftDTO; busy
   const t = useT();
   const [date, setDate] = useState('');
   return (
-    <div className="flex flex-wrap items-end gap-3 border-t pt-4" style={{ borderColor: 'var(--color-border)' }}>
+    <div className="flex flex-wrap items-end gap-3 pt-4 ui-rule">
       <InputField label={t('marketingStudio.calendar.date')} type="date" value={date} onChange={setDate} />
       <SecondaryButton
         disabled={busy || date === ''}
@@ -235,7 +234,7 @@ function CalendarShortcut({ draft, busy, run }: { draft: MarketingDraftDTO; busy
       >
         {t('marketingStudio.calendar.add')}
       </SecondaryButton>
-      <Link href="/pazarlama/takvim" className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
+      <Link href="/pazarlama/takvim" className="pui-link pui-surface ui-caption">
         {t('marketingStudio.calendar.open')}
       </Link>
     </div>
@@ -277,11 +276,11 @@ function ExportPanel({
   const blocked = variant ? hasBlockingIssues(variant.issues) : false;
 
   return (
-    <fieldset className="space-y-3 border-t pt-4" style={{ borderColor: 'var(--color-border)' }}>
-      <legend className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+    <fieldset className="space-y-3 pt-4 ui-rule">
+      <legend className="ui-strong ui-small">
         {t('marketingStudio.export.title')}
       </legend>
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+      <p className="ui-caption">
         {t('marketingStudio.export.hint')}
       </p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -321,9 +320,9 @@ function ExportPanel({
         {t('marketingStudio.export.button')}
       </PrimaryButton>
       {(result || draft.exportedCampaignId) && (
-        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+        <p className="ui-caption">
           {t('marketingStudio.export.done')} {result?.abTest ? `${t('marketingStudio.export.doneAb')} ` : ''}
-          <Link href={`/pazarlama/kampanyalar/${result?.campaignId ?? draft.exportedCampaignId}`} className="underline">
+          <Link href={`/pazarlama/kampanyalar/${result?.campaignId ?? draft.exportedCampaignId}`} className="pui-link pui-surface">
             {t('marketingStudio.export.open')}
           </Link>
         </p>

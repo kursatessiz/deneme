@@ -10,6 +10,7 @@ import { EmptyState, ErrorState, LoadingState } from '@/components/common/DataSt
 import { InlineMessage, PrimaryButton, SecondaryButton, SettingsHeader } from '@/components/settings/ui';
 import { approvalErrorText } from '@/lib/marketing/errors';
 import { AreaField, LinkButton, SelectField } from './fields';
+import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui';
 
 type Tone = 'neutral' | 'success' | 'warning' | 'danger' | 'info';
 
@@ -90,7 +91,7 @@ export function ApprovalsQueue() {
           <SelectField label={t('marketingApprovals.filter.label')} value={status} onChange={(v) => setStatus(v as ApprovalStatus | '')} options={statusOptions} />
         </div>
         {data && data.pendingCount > 0 && (
-          <p className="text-sm" data-testid="approvals-pending-count" style={{ color: 'var(--color-text-secondary)' }}>
+          <p className="ui-text-muted" data-testid="approvals-pending-count">
             {t(data.pendingCount === 1 ? 'marketingApprovals.pendingCount.one' : 'marketingApprovals.pendingCount.other', { count: fmt.number(data.pendingCount) })}
           </p>
         )}
@@ -103,44 +104,44 @@ export function ApprovalsQueue() {
       ) : data.items.length === 0 ? (
         <EmptyState title={t('marketingApprovals.empty')} />
       ) : (
-        <div className="overflow-x-auto border" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)', backgroundColor: 'var(--color-surface)' }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                <th className="px-4 py-2 font-medium">{t('marketingApprovals.col.target')}</th>
-                <th className="px-4 py-2 font-medium">{t('marketingApprovals.col.requester')}</th>
-                <th className="px-4 py-2 font-medium">{t('marketingApprovals.col.status')}</th>
-                <th className="px-4 py-2 font-medium text-right">{t('marketingApprovals.col.audience')}</th>
-                <th className="px-4 py-2 font-medium">{t('marketingApprovals.col.created')}</th>
-                <th className="px-4 py-2 font-medium">
+        <div className="overflow-x-auto pui-card">
+          <Table>
+            <Thead>
+              <Tr>
+                <Th>{t('marketingApprovals.col.target')}</Th>
+                <Th>{t('marketingApprovals.col.requester')}</Th>
+                <Th>{t('marketingApprovals.col.status')}</Th>
+                <Th className="text-right">{t('marketingApprovals.col.audience')}</Th>
+                <Th>{t('marketingApprovals.col.created')}</Th>
+                <Th>
                   <span className="sr-only">{t('marketingApprovals.open')}</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
+                </Th>
+              </Tr>
+            </Thead>
+            <Tbody>
               {data.items.map((item) => (
-                <tr key={item.id} className="border-t" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}>
-                  <td className="px-4 py-2">
-                    <span className="font-medium">{item.summary.target.name}</span>
-                    <span className="block text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                <Tr key={item.id}>
+                  <Td>
+                    <span className="ui-strong">{item.summary.target.name}</span>
+                    <span className="block ui-caption">
                       {t(`marketingApprovals.targetType.${item.targetType}`)}
                     </span>
-                  </td>
-                  <td className="px-4 py-2">{item.requestedBy.name}</td>
-                  <td className="px-4 py-2">
+                  </Td>
+                  <Td>{item.requestedBy.name}</Td>
+                  <Td>
                     <Badge tone={approvalStatusTone(item.status)}>{t(`marketingApprovals.status.${item.status}`)}</Badge>
-                  </td>
-                  <td className="px-4 py-2 text-right tabular-nums">{fmt.number(item.summary.audience.total)}</td>
-                  <td className="px-4 py-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                  </Td>
+                  <Td className="text-right tabular-nums">{fmt.number(item.summary.audience.total)}</Td>
+                  <Td className="ui-caption">
                     {fmt.date(item.createdAt)}
-                  </td>
-                  <td className="px-4 py-2 text-right">
+                  </Td>
+                  <Td className="text-right">
                     <LinkButton onClick={() => setOpen(item)}>{t('marketingApprovals.open')}</LinkButton>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
+            </Tbody>
+          </Table>
         </div>
       )}
 
@@ -160,9 +161,9 @@ export function ApprovalsQueue() {
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-3 gap-2 py-1 text-sm">
-      <dt style={{ color: 'var(--color-text-muted)' }}>{label}</dt>
-      <dd className="col-span-2" style={{ color: 'var(--color-text-primary)' }}>
+    <div className="grid grid-cols-3 gap-2 py-1">
+      <dt className="ui-text-muted">{label}</dt>
+      <dd className="col-span-2">
         {children}
       </dd>
     </div>
@@ -172,8 +173,8 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   const id = `approval-${title.replace(/\W+/g, '-').toLowerCase()}`;
   return (
-    <section aria-labelledby={id} className="space-y-1 border-t pt-3" style={{ borderColor: 'var(--color-border)' }}>
-      <h4 id={id} className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-secondary)' }}>
+    <section aria-labelledby={id} className="space-y-1 pt-3 ui-rule">
+      <h4 id={id} className="uppercase ui-strong ui-caption">
         {title}
       </h4>
       {children}
@@ -220,21 +221,20 @@ function ApprovalDrawer({ request, onClose, onChanged }: { request: ApprovalRequ
   const messages = Object.entries(s.cost.messages).filter((e): e is [string, number] => typeof e[1] === 'number');
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" style={{ backgroundColor: 'rgba(15, 23, 42, 0.45)' }} onClick={onClose}>
+    <div className="ui-drawer-backdrop" onClick={onClose}>
       <aside
         role="dialog"
         aria-modal="true"
         aria-labelledby="approval-drawer-title"
-        className="h-full w-full max-w-xl overflow-y-auto p-5 space-y-4"
-        style={{ backgroundColor: 'var(--color-surface)', borderLeft: '1px solid var(--color-border)' }}
+        className="ui-drawer p-5 space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 id="approval-drawer-title" className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+            <h3 id="approval-drawer-title" className="ui-strong">
               {s.target.name}
             </h3>
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            <p className="ui-caption">
               {t('marketingApprovals.detail.title')} · {t(`marketingApprovals.targetType.${request.targetType}`)}
             </p>
           </div>
@@ -269,7 +269,7 @@ function ApprovalDrawer({ request, onClose, onChanged }: { request: ApprovalRequ
             <Row label={t('marketingApprovals.detail.campaignStatus')}>
               <span className="inline-flex flex-wrap items-center gap-2">
                 <Badge>{t(`campaigns.status.${request.target.status}`)}</Badge>
-                <Link href={`/pazarlama/kampanyalar/${encodeURIComponent(request.targetId)}`} className="text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
+                <Link href={`/pazarlama/kampanyalar/${encodeURIComponent(request.targetId)}`} className="pui-link pui-surface ui-caption">
                   {t('marketingApprovals.detail.openCampaign')}
                 </Link>
               </span>
@@ -296,7 +296,7 @@ function ApprovalDrawer({ request, onClose, onChanged }: { request: ApprovalRequ
               </li>
             ))}
           </ul>
-          <p className="text-xs pt-1" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="pt-1 ui-caption">
             {t('marketingApprovals.detail.countries')}
           </p>
           <ul className="flex flex-wrap gap-2">
@@ -307,13 +307,13 @@ function ApprovalDrawer({ request, onClose, onChanged }: { request: ApprovalRequ
             ))}
           </ul>
           {s.newCountries.length > 0 && (
-            <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+            <p className="ui-caption">
               {t('marketingApprovals.detail.newCountries')}: {s.newCountries.map((c) => fmt.country(c) ?? c).join(', ')}
             </p>
           )}
           {s.legalBases && Object.keys(s.legalBases).length > 0 && (
             <>
-              <p className="text-xs pt-1" style={{ color: 'var(--color-text-muted)' }}>
+              <p className="pt-1 ui-caption">
                 {t('marketingApprovals.detail.legalBases')}
               </p>
               <ul className="flex flex-wrap gap-2">
@@ -350,16 +350,16 @@ function ApprovalDrawer({ request, onClose, onChanged }: { request: ApprovalRequ
           ) : (
             <ul className="space-y-1">
               {s.findings.map((f, i) => (
-                <li key={`${f.code}-${f.channel ?? 'all'}-${i}`} className="flex flex-wrap items-center gap-2 text-sm" style={{ color: 'var(--color-text-primary)' }}>
+                <li key={`${f.code}-${f.channel ?? 'all'}-${i}`} className="flex flex-wrap items-center gap-2">
                   <Badge tone={f.severity === 'warning' ? 'warning' : 'info'}>{t(`marketingApprovals.severity.${f.severity}`)}</Badge>
                   <span>{t(`marketingApprovals.finding.${f.code}`)}</span>
-                  {f.channel && <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{t(`messaging.channel.${f.channel}`)}</span>}
-                  {f.count !== null && f.count > 0 && <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{count(f.count)}</span>}
+                  {f.channel && <span className="ui-caption">{t(`messaging.channel.${f.channel}`)}</span>}
+                  {f.count !== null && f.count > 0 && <span className="ui-caption">{count(f.count)}</span>}
                 </li>
               ))}
             </ul>
           )}
-          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="ui-caption">
             {s.emailDomainVerified ? t('marketingApprovals.detail.domainVerified') : s.channels.includes('EMAIL') ? t('marketingApprovals.detail.domainNotVerified') : ''}
           </p>
         </Block>
@@ -368,26 +368,26 @@ function ApprovalDrawer({ request, onClose, onChanged }: { request: ApprovalRequ
           {s.reasons.length === 0 ? (
             <InlineMessage text={t('marketingApprovals.detail.noReasons')} />
           ) : (
-            <ul className="list-disc pl-5 text-sm" style={{ color: 'var(--color-text-primary)' }}>
+            <ul className="list-disc pl-5">
               {s.reasons.map((r) => (
                 <li key={r}>{t(`marketingApprovals.reason.${r}`)}</li>
               ))}
             </ul>
           )}
-          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="ui-caption">
             {t('marketingApprovals.detail.thresholds', {
               email: fmt.number(s.thresholds.selfApproveEmailMax),
               sms: fmt.number(s.thresholds.selfApproveSmsMax),
               credits: fmt.number(s.thresholds.selfApproveSmsCredits),
             })}
           </p>
-          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="ui-caption">
             {t('marketingApprovals.detail.evaluatedAt')}: {fmt.date(s.evaluatedAt)}
           </p>
         </Block>
 
         {(request.canDecide || request.canCancel) && (
-          <div className="space-y-3 border-t pt-3" style={{ borderColor: 'var(--color-border)' }}>
+          <div className="space-y-3 pt-3 ui-rule">
             <AreaField label={t('marketingApprovals.action.note')} value={note} onChange={setNote} rows={2} hint={request.canDecide ? t('marketingApprovals.action.noteHint') : undefined} />
             <div className="flex flex-wrap gap-2">
               {request.canDecide && (

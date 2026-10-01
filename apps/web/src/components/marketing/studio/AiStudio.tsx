@@ -21,6 +21,7 @@ import { SelectField } from '../fields';
 import { DraftCard } from './DraftCard';
 import { GenerateForm } from './GenerateForm';
 import { ResearchPanel, SegmentSuggestions } from './AnalysisPanels';
+import { Button } from '@/components/ui/Button';
 
 type Tab = 'generate' | 'drafts' | 'segments' | 'research';
 const TABS: readonly Tab[] = ['generate', 'drafts', 'segments', 'research'];
@@ -94,7 +95,7 @@ function DraftsPanel() {
           <SecondaryButton disabled={page <= 1} onClick={() => setPage(page - 1)}>
             {t('marketingStudio.drafts.prev')}
           </SecondaryButton>
-          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          <span className="ui-caption">
             {t('marketingStudio.drafts.page', { page, pages })}
           </span>
           <SecondaryButton disabled={page >= pages} onClick={() => setPage(page + 1)}>
@@ -148,7 +149,7 @@ export function AiStudio() {
   return (
     <div className="space-y-6">
       <SettingsHeader title={t('marketingStudio.title')} description={t('marketingStudio.subtitle')} />
-      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+      <p className="ui-caption">
         {t('marketingStudio.budget', { used: usd(usedCents), budget: usd(status.budgetCents) })}
       </p>
       {!status.configured && <InlineMessage text={t('ai.error.AI_NOT_CONFIGURED')} tone="error" />}
@@ -161,25 +162,21 @@ export function AiStudio() {
         />
       ) : (
         <>
-          <div role="tablist" aria-label={t('marketingStudio.title')} className="flex flex-wrap gap-1 border-b pb-2" style={{ borderColor: 'var(--color-border)' }}>
+          <div role="tablist" aria-label={t('marketingStudio.title')} className="ui-tabs flex-wrap pb-2">
             {TABS.map((id) => (
-              <button
+              <Button
                 key={id}
-                type="button"
                 role="tab"
                 aria-selected={tab === id}
                 onClick={() => setTab(id)}
-                className="px-3 py-1.5 text-sm font-medium"
-                style={{
-                  borderRadius: 'var(--radius-chip)',
-                  color: tab === id ? 'var(--color-on-primary)' : 'var(--color-text-secondary)',
-                  backgroundColor: tab === id ? 'var(--color-primary)' : 'transparent',
-                }}
+                variant={tab === id ? 'solid' : 'link'}
+                tone={tab === id ? 'theme' : 'surface'}
+                size="sm"
               >
                 {t(`marketingStudio.tab.${id}`)}
-              </button>
+              </Button>
             ))}
-            <Link href="/pazarlama/marka" className="ml-auto px-3 py-1.5 text-xs underline" style={{ color: 'var(--color-text-secondary)' }}>
+            <Link href="/pazarlama/marka" className="ml-auto pui-link pui-surface ui-caption">
               {t('marketingStudio.editBrandKit')}
             </Link>
           </div>

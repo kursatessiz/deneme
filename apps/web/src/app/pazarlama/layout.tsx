@@ -35,20 +35,20 @@ export default async function MarketingLayout({ children }: { children: React.Re
       <div className="max-w-6xl mx-auto px-4 py-8">
         <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
+            <p className="uppercase ui-strong ui-caption">
               {t('marketing.layout.kicker')}
             </p>
-            <h1 className="text-2xl font-bold tracking-tight mt-1">{t('marketing.layout.title')}</h1>
-            <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+            <h1 className="mt-1 ui-title">{t('marketing.layout.title')}</h1>
+            <p className="mt-1 ui-text-muted">
               {t('marketing.layout.signedInAs', { firstName: user.firstName, lastName: user.lastName })}
             </p>
           </div>
-          <div className="flex gap-3 text-sm">
-            <Link href="/guvenlik/iki-adim?sonra=/pazarlama" className="underline" style={{ color: 'var(--color-text-secondary)' }}>
+          <div className="flex gap-3">
+            <Link href="/guvenlik/iki-adim?sonra=/pazarlama" className="pui-link pui-surface ui-text-muted">
               {t('marketing.layout.security')}
             </Link>
             {user.isSuperAdmin && (
-              <Link href="/admin" className="underline" style={{ color: 'var(--color-text-secondary)' }}>
+              <Link href="/admin" className="pui-link pui-surface ui-text-muted">
                 {t('marketing.layout.backToAdmin')}
               </Link>
             )}
@@ -74,7 +74,7 @@ export default async function MarketingLayout({ children }: { children: React.Re
           </PlatformSessionProvider>
         ) : (
           <main>
-            <p className="text-sm" role="alert" style={{ color: 'var(--color-danger)' }}>
+            <p className="ui-text-error" role="alert">
               {t('marketing.layout.contextFailed')}
             </p>
           </main>
