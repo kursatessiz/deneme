@@ -116,11 +116,16 @@ Pasif edinim: işletme sitelerinin altbilgisinde (`SiteShell`: sayfa motoru sayf
 - **Önbellek**: web tarafında ayar okuması 300 saniye önbellekli (`fetchSiteSettings`, etiket `site-settings:<slug>`); bayrak değişimi en geç 5 dakikada yansır. API hatasında rozet gösterilmez (güvenli kapalı).
 - **Testler**: `packages/shared/src/branding.spec.ts` (URL oluşturucu), `apps/api/test/e2e/branding.e2e-spec.ts` (varsayılan görünür, bayrakla gizlenir, platform kiracısı, bilinmeyen site 404).
 
+## 10. Lighthouse CI (S3)
+
+`.github/workflows/lighthouse.yml` her pull request'te `/tr`, `/tr/blog`, `/tr/pilates` ve rezervasyon sayfasını Lighthouse ile ölçer (`apps/web/lighthouserc.json`). SEO >= 0,95 ve erişilebilirlik >= 0,9 hata, performans >= 0,8 ve en iyi uygulamalar >= 0,9 uyarıdır; rapor artifact olarak yüklenir, herkese açık depoya gönderilmez. Workflow ayrıntısı: `docs/CICD_GUIDE.md` bölüm 2a.
+
+Yerel ölçümden çıkan düzeltme: Next.js 15 tarayıcı kullanıcı ajanlarına metadata'yı akışla `<body>` içine koyar; Lighthouse (ve bot listesinde olmayan tarayıcılar) `<meta name="description">` etiketini `<head>` içinde göremez ve SEO puanı 0,91'de kalırdı. `next.config.ts` içindeki `htmlLimitedBots: /.*/` her ajana metadata'yı `<head>` içinde verir (SEO 1,0). Sayfa başlığı ve açıklaması kritik SEO verisi olduğundan akışın getirdiği küçük gecikme kazancından vazgeçildi.
+
 ## 17. Açık işler
 
 - Blog için görsel seçici, yazı önizlemesi ve zamanlanmış yayın (S2b'de yok).
 - ISR: sayfalar `force-dynamic` ve her istekte render ediliyor; API yanıtları önbellekli.
-- Lighthouse CI (CI'da performans ve SEO bütçesi).
 - GA4 (yalnızca reklam piksellerinin onay kapısı var; analitik kurulu değil).
 - Kiracı sitesi için kiracıya özel simge ve manifest (şimdilik platform simgesi).
 - `PostalAddress` için yapılandırılmış adres alanları (stüdyo adresi tek serbest metin).

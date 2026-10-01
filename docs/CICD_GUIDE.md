@@ -66,6 +66,31 @@ kullanır, aynı şekilde migrate + seed eder, ardından:
 Bu job'un job-seviyesi izinleri de yalnızca `contents: read` (kökteki varsayılandan miras) --
 artifact yükleme bunun ötesinde bir izin gerektirmez.
 
+## 2a. `lighthouse.yml` - Lighthouse CI (S3)
+
+Herkese açık sayfaların performans, SEO, erişilebilirlik ve en iyi uygulamalar bütçesini her pull request'te
+ölçer. Ayrı bir workflow'dur (`on: pull_request`, `workflow_dispatch`; `permissions: contents: read`), çünkü
+tarayıcı e2e'sinden farklı olarak yalnızca üretim build'ini çalıştırır ve `ci.yml`'i yavaşlatmaz.
+
+- Aynı Postgres servis konteyneri (`ci_lighthouse`), migrate + seed, ardından API (`node dist/main.js`, 4000)
+  ve web (`next start`, 3000) arka planda başlatılır; `/health` ve `/tr` yanıt verene kadar beklenir.
+- `treosh/lighthouse-ci-action` tam commit SHA'sına sabitlidir (yorumda `v12.6.2`); `temporaryPublicStorage: false`
+  olduğundan rapor herkese açık bir depoya gitmez, `uploadArtifacts: true` ile iş akışı artifact'ı olarak yüklenir
+  (`lighthouse-results`).
+- Bütçe `apps/web/lighthouserc.json` içindedir: her URL için bir koşu, masaüstü ön ayarı. URL'ler: `/tr`,
+  `/tr/blog`, `/tr/pilates` (sektör açılış sayfası) ve `/booking/zen-reformer-pilates/book`.
+
+| Kategori | Eşik | Sonuç |
+| --- | --- | --- |
+| `seo` | >= 0,95 | hata (job kırmızı) |
+| `accessibility` | >= 0,9 | hata |
+| `performance` | >= 0,8 | uyarı |
+| `best-practices` | >= 0,9 | uyarı |
+
+Yerelde çalıştırmak: seed'li bir veritabanıyla API ve web'i başlatın, sonra `npx @lhci/cli autorun --config=apps/web/lighthouserc.json`
+(Chrome gerekir; CI'da runner'da hazırdır). Eşik değiştirmek için `lighthouserc.json` düzenlenir; yeni bir sayfa eklemek
+için `collect.url` listesine eklenir. Seed'deki yayınlı bir sayfa kaldırılırsa listedeki URL'yi de güncelleyin.
+
 ## 3. `release.yml` - Build, publish, deploy
 
 İki tetikleyicisi vardır:

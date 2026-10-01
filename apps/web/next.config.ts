@@ -12,6 +12,9 @@ const nextConfig: NextConfig = {
     ['/icon', '/apple-icon', '/opengraph-image', '/og'].map((route) => [route, ['./node_modules/@fontsource/inter/files/inter-latin{,-ext}-{400,700}-normal.woff']]),
   ),
   transpilePackages: ['@platform/shared'],
+  // Streaming metadata puts <title> and <meta name="description"> into <body> for browser user agents. Every
+  // agent (Lighthouse, link-preview and search crawlers outside Next's built-in bot list) gets them in <head>.
+  htmlLimitedBots: /.*/,
   eslint: {
     ignoreDuringBuilds: true,
   },
