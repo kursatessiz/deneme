@@ -56,7 +56,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             {user.mfa?.enrollmentRequired && (
               <p className="pui-card px-3 py-2" role="status" style={{ borderColor: 'var(--pui-warn)' }}>
                 {t('twoFactor.setup.required')}{' '}
-                <Link href="/guvenlik/iki-adim?sonra=/admin" style={{ textDecoration: 'underline', fontWeight: 600 }}>
+                <Link href="/guvenlik/iki-adim?sonra=/admin" className="pui-link pui-surface ui-strong">
                   {t('twoFactor.setup.start')}
                 </Link>
               </p>

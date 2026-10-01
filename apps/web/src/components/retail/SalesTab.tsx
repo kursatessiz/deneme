@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { SALE_STATUSES } from '@platform/shared';
 import type { SaleListItemDTO, SaleStatus } from '@platform/shared';
 import { useDashboardSession, useFormatMoney } from '@/components/session/DashboardSessionProvider';
@@ -14,7 +13,7 @@ import { BranchSelect } from '@/components/common/BranchSelect';
 import { DateRangeFilter } from '@/components/common/DateRangeFilter';
 import { Badge } from '@/components/common/Badge';
 import { PermissionButton } from '@/components/common/PermissionButton';
-import { fieldStyle, headRowStyle, labelStyle, rowStyle, tableWrapStyle } from './styles';
+import { Card, Input, LinkButton, Select, Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui';
 
 const PAGE_SIZE = 50;
 
@@ -78,14 +77,12 @@ export function SalesTab() {
             setPage(1);
           }}
         />
-        <select
+        <Select
           value={status}
           onChange={(e) => {
             setStatus(e.target.value);
             setPage(1);
           }}
-          className="text-xs px-2.5 py-1.5"
-          style={fieldStyle}
           aria-label={t('retail.sales.col.status')}
         >
           <option value="">{t('retail.sales.allStatuses')}</option>
@@ -94,8 +91,8 @@ export function SalesTab() {
               {t(`retail.status.${s}`)}
             </option>
           ))}
-        </select>
-        <input
+        </Select>
+        <Input
           type="search"
           aria-label={t('retail.sales.receiptSearch')}
           placeholder={t('retail.sales.receiptSearch')}
@@ -104,8 +101,6 @@ export function SalesTab() {
             setReceipt(e.target.value);
             setPage(1);
           }}
-          className="text-xs px-2.5 py-1.5"
-          style={fieldStyle}
         />
       </div>
       {loading && <LoadingState />}
@@ -118,52 +113,40 @@ export function SalesTab() {
         />
       )}
       {!loading && !error && data && data.items.length > 0 && (
-        <div className="border overflow-x-auto" style={tableWrapStyle}>
-          <table className="w-full text-sm" data-testid="retail-sales">
-            <thead>
-              <tr style={headRowStyle}>
+        <Card className="overflow-x-auto">
+          <Table data-testid="retail-sales">
+            <Thead>
+              <Tr>
                 {(['receipt', 'date', 'customer', 'items', 'total', 'method', 'status'] as const).map((c) => (
-                  <th key={c} className="text-left px-4 py-2.5 font-medium whitespace-nowrap" style={labelStyle}>
+                  <Th key={c} className="whitespace-nowrap">
                     {t(`retail.sales.col.${c}`)}
-                  </th>
+                  </Th>
                 ))}
-                <th />
-              </tr>
-            </thead>
-            <tbody>
+                <Th />
+              </Tr>
+            </Thead>
+            <Tbody>
               {data.items.map((s) => (
-                <tr key={s.id} className="border-t" style={rowStyle}>
-                  <td className="px-4 py-2.5 font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                    {s.receiptNumber}
-                  </td>
-                  <td className="px-4 py-2.5 whitespace-nowrap" style={labelStyle}>
-                    {new Date(s.createdAt).toLocaleString(locale)}
-                  </td>
-                  <td className="px-4 py-2.5" style={labelStyle}>
-                    {s.customerName ?? t('retail.sales.walkIn')}
-                  </td>
-                  <td className="px-4 py-2.5" style={labelStyle}>
-                    {s.itemCount}
-                  </td>
-                  <td className="px-4 py-2.5 whitespace-nowrap font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                    {formatMoney(s.total)}
-                  </td>
-                  <td className="px-4 py-2.5" style={labelStyle}>
-                    {t(`retail.method.${s.paymentMethod}`)}
-                  </td>
-                  <td className="px-4 py-2.5">
+                <Tr key={s.id}>
+                  <Td className="ui-strong">{s.receiptNumber}</Td>
+                  <Td className="whitespace-nowrap">{new Date(s.createdAt).toLocaleString(locale)}</Td>
+                  <Td>{s.customerName ?? t('retail.sales.walkIn')}</Td>
+                  <Td>{s.itemCount}</Td>
+                  <Td className="whitespace-nowrap ui-strong">{formatMoney(s.total)}</Td>
+                  <Td>{t(`retail.method.${s.paymentMethod}`)}</Td>
+                  <Td>
                     <Badge tone={SALE_STATUS_TONE[s.status]}>{t(`retail.status.${s.status}`)}</Badge>
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
-                    <Link href={`/magaza/satislar/${s.id}`} className="text-xs font-medium hover:underline" style={{ color: 'var(--color-text-secondary)' }}>
+                  </Td>
+                  <Td className="text-right">
+                    <LinkButton href={`/magaza/satislar/${s.id}`} variant="link" tone="surface" size="sm">
                       {t('retail.sales.open')}
-                    </Link>
-                  </td>
-                </tr>
+                    </LinkButton>
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Tbody>
+          </Table>
+        </Card>
       )}
       {pages > 1 && (
         <div className="flex justify-end gap-2">

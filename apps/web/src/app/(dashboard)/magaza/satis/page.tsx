@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { LinkButton, PageHeader } from '@/components/ui';
 import { PageGuard } from '@/components/common/PageGuard';
 import { useT } from '@/components/i18n/I18nProvider';
 import { QuickSale } from '@/components/retail/QuickSale';
@@ -10,19 +10,15 @@ function QuickSalePage() {
   const t = useT();
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-            {t('retail.pos.title')}
-          </h2>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('retail.pos.subtitle')}
-          </p>
-        </div>
-        <Link href="/magaza" className="text-sm font-medium hover:underline" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('retail.title')}
-        </Link>
-      </div>
+      <PageHeader
+        title={t('retail.pos.title')}
+        description={t('retail.pos.subtitle')}
+        actions={
+          <LinkButton href="/magaza" variant="link" tone="surface" size="sm">
+            {t('retail.title')}
+          </LinkButton>
+        }
+      />
       <QuickSale />
     </div>
   );

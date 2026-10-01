@@ -3,8 +3,6 @@
 import { useLocale } from '@/components/i18n/I18nProvider';
 import { PageHeader as UiPageHeader } from '@/components/ui/PageHeader';
 
-export { inputClass, inputStyle } from './legacy-controls';
-
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: React.ReactNode }) {
   return <UiPageHeader title={title} description={subtitle} actions={actions} />;
 }

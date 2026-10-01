@@ -283,7 +283,7 @@ function BadgeDefinitions() {
 
           {studioBadges.length > 0 && (
             <div>
-              <h4 className="ui-caption ui-strong uppercase mb-2">{t('settings.badges.studioSection')}</h4>
+              <h4 className="ui-caption ui-strong ui-eyebrow mb-2">{t('settings.badges.studioSection')}</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {studioBadges.map((b) => (
                   <BadgeCard
@@ -301,7 +301,7 @@ function BadgeDefinitions() {
 
           {globalBadges.length > 0 && (
             <div>
-              <h4 className="ui-caption ui-strong uppercase mb-2">{t('settings.badges.globalSection')}</h4>
+              <h4 className="ui-caption ui-strong ui-eyebrow mb-2">{t('settings.badges.globalSection')}</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {globalBadges.map((b) => (
                   <BadgeCard key={b.id} badge={b} canEdit={canEdit} onEdit={() => {}} onToggleActive={() => {}} onDelete={() => {}} />

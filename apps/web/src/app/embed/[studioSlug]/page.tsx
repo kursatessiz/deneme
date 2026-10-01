@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { resolveTheme, themeCssVariables, STUDIO_SLUG_PATTERN } from '@platform/shared';
 import { trackingHeaders } from '@/lib/tracking/client';
+import { Button, Card, CardContent, Checkbox, FieldGroup, Input, Select } from '@/components/ui';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 import { publicApiBaseUrl } from '@/lib/public-api-url';
@@ -207,159 +208,85 @@ export default function EmbedBookingPage() {
   const cssVars = themeCssVariables(theme) as React.CSSProperties;
 
   return (
-    <div
-      style={{ ...cssVars, background: 'var(--color-background)', color: 'var(--color-text-primary)' }}
-      className="min-h-screen p-4"
-    >
-      <div
-        className="mx-auto max-w-md rounded-2xl border p-5"
-        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)' }}
-      >
-        {config?.logoUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={config.logoUrl} alt={config.name} className="mb-3 h-8 object-contain" />
-        )}
-        <h1 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          {config?.name ?? t('embed.defaultTitle')}
-        </h1>
+    <div style={{ ...cssVars, backgroundColor: 'var(--pui-bg-muted)', color: 'var(--pui-text)' }} className="min-h-screen p-4">
+      <Card className="mx-auto max-w-md">
+        <CardContent className="p-5">
+          {config?.logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={config.logoUrl} alt={config.name} className="h-8 object-contain" />
+          )}
+          <h1 className="ui-heading">{config?.name ?? t('embed.defaultTitle')}</h1>
 
-        {status === 'loading' && <p className="mt-4 text-sm" style={{ color: 'var(--color-text-muted)' }}>{t('embed.loading')}</p>}
+          {status === 'loading' && <p className="ui-text-muted">{t('embed.loading')}</p>}
 
-        {status === 'error' && (
-          <p className="mt-4 text-sm" style={{ color: '#b42318' }}>
-            {error ?? t('embed.errors.loadFailedRetry')}
-          </p>
-        )}
+          {status === 'error' && <p className="ui-text-error">{error ?? t('embed.errors.loadFailedRetry')}</p>}
 
-        {status === 'idle' && (
-          <div className="mt-4 space-y-4">
-            <div>
-              <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                {t('embed.chooseSession')}
-              </label>
-              <select
-                value={selectedScheduleId}
-                onChange={(e) => setSelectedScheduleId(e.target.value)}
-                className="w-full border px-3 py-2 text-sm"
-                style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)', background: 'var(--color-surface)', color: 'var(--color-text-primary)' }}
-              >
-                <option value="">{t('embed.choosePlaceholder')}</option>
-                {schedules.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {formatTime(s.startTime, locale)} - {serviceTypeName(s.serviceTypeId)}
-                    {s.branchId ? ` (${branchName(s.branchId)})` : ''}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-                {t('embed.selectionHint')}
-              </p>
+          {status === 'idle' && (
+            <div className="grid gap-4">
+              <FieldGroup label={t('embed.chooseSession')} hint={t('embed.selectionHint')}>
+                <Select value={selectedScheduleId} onChange={(e) => setSelectedScheduleId(e.target.value)}>
+                  <option value="">{t('embed.choosePlaceholder')}</option>
+                  {schedules.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {formatTime(s.startTime, locale)} - {serviceTypeName(s.serviceTypeId)}
+                      {s.branchId ? ` (${branchName(s.branchId)})` : ''}
+                    </option>
+                  ))}
+                </Select>
+              </FieldGroup>
+
+              {mode === 'choose' && (
+                <div className="grid gap-2">
+                  <Button block disabled={!selectedScheduleId} onClick={openMemberApp}>
+                    {t('embed.openApp')}
+                  </Button>
+                  <Button block variant="outline" tone="surface" disabled={!selectedScheduleId} onClick={() => setMode('lead')}>
+                    {t('embed.firstTime')}
+                  </Button>
+                </div>
+              )}
+
+              {mode === 'lead' && leadStatus !== 'submitted' && (
+                <form onSubmit={submitLead} className="grid gap-3">
+                  <FieldGroup label={t('embed.fullName')}>
+                    <Input required value={leadName} onChange={(e) => setLeadName(e.target.value)} />
+                  </FieldGroup>
+                  <FieldGroup label={t('embed.phone')}>
+                    <Input required type="tel" placeholder="+90 5xx xxx xx xx" value={leadPhone} onChange={(e) => setLeadPhone(e.target.value)} />
+                  </FieldGroup>
+                  {/* Honeypot: hidden from real visitors via CSS, bots often fill every field. */}
+                  <input
+                    type="text"
+                    value={leadWebsite}
+                    onChange={(e) => setLeadWebsite(e.target.value)}
+                    tabIndex={-1}
+                    autoComplete="off"
+                    aria-hidden="true"
+                    style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
+                  />
+                  <Checkbox checked={leadConsent} onChange={(e) => setLeadConsent(e.target.checked)} required label={<span className="ui-caption">{t('embed.consent')}</span>} className="items-start" />
+                  {leadError && <p className="ui-caption ui-text-error">{leadError}</p>}
+                  <div className="flex gap-2">
+                    <Button variant="outline" tone="surface" className="flex-1" onClick={() => setMode('choose')}>
+                      {t('embed.back')}
+                    </Button>
+                    <Button type="submit" className="flex-1" disabled={leadStatus === 'submitting' || !leadConsent}>
+                      {leadStatus === 'submitting' ? t('embed.sending') : t('embed.send')}
+                    </Button>
+                  </div>
+                </form>
+              )}
+
+              {mode === 'lead' && leadStatus === 'submitted' && (
+                <div className="grid gap-2">
+                  <p className="ui-strong">{t('embed.submitted.title')}</p>
+                  <p className="ui-caption">{t('embed.submitted.description')}</p>
+                </div>
+              )}
             </div>
-
-            {mode === 'choose' && (
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  disabled={!selectedScheduleId}
-                  onClick={openMemberApp}
-                  className="w-full py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-                  style={{ background: 'var(--gradient-brand)', borderRadius: 'var(--radius-button)', color: 'var(--color-on-primary)' }}
-                >
-                  {t('embed.openApp')}
-                </button>
-                <button
-                  type="button"
-                  disabled={!selectedScheduleId}
-                  onClick={() => setMode('lead')}
-                  className="w-full border py-2.5 text-sm font-semibold disabled:opacity-60"
-                  style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-button)', color: 'var(--color-text-primary)' }}
-                >
-                  {t('embed.firstTime')}
-                </button>
-              </div>
-            )}
-
-            {mode === 'lead' && leadStatus !== 'submitted' && (
-              <form onSubmit={submitLead} className="space-y-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                    {t('embed.fullName')}
-                  </label>
-                  <input
-                    required
-                    value={leadName}
-                    onChange={(e) => setLeadName(e.target.value)}
-                    className="w-full border px-3 py-2 text-sm"
-                    style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)', background: 'var(--color-surface)', color: 'var(--color-text-primary)' }}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                    {t('embed.phone')}
-                  </label>
-                  <input
-                    required
-                    type="tel"
-                    placeholder="+90 5xx xxx xx xx"
-                    value={leadPhone}
-                    onChange={(e) => setLeadPhone(e.target.value)}
-                    className="w-full border px-3 py-2 text-sm"
-                    style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-input)', background: 'var(--color-surface)', color: 'var(--color-text-primary)' }}
-                  />
-                </div>
-                {/* Honeypot: hidden from real visitors via CSS, bots often fill every field. */}
-                <input
-                  type="text"
-                  value={leadWebsite}
-                  onChange={(e) => setLeadWebsite(e.target.value)}
-                  tabIndex={-1}
-                  autoComplete="off"
-                  aria-hidden="true"
-                  style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
-                />
-                <label className="flex items-start gap-2 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-                  <input type="checkbox" checked={leadConsent} onChange={(e) => setLeadConsent(e.target.checked)} required className="mt-0.5" />
-                  {t('embed.consent')}
-                </label>
-                {leadError && (
-                  <p className="text-xs" style={{ color: '#b42318' }}>
-                    {leadError}
-                  </p>
-                )}
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setMode('choose')}
-                    className="flex-1 border py-2.5 text-sm font-semibold"
-                    style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-button)', color: 'var(--color-text-primary)' }}
-                  >
-                    {t('embed.back')}
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={leadStatus === 'submitting' || !leadConsent}
-                    className="flex-1 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-                    style={{ background: 'var(--gradient-brand)', borderRadius: 'var(--radius-button)', color: 'var(--color-on-primary)' }}
-                  >
-                    {leadStatus === 'submitting' ? t('embed.sending') : t('embed.send')}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {mode === 'lead' && leadStatus === 'submitted' && (
-              <div className="space-y-2">
-                <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                  {t('embed.submitted.title')}
-                </p>
-                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  {t('embed.submitted.description')}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

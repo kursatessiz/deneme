@@ -8,7 +8,7 @@ import { useBff } from '@/lib/session/use-bff';
 import { retailErrorMessage } from '@/lib/retail/errors';
 import { Modal } from '@/components/common/Modal';
 import { PermissionButton } from '@/components/common/PermissionButton';
-import { fieldClass, fieldStyle, labelStyle } from './styles';
+import { Button, FieldGroup, Input, List, ListItem, Select } from '@/components/ui';
 
 const MODES = ['receive', 'adjust', 'count', 'transfer'] as const;
 type Mode = (typeof MODES)[number];
@@ -65,61 +65,51 @@ export function StockDialog({ studioId, product, onClose, onDone }: { studioId: 
 
   return (
     <Modal title={t('retail.stock.title', { name: product.name })} onClose={onClose}>
-      <div className="space-y-4">
-        <div>
-          <h4 className="text-xs font-semibold mb-1" style={labelStyle}>
-            {t('retail.stock.levels')}
-          </h4>
+      <div className="grid gap-4">
+        <div className="grid gap-1">
+          <h4 className="ui-caption ui-strong">{t('retail.stock.levels')}</h4>
           {product.stock.length === 0 ? (
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              {t('retail.stock.none')}
-            </p>
+            <p className="ui-caption">{t('retail.stock.none')}</p>
           ) : (
-            <ul className="text-sm space-y-0.5" style={{ color: 'var(--color-text-primary)' }}>
+            <List>
               {product.stock.map((s) => (
-                <li key={s.branchId} className="flex justify-between">
+                <ListItem key={s.branchId} className="flex justify-between">
                   <span>{s.branchName}</span>
-                  <span className="font-medium">{s.quantity}</span>
-                </li>
+                  <span className="ui-strong">{s.quantity}</span>
+                </ListItem>
               ))}
-            </ul>
+            </List>
           )}
         </div>
         <div role="radiogroup" aria-label={t('retail.stock.levels')} className="flex flex-wrap gap-1">
           {MODES.map((m) => (
-            <button
+            <Button
               key={m}
-              type="button"
               role="radio"
               aria-checked={mode === m}
+              variant={mode === m ? 'solid' : 'outline'}
+              tone={mode === m ? 'theme' : 'surface'}
+              size="sm"
               onClick={() => setMode(m)}
-              className="text-xs px-3 py-1.5"
-              style={{
-                ...fieldStyle,
-                borderColor: mode === m ? 'var(--color-primary)' : 'var(--color-border)',
-                fontWeight: mode === m ? 600 : 400,
-              }}
             >
               {t(`retail.stock.mode.${m}`)}
-            </button>
+            </Button>
           ))}
         </div>
-        <form onSubmit={submit} className="space-y-3">
+        <form onSubmit={submit} className="grid gap-3">
           <div className="grid grid-cols-2 gap-3">
-            <label className="block text-xs space-y-1" style={labelStyle}>
-              <span>{mode === 'transfer' ? t('retail.stock.fromBranch') : t('retail.branch')}</span>
-              <select value={from} onChange={(e) => setBranchId(e.target.value)} className={fieldClass} style={fieldStyle}>
+            <FieldGroup label={mode === 'transfer' ? t('retail.stock.fromBranch') : t('retail.branch')}>
+              <Select value={from} onChange={(e) => setBranchId(e.target.value)}>
                 {branches.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
                   </option>
                 ))}
-              </select>
-            </label>
+              </Select>
+            </FieldGroup>
             {mode === 'transfer' && (
-              <label className="block text-xs space-y-1" style={labelStyle}>
-                <span>{t('retail.stock.toBranch')}</span>
-                <select value={to} onChange={(e) => setToBranchId(e.target.value)} className={fieldClass} style={fieldStyle}>
+              <FieldGroup label={t('retail.stock.toBranch')}>
+                <Select value={to} onChange={(e) => setToBranchId(e.target.value)}>
                   {branches
                     .filter((b) => b.id !== from)
                     .map((b) => (
@@ -127,35 +117,27 @@ export function StockDialog({ studioId, product, onClose, onDone }: { studioId: 
                         {b.name}
                       </option>
                     ))}
-                </select>
-              </label>
+                </Select>
+              </FieldGroup>
             )}
-            <label className="block text-xs space-y-1" style={labelStyle}>
-              <span>{mode === 'adjust' ? t('retail.stock.delta') : mode === 'count' ? t('retail.stock.counted') : t('retail.stock.quantity')}</span>
-              <input inputMode="numeric" value={quantity} onChange={(e) => setQuantity(e.target.value)} className={fieldClass} style={fieldStyle} />
-            </label>
+            <FieldGroup label={mode === 'adjust' ? t('retail.stock.delta') : mode === 'count' ? t('retail.stock.counted') : t('retail.stock.quantity')}>
+              <Input inputMode="numeric" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+            </FieldGroup>
             {mode === 'receive' && (
-              <label className="block text-xs space-y-1" style={labelStyle}>
-                <span>{t('retail.stock.unitCost')}</span>
-                <input inputMode="decimal" value={unitCost} onChange={(e) => setUnitCost(e.target.value)} className={fieldClass} style={fieldStyle} />
-              </label>
+              <FieldGroup label={t('retail.stock.unitCost')}>
+                <Input inputMode="decimal" value={unitCost} onChange={(e) => setUnitCost(e.target.value)} />
+              </FieldGroup>
             )}
           </div>
-          <label className="block text-xs space-y-1" style={labelStyle}>
-            <span>{t('retail.stock.reason')}</span>
-            <input value={reason} onChange={(e) => setReason(e.target.value)} className={fieldClass} style={fieldStyle} />
-          </label>
+          <FieldGroup label={t('retail.stock.reason')}>
+            <Input value={reason} onChange={(e) => setReason(e.target.value)} />
+          </FieldGroup>
           {mode === 'receive' && (
-            <label className="block text-xs space-y-1" style={labelStyle}>
-              <span>{t('retail.stock.reference')}</span>
-              <input value={reference} onChange={(e) => setReference(e.target.value)} className={fieldClass} style={fieldStyle} />
-            </label>
+            <FieldGroup label={t('retail.stock.reference')}>
+              <Input value={reference} onChange={(e) => setReference(e.target.value)} />
+            </FieldGroup>
           )}
-          {error && (
-            <p className="text-xs" style={{ color: 'var(--color-danger, #b42318)' }}>
-              {error}
-            </p>
-          )}
+          {error && <p className="ui-caption ui-text-error">{error}</p>}
           <div className="flex justify-end gap-2">
             <PermissionButton type="button" variant="ghost" onClick={onClose}>
               {t('common.cancel')}

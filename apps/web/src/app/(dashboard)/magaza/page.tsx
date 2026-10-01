@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import type { PermissionKey } from '@platform/shared';
+import { LinkButton, PageHeader } from '@/components/ui';
 import { PageGuard } from '@/components/common/PageGuard';
 import { Tabs } from '@/components/common/Tabs';
 import { useT } from '@/components/i18n/I18nProvider';
@@ -31,25 +31,17 @@ function StorePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-            {t('retail.title')}
-          </h2>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('retail.subtitle')}
-          </p>
-        </div>
-        {hasAnyPermission(['retail.sell'], permissions, isOwner) && (
-          <Link
-            href="/magaza/satis"
-            className="text-xs font-medium px-3.5 py-2 transition-opacity hover:opacity-90"
-            style={{ borderRadius: 'var(--radius-button)', background: 'var(--gradient-brand)', color: 'var(--color-on-primary)' }}
-          >
-            {t('retail.quickSaleLink')}
-          </Link>
-        )}
-      </div>
+      <PageHeader
+        title={t('retail.title')}
+        description={t('retail.subtitle')}
+        actions={
+          hasAnyPermission(['retail.sell'], permissions, isOwner) ? (
+            <LinkButton href="/magaza/satis" size="sm">
+              {t('retail.quickSaleLink')}
+            </LinkButton>
+          ) : undefined
+        }
+      />
 
       <Tabs tabs={visible.map((v) => ({ key: v.key, label: t(`retail.tabs.${v.key}`) }))} active={tab} onChange={(k) => setTab(k as typeof tab)} />
 

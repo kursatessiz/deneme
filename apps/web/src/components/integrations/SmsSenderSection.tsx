@@ -45,7 +45,7 @@ function ProviderRow({ row, onSave, fmtDate }: { row: HubSmsSenderProviderDTO; o
           aria-label={t('smsSender.senderId')}
           title={t('smsSender.senderIdHelp')}
           invalid={!valid}
-          className="font-mono w-40"
+          className="ui-mono w-40"
         />
       </Td>
       <Td>

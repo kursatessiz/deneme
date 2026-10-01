@@ -52,7 +52,7 @@ function TodayList() {
           ))}
         </div>
       )}
-      {!loading && error && <p className="pui-card-content" style={{ color: 'var(--pui-error)' }}>{t('screens.dashboard.today.loadFailed')}</p>}
+      {!loading && error && <p className="pui-card-content ui-text-error">{t('screens.dashboard.today.loadFailed')}</p>}
       {!loading && !error && rows.length === 0 && (
         <div className="p-4">
           <EmptyState icon={<CalendarDays className="w-8 h-8" aria-hidden="true" />} title={t('screens.dashboard.today.empty')} />

@@ -23,7 +23,7 @@ export function AutomationSection({ data }: { data: IntegrationHubDTO }) {
       <HubTable head={[t('automationHub.events'), '', t('automationHub.subscriptions')]}>
         {data.automation.platformEvents.map((e) => (
           <Tr key={e.event}>
-            <Td className="font-mono ui-small">{e.event}</Td>
+            <Td className="ui-mono ui-small">{e.event}</Td>
             <Td>{t(eventKey(e.event))}</Td>
             <Td>
               <Badge tone={e.activeSubscriptions > 0 ? 'success' : 'neutral'}>{e.activeSubscriptions}</Badge>

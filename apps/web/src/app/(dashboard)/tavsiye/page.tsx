@@ -78,7 +78,7 @@ function ReferralPage() {
           </Button>
         </div>
         <p>
-          {t('billing.referral.codeLabel')}: <span className="font-mono ui-strong" data-testid="referral-code">{data.code}</span>
+          {t('billing.referral.codeLabel')}: <span className="ui-mono ui-strong" data-testid="referral-code">{data.code}</span>
         </p>
         <p className="ui-text-muted">
           {rewardText}

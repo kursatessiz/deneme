@@ -12,7 +12,7 @@ import { useBff } from '@/lib/session/use-bff';
 import { hasAnyPermission } from '@/lib/nav';
 import { newCheckoutKey, retailErrorMessage } from '@/lib/retail/errors';
 import { PermissionButton } from '@/components/common/PermissionButton';
-import { fieldClass, fieldStyle, labelStyle, sectionStyle } from './styles';
+import { Button, FieldGroup, Input, List, ListItem, Radio, Select } from '@/components/ui';
 
 interface CartLine {
   product: ProductDTO;
@@ -184,239 +184,182 @@ export function QuickSale() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-      <section className="space-y-3">
+      <section className="grid gap-3 content-start">
         <div className="flex flex-wrap items-end gap-3">
-          <label className="text-xs space-y-1" style={labelStyle}>
-            <span className="block">{t('retail.branch')}</span>
-            <select value={activeBranch} onChange={(e) => setBranchId(e.target.value)} className="text-sm px-3 py-1.5" style={fieldStyle}>
+          <FieldGroup label={t('retail.branch')}>
+            <Select value={activeBranch} onChange={(e) => setBranchId(e.target.value)}>
               {branches.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="text-xs space-y-1 flex-1 min-w-[220px]" style={labelStyle}>
-            <span className="block">{t('retail.pos.searchLabel')}</span>
-            <input
-              type="search"
-              autoFocus
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={onSearchKey}
-              placeholder={t('retail.pos.searchPlaceholder')}
-              className={fieldClass}
-              style={fieldStyle}
-            />
-          </label>
+            </Select>
+          </FieldGroup>
+          <FieldGroup label={t('retail.pos.searchLabel')} className="flex-1 min-w-[220px]">
+            <Input type="search" autoFocus value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={onSearchKey} placeholder={t('retail.pos.searchPlaceholder')} />
+          </FieldGroup>
         </div>
-        {searchMessage && (
-          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {searchMessage}
-          </p>
-        )}
+        {searchMessage && <p className="ui-caption">{searchMessage}</p>}
         <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3" data-testid="pos-results">
           {results.map((p) => {
             const stock = stockAt(p, activeBranch);
             return (
-              <li key={p.id} className="p-3 flex items-center justify-between gap-2" style={sectionStyle}>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
-                    {p.name}
+              <li key={p.id} className="pui-card">
+                <div className="pui-card-content flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="ui-strong truncate">{p.name}</div>
+                    <div className="ui-caption">
+                      {formatMoney(p.price)}
+                      {stock !== null && <span className="ml-2">{t('retail.pos.inStock', { count: stock })}</span>}
+                    </div>
                   </div>
-                  <div className="text-xs" style={labelStyle}>
-                    {formatMoney(p.price)}
-                    {stock !== null && <span className="ml-2">{t('retail.pos.inStock', { count: stock })}</span>}
-                  </div>
+                  <Button variant="outline" tone="surface" size="sm" onClick={() => addToCart(p)} aria-label={`${t('retail.pos.add')} ${p.name}`} className="shrink-0">
+                    {t('retail.pos.add')}
+                  </Button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => addToCart(p)}
-                  aria-label={`${t('retail.pos.add')} ${p.name}`}
-                  className="text-xs font-medium px-3 py-1.5 shrink-0"
-                  style={{ ...fieldStyle, borderRadius: 'var(--radius-button)' }}
-                >
-                  {t('retail.pos.add')}
-                </button>
               </li>
             );
           })}
         </ul>
       </section>
 
-      <aside className="p-4 space-y-4 h-fit" style={sectionStyle} aria-label={t('retail.pos.cart')}>
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          {t('retail.pos.cart')}
-        </h3>
-        {done && (
-          <div className="text-sm space-y-2" role="status">
-            <p style={{ color: 'var(--color-text-primary)' }}>{t('retail.pos.done', { receipt: done.receiptNumber })}</p>
-            <div className="flex gap-3 text-xs font-medium">
-              <Link href={`/magaza/satislar/${done.id}`} className="hover:underline" style={{ color: 'var(--color-text-secondary)' }}>
-                {t('retail.pos.viewReceipt')}
-              </Link>
-              <button type="button" onClick={() => setDone(null)} className="hover:underline" style={{ color: 'var(--color-text-secondary)' }}>
-                {t('retail.pos.newSale')}
-              </button>
-            </div>
-          </div>
-        )}
-        {cart.length === 0 ? (
-          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {t('retail.pos.cartEmpty')}
-          </p>
-        ) : (
-          <ul className="space-y-2" data-testid="pos-cart">
-            {cart.map((l) => (
-              <li key={l.product.id} className="text-sm space-y-1">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
-                    {l.product.name}
-                  </span>
-                  <button type="button" aria-label={`${t('retail.pos.remove')} ${l.product.name}`} onClick={() => setQuantity(l.product.id, 0)} style={{ color: 'var(--color-text-muted)' }}>
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button type="button" aria-label={`${t('retail.pos.decrease')} ${l.product.name}`} onClick={() => setQuantity(l.product.id, l.quantity - 1)} className="p-1" style={fieldStyle}>
-                    <Minus className="w-3 h-3" />
-                  </button>
-                  <span aria-label={t('retail.pos.quantity')} className="w-6 text-center">
-                    {l.quantity}
-                  </span>
-                  <button type="button" aria-label={`${t('retail.pos.increase')} ${l.product.name}`} onClick={() => setQuantity(l.product.id, l.quantity + 1)} className="p-1" style={fieldStyle}>
-                    <Plus className="w-3 h-3" />
-                  </button>
-                  <span className="text-xs" style={labelStyle}>
-                    x {formatMoney(l.product.price)}
-                  </span>
-                  <input
-                    inputMode="decimal"
-                    aria-label={`${t('retail.pos.lineDiscount')} ${l.product.name}`}
-                    placeholder={t('retail.pos.lineDiscount')}
-                    value={l.discount}
-                    onChange={(e) => setCart((lines) => lines.map((x) => (x.product.id === l.product.id ? { ...x, discount: e.target.value } : x)))}
-                    className="ml-auto w-24 text-xs px-2 py-1"
-                    style={fieldStyle}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {canSearchMembers && (
-          <div className="space-y-1">
-            <span className="block text-xs" style={labelStyle}>
-              {t('retail.pos.customer')}
-            </span>
-            {member ? (
-              <div className="flex items-center justify-between text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                <span>{`${member.firstName ?? ''} ${member.lastName ?? ''}`.trim()}</span>
-                <button type="button" onClick={() => setMember(null)} className="text-xs hover:underline" style={labelStyle}>
-                  {t('retail.pos.clearCustomer')}
-                </button>
+      <aside className="pui-card h-fit" aria-label={t('retail.pos.cart')}>
+        <div className="pui-card-content">
+          <h3 className="ui-heading">{t('retail.pos.cart')}</h3>
+          {done && (
+            <div className="grid gap-2" role="status">
+              <p>{t('retail.pos.done', { receipt: done.receiptNumber })}</p>
+              <div className="flex gap-3 ui-small">
+                <Link href={`/magaza/satislar/${done.id}`} className="pui-link pui-surface">
+                  {t('retail.pos.viewReceipt')}
+                </Link>
+                <Button variant="link" tone="surface" size="sm" onClick={() => setDone(null)}>
+                  {t('retail.pos.newSale')}
+                </Button>
               </div>
-            ) : (
-              <>
-                <input
-                  type="search"
-                  aria-label={t('retail.pos.customerSearch')}
-                  placeholder={t('retail.pos.customerSearch')}
-                  value={memberQuery}
-                  onChange={(e) => setMemberQuery(e.target.value)}
-                  className={fieldClass}
-                  style={fieldStyle}
-                />
-                {members.length > 0 && (
-                  <ul className="text-sm" style={fieldStyle}>
-                    {members.map((m) => (
-                      <li key={m.id}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setMember(m);
-                            setMembers([]);
-                          }}
-                          className="w-full text-left px-3 py-1.5 hover:opacity-80"
-                        >
-                          {`${m.firstName ?? ''} ${m.lastName ?? ''}`.trim()}
-                          {m.phone && <span className="ml-2 text-xs" style={labelStyle}>{m.phone}</span>}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-                  {t('retail.pos.walkIn')}
-                </p>
-              </>
-            )}
-          </div>
-        )}
-
-        {member && (
-          <label className="block text-xs space-y-1" style={labelStyle}>
-            <span>{t('retail.pos.promoCode')}</span>
-            <input value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} className={fieldClass} style={fieldStyle} />
-          </label>
-        )}
-
-        <fieldset className="space-y-1">
-          <legend className="text-xs" style={labelStyle}>
-            {t('retail.pos.paymentMethod')}
-          </legend>
-          <div className="flex flex-wrap gap-3">
-            {RETAIL_PAYMENT_METHODS.map((m) => (
-              <label key={m} className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                <input type="radio" name="retail-payment-method" checked={method === m} onChange={() => setMethod(m)} />
-                {t(`retail.method.${m}`)}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
-        <label className="block text-xs space-y-1" style={labelStyle}>
-          <span>{t('retail.pos.note')}</span>
-          <input value={note} onChange={(e) => setNote(e.target.value)} className={fieldClass} style={fieldStyle} />
-        </label>
-
-        {estimate && (
-          <dl className="text-sm space-y-1" data-testid="pos-totals">
-            <div className="flex justify-between" style={labelStyle}>
-              <dt>{t('retail.pos.subtotal')}</dt>
-              <dd>{formatMoney(estimate.subtotal)}</dd>
             </div>
-            {Number(estimate.discountTotal) > 0 && (
-              <div className="flex justify-between" style={labelStyle}>
-                <dt>{t('retail.pos.discount')}</dt>
-                <dd>-{formatMoney(estimate.discountTotal)}</dd>
+          )}
+          {cart.length === 0 ? (
+            <p className="ui-caption">{t('retail.pos.cartEmpty')}</p>
+          ) : (
+            <ul className="grid gap-3" data-testid="pos-cart">
+              {cart.map((l) => (
+                <li key={l.product.id} className="grid gap-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="ui-strong truncate">{l.product.name}</span>
+                    <Button variant="link" tone="muted" size="sm" iconOnly aria-label={`${t('retail.pos.remove')} ${l.product.name}`} onClick={() => setQuantity(l.product.id, 0)} icon={<X className="ui-icon" aria-hidden="true" />} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" tone="surface" size="sm" iconOnly aria-label={`${t('retail.pos.decrease')} ${l.product.name}`} onClick={() => setQuantity(l.product.id, l.quantity - 1)} icon={<Minus className="ui-icon" aria-hidden="true" />} />
+                    <span aria-label={t('retail.pos.quantity')} className="w-6 text-center">
+                      {l.quantity}
+                    </span>
+                    <Button variant="outline" tone="surface" size="sm" iconOnly aria-label={`${t('retail.pos.increase')} ${l.product.name}`} onClick={() => setQuantity(l.product.id, l.quantity + 1)} icon={<Plus className="ui-icon" aria-hidden="true" />} />
+                    <span className="ui-caption">x {formatMoney(l.product.price)}</span>
+                    <Input
+                      inputMode="decimal"
+                      aria-label={`${t('retail.pos.lineDiscount')} ${l.product.name}`}
+                      placeholder={t('retail.pos.lineDiscount')}
+                      value={l.discount}
+                      onChange={(e) => setCart((lines) => lines.map((x) => (x.product.id === l.product.id ? { ...x, discount: e.target.value } : x)))}
+                      className="ml-auto w-24"
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {canSearchMembers && (
+            <div className="grid gap-1">
+              <span className="ui-caption">{t('retail.pos.customer')}</span>
+              {member ? (
+                <div className="flex items-center justify-between">
+                  <span>{`${member.firstName ?? ''} ${member.lastName ?? ''}`.trim()}</span>
+                  <Button variant="link" tone="muted" size="sm" onClick={() => setMember(null)}>
+                    {t('retail.pos.clearCustomer')}
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Input type="search" aria-label={t('retail.pos.customerSearch')} placeholder={t('retail.pos.customerSearch')} value={memberQuery} onChange={(e) => setMemberQuery(e.target.value)} />
+                  {members.length > 0 && (
+                    <List className="ui-panel">
+                      {members.map((m) => (
+                        <ListItem key={m.id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMember(m);
+                              setMembers([]);
+                            }}
+                            className="w-full text-left"
+                          >
+                            {`${m.firstName ?? ''} ${m.lastName ?? ''}`.trim()}
+                            {m.phone && <span className="ml-2 ui-caption">{m.phone}</span>}
+                          </button>
+                        </ListItem>
+                      ))}
+                    </List>
+                  )}
+                  <p className="ui-caption">{t('retail.pos.walkIn')}</p>
+                </>
+              )}
+            </div>
+          )}
+
+          {member && (
+            <FieldGroup label={t('retail.pos.promoCode')}>
+              <Input value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} />
+            </FieldGroup>
+          )}
+
+          <fieldset className="grid gap-1">
+            <legend className="ui-caption">{t('retail.pos.paymentMethod')}</legend>
+            <div className="flex flex-wrap gap-3">
+              {RETAIL_PAYMENT_METHODS.map((m) => (
+                <Radio key={m} name="retail-payment-method" checked={method === m} onChange={() => setMethod(m)} label={t(`retail.method.${m}`)} />
+              ))}
+            </div>
+          </fieldset>
+
+          <FieldGroup label={t('retail.pos.note')}>
+            <Input value={note} onChange={(e) => setNote(e.target.value)} />
+          </FieldGroup>
+
+          {estimate && (
+            <dl className="grid gap-1" data-testid="pos-totals">
+              <div className="flex justify-between ui-text-muted">
+                <dt>{t('retail.pos.subtotal')}</dt>
+                <dd>{formatMoney(estimate.subtotal)}</dd>
               </div>
-            )}
-            <div className="flex justify-between" style={labelStyle}>
-              <dt>{t('retail.pos.tax')}</dt>
-              <dd>{formatMoney(estimate.taxTotal)}</dd>
-            </div>
-            <div className="flex justify-between font-semibold text-base" style={{ color: 'var(--color-text-primary)' }}>
-              <dt>{t('retail.pos.total')}</dt>
-              <dd>{formatMoney(estimate.total)}</dd>
-            </div>
-            {promoCode.trim() && (
-              <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-                {t('retail.pos.estimateHint')}
-              </p>
-            )}
-          </dl>
-        )}
+              {Number(estimate.discountTotal) > 0 && (
+                <div className="flex justify-between ui-text-muted">
+                  <dt>{t('retail.pos.discount')}</dt>
+                  <dd>-{formatMoney(estimate.discountTotal)}</dd>
+                </div>
+              )}
+              <div className="flex justify-between ui-text-muted">
+                <dt>{t('retail.pos.tax')}</dt>
+                <dd>{formatMoney(estimate.taxTotal)}</dd>
+              </div>
+              <div className="flex justify-between ui-strong ui-rule pt-2">
+                <dt>{t('retail.pos.total')}</dt>
+                <dd>{formatMoney(estimate.total)}</dd>
+              </div>
+              {promoCode.trim() && <p className="ui-caption">{t('retail.pos.estimateHint')}</p>}
+            </dl>
+          )}
 
-        {error && (
-          <p className="text-xs" role="alert" style={{ color: 'var(--color-danger, #b42318)' }}>
-            {error}
-          </p>
-        )}
-        <PermissionButton required={['retail.sell']} variant="primary" className="w-full py-2 text-sm" disabled={busy || cart.length === 0} onClick={charge}>
-          {busy ? t('retail.pos.charging') : t('retail.pos.charge')}
-        </PermissionButton>
+          {error && (
+            <p className="ui-small ui-text-error" role="alert">
+              {error}
+            </p>
+          )}
+          <PermissionButton required={['retail.sell']} variant="primary" className="ui-btn-block" disabled={busy || cart.length === 0} onClick={charge}>
+            {busy ? t('retail.pos.charging') : t('retail.pos.charge')}
+          </PermissionButton>
+        </div>
       </aside>
     </div>
   );

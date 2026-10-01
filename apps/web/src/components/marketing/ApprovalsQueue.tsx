@@ -174,7 +174,7 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
   const id = `approval-${title.replace(/\W+/g, '-').toLowerCase()}`;
   return (
     <section aria-labelledby={id} className="space-y-1 pt-3 ui-rule">
-      <h4 id={id} className="uppercase ui-strong ui-caption">
+      <h4 id={id} className="ui-eyebrow ui-strong ui-caption">
         {title}
       </h4>
       {children}
