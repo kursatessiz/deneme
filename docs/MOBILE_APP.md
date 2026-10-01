@@ -7,6 +7,48 @@ EAS build kurulumunu anlatır. Üye tarafı (rezervasyon, paket, sağlık entegr
 backlog dokümanlarına bakın (`docs/HEALTH_INTEGRATION.md`, `docs/CHECKIN.md`, `docs/VIDEO.md`,
 `docs/MOBILE_WIDGETS.md`).
 
+## Tasarım dili (Perfect UI)
+
+Mobil uygulama webin kullandığı görsel dili (Perfect UI, bkz. `docs/TASARIM.md`) çizer. Renk, köşe,
+boşluk ve yazı boyutu için tek kaynak `@platform/shared` içindeki `PERFECT_UI_TOKENS`'tır; ekranlar
+temayı `useTheme()` (içeride `resolveTheme()`) üzerinden alır ve hiçbir yerde sabit renk, köşe veya
+yazı boyutu yazmaz.
+
+- **Yazı tipi yalnızca Inter**: `@expo-google-fonts/inter` (400, 500, 600, 700). React Native özel
+  fontlarda ağırlık üretemediği için her ağırlık ayrı yüz olarak yüklenir (`src/fonts.ts`, adlar
+  `src/interFaces.ts`). `src/components/Text` ve `TextInput`, react-native'in `Text` ve `TextInput`
+  bileşenlerinin yerine geçer ve `fontWeight` değerinden Inter yüzünü seçer; yüzler yüklenene kadar
+  sistem yazı tipi kullanılır. Ekranlarda `Text` her zaman bu bileşenden alınır.
+- **Ölçek**: boşluk 4'ün katları (`spacing`), köşe 6 (kontroller) ve 9 (kartlar), çip ve rozet tam
+  yuvarlak (`radii`), kenarlık 1px (`borderWidth`), yazı 12 / 14 / 16 / 20 / 24 (`typography.size`
+  `xs`..`xl`, taban 14), dokunma hedefi en az 44 (`TOUCH_TARGET`).
+- **Tek tema ailesi, açık/koyu kullanıcıya ait**: Görünüm ekranı yalnızca sistem, açık ve koyu seçer
+  (`mAccount.appearance.*`). Kullanıcının kayıtlı tema ailesi eski bir alandır; olduğu gibi geri
+  gönderilir. Marka rengi (`theme.colors.primary`) vurgu rengidir, üzerindeki metin `onColor()` ile
+  hesaplanır (`theme.colors.onPrimary`). İşletme teması ekranı (`hesabim/isletme-temasi`) yalnızca logo
+  adresini ve ana rengi (`#RRGGBB`) düzenler; aile ve gradyan alanları API'de olduğu gibi kalır ve
+  uygulama bunları değiştirmez.
+- **Gradyan yalnızca iki alanda**: `MemberCard` (üye kartı) ve `PackageCard` (paket kartı), ayrıca
+  sadakat bakiye kartı (üye kartı alanı); kaynağı `brandGradient()` (birincil renkten türetilir) ve
+  metin rengi `onGradient()`. `GradientSurface` yalnızca bu alanları kabul eder. Birincil buton ve
+  başlık bandı düz birincil renktir.
+- **Gezinme**: sekme çubuğu ve üst başlıklar `src/navigation.ts` içindeki `useNavigationStyle()`
+  üzerinden token alır (sayfa rengi zemin, 1px alt kenarlık, gölge yok, Inter başlık, etkin sekme rengi
+  marka rengi; marka rengi zeminde okunmayacak kadar açıksa metin rengi). Tüm `Stack` yerleşimleri aynı
+  stili kullanır.
+- **Bileşen kümesi** (`apps/mobile/src/components`): `Button` (solid / soft / outline; ton: theme,
+  success, warn, error, muted, surface; `compact`), `Card` (isteğe bağlı başlık bandı, `onPress`),
+  `Badge`, `Chip`, `ListRow`, `EmptyState`, `SectionTitle`, `StatTile`, `Skeleton`, `TextField`,
+  `ChoiceRow`, `SwitchRow`. Eski adlar korunur ve yeni ilkellerin üzerinde çalışır: `PrimaryButton`
+  (`Button`'a eşleme), `ScreenContainer`, `DateTimeField`, `SessionDetail`, `MemberCard`,
+  `PackageCard`, `PermissionGate`, `MemberHealthTrendCard`. Ton ve renk çözümü `tones.ts`'te
+  (`toneColors()`), yumuşak (soft) dolgu rolün %12 saydamlığıdır.
+- **Sınırlar**: Android ana ekran widget'ı tema bağlamı dışında çizildiği için kendi sabit
+  paletini kullanır (`src/widgets`); kök hata ekranı (`ErrorFallback`) sağlayıcıların dışında olduğu için
+  sistem yazı tipiyle çizilir.
+- **Doğrulama**: bu ortamda cihaz veya simülatör yoktur; görsel sonuç yalnızca tip denetimi, birim
+  testleri ve kod incelemesiyle doğrulandı. Gerçek cihazda açık/koyu ve marka rengi taraması gerekir.
+
 ## Roller ve navigasyon
 
 Sekmeler sabittir (`app/(app)/_layout.tsx`): Ana sayfa, Seanslar (üye kendi rezervasyonu), Videolar,
