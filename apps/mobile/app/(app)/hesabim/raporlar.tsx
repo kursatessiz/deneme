@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { MembersReportDTO, OccupancyReportDTO, RenewalReportDTO, TrainerReportDTO } from '@platform/shared';
 
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { formatCurrency, useLocale } from '../../../src/i18n';
-import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 const DAY = 24 * 60 * 60 * 1000;
 const percent = (v: number) => `%${Math.round(v * 100)}`;
@@ -55,7 +56,7 @@ export default function RaporlarScreen() {
     load();
   }, [load]);
 
-  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: theme.family.radii.card };
+  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: radii.md };
   const avgOccupancy =
     occupancy && occupancy.byDay.length > 0
       ? occupancy.byDay.reduce((sum, d) => sum + d.occupancy, 0) / occupancy.byDay.length
@@ -82,7 +83,7 @@ export default function RaporlarScreen() {
       {error ? <Text style={{ color: palette.danger }}>{error}</Text> : null}
 
       {occupancy ? (
-        <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+        <View style={[styles.card, card, styles.bordered]}>
           <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>Doluluk</Text>
           <Text style={[styles.bigValue, fonts.display, { color: c.textPrimary }]}>{percent(avgOccupancy)}</Text>
           <Bar ratio={avgOccupancy} />
@@ -90,7 +91,7 @@ export default function RaporlarScreen() {
       ) : null}
 
       {members ? (
-        <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+        <View style={[styles.card, card, styles.bordered]}>
           <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>Gelir</Text>
           <Text style={[styles.bigValue, fonts.display, { color: c.textPrimary }]}>{money(members.revenue)}</Text>
           <View style={styles.metrics}>
@@ -103,7 +104,7 @@ export default function RaporlarScreen() {
       ) : null}
 
       {renewal ? (
-        <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+        <View style={[styles.card, card, styles.bordered]}>
           <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>Yenileme orani</Text>
           <Text style={[styles.bigValue, fonts.display, { color: c.textPrimary }]}>{percent(renewal.renewalRate)}</Text>
           <Bar ratio={renewal.renewalRate} />
@@ -114,7 +115,7 @@ export default function RaporlarScreen() {
       ) : null}
 
       {topTrainers.length > 0 ? (
-        <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+        <View style={[styles.card, card, styles.bordered]}>
           <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>En yogun 5 egitmen</Text>
           {topTrainers.map((t) => (
             <View key={t.trainerProfileId} style={styles.trainerRow}>
@@ -160,15 +161,15 @@ const styles = StyleSheet.create({
   content: { padding: spacing[4], gap: spacing[3] },
   caption: { fontSize: typography.size.sm },
   card: { padding: spacing[4] },
-  bordered: { borderWidth: 1 },
+  bordered: { borderWidth: borderWidth },
   title: { fontSize: typography.size.lg, marginBottom: spacing[2] },
   bigValue: { fontSize: typography.size.xl, marginBottom: spacing[2], fontVariant: ['tabular-nums'] },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', rowGap: spacing[3], marginTop: spacing[3] },
   metric: { width: '50%' },
   metricValue: { fontSize: typography.size.lg, fontVariant: ['tabular-nums'] },
   metricLabel: { fontSize: typography.size.xs, marginTop: 2 },
-  barTrack: { height: 8, borderRadius: 4, overflow: 'hidden' },
-  barFill: { height: 8, borderRadius: 4 },
+  barTrack: { height: spacing[2], borderRadius: radii.full, overflow: 'hidden' },
+  barFill: { height: spacing[2], borderRadius: radii.full },
   trainerRow: { marginTop: spacing[3] },
   trainerName: { fontSize: typography.size.sm, marginBottom: spacing[1] },
   trainerBarWrap: { marginBottom: spacing[1] },

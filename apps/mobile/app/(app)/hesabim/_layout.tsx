@@ -2,11 +2,13 @@ import { Stack } from 'expo-router';
 import React from 'react';
 
 import { useT } from '../../../src/i18n';
+import { useNavigationStyle } from '../../../src/navigation';
 
 export default function HesabimLayout() {
   const t = useT();
+  const navigation = useNavigationStyle();
   return (
-    <Stack>
+    <Stack screenOptions={navigation.stack}>
       <Stack.Screen name="index" options={{ title: t('mNav.tab.account') }} />
       <Stack.Screen name="bildirimler" options={{ title: t('mAccount.menu.notifications') }} />
       <Stack.Screen name="takvim" options={{ title: t('mAccount.menu.calendarSub') }} />

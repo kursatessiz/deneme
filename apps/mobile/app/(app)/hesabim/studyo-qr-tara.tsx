@@ -1,13 +1,14 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { useT } from '../../../src/i18n';
 import { apiRequest, ApiError } from '../../../src/lib/api';
-import { radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import { borderWidth, radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 interface ScanResult {
   bookingId: string;
@@ -103,7 +104,7 @@ const styles = StyleSheet.create({
   cameraWrap: {
     flex: 1,
     minHeight: 320,
-    borderWidth: 1,
+    borderWidth: borderWidth,
     borderRadius: radii.lg,
     overflow: 'hidden',
   },

@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import type { RateBookingResultDTO } from '@platform/shared';
 
@@ -9,7 +9,9 @@ import { ScreenContainer } from '../../../../src/components/ScreenContainer';
 import { useT } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { useSession } from '../../../../src/lib/session';
-import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../../src/theme';
+import { Text } from '../../../../src/components/Text';
+import { TextInput } from '../../../../src/components/TextInput';
 
 const SCORE_SIZE = 56; // >= 44pt touch target
 
@@ -69,7 +71,7 @@ export default function RateSessionScreen() {
         <Text style={[styles.subtitle, fonts.body, { color: c.textSecondary }]}>{t('mRating.ratingSaved')}</Text>
 
         {result.reviewPrompt ? (
-          <View style={[styles.reviewCard, { backgroundColor: c.surface, borderColor: c.border, borderRadius: theme.family.radii.card }]}>
+          <View style={[styles.reviewCard, { backgroundColor: c.surface, borderColor: c.border, borderRadius: radii.md }]}>
             <Text style={[styles.reviewTitle, fonts.bodyStrong, { color: c.textPrimary }]}>{t('mRating.shareExperiencePrompt')}</Text>
             <Text style={[styles.reviewSubtitle, fonts.body, { color: c.textSecondary }]}>{t('mRating.googleReviewHint')}</Text>
             <PrimaryButton label={t('mRating.leaveGoogleReview')} onPress={() => openGoogleReview(result.reviewPrompt!.googleReviewUrl)} variant="secondary" />
@@ -100,11 +102,11 @@ export default function RateSessionScreen() {
                 {
                   borderColor: selected ? theme.colors.primary : c.border,
                   backgroundColor: selected ? theme.colors.primary : c.surface,
-                  borderRadius: theme.family.radii.button,
+                  borderRadius: radii.sm,
                 },
               ]}
             >
-              <Text style={[styles.scoreValue, fonts.display, { color: selected ? '#ffffff' : c.textPrimary }]}>{value}</Text>
+              <Text style={[styles.scoreValue, fonts.display, { color: selected ? theme.colors.onPrimary : c.textPrimary }]}>{value}</Text>
             </Pressable>
           );
         })}
@@ -121,7 +123,7 @@ export default function RateSessionScreen() {
         placeholderTextColor={c.textMuted}
         multiline
         maxLength={1000}
-        style={[styles.commentInput, { borderColor: c.border, color: c.textPrimary, borderRadius: theme.family.radii.card }]}
+        style={[styles.commentInput, { borderColor: c.border, color: c.textPrimary, borderRadius: radii.md }]}
       />
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -138,7 +140,7 @@ const styles = StyleSheet.create({
   scoreButton: {
     width: SCORE_SIZE,
     height: SCORE_SIZE,
-    borderWidth: 2,
+    borderWidth: borderWidth * 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -146,14 +148,14 @@ const styles = StyleSheet.create({
   scoreLabel: { fontSize: typography.size.sm, marginBottom: spacing[5], textAlign: 'center' },
   fieldLabel: { fontSize: typography.size.md, marginBottom: spacing[2] },
   commentInput: {
-    borderWidth: 1,
+    borderWidth: borderWidth,
     minHeight: 100,
     padding: spacing[3],
     fontSize: typography.size.md,
     marginBottom: spacing[5],
     textAlignVertical: 'top',
   },
-  reviewCard: { borderWidth: 1, padding: spacing[4], gap: spacing[3], marginBottom: spacing[5] },
+  reviewCard: { borderWidth: borderWidth, padding: spacing[4], gap: spacing[3], marginBottom: spacing[5] },
   reviewTitle: { fontSize: typography.size.md },
   reviewSubtitle: { fontSize: typography.size.sm },
   errorText: { color: palette.danger, fontSize: typography.size.sm, marginBottom: spacing[3] },

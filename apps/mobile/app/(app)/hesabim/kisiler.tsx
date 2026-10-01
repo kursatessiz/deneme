@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import type { ContactDetailDTO, ContactDTO, ContactListResponseDTO } from '@platform/shared';
 
@@ -8,7 +8,9 @@ import { formatDateTime, useLocale, useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { isTabletWidth } from '../../../src/lib/layout';
 import { useSession } from '../../../src/lib/session';
-import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, TOUCH_TARGET, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
+import { TextInput } from '../../../src/components/TextInput';
 
 /**
  * Hesabım > Kişiler (owner and reception, crm.view): a read-only contact
@@ -78,7 +80,7 @@ function Contacts() {
     setRefreshing(false);
   };
 
-  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: theme.family.radii.card };
+  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: radii.md };
 
   const list = (
     <View style={styles.pane}>
@@ -88,7 +90,7 @@ function Contacts() {
         placeholder={t('mAccount.contacts.search')}
         placeholderTextColor={c.textMuted}
         accessibilityLabel={t('mAccount.contacts.search')}
-        style={[styles.input, fonts.body, { borderColor: c.border, color: c.textPrimary, backgroundColor: c.surface, borderRadius: theme.family.radii.input }]}
+        style={[styles.input, fonts.body, { borderColor: c.border, color: c.textPrimary, backgroundColor: c.surface, borderRadius: radii.sm }]}
       />
       {!items && !error ? <ActivityIndicator style={styles.spinner} /> : null}
       {items && items.length === 0 ? <Text style={[styles.meta, fonts.body, { color: c.textSecondary }]}>{t('mAccount.contacts.empty')}</Text> : null}
@@ -179,13 +181,13 @@ const styles = StyleSheet.create({
   detailColumn: { flex: 2 },
   pane: { gap: spacing[3] },
   spinner: { marginTop: spacing[6] },
-  card: { padding: spacing[3], borderWidth: 1, gap: spacing[1] },
+  card: { padding: spacing[3], borderWidth: borderWidth, gap: spacing[1] },
   name: { fontSize: typography.size.md },
-  back: { minHeight: 44, justifyContent: 'center' },
+  back: { minHeight: TOUCH_TARGET, justifyContent: 'center' },
   title: { fontSize: typography.size.lg },
   section: { fontSize: typography.size.md },
   activity: { gap: 2, paddingVertical: spacing[1] },
   body: { fontSize: typography.size.md },
   meta: { fontSize: typography.size.sm },
-  input: { minHeight: 44, borderWidth: 1, paddingHorizontal: spacing[3], fontSize: typography.size.md },
+  input: { minHeight: TOUCH_TARGET, borderWidth: borderWidth, paddingHorizontal: spacing[3], fontSize: typography.size.md },
 });

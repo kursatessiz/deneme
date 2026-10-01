@@ -1,15 +1,17 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
-import { LOYALTY_ERROR_CODES } from '@platform/shared';
+import { LOYALTY_ERROR_CODES, onGradient } from '@platform/shared';
 import type { LoyaltyMemberSummaryDTO, LoyaltyRedeemResultDTO } from '@platform/shared';
 
 import { GradientSurface } from '../../../src/components/GradientSurface';
+import { withAlpha } from '../../../src/components/tones';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { formatDate, useLocale, useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 /** A fresh key per redemption attempt: a retried request never spends twice. */
 function newKey(): string {
@@ -22,6 +24,7 @@ export default function PuanlarimScreen() {
   const { locale } = useLocale();
   const { activeMembership } = useSession();
   const { theme } = useTheme();
+  const onBrand = onGradient(theme.gradient);
   const fonts = useThemeFonts();
   const c = theme.colors;
   const studioId = activeMembership?.studioId;
@@ -79,7 +82,7 @@ export default function PuanlarimScreen() {
     ]);
   };
 
-  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: theme.family.radii.card };
+  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: radii.md };
 
   return (
     <ScrollView
@@ -101,13 +104,13 @@ export default function PuanlarimScreen() {
 
       {summary ? (
         <>
-          <GradientSurface slot="memberCard" style={[styles.balanceCard, { borderRadius: theme.family.radii.card }]}>
-            <Text style={[styles.balanceLabel, fonts.body, { color: 'rgba(255,255,255,0.85)' }]}>{t('mLoyalty.balance')}</Text>
-            <Text style={[styles.balanceValue, fonts.display, { color: '#FFFFFF' }]} accessibilityRole="header">
+          <GradientSurface slot="memberCard" style={[styles.balanceCard, { borderRadius: radii.md }]}>
+            <Text style={[styles.balanceLabel, fonts.body, { color: withAlpha(onBrand, 0.85) }]}>{t('mLoyalty.balance')}</Text>
+            <Text style={[styles.balanceValue, fonts.display, { color: onBrand }]} accessibilityRole="header">
               {t('mLoyalty.points', { count: summary.balance })}
             </Text>
             {summary.nextExpiry ? (
-              <Text style={[styles.balanceLabel, fonts.body, { color: 'rgba(255,255,255,0.85)' }]}>
+              <Text style={[styles.balanceLabel, fonts.body, { color: withAlpha(onBrand, 0.85) }]}>
                 {t('mLoyalty.nextExpiry', { points: summary.nextExpiry.points, date: formatDate(summary.nextExpiry.expiresAt, locale) })}
               </Text>
             ) : null}
@@ -116,7 +119,7 @@ export default function PuanlarimScreen() {
           {!summary.enabled ? <Text style={[styles.note, fonts.body, { color: c.textMuted }]}>{t('mLoyalty.disabled')}</Text> : null}
 
           {summary.enabled ? (
-            <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+            <View style={[styles.card, card, styles.bordered]}>
               <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mLoyalty.rewards')}</Text>
               {!summary.memberRedeemEnabled ? <Text style={[styles.note, fonts.body, { color: c.textMuted }]}>{t('mLoyalty.redeemAtDesk')}</Text> : null}
               {summary.rewards.length === 0 ? <Text style={[styles.note, fonts.body, { color: c.textMuted }]}>{t('mLoyalty.noRewards')}</Text> : null}
@@ -138,7 +141,7 @@ export default function PuanlarimScreen() {
             </View>
           ) : null}
 
-          <View style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+          <View style={[styles.card, card, styles.bordered]}>
             <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mLoyalty.history')}</Text>
             {summary.ledger.length === 0 ? <Text style={[styles.note, fonts.body, { color: c.textMuted }]}>{t('mLoyalty.noHistory')}</Text> : null}
             {summary.ledger.map((row) => (
@@ -161,14 +164,14 @@ const styles = StyleSheet.create({
   content: { padding: spacing[4], gap: spacing[4] },
   balanceCard: { padding: spacing[4], gap: spacing[1] },
   balanceLabel: { fontSize: typography.size.sm },
-  balanceValue: { fontSize: typography.size['2xl'] },
+  balanceValue: { fontSize: typography.size.xl },
   card: { padding: spacing[4], gap: spacing[2] },
-  bordered: { borderWidth: 1 },
+  bordered: { borderWidth: borderWidth },
   title: { fontSize: typography.size.lg, marginBottom: spacing[1] },
   note: { fontSize: typography.size.sm },
-  rewardRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2], borderBottomWidth: 1, paddingVertical: spacing[2] },
+  rewardRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2], borderBottomWidth: borderWidth, paddingVertical: spacing[2] },
   rewardText: { flex: 1, gap: 2 },
   meta: { fontSize: typography.size.xs },
-  historyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, paddingVertical: spacing[2] },
+  historyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: borderWidth, paddingVertical: spacing[2] },
   error: { fontSize: typography.size.sm },
 });

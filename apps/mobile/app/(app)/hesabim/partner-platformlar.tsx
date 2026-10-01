@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import type { PartnerConnectionConfig, PartnerProviderName } from '@platform/shared';
 
@@ -11,8 +11,9 @@ import { TextField } from '../../../src/components/TextField';
 import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, TOUCH_TARGET, typography, useThemeColors } from '../../../src/theme';
 import type { Translate } from '@platform/shared';
+import { Text } from '../../../src/components/Text';
 
 interface PartnerConnectionDTO {
   id: string;
@@ -221,22 +222,22 @@ export default function PartnerPlatformlarScreen() {
 const styles = StyleSheet.create({
   intro: { fontSize: typography.size.sm, marginBottom: spacing[4] },
   error: { color: palette.danger, fontSize: typography.size.sm, marginBottom: spacing[3] },
-  card: { borderWidth: 1, borderRadius: radii.md, padding: spacing[4], marginBottom: spacing[3] },
+  card: { borderWidth: borderWidth, borderRadius: radii.md, padding: spacing[4], marginBottom: spacing[3] },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   cardHeaderText: { flex: 1, marginRight: spacing[3] },
   cardTitle: { fontSize: typography.size.md, fontWeight: typography.weight.semibold, marginBottom: spacing[1] },
   cardSubtitle: { fontSize: typography.size.xs },
-  statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginTop: spacing[3], paddingTop: spacing[3], borderTopWidth: 1 },
+  statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginTop: spacing[3], paddingTop: spacing[3], borderTopWidth: borderWidth },
   statText: { fontSize: typography.size.xs },
   label: { fontSize: typography.size.sm, fontWeight: typography.weight.medium, marginBottom: spacing[2] },
   providerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginBottom: spacing[3] },
   providerChip: {
-    borderWidth: 1,
-    borderRadius: radii.md,
+    borderWidth: borderWidth,
+    borderRadius: radii.full,
     paddingVertical: spacing[2],
     paddingHorizontal: spacing[3],
     fontSize: typography.size.xs,
-    minHeight: 44,
+    minHeight: TOUCH_TARGET,
     textAlignVertical: 'center',
   },
 });

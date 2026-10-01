@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { LeadStage } from '@platform/shared';
 import type { LeadDTO, LeadListResponseDTO } from '@platform/shared';
@@ -8,8 +8,9 @@ import type { LeadDTO, LeadListResponseDTO } from '@platform/shared';
 import { useLocale, useT } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { useSession } from '../../../../src/lib/session';
-import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../../src/theme';
+import { borderWidth, palette, radii, spacing, TOUCH_TARGET, typography, useTheme, useThemeFonts } from '../../../../src/theme';
 import type { Translate } from '@platform/shared';
+import { Text } from '../../../../src/components/Text';
 
 function stages(t: Translate): { key: LeadStage; label: string }[] {
   return [
@@ -88,7 +89,7 @@ export default function PotansiyelUyelerScreen() {
     setRefreshing(false);
   };
 
-  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: theme.family.radii.card };
+  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: radii.md };
 
   return (
     <ScrollView
@@ -136,7 +137,7 @@ export default function PotansiyelUyelerScreen() {
             accessibilityRole="button"
             accessibilityLabel={t('mLeads.a11y.openDetail', { name: lead.fullName })}
             onPress={() => router.push(`/(app)/hesabim/potansiyel-uyeler/${lead.id}`)}
-            style={[styles.card, card, theme.family.cardBorder && styles.bordered]}
+            style={[styles.card, card, styles.bordered]}
           >
             <Text style={[styles.name, fonts.display, { color: c.textPrimary }]}>{lead.fullName}</Text>
             <Text style={[styles.meta, fonts.body, { color: c.textSecondary }]}>{lead.phone}</Text>
@@ -157,18 +158,18 @@ const styles = StyleSheet.create({
   content: { padding: spacing[4], gap: spacing[3] },
   tabsRow: { flexGrow: 0, marginBottom: spacing[3] },
   tab: {
-    minHeight: 44,
+    minHeight: TOUCH_TARGET,
     justifyContent: 'center',
     paddingHorizontal: spacing[3],
     marginRight: spacing[2],
-    borderRadius: 999,
-    borderWidth: 1,
+    borderRadius: radii.full,
+    borderWidth: borderWidth,
   },
   tabLabel: { fontSize: typography.size.sm },
   spinner: { marginTop: spacing[6] },
   empty: { fontSize: typography.size.md, marginTop: spacing[4] },
   card: { padding: spacing[4] },
-  bordered: { borderWidth: 1 },
+  bordered: { borderWidth: borderWidth },
   name: { fontSize: typography.size.lg, marginBottom: spacing[1] },
   meta: { fontSize: typography.size.sm },
 });

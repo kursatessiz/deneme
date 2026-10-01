@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import type { GiftCardBalanceDTO, GiftCardDTO, MemberPackageDTO, MemberSubscriptionDTO, PaymentDTO } from '@platform/shared';
 
@@ -9,8 +9,9 @@ import { TextField } from '../../../src/components/TextField';
 import { useLocale, useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, TOUCH_TARGET, typography, useTheme, useThemeFonts } from '../../../src/theme';
 import type { Translate } from '@platform/shared';
+import { Text } from '../../../src/components/Text';
 
 function giftCardStatusLabels(t: Translate): Record<string, string> {
   return {
@@ -329,7 +330,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing[2],
   },
   card: {
-    borderWidth: 1,
+    borderWidth: borderWidth,
     borderRadius: radii.md,
     padding: spacing[4],
     marginBottom: spacing[3],
@@ -353,9 +354,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 44,
+    minHeight: TOUCH_TARGET,
     paddingVertical: spacing[3],
-    borderBottomWidth: 1,
+    borderBottomWidth: borderWidth,
   },
   paymentInfo: {
     flexShrink: 1,

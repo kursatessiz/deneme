@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native';
 
 import { localizedText } from '@platform/shared';
 import type { StudioAddOnDTO, StudioAddOnListDTO } from '@platform/shared';
@@ -10,7 +10,8 @@ import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { formatDate, useLocale, useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 /**
  * Read-only list of the studio's add-ons (G5c-2): the ones that are active or
@@ -89,7 +90,7 @@ export default function UygulamalarScreen() {
 const styles = StyleSheet.create({
   title: { fontSize: typography.size.xl, fontWeight: typography.weight.bold, marginBottom: spacing[2] },
   description: { fontSize: typography.size.sm, marginBottom: spacing[4] },
-  row: { borderWidth: 1, borderRadius: radii.md, padding: spacing[3], marginBottom: spacing[3] },
+  row: { borderWidth: borderWidth, borderRadius: radii.md, padding: spacing[3], marginBottom: spacing[3] },
   rowHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing[1] },
   name: { fontSize: typography.size.md, fontWeight: typography.weight.semibold },
   state: { fontSize: typography.size.sm },

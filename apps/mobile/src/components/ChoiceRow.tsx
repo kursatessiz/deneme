@@ -2,17 +2,20 @@ import React from 'react';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { spacing, typography, useTheme, useThemeFonts } from '../theme';
+import { borderWidth, radii, spacing, typography, useTheme, useThemeFonts } from '../theme';
 
 interface ChoiceRowProps {
   label: string;
   description?: string;
   selected: boolean;
   onPress: () => void;
-  /** Optional preview drawn on the right, e.g. color swatches. */
+  /** Optional preview drawn on the right. */
   accessory?: ReactNode;
   disabled?: boolean;
 }
+
+const RADIO_SIZE = spacing[5];
+const DOT_SIZE = spacing[2];
 
 /** Single-choice list row with a radio indicator, >=44pt touch target. */
 export function ChoiceRow({ label, description, selected, onPress, accessory, disabled }: ChoiceRowProps) {
@@ -32,8 +35,8 @@ export function ChoiceRow({ label, description, selected, onPress, accessory, di
         {selected ? <View style={[styles.dot, { backgroundColor: c.primary }]} /> : null}
       </View>
       <View style={styles.text}>
-        <Text style={[styles.label, fonts.bodyStrong, { color: c.textPrimary }]}>{label}</Text>
-        {description ? <Text style={[styles.description, fonts.body, { color: c.textSecondary }]}>{description}</Text> : null}
+        <Text style={[styles.label, fonts.bodyMedium, { color: c.textPrimary }]}>{label}</Text>
+        {description ? <Text style={[styles.description, fonts.body, { color: c.textMuted }]}>{description}</Text> : null}
       </View>
       {accessory}
     </Pressable>
@@ -44,32 +47,32 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 56,
+    minHeight: spacing[12] + spacing[2],
     paddingVertical: spacing[3],
-    borderBottomWidth: 1,
+    borderBottomWidth: borderWidth,
     gap: spacing[3],
   },
   radio: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
+    width: RADIO_SIZE,
+    height: RADIO_SIZE,
+    borderRadius: radii.full,
+    borderWidth: borderWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: DOT_SIZE,
+    height: DOT_SIZE,
+    borderRadius: radii.full,
   },
   text: {
     flex: 1,
   },
   label: {
-    fontSize: typography.size.md,
+    fontSize: typography.size.sm,
   },
   description: {
-    fontSize: typography.size.sm,
-    marginTop: 2,
+    fontSize: typography.size.xs,
+    marginTop: spacing[1] / 2,
   },
 });

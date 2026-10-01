@@ -1,20 +1,26 @@
 import { Redirect } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import { THEME_FAMILIES, THEME_FAMILY_KEYS, getThemeFamily, onColor } from '@platform/shared';
-import type { TenantTheme, ThemeFamilyKey } from '@platform/shared';
+import { onColor } from '@platform/shared';
+import type { TenantTheme } from '@platform/shared';
 
-import { ChoiceRow } from '../../../src/components/ChoiceRow';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
-import { Swatches } from '../../../src/components/Swatches';
+import { Text } from '../../../src/components/Text';
+import { TextField } from '../../../src/components/TextField';
 import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { TOUCH_TARGET, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
 
-/** Owner/manager screen: the studio's default theme family, gradient and primary color. */
+const HEX = /^#[0-9a-fA-F]{6}$/;
+
+/**
+ * Owner/manager screen: the studio's logo and primary color. The stored theme
+ * family and gradient key are sent back unchanged (since T1 they no longer
+ * change what renders).
+ */
 export default function IsletmeTemasiScreen() {
   const { activeMembership, refreshUser } = useSession();
   const { theme } = useTheme();
@@ -45,17 +51,16 @@ export default function IsletmeTemasiScreen() {
     );
   }
 
-  const family = getThemeFamily(draft.themeFamily);
-
-  const pickFamily = (key: ThemeFamilyKey) => {
-    const next = THEME_FAMILIES[key];
-    setSaved(false);
-    setDraft({ ...draft, themeFamily: key, gradientPresetKey: next.gradients[0].key, themePrimary: next.gradients[0].stops[0] });
-  };
+  const colorValid = HEX.test(draft.themePrimary);
 
   const save = async () => {
-    setIsSaving(true);
     setError(undefined);
+    setSaved(false);
+    if (!colorValid) {
+      setError(t('mTheme.colorFormatError'));
+      return;
+    }
+    setIsSaving(true);
     try {
       const result = await apiRequest<TenantTheme>(`/studios/${studioId}/theme`, { method: 'PUT', body: draft });
       setDraft(result);
@@ -72,47 +77,33 @@ export default function IsletmeTemasiScreen() {
     <ScreenContainer>
       <Text style={[styles.lead, fonts.body, { color: c.textSecondary }]}>{t('mTheme.lead')}</Text>
 
-      <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mTheme.family')}</Text>
-      {THEME_FAMILY_KEYS.map((key) => {
-        const f = THEME_FAMILIES[key];
-        return (
-          <ChoiceRow
-            key={key}
-            label={f.label}
-            description={`${f.description} ${t('mTheme.recommendedFor', { recommendedFor: f.recommendedFor })}`}
-            selected={draft.themeFamily === key}
-            onPress={() => pickFamily(key)}
-          />
-        );
-      })}
+      <TextField
+        label={t('mTheme.logoUrl')}
+        value={draft.logoUrl ?? ''}
+        placeholder="https://..."
+        keyboardType="url"
+        onChangeText={(v) => {
+          setSaved(false);
+          setDraft({ ...draft, logoUrl: v.trim() === '' ? null : v });
+        }}
+      />
+      <TextField
+        label={t('mTheme.primaryColorLabel')}
+        value={draft.themePrimary}
+        placeholder="#0092CD"
+        maxLength={7}
+        errorMessage={colorValid ? undefined : t('mTheme.colorFormatError')}
+        onChangeText={(v) => {
+          setSaved(false);
+          setDraft({ ...draft, themePrimary: v });
+        }}
+      />
 
-      <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mTheme.gradient')}</Text>
-      <View style={styles.grid}>
-        {family.gradients.map((g) => {
-          const selected = draft.gradientPresetKey === g.key;
-          return (
-            <Pressable
-              key={g.key}
-              accessibilityRole="radio"
-              accessibilityState={{ selected }}
-              accessibilityLabel={g.label}
-              onPress={() => {
-                setSaved(false);
-                // Since T1 the stored preset key is ignored; a choice only sets the primary color.
-                setDraft({ ...draft, themePrimary: g.stops[0] });
-              }}
-              style={[styles.gradientChoice, { borderColor: selected ? c.textPrimary : c.border }]}
-            >
-              <Swatches colors={g.stops} size={22} radius={family.radii.chip > 20 ? 11 : family.radii.chip} />
-              <Text style={[styles.gradientLabel, fonts.body, { color: c.textPrimary }]}>{g.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <View style={[styles.preview, { backgroundColor: draft.themePrimary, borderRadius: family.radii.button }]}>
-        <Text style={[fonts.bodyStrong, { color: onColor(draft.themePrimary) }]}>{t('mTheme.primaryColor', { color: draft.themePrimary })}</Text>
-      </View>
+      {colorValid ? (
+        <View style={[styles.preview, { backgroundColor: draft.themePrimary, borderRadius: radii.sm }]}>
+          <Text style={[fonts.bodyMedium, { color: onColor(draft.themePrimary) }]}>{t('mTheme.primaryColor', { color: draft.themePrimary })}</Text>
+        </View>
+      ) : null}
 
       {error ? <Text style={[styles.message, { color: palette.danger }]}>{error}</Text> : null}
       {saved ? <Text style={[styles.message, { color: c.textSecondary }]}>{t('mTheme.saved')}</Text> : null}
@@ -122,20 +113,7 @@ export default function IsletmeTemasiScreen() {
 }
 
 const styles = StyleSheet.create({
-  lead: { fontSize: typography.size.sm, marginBottom: spacing[3] },
-  section: { fontSize: typography.size.sm, marginTop: spacing[4], marginBottom: spacing[1] },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginBottom: spacing[4] },
-  gradientChoice: {
-    minHeight: 44,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing[2],
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-  },
-  gradientLabel: { fontSize: typography.size.sm },
-  preview: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginBottom: spacing[4] },
+  lead: { fontSize: typography.size.sm, marginBottom: spacing[4] },
+  preview: { minHeight: TOUCH_TARGET, alignItems: 'center', justifyContent: 'center', marginBottom: spacing[4] },
   message: { fontSize: typography.size.sm, marginBottom: spacing[3] },
 });

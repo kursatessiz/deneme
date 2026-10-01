@@ -2,11 +2,11 @@ import type { trMTheme } from '../tr/mTheme';
 
 export const enMTheme: Record<keyof typeof trMTheme, string> = {
   'mTheme.lead':
-    'The theme you choose is the default for your members and staff. Users can pick a different theme on their own device; the logo, primary color and gradient always stay yours.',
-  'mTheme.family': 'Theme family',
-  'mTheme.recommendedFor': 'Recommended for: {recommendedFor}.',
-  'mTheme.gradient': 'Gradient',
+    'The logo and primary color appear in the app of your members and staff. Light, dark or system is each user\'s own choice; the logo and primary color always stay yours.',
+  'mTheme.logoUrl': 'Logo URL',
+  'mTheme.primaryColorLabel': 'Primary color',
   'mTheme.primaryColor': 'Primary color: {color}',
+  'mTheme.colorFormatError': 'The color must be in #RRGGBB format.',
   'mTheme.saved': 'Theme saved.',
   'mTheme.save': 'Save',
   'mTheme.errors.loadFailed': 'Theme could not be loaded.',

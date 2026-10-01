@@ -1,16 +1,21 @@
 import type { MeUpcomingBookingsDTO, PendingRatingPromptDTO, UpcomingBookingDTO } from '@platform/shared';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
+import { Button } from '../../src/components/Button';
+import { Card } from '../../src/components/Card';
+import { EmptyState } from '../../src/components/EmptyState';
 import { ScreenContainer } from '../../src/components/ScreenContainer';
+import { SectionTitle } from '../../src/components/SectionTitle';
 import { useLocale, useT } from '../../src/i18n';
 import { ApiError, apiRequest } from '../../src/lib/api';
 import { addBookingToDeviceCalendar, CalendarSyncError } from '../../src/lib/calendarSync';
 import { syncAllPendingWorkouts, syncTodayAggregatesIfOptedIn } from '../../src/health';
 import { useSession } from '../../src/lib/session';
-import { palette, spacing, typography, useTheme, useThemeFonts } from '../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../src/theme';
 import { refreshWidgets } from '../../src/widgets';
+import { Text } from '../../src/components/Text';
 
 function formatBookingTime(booking: UpcomingBookingDTO, locale: string): string {
   return new Intl.DateTimeFormat(locale, {
@@ -44,17 +49,7 @@ function UpcomingBookingCard({ booking }: { booking: UpcomingBookingDTO }) {
   };
 
   return (
-    <View
-      style={[
-        styles.card,
-        {
-          backgroundColor: c.surface,
-          borderColor: c.border,
-          borderRadius: theme.family.radii.card,
-          borderWidth: theme.family.cardBorder ? 1 : 0,
-        },
-      ]}
-    >
+    <Card style={styles.card}>
       <Text style={[styles.cardTitle, fonts.bodyStrong, { color: c.textPrimary }]}>{booking.serviceName}</Text>
       <Text style={[styles.cardSubtitle, fonts.body, { color: c.textSecondary }]}>{formatBookingTime(booking, locale)}</Text>
       <Text style={[styles.cardSubtitle, fonts.body, { color: c.textSecondary }]}>
@@ -65,19 +60,16 @@ function UpcomingBookingCard({ booking }: { booking: UpcomingBookingDTO }) {
         <Text style={[styles.cardSubtitle, fonts.body, { color: c.textMuted }]}>{t('mHome.trainerLabel', { name: booking.trainerName })}</Text>
       ) : null}
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('mHome.a11y.addToCalendar')}
+      <Button
+        compact
+        variant="soft"
+        label={status === 'saved' ? t('mHome.addedToCalendar') : status === 'saving' ? t('mHome.addingToCalendar') : t('mHome.addToCalendar')}
         onPress={handleAddToCalendar}
         disabled={status === 'saving' || status === 'saved'}
         style={styles.calendarButton}
-      >
-        <Text style={[styles.calendarButtonText, fonts.bodyStrong, { color: c.textPrimary }]}>
-          {status === 'saved' ? t('mHome.addedToCalendar') : status === 'saving' ? t('mHome.addingToCalendar') : t('mHome.addToCalendar')}
-        </Text>
-      </Pressable>
-      {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
-    </View>
+      />
+      {errorMessage ? <Text style={[styles.errorText, { color: theme.roles.error }]}>{errorMessage}</Text> : null}
+    </Card>
   );
 }
 
@@ -89,27 +81,18 @@ function PendingRatingCard({ prompt }: { prompt: PendingRatingPromptDTO }) {
   const t = useT();
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={t('mHome.a11y.rateSession', { service: prompt.serviceTypeName })}
+    <Card
       onPress={() => router.push(`/(app)/seans/degerlendir/${prompt.bookingId}`)}
-      style={[
-        styles.card,
-        {
-          backgroundColor: c.surface,
-          borderColor: c.border,
-          borderRadius: theme.family.radii.card,
-          borderWidth: theme.family.cardBorder ? 1 : 0,
-        },
-      ]}
+      accessibilityLabel={t('mHome.a11y.rateSession', { service: prompt.serviceTypeName })}
+      style={styles.card}
     >
       <Text style={[styles.cardTitle, fonts.bodyStrong, { color: c.textPrimary }]}>{t('mHome.howWasYourSession')}</Text>
       <Text style={[styles.cardSubtitle, fonts.body, { color: c.textSecondary }]}>
         {prompt.serviceTypeName}
         {prompt.trainerName ? ` - ${prompt.trainerName}` : ''}
       </Text>
-      <Text style={[styles.calendarButtonText, fonts.bodyStrong, { color: c.textPrimary }]}>{t('mHome.rate')}</Text>
-    </Pressable>
+      <Text style={[styles.rateText, fonts.bodyMedium, { color: c.primary }]}>{t('mHome.rate')}</Text>
+    </Card>
   );
 }
 
@@ -164,7 +147,7 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer>
-      <View style={[styles.band, { borderRadius: theme.family.radii.card, backgroundColor: theme.colors.primary }]}>
+      <View style={[styles.band, { borderRadius: radii.md, backgroundColor: theme.colors.primary }]}>
         {activeMembership ? (
           <Text style={[styles.studio, fonts.bodyStrong, { color: onBand }]}>{activeMembership.studioName}</Text>
         ) : null}
@@ -176,52 +159,24 @@ export default function HomeScreen() {
       ))}
 
       {isMember ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('mHome.a11y.viewThisWeeksSessions')}
-          onPress={() => router.push('/(app)/seans')}
-          style={[
-            styles.link,
-            {
-              borderColor: c.border,
-              backgroundColor: c.surface,
-              borderRadius: theme.family.radii.card,
-              borderWidth: theme.family.cardBorder ? 1 : 0,
-            },
-          ]}
-        >
+        <Card onPress={() => router.push('/(app)/seans')} accessibilityLabel={t('mHome.a11y.viewThisWeeksSessions')} style={styles.link}>
           <Text style={[styles.linkTitle, fonts.bodyStrong, { color: c.textPrimary }]}>{t('mHome.thisWeeksSessions')}</Text>
           <Text style={[styles.linkSubtitle, fonts.body, { color: c.textSecondary }]}>{t('mHome.pickSessionToBook')}</Text>
-        </Pressable>
+        </Card>
       ) : null}
 
       {isMember ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('mHome.a11y.viewMyAchievements')}
-          onPress={() => router.push('/(app)/hesabim/basarilarim')}
-          style={[
-            styles.link,
-            {
-              borderColor: c.border,
-              backgroundColor: c.surface,
-              borderRadius: theme.family.radii.card,
-              borderWidth: theme.family.cardBorder ? 1 : 0,
-            },
-          ]}
-        >
+        <Card onPress={() => router.push('/(app)/hesabim/basarilarim')} accessibilityLabel={t('mHome.a11y.viewMyAchievements')} style={styles.link}>
           <Text style={[styles.linkTitle, fonts.bodyStrong, { color: c.textPrimary }]}>{t('mHome.myAchievements')}</Text>
           <Text style={[styles.linkSubtitle, fonts.body, { color: c.textSecondary }]}>{t('mHome.achievementsSubtitle')}</Text>
-        </Pressable>
+        </Card>
       ) : null}
 
-      <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mHome.upcomingBookings')}</Text>
+      <SectionTitle title={t('mHome.upcomingBookings')} />
 
       {bookings === null && !loadError ? <ActivityIndicator color={c.textPrimary} /> : null}
-      {loadError ? <Text style={styles.errorText}>{loadError}</Text> : null}
-      {bookings?.length === 0 ? (
-        <Text style={[styles.emptyText, fonts.body, { color: c.textMuted }]}>{t('mHome.noUpcomingBookings')}</Text>
-      ) : null}
+      {loadError ? <Text style={[styles.errorText, { color: theme.roles.error }]}>{loadError}</Text> : null}
+      {bookings?.length === 0 ? <EmptyState title={t('mHome.noUpcomingBookings')} /> : null}
       {bookings?.map((booking) => (
         <UpcomingBookingCard key={booking.bookingId} booking={booking} />
       ))}
@@ -240,31 +195,25 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   name: {
-    fontSize: typography.size['2xl'],
+    fontSize: typography.size.xl,
   },
   link: {
-    minHeight: 56,
-    padding: spacing[4],
-    justifyContent: 'center',
-    marginBottom: spacing[5],
+    marginBottom: spacing[4],
   },
   linkTitle: {
     fontSize: typography.size.md,
-    marginBottom: 2,
+    marginBottom: spacing[1] / 2,
   },
   linkSubtitle: {
     fontSize: typography.size.sm,
   },
-  sectionTitle: {
-    fontSize: typography.size.sm,
-    marginBottom: spacing[2],
-  },
-  emptyText: {
-    fontSize: typography.size.sm,
-  },
   card: {
-    padding: spacing[4],
     marginBottom: spacing[3],
+    gap: 0,
+  },
+  rateText: {
+    fontSize: typography.size.sm,
+    marginTop: spacing[2],
   },
   cardTitle: {
     fontSize: typography.size.md,
@@ -276,16 +225,9 @@ const styles = StyleSheet.create({
   },
   calendarButton: {
     marginTop: spacing[2],
-    minHeight: 44,
-    justifyContent: 'center',
     alignSelf: 'flex-start',
   },
-  calendarButtonText: {
-    fontSize: typography.size.sm,
-    textDecorationLine: 'underline',
-  },
   errorText: {
-    color: palette.danger,
     fontSize: typography.size.xs,
     marginTop: spacing[1],
   },

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { CreateScheduleSchema, SessionDeliveryMode, VideoMeetingProviderKind } from '@platform/shared';
 
@@ -13,7 +13,8 @@ import { useT } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { fieldErrorsFromZod } from '../../../../src/lib/formErrors';
 import { useSession } from '../../../../src/lib/session';
-import { palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../../src/theme';
+import { Text } from '../../../../src/components/Text';
 
 interface PickOption {
   id: string;
@@ -186,6 +187,6 @@ const styles = StyleSheet.create({
   pickerBlock: { marginBottom: spacing[4] },
   pickerLabel: { fontSize: typography.size.sm, marginBottom: spacing[1] },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  chip: { minHeight: 36, paddingHorizontal: spacing[3], justifyContent: 'center', borderRadius: radii.full, borderWidth: 1 },
+  chip: { minHeight: 36, paddingHorizontal: spacing[3], justifyContent: 'center', borderRadius: radii.full, borderWidth: borderWidth },
   error: { fontSize: typography.size.sm, marginBottom: spacing[3] },
 });

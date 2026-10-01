@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { InAppMessageDTO, MemberChatDTO } from '@platform/shared';
 
@@ -7,7 +7,9 @@ import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { formatDateTime, useLocale, useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
+import { TextInput } from '../../../src/components/TextInput';
 
 /**
  * Hesabım > İşletmeye yaz (docs/MESAJLASMA.md, "Gelen kutusu"): the member's
@@ -78,7 +80,7 @@ export default function MesajlarScreen() {
     }
   };
 
-  const bubble = { borderColor: c.border, borderRadius: theme.family.radii.card };
+  const bubble = { borderColor: c.border, borderRadius: radii.md };
 
   return (
     <ScrollView
@@ -128,7 +130,7 @@ export default function MesajlarScreen() {
         accessibilityLabel={t('mMessaging.chat.placeholder')}
         multiline
         maxLength={2000}
-        style={[styles.input, fonts.body, { borderColor: c.border, color: c.textPrimary, backgroundColor: c.surface, borderRadius: theme.family.radii.input }]}
+        style={[styles.input, fonts.body, { borderColor: c.border, color: c.textPrimary, backgroundColor: c.surface, borderRadius: radii.sm }]}
       />
       <PrimaryButton label={t('mMessaging.chat.send')} onPress={send} loading={sending} disabled={!draft.trim()} />
     </ScrollView>
@@ -139,15 +141,15 @@ const styles = StyleSheet.create({
   content: { padding: spacing[4], gap: spacing[3] },
   section: { gap: spacing[2], marginBottom: spacing[2] },
   sectionTitle: { fontSize: typography.size.sm },
-  announcement: { padding: spacing[3], borderWidth: 1, gap: spacing[1] },
+  announcement: { padding: spacing[3], borderWidth: borderWidth, gap: spacing[1] },
   subject: { fontSize: typography.size.md },
   spinner: { marginTop: spacing[6] },
   empty: { fontSize: typography.size.md },
   row: { flexDirection: 'row' },
   rowEnd: { justifyContent: 'flex-end' },
   rowStart: { justifyContent: 'flex-start' },
-  bubble: { maxWidth: '85%', padding: spacing[3], borderWidth: 1, gap: spacing[1] },
+  bubble: { maxWidth: '85%', padding: spacing[3], borderWidth: borderWidth, gap: spacing[1] },
   body: { fontSize: typography.size.md },
   meta: { fontSize: typography.size.xs },
-  input: { minHeight: 88, borderWidth: 1, padding: spacing[3], textAlignVertical: 'top', fontSize: typography.size.md },
+  input: { minHeight: 88, borderWidth: borderWidth, padding: spacing[3], textAlignVertical: 'top', fontSize: typography.size.md },
 });

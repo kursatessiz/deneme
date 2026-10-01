@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { useLocale, useT } from '../i18n';
 import { ApiError, apiRequest } from '../lib/api';
@@ -14,7 +14,10 @@ import {
 } from '../lib/scheduleTypes';
 import { useSession } from '../lib/session';
 import { palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../theme';
+import { Button } from './Button';
+import { Chip } from './Chip';
 import { PrimaryButton } from './PrimaryButton';
+import { Text } from './Text';
 
 interface SessionDetailProps {
   scheduleId: string;
@@ -171,20 +174,12 @@ export function SessionDetail({ scheduleId, hintStartTime, onChanged }: SessionD
           <Text style={[styles.sectionTitle, fonts.bodyStrong, { color: colors.textPrimary }]}>{t('mSession.substituteRequest')}</Text>
           <View style={styles.chipRow}>
             {trainers.map((trainer) => (
-              <Pressable
+              <Chip
                 key={trainer.id}
-                accessibilityRole="button"
-                accessibilityState={{ selected: substituteId === trainer.id }}
+                label={`${trainer.firstName} ${trainer.lastName}`}
+                selected={substituteId === trainer.id}
                 onPress={() => setSubstituteId(trainer.id)}
-                style={[
-                  styles.chip,
-                  { borderColor: colors.border, backgroundColor: substituteId === trainer.id ? colors.primary : colors.surface },
-                ]}
-              >
-                <Text style={{ color: substituteId === trainer.id ? colors.onPrimary : colors.textPrimary }}>
-                  {trainer.firstName} {trainer.lastName}
-                </Text>
-              </Pressable>
+              />
             ))}
           </View>
           <PrimaryButton
@@ -223,24 +218,23 @@ export function SessionDetail({ scheduleId, hintStartTime, onChanged }: SessionD
           </View>
           {b.status === 'CONFIRMED' && !schedule.isCancelled && canCheckIn ? (
             <View style={styles.bookingActions}>
-              <Pressable
-                accessibilityRole="button"
+              <Button
+                compact
+                variant="outline"
+                label={t('mSession.checkIn')}
                 disabled={busyId === b.id}
                 onPress={() => run(b.id, () => apiRequest(`/schedules/check-in/${b.id}`, { method: 'PATCH', studioId }))}
-                style={[styles.smallButton, { borderColor: colors.primary }]}
-              >
-                <Text style={{ color: colors.primary, fontSize: typography.size.xs }}>{t('mSession.checkIn')}</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
+              />
+              <Button
+                compact
+                variant="outline"
+                tone="surface"
+                label={t('mSession.noShow')}
                 disabled={busyId === b.id}
                 onPress={() =>
                   run(b.id, () => apiRequest(`/schedules/no-show/${b.id}`, { method: 'PATCH', studioId, body: {} }))
                 }
-                style={[styles.smallButton, { borderColor: colors.border }]}
-              >
-                <Text style={{ color: colors.textSecondary, fontSize: typography.size.xs }}>{t('mSession.noShow')}</Text>
-              </Pressable>
+              />
             </View>
           ) : null}
         </View>
@@ -252,13 +246,12 @@ export function SessionDetail({ scheduleId, hintStartTime, onChanged }: SessionD
 const styles = StyleSheet.create({
   loader: { marginTop: spacing[8] },
   title: { fontSize: typography.size.xl, marginBottom: spacing[1] },
-  subtitle: { fontSize: typography.size.sm, marginBottom: 2 },
+  subtitle: { fontSize: typography.size.sm, marginBottom: spacing[1] / 2 },
   notice: { fontSize: typography.size.sm, marginTop: spacing[2] },
   actionsRow: { marginTop: spacing[3], gap: spacing[2] },
   substituteRow: { marginTop: spacing[4], gap: spacing[2] },
   sectionTitle: { fontSize: typography.size.md, marginBottom: spacing[2] },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  chip: { minHeight: 36, paddingHorizontal: spacing[3], justifyContent: 'center', borderRadius: radii.full, borderWidth: 1 },
   bookingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -271,6 +264,5 @@ const styles = StyleSheet.create({
   bookingInfo: { flex: 1, marginRight: spacing[2] },
   statusLabel: { fontSize: typography.size.xs },
   bookingActions: { flexDirection: 'row', gap: spacing[2] },
-  smallButton: { minHeight: 36, paddingHorizontal: spacing[3], justifyContent: 'center', borderRadius: radii.md, borderWidth: 1 },
   error: { fontSize: typography.size.sm },
 });

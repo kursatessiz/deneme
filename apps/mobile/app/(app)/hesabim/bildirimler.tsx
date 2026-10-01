@@ -1,14 +1,15 @@
 import type { NotificationCategory, NotificationPreferenceItemDTO, NotificationPreferencesDTO } from '@platform/shared';
 import * as Linking from 'expo-linking';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { SwitchRow } from '../../../src/components/SwitchRow';
 import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { getNotificationPermissionStatus } from '../../../src/lib/push';
-import { palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, TOUCH_TARGET, typography, useThemeColors } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 type Channel = 'push' | 'sms';
 
@@ -111,7 +112,7 @@ export default function BildirimlerScreen() {
 
 const styles = StyleSheet.create({
   banner: {
-    borderWidth: 1,
+    borderWidth: borderWidth,
     borderRadius: radii.md,
     padding: spacing[4],
     marginBottom: spacing[4],
@@ -121,7 +122,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing[3],
   },
   bannerButton: {
-    minHeight: 44,
+    minHeight: TOUCH_TARGET,
     justifyContent: 'center',
   },
   bannerButtonText: {
@@ -135,7 +136,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing[3],
   },
   card: {
-    borderWidth: 1,
+    borderWidth: borderWidth,
     borderRadius: radii.md,
     padding: spacing[4],
     marginBottom: spacing[4],

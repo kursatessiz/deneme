@@ -1,13 +1,14 @@
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { EventDTO, MyEventRegistrationDTO } from '@platform/shared';
 
 import { formatDateTime, useLocale, useT } from '../../../src/i18n';
 import { apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 /** Member self-service events (G3c-1): the member's registrations and the published events open to them. */
 export default function EtkinliklerScreen() {
@@ -45,7 +46,7 @@ export default function EtkinliklerScreen() {
   }, [load]);
 
   const open = (eventId: string) => router.push({ pathname: '/(app)/hesabim/etkinlik', params: { eventId } });
-  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: theme.family.radii.card };
+  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: radii.md };
 
   return (
     <ScrollView
@@ -72,7 +73,7 @@ export default function EtkinliklerScreen() {
           </Text>
           {mine.length === 0 ? <Text style={[styles.note, fonts.body, { color: c.textMuted }]}>{t('mEvents.noRegistrations')}</Text> : null}
           {mine.map((r) => (
-            <Pressable key={r.id} accessibilityRole="button" onPress={() => open(r.eventId)} style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+            <Pressable key={r.id} accessibilityRole="button" onPress={() => open(r.eventId)} style={[styles.card, card, styles.bordered]}>
               <Text style={[fonts.bodyStrong, { color: c.textPrimary }]}>{r.eventTitle}</Text>
               <Text style={[styles.meta, fonts.body, { color: c.textMuted }]}>
                 {r.eventStartsAt ? formatDateTime(r.eventStartsAt, locale) : t('mEvents.noDate')}
@@ -86,7 +87,7 @@ export default function EtkinliklerScreen() {
           </Text>
           {events.length === 0 ? <Text style={[styles.note, fonts.body, { color: c.textMuted }]}>{t('mEvents.empty')}</Text> : null}
           {events.map((e) => (
-            <Pressable key={e.id} accessibilityRole="button" onPress={() => open(e.id)} style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+            <Pressable key={e.id} accessibilityRole="button" onPress={() => open(e.id)} style={[styles.card, card, styles.bordered]}>
               <Text style={[fonts.bodyStrong, { color: c.textPrimary }]}>{e.title}</Text>
               <Text style={[styles.meta, fonts.body, { color: c.textMuted }]}>
                 {e.startsAt ? formatDateTime(e.startsAt, locale) : t('mEvents.noDate')}
@@ -112,7 +113,7 @@ const styles = StyleSheet.create({
   content: { padding: spacing[4], gap: spacing[3] },
   title: { fontSize: typography.size.lg, marginTop: spacing[2] },
   card: { padding: spacing[4], gap: spacing[1] },
-  bordered: { borderWidth: 1 },
+  bordered: { borderWidth: borderWidth },
   meta: { fontSize: typography.size.sm },
   note: { fontSize: typography.size.sm },
   spacer: { height: spacing[4] },

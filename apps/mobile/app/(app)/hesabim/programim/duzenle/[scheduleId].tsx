@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { UpdateScheduleSchema } from '@platform/shared';
 
@@ -14,6 +14,7 @@ import { ApiError, apiRequest } from '../../../../../src/lib/api';
 import { fieldErrorsFromZod } from '../../../../../src/lib/formErrors';
 import { useSession } from '../../../../../src/lib/session';
 import { palette, spacing, typography, useThemeColors } from '../../../../../src/theme';
+import { Text } from '../../../../../src/components/Text';
 
 /**
  * Move/edit an existing session: title, start/end time and capacity, via

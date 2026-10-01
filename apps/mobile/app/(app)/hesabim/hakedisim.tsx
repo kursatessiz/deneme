@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { PayrollLineDTO } from '@platform/shared';
 
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { formatCurrency, useLocale, useT } from '../../../src/i18n';
-import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { borderWidth, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 
 /** Trainer's own approved/paid commission lines, by payroll period (W14). */
@@ -40,7 +41,7 @@ export default function HakedisimScreen() {
     load();
   }, [load]);
 
-  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: theme.family.radii.card };
+  const card = { backgroundColor: c.surface, borderColor: c.border, borderRadius: radii.md };
 
   return (
     <ScrollView
@@ -65,7 +66,7 @@ export default function HakedisimScreen() {
       ) : null}
 
       {lines?.map((line) => (
-        <View key={line.id} style={[styles.card, card, theme.family.cardBorder && styles.bordered]}>
+        <View key={line.id} style={[styles.card, card, styles.bordered]}>
           <Text style={[styles.net, fonts.display, { color: c.textPrimary }]}>{money(line.netAmount)}</Text>
           <View style={styles.metrics}>
             <Metric label={t('mPayroll.metric.sessions')} value={String(line.sessions)} />
@@ -96,7 +97,7 @@ const styles = StyleSheet.create({
   caption: { fontSize: typography.size.sm },
   empty: { fontSize: typography.size.md, marginTop: spacing[4] },
   card: { padding: spacing[4], gap: spacing[3] },
-  bordered: { borderWidth: 1 },
+  bordered: { borderWidth: borderWidth },
   net: { fontSize: typography.size.xl, fontVariant: ['tabular-nums'] },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', rowGap: spacing[3] },
   metric: { width: '33%' },

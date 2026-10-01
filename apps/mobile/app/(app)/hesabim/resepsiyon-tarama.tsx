@@ -1,14 +1,15 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { useLocale, useT } from '../../../src/i18n';
 import { apiRequest, ApiError } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import { borderWidth, radii, spacing, TOUCH_TARGET, typography, useThemeColors } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 interface CheckInCandidate {
   bookingId: string;
@@ -156,7 +157,7 @@ const styles = StyleSheet.create({
   cameraWrap: {
     flex: 1,
     minHeight: 320,
-    borderWidth: 1,
+    borderWidth: borderWidth,
     borderRadius: radii.lg,
     overflow: 'hidden',
   },
@@ -170,10 +171,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 44,
+    minHeight: TOUCH_TARGET,
     paddingVertical: spacing[3],
     paddingHorizontal: spacing[3],
-    borderWidth: 1,
+    borderWidth: borderWidth,
     borderRadius: radii.md,
     marginBottom: spacing[2],
   },

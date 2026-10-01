@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
@@ -8,7 +8,8 @@ import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { useT } from '../../../src/i18n';
 import { apiRequest, ApiError } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import { borderWidth, radii, spacing, typography, useThemeColors } from '../../../src/theme';
+import { Text } from '../../../src/components/Text';
 
 interface DynamicQrResponse {
   token: string;
@@ -88,7 +89,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 260,
-    borderWidth: 1,
+    borderWidth: borderWidth,
     borderRadius: radii.lg,
     marginBottom: spacing[6],
     padding: spacing[6],

@@ -1,23 +1,24 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { THEME_FAMILIES, THEME_FAMILY_KEYS, getThemeFamily } from '@platform/shared';
-import type { AppearancePreference, ColorSchemePreference, ThemeFamilyKey } from '@platform/shared';
+import type { AppearancePreference, ColorSchemePreference } from '@platform/shared';
 
 import { ChoiceRow } from '../../../src/components/ChoiceRow';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
-import { Swatches } from '../../../src/components/Swatches';
+import { Text } from '../../../src/components/Text';
 import { useT } from '../../../src/i18n';
 import { ApiError } from '../../../src/lib/api';
-import { useSession } from '../../../src/lib/session';
 import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
 
-/** The user's own theme family and light/dark choice. The studio's brand colors stay as they are. */
+/**
+ * The user's own light/dark/system choice. The studio's logo and primary
+ * color stay as they are; the stored theme family is a legacy field and is
+ * sent back unchanged.
+ */
 export default function GorunumScreen() {
   const { theme, appearance, setAppearance } = useTheme();
   const fonts = useThemeFonts();
   const t = useT();
-  const { activeMembership } = useSession();
   const [error, setError] = useState<string | undefined>();
   const c = theme.colors;
 
@@ -36,45 +37,9 @@ export default function GorunumScreen() {
     }
   };
 
-  const studioFamily = activeMembership?.theme.themeFamily;
-  const studioLabel = studioFamily ? getThemeFamily(studioFamily).label : null;
-
   return (
     <ScreenContainer>
-      <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mAccount.appearance.section.theme')}</Text>
-      <View style={styles.group}>
-        <ChoiceRow
-          label={t('mAccount.appearance.studioTheme')}
-          description={
-            studioLabel
-              ? t('mAccount.appearance.studioThemeDescription', { family: studioLabel })
-              : t('mAccount.appearance.studioThemeDescriptionFallback')
-          }
-          selected={appearance.themeFamily === null}
-          onPress={() => save({ ...appearance, themeFamily: null })}
-        />
-        {THEME_FAMILY_KEYS.map((key: ThemeFamilyKey) => {
-          const family = THEME_FAMILIES[key];
-          const mode = theme.mode;
-          return (
-            <ChoiceRow
-              key={key}
-              label={family.label}
-              description={family.description}
-              selected={appearance.themeFamily === key}
-              onPress={() => save({ ...appearance, themeFamily: key })}
-              accessory={
-                <Swatches
-                  radius={Math.min(family.radii.card / 2, 9)}
-                  colors={[family.colors[mode].background, family.colors[mode].textPrimary, family.gradients[0].stops[0]]}
-                />
-              }
-            />
-          );
-        })}
-      </View>
-
-      <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mAccount.appearance.section.colorScheme')}</Text>
+      <Text style={[styles.section, fonts.bodyStrong, { color: c.textPrimary }]}>{t('mAccount.appearance.section.colorScheme')}</Text>
       <View style={styles.group}>
         {SCHEMES.map((s) => (
           <ChoiceRow

@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
+import { onGradient } from '@platform/shared';
 import type { ChurnMemberSummaryDTO, LoyaltyMemberSummaryDTO, MemberDetailDTO, MemberPackageDTO } from '@platform/shared';
 
 import type { Translate } from '@platform/shared';
@@ -10,16 +11,21 @@ import { useLocale, useT } from '../i18n';
 import { ApiError, apiRequest } from '../lib/api';
 import { bookingStatusLabel } from '../lib/scheduleTypes';
 import { useSession } from '../lib/session';
-import { palette, radii, spacing, typography, useTheme, useThemeColors, useThemeFonts } from '../theme';
+import { TOUCH_TARGET, borderWidth, palette, radii, spacing, typography, useTheme, useThemeColors, useThemeFonts } from '../theme';
+import { Badge } from './Badge';
+import { withAlpha } from './tones';
+import type { Tone } from './tones';
 import { GradientSurface } from './GradientSurface';
 import { MemberHealthTrendCard } from './MemberHealthTrendCard';
 import { PackageCard } from './PackageCard';
 import { PrimaryButton } from './PrimaryButton';
+import { Text } from './Text';
+import { TextInput } from './TextInput';
 
 function riskLabels(t: Translate): Record<string, string> {
   return { HIGH: t('mMemberCard.risk.high'), MEDIUM: t('mMemberCard.risk.medium'), LOW: t('mMemberCard.risk.low') };
 }
-const RISK_COLOR: Record<string, string> = { HIGH: palette.danger, MEDIUM: palette.warning, LOW: palette.success };
+const RISK_TONE: Record<string, Tone> = { HIGH: 'error', MEDIUM: 'warn', LOW: 'success' };
 
 interface BookingHistoryRow {
   id: string;
@@ -47,6 +53,7 @@ export function MemberCard({ memberId, onChanged }: MemberCardProps) {
   const { locale } = useLocale();
   const t = useT();
   const RISK_LABEL = riskLabels(t);
+  const onBrand = onGradient(theme.gradient);
   const BOOKING_STATUS_LABEL = bookingStatusLabel(t);
   const { activeMembership } = useSession();
   const studioId = activeMembership?.studioId;
@@ -128,28 +135,26 @@ export function MemberCard({ memberId, onChanged }: MemberCardProps) {
 
   return (
     <View>
-      <GradientSurface slot="memberCard" style={[styles.header, { borderRadius: theme.family.radii.card }]}>
-        <Text style={[styles.name, fonts.display, { color: '#FFFFFF' }]} numberOfLines={1}>
+      <GradientSurface slot="memberCard" style={[styles.header, { borderRadius: radii.md }]}>
+        <Text style={[styles.name, fonts.display, { color: onBrand }]} numberOfLines={1}>
           {detail.firstName} {detail.lastName}
         </Text>
         <View style={styles.badgeRow}>
           {risk ? (
-            <View style={[styles.badge, { backgroundColor: RISK_COLOR[risk.level] }]}>
-              <Text style={styles.badgeText}>{RISK_LABEL[risk.level]}</Text>
-            </View>
+            <Badge label={RISK_LABEL[risk.level] ?? risk.level} tone={RISK_TONE[risk.level] ?? 'muted'} solid />
           ) : null}
           {detail.isPartnerGuest ? (
-            <View style={[styles.badge, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
-              <Text style={styles.badgeText}>{t('mMemberCard.partnerGuest')}</Text>
+            <View style={[styles.badge, { backgroundColor: withAlpha(onBrand, 0.25) }]}>
+              <Text style={[styles.badgeText, fonts.bodyMedium, { color: onBrand }]}>{t('mMemberCard.partnerGuest')}</Text>
             </View>
           ) : null}
         </View>
-        <Text style={[styles.contact, fonts.body, { color: 'rgba(255,255,255,0.85)' }]}>
+        <Text style={[styles.contact, fonts.body, { color: withAlpha(onBrand, 0.85) }]}>
           {detail.phone ?? t('mMemberCard.noContactPermission')}
         </Text>
-        {detail.email ? <Text style={[styles.contact, fonts.body, { color: 'rgba(255,255,255,0.85)' }]}>{detail.email}</Text> : null}
+        {detail.email ? <Text style={[styles.contact, fonts.body, { color: withAlpha(onBrand, 0.85) }]}>{detail.email}</Text> : null}
         {loyalty && loyalty.enabled ? (
-          <Text style={[styles.contact, fonts.bodyStrong, { color: '#FFFFFF' }]}>
+          <Text style={[styles.contact, fonts.bodyStrong, { color: onBrand }]}>
             {t('mLoyalty.cardLine', { points: t('mLoyalty.points', { count: loyalty.balance }) })}
           </Text>
         ) : null}
@@ -263,16 +268,16 @@ const styles = StyleSheet.create({
   quickActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginBottom: spacing[4] },
   name: { fontSize: typography.size.xl },
   badgeRow: { flexDirection: 'row', gap: spacing[2], marginTop: spacing[1] },
-  badge: { paddingHorizontal: spacing[2], paddingVertical: 2, borderRadius: radii.full },
-  badgeText: { color: '#FFFFFF', fontSize: typography.size.xs, fontWeight: typography.weight.bold },
+  badge: { paddingHorizontal: spacing[2], paddingVertical: spacing[1] / 2, borderRadius: radii.full },
+  badgeText: { fontSize: typography.size.xs },
   contact: { fontSize: typography.size.sm },
-  section: { borderWidth: 1, borderRadius: radii.md, padding: spacing[3], marginBottom: spacing[3] },
+  section: { borderWidth: borderWidth, borderRadius: radii.md, padding: spacing[3], marginBottom: spacing[3] },
   sectionTitle: { fontSize: typography.size.md, marginBottom: spacing[2] },
-  reason: { fontSize: typography.size.sm, marginTop: 2 },
+  reason: { fontSize: typography.size.sm, marginTop: spacing[1] / 2 },
   empty: { fontSize: typography.size.sm, marginBottom: spacing[3] },
   freezeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] },
-  freezeInput: { minHeight: 44, width: 64, borderWidth: 1, borderRadius: radii.md, textAlign: 'center', paddingHorizontal: spacing[2] },
-  historyRow: { borderBottomWidth: 1, paddingVertical: spacing[2] },
+  freezeInput: { minHeight: TOUCH_TARGET, width: spacing[16], borderWidth: borderWidth, borderRadius: radii.sm, textAlign: 'center', paddingHorizontal: spacing[2] },
+  historyRow: { borderBottomWidth: borderWidth, paddingVertical: spacing[2] },
   historyTitle: { fontSize: typography.size.sm },
   historyMeta: { fontSize: typography.size.xs },
   notes: { fontSize: typography.size.sm, marginBottom: spacing[4] },

@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { LeadStage, canTransitionLeadStage } from '@platform/shared';
 import type { LeadDetailDTO } from '@platform/shared';
@@ -12,8 +12,9 @@ import { TextField } from '../../../../src/components/TextField';
 import { useLocale, useT } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
 import { useSession } from '../../../../src/lib/session';
-import { palette, spacing, typography, useTheme, useThemeFonts } from '../../../../src/theme';
+import { borderWidth, palette, spacing, typography, useTheme, useThemeFonts } from '../../../../src/theme';
 import type { Translate } from '@platform/shared';
+import { Text } from '../../../../src/components/Text';
 
 function stageLabels(t: Translate): Record<string, string> {
   return {
@@ -231,7 +232,7 @@ const styles = StyleSheet.create({
   phone: { fontSize: typography.size.lg },
   meta: { fontSize: typography.size.sm },
   lostReason: { marginTop: spacing[2] },
-  activityRow: { borderTopWidth: 1, paddingVertical: spacing[3] },
+  activityRow: { borderTopWidth: borderWidth, paddingVertical: spacing[3] },
   activityType: { fontSize: typography.size.sm, marginBottom: spacing[1] },
   activityMeta: { fontSize: typography.size.xs, marginTop: spacing[1] },
 });
