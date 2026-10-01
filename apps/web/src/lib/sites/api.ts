@@ -105,3 +105,24 @@ export async function fetchPlatformBrand(): Promise<{ themePrimary: string | nul
     return { themePrimary: null, logoUrl: null };
   }
 }
+
+export interface BookingStudio {
+  name: string;
+  logoUrl: string | null;
+}
+
+/** Studio name and logo for the public booking page's metadata (the same unauthenticated embed config the page reads). Null when unknown or unreachable. */
+export async function fetchBookingStudio(slug: string): Promise<BookingStudio | null> {
+  try {
+    const res = await fetch(`${apiInternalBaseUrl()}/public/studios/${encodeURIComponent(slug)}/embed/config`, {
+      next: { revalidate: PAGE_REVALIDATE_SECONDS },
+      signal: AbortSignal.timeout(2000),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { name?: unknown; logoUrl?: unknown };
+    if (typeof body.name !== 'string') return null;
+    return { name: body.name, logoUrl: typeof body.logoUrl === 'string' ? body.logoUrl : null };
+  } catch {
+    return null;
+  }
+}

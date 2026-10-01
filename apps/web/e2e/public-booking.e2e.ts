@@ -25,6 +25,21 @@ test.describe('public booking page', () => {
     await expect(page.getByRole('button', { name: /Birebir Reformer/ }).first()).toBeVisible();
   });
 
+  test('is indexable and describes itself for search and link previews', async ({ page }) => {
+    await page.goto(PAGE);
+    await expect(page).toHaveTitle('Zen Reformer Pilates | Online randevu');
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/booking\/zen-reformer-pilates\/book$/);
+    await expect(page.locator('meta[property="og:type"]')).toHaveAttribute('content', 'website');
+    await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
+  });
+
+  test('the embed widget and an unknown studio are not indexed', async ({ page }) => {
+    await page.goto('/embed/zen-reformer-pilates');
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
+    await page.goto('/booking/no-such-studio-slug/book');
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
+  });
+
   test.describe('English browser', () => {
     test.use({ locale: 'en-US' });
 

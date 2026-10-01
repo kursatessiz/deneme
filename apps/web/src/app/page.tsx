@@ -13,6 +13,7 @@ import {
 import type { MessageKey } from '@platform/shared';
 import { PRODUCT_NAME, resolveTheme, themeCssVariables } from '@platform/shared';
 import { getT } from '@/lib/i18n/getT';
+import { toOgLocale } from '@/lib/seo/og-locale';
 import { PublicTracking } from '@/components/consent/PublicTracking';
 import { CookiePreferencesButton } from '@/components/consent/CookiePreferencesButton';
 import { Avatar } from '@/components/ui/Avatar';
@@ -59,8 +60,17 @@ const SECTORS: readonly MessageKey[] = [
 ];
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await getT();
-  return { title: t('landing.meta.title', { product: PRODUCT_NAME }), description: t('landing.meta.description') };
+  const { t, locale } = await getT();
+  const title = t('landing.meta.title', { product: PRODUCT_NAME });
+  const description = t('landing.meta.description');
+  return {
+    title,
+    description,
+    // Relative to metadataBase (root layout): the landing page is canonical to itself. The Open Graph image comes from app/opengraph-image.tsx.
+    alternates: { canonical: '/' },
+    openGraph: { type: 'website', siteName: PRODUCT_NAME, locale: toOgLocale(locale), title, description, url: '/' },
+    twitter: { card: 'summary_large_image', title, description },
+  };
 }
 
 /** Decorative glimpse of the panel built from the component library; carries no data. */

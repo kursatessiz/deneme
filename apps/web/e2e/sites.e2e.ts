@@ -34,6 +34,7 @@ test.describe('platform site', () => {
     expect(xml).toMatch(/<loc>[^<]*\/tr<\/loc>/);
     expect(xml).toMatch(/<loc>[^<]*\/en<\/loc>/);
     expect(xml).toContain('hreflang="x-default"');
+    expect(xml).toMatch(/<loc>[^<]*\/<\/loc>/);
   });
 
   test('robots.txt keeps public content allowed and disallows private areas', async ({ request }) => {
