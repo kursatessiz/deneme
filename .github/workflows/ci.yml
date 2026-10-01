@@ -1,9 +1,10 @@
 name: CI
 
 on:
+  # Working branches run CI through their pull request only; main runs CI
+  # through release.yml. A push trigger on top would run every job twice,
+  # which matters on a private repository with an Actions minute budget.
   pull_request:
-  push:
-    branches: ['claude/**']  # main runs CI through release.yml
   workflow_call:
 
 permissions:
