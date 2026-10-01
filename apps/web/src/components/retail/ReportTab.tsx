@@ -10,7 +10,7 @@ import { retailErrorMessage } from '@/lib/retail/errors';
 import { LoadingState, ErrorState } from '@/components/common/DataState';
 import { BranchSelect } from '@/components/common/BranchSelect';
 import { DateRangeFilter } from '@/components/common/DateRangeFilter';
-import { fieldStyle, headRowStyle, labelStyle, rowStyle, sectionStyle, tableWrapStyle } from './styles';
+import { AnchorButton, Card, StatTile, Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui';
 
 /** Simple sales report: totals, by product (with margin where a cost is known) and by day, with CSV export. */
 export function ReportTab() {
@@ -68,99 +68,80 @@ export function ReportTab() {
           <BranchSelect value={branchId} onChange={setBranchId} />
         </div>
         <div className="flex gap-2">
-          <a href={csvHref('product')} className="text-xs font-medium px-3 py-1.5" style={{ ...fieldStyle, background: 'var(--color-surface-muted)' }}>
+          <AnchorButton variant="outline" tone="surface" size="sm" href={csvHref('product')}>
             {t('retail.report.csvProduct')}
-          </a>
-          <a href={csvHref('day')} className="text-xs font-medium px-3 py-1.5" style={{ ...fieldStyle, background: 'var(--color-surface-muted)' }}>
+          </AnchorButton>
+          <AnchorButton variant="outline" tone="surface" size="sm" href={csvHref('day')}>
             {t('retail.report.csvDay')}
-          </a>
+          </AnchorButton>
         </div>
       </div>
       {loading && <LoadingState />}
       {error && <ErrorState message={error} />}
       {!loading && !error && report && (
         <>
-          <dl className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
             {kpis.map((k) => (
-              <div key={k.key} className="p-3" style={sectionStyle}>
-                <dt className="text-[11px]" style={labelStyle}>
-                  {t(`retail.report.${k.key}`)}
-                </dt>
-                <dd className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  {k.value}
-                </dd>
-              </div>
+              <StatTile key={k.key} label={t(`retail.report.${k.key}`)} value={k.value} />
             ))}
-          </dl>
-          <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-            {t('retail.report.marginHint')}
-          </p>
+          </div>
+          <p className="ui-caption">{t('retail.report.marginHint')}</p>
           {report.byProduct.length === 0 ? (
-            <p className="text-sm" style={labelStyle}>
-              {t('retail.report.empty')}
-            </p>
+            <p className="ui-text-muted">{t('retail.report.empty')}</p>
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
-              <section className="space-y-2">
-                <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  {t('retail.report.byProduct')}
-                </h3>
-                <div className="border overflow-x-auto" style={tableWrapStyle}>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr style={headRowStyle}>
+              <section className="grid gap-2 content-start">
+                <h3 className="ui-heading">{t('retail.report.byProduct')}</h3>
+                <Card className="overflow-x-auto">
+                  <Table>
+                    <Thead>
+                      <Tr>
                         {(['product', 'quantity', 'refundedQuantity', 'revenue', 'margin'] as const).map((c) => (
-                          <th key={c} className="text-left px-3 py-2 font-medium whitespace-nowrap" style={labelStyle}>
+                          <Th key={c} className="whitespace-nowrap">
                             {t(`retail.report.col.${c}`)}
-                          </th>
+                          </Th>
                         ))}
-                      </tr>
-                    </thead>
-                    <tbody>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
                       {report.byProduct.map((p) => (
-                        <tr key={p.productId} className="border-t" style={rowStyle}>
-                          <td className="px-3 py-2" style={{ color: 'var(--color-text-primary)' }}>
-                            {p.productName}
-                          </td>
-                          <td className="px-3 py-2">{p.quantity}</td>
-                          <td className="px-3 py-2">{p.refundedQuantity}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">{formatMoney(p.revenue)}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">{formatMoney(p.margin)}</td>
-                        </tr>
+                        <Tr key={p.productId}>
+                          <Td>{p.productName}</Td>
+                          <Td>{p.quantity}</Td>
+                          <Td>{p.refundedQuantity}</Td>
+                          <Td className="whitespace-nowrap">{formatMoney(p.revenue)}</Td>
+                          <Td className="whitespace-nowrap">{formatMoney(p.margin)}</Td>
+                        </Tr>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </Tbody>
+                  </Table>
+                </Card>
               </section>
-              <section className="space-y-2">
-                <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  {t('retail.report.byDay')}
-                </h3>
-                <div className="border overflow-x-auto" style={tableWrapStyle}>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr style={headRowStyle}>
+              <section className="grid gap-2 content-start">
+                <h3 className="ui-heading">{t('retail.report.byDay')}</h3>
+                <Card className="overflow-x-auto">
+                  <Table>
+                    <Thead>
+                      <Tr>
                         {(['date', 'saleCount', 'gross', 'refunded'] as const).map((c) => (
-                          <th key={c} className="text-left px-3 py-2 font-medium whitespace-nowrap" style={labelStyle}>
+                          <Th key={c} className="whitespace-nowrap">
                             {t(`retail.report.col.${c}`)}
-                          </th>
+                          </Th>
                         ))}
-                      </tr>
-                    </thead>
-                    <tbody>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
                       {report.byDay.map((d) => (
-                        <tr key={d.date} className="border-t" style={rowStyle}>
-                          <td className="px-3 py-2" style={{ color: 'var(--color-text-primary)' }}>
-                            {d.date}
-                          </td>
-                          <td className="px-3 py-2">{d.saleCount}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">{formatMoney(d.gross)}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">{formatMoney(d.refunded)}</td>
-                        </tr>
+                        <Tr key={d.date}>
+                          <Td>{d.date}</Td>
+                          <Td>{d.saleCount}</Td>
+                          <Td className="whitespace-nowrap">{formatMoney(d.gross)}</Td>
+                          <Td className="whitespace-nowrap">{formatMoney(d.refunded)}</Td>
+                        </Tr>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </Tbody>
+                  </Table>
+                </Card>
               </section>
             </div>
           )}
