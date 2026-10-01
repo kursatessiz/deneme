@@ -12,7 +12,16 @@ import { CookiePreferencesButton } from '@/components/consent/CookiePreferencesB
 import { ThemeRoot } from '@/components/theme/ThemeRoot';
 import { PublicTracking } from '@/components/consent/PublicTracking';
 import { BlockRenderer } from './BlockRenderer';
-import { organizationJsonLd, localBusinessJsonLd, faqPageJsonLd, offerJsonLd } from '@/lib/sites/jsonld';
+import {
+  breadcrumbJsonLd,
+  faqPageJsonLd,
+  localBusinessJsonLd,
+  organizationJsonLd,
+  productJsonLd,
+  sameAsLinks,
+  softwareApplicationJsonLd,
+  webSiteJsonLd,
+} from '@/lib/sites/jsonld';
 
 const pathFor = sitePath;
 
@@ -59,6 +68,30 @@ export async function buildSiteMetadata(studioSlug: string, isPlatform: boolean,
   };
 }
 
+/** `pilates` -> `Pilates`, `free-trial` -> `Free trial`: the fallback label of a path segment whose page title is unknown. */
+function humanizeSegment(segment: string): string {
+  const text = segment.replace(/-/g, ' ');
+  return text.charAt(0).toLocaleUpperCase() + text.slice(1);
+}
+
+/**
+ * Home > sector > offer / slug trail for the BreadcrumbList. A parent segment's label is that page's own
+ * title when it is published (the same cached read the renderer uses), else the humanized segment.
+ */
+async function buildBreadcrumbs(params: { studioSlug: string; origin: string; locale: string; slug: string; siteName: string; pageTitle: string | null }): Promise<{ name: string; url: string }[]> {
+  const trail = [{ name: params.siteName, url: `${params.origin}${pathFor(params.locale, '')}` }];
+  if (!params.slug) return trail;
+  const segments = params.slug.split('/');
+  for (let i = 1; i <= segments.length; i += 1) {
+    const path = segments.slice(0, i).join('/');
+    const isLast = i === segments.length;
+    let name = isLast ? params.pageTitle : null;
+    if (!name && !isLast) name = (await fetchPublicPage(params.studioSlug, params.locale, path))?.localeMeta.seoTitle ?? null;
+    trail.push({ name: name ?? humanizeSegment(segments[i - 1]), url: `${params.origin}${pathFor(params.locale, path)}` });
+  }
+  return trail;
+}
+
 export async function SitePageView({ studioSlug, isPlatform, locale, slugParts }: { studioSlug: string; isPlatform: boolean; locale: string; slugParts: string[] | undefined }) {
   const slug = (slugParts ?? []).join('/');
   const page = await fetchPublicPage(studioSlug, locale, slug);
@@ -71,23 +104,36 @@ export async function SitePageView({ studioSlug, isPlatform, locale, slugParts }
   const origin = await requestSiteOrigin(studioSlug, isPlatform);
   const pageUrl = `${origin}${pathFor(locale, slug)}`;
 
-  const faqBlock = page.blocks.find((b) => b.type === 'faq');
-  const faqItems = faqBlock ? ((faqBlock.data as { text?: Record<string, { items?: { question: string; answer: string }[] }> }).text?.[locale]?.items ?? []) : [];
+  const faqItems = page.blocks
+    .filter((b) => b.type === 'faq')
+    .flatMap((b) => (b.data as { text?: Record<string, { items?: { question: string; answer: string }[] }> }).text?.[locale]?.items ?? []);
 
-  const orgJsonLd = page.context.companyInfo
-    ? organizationJsonLd({ name: page.context.companyInfo.legalName, url: origin, email: page.context.companyInfo.email, phone: page.context.companyInfo.phone })
-    : page.context.studioContact
-      ? localBusinessJsonLd({ name: page.context.studioContact.name, url: origin, address: page.context.studioContact.address, phone: page.context.studioContact.phone, email: page.context.studioContact.email })
-      : null;
+  const { companyInfo, studioContact } = page.context;
+  const siteName = isPlatform ? PRODUCT_NAME : (studioContact?.name ?? companyInfo?.legalName ?? null);
+  const logoUrl = page.theme?.logoUrl ?? null;
+  const isHome = page.page.kind === 'HOME';
 
-  const offerItems = (page.context.plans ?? []).map((p) => ({ name: p.name, price: p.priceMonthly, currency: p.currency, url: pageUrl }));
+  const jsonLd: unknown[] = [];
+  if (companyInfo) {
+    jsonLd.push(organizationJsonLd({ name: companyInfo.legalName, url: origin, logoUrl, email: companyInfo.email, phone: companyInfo.phone, sameAs: sameAsLinks(companyInfo.socialLinks) }));
+  } else if (studioContact) {
+    jsonLd.push(localBusinessJsonLd({ name: studioContact.name, url: origin, imageUrl: logoUrl, address: studioContact.address, phone: studioContact.phone, email: studioContact.email }));
+  }
+  if (isHome && siteName) jsonLd.push(webSiteJsonLd({ name: siteName, url: origin, locale }));
+  jsonLd.push(breadcrumbJsonLd(await buildBreadcrumbs({ studioSlug, origin, locale, slug, siteName: siteName ?? origin, pageTitle: page.localeMeta.seoTitle })));
+  if (faqItems.length > 0) jsonLd.push(faqPageJsonLd(faqItems));
+
+  const plans = (page.context.plans ?? []).map((p) => ({ name: p.name, price: p.priceMonthly, currency: p.currency, url: pageUrl }));
+  const packages = (page.context.packages ?? []).map((p) => ({ name: p.name, price: p.price, currency: p.currency, url: pageUrl }));
+  if (isPlatform && isHome) jsonLd.push(softwareApplicationJsonLd({ name: PRODUCT_NAME, url: origin, offers: plans }));
+  jsonLd.push(...productJsonLd([...plans, ...packages]));
 
   return (
     <ThemeRoot tenantTheme={page.theme ?? DEFAULT_TENANT_THEME} appearance={{ themeFamily: null, colorScheme: 'SYSTEM' }}>
       <PublicTracking studioSlug={studioSlug} />
-      {orgJsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(orgJsonLd) }} />}
-      {faqItems.length > 0 && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(faqPageJsonLd(faqItems)) }} />}
-      {offerItems.length > 0 && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(offerJsonLd(offerItems)) }} />}
+      {jsonLd.map((doc, i) => (
+        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(doc) }} />
+      ))}
 
       <div className="min-h-screen flex flex-col">
         {page.page.kind === 'LEGAL' && !page.localeMeta.legalApproved && (
