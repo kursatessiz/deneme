@@ -39,7 +39,9 @@ export function indexNowUrlsForArticle(origin: string, variants: ReadonlyArray<{
  */
 export function buildIndexNowPayload(input: { origin: string; key: string; urls: readonly string[] }): IndexNowPayload | null {
   if (!INDEXNOW_KEY_PATTERN.test(input.key)) return null;
-  const origin = input.origin.replace(/\/+$/, '');
+  // Trailing slashes are stripped with a loop: `/\/+$/` is quadratic on a run of slashes (CodeQL js/polynomial-redos).
+  let origin = input.origin;
+  while (origin.endsWith('/')) origin = origin.slice(0, -1);
   const hostMatch = /^https?:\/\/([^/]+)$/.exec(origin);
   if (!hostMatch) return null;
   const urlList: string[] = [];
