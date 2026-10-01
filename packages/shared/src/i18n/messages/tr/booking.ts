@@ -10,6 +10,7 @@ export const trBooking = {
   'booking.allBranches': 'Tüm şubeler',
   'booking.dateSelection': 'Tarih',
   'booking.availableSlots': 'Uygun saatler',
+  'booking.timeZone': 'Saatler {zone} saat dilimindedir.',
   'booking.spotsLeft.one': '{count} yer kaldı',
   'booking.spotsLeft.other': '{count} yer kaldı',
   'booking.noSlots': 'Seçtiğiniz hizmet ve şube için önümüzdeki günlerde uygun saat yok.',

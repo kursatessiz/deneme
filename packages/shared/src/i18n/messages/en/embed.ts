@@ -8,6 +8,7 @@ export const enEmbed = {
   'embed.errors.loadFailedRetry': 'Could not load the information, please try again later.',
   'embed.chooseSession': 'Choose a session',
   'embed.choosePlaceholder': 'Choose a session',
+  'embed.timeZoneHint': 'Times are shown in the time zone of the session branch.',
   'embed.selectionHint': 'This only picks a time/service; no booking is made on this page.',
   'embed.openApp': "I'm a member, I'll book in the app",
   'embed.firstTime': "I'm new here, please contact me",
