@@ -9,6 +9,13 @@ import { useBff } from '@/lib/session/use-bff';
 import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataState';
 import { PageGuard } from '@/components/common/PageGuard';
 import { Badge } from '@/components/common/Badge';
+import { Search } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Addon, InputGroup } from '@/components/ui/InputGroup';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
+import { Avatar } from '@/components/ui/Avatar';
 
 interface MemberRow {
   id: string;
@@ -54,37 +61,24 @@ function MembersList() {
   }, [activeStudioId, search, homeBranchId]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-          {t('members.title')}
-        </h2>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('members.subtitle')}
-        </p>
-      </div>
+    <div className="grid gap-6">
+      <PageHeader title={t('members.title')} description={t('members.subtitle')} />
 
       <div className="flex flex-wrap gap-2">
-        <input
-          placeholder={t('members.searchPlaceholder')}
-          className="text-sm px-3 py-1.5 flex-1 min-w-[220px]"
-          style={{ borderRadius: 'var(--radius-input)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)', color: 'var(--color-text-primary)' }}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <select
-          className="text-sm px-3 py-1.5"
-          style={{ borderRadius: 'var(--radius-input)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)', color: 'var(--color-text-primary)' }}
-          value={homeBranchId}
-          onChange={(e) => setHomeBranchId(e.target.value)}
-        >
+        <InputGroup className="flex-1 min-w-[220px]">
+          <Addon>
+            <Search className="ui-icon" aria-hidden="true" />
+          </Addon>
+          <Input placeholder={t('members.searchPlaceholder')} value={search} onChange={(e) => setSearch(e.target.value)} />
+        </InputGroup>
+        <Select value={homeBranchId} onChange={(e) => setHomeBranchId(e.target.value)}>
           <option value="">{t('members.allBranches')}</option>
           {branches?.map((b) => (
             <option key={b.id} value={b.id}>
               {b.name}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       {loading && <LoadingState />}
@@ -93,46 +87,37 @@ function MembersList() {
         <EmptyState title={t('members.empty.title')} description={t('members.empty.description')} />
       )}
       {!loading && !error && members && members.length > 0 && (
-        <div className="border overflow-hidden" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-card)' }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ backgroundColor: 'var(--color-surface-muted)' }}>
-                <th className="text-left px-4 py-2.5 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                  {t('members.col.name')}
-                </th>
-                <th className="text-left px-4 py-2.5 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                  {t('members.col.phone')}
-                </th>
-                <th className="text-left px-4 py-2.5 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                  {t('members.col.activePackage')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {members.map((m) => (
-                <tr key={m.id} className="border-t" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-                  <td className="px-4 py-2.5">
-                    <Link href={`/members/${m.id}`} className="hover:underline" style={{ color: 'var(--color-text-primary)' }}>
-                      {m.firstName} {m.lastName}
-                    </Link>
-                    {m.isPartnerGuest && (
-                      <span className="ml-2">
-                        <Badge tone="info">{t('members.partnerGuest')}</Badge>
+        <div className="pui-card overflow-x-auto">
+          <Table hoverable>
+            <Thead>
+              <Tr>
+                <Th>{t('members.col.name')}</Th>
+                <Th>{t('members.col.phone')}</Th>
+                <Th>{t('members.col.activePackage')}</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {members.map((m) => {
+                const active = (m.packages ?? []).filter((p) => p.status === 'ACTIVE').length;
+                const fullName = `${m.firstName} ${m.lastName}`;
+                return (
+                  <Tr key={m.id}>
+                    <Td>
+                      <span className="flex items-center gap-3">
+                        <Avatar name={fullName} tone="muted" />
+                        <Link href={`/members/${m.id}`} className="pui-link pui-surface">
+                          {fullName}
+                        </Link>
+                        {m.isPartnerGuest && <Badge tone="info">{t('members.partnerGuest')}</Badge>}
                       </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
-                    {m.phone ?? '—'}
-                  </td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--color-text-secondary)' }}>
-                    {m.packages && m.packages.filter((p) => p.status === 'ACTIVE').length > 0
-                      ? m.packages.filter((p) => p.status === 'ACTIVE').length
-                      : t('members.noActivePackage')}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    </Td>
+                    <Td className="ui-text-muted">{m.phone ?? '—'}</Td>
+                    <Td>{active > 0 ? <Badge tone="success">{active}</Badge> : <span className="ui-text-muted">{t('members.noActivePackage')}</span>}</Td>
+                  </Tr>
+                );
+              })}
+            </Tbody>
+          </Table>
         </div>
       )}
     </div>

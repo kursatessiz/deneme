@@ -3,55 +3,41 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useT } from '@/components/i18n/I18nProvider';
+import { ADMIN_HOME_LINK, ADMIN_LINK_GROUPS } from '@/lib/admin-nav';
+import type { AdminLink } from '@/lib/admin-nav';
+import { cx } from '@/components/ui/types';
 
-const LINKS: ReadonlyArray<{ href: string; labelKey: string }> = [
-  { href: '/admin/tenants', labelKey: 'adminNav.tenants' },
-  { href: '/admin/plans', labelKey: 'adminNav.plans' },
-  { href: '/admin/referrals', labelKey: 'adminBilling.nav' },
-  { href: '/admin/uygulama-pazari', labelKey: 'adminAddOns.nav' },
-  { href: '/admin/business-types', labelKey: 'adminNav.businessTypes' },
-  { href: '/admin/feature-flags', labelKey: 'adminNav.featureFlags' },
-  { href: '/admin/sms-packages', labelKey: 'adminNav.smsPackages' },
-  { href: '/admin/content', labelKey: 'adminNav.content' },
-  { href: '/admin/web-sitesi', labelKey: 'adminNav.webSitesi' },
-  { href: '/admin/i18n', labelKey: 'adminNav.languages' },
-  { href: '/admin/ai', labelKey: 'adminAi.nav' },
-  // M3b: approval thresholds, caps and weekly summary of the platform's own marketing.
-  { href: '/admin/pazarlama-ayarlari', labelKey: 'adminMarketingSettings.nav' },
-  { href: '/admin/benchmark', labelKey: 'adminNav.benchmark' },
-  { href: '/admin/health', labelKey: 'adminNav.health' },
-  { href: '/admin/yedekler', labelKey: 'adminNav.backups' },
-  { href: '/admin/hatalar', labelKey: 'adminErrors.nav' },
-  // M3d: who did what (AuditLog) across every tenant.
-  { href: '/admin/denetim', labelKey: 'adminAudit.nav' },
-  // M1: platform users, the shared integrations hub and the marketing panel (one console for the owner).
-  { href: '/admin/platform-kullanicilari', labelKey: 'adminPlatformUsers.nav' },
-  { href: '/admin/entegrasyonlar', labelKey: 'adminPlatformUsers.navIntegrations' },
-  { href: '/pazarlama', labelKey: 'adminPlatformUsers.navMarketing' },
-];
-
-export function AdminNav() {
-  const pathname = usePathname();
+function NavLink({ link, active }: { link: AdminLink; active: boolean }) {
   const t = useT();
+  const Icon = link.icon;
   return (
-    <nav className="flex flex-wrap gap-1 border-b pb-3 mb-6" style={{ borderColor: 'var(--color-border)' }}>
-      {LINKS.map((link) => {
-        const active = pathname === link.href || pathname?.startsWith(`${link.href}/`);
-        return (
-          <Link
-            key={link.href}
-            href={link.href}
-            className="px-3 py-1.5 text-sm font-medium transition-colors"
-            style={{
-              borderRadius: 'var(--radius-chip)',
-              color: active ? 'var(--color-on-primary)' : 'var(--color-text-secondary)',
-              backgroundColor: active ? 'var(--color-primary)' : 'transparent',
-            }}
-          >
-            {t(link.labelKey)}
-          </Link>
-        );
-      })}
+    <Link
+      href={link.href}
+      aria-current={active ? 'page' : undefined}
+      className={cx('pui-btn ui-btn-sm ui-nav-link', active ? 'pui-soft pui-theme' : undefined)}
+    >
+      <Icon className="ui-icon" aria-hidden="true" />
+      {t(link.labelKey)}
+    </Link>
+  );
+}
+
+/** Super admin sidebar navigation: the overview link, then the section groups of lib/admin-nav.ts. */
+export function AdminNav() {
+  const pathname = usePathname() ?? '';
+  const t = useT();
+  const isActive = (href: string) => (href === '/admin' ? pathname === '/admin' : pathname === href || pathname.startsWith(`${href}/`));
+  return (
+    <nav aria-label={t('adminNav.navLabel')} className="grid gap-4">
+      <NavLink link={ADMIN_HOME_LINK} active={isActive(ADMIN_HOME_LINK.href)} />
+      {ADMIN_LINK_GROUPS.map((group) => (
+        <div key={group.key} className="grid gap-1">
+          <span className="ui-caption px-3">{t(group.labelKey)}</span>
+          {group.links.map((link) => (
+            <NavLink key={link.href} link={link} active={isActive(link.href)} />
+          ))}
+        </div>
+      ))}
     </nav>
   );
 }
