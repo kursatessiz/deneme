@@ -97,4 +97,13 @@ export const trSites = {
   'sites.editor.versions.rollback': 'Bu sürüme dön',
   'sites.editor.versions.rolledBack': 'Önceki sürüme dönüldü ve yeniden yayınlandı',
   'sites.editor.loadFailed': 'Yüklenemedi',
+  'sites.editor.seo.title': 'Arama motoru doğrulaması',
+  'sites.editor.seo.description': 'Search Console ve Bing Webmaster Tools sahiplik doğrulaması için meta etiketi kodları. Yalnızca etiketin content değerini girin.',
+  'sites.editor.seo.google': 'Google Search Console kodu',
+  'sites.editor.seo.bing': 'Bing Webmaster Tools kodu',
+  'sites.editor.seo.hint': 'Kod, sitenin tüm sayfalarında meta etiketi olarak yayınlanır; değişiklik en geç 5 dakikada görünür. Boş bırakırsanız etiket kaldırılır.',
+  'sites.editor.seo.invalidToken': 'Geçersiz kod: 8-100 karakter, yalnızca harf, rakam, tire ve alt çizgi',
+  'sites.editor.seo.submit': 'Kaydet',
+  'sites.editor.seo.saved': 'Arama motoru ayarları kaydedildi',
+  'sites.editor.seo.saveFailed': 'Arama motoru ayarları kaydedilemedi',
 } as const satisfies Record<string, string>;

@@ -8,6 +8,7 @@ import { LoadingState, ErrorState, EmptyState } from '@/components/common/DataSt
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { Badge, InlineMessage, PrimaryButton, SecondaryButton, Section, TextField } from '@/components/settings/ui';
 import { ChipButton, FieldGroup, List, ListItem, Select, Textarea } from '@/components/ui';
+import { SiteSeoSettings } from './SiteSeoSettings';
 
 interface PageLocaleRow {
   locale: string;
@@ -46,6 +47,7 @@ interface SiteRow {
   defaultLocale: string;
   enabledLocales: string[];
   domains: Array<{ id: string; domain: string; status: string; verificationToken: string }>;
+  seo: { googleSiteVerification: string | null; bingSiteVerification: string | null };
 }
 
 const BLOCK_TEMPLATE: Record<BlockType, unknown> = {
@@ -193,6 +195,8 @@ export function SiteEditor({ studioId, variant }: { studioId: string; variant: '
           </div>
         )}
       </Section>
+
+      <SiteSeoSettings studioId={studioId} seo={site.seo} onSaved={refresh} />
 
       {variant === 'platform' && (
         <Section title={t('sites.editor.wizard.title')} description={t('sites.editor.wizard.description')}>

@@ -16,6 +16,7 @@ import {
 } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { SiteCacheService } from './site-cache.service';
+import { IndexNowService } from './indexnow/indexnow.service';
 
 function toLocaleDto(l: { locale: string; slug: string; seoTitle: string | null; seoDescription: string | null; ogImageUrl: string | null; legalApproved: boolean; legalApprovedAt: Date | null }): PageLocaleDTO {
   return {
@@ -53,6 +54,7 @@ export class PagesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly siteCache: SiteCacheService,
+    private readonly indexNow: IndexNowService,
   ) {}
 
   /** The web app caches published pages (ISR, docs/SEO.md): a change to live content drops the site's cache. */
@@ -158,6 +160,7 @@ export class PagesService {
       this.prisma.page.update({ where: { id: page.id }, data: { status: 'PUBLISHED', publishedAt: new Date() }, include: PAGE_INCLUDE }),
     ]);
     void this.siteCache.purgeStudio(studioId);
+    void this.indexNow.notifyPage(studioId, page.id);
     return toPageSummary(updated);
   }
 
@@ -165,6 +168,7 @@ export class PagesService {
     const page = await this.pageOrThrow(studioId, pageId, {});
     const updated = await this.prisma.page.update({ where: { id: page.id }, data: { status: 'DRAFT' }, include: PAGE_INCLUDE });
     void this.siteCache.purgeStudio(studioId);
+    void this.indexNow.notifyPage(studioId, page.id);
     return toPageSummary(updated);
   }
 

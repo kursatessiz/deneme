@@ -1,6 +1,6 @@
 import { randomBytes } from 'crypto';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { isValidDomain, expectedDnsRecords } from '@platform/shared';
+import { isValidDomain, expectedDnsRecords, mergeSiteSeoSettings, parseSiteSeoSettings } from '@platform/shared';
 import type { SiteDTO, SiteDomainDTO, UpdateSiteInput } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { DnsVerificationService } from './dns.service';
@@ -59,12 +59,15 @@ export class SitesService {
     if (input.enabledLocales && !input.enabledLocales.includes(input.defaultLocale ?? site.defaultLocale)) {
       throw new BadRequestException('Varsayılan dil, etkin diller listesinde olmalıdır');
     }
+    const seoSettings = input.seo ? mergeSiteSeoSettings(parseSiteSeoSettings(site.seoSettings), input.seo) : undefined;
     const updated = await this.prisma.site.update({
       where: { id: site.id },
       data: {
         defaultLocale: input.defaultLocale,
         enabledLocales: input.enabledLocales,
         primaryDomain: input.primaryDomain === undefined ? undefined : input.primaryDomain,
+        // The IndexNow key lives in the same JSON and is carried through the merge untouched.
+        seoSettings: seoSettings ? { ...seoSettings } : undefined,
       },
       include: { domains: true },
     });
@@ -138,7 +141,7 @@ export class SitesService {
     return site;
   }
 
-  private toSiteDto(site: { id: string; kind: string; primaryDomain: string | null; defaultLocale: string; enabledLocales: string[]; domains: Array<{ id: string; domain: string; status: string; verificationToken: string; verifiedAt: Date | null }> }): SiteDTO {
+  private toSiteDto(site: { id: string; kind: string; primaryDomain: string | null; defaultLocale: string; enabledLocales: string[]; seoSettings: unknown; domains: Array<{ id: string; domain: string; status: string; verificationToken: string; verifiedAt: Date | null }> }): SiteDTO {
     return {
       id: site.id,
       kind: site.kind as SiteDTO['kind'],
@@ -146,6 +149,7 @@ export class SitesService {
       defaultLocale: site.defaultLocale,
       enabledLocales: site.enabledLocales,
       domains: site.domains.map(toDomainDto),
+      seo: (({ googleSiteVerification, bingSiteVerification }) => ({ googleSiteVerification, bingSiteVerification }))(parseSiteSeoSettings(site.seoSettings)),
     };
   }
 }

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { PRODUCT_NAME, buildHreflangAlternates } from '@platform/shared';
 import { toOgLocale } from '@/lib/seo/og-locale';
+import { verificationMetadata } from '@/lib/seo/verification';
 import { fetchPublicPage, fetchSiteSettings } from '@/lib/sites/api';
 import { sitePath } from '@/lib/sites/origin';
 import { pickPageVariant } from '@/lib/sites/ab';
@@ -27,7 +28,8 @@ export async function buildSiteMetadata(studioSlug: string, isPlatform: boolean,
   const slug = (slugParts ?? []).join('/');
   const page = await fetchPublicPage(studioSlug, locale, slug);
   if (!page) return {};
-  const origin = (await fetchSiteSettings(studioSlug)).canonicalOrigin;
+  const settings = await fetchSiteSettings(studioSlug);
+  const origin = settings.canonicalOrigin;
   // The platform home page's x-default is the origin root, which redirects to the visitor's locale (app/route.ts).
   const xDefaultUrl = isPlatform && page.page.kind === 'HOME' && slug === '' ? `${origin}/` : null;
   const languages = buildHreflangAlternates(page.allLocales, (l, sl) => `${origin}${pathFor(l, sl)}`, page.defaultLocale, xDefaultUrl);
@@ -41,9 +43,11 @@ export async function buildSiteMetadata(studioSlug: string, isPlatform: boolean,
     : { url: `${origin}/og?${new URLSearchParams({ locale, ...(slug ? { slug } : {}) }).toString()}`, width: 1200, height: 630, alt: title };
   const siteName = isPlatform ? PRODUCT_NAME : (page.context.studioContact?.name ?? page.context.companyInfo?.legalName ?? undefined);
 
+  const verification = verificationMetadata(settings);
   return {
     title,
     description,
+    ...(verification ? { verification } : {}),
     alternates: {
       canonical: url,
       languages,

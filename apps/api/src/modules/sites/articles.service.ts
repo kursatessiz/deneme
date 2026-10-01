@@ -16,6 +16,7 @@ import { SitesService } from './sites.service';
 import { articleError } from './articles.errors';
 import { ArticlesFeedCache } from './articles-feed-cache.service';
 import { SiteCacheService } from './site-cache.service';
+import { IndexNowService } from './indexnow/indexnow.service';
 
 const ARTICLE_INCLUDE = { locales: { orderBy: { locale: 'asc' } }, tags: { select: { tagId: true } } } satisfies Prisma.ArticleInclude;
 type ArticleRow = Prisma.ArticleGetPayload<{ include: typeof ARTICLE_INCLUDE }>;
@@ -75,6 +76,7 @@ export class ArticlesService {
     private readonly sites: SitesService,
     private readonly feedCache: ArticlesFeedCache,
     private readonly siteCache: SiteCacheService,
+    private readonly indexNow: IndexNowService,
   ) {}
 
   /**
@@ -196,6 +198,7 @@ export class ArticlesService {
       include: ARTICLE_INCLUDE,
     });
     this.changed(studioId, existing.siteId, true);
+    void this.indexNow.notifyArticle(studioId, existing.id);
     return toArticleDto(article);
   }
 
@@ -204,6 +207,7 @@ export class ArticlesService {
     const existing = await this.articleOrThrow(studioId, articleId);
     const article = await this.prisma.article.update({ where: { id: existing.id }, data: { status: 'ARCHIVED' }, include: ARTICLE_INCLUDE });
     this.changed(studioId, existing.siteId, existing.status === 'PUBLISHED');
+    if (existing.status === 'PUBLISHED') void this.indexNow.notifyArticle(studioId, existing.id);
     return toArticleDto(article);
   }
 

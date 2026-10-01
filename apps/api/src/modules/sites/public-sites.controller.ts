@@ -3,6 +3,7 @@ import { PublicSitesService } from './public-sites.service';
 import { SitesService } from './sites.service';
 import { SitesPublicRateLimitGuard } from './sites-rate-limit.guard';
 import { PublicArticlesService } from './public-articles.service';
+import { IndexNowKeyService } from './indexnow/indexnow-key.service';
 
 /**
  * Unauthenticated read routes the web app's rendering layer and Caddy call.
@@ -14,6 +15,7 @@ export class PublicSitesController {
     private readonly publicSites: PublicSitesService,
     private readonly sites: SitesService,
     private readonly articles: PublicArticlesService,
+    private readonly indexNowKeys: IndexNowKeyService,
   ) {}
 
   /** Web middleware: which site does this Host header belong to. */
@@ -36,6 +38,14 @@ export class PublicSitesController {
   @Get('public/sites/:studioSlug/settings')
   async getSettings(@Param('studioSlug') studioSlug: string) {
     return this.publicSites.getSettings(studioSlug);
+  }
+
+  /** The site's IndexNow key (the content of its `/<key>.txt` file); 404 until the first notification generated one. */
+  @Get('public/sites/:studioSlug/indexnow-key')
+  async indexNowKey(@Param('studioSlug') studioSlug: string) {
+    const key = await this.indexNowKeys.keyForSlug(studioSlug);
+    if (!key) throw new NotFoundException();
+    return { key };
   }
 
   /** Published pages with A/B variants: the only ones the web app renders per request (docs/SEO.md "ISR"). */

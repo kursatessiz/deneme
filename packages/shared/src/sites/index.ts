@@ -8,3 +8,5 @@ export * from './articles';
 export * from './article-markup';
 export * from './rss';
 export * from './cache';
+export * from './seo-settings';
+export * from './indexnow';

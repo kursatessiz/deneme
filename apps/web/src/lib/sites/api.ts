@@ -27,7 +27,13 @@ export async function fetchPublicPage(studioSlug: string, locale: string, slug: 
  * closed: no badge, and the default origin.
  */
 export async function fetchSiteSettings(studioSlug: string): Promise<PublicSiteSettingsDTO> {
-  const fallback: PublicSiteSettingsDTO = { showPoweredBy: false, poweredByUrl: null, canonicalOrigin: siteOrigin(studioSlug, studioSlug === 'platform') };
+  const fallback: PublicSiteSettingsDTO = {
+    showPoweredBy: false,
+    poweredByUrl: null,
+    canonicalOrigin: siteOrigin(studioSlug, studioSlug === 'platform'),
+    googleSiteVerification: null,
+    bingSiteVerification: null,
+  };
   try {
     const res = await fetch(`${apiInternalBaseUrl()}/public/sites/${encodeURIComponent(studioSlug)}/settings`, {
       next: { revalidate: PAGE_REVALIDATE_SECONDS, tags: [siteCacheTag(studioSlug)] },

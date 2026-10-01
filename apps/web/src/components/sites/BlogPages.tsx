@@ -8,6 +8,7 @@ import {
   blogTagPath,
   buildHreflangAlternates,
   type PublicArticleSiteDTO,
+  type PublicSiteSettingsDTO,
   type PublicArticleSummaryDTO,
   type Translate,
 } from '@platform/shared';
@@ -20,6 +21,7 @@ import { articleJsonLd, breadcrumbJsonLd } from '@/lib/sites/jsonld';
 import { sitePath } from '@/lib/sites/origin';
 import { ArticleBody } from './ArticleBody';
 import { fetchSiteSettings } from '@/lib/sites/api';
+import { verificationMetadata } from '@/lib/seo/verification';
 import { SiteShell, poweredByOf } from './SiteShell';
 
 /**
@@ -41,6 +43,12 @@ function formatDate(iso: string, locale: string): string {
   } catch {
     return iso.slice(0, 10);
   }
+}
+
+/** The `verification` metadata field, only when a token is set. */
+function verificationFields(settings: PublicSiteSettingsDTO): Pick<Metadata, 'verification'> {
+  const verification = verificationMetadata(settings);
+  return verification ? { verification } : {};
 }
 
 function feedAlternate(origin: string, locale: string, site: PublicArticleSiteDTO, t: Translate) {
@@ -110,6 +118,7 @@ export async function buildBlogIndexMetadata({ studioSlug, locale }: BlogRoutePa
   return {
     title,
     description,
+    ...verificationFields(settings),
     alternates: { canonical: url, ...(languages ? { languages } : {}), types: feedAlternate(origin, locale, site, t) },
     // An empty listing is not worth indexing.
     ...(list.items.length === 0 ? { robots: { index: false, follow: true } } : {}),
@@ -220,6 +229,7 @@ export async function buildArticleMetadata({ studioSlug, locale }: BlogRoutePara
   return {
     title,
     description,
+    ...verificationFields(settings),
     alternates: { canonical: url, languages, types: feedAlternate(origin, locale, site, t) },
     openGraph: {
       type: 'article',

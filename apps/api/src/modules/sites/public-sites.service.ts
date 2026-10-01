@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@platform/database';
-import { DEFAULT_TENANT_THEME, originForPlatformHost, pickCanonicalHost, studioBillingCurrency } from '@platform/shared';
+import { DEFAULT_TENANT_THEME, parseSiteSeoSettings, studioBillingCurrency } from '@platform/shared';
 import type { PublicPageDTO, PublicPageContext, PageLocaleDTO, BlockDTO, PublicSiteSettingsDTO, SitemapPageEntry, TenantThemeView, VariantPagesDTO } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { sitesBaseDomain } from './sites.service';
+import { canonicalOriginOf } from './canonical-origin';
 import { loadAllowedThemeFamiliesForStudio } from '../appearance/theme-families';
 import { loadPoweredBy } from './powered-by';
 
@@ -104,18 +105,16 @@ export class PublicSitesService {
   async getSettings(studioSlug: string): Promise<PublicSiteSettingsDTO> {
     const studio = await this.prisma.studio.findFirst({
       where: { slug: studioSlug, isActive: true },
-      select: { id: true, slug: true, isPlatform: true, site: { select: { id: true, primaryDomain: true, domains: { where: { status: 'VERIFIED' }, select: { domain: true, verifiedAt: true } } } } },
+      select: { id: true, slug: true, isPlatform: true, site: { select: { id: true, primaryDomain: true, seoSettings: true, domains: { select: { domain: true, status: true, verifiedAt: true } } } } },
     });
     if (!studio?.site) throw new NotFoundException('Site bulunamadı');
-    const base = sitesBaseDomain();
-    const host = pickCanonicalHost({
-      isPlatform: studio.isPlatform,
-      slug: studio.slug,
-      baseDomain: base,
-      primaryDomain: studio.site.primaryDomain,
-      verifiedDomains: studio.site.domains.map((d) => ({ domain: d.domain, verifiedAt: d.verifiedAt?.getTime() ?? 0 })),
-    });
-    return { ...(await loadPoweredBy(this.prisma, studio)), canonicalOrigin: originForPlatformHost(host) };
+    const seo = parseSiteSeoSettings(studio.site.seoSettings);
+    return {
+      ...(await loadPoweredBy(this.prisma, studio)),
+      canonicalOrigin: canonicalOriginOf({ isPlatform: studio.isPlatform, slug: studio.slug, primaryDomain: studio.site.primaryDomain, domains: studio.site.domains }),
+      googleSiteVerification: seo.googleSiteVerification,
+      bingSiteVerification: seo.bingSiteVerification,
+    };
   }
 
   /**

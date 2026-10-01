@@ -89,4 +89,13 @@ export const enSites: Record<keyof typeof trSites, string> = {
   'sites.editor.versions.rollback': 'Revert to this version',
   'sites.editor.versions.rolledBack': 'Reverted to the previous version and republished',
   'sites.editor.loadFailed': 'Could not load',
+  'sites.editor.seo.title': 'Search engine verification',
+  'sites.editor.seo.description': 'Meta tag codes for Search Console and Bing Webmaster Tools ownership verification. Enter only the content value of the tag.',
+  'sites.editor.seo.google': 'Google Search Console code',
+  'sites.editor.seo.bing': 'Bing Webmaster Tools code',
+  'sites.editor.seo.hint': 'The code is published as a meta tag on every page of the site; a change shows within 5 minutes. Leave it empty to remove the tag.',
+  'sites.editor.seo.invalidToken': 'Invalid code: 8-100 characters, letters, digits, dash and underscore only',
+  'sites.editor.seo.submit': 'Save',
+  'sites.editor.seo.saved': 'Search engine settings saved',
+  'sites.editor.seo.saveFailed': 'Search engine settings could not be saved',
 } as const;

@@ -143,6 +143,30 @@ Sayfa motoru sayfaları (`/{dil}/...`), blog sayfaları ve işletme siteleri art
 
 **Test**: `isr-routes.spec.ts`, `blog-paging.spec.ts`, `variant-pages.spec.ts`, `revalidate.spec.ts` (web); `site-cache.service.spec.ts` (API); `apps/api/test/e2e/site-cache.e2e-spec.ts` (yayın ve yayından kaldırmada temizleme, taslakta temizleme yok, A/B sayfa listesi ve kiracı ayrımı, host'tan bağımsız canonical).
 
+## 12. Arama motoru doğrulama etiketleri (S3)
+
+Search Console ve Bing Webmaster Tools'un "HTML etiketi" yöntemiyle sahiplik doğrulaması site ayarıdır (`Site.seoSettings`, JSON sütunu; migration `20261102000000_site_seo_settings`, yalnızca yeni sütun):
+
+- `googleSiteVerification` -> `<meta name="google-site-verification" content="...">`
+- `bingSiteVerification` -> `<meta name="msvalidate.01" content="...">`
+
+Platform sitesi de bir `Site` olduğundan platformun kodları platform sitesinin ayarlarıdır ve yalnızca platform alan adında görünür; her işletmenin kodları yalnızca kendi sitesinde (alt alan adı veya özel alan adı) görünür. Etiketler `generateMetadata` ile (`verification` alanı; `lib/seo/verification.ts`) sayfa motoru ve blog sayfalarının `<head>` bölümüne yazılır; değer API'nin `GET /public/sites/:slug/settings` yanıtından gelir.
+
+**Düzenleme**: süper admin "Web sitesi" ekranı (platform) ve kiracı "Web sitem" ekranı (`site.manage`) aynı "Arama motoru doğrulaması" bölümünü gösterir (`components/sites/SiteSeoSettings.tsx`); kayıt `PATCH /sites/studio/:studioId` gövdesindeki `seo` nesnesidir (`UpdateSiteSeoSettingsSchema`). Kod 8-100 karakter, yalnızca harf, rakam, tire ve alt çizgi olabilir (etikete işaretleme sızamaz), boş değer etiketi kaldırır, gönderilmeyen alan korunur, bilinmeyen alan 400'dür. Değişiklik yayında önbellek temizlemesiyle (bölüm 11) birkaç saniyede, temizleme kapalıysa en geç 5 dakikada görünür.
+
+## 13. IndexNow (S3)
+
+Sayfa veya yazı yayınlandığında ve yayından kaldırıldığında değişen adresler IndexNow protokolüyle (`https://api.indexnow.org/indexnow`; Bing, Yandex, Seznam ve Naver paylaşır) arama motorlarına bildirilir.
+
+- **Bayrak**: `seo.indexnow` özellik bayrağı, varsayılan kapalı. Süper admin "Özellik Bayrakları" ekranından global, işletme türü veya tek kiracı için açar (platform kiracısı dahil).
+- **Anahtar**: her site için ilk kullanımda üretilir (32 onaltılık karakter, `Site.seoSettings.indexNowKey`), `https://<host>/<anahtar>.txt` adresinde anahtarın kendisini döner. Dosyayı web uygulaması sunar: middleware `/<32 hex>.txt` isteğini `app/indexnow-key/[key]/route.ts` rotasına yeniden yazar, rota isteğin host'una göre siteyi seçer (platform, `<slug>.<alan>` veya doğrulanmış özel alan adı) ve yalnızca o sitenin anahtarı için 200 döner. Anahtar herkese açıktır (dosyanın içeriğidir) ve `GET /public/sites/:slug/indexnow-key` ile okunur.
+- **Tetikleyiciler**: sayfa yayınla, geri al ve yayından kaldır (sayfanın tüm dil adresleri); yazı yayınla ve arşivle (yazının tüm dil adresleri ve her dilin blog dizini). Taslak düzenlemesi bildirim göndermez. Adresler sitenin canonical kökenindendir (bölüm 11) ve tek bir host'a aittir.
+- **Kuyruk**: `IndexNowService` işi BullMQ `indexnow` kuyruğuna ekler (Redis varsa; 3 deneme, üstel bekleme); `IndexNowProcessor` bildirimi gönderir. Redis yoksa (yerel geliştirme) aynı kod aynı süreçte arka planda çalışır. İş beklerken bayrak kapatılırsa gönderim atlanır.
+- **Çıkış**: istek mevcut HTTP çıkış istemcisinden (`AlertHttpClient`: yalnızca https, `api.indexnow.org` izin listesi, SSRF korumalı, 5 saniye, yönlendirme yok) geçer ve test ortamında (`NODE_ENV=test`) hiç yapılmaz. 200/202 başarıdır; 429 ve 5xx yeniden denenir, diğer 4xx (geçersiz anahtar vb.) yeniden denenmez.
+- **Kayıt**: her gönderim `AuditLog` satırıdır (`indexnow.submitted` veya `indexnow.rejected`; host, adres sayısı, HTTP durumu).
+- **Yük**: `buildIndexNowPayload()` (`packages/shared/src/sites/indexnow.ts`) gövdeyi kurar: `host`, `key`, `keyLocation`, yalnızca o host'un adresleri, tekilleştirilmiş, en fazla 10 000.
+- **Testler**: `packages/shared/src/sites/seo-settings.spec.ts` (yük, ayar şeması), `indexnow-submitter.service.spec.ts` (çıkış, test ortamı, yeniden deneme), `lib/sites/indexnow-key.spec.ts` ve `lib/seo/verification.spec.ts` (web), `apps/api/test/e2e/indexnow-verification.e2e-spec.ts` (bayrak açıkken yayında iş kuyruğa girer, kapalıyken girmez; doğrulama kodları, anahtar).
+
 ## 17. Açık işler
 
 - Blog için görsel seçici, yazı önizlemesi ve zamanlanmış yayın (S2b'de yok).

@@ -7,6 +7,7 @@ import { isProtectedPath } from '@/lib/security/protected-paths';
 import { tenantRewritePath } from '@/lib/sites/tenant-path';
 import { blogPagingRewrite } from '@/lib/sites/blog-paging';
 import { isVariantPage } from '@/lib/sites/variant-pages';
+import { indexNowKeyFromPath } from '@/lib/sites/indexnow-key';
 import { apiOrigin, serverPublicApiUrl } from '@/lib/public-api-url';
 
 /** Server-side API base (docker network) for host resolution, session refresh and the embed CSP; same variable the BFF uses. */
@@ -195,6 +196,14 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 }
 
 async function route(request: NextRequest): Promise<NextResponse> {
+  // IndexNow key file: answered per host by app/indexnow-key (platform, tenant subdomain or custom domain alike).
+  const indexNowKey = indexNowKeyFromPath(request.nextUrl.pathname);
+  if (indexNowKey) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/indexnow-key/${indexNowKey}`;
+    return NextResponse.rewrite(url);
+  }
+
   const tenantRewrite = await tenantSiteRewrite(request);
   if (tenantRewrite) return publicAdsCsp(tenantRewrite);
 

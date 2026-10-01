@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { isReservedPageSlug, type ArticleSitemapEntry } from './articles';
 import type { PoweredByDTO } from '../branding';
+import { UpdateSiteSeoSettingsSchema, type SiteSeoSettings } from './seo-settings';
 
 /**
  * Page engine core contracts (docs/SAYFA_MOTORU.md). `Site` -> `Page` ->
@@ -38,6 +39,8 @@ export const UpdateSiteSchema = z
     defaultLocale: LocaleCode.optional(),
     enabledLocales: z.array(LocaleCode).min(1).max(20).optional(),
     primaryDomain: z.string().trim().max(190).optional().nullable(),
+    /** Search settings (S3): verification tokens; omitted fields keep their stored value. */
+    seo: UpdateSiteSeoSettingsSchema.optional(),
   })
   .strict();
 export type UpdateSiteInput = z.infer<typeof UpdateSiteSchema>;
@@ -151,6 +154,8 @@ export interface SiteDTO {
   defaultLocale: string;
   enabledLocales: string[];
   domains: SiteDomainDTO[];
+  /** Search settings (S3); the IndexNow key is internal and not part of the DTO. */
+  seo: Pick<SiteSeoSettings, 'googleSiteVerification' | 'bingSiteVerification'>;
 }
 
 // ---------------------------------------------------------------------------
@@ -239,6 +244,9 @@ export function buildHreflangAlternates<T extends { locale: string; slug: string
  * outside a page body (badge, and since S3 verification tags, crawler policy and the review aggregate).
  */
 export interface PublicSiteSettingsDTO extends PoweredByDTO {
+  /** Search Console / Bing verification tokens rendered as meta tags (S3); null when not set. */
+  googleSiteVerification: string | null;
+  bingSiteVerification: string | null;
   /**
    * The site's one canonical origin, independent of the request host so cached pages stay correct (ISR): the
    * verified primary custom domain, else the earliest verified one, else `<slug>.<base domain>`; the platform
