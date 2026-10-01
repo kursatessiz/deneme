@@ -6,54 +6,9 @@ import { useLocale, useT } from '@/components/i18n/I18nProvider';
 import { resolveTheme, themeCssVariables, STUDIO_SLUG_PATTERN } from '@platform/shared';
 import { trackingHeaders } from '@/lib/tracking/client';
 import { Button, Card, CardContent, Checkbox, FieldGroup, Input, Select } from '@/components/ui';
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 import { publicApiBaseUrl } from '@/lib/public-api-url';
-
-/** Expo scheme, see apps/mobile/app.json "scheme". */
-const MOBILE_APP_SCHEME = 'platform';
-
-interface EmbedConfig {
-  name: string;
-  logoUrl: string | null;
-  themeFamily: string;
-  themePrimary: string;
-  gradientPresetKey: string;
-}
-
-interface Branch {
-  id: string;
-  name: string;
-}
-
-interface ServiceType {
-  id: string;
-  name: string;
-  durationMin: number;
-}
-
-interface ScheduleItem {
-  id: string;
-  branchId: string | null;
-  serviceTypeId: string;
-  title: string;
-  startTime: string;
-  endTime: string;
-  capacity: number;
-  bookedCount: number;
-}
-
-async function embedFetch<T>(slug: string, path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${publicApiBaseUrl()}/public/studios/${encodeURIComponent(slug)}/embed/${path}`, {
-    ...init,
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body?.message ?? 'Bir hata oluştu');
-  }
-  return res.json();
-}
+import { embedFetch, openMemberAppSession } from '@/lib/public-booking';
+import type { EmbedBranch as Branch, EmbedConfig, EmbedScheduleItem as ScheduleItem, EmbedServiceType as ServiceType } from '@/lib/public-booking';
 
 /** No signed-in session here: the locale comes from the root layout (cookie or Accept-Language), the same on server and client. */
 function formatTime(iso: string, locale: string) {
@@ -136,7 +91,7 @@ export default function EmbedBookingPage() {
         setSchedules(scheduleList.filter((s) => s.bookedCount < s.capacity));
         setStatus('idle');
       } catch (err) {
-        setError(err instanceof Error ? err.message : t('embed.errors.loadFailed'));
+        setError(err instanceof Error && err.message ? err.message : t('embed.errors.loadFailed'));
         setStatus('error');
       }
     })();
@@ -167,11 +122,7 @@ export default function EmbedBookingPage() {
    * invites, not this flow) -- on a device without the app installed this
    * link simply does nothing, which is documented in docs/PUBLIC_API.md.
    */
-  const openMemberApp = () => {
-    // Only a well-formed session id ever goes into the deep link.
-    if (!selectedScheduleId || !UUID_PATTERN.test(selectedScheduleId)) return;
-    window.location.href = `${MOBILE_APP_SCHEME}://seans/${encodeURIComponent(selectedScheduleId)}`;
-  };
+  const openMemberApp = () => openMemberAppSession(selectedScheduleId);
 
   const submitLead = async (e: React.FormEvent) => {
     e.preventDefault();
