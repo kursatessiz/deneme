@@ -40,6 +40,7 @@ Adımlar:
 - `pnpm turbo run typecheck`
 - `pnpm turbo run test`
 - `pnpm audit --audit-level high` (high ve critical uyarılarında başarısız olur)
+  - Yaması bulunmayan ve yalnızca geliştirme araçlarını etkileyen bir uyarı, kök `package.json` içindeki `pnpm.auditConfig.ignoreGhsas` listesine gerekçesiyle eklenir ve yama çıkınca listeden çıkarılır. Şu an listede: `GHSA-86w9-cpqp-85rv` (`node-forge` 1.4.0, yalnızca `apps/mobile` altındaki Expo CLI kod imzalama bağımlılığı; API ve web imajlarına girmez; yamalı sürüm henüz yok, Dependabot sürüm yükseltince ignore kaldırılır).
 - `shellcheck -x deploy/scripts/*.sh`
 - `actionlint` (shellcheck entegrasyonu, sabitlenmiş (pinned) sürüm ve checksum ile)
 - `api` ve `web` image'ları için Docker build kontrolü (sadece build, push yok; `main` push

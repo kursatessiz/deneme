@@ -19,6 +19,7 @@ Yalnızca `main` üzerindeki en son sürüm düzeltme alır.
 
 - Dependabot ile 7 günlük bekleme süresiyle bağımlılık güncellemeleri; major sürümler ayrı PR'lar olarak
 - Her PR'da `pnpm audit` (high ve üzeri), bağımlılık incelemesi ve lisans kontrolleri
+  - Yaması olmayan, yalnızca geliştirme araçlarını etkileyen uyarılar `pnpm.auditConfig.ignoreGhsas` ile gerekçeli olarak geçici geçilir (liste ve gerekçeler: `docs/CICD_GUIDE.md`)
 - TypeScript ve GitHub Actions için CodeQL (security-extended)
 - Gizli bilgi taraması (TruffleHog) ve workflow denetimi (zizmor, actionlint)
 - OpenSSF Scorecard
