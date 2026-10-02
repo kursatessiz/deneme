@@ -18,6 +18,13 @@ const TRAINER_PHONE = '+905321000004';
 const MEMBER_PHONE = '+905321000016';
 const HOUR = 3_600_000;
 
+/** A day well inside the 30-day summary window, so the spec does not expire as the calendar moves on. */
+const RECENT_DAY = (() => {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - 3);
+  return d.toISOString().slice(0, 10);
+})();
+
 describe('Health integration (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaClient;
@@ -219,22 +226,22 @@ describe('Health integration (e2e)', () => {
     it('upserts a day and is idempotent when sent again with a different value', async () => {
       const first = await as(memberToken)
         .post('/me/health/summaries')
-        .send({ summaries: [{ date: '2026-09-01', steps: 4000, activeEnergyKcal: 250.5, restingHeartRate: 60 }] });
+        .send({ summaries: [{ date: RECENT_DAY, steps: 4000, activeEnergyKcal: 250.5, restingHeartRate: 60 }] });
       expect(first.status).toBe(201);
       expect(first.body).toEqual({ upserted: 1 });
 
       const second = await as(memberToken)
         .post('/me/health/summaries')
-        .send({ summaries: [{ date: '2026-09-01', steps: 9000, activeEnergyKcal: 400, restingHeartRate: 65 }] });
+        .send({ summaries: [{ date: RECENT_DAY, steps: 9000, activeEnergyKcal: 400, restingHeartRate: 65 }] });
       expect(second.status).toBe(201);
 
-      const rows = await prisma.healthDailySummary.findMany({ where: { memberId, date: new Date('2026-09-01') } });
+      const rows = await prisma.healthDailySummary.findMany({ where: { memberId, date: new Date(RECENT_DAY) } });
       expect(rows).toHaveLength(1); // never duplicated
       expect(rows[0].steps).toBe(9000); // latest value wins
 
       const mine = await as(memberToken).get('/me/health/summaries');
       expect(mine.status).toBe(200);
-      const day = mine.body.find((s: any) => s.date === '2026-09-01');
+      const day = mine.body.find((s: any) => s.date === RECENT_DAY);
       expect(day).toBeTruthy();
       expect(day.steps).toBe(9000);
     });
@@ -301,7 +308,7 @@ describe('Health integration (e2e)', () => {
       const res = await as(trainerToken).get(`/studios/${ZEN}/members/${memberId}/health`);
       expect(res.status).toBe(200);
       expect(res.body.shareWithStudio).toBe(true);
-      expect(res.body.summaries.some((s: any) => s.date === '2026-09-01')).toBe(true);
+      expect(res.body.summaries.some((s: any) => s.date === RECENT_DAY)).toBe(true);
     });
 
     it('turning shareWithStudio off hides the trend from staff even though data still exists', async () => {
