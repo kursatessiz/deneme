@@ -74,7 +74,7 @@ tarayıcı e2e'sinden farklı olarak yalnızca üretim build'ini çalıştırır
 
 - Aynı Postgres servis konteyneri (`ci_lighthouse`), migrate + seed, ardından API (`node dist/main.js`, 4000)
   ve web (`next start`, 3000) arka planda başlatılır; `/health` ve `/tr` yanıt verene kadar beklenir.
-- `treosh/lighthouse-ci-action` tam commit SHA'sına sabitlidir (yorumda `v12.6.2`); `temporaryPublicStorage: false`
+- `treosh/lighthouse-ci-action` tam commit SHA'sına sabitlidir (yorumda `12.6.2`; depo etiketleri `v` öneksizdir); `temporaryPublicStorage: false`
   olduğundan rapor herkese açık bir depoya gitmez, `uploadArtifacts: true` ile iş akışı artifact'ı olarak yüklenir
   (`lighthouse-results`).
 - Bütçe `apps/web/lighthouserc.json` içindedir: her URL için bir koşu, masaüstü ön ayarı. URL'ler: `/tr`,
