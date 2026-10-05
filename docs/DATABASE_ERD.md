@@ -45,6 +45,8 @@ erDiagram
     Branch ||--o{ MemberProfile : home_of
 
     RoleTemplate ||--o{ RoleTemplatePermission : grants
+    Membership ||--o| DashboardLayout : arranges
+    Studio ||--o{ DashboardLayout : has
     RoleTemplate ||--o{ InviteToken : assigns
 
     ResourceType ||--o{ Resource : has
@@ -191,6 +193,7 @@ erDiagram
 | `memberships` | Rol tabanlı erişimle kullanıcı-stüdyo bağlantıları; `is_partner_guest` yalnızca bir partner (toplayıcı) webhook'unun oluşturduğu, kendisi henüz stüdyoya gerçekten katılmamış misafirlerde true olur - mesajlaşma/etkileşim akışları (otomasyon, churn, oyunlaştırma push, puanlama, tavsiye kodu) bu satırları hariç tutar; kişi normal onboarding'i tamamladığında veya personel onu üyeye dönüştürdüğünde temizlenir (bkz. `docs/PARTNERS.md`, "Partner misafirleri ve mesajlaşma") | (user_id, studio_id) benzersiz; (studio_id, status) index; (studio_id, is_partner_guest) index |
 | `role_templates` | Stüdyo başına izin kümeleri; owner rolü zorunlu | (studio_id, key) benzersiz; stüdyo başına bir owner |
 | `role_template_permissions` | Bir rol tarafından verilen izinler | role_template_id index |
+| `dashboard_layouts` | Genel bakış sayfasının üyelik başına kart düzeni (`layout` JSONB: `DashboardLayoutSchema`, `packages/shared/src/dashboard`; 12 sütunlu ızgarada kart anahtarı, x, y, w, h ve dönem ayarı). Kayıt yoksa üyelik izinlerine göre varsayılan pano gösterilir; API yazmadan önce boyutları kart sınırlarına kırpar, kartları sıkıştırır ve görülemeyen kartları çıkarır. Migration `20261103000000_dashboard_layouts` (yalnızca yeni tablo; mevcut her üye dışı role `dashboard.view` izni eklenir) | (membership_id) benzersiz (bir üyelik tek stüdyoya ait olduğundan stüdyo + üyelik başına tek kayıt); studio_id index; stüdyo ve üyelik silinince kayıt da silinir |
 | `invite_tokens` | Token hash ile QR/bağlantı onboarding'i | token_hash benzersiz; (studio_id, phone) index |
 | `document_versions` | Sözleşmeler, KVKK, onay formları (platform veya stüdyo kapsamı) | (studio_id, type, version) NULLS NOT DISTINCT ile benzersiz |
 | `consents` | Üyenin bir doküman sürümüne onayı | (membership_id, document_version_id) benzersiz |

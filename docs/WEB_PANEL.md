@@ -247,6 +247,152 @@ vardır; çıkış butonu menünün dışında, her zaman görünür kalır.
   hepsi aynı `components/common/DateRangeFilter.tsx` ve
   `components/common/BranchSelect.tsx`'i paylaşır.
 
+## Genel bakış kartları
+
+Sahibin isteği: işletmenin genel bakış sayfası (`/dashboard`) sürükle bırak
+kartlardan oluşan bir panodur; sağ üstte "Kart ekle" ile genel kartların
+kataloğu açılır, kartlar ızgarada taşınır, büyütülüp küçültülür ve her kartın
+içeriği bozulmasın diye büyüme ve küçülme sınırları vardır. Mobil uygulama
+bu işte kapsam dışıdır (sonraki iş).
+
+**Tek doğruluk kaynağı** `packages/shared/src/dashboard`:
+`DASHBOARD_GRID` (12 sütun, 72 px satır, 16 px boşluk (`spacing[4]`), en fazla
+30 kart), `DASHBOARD_WIDGETS` (katalog: kategori, başlık ve açıklama anahtarı,
+gereken izinler, boyut sınırları, tekil/çoklu, dönem ayarı),
+`DashboardLayoutSchema` (saklanan düzen), `DashboardDataRequestSchema` ve kart
+verisi DTO'ları, saf ızgara motoru (`clampToWidget`, `moveItem`, `nudgeItem`,
+`resizeItem`, `compact`, `placeNewItem`, `scaleForColumns`, `reorderItem`) ve
+rol bazlı varsayılan pano (`buildDefaultDashboardLayout`). Dönemler işletmenin
+saat diliminde hesaplanır (`dashboardPeriodRange`): Bugün (gece yarısından
+beri, dünün aynı saatine kadarki bölümle karşılaştırılır), Bu hafta
+(pazartesiden beri), Bu ay (ayın 1'inden beri, geçen ayın aynı gününe kadar),
+Son 30 gün (önceki 30 günle).
+
+### Katalog
+
+Boyutlar 12 sütunlu ızgarada "sütun x satır"dır. İzin sütunundaki her izin
+gerekir; işletme sahibi her kartı görür.
+
+| Kart | Anahtar | Kategori | İzin | En küçük | En büyük | Varsayılan | Panoda | Dönem |
+|------|---------|----------|------|----------|----------|------------|--------|-------|
+| Ciro | `revenue` | Göstergeler | `reports.view` | 2x2 | 4x3 | 3x2 | çoklu | Bugün, Bu hafta, Bu ay, Son 30 gün (varsayılan: Bu ay) |
+| Aktif üye sayısı | `activeMembers` | Göstergeler | `reports.view` | 2x2 | 4x3 | 3x2 | tek | - |
+| Yeni üyeler | `newMembers` | Göstergeler | `reports.view` | 2x2 | 4x3 | 3x2 | çoklu | Bugün, Bu hafta, Bu ay, Son 30 gün (varsayılan: Bu ay) |
+| Büyüme hızı | `memberGrowth` | Göstergeler | `reports.view` | 2x2 | 4x3 | 3x2 | çoklu | Bu hafta, Bu ay, Son 30 gün (varsayılan: Bu ay) |
+| Doluluk oranı | `occupancy` | Göstergeler | `reports.view` | 2x2 | 4x3 | 3x2 | çoklu | Bugün, Bu hafta, Bu ay, Son 30 gün (varsayılan: Bu hafta) |
+| Bugünkü seanslar | `todaySessions` | Göstergeler | `schedule.view` | 2x2 | 4x3 | 3x2 | tek | - |
+| Yenileme oranı | `renewalRate` | Göstergeler | `reports.view` | 2x2 | 4x3 | 3x2 | çoklu | Bu ay, Son 30 gün (varsayılan: Son 30 gün) |
+| Riskli üyeler | `churnRisk` | Göstergeler | `reports.view` | 2x2 | 4x3 | 3x2 | tek | - |
+| Yeni adaylar | `newLeads` | Göstergeler | `leads.view` | 2x2 | 4x3 | 3x2 | çoklu | Bugün, Bu hafta, Bu ay, Son 30 gün (varsayılan: Bu hafta) |
+| Ciro trendi | `revenueTrend` | Grafikler | `reports.view` | 4x3 | 12x6 | 6x4 | çoklu | Bu hafta, Bu ay, Son 30 gün (varsayılan: Son 30 gün) |
+| Doluluk trendi | `occupancyTrend` | Grafikler | `reports.view` | 4x3 | 12x6 | 6x4 | çoklu | Bu hafta, Bu ay, Son 30 gün (varsayılan: Son 30 gün) |
+| Üye büyüme grafiği | `memberGrowthChart` | Grafikler | `reports.view` | 4x3 | 12x6 | 6x4 | tek | - |
+| Bugünün programı | `todaySchedule` | Tablolar | `schedule.view` | 4x4 | 12x8 | 6x5 | tek | - |
+| Yaklaşan seanslar | `upcomingSessions` | Tablolar | `schedule.view` | 4x4 | 12x8 | 6x5 | tek | - |
+| Son ödemeler | `recentPayments` | Tablolar | `finance.view` | 4x4 | 12x8 | 6x5 | tek | - |
+| Süresi dolan paketler | `expiringPackages` | Tablolar | `members.view` | 4x4 | 12x8 | 6x5 | tek | - |
+| Eğitmen performansı | `trainerPerformance` | Tablolar | `reports.view` | 4x4 | 12x8 | 6x5 | çoklu | Bu hafta, Bu ay, Son 30 gün (varsayılan: Bu ay) |
+| Haftalık takvim | `weekCalendar` | Takvim | `schedule.view` | 6x4 | 12x8 | 8x5 | tek | - |
+| Şubeler | `branches` | İşletme | yok (her üyelik) | 3x3 | 8x6 | 4x4 | tek | - |
+| Stoku azalan ürünler | `lowStock` | İşletme | `retail.view` | 3x3 | 8x6 | 4x4 | tek | - |
+| Yaklaşan etkinlikler | `upcomingEvents` | İşletme | `events.view` | 3x3 | 8x6 | 4x4 | tek | - |
+| Hızlı işlemler | `quickActions` | İşletme | yok (her üyelik) | 6x1 | 12x3 | 12x1 | tek | - |
+
+Ciro iadeler düşülmüş net tutardır (gelir raporunun "net" satırı) ve her
+zaman işletmenin para birimiyle gösterilir. Büyüme hızı (katılan - ayrılan) /
+dönem başındaki üye sayısıdır (`memberGrowthRate`). Riskli üyeler kartı şube
+filtresini uygulamaz (churn özeti zaten personelin şube kapsamına göre
+hesaplanır).
+
+**Varsayılan pano** tek bir sıralı listeden (`DASHBOARD_DEFAULT_ORDER`)
+üyeliğin görebildiği kartlarla kurulur: sahip için hızlı işlemler, ciro,
+aktif üye, doluluk, bugünkü seanslar, bugünün programı, şubeler, ciro ve
+doluluk trendi, son ödemeler, stok ve etkinlikler; resepsiyon için hızlı
+işlemler, bugünkü seanslar, yeni adaylar, program, ödemeler, süresi dolan
+paketler, haftalık takvim, stok ve etkinlikler; eğitmen için hızlı işlemler,
+bugünkü seanslar, program, şubeler ve haftalık takvim.
+
+### Etkileşim
+
+- Başlığın sağında "Kart ekle" (birincil), "Düzenle"/"Bitti" ve "Diğer
+  işlemler" menüsünde "Varsayılana dön" (onaylı) vardır.
+- Kart ekle diyaloğu kartları kategoriye göre gruplar, arama yapılabilir; her
+  satırda başlık, kısa açıklama ve varsayılan boyut görünür. Üyeliğin görme
+  izni olmayan kartlar listelenmez; panoda zaten olan tekil kartlar devre dışı
+  ve "Panoda zaten var" notuyla görünür; 30 kartta ekleme kapanır. Eklenen
+  kart ilk uygun boşluğa yerleşir, görünür alana kaydırılır ve odak alır.
+- Sürükleme ve boyutlandırma yalnızca düzenleme modunda ve geniş ekranda
+  çalışır (yanlışlıkla taşımayı önlemek için); düzenleme dışında pano
+  durağandır. Kart başlığındaki tutamaktan sürüklenir; hedef hücre kesik
+  çizgili yer tutucuyla gösterilir, diğer kartlar aşağı itilir ve boşluklar
+  yukarı kapanır. Sağ alt köşeden boyutlandırılır; boyut ızgara birimine
+  oturur ve kartın en küçük ve en büyük sınırında durur (sınıra dayanınca
+  kart uyarı renginde çerçevelenir, anlık boyut köşede yazar). İşaretçi
+  olayları (fare, dokunma, kalem) ve işaretçi yakalama kullanılır; konum
+  hesabı her animasyon karesinde bir kez yapılır, ızgara hareket başında bir
+  kez ölçülür. Escape sürüklemeyi iptal eder.
+- Kartın menüsünde dönem seçimi (dönemi olan kartlarda her zaman), düzenleme
+  modunda ayrıca "Yukarı taşı", "Aşağı taşı" ve "Kartı kaldır" (onaylı) vardır.
+- Ekran genişliği 1280 px ve üstünde 12 sütun; 768-1279 px arasında 6 sütun
+  (genişlikler yarıya iner, kartlar okuma sırasıyla yerleşir); 768 px altında
+  tek sütun (kartlar okuma sırasıyla alt alta). Dar ekranlar yalnızca
+  türetilmiş görünümdür, saklanan düzen her zaman 12 sütunludur; burada
+  sürükleme ve boyutlandırma kapalıdır, sıra menüden veya klavyeden değişir.
+
+### Klavye ve ekran okuyucu
+
+Düzenleme modunda her kart odaklanabilir (`tabIndex=0`) ve açıklaması klavye
+kısayollarını anlatır:
+
+| Tuş | Geniş ekran | Dar ekran |
+|-----|-------------|-----------|
+| Ok tuşları | Kartı bir birim taşır (yerçekimi geri alırsa bir sonraki konuma kadar) | Yukarı/aşağı sırayı değiştirir |
+| Shift + ok tuşları | Bir birim büyütür/küçültür, sınırda durur | Yok (duyurulur) |
+| Delete / Backspace | Kaldırma onayını açar | Aynı |
+| Escape | Süren sürüklemeyi iptal eder | Aynı |
+
+Her taşıma, boyutlandırma, ekleme, kaldırma ve sınıra ulaşma `aria-live`
+bölgesinde duyurulur ("Ciro: sütun 2, satır 2."). Bütün düğmelerin
+erişilebilir adı vardır; kartlar başlıklarıyla adlandırılmış bölgelerdir.
+
+### Kalıcılık ve veri
+
+- `GET /studios/:studioId/dashboard/layout`: kayıtlı düzen veya rol bazlı
+  varsayılan (`customized: false`); görülemeyen kartlar çıkarılır.
+- `PUT` aynı yol: `DashboardLayoutSchema` ile doğrulanır (bilinmeyen kart,
+  ikinci tekil kart, sağ kenarı aşan kart, kesirli konum, kartın sunmadığı
+  dönem, 30'dan fazla kart 400 döner); sınır dışı boyutlar kırpılır, çakışan
+  kartlar sıkıştırılarak düzeltilir, görülemeyen kartlar çıkarılır, kayıt
+  `dashboard.layout.update` olarak denetim kaydına yazılır.
+- `DELETE` aynı yol: varsayılana döner (`dashboard.layout.reset`).
+- `POST /studios/:studioId/dashboard/data`: `{ widgets: [{ id, widget,
+  settings }], branchId? }`; her kartın izni ayrı denetlenir, izinsiz kart tüm
+  isteği düşürmek yerine `forbidden` döner. Her sorgu `studioId` ve personelin
+  şube kapsamıyla (verilmişse seçili şubeyle) süzülür; başka işletmenin şubesi
+  404 döner. Veri mevcut servislerden gelir (`ReportsService`,
+  `BranchesService`, `ChurnService`, `RetailCatalogService`); hiçbir servisin
+  vermediği yerlerde (günün seansları ve sayıları, son ödemeler, süresi dolan
+  paketler, yeni adaylar, aylık katılım, yaklaşan etkinlikler) ince sorgular
+  vardır. Sonuçlar API sürecinde 45 saniye önbelleklenir (işletme, şube,
+  personel kapsamı, kart ve dönem anahtarıyla).
+- Dört uç nokta da `dashboard.view` izni ister. Bu izin yeni eklendi:
+  varsayılan resepsiyon ve eğitmen rollerinde vardır, sahip her izne zaten
+  sahiptir, migration mevcut tüm üye dışı rollere ekler; işletmenin sonradan
+  oluşturduğu rollere rol düzenleyicisinden ("Genel bakış" alanı) verilir.
+  Yazma uçları faturalama kısıtlı modunda da açıktır (kişisel ekran tercihi
+  ve salt okuma).
+- Web düzeni anında uygular, son düzenlemeden 800 ms sonra `PUT` ile kaydeder;
+  kayıt başarısız olursa son kaydedilen düzene döner ve uyarı gösterir. Sayfa
+  kapanırken bekleyen kayıt `keepalive` ile gönderilir. Kart verisi tek
+  istekle yüklenir; taşıma ve boyutlandırma veriyi yeniden istemez, dönem veya
+  şube değişince yalnızca etkilenen kartlar istenir.
+
+Testler: `packages/shared/src/dashboard/*.spec.ts` (motor, şema, varsayılan
+pano, dönemler), `apps/api/src/modules/dashboard/dashboard-cache.spec.ts`,
+`apps/api/test/e2e/dashboard.e2e-spec.ts` (kiracı ve üyelik yalıtımı, eğitmen
+için kart çıkarma, doğrulama ve düzeltme, gerçek ciro ve üye sayısı),
+`apps/web/src/lib/dashboard/*.spec.ts`, `apps/web/e2e/dashboard-grid.e2e.ts`.
+
 ## Reklam performansı ve reklam bağlantıları (G2b)
 
 - `/reklam-performansi` (izin `ads.view`) -- atıf raporunu (`GET /crm/studios/:studioId/attribution`) model, gruplama (kaynak/kampanya/reklam seti/reklam) ve tarih aralığı seçicileriyle tablo olarak gösterir: her satırda harcama, aday, satış, gelir, CPL, CAC, ROAS; alt satırda toplam ve etiketsiz ücretli trafik sayısı. `components/common/DateRangeFilter.tsx` yeniden kullanılır.

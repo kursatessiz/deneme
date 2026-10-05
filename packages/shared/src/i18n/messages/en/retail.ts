@@ -248,9 +248,7 @@ export const enRetail: Record<keyof typeof trRetail, string> = {
   'retail.settings.pricesExclusive': 'Tax is added on top of prices.',
   'retail.settings.save': 'Save settings',
 
-  'retail.lowStock.title': 'Products running low',
   'retail.lowStock.empty': 'No product is below its threshold.',
-  'retail.lowStock.row': '{product} - {branch}: {quantity} (threshold {threshold})',
   'retail.lowStock.manage': 'Go to the store',
 
   'retail.error.RETAIL_PRODUCT_NOT_FOUND': 'Product not found.',

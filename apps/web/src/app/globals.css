@@ -677,6 +677,274 @@
     text-transform: capitalize;
   }
 
+  /*
+   * Overview card grid (docs/TASARIM.md, "Genel bakış kartları"). Columns,
+   * row height and gap come from DASHBOARD_GRID through custom properties;
+   * cards are placed with inline grid-column / grid-row.
+   */
+  .ui-dash-grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(var(--ui-dash-cols, 12), minmax(0, 1fr));
+    grid-auto-rows: var(--ui-dash-row, 72px);
+    gap: var(--ui-dash-gap, 16px);
+  }
+
+  /* Each card is a size container: its content adapts to the card, not to the window. */
+  .ui-dash-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    container-type: inline-size;
+    container-name: dash-card;
+  }
+
+  .ui-dash-card:focus-visible {
+    outline: 2px solid var(--pui-theme);
+    outline-offset: 2px;
+  }
+
+  .ui-dash-card[data-editing='true'] {
+    border-style: dashed;
+  }
+
+  .ui-dash-card[data-dragging='true'] {
+    z-index: 3;
+    opacity: 0.94;
+    cursor: grabbing;
+    border-color: var(--pui-theme);
+  }
+
+  /* A resize that runs into the card's minimum or maximum size. */
+  .ui-dash-card[data-limit='true'] {
+    border-color: var(--pui-warn);
+    outline: 2px solid var(--pui-warn);
+    outline-offset: -1px;
+  }
+
+  /* A one row card: title and content side by side, wrapping onto the next line when narrow. */
+  .ui-dash-card[data-inline='true'] {
+    flex-flow: row wrap;
+    align-content: center;
+    align-items: center;
+  }
+
+  .ui-dash-card[data-inline='true'] > .ui-dash-body {
+    flex: 1 1 24rem;
+    padding: calc(var(--pui-space) * 2) calc(var(--pui-space) * 3);
+  }
+
+  .ui-dash-card[data-inline='true'] > .ui-dash-head {
+    flex: 0 0 auto;
+    padding-bottom: calc(var(--pui-space) * 2.5);
+  }
+
+  .ui-dash-head {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--pui-space) * 2);
+    min-width: 0;
+    padding: calc(var(--pui-space) * 2.5) calc(var(--pui-space) * 3) calc(var(--pui-space) * 1.5);
+  }
+
+  .ui-dash-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 0 calc(var(--pui-space) * 3) calc(var(--pui-space) * 3);
+  }
+
+  .ui-dash-body[data-flush='true'] {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  /* The snapped target of a drag or resize. */
+  .ui-dash-placeholder {
+    border: 2px dashed var(--pui-theme);
+    border-radius: calc(var(--pui-radius) * 1.5);
+    background-color: color-mix(in srgb, var(--pui-theme) 8%, transparent);
+    pointer-events: none;
+  }
+
+  .ui-dash-handle {
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .ui-dash-resize {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 22px;
+    height: 22px;
+    cursor: nwse-resize;
+    touch-action: none;
+    border: none;
+    background: none;
+    padding: 0;
+    color: var(--pui-text-muted);
+  }
+
+  .ui-dash-resize::after {
+    content: '';
+    position: absolute;
+    right: 5px;
+    bottom: 5px;
+    width: 9px;
+    height: 9px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    border-bottom-right-radius: 2px;
+  }
+
+  .ui-dash-resize:hover,
+  .ui-dash-resize:focus-visible {
+    color: var(--pui-theme);
+  }
+
+  .ui-dash-size {
+    position: absolute;
+    right: 28px;
+    bottom: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* KPI figure: scales with the card's width inside fixed bounds, never wraps. */
+  .ui-kpi-value {
+    font-size: clamp(1.25rem, 11cqi, 2.25rem);
+    line-height: 1.15;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ui-tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Table columns that give way first (secondary) and next (tertiary) when a card is narrow. */
+  @container dash-card (max-width: 460px) {
+    .ui-dash-col-secondary {
+      display: none;
+    }
+  }
+
+  @container dash-card (max-width: 340px) {
+    .ui-dash-col-tertiary {
+      display: none;
+    }
+  }
+
+  @container dash-card (max-width: 260px) {
+    .ui-kpi-hint {
+      display: none;
+    }
+  }
+
+  /* Small SVG charts drawn from tokens. */
+  .ui-chart {
+    display: block;
+    overflow: visible;
+  }
+
+  .ui-chart text {
+    fill: var(--pui-text-muted);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ui-chart-grid {
+    stroke: var(--pui-border);
+    stroke-width: 1;
+  }
+
+  .ui-chart-line {
+    fill: none;
+    stroke: var(--pui-theme);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+
+  .ui-chart-area {
+    fill: color-mix(in srgb, var(--pui-theme) 14%, transparent);
+    stroke: none;
+  }
+
+  .ui-chart-bar {
+    fill: var(--pui-theme);
+  }
+
+  .ui-chart-dot {
+    fill: var(--pui-bg);
+    stroke: var(--pui-theme);
+    stroke-width: 2;
+  }
+
+  /* Week calendar card: seven day columns. */
+  .ui-week {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: var(--pui-space);
+    min-height: 100%;
+  }
+
+  .ui-week-day {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--pui-space) / 2);
+    min-width: 0;
+  }
+
+  .ui-week-day[data-today='true'] .ui-week-head {
+    color: var(--pui-theme-text, var(--pui-theme));
+    font-weight: 600;
+  }
+
+  .ui-week-head {
+    padding-bottom: calc(var(--pui-space) / 2);
+    border-bottom: var(--pui-border-width) solid var(--pui-border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ui-week-chip {
+    display: block;
+    padding: 2px 4px;
+    border-radius: calc(var(--pui-radius) / 2);
+    background-color: var(--pui-bg-muted);
+    border-left: 2px solid var(--pui-theme);
+    font-size: calc(var(--pui-font-size) * 0.786);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ui-week-chip[data-cancelled='true'] {
+    border-left-color: var(--pui-border);
+    text-decoration: line-through;
+    color: var(--pui-text-muted);
+  }
+
+  .ui-week-chip[data-full='true'] {
+    border-left-color: var(--pui-warn);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .ui-dash-card[data-dragging='false'] {
+      transition: border-color 0.15s;
+    }
+  }
+
   /* Only the two gradient slots of the design system (packages/shared GRADIENT_SLOTS). */
   .ui-gradient-member-card,
   .ui-gradient-package-card {

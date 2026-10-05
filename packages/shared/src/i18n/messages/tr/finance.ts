@@ -14,6 +14,7 @@ export const trFinance = {
   'finance.method.BANK_TRANSFER': 'Havale/EFT',
   'finance.method.ONLINE_IYZICO': 'Online (iyzico)',
   'finance.method.ONLINE_PAYTR': 'Online (PayTR)',
+  'finance.method.ONLINE_STRIPE': 'Online (Stripe)',
 
   'finance.paymentStatus.COMPLETED': 'Tamamlandı',
   'finance.paymentStatus.PENDING': 'Bekliyor',

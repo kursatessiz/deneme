@@ -21,6 +21,7 @@ import { RoleTemplatesModule } from './modules/role-templates/role-templates.mod
 import { CalendarModule } from './modules/calendar/calendar.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
 import { CrmModule } from './modules/crm/crm.module';
 import { AdsModule } from './modules/ads/ads.module';
@@ -88,6 +89,7 @@ import { PlatformMarketingModule } from './modules/platform-marketing/platform-m
     CalendarModule,
     PaymentsModule,
     ReportsModule,
+    DashboardModule,
     PayrollModule,
     CrmModule,
     AdsModule,
