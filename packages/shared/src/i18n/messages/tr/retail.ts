@@ -248,7 +248,6 @@ export const trRetail = {
   'retail.settings.save': 'Ayarları kaydet',
 
   'retail.lowStock.empty': 'Eşiğin altına düşen ürün yok.',
-  'retail.lowStock.row': '{product} - {branch}: {quantity} (eşik {threshold})',
   'retail.lowStock.manage': 'Mağazaya git',
 
   'retail.error.RETAIL_PRODUCT_NOT_FOUND': 'Ürün bulunamadı.',

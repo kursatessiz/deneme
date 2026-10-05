@@ -67,6 +67,8 @@ export const trDashboard = {
   'dashboard.widget.quickActions.title': 'Hızlı işlemler',
   'dashboard.widget.quickActions.description': 'Sık yapılan işlemlere kısayollar.',
 
+  'dashboard.lowStock.detail': '{branch} - stok {quantity}, eşik {threshold}',
+
   'dashboard.card.drag': '{title} kartını taşı',
   'dashboard.card.resize': '{title} kartını boyutlandır',
   'dashboard.card.menu': '{title} kart seçenekleri',

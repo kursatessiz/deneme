@@ -47,11 +47,14 @@ export function LowStockList({ data }: { data: Payload<'lowStock'> }) {
   return (
     <ul className="pui-list ui-divide">
       {data.items.map((i) => {
-        const text = t('retail.lowStock.row', { product: i.productName, branch: i.branchName, quantity: i.quantity, threshold: i.lowStockThreshold });
+        const detail = t('dashboard.lowStock.detail', { branch: i.branchName, quantity: i.quantity, threshold: i.lowStockThreshold });
         return (
-          <li key={`${i.productId}-${i.branchId}`} className="pui-list-item min-w-0">
-            <span className="block truncate" title={text}>
-              {text}
+          <li key={`${i.productId}-${i.branchId}`} className="pui-list-item grid min-w-0">
+            <span className="truncate" title={i.productName}>
+              {i.productName}
+            </span>
+            <span className="ui-caption truncate" title={detail}>
+              {detail}
             </span>
           </li>
         );

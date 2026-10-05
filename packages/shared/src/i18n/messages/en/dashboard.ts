@@ -69,6 +69,8 @@ export const enDashboard = {
   'dashboard.widget.quickActions.title': 'Quick actions',
   'dashboard.widget.quickActions.description': 'Shortcuts to everyday tasks.',
 
+  'dashboard.lowStock.detail': '{branch} - {quantity} in stock, threshold {threshold}',
+
   'dashboard.card.drag': 'Move the {title} card',
   'dashboard.card.resize': 'Resize the {title} card',
   'dashboard.card.menu': '{title} card options',
