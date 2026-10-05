@@ -22,7 +22,7 @@ export class BffError extends Error {
  */
 export async function bffFetch<T>(
   path: string,
-  options: { method?: string; body?: unknown; studioId?: string | null; headers?: Record<string, string> } = {},
+  options: { method?: string; body?: unknown; studioId?: string | null; headers?: Record<string, string>; keepalive?: boolean } = {},
 ): Promise<T> {
   const method = options.method ?? 'GET';
   const headers: Record<string, string> = { ...options.headers };
@@ -36,6 +36,8 @@ export async function bffFetch<T>(
     method,
     headers,
     credentials: 'same-origin',
+    // keepalive lets a last save finish while the page unloads (the overview board flushes its pending layout).
+    keepalive: options.keepalive,
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
   // Breadcrumb for error reports: method, route with ids removed, status. Never the body or query.

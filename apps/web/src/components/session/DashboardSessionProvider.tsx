@@ -11,6 +11,8 @@ export interface DashboardSessionValue {
   isOwner: boolean;
   /** The active studio's currency (ISO 4217), from its region settings. Never hard-code 'TRY'. */
   currency: string;
+  /** The branch picked in the header (pw_branch cookie); null means every branch the membership may see. */
+  activeBranchId?: string | null;
 }
 
 const DashboardSessionContext = createContext<DashboardSessionValue | null>(null);

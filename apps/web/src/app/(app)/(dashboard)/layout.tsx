@@ -49,6 +49,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                   permissions: activeMembership.permissions,
                   isOwner: activeMembership.isOwner,
                   currency: activeMembership.currency,
+                  activeBranchId,
                 }}
               >
                 {children}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { Button } from './Button';
@@ -26,6 +26,7 @@ export interface ModalProps {
  */
 export function Modal({ open, title, onClose, closeLabel, footer, wide = false, children }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
 
   useEffect(() => {
     const dialog = ref.current;
@@ -47,6 +48,7 @@ export function Modal({ open, title, onClose, closeLabel, footer, wide = false, 
   return (
     <dialog
       ref={ref}
+      aria-labelledby={titleId}
       className="pui-modal w-full"
       style={wide ? { maxWidth: 'min(48rem, calc(100vw - 2rem))' } : undefined}
       onCancel={(e) => {
@@ -56,7 +58,9 @@ export function Modal({ open, title, onClose, closeLabel, footer, wide = false, 
     >
       <div className="pui-card">
         <div className="flex items-center justify-between gap-3 px-4 pt-4">
-          <h3 className="ui-heading">{title}</h3>
+          <h3 id={titleId} className="ui-heading">
+            {title}
+          </h3>
           <Button variant="link" tone="muted" size="sm" iconOnly aria-label={closeLabel} onClick={onClose} icon={<X className="ui-icon" aria-hidden="true" />} />
         </div>
         <div className={cx('pui-card-content')}>{children}</div>
