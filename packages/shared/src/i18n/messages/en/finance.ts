@@ -16,6 +16,7 @@ export const enFinance = {
   'finance.method.BANK_TRANSFER': 'Bank transfer',
   'finance.method.ONLINE_IYZICO': 'Online (iyzico)',
   'finance.method.ONLINE_PAYTR': 'Online (PayTR)',
+  'finance.method.ONLINE_STRIPE': 'Online (Stripe)',
 
   'finance.paymentStatus.COMPLETED': 'Completed',
   'finance.paymentStatus.PENDING': 'Pending',

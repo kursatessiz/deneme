@@ -113,7 +113,7 @@ export type DashboardWidgetPayload =
   | { kind: 'revenueTrend'; period: DashboardPeriod; currency: string; total: string; points: { date: string; amount: string }[] }
   | { kind: 'occupancyTrend'; period: DashboardPeriod; points: { date: string; rate: number; booked: number; capacity: number }[] }
   | { kind: 'memberGrowthChart'; points: { month: string; joined: number }[] }
-  | { kind: 'sessions'; from: string; to: string; sessions: DashboardSessionRowDTO[] }
+  | { kind: 'sessions'; from: string; to: string; timeZone: string; sessions: DashboardSessionRowDTO[] }
   | { kind: 'recentPayments'; payments: DashboardPaymentRowDTO[] }
   | { kind: 'expiringPackages'; withinDays: number; packages: DashboardExpiringPackageRowDTO[] }
   | { kind: 'trainerPerformance'; period: DashboardPeriod; trainers: TrainerReportRowDTO[] }

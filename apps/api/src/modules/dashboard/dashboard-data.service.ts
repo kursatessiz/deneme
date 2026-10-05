@@ -137,7 +137,7 @@ export class DashboardDataService {
       case 'todaySchedule': {
         const from = zonedStartOfDay(ctx.now, ctx.timeZone);
         const to = this.nextDay(from, ctx.timeZone);
-        return { kind: 'sessions', from: from.toISOString(), to: to.toISOString(), sessions: await this.sessions(tenant, ctx, from, to, { includeCancelled: true }) };
+        return { kind: 'sessions', from: from.toISOString(), to: to.toISOString(), timeZone: ctx.timeZone, sessions: await this.sessions(tenant, ctx, from, to, { includeCancelled: true }) };
       }
       case 'upcomingSessions': {
         const to = new Date(ctx.now.getTime() + 7 * DAY_MS);
@@ -145,6 +145,7 @@ export class DashboardDataService {
           kind: 'sessions',
           from: ctx.now.toISOString(),
           to: to.toISOString(),
+          timeZone: ctx.timeZone,
           sessions: await this.sessions(tenant, ctx, ctx.now, to, { includeCancelled: false, take: LIST_LIMIT }),
         };
       }
@@ -152,7 +153,7 @@ export class DashboardDataService {
         const from = zonedStartOfWeek(ctx.now, ctx.timeZone);
         // Next Monday in the studio zone (half a day of slack absorbs a daylight saving shift).
         const end = zonedStartOfWeek(new Date(from.getTime() + 7 * DAY_MS + 12 * 60 * 60 * 1000), ctx.timeZone);
-        return { kind: 'sessions', from: from.toISOString(), to: end.toISOString(), sessions: await this.sessions(tenant, ctx, from, end, { includeCancelled: true }) };
+        return { kind: 'sessions', from: from.toISOString(), to: end.toISOString(), timeZone: ctx.timeZone, sessions: await this.sessions(tenant, ctx, from, end, { includeCancelled: true }) };
       }
       case 'recentPayments':
         return this.recentPayments(tenant, ctx);

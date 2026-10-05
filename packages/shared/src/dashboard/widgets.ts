@@ -83,7 +83,7 @@ export const DASHBOARD_SIZE_PRESETS = {
   table: { minW: 4, minH: 4, maxW: 12, maxH: 8, defaultW: 6, defaultH: 5 },
   calendar: { minW: 6, minH: 4, maxW: 12, maxH: 8, defaultW: 8, defaultH: 5 },
   list: { minW: 3, minH: 3, maxW: 8, maxH: 6, defaultW: 4, defaultH: 4 },
-  actions: { minW: 4, minH: 2, maxW: 12, maxH: 3, defaultW: 12, defaultH: 2 },
+  actions: { minW: 6, minH: 1, maxW: 12, maxH: 3, defaultW: 12, defaultH: 1 },
 } as const satisfies Record<string, DashboardWidgetSize>;
 
 /** A card's period setting: which periods it offers and the one a new card starts with. */

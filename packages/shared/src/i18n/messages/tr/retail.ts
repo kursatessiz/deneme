@@ -247,7 +247,6 @@ export const trRetail = {
   'retail.settings.pricesExclusive': 'Vergi fiyatın üstüne eklenir.',
   'retail.settings.save': 'Ayarları kaydet',
 
-  'retail.lowStock.title': 'Stoku azalan ürünler',
   'retail.lowStock.empty': 'Eşiğin altına düşen ürün yok.',
   'retail.lowStock.row': '{product} - {branch}: {quantity} (eşik {threshold})',
   'retail.lowStock.manage': 'Mağazaya git',
