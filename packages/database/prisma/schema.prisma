@@ -778,6 +778,7 @@ model Studio {
   socialPosts           SocialPost[]
   articles              Article[]
   articleTags           ArticleTag[]
+  dashboardLayouts      DashboardLayout[]
 
   @@map("studios")
 }
@@ -950,6 +951,7 @@ model Membership {
   communityPosts            CommunityPost[]       @relation("CommunityPostAuthor")
   communityComments         CommunityComment[]    @relation("CommunityCommentAuthor")
   communityReactions        CommunityReaction[]
+  dashboardLayout           DashboardLayout?
 
   @@unique([userId, studioId])
   @@index([studioId, status])
@@ -987,6 +989,27 @@ model RoleTemplatePermission {
 
   @@id([roleTemplateId, permissionKey])
   @@map("role_template_permissions")
+}
+
+/// Card board of the overview page, one per membership (docs/WEB_PANEL.md,
+/// "Genel bakış kartları"). `layout` is the DashboardLayoutSchema JSON of
+/// @platform/shared, stored already clamped and compacted. No row means the
+/// membership sees the permission based default board.
+model DashboardLayout {
+  id           String   @id @default(uuid()) @db.Uuid
+  studioId     String   @map("studio_id") @db.Uuid
+  membershipId String   @map("membership_id") @db.Uuid
+  layout       Json
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  studio     Studio     @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  // A membership belongs to one studio, so unique membershipId is also unique per (studio, membership).
+  @@unique([membershipId])
+  @@index([studioId])
+  @@map("dashboard_layouts")
 }
 
 /// QR / link onboarding. Only a hash of the token is stored.
