@@ -9,6 +9,10 @@ import { z } from 'zod';
  * migration of role_template_permissions.
  */
 export const PERMISSIONS = {
+  // The overview page's own card board (docs/WEB_PANEL.md, "Genel bakış
+  // kartları"): reading and saving one's own layout. What each card shows
+  // is still gated by that card's own permissions. Every default role has it.
+  'dashboard.view': 'Genel bakış panosunu görüntüleme ve kendi kart düzenini kaydetme',
   'studio.settings.view': 'İşletme ayarlarını görüntüleme',
   'studio.settings.manage': 'İşletme ayarlarını ve temayı düzenleme',
   'roles.manage': 'Rol ve yetkileri yönetme',
@@ -147,6 +151,7 @@ export function isPermissionKey(value: string): value is PermissionKey {
  * the same time it is added.
  */
 export const PERMISSION_AREAS = {
+  'Genel bakış': ['dashboard.view'],
   'İşletme ve roller': ['studio.settings.view', 'studio.settings.manage', 'roles.manage', 'staff.manage', 'branches.manage', 'errors.view'],
   Üyeler: ['members.view', 'members.contact.view', 'members.health.view', 'members.manage'],
   Katalog: ['catalog.view', 'catalog.manage'],
@@ -197,6 +202,7 @@ export const DEFAULT_ROLE_TEMPLATES: readonly DefaultRoleTemplate[] = [
     name: 'Resepsiyon',
     isOwner: false,
     permissions: [
+      'dashboard.view',
       'studio.settings.view',
       'members.view',
       'members.contact.view',
@@ -233,6 +239,7 @@ export const DEFAULT_ROLE_TEMPLATES: readonly DefaultRoleTemplate[] = [
     isOwner: false,
     // Sees members and takes attendance, but not their phone numbers.
     permissions: [
+      'dashboard.view',
       'members.view',
       'members.health.view',
       'schedule.view',
