@@ -104,6 +104,7 @@ export default function HomeScreen() {
   const { user, activeMembership } = useSession();
   const t = useT();
   const isMember = Boolean(activeMembership?.memberProfileId);
+  const canSeeOverview = activeMembership?.permissions.includes('dashboard.view') ?? false;
   const [bookings, setBookings] = useState<UpcomingBookingDTO[] | null>(null);
   const [pendingRatings, setPendingRatings] = useState<PendingRatingPromptDTO[]>([]);
   const [loadError, setLoadError] = useState<string | undefined>();
@@ -157,6 +158,13 @@ export default function HomeScreen() {
       {pendingRatings.map((prompt) => (
         <PendingRatingCard key={prompt.bookingId} prompt={prompt} />
       ))}
+
+      {canSeeOverview ? (
+        <Card onPress={() => router.push('/(app)/hesabim/genel-bakis')} accessibilityLabel={t('mDashboard.title')} style={styles.link}>
+          <Text style={[styles.linkTitle, fonts.bodyStrong, { color: c.textPrimary }]}>{t('mDashboard.title')}</Text>
+          <Text style={[styles.linkSubtitle, fonts.body, { color: c.textSecondary }]}>{t('screens.dashboard.subtitle')}</Text>
+        </Card>
+      ) : null}
 
       {isMember ? (
         <Card onPress={() => router.push('/(app)/seans')} accessibilityLabel={t('mHome.a11y.viewThisWeeksSessions')} style={styles.link}>

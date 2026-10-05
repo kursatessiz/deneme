@@ -152,6 +152,53 @@ test('owner resets the board to the default', async ({ page }) => {
   await expect(card(page, 'Ciro')).toHaveAttribute('data-w', '3');
 });
 
+test('owner removes a card with the header close button, undoes it, and a removal persists after a reload', async ({ page }) => {
+  await loginAs(page, LOGINS.owner);
+  await resetBoard(page);
+  await openBoard(page);
+
+  const branches = card(page, 'Şubeler');
+  await expect(branches).toBeVisible();
+  const before = { x: await branches.getAttribute('data-x'), y: await branches.getAttribute('data-y'), w: await branches.getAttribute('data-w') };
+
+  // The close button shows while the header is hovered, in view mode (no edit mode needed).
+  const close = branches.getByRole('button', { name: 'Şubeler kartını kaldır', exact: true });
+  await expect(close).toHaveCSS('opacity', '0');
+  await branches.getByRole('heading', { name: 'Şubeler' }).hover();
+  await expect(close).toHaveCSS('opacity', '1');
+  await page.screenshot({ path: test.info().outputPath('dashboard-card-close-hover.png') });
+
+  // Remove, then undo: the card is back at its old place and the restored board is saved.
+  await close.click();
+  await expect(card(page, 'Şubeler')).toHaveCount(0);
+  const toast = page.getByRole('status').filter({ hasText: 'Kart kaldırıldı' });
+  await expect(toast).toBeVisible();
+  await expect(page.getByTestId('dashboard-announcer')).toContainText('Şubeler kaldırıldı');
+  const restoredSave = page.waitForResponse(isLayoutSave);
+  await toast.getByRole('button', { name: 'Geri al', exact: true }).click();
+  await expect(card(page, 'Şubeler')).toBeVisible();
+  await expect(card(page, 'Şubeler')).toHaveAttribute('data-x', before.x ?? '');
+  await expect(card(page, 'Şubeler')).toHaveAttribute('data-y', before.y ?? '');
+  await expect(card(page, 'Şubeler')).toHaveAttribute('data-w', before.w ?? '');
+  expect((await restoredSave).status()).toBe(200);
+
+  // Reload: the restored card is still there.
+  await openBoard(page);
+  await expect(card(page, 'Şubeler')).toBeVisible();
+
+  // Remove without undo: the removal is stored and survives a reload.
+  await card(page, 'Şubeler').getByRole('heading', { name: 'Şubeler' }).hover();
+  const removedSave = page.waitForResponse(isLayoutSave);
+  await card(page, 'Şubeler').getByRole('button', { name: 'Şubeler kartını kaldır', exact: true }).click();
+  await expect(card(page, 'Şubeler')).toHaveCount(0);
+  expect((await removedSave).status()).toBe(200);
+  await openBoard(page);
+  await expect(card(page, 'Ciro')).toBeVisible();
+  await expect(card(page, 'Şubeler')).toHaveCount(0);
+
+  await resetBoard(page);
+});
+
 test('a trainer is not offered the revenue card', async ({ page }) => {
   await loginAs(page, LOGINS.trainer);
   await resetBoard(page);

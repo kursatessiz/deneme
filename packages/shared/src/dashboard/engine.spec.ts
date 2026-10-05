@@ -13,6 +13,7 @@ import {
   reorderItem,
   resizeItem,
   resizeLimitHit,
+  restoreItem,
   scaleForColumns,
 } from './engine';
 import { DASHBOARD_WIDGETS, getDashboardWidget } from './widgets';
@@ -321,6 +322,26 @@ describe('removeItem, normalizeLayout, layoutsEqual', () => {
     const a = item('quickActions', 0, 0, 12, 2);
     const b = item('revenue', 0, 2, 3, 2);
     expect(removeItem([a, b], a.id)).toEqual([{ ...b, y: 0 }]);
+  });
+
+  it('restores a removed item at its old position', () => {
+    const a = item('quickActions', 0, 0, 12, 2);
+    const b = item('revenue', 0, 2, 3, 2);
+    const c = item('activeMembers', 3, 2, 3, 2);
+    const before = [a, b, c];
+    const after = removeItem(before, b.id);
+    const restored = restoreItem(after, b);
+    expect(noOverlaps(restored)).toBe(true);
+    expect(layoutsEqual(restored, before)).toBe(true);
+  });
+
+  it('pushes cards that took the freed place down when restoring', () => {
+    const a = item('revenue', 0, 0, 3, 2);
+    const b = item('activeMembers', 3, 0, 3, 2);
+    const moved = moveItem([b], b.id, 0, 0);
+    const restored = restoreItem(moved, a);
+    expect(noOverlaps(restored)).toBe(true);
+    expect(restored.find((i) => i.id === a.id)).toMatchObject({ x: 0, y: 0 });
   });
 
   it('normalizes clamps and removes overlaps', () => {

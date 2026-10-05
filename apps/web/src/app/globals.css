@@ -750,6 +750,34 @@
     padding: calc(var(--pui-space) * 2.5) calc(var(--pui-space) * 3) calc(var(--pui-space) * 1.5);
   }
 
+  /*
+   * Close button in the header's top-right corner. It keeps its place so the
+   * header never shifts; on hover devices it appears while the header (or
+   * anything in it) is hovered or focused, on touch-only devices the card
+   * menu is the way to remove a card and the button stays out of the way.
+   */
+  .ui-dash-close {
+    flex: 0 0 auto;
+  }
+
+  @media (hover: hover) {
+    .ui-dash-close {
+      opacity: 0;
+    }
+
+    .ui-dash-head:hover .ui-dash-close,
+    .ui-dash-head:focus-within .ui-dash-close,
+    .ui-dash-close:focus-visible {
+      opacity: 1;
+    }
+  }
+
+  @media (hover: none) {
+    .ui-dash-close {
+      display: none;
+    }
+  }
+
   .ui-dash-body {
     flex: 1 1 auto;
     min-height: 0;

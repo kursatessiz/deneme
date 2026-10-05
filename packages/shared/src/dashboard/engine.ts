@@ -251,6 +251,15 @@ export function removeItem(items: readonly DashboardLayoutItem[], id: string): D
   return compact(items.filter((item) => item.id !== id));
 }
 
+/**
+ * Puts a previously removed item back at its stored position (undo). The
+ * restored item takes priority on its row, so cards that moved into its
+ * place in the meantime are pushed down instead of overlapping it.
+ */
+export function restoreItem(items: readonly DashboardLayoutItem[], item: DashboardLayoutItem): DashboardLayoutItem[] {
+  return compact([...items.filter((other) => other.id !== item.id), item], item.id);
+}
+
 /** Same cards at the same positions and sizes with the same settings. */
 export function layoutsEqual(a: readonly DashboardLayoutItem[], b: readonly DashboardLayoutItem[]): boolean {
   if (a.length !== b.length) return false;
