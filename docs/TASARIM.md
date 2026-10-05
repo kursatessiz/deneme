@@ -502,6 +502,14 @@ alan kazanacağı noktadır. Kart türlerine göre:
 | Liste (şubeler, stok, etkinlikler) | 3x3 | 8x6 | Ad ve bir alt satır kesilmeden görünür |
 | Hızlı işlemler | 6x1 | 12x3 | Başlık ve düğmeler tek satırda; dar kartta düğmeler alt satıra geçer |
 
+**Kapatma düğmesi.** Kartın sağ üst köşesindeki X (`ui-dash-close`, kit
+`pui-btn pui-link pui-muted`) yeri ayrılmış olarak durur ve başlık alanı
+üzerine gelince ya da başlıkta odak olunca (`:focus-within`,
+`:focus-visible`) görünür; yalnızca `@media (hover: hover)` içinde
+saydamdan açılır, dokunmatik cihazlarda gizlidir. Renk, çizgi ve köşe yalnızca
+kit sınıflarından ve token'lardan gelir. Mobilde kaldırma eylemi çöp
+kutusu hedefidir (`docs/MOBILE_APP.md`); hedef hata rolü rengini kullanır.
+
 **Container query.** Her kart (`ui-dash-card`) `container-type: inline-size`
 taşır; içerik pencereye değil karta göre uyum sağlar:
 

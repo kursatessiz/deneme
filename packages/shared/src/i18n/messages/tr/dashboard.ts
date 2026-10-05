@@ -76,6 +76,7 @@ export const trDashboard = {
   'dashboard.card.moveUp': 'Yukarı taşı',
   'dashboard.card.moveDown': 'Aşağı taşı',
   'dashboard.card.remove': 'Kartı kaldır',
+  'dashboard.card.close': '{title} kartını kaldır',
   'dashboard.card.size': '{width} x {height}',
 
   'dashboard.add.title': 'Kart ekle',
@@ -97,6 +98,8 @@ export const trDashboard = {
   'dashboard.reset.confirm': 'Varsayılana dön',
 
   'dashboard.toast.saveFailed': 'Kart düzeni kaydedilemedi, son kaydedilen düzene dönüldü.',
+  'dashboard.toast.removed': 'Kart kaldırıldı',
+  'dashboard.toast.undo': 'Geri al',
 
   'dashboard.announce.moved': '{title}: sütun {column}, satır {row}.',
   'dashboard.announce.resized': '{title}: {width} sütun genişliğinde, {height} satır yüksekliğinde.',
@@ -108,6 +111,7 @@ export const trDashboard = {
   'dashboard.announce.cancelled': 'Taşıma iptal edildi.',
   'dashboard.announce.added': '{title} eklendi: sütun {column}, satır {row}.',
   'dashboard.announce.removed': '{title} kaldırıldı.',
+  'dashboard.announce.restored': '{title} geri alındı.',
   'dashboard.announce.reset': 'Varsayılan pano yüklendi.',
   'dashboard.announce.editOn': 'Düzenleme modu açık.',
   'dashboard.announce.editOff': 'Düzenleme modu kapalı.',

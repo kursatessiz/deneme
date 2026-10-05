@@ -252,8 +252,8 @@ vardır; çıkış butonu menünün dışında, her zaman görünür kalır.
 Sahibin isteği: işletmenin genel bakış sayfası (`/dashboard`) sürükle bırak
 kartlardan oluşan bir panodur; sağ üstte "Kart ekle" ile genel kartların
 kataloğu açılır, kartlar ızgarada taşınır, büyütülüp küçültülür ve her kartın
-içeriği bozulmasın diye büyüme ve küçülme sınırları vardır. Mobil uygulama
-bu işte kapsam dışıdır (sonraki iş).
+içeriği bozulmasın diye büyüme ve küçülme sınırları vardır. Mobil uygulamadaki
+karşılığı `docs/MOBILE_APP.md` "Genel bakış panosu (mobil)" bölümündedir.
 
 **Tek doğruluk kaynağı** `packages/shared/src/dashboard`:
 `DASHBOARD_GRID` (12 sütun, 72 px satır, 16 px boşluk (`spacing[4]`), en fazla
@@ -331,6 +331,19 @@ bugünkü seanslar, program, şubeler ve haftalık takvim.
   olayları (fare, dokunma, kalem) ve işaretçi yakalama kullanılır; konum
   hesabı her animasyon karesinde bir kez yapılır, ızgara hareket başında bir
   kez ölçülür. Escape sürüklemeyi iptal eder.
+- Başlık alanının üzerine fare gelince (veya başlık içinde klavye odağı
+  olunca) kartın sağ üst köşesinde küçük bir kapatma düğmesi (X) belirir;
+  "..." menüsü onun soluna kayar. Düzenleme modu gerekmez, normal
+  görünümde de çalışır. Düğme yalnızca `@media (hover: hover)` cihazlarda
+  hover ile görünür (`ui-dash-close`, yeri ayrılı olduğundan başlık
+  kaymaz); yalnızca dokunmatik cihazlarda gizlidir ve kaldırma kartın
+  menüsünden yapılır. Erişilebilir adı "{başlık} kartını kaldır"dır ve odak
+  alınca görünür. Tıklayınca kart onay sorulmadan kaldırılır (iyimser
+  güncelleme, 800 ms sonra tek PUT, `aria-live` duyurusu); ekranda yaklaşık 6
+  saniye "Kart kaldırıldı" ve "Geri al" içeren bir bildirim kalır. "Geri al"
+  kartı eski konumuna koyar (`restoreItem`: aralarda o yere gelen kartlar
+  aşağı itilir) ve bekleyen kayıt geri yüklenen düzeni saklar. Düğmeye
+  basmak sürüklemeyi başlatmaz (sürükleme yalnızca tutamaktandır).
 - Kartın menüsünde dönem seçimi (dönemi olan kartlarda her zaman), düzenleme
   modunda ayrıca "Yukarı taşı", "Aşağı taşı" ve "Kartı kaldır" (onaylı) vardır.
 - Ekran genişliği 1280 px ve üstünde 12 sütun; 768-1279 px arasında 6 sütun

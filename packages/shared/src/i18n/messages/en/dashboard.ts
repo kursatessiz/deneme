@@ -78,6 +78,7 @@ export const enDashboard = {
   'dashboard.card.moveUp': 'Move up',
   'dashboard.card.moveDown': 'Move down',
   'dashboard.card.remove': 'Remove card',
+  'dashboard.card.close': 'Remove {title} card',
   'dashboard.card.size': '{width} x {height}',
 
   'dashboard.add.title': 'Add card',
@@ -99,6 +100,8 @@ export const enDashboard = {
   'dashboard.reset.confirm': 'Reset to default',
 
   'dashboard.toast.saveFailed': 'The card layout could not be saved; the last saved layout is back.',
+  'dashboard.toast.removed': 'Card removed',
+  'dashboard.toast.undo': 'Undo',
 
   'dashboard.announce.moved': '{title}: column {column}, row {row}.',
   'dashboard.announce.resized': '{title}: {width} columns wide, {height} rows high.',
@@ -110,6 +113,7 @@ export const enDashboard = {
   'dashboard.announce.cancelled': 'Move cancelled.',
   'dashboard.announce.added': '{title} added at column {column}, row {row}.',
   'dashboard.announce.removed': '{title} removed.',
+  'dashboard.announce.restored': '{title} restored.',
   'dashboard.announce.reset': 'The default board is back.',
   'dashboard.announce.editOn': 'Edit mode on.',
   'dashboard.announce.editOff': 'Edit mode off.',

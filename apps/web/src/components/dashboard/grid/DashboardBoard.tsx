@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, MoreVertical, Pencil, Plus, RotateCcw } from 'lucide-react';
-import { DASHBOARD_GRID, getDashboardWidget, placeNewItem, removeItem } from '@platform/shared';
+import { DASHBOARD_GRID, getDashboardWidget, placeNewItem, removeItem, restoreItem } from '@platform/shared';
 import type { DashboardLayoutItem, DashboardWidgetKey } from '@platform/shared';
 import { useT } from '@/components/i18n/I18nProvider';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
@@ -19,6 +19,9 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { ErrorState } from '@/components/common/DataState';
 import { AddCardDialog } from './AddCardDialog';
 import { DashboardGrid } from './DashboardGrid';
+
+/** How long the undo toast stays after a card is removed. */
+const UNDO_WINDOW_MS = 6000;
 
 function newId(): string {
   return crypto.randomUUID();
@@ -39,6 +42,7 @@ export function DashboardBoard() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [removing, setRemoving] = useState<DashboardLayoutItem | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [undo, setUndo] = useState<DashboardLayoutItem | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const scrollTo = useRef<string | null>(null);
 
@@ -57,6 +61,12 @@ export function DashboardBoard() {
     const id = setTimeout(() => setToast(null), 6000);
     return () => clearTimeout(id);
   }, [toast]);
+
+  useEffect(() => {
+    if (!undo) return;
+    const id = setTimeout(() => setUndo(null), UNDO_WINDOW_MS);
+    return () => clearTimeout(id);
+  }, [undo]);
 
   // After adding a card, bring it into view and give it focus.
   useEffect(() => {
@@ -78,12 +88,26 @@ export function DashboardBoard() {
     announce(t('dashboard.announce.added', { title: t(definition.titleKey), column: item.x + 1, row: item.y + 1 }));
   };
 
+  /** Removes a card (optimistic, saved with the debounced PUT) and offers an undo for a few seconds. */
+  const removeCard = (item: DashboardLayoutItem) => {
+    const title = t(getDashboardWidget(item.widget).titleKey);
+    layout.update(removeItem(layout.items, item.id));
+    setUndo(item);
+    announce(t('dashboard.announce.removed', { title }));
+  };
+
   const confirmRemove = () => {
     if (!removing) return;
-    const title = t(getDashboardWidget(removing.widget).titleKey);
-    layout.update(removeItem(layout.items, removing.id));
+    removeCard(removing);
     setRemoving(null);
-    announce(t('dashboard.announce.removed', { title }));
+  };
+
+  const undoRemove = () => {
+    if (!undo) return;
+    const title = t(getDashboardWidget(undo.widget).titleKey);
+    layout.update(restoreItem(layout.items, undo));
+    setUndo(null);
+    announce(t('dashboard.announce.restored', { title }));
   };
 
   const doReset = async () => {
@@ -169,6 +193,7 @@ export function DashboardBoard() {
           onRetry={data.retry}
           onChange={layout.update}
           onRemoveRequest={setRemoving}
+          onClose={removeCard}
           announce={announce}
         />
       ) : null}
@@ -217,11 +242,23 @@ export function DashboardBoard() {
         <p>{t('dashboard.reset.body')}</p>
       </Modal>
 
-      {toast ? (
+      {toast || undo ? (
         <Float>
-          <Toast tone="error" closeLabel={t('dashboard.add.close')} onClose={() => setToast(null)}>
-            {toast}
-          </Toast>
+          {undo ? (
+            <Toast closeLabel={t('dashboard.add.close')} onClose={() => setUndo(null)}>
+              <span className="inline-flex items-center gap-3">
+                {t('dashboard.toast.removed')}
+                <Button size="sm" variant="outline" tone="surface" onClick={undoRemove}>
+                  {t('dashboard.toast.undo')}
+                </Button>
+              </span>
+            </Toast>
+          ) : null}
+          {toast ? (
+            <Toast tone="error" closeLabel={t('dashboard.add.close')} onClose={() => setToast(null)}>
+              {toast}
+            </Toast>
+          ) : null}
         </Float>
       ) : null}
     </div>

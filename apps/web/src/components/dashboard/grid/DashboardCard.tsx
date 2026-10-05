@@ -3,7 +3,7 @@
 import { forwardRef, useId } from 'react';
 import type { CSSProperties, KeyboardEvent, PointerEvent, ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowDown, ArrowUp, Check, GripVertical, MoreHorizontal, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, GripVertical, MoreHorizontal, Trash2, X } from 'lucide-react';
 import type { DashboardPeriod } from '@platform/shared';
 import { useT } from '@/components/i18n/I18nProvider';
 import { Button } from '@/components/ui/Button';
@@ -36,13 +36,16 @@ export interface DashboardCardProps {
   onPeriodChange: (period: DashboardPeriod) => void;
   onMove: (direction: -1 | 1) => void;
   onRemove: () => void;
+  /** The close button in the header corner: removes the card at once (the board offers an undo). */
+  onClose: () => void;
   children: ReactNode;
 }
 
 /**
  * The shell every overview card shares: a header with the title, its
  * period, a link to the screen behind it and the card menu; in edit mode a
- * drag grip, a resize corner and keyboard focus. The body is a size
+ * drag grip, a resize corner and keyboard focus. A close button sits at
+ * the top-right corner and shows while the header is hovered or focused. The body is a size
  * container (ui-dash-card), so the content adapts to the card.
  */
 export const DashboardCard = forwardRef<HTMLElement, DashboardCardProps>(function DashboardCard(props, ref) {
@@ -71,6 +74,7 @@ export const DashboardCard = forwardRef<HTMLElement, DashboardCardProps>(functio
     onPeriodChange,
     onMove,
     onRemove,
+    onClose,
     children,
   } = props;
   const showMenu = editing || periods.length > 1;
@@ -168,6 +172,17 @@ export const DashboardCard = forwardRef<HTMLElement, DashboardCardProps>(functio
             ) : null}
           </Dropdown>
         ) : null}
+        <Button
+          variant="link"
+          tone="muted"
+          size="sm"
+          iconOnly
+          className="ui-dash-close"
+          aria-label={t('dashboard.card.close', { title })}
+          icon={<X className="ui-icon" aria-hidden="true" />}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={onClose}
+        />
       </div>
       <div className="ui-dash-body" data-flush={view.flush ? 'true' : 'false'}>
         {children}

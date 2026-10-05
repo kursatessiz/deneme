@@ -81,6 +81,7 @@ export interface DashboardGridProps {
   onRetry: (item: DashboardLayoutItem) => void;
   onChange: (next: DashboardLayoutItem[]) => void;
   onRemoveRequest: (item: DashboardLayoutItem) => void;
+  onClose: (item: DashboardLayoutItem) => void;
   announce: (message: string) => void;
 }
 
@@ -92,7 +93,7 @@ export interface DashboardGridProps {
  * the grid is measured once per gesture. Every card can also be moved and
  * resized from the keyboard, and on narrow screens reordered from its menu.
  */
-export function DashboardGrid({ items, columns, editing, getData, onRetry, onChange, onRemoveRequest, announce }: DashboardGridProps) {
+export function DashboardGrid({ items, columns, editing, getData, onRetry, onChange, onRemoveRequest, onClose, announce }: DashboardGridProps) {
   const t = useT();
   const helpId = useId();
   const gridRef = useRef<HTMLDivElement>(null);
@@ -378,6 +379,7 @@ export function DashboardGrid({ items, columns, editing, getData, onRetry, onCha
               onPeriodChange={(p) => onPeriodChange(item, p)}
               onMove={(direction) => onMenuMove(item, direction)}
               onRemove={() => onRemoveRequest(item)}
+              onClose={() => onClose(item)}
             >
               <WidgetContent item={item} state={getData(item)} onRetry={() => onRetry(item)} />
             </DashboardCard>
