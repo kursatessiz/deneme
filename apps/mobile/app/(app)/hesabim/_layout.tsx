@@ -10,6 +10,7 @@ export default function HesabimLayout() {
   return (
     <Stack screenOptions={navigation.stack}>
       <Stack.Screen name="index" options={{ title: t('mNav.tab.account') }} />
+      <Stack.Screen name="genel-bakis" options={{ title: t('mDashboard.title') }} />
       <Stack.Screen name="bildirimler" options={{ title: t('mAccount.menu.notifications') }} />
       <Stack.Screen name="takvim" options={{ title: t('mAccount.menu.calendarSub') }} />
       <Stack.Screen name="pin" options={{ title: t('mAccount.menu.pin') }} />

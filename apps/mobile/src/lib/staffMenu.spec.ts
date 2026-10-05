@@ -10,6 +10,12 @@ describe('buildHesabimMenu', () => {
     expect(reception).not.toContain('chat');
   });
 
+  it('shows the overview board first, only with dashboard.view', () => {
+    const staff = buildHesabimMenu({ permissions: ['dashboard.view'], isMember: false, isTrainer: false }).map((m) => m.key);
+    expect(staff[0]).toBe('dashboard');
+    expect(buildHesabimMenu({ permissions: [], isMember: true, isTrainer: false }).map((m) => m.key)).not.toContain('dashboard');
+  });
+
   it('shows only the base menu for a plain member with no staff permissions', () => {
     const menu = buildHesabimMenu({ permissions: [], isMember: true, isTrainer: false });
     const keys = menu.map((m) => m.key);

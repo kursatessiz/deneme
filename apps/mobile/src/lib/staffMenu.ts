@@ -32,6 +32,11 @@ export function buildHesabimMenu(input: StaffMenuInput): MenuItem[] {
   const { permissions, isMember, isTrainer, platformPermissions = [] } = input;
   const items: MenuItem[] = [];
 
+  // The overview board is the staff landing screen: first in the menu for anyone who may see it.
+  if (has(permissions, 'dashboard.view')) {
+    items.push({ key: 'dashboard', labelKey: 'mAccount.menu.dashboard', route: '/(app)/hesabim/genel-bakis' });
+  }
+
   items.push({ key: 'notifications', labelKey: 'mAccount.menu.notifications', route: '/(app)/hesabim/bildirimler' });
   items.push({ key: 'calendar-sub', labelKey: 'mAccount.menu.calendarSub', route: '/(app)/hesabim/takvim' });
   items.push({ key: 'pin', labelKey: 'mAccount.menu.pin', route: '/(app)/hesabim/pin' });

@@ -38,6 +38,7 @@ import { trFinance } from './tr/finance';
 import { trMHealth } from './tr/mHealth';
 import { trMInvoices } from './tr/mInvoices';
 import { trMHome } from './tr/mHome';
+import { trMDashboard } from './tr/mDashboard';
 import { trMIntegrations } from './tr/mIntegrations';
 import { trLanguage } from './tr/language';
 import { trLayout } from './tr/layout';
@@ -139,6 +140,7 @@ import { enFinance } from './en/finance';
 import { enMHealth } from './en/mHealth';
 import { enMInvoices } from './en/mInvoices';
 import { enMHome } from './en/mHome';
+import { enMDashboard } from './en/mDashboard';
 import { enMIntegrations } from './en/mIntegrations';
 import { enLanguage } from './en/language';
 import { enLayout } from './en/layout';
@@ -295,6 +297,7 @@ export const TR_NAMESPACES = [
   trFinance,
   trMHealth,
   trMHome,
+  trMDashboard,
   trMInvoices,
   trMIntegrations,
   trLanguage,
@@ -420,6 +423,7 @@ export const EN_NAMESPACES = [
   enFinance,
   enMHealth,
   enMHome,
+  enMDashboard,
   enMInvoices,
   enMIntegrations,
   enLanguage,

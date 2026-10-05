@@ -144,6 +144,61 @@ birim testli). 768px ve üzeri genişlikte:
 Telefon genişliğinde aynı ekranlar tek panel kalır ve seçim `expo-router` stack push'una döner
 (`hesabim/uyeler/[memberId]`, `hesabim/programim/[scheduleId]`). Yeni bir düzen kütüphanesi eklenmedi.
 
+## Genel bakış panosu (mobil)
+
+Sahibin isteği: web'deki genel bakış kartlarının mobilde de görünmesi ve
+kartın basılı tutulup çöp kutusuna sürüklenerek kaldırılabilmesi. Ekran
+`app/(app)/hesabim/genel-bakis.tsx`; `dashboard.view` izni olan her
+üyelikte "Hesabım" menüsünün ilk satırı ve ana ekranda bir kısayol kartı
+olarak görünür (`PermissionGate anyOf={['dashboard.view']}`; API aynı izni
+ayrıca zorlar).
+
+**Veri.** Web ile aynı uç noktalar: düzen `GET/PUT/DELETE
+/studios/:studioId/dashboard/layout`, kart verisi `POST
+/studios/:studioId/dashboard/data` (`src/dashboard/useDashboardBoard.ts`).
+Kaydedilen düzen her zaman 12 sütunludur; mobil yalnızca motorun tek sütun
+ölçeklemesiyle (`scaleForColumns(items, 1)`: okuma sırası, tam genişlik)
+tek sütun gösterir. Düzenlemeler iyimser uygulanır, 800 ms sonra tek PUT
+gider (aynı anda tek istek; arada yapılan düzenleme ardından saklanır),
+başarısız kayıt son saklanan düzene döner ve kısa bir uyarı gösterir. Bekleyen
+kayıt ekrandan çıkınca veya uygulama arka plana gidince gönderilir. Kart
+ekleme ve boyutlandırma mobilde yoktur (web'de yapılır); başlığın yanında
+"Varsayılana dön" (onaylı) vardır.
+
+**Kart görünümleri** (`src/dashboard/widgets.tsx`): göstergeler büyük değer
+ve alt satırla; tablolar ve listeler `ListRow` satırlarıyla; grafikler
+`react-native-svg` ile çizilen çizgi/alan grafiğiyle (`TrendChart`,
+geometri saf `src/lib/dashboardChart.ts`); haftalık takvim işletmenin saat
+diliminde gün gün kısa liste olarak; hızlı işlemler mobilde karşılığı olan
+ekranlara giden düğmeler olarak (`MOBILE_QUICK_ACTIONS`: yeni seans, yeni
+üye, hızlı satış, check-in; "Paket sat" ve "Ödeme kaydet"in mobil ekranı
+olmadığından gizlenir). Para her zaman yükteki para birimiyle ve etkin
+dile göre `Intl` ile biçimlenir; işletme verisi çevrilmez. İzni olmayan
+veya hata veren kart küçük, soluk bir mesaj gösterir.
+
+**Basılı tut ve çöp kutusuna sürükle.** Karta yaklaşık 400 ms basılı
+tutulunca (`LONG_PRESS_MS`) kart hafifçe büyür ve gölge kazanır, ekranın alt
+ortasında çöp kutusu hedefi belirir ve liste kaydırması kapanır. Parmak
+kaldırılmadan kart sürüklenir; parmak hedefin üzerindeyken hedef hata rolü
+rengine döner. Hedefin üzerinde bırakılırsa kart küçülerek kaldırılır ve
+motorla sıkıştırılmış 12 sütunlu düzen PUT ile saklanır (`removeCard`);
+başka yerde bırakılırsa kart yerine animasyonla döner. Hold süresi dolmadan
+parmak 10 puntodan fazla kayarsa dokunuş kaydırma sayılır. Yalnızca React
+Native'in kendi `PanResponder` ve `Animated` API'leri kullanılır
+(`react-native-gesture-handler` veya `reanimated` eklenmedi); çöp kutusu
+simgesi `react-native-svg` ile çizilir. Kaldırınca altta "Kart kaldırıldı"
+ve "Geri al" bandı yaklaşık 6 saniye kalır (`restoreCard`).
+
+**Erişilebilirlik.** Her kartın başlık satırı erişilebilir bir öğedir ve
+`remove` eylemi sunar (VoiceOver/TalkBack eylem menüsü, "Kartı kaldır");
+kaldırma ve geri alma `announceForAccessibility` ile duyurulur. Dokunmayla
+kaldırma ipucu başlık satırının `accessibilityHint` alanındadır.
+
+**Test.** Saf mantık (çöp kutusu isabeti, kaldırma ve geri alma düzeni, tek
+sütun sırası, hızlı işlem kuralı, grafik geometrisi) `src/lib/dashboardBoard.spec.ts`
+ve `src/lib/dashboardChart.spec.ts` içindedir; jest yalnızca bu saf
+modülleri çalıştırır, dokunuş davranışı elle doğrulanır.
+
 ## Mobil uygulamada dil
 
 Çok dilli destek `apps/mobile/src/i18n/` altında yaşar; anahtarların ve İngilizce/Türkçe metinlerin tek
