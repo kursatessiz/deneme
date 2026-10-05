@@ -57,7 +57,7 @@ export interface DashboardSessionRowDTO {
 
 export interface DashboardPaymentRowDTO {
   id: string;
-  paidAt: string | null;
+  paidAt: string;
   /** Masked like the payments list (first name and last initial) unless the caller has members.contact.view. */
   payerName: string | null;
   amount: string;

@@ -43,6 +43,7 @@ describe('dashboardPeriodRange', () => {
     expect(r.to.toISOString()).toBe(now.toISOString());
     expect(r.previousFrom.toISOString()).toBe('2026-10-06T00:00:00.000Z');
     expect(r.previousTo.toISOString()).toBe('2026-10-06T12:00:00.000Z');
+    expect(r.end.toISOString()).toBe('2026-10-08T00:00:00.000Z');
   });
 
   it('week compares with last week up to the same time', () => {
@@ -50,6 +51,7 @@ describe('dashboardPeriodRange', () => {
     expect(r.from.toISOString()).toBe('2026-10-05T00:00:00.000Z');
     expect(r.previousFrom.toISOString()).toBe('2026-09-28T00:00:00.000Z');
     expect(r.previousTo.toISOString()).toBe('2026-09-30T12:00:00.000Z');
+    expect(r.end.toISOString()).toBe('2026-10-12T00:00:00.000Z');
   });
 
   it('month compares with the same days of last month, capped at its end', () => {
@@ -57,6 +59,7 @@ describe('dashboardPeriodRange', () => {
     expect(r.from.toISOString()).toBe('2026-10-01T00:00:00.000Z');
     expect(r.previousFrom.toISOString()).toBe('2026-09-01T00:00:00.000Z');
     expect(r.previousTo.toISOString()).toBe('2026-09-07T12:00:00.000Z');
+    expect(r.end.toISOString()).toBe('2026-11-01T00:00:00.000Z');
     const endOfMonth = dashboardPeriodRange('month', new Date('2026-03-31T12:00:00Z'), 'UTC');
     expect(endOfMonth.previousTo.toISOString()).toBe('2026-03-01T00:00:00.000Z');
   });

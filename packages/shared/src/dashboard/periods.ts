@@ -89,8 +89,10 @@ export function zonedStartOfWeek(date: Date, timeZone: string): Date {
 export interface DashboardPeriodRange {
   /** Start of the current period (inclusive). */
   from: Date;
-  /** End of the current period (exclusive): now. */
+  /** End of the current period so far (exclusive): now. */
   to: Date;
+  /** End of the whole calendar period (exclusive): next midnight, next Monday, the 1st of next month; now for last30. */
+  end: Date;
   /** The comparison window: the previous period up to the same point. */
   previousFrom: Date;
   previousTo: Date;
@@ -112,24 +114,27 @@ export function dashboardPeriodRange(period: DashboardPeriod, now: Date, timeZon
     case 'today': {
       const from = zonedMidnight(p.year, p.month, p.day, zone);
       const previousFrom = zonedMidnight(p.year, p.month, p.day - 1, zone);
-      return { from, to, previousFrom, previousTo: new Date(previousFrom.getTime() + (to.getTime() - from.getTime())) };
+      const end = zonedMidnight(p.year, p.month, p.day + 1, zone);
+      return { from, to, end, previousFrom, previousTo: new Date(previousFrom.getTime() + (to.getTime() - from.getTime())) };
     }
     case 'week': {
       const from = zonedStartOfWeek(now, zone);
       const fp = partsInZone(from, zone);
       const previousFrom = zonedMidnight(fp.year, fp.month, fp.day - 7, zone);
-      return { from, to, previousFrom, previousTo: new Date(previousFrom.getTime() + (to.getTime() - from.getTime())) };
+      const end = zonedMidnight(fp.year, fp.month, fp.day + 7, zone);
+      return { from, to, end, previousFrom, previousTo: new Date(previousFrom.getTime() + (to.getTime() - from.getTime())) };
     }
     case 'month': {
       const from = zonedMidnight(p.year, p.month, 1, zone);
       const previousFrom = zonedMidnight(p.year, p.month - 1, 1, zone);
       const previousTo = new Date(Math.min(previousFrom.getTime() + (to.getTime() - from.getTime()), from.getTime()));
-      return { from, to, previousFrom, previousTo };
+      const end = zonedMidnight(p.year, p.month + 1, 1, zone);
+      return { from, to, end, previousFrom, previousTo };
     }
     case 'last30':
     default: {
       const from = new Date(to.getTime() - 30 * DAY_MS);
-      return { from, to, previousFrom: new Date(from.getTime() - 30 * DAY_MS), previousTo: from };
+      return { from, to, end: to, previousFrom: new Date(from.getTime() - 30 * DAY_MS), previousTo: from };
     }
   }
 }
