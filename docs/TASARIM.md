@@ -483,6 +483,54 @@ sınıfı veya sabit renk kalmadı; geriye yalnızca değeri `var(--pui-*)` toke
 alanının sabit `#0092cd` varsayılanı ve `ui-*` sınıflarıyla çözülemeyen konumlandırma
 stilleri (bal tuzağı alanı) var.
 
+## 10a. Genel bakış kartları: boyut kuralı ve container query
+
+Genel bakış panosu (`docs/WEB_PANEL.md`, "Genel bakış kartları") 12 sütunlu,
+72 px satırlı bir ızgaradır. Her kartın en küçük ve en büyük boyutu
+`DASHBOARD_WIDGETS` içinde tanımlıdır ve hem web hem API bu sınırlara kırpar.
+
+**Boyut kuralı.** En küçük boyut, kartın içeriğinin kilit bilgisini kesmeden
+okunabildiği en küçük kutudur; en büyük boyut, içeriğin artık yalnızca boş
+alan kazanacağı noktadır. Kart türlerine göre:
+
+| Tür | En küçük | En büyük | Neden |
+|-----|----------|----------|-------|
+| Gösterge (KPI) | 2x2 | 4x3 | Değer, karşılaştırma satırı ve bir ipucu satırı sığar; daha büyüğünde rakam yalnızca boşlukta kalır |
+| Grafik | 4x3 | 12x6 | Eksen yazıları ve en az iki tarih etiketi sığar |
+| Tablo | 4x4 | 12x8 | Birincil sütun ve rakam sütunu ile en az üç satır görünür |
+| Haftalık takvim | 6x4 | 12x8 | Yedi gün sütunu okunur genişlikte kalır |
+| Liste (şubeler, stok, etkinlikler) | 3x3 | 8x6 | Ad ve bir alt satır kesilmeden görünür |
+| Hızlı işlemler | 6x1 | 12x3 | Başlık ve düğmeler tek satırda; dar kartta düğmeler alt satıra geçer |
+
+**Container query.** Her kart (`ui-dash-card`) `container-type: inline-size`
+taşır; içerik pencereye değil karta göre uyum sağlar:
+
+- KPI değeri `ui-kpi-value`: `clamp(1.25rem, 11cqi, 2.25rem)`, tek satır,
+  sığmazsa üç noktayla kısalır ve tam değer `title`'da kalır; 260 px altında
+  ipucu satırı (`ui-kpi-hint`) gizlenir.
+- Tablolarda `ui-dash-col-secondary` sütunları kart 460 px'in, `ui-dash-col-tertiary`
+  sütunları 340 px'in altına inince gizlenir; uzun metin kısalır ve `title`
+  taşır. Kart gövdesi yatay kaydırma yapmaz (`overflow-x: hidden`), dikeyde
+  kendi içinde kayar; sayfada yatay kaydırma oluşmaz.
+- Grafikler (`ui-chart`, `ui-chart-line`, `ui-chart-area`, `ui-chart-bar`,
+  `ui-chart-grid`, `ui-chart-dot`) kütüphanesiz SVG'dir; `ResizeObserver`
+  ile kartın gerçek piksel boyutunda yeniden çizilir, böylece eksen yazısı
+  ölçeklenmez. Renkler yalnızca token'dır (`--pui-theme`, `--pui-border`,
+  `--pui-text-muted`), açık ve koyu modda okunur; alan dolgusu düz, yarı
+  saydam marka rengidir (gradyan değil). Eksen etiketleri `Intl` ile etkin
+  dilde biçimlenir.
+
+Eklenen yardımcı sınıflar (hepsi `ui` katmanında, yalnızca token'larla):
+`ui-dash-grid` (sütun, satır ve boşluk `--ui-dash-cols`, `--ui-dash-row`,
+`--ui-dash-gap` ile), `ui-dash-card` (`data-editing`, `data-dragging`,
+`data-limit`, `data-inline`), `ui-dash-head`, `ui-dash-body` (`data-flush`),
+`ui-dash-placeholder`, `ui-dash-handle`, `ui-dash-resize`, `ui-dash-size`,
+`ui-kpi-value`, `ui-kpi-hint`, `ui-tabular`, `ui-week`, `ui-week-day`,
+`ui-week-head`, `ui-week-chip`. Kartlar tek seviyedir (kart içinde kart
+yoktur); sürükleme sırasında yalnızca çerçeve rengi değişir, gölge
+eklenmez; `prefers-reduced-motion` açıkken eklenen kartın görünür alana
+kaydırılması animasyonsuzdur.
+
 ## 11. Lisans bildirimi (Perfect UI)
 
 Perfect UI MIT lisansıyla dağıtılır. Kitin lisans metni aşağıdadır.
