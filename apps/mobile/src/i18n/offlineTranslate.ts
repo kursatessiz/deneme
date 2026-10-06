@@ -4,6 +4,7 @@ import { BASE_LOCALE, BUNDLED_LANGUAGES, BUNDLED_MESSAGES, createTranslator } fr
 import { resolveLocale } from '@platform/shared';
 import type { Translate } from '@platform/shared';
 
+import { getActiveLocale } from './activeLocale';
 import { getStoredLocaleChoice } from './storage';
 
 /**
@@ -14,7 +15,11 @@ import { getStoredLocaleChoice } from './storage';
  * uses before first render, using only bundled (offline) messages -- no
  * network call, since this runs on the error path of a failed request.
  */
-export async function resolveOfflineTranslate(): Promise<Translate> {
+export async function resolveOfflineLocale(): Promise<string> {
+  const enabledCodes = BUNDLED_LANGUAGES.map((language) => language.code);
+  // The locale I18nProvider resolved (user choice, studio default, ...) wins once the app has rendered.
+  const active = getActiveLocale();
+  if (active && (enabledCodes as readonly string[]).includes(active)) return active;
   const stored = await getStoredLocaleChoice();
   let deviceLocales: string[] = [];
   try {
@@ -24,8 +29,11 @@ export async function resolveOfflineTranslate(): Promise<Translate> {
   } catch {
     deviceLocales = [];
   }
-  const enabledCodes = BUNDLED_LANGUAGES.map((language) => language.code);
-  const locale = resolveLocale(enabledCodes, [stored, ...deviceLocales, BASE_LOCALE]);
+  return resolveLocale(enabledCodes, [stored, ...deviceLocales, BASE_LOCALE]);
+}
+
+export async function resolveOfflineTranslate(): Promise<Translate> {
+  const locale = await resolveOfflineLocale();
   const messages = BUNDLED_MESSAGES[locale] ?? BUNDLED_MESSAGES[BASE_LOCALE];
   return createTranslator({ locale, messages, fallback: BUNDLED_MESSAGES[BASE_LOCALE] });
 }

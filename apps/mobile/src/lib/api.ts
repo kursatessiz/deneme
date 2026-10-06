@@ -1,8 +1,9 @@
 import Constants from 'expo-constants';
-import { TRANSLATED_API_ERROR_CODES } from '@platform/shared';
+import { translateApiErrorBody } from '@platform/shared';
 
 import { appBreadcrumbs, trackRequest } from '../errors/breadcrumbs';
-import { resolveOfflineTranslate } from '../i18n/offlineTranslate';
+import { getActiveLocale } from '../i18n/activeLocale';
+import { resolveOfflineLocale, resolveOfflineTranslate } from '../i18n/offlineTranslate';
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from './tokenStore';
 
 const DEFAULT_API_URL = 'http://localhost:4000';
@@ -84,7 +85,8 @@ function refreshOnce(): Promise<boolean> {
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, auth = true, isRetry = false, studioId } = options;
 
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  // The app's language goes to the API, so any text it still produces follows it.
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'Accept-Language': getActiveLocale() ?? (await resolveOfflineLocale()) };
   if (studioId) headers['x-studio-id'] = studioId;
   if (auth) {
     const token = await getAccessToken();
@@ -137,11 +139,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   if (!response.ok) {
     const errorBody = payload as { message?: string; errors?: ApiFieldError[]; code?: unknown } | null;
     const code = typeof errorBody?.code === 'string' ? errorBody.code : undefined;
-    // Codes with a shared translation (e.g. BILLING_RESTRICTED) are shown in the app's language.
-    const translatedKey = code ? TRANSLATED_API_ERROR_CODES[code] : undefined;
-    const message = translatedKey
-      ? (await resolveOfflineTranslate())(translatedKey)
-      : errorBody?.message ?? (await resolveOfflineTranslate())('mApiErrors.unexpectedError');
+    // A body with a translatable code (an apiErrors key, BILLING_RESTRICTED, ...) is shown in the app's language.
+    const t = await resolveOfflineTranslate();
+    const translated = errorBody ? translateApiErrorBody(errorBody as Record<string, unknown>, t) : null;
+    const raw = translated?.message;
+    const message = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw.join(', ') : t('mApiErrors.unexpectedError');
     throw new ApiError(response.status, message, errorBody?.errors, code);
   }
 
