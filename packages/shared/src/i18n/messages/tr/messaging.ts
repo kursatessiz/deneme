@@ -116,6 +116,7 @@ export const trMessaging = {
   'messaging.templates.whatsappPendingHint': 'Kaydedilen WhatsApp şablonu, platform yöneticisi Meta onayını işaretleyene kadar gönderilmez.',
   'messaging.templates.newTemplate': 'Yeni şablon',
   'messaging.templates.keyLabel': 'Şablon anahtarı',
+  'messaging.templates.keyPlaceholder': 'ILKBAHAR_TEKLIFI',
   'messaging.templates.keyHint': 'Büyük harf, rakam ve alt çizgi (ör. SPRING_OFFER).',
   'messaging.templates.localeLabel': 'Dil kodu',
   'messaging.templates.removed': 'İşletme şablonu silindi; platform varsayılanı kullanılacak',

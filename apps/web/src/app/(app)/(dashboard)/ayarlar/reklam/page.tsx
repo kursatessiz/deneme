@@ -301,7 +301,7 @@ function UtmBuilderSection() {
           </Select>
         </FieldGroup>
       </div>
-      <TextField label={t('ads.utm.landingPath')} value={landingPath} onChange={setLandingPath} placeholder="tr/pilates" />
+      <TextField label={t('ads.utm.landingPath')} value={landingPath} onChange={setLandingPath} placeholder={t('ads.utm.landingPathPlaceholder')} />
 
       {buildError && <InlineMessage text={buildError} tone="error" />}
       {!buildError && (

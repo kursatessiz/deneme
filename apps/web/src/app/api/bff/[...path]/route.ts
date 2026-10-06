@@ -1,3 +1,4 @@
+import { requestTranslator } from '@/lib/bff/request-translator';
 import { NextRequest, NextResponse } from 'next/server';
 import { apiInternalBaseUrl } from '@/lib/server-env';
 import { sanitizeApiPath } from '@/lib/bff/path';
@@ -111,16 +112,17 @@ async function toNextResponse(
 }
 
 async function handle(req: NextRequest, context: { params: Promise<{ path: string[] }> }, requestId: string): Promise<NextResponse> {
+  const t = requestTranslator(req);
   const { path } = await context.params;
   const apiPath = sanitizeApiPath(path);
   if (!apiPath) {
-    return NextResponse.json({ message: 'Geçersiz istek yolu' }, { status: 400 });
+    return NextResponse.json({ message: t('common.error.invalidRequestPath') }, { status: 400 });
   }
 
   if (methodNeedsCsrfCheck(req.method)) {
     const originOk = isSameOriginRequest(req.headers.get('origin'), req.headers.get('host'));
     if (!originOk || !hasValidCsrfHeader(req.headers)) {
-      return NextResponse.json({ message: 'Geçersiz istek kaynağı' }, { status: 403 });
+      return NextResponse.json({ message: t('common.error.invalidRequestOrigin') }, { status: 403 });
     }
   }
 
@@ -193,7 +195,7 @@ async function handleWithRequestId(req: NextRequest, context: { params: Promise<
       route: `${req.method} ${req.nextUrl.pathname}`,
       requestId,
     });
-    res = NextResponse.json({ message: 'Sunucuya ulaşılamadı' }, { status: 502 });
+    res = NextResponse.json({ message: requestTranslator(req)('common.error.upstreamUnreachable') }, { status: 502 });
   }
   res.headers.set(REQUEST_ID_HEADER, requestId);
   return res;

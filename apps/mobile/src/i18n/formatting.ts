@@ -50,7 +50,7 @@ export function formatNumber(value: number, locale: string, options?: Intl.Numbe
   );
 }
 
-/** Turkish lira amount, e.g. "1.234 TL". Pass a currency code to use another. */
-export function formatCurrency(value: number, locale: string, currency = 'TRY', options?: Intl.NumberFormatOptions): string {
+/** Currency amount in the active locale; the ISO 4217 code always comes from the tenant, never a default. */
+export function formatCurrency(value: number, locale: string, currency: string, options?: Intl.NumberFormatOptions): string {
   return formatNumber(value, locale, { style: 'currency', currency, ...options });
 }

@@ -57,6 +57,7 @@ export const trAds = {
   'ads.utm.month': 'Ay',
   'ads.utm.platform': 'Platform',
   'ads.utm.landingPath': 'Açılış sayfası yolu',
+  'ads.utm.landingPathPlaceholder': 'tr/ornek-sayfa',
   'ads.utm.campaignName': 'Kampanya adı',
   'ads.utm.urlParams': 'URL parametreleri',
   'ads.utm.exampleUrl': 'Örnek açılış URL’si',

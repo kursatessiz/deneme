@@ -41,5 +41,6 @@ export const trMHealth = {
   'mHealth.steps': 'Adım',
   'mHealth.activeEnergyKcal': 'Aktif enerji (kcal)',
   'mHealth.restingHeartRate': 'Dinlenme nabzı',
+  'mHealth.bpmValue': '{value} bpm',
   'mHealth.errors.summariesLoadFailed': 'Sağlık verileri yüklenemedi.',
 } as const satisfies Record<string, string>;

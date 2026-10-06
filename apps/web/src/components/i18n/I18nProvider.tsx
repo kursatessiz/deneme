@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useMemo } from 'react';
+import { registerClientTranslator } from '@/lib/i18n/client-translator';
 import { BASE_MESSAGES, createTranslator, type MessageParams, type Translate } from '@platform/shared';
 
 interface I18nContextValue {
@@ -27,6 +28,7 @@ export function I18nProvider({
 }) {
   const value = useMemo<I18nContextValue>(() => {
     const t = createTranslator({ locale, messages, fallback: BASE_MESSAGES });
+    registerClientTranslator(t);
     return { locale, t };
   }, [locale, messages]);
 

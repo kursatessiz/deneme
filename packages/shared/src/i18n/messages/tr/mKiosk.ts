@@ -18,6 +18,7 @@ export const trMKiosk = {
   'mKiosk.exitKioskModeTitle': 'Kiosk modundan çık',
   'mKiosk.exitSubtitle': "Devam etmek için personel telefon ve PIN'i ile giriş yapın.",
   'mKiosk.phoneLabel': 'Telefon numarası',
+  'mKiosk.pinLabel': 'PIN',
   'mKiosk.signInAndExit': 'Giriş yap ve çık',
   'mKiosk.cancel': 'Vazgeç',
   'mKiosk.defaultDeviceName': 'Resepsiyon Tablet',

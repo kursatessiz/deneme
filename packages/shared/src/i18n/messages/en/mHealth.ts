@@ -42,5 +42,6 @@ export const enMHealth: Record<keyof typeof trMHealth, string> = {
   'mHealth.steps': 'Steps',
   'mHealth.activeEnergyKcal': 'Active energy (kcal)',
   'mHealth.restingHeartRate': 'Resting heart rate',
+  'mHealth.bpmValue': '{value} bpm',
   'mHealth.errors.summariesLoadFailed': 'Health data could not be loaded.',
 };

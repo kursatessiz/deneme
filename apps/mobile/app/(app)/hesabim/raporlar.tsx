@@ -5,17 +5,18 @@ import type { MembersReportDTO, OccupancyReportDTO, RenewalReportDTO, TrainerRep
 
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { formatCurrency, useLocale } from '../../../src/i18n';
+import { formatCurrency, formatNumber, useLocale, useT } from '../../../src/i18n';
 import { borderWidth, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
 import { Text } from '../../../src/components/Text';
 
 const DAY = 24 * 60 * 60 * 1000;
-const percent = (v: number) => `%${Math.round(v * 100)}`;
 
 /** Owner-only: last 30 days occupancy, revenue, renewal rate and top trainers. */
 export default function RaporlarScreen() {
   const { activeMembership } = useSession();
+  const t = useT();
   const { locale } = useLocale();
+  const percent = (v: number) => formatNumber(v, locale, { style: 'percent', maximumFractionDigits: 0 });
   const currency = activeMembership?.currency ?? 'USD';
   const money = (v: string) => formatCurrency(Number(v), locale, currency, { maximumFractionDigits: 0 });
   const { theme } = useTheme();
@@ -37,7 +38,7 @@ export default function RaporlarScreen() {
     const from = new Date(to.getTime() - 30 * DAY);
     const qs = `from=${from.toISOString()}&to=${to.toISOString()}`;
     try {
-      const [occ, mem, ren, tr] = await Promise.all([
+      const [occ, mem, ren, trn] = await Promise.all([
         apiRequest<OccupancyReportDTO>(`/reports/studio/${studioId}/occupancy?${qs}`),
         apiRequest<MembersReportDTO>(`/reports/studio/${studioId}/members?${qs}`),
         apiRequest<RenewalReportDTO>(`/reports/studio/${studioId}/renewal?${qs}`),
@@ -46,11 +47,11 @@ export default function RaporlarScreen() {
       setOccupancy(occ);
       setMembers(mem);
       setRenewal(ren);
-      setTrainers(tr);
+      setTrainers(trn);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Raporlar yuklenemedi.');
+      setError(e instanceof ApiError ? e.message : t('mReports.loadFailed'));
     }
-  }, [studioId]);
+  }, [studioId, t]);
 
   useEffect(() => {
     load();
@@ -78,13 +79,13 @@ export default function RaporlarScreen() {
         />
       }
     >
-      <Text style={[styles.caption, fonts.body, { color: c.textSecondary }]}>Son 30 gun</Text>
+      <Text style={[styles.caption, fonts.body, { color: c.textSecondary }]}>{t('mReports.period')}</Text>
       {!occupancy && !error ? <ActivityIndicator /> : null}
       {error ? <Text style={{ color: palette.danger }}>{error}</Text> : null}
 
       {occupancy ? (
         <View style={[styles.card, card, styles.bordered]}>
-          <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>Doluluk</Text>
+          <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mReports.occupancy')}</Text>
           <Text style={[styles.bigValue, fonts.display, { color: c.textPrimary }]}>{percent(avgOccupancy)}</Text>
           <Bar ratio={avgOccupancy} />
         </View>
@@ -92,40 +93,40 @@ export default function RaporlarScreen() {
 
       {members ? (
         <View style={[styles.card, card, styles.bordered]}>
-          <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>Gelir</Text>
+          <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mReports.revenue')}</Text>
           <Text style={[styles.bigValue, fonts.display, { color: c.textPrimary }]}>{money(members.revenue)}</Text>
           <View style={styles.metrics}>
-            <Metric label="Aktif uye" value={String(members.activeMembers)} />
-            <Metric label="Yeni uye" value={String(members.newMembers)} />
-            <Metric label="Kaybedilen" value={String(members.churnedMembers)} />
-            <Metric label="ARPU" value={money(members.arpu)} />
+            <Metric label={t('mReports.activeMembers')} value={String(members.activeMembers)} />
+            <Metric label={t('mReports.newMembers')} value={String(members.newMembers)} />
+            <Metric label={t('mReports.churnedMembers')} value={String(members.churnedMembers)} />
+            <Metric label={t('mReports.arpu')} value={money(members.arpu)} />
           </View>
         </View>
       ) : null}
 
       {renewal ? (
         <View style={[styles.card, card, styles.bordered]}>
-          <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>Yenileme orani</Text>
+          <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mReports.renewalRate')}</Text>
           <Text style={[styles.bigValue, fonts.display, { color: c.textPrimary }]}>{percent(renewal.renewalRate)}</Text>
           <Bar ratio={renewal.renewalRate} />
           <Text style={[styles.caption, fonts.body, { color: c.textMuted, marginTop: spacing[2] }]}>
-            {renewal.renewedPackages} / {renewal.expiredPackages} paket yenilendi
+            {t('mReports.packagesRenewed', { renewed: renewal.renewedPackages, expired: renewal.expiredPackages })}
           </Text>
         </View>
       ) : null}
 
       {topTrainers.length > 0 ? (
         <View style={[styles.card, card, styles.bordered]}>
-          <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>En yogun 5 egitmen</Text>
-          {topTrainers.map((t) => (
-            <View key={t.trainerProfileId} style={styles.trainerRow}>
+          <Text style={[styles.title, fonts.display, { color: c.textPrimary }]}>{t('mReports.topTrainers')}</Text>
+          {topTrainers.map((row) => (
+            <View key={row.trainerProfileId} style={styles.trainerRow}>
               <Text style={[fonts.bodyStrong, styles.trainerName, { color: c.textPrimary }]} numberOfLines={1}>
-                {t.trainerName}
+                {row.trainerName}
               </Text>
               <View style={styles.trainerBarWrap}>
-                <Bar ratio={t.occupancy} />
+                <Bar ratio={row.occupancy} />
               </View>
-              <Text style={[fonts.body, styles.trainerValue, { color: c.textSecondary }]}>{t.sessions} seans</Text>
+              <Text style={[fonts.body, styles.trainerValue, { color: c.textSecondary }]}>{t('mReports.sessions', { count: row.sessions })}</Text>
             </View>
           ))}
         </View>

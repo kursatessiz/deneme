@@ -17,7 +17,7 @@ export async function fetchPublicPage(studioSlug: string, locale: string, slug: 
   url.searchParams.set('slug', slug);
   const res = await fetch(url, { next: { revalidate: PAGE_REVALIDATE_SECONDS, tags: [siteCacheTag(studioSlug), `site-page:${studioSlug}:${locale}:${slug}`] } });
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`Sayfa yüklenemedi (${res.status})`);
+  if (!res.ok) throw new Error(`Failed to load the public page (${res.status})`);
   return (await res.json()) as PublicPageDTO;
 }
 

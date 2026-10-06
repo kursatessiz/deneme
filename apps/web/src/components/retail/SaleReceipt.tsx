@@ -112,7 +112,7 @@ function RefundDialog({ sale, studioId, onClose, onDone }: { sale: SaleDTO; stud
  */
 export function SaleReceipt({ saleId }: { saleId: string }) {
   const t = useT();
-  const { prompt } = useConfirm();
+  const { prompt: askReason } = useConfirm();
   const locale = useLocale();
   const formatMoney = useFormatMoney();
   const { activeStudioId } = useDashboardSession();
@@ -125,7 +125,7 @@ export function SaleReceipt({ saleId }: { saleId: string }) {
 
   async function voidSale() {
     if (!current) return;
-    const reason = await prompt({
+    const reason = await askReason({
       message: t('retail.refund.voidConfirm'),
       inputLabel: t('retail.refund.reason'),
       danger: true,
