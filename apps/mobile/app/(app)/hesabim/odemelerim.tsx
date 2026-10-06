@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import type { GiftCardBalanceDTO, GiftCardDTO, MemberPackageDTO, MemberSubscriptionDTO, PaymentDTO } from '@platform/shared';
+import type { ApiErrorKey, GiftCardBalanceDTO, GiftCardDTO, MemberPackageDTO, MemberSubscriptionDTO, PaymentDTO } from '@platform/shared';
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
@@ -132,12 +132,13 @@ export default function OdemelerimScreen() {
     setPreviewText(undefined);
     setPurchaseError(undefined);
     try {
-      const result = await apiRequest<{ valid: boolean; reason?: string; basePrice: string; discountAmount: string; finalAmount: string; bonusUnits: number }>(
+      const result = await apiRequest<{ valid: boolean; reason?: string; reasonKey?: ApiErrorKey; basePrice: string; discountAmount: string; finalAmount: string; bonusUnits: number }>(
         `/promotions/promo-codes/validate/self?code=${encodeURIComponent(promoCode.trim())}&packageDefinitionId=${selectedPackageDefinitionId}`,
         { studioId },
       );
       if (!result.valid) {
-        setPreviewText(result.reason ?? t('mPayments.errors.invalidCode'));
+        // reasonKey is the apiErrors key of the Turkish `reason`: show it in the app language.
+        setPreviewText(result.reasonKey ? t(result.reasonKey) : result.reason ?? t('mPayments.errors.invalidCode'));
       } else if (result.bonusUnits > 0) {
         setPreviewText(t('mPayments.previewWithBonus', { finalAmount: result.finalAmount, bonusUnits: result.bonusUnits }));
       } else {

@@ -121,7 +121,7 @@ function YeniSeansContent() {
       manualMeetingUrl: deliveryMode === SessionDeliveryMode.IN_PERSON ? undefined : meetingUrl || undefined,
     });
     if (!parsed.success) {
-      setFieldErrors(fieldErrorsFromZod(parsed.error));
+      setFieldErrors(fieldErrorsFromZod(parsed.error, t));
       return;
     }
     setIsSubmitting(true);

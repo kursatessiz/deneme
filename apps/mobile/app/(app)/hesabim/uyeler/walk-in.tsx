@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
-import { BookSessionSchema } from '@platform/shared';
+import { BookSessionSchema, firstIssueMessage } from '@platform/shared';
 
 import { PermissionGate } from '../../../../src/components/PermissionGate';
 import { PrimaryButton } from '../../../../src/components/PrimaryButton';
@@ -63,7 +63,7 @@ function WalkInContent() {
     setError(undefined);
     const parsed = BookSessionSchema.safeParse({ studioId, scheduleId, memberId, resourceIds: [] });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? t('mWalkIn.errors.bookingFailed'));
+      setError(firstIssueMessage(parsed.error, t) ?? t('mWalkIn.errors.bookingFailed'));
       setBusyId(null);
       return;
     }

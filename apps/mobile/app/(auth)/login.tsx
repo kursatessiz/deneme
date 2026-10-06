@@ -1,4 +1,4 @@
-import { PhoneSchema } from '@platform/shared';
+import { PhoneSchema, firstIssueMessage } from '@platform/shared';
 import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { StyleSheet } from 'react-native';
@@ -29,7 +29,7 @@ export default function LoginScreen() {
 
     const parsed = PhoneSchema.safeParse(phone);
     if (!parsed.success) {
-      setFieldError(parsed.error.issues[0]?.message ?? t('mAuth.phone.invalid'));
+      setFieldError(firstIssueMessage(parsed.error, t) ?? t('mAuth.phone.invalid'));
       return;
     }
 

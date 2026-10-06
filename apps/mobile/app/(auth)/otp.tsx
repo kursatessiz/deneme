@@ -1,4 +1,4 @@
-import { OtpCodeSchema } from '@platform/shared';
+import { OtpCodeSchema, firstIssueMessage } from '@platform/shared';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -43,7 +43,7 @@ export default function OtpScreen() {
 
     const parsed = OtpCodeSchema.safeParse(code);
     if (!parsed.success) {
-      setFieldError(parsed.error.issues[0]?.message ?? t('mAuth.otp.invalid'));
+      setFieldError(firstIssueMessage(parsed.error, t) ?? t('mAuth.otp.invalid'));
       return;
     }
 

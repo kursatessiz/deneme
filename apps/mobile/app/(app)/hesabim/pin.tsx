@@ -1,4 +1,4 @@
-import { PinSchema } from '@platform/shared';
+import { PinSchema, firstIssueMessage } from '@platform/shared';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { StyleSheet } from 'react-native';
@@ -32,7 +32,7 @@ export default function ChangePinScreen() {
 
     const parsed = PinSchema.safeParse(pin);
     if (!parsed.success) {
-      setPinError(parsed.error.issues[0]?.message ?? t('mAuth.setPin.invalid'));
+      setPinError(firstIssueMessage(parsed.error, t) ?? t('mAuth.setPin.invalid'));
       return;
     }
     if (pin !== confirmPin) {

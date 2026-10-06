@@ -1,5 +1,6 @@
 import { CreateScheduleSchema, UpdateScheduleSchema, SessionDeliveryMode } from '@platform/shared';
 import type { CreateScheduleInput, UpdateScheduleInput } from '@platform/shared';
+import { validationMessageOf } from '@/lib/i18n/client-translator';
 
 export interface ScheduleFormValues {
   studioId: string;
@@ -51,7 +52,7 @@ export function validateScheduleForm(
   };
   const result = CreateScheduleSchema.safeParse(payload);
   if (result.success) return { success: true, data: result.data };
-  return { success: false, message: result.error.issues[0]?.message ?? invalidMessage };
+  return { success: false, message: validationMessageOf(result.error.issues[0]?.message, invalidMessage) };
 }
 
 /**
@@ -65,5 +66,5 @@ export function validateScheduleMove(
 ): { success: true; data: UpdateScheduleInput } | { success: false; message: string } {
   const result = UpdateScheduleSchema.safeParse({ startTime: startTime.toISOString(), endTime: endTime.toISOString() });
   if (result.success) return { success: true, data: result.data };
-  return { success: false, message: result.error.issues[0]?.message ?? invalidMessage };
+  return { success: false, message: validationMessageOf(result.error.issues[0]?.message, invalidMessage) };
 }

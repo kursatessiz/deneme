@@ -1,5 +1,5 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { PhoneSchema } from '@platform/shared';
+import { PhoneSchema, translateApiErrorBody } from '@platform/shared';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, View } from 'react-native';
@@ -8,6 +8,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PrimaryButton } from '../src/components/PrimaryButton';
 import { TextField } from '../src/components/TextField';
 import { useT } from '../src/i18n';
+import { getActiveLocale } from '../src/i18n/activeLocale';
+import { resolveOfflineLocale } from '../src/i18n/offlineTranslate';
 import { ApiError } from '../src/lib/api';
 import { kioskRequest } from '../src/lib/kioskApi';
 import { clearKioskSession, getKioskSession, setKioskSession } from '../src/lib/kioskStore';
@@ -68,11 +70,16 @@ export default function KioskModeScreen() {
       const { resolveApiUrl } = await import('../src/lib/api');
       const response = await fetch(`${resolveApiUrl()}/kiosk/pair`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Accept-Language': getActiveLocale() ?? (await resolveOfflineLocale()) },
         body: JSON.stringify({ pairingCode }),
       });
-      const body = (await response.json()) as PairResponse & { message?: string };
-      if (!response.ok) throw new ApiError(response.status, body.message ?? t('mKiosk.pairFailed'));
+      const body = (await response.json()) as PairResponse & { message?: string; code?: string };
+      if (!response.ok) {
+        // An error body with a translatable code is shown in the app language (same rule as every other request).
+        const translated = translateApiErrorBody(body as unknown as Record<string, unknown>, t);
+        const message = translated?.message;
+        throw new ApiError(response.status, typeof message === 'string' ? message : t('mKiosk.pairFailed'), undefined, body.code);
+      }
       await setKioskSession(body);
       setSession(body);
     } catch (err) {

@@ -48,7 +48,7 @@ function YeniUyeContent() {
       channel: InviteChannel.SHOWN,
     });
     if (!parsed.success) {
-      setFieldErrors(fieldErrorsFromZod(parsed.error));
+      setFieldErrors(fieldErrorsFromZod(parsed.error, t));
       return;
     }
     setIsSubmitting(true);

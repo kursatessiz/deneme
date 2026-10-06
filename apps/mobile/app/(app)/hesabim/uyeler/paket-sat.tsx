@@ -72,7 +72,7 @@ function PaketSatContent() {
       installmentCount: 1,
     });
     if (!parsed.success) {
-      setFieldErrors(fieldErrorsFromZod(parsed.error));
+      setFieldErrors(fieldErrorsFromZod(parsed.error, t));
       return;
     }
     setIsSubmitting(true);
