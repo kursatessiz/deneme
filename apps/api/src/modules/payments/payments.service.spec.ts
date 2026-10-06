@@ -50,6 +50,7 @@ describe('PaymentsService - refunds', () => {
         findUniqueOrThrow: jest.fn(),
       },
       auditLog: { create: jest.fn() },
+      studio: { findUnique: jest.fn().mockResolvedValue({ defaultLocale: 'tr' }) },
       sale: { count: jest.fn().mockResolvedValue(0) },
       eventRegistration: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
     };
