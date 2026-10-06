@@ -18,6 +18,7 @@ import { Select } from '@/components/ui/Select';
 import { FieldGroup } from '@/components/ui/FieldGroup';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
 import { Card } from '@/components/ui/Card';
+import { useConfirm, useToast } from '@/components/ui';
 
 const READY_MADE_KEYS = {
   'lead-to-member': 'funnels.ready.lead-to-member.name',
@@ -36,6 +37,8 @@ interface Props {
 /** The "Huniler" tab on /raporlar (G5d-1, docs/HUNILER.md). Filters (range, branch, compare) come from the page. */
 export function FunnelsTab({ from, to, branchId, compare }: Props) {
   const t = useT();
+  const { confirm } = useConfirm();
+  const toast = useToast();
   const locale = useLocale();
   const { activeStudioId } = useDashboardSession();
   const [listKey, setListKey] = useState(0);
@@ -98,13 +101,13 @@ export function FunnelsTab({ from, to, branchId, compare }: Props) {
 
   async function removeSelected() {
     if (!activeStudioId || !selected || selected.kind !== 'TENANT') return;
-    if (!window.confirm(t('funnels.editor.confirmDelete'))) return;
+    if (!(await confirm({ message: t('funnels.editor.confirmDelete'), danger: true }))) return;
     try {
       await bffFetch(`studios/${activeStudioId}/funnels/${selected.id}`, { method: 'DELETE', studioId: activeStudioId });
       setSelectedId(null);
       setListKey((k) => k + 1);
     } catch (err) {
-      window.alert(err instanceof BffError ? err.message : t('funnels.editor.deleteFailed'));
+      toast.error(err instanceof BffError ? err.message : t('funnels.editor.deleteFailed'));
     }
   }
 

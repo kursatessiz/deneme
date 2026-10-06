@@ -19,6 +19,7 @@ export const enMKiosk: Record<keyof typeof trMKiosk, string> = {
   'mKiosk.exitKioskModeTitle': 'Exit kiosk mode',
   'mKiosk.exitSubtitle': 'Sign in with a staff phone and PIN to continue.',
   'mKiosk.phoneLabel': 'Phone number',
+  'mKiosk.pinLabel': 'PIN',
   'mKiosk.signInAndExit': 'Sign in and exit',
   'mKiosk.cancel': 'Cancel',
   'mKiosk.defaultDeviceName': 'Reception Tablet',

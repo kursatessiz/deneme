@@ -117,6 +117,7 @@ export const enMessaging = {
   'messaging.templates.whatsappPendingHint': 'A saved WhatsApp template is not sent until the platform administrator marks it as approved by Meta.',
   'messaging.templates.newTemplate': 'New template',
   'messaging.templates.keyLabel': 'Template key',
+  'messaging.templates.keyPlaceholder': 'SPRING_OFFER',
   'messaging.templates.keyHint': 'Capital letters, digits and underscores (e.g. SPRING_OFFER).',
   'messaging.templates.localeLabel': 'Language code',
   'messaging.templates.removed': 'Business template deleted; the platform default will be used',

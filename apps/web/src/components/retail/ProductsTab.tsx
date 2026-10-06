@@ -13,6 +13,7 @@ import { Badge } from '@/components/common/Badge';
 import { Modal } from '@/components/common/Modal';
 import { Card, CardContent, Checkbox, FieldGroup, Input, Select, Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui';
 import { StockDialog } from './StockDialog';
+import { useConfirm } from '@/components/ui';
 
 interface ProductFormState {
   name: string;
@@ -247,6 +248,7 @@ function CategoriesSection({ studioId, categories, onChange }: { studioId: strin
 /** Store catalogue: products with stock per branch, the product form, stock actions and categories. */
 export function ProductsTab() {
   const t = useT();
+  const { confirm } = useConfirm();
   const formatMoney = useFormatMoney();
   const { activeStudioId } = useDashboardSession();
   const [search, setSearch] = useState('');
@@ -275,7 +277,7 @@ export function ProductsTab() {
   }, [activeStudioId, search, reloadKey]);
 
   async function remove(product: ProductDTO) {
-    if (!window.confirm(t('retail.products.confirmDelete'))) return;
+    if (!(await confirm({ message: t('retail.products.confirmDelete'), danger: true }))) return;
     try {
       const res = await bffFetch<{ deleted: boolean; deactivated: boolean }>(`studios/${activeStudioId}/retail/products/${product.id}`, {
         method: 'DELETE',

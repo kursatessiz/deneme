@@ -1,3 +1,4 @@
+import { requestTranslator } from '@/lib/bff/request-translator';
 import { NextRequest, NextResponse } from 'next/server';
 import { ERROR_LIMITS, REQUEST_ID_HEADER } from '@platform/shared';
 import { apiInternalBaseUrl } from '@/lib/server-env';
@@ -14,14 +15,15 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * Signed-in pages use the BFF instead.
  */
 export async function POST(req: NextRequest, ctx: { params: Promise<{ eventId: string }> }): Promise<NextResponse> {
+  const t = requestTranslator(req);
   if (!isSameOriginRequest(req.headers.get('origin'), req.headers.get('host')) || !hasValidCsrfHeader(req.headers)) {
-    return NextResponse.json({ message: 'Geçersiz istek kaynağı' }, { status: 403 });
+    return NextResponse.json({ message: t('common.error.invalidRequestOrigin') }, { status: 403 });
   }
   const { eventId } = await ctx.params;
-  if (!UUID.test(eventId)) return NextResponse.json({ message: 'Geçersiz istek' }, { status: 400 });
+  if (!UUID.test(eventId)) return NextResponse.json({ message: t('common.error.invalidRequest') }, { status: 400 });
   const body = await req.arrayBuffer();
   if (body.byteLength > ERROR_LIMITS.batchBytes) {
-    return NextResponse.json({ message: 'İstek gövdesi çok büyük' }, { status: 413 });
+    return NextResponse.json({ message: t('common.error.requestTooLarge') }, { status: 413 });
   }
   const requestId = requestIdFrom(req.headers);
   const headers: Record<string, string> = { 'content-type': 'application/json', [REQUEST_ID_HEADER]: requestId };
@@ -39,6 +41,6 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ eventId: s
     res.headers.set(REQUEST_ID_HEADER, requestId);
     return res;
   } catch {
-    return NextResponse.json({ message: 'Not iletilemedi' }, { status: 502 });
+    return NextResponse.json({ message: t('common.error.feedbackFailed') }, { status: 502 });
   }
 }

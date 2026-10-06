@@ -1,4 +1,6 @@
 import { I18nProvider } from '@/components/i18n/I18nProvider';
+import { ConfirmProvider } from '@/components/ui/Confirm';
+import { ToastProvider } from '@/components/ui/ToastHost';
 import { ErrorReporter } from '@/components/errors/ErrorReporter';
 import { getServerEnv } from '@/lib/server-env';
 import { PUBLIC_API_URL_META, serverPublicApiUrl } from '@/lib/public-api-url';
@@ -20,7 +22,9 @@ export function RootDocument({ locale, messages, children }: { locale: string; m
       <body className="antialiased">
         <I18nProvider locale={locale} messages={messages}>
           <ErrorReporter release={env.APP_RELEASE} environment={env.NODE_ENV} />
-          {children}
+          <ToastProvider>
+            <ConfirmProvider>{children}</ConfirmProvider>
+          </ToastProvider>
         </I18nProvider>
       </body>
     </html>

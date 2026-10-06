@@ -183,8 +183,8 @@ export default function KioskModeScreen() {
           <View style={[styles.modalCard, { backgroundColor: colors.surface }]}>
             <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mKiosk.exitKioskModeTitle')}</Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{t('mKiosk.exitSubtitle')}</Text>
-            <TextField label={t('mKiosk.phoneLabel')} value={exitPhone} onChangeText={setExitPhone} placeholder="05XX XXX XX XX" keyboardType="phone-pad" />
-            <TextField label="PIN" value={exitPin} onChangeText={setExitPin} keyboardType="number-pad" maxLength={6} secureTextEntry />
+            <TextField label={t('mKiosk.phoneLabel')} value={exitPhone} onChangeText={setExitPhone} placeholder={t('common.phonePlaceholder')} keyboardType="phone-pad" />
+            <TextField label={t('mKiosk.pinLabel')} value={exitPin} onChangeText={setExitPin} keyboardType="number-pad" maxLength={6} secureTextEntry />
             {exitError ? <Text style={[styles.error, { color: colors.textSecondary }]}>{exitError}</Text> : null}
             <PrimaryButton label={t('mKiosk.signInAndExit')} onPress={() => void handleExit()} loading={isExiting} />
             <PrimaryButton label={t('mKiosk.cancel')} onPress={() => setExitVisible(false)} variant="secondary" />

@@ -289,6 +289,7 @@ function renderBlock(block: BlockDTO, ctx: RenderCtx): React.ReactNode {
               i18n={{
                 fullName: ctx.t('sites.leadForm.fullName'),
                 phone: ctx.t('sites.leadForm.phone'),
+                phonePlaceholder: ctx.t('common.phonePlaceholder'),
                 email: ctx.t('sites.leadForm.email'),
                 message: ctx.t('sites.leadForm.message'),
                 defaultConsent: ctx.t('sites.leadForm.defaultConsent'),

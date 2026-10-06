@@ -14,6 +14,7 @@ import { Badge } from '@/components/common/Badge';
 import { Modal } from '@/components/common/Modal';
 import { SALE_STATUS_TONE } from './SalesTab';
 import { Card, CardContent, Checkbox, FieldGroup, Input, LinkButton, Radio, Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui';
+import { useConfirm } from '@/components/ui';
 
 function RefundDialog({ sale, studioId, onClose, onDone }: { sale: SaleDTO; studioId: string; onClose: () => void; onDone: (next: SaleDTO) => void }) {
   const t = useT();
@@ -111,6 +112,7 @@ function RefundDialog({ sale, studioId, onClose, onDone }: { sale: SaleDTO; stud
  */
 export function SaleReceipt({ saleId }: { saleId: string }) {
   const t = useT();
+  const { prompt: askReason } = useConfirm();
   const locale = useLocale();
   const formatMoney = useFormatMoney();
   const { activeStudioId } = useDashboardSession();
@@ -123,8 +125,16 @@ export function SaleReceipt({ saleId }: { saleId: string }) {
 
   async function voidSale() {
     if (!current) return;
-    const reason = window.prompt(`${t('retail.refund.voidConfirm')} ${t('retail.refund.reason')}`);
-    if (!reason || reason.trim().length < 3) return;
+    const reason = await askReason({
+      message: t('retail.refund.voidConfirm'),
+      inputLabel: t('retail.refund.reason'),
+      danger: true,
+    });
+    if (reason === null) return;
+    if (reason.trim().length < 3) {
+      setMessage(t('retail.refund.reasonRequired'));
+      return;
+    }
     try {
       const next = await bffFetch<SaleDTO>(`studios/${activeStudioId}/retail/sales/${current.id}/void`, {
         method: 'POST',

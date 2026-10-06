@@ -33,6 +33,7 @@ export const trSites = {
   'sites.editor.domains.verifyCheck': 'Doğrulamayı kontrol et',
   'sites.editor.domains.empty': 'Henüz özel alan adı eklenmedi',
   'sites.editor.domains.newDomainLabel': 'Yeni alan adı',
+  'sites.editor.domains.newDomainPlaceholder': 'www.ornek.com',
   'sites.editor.domains.add': 'Ekle',
   'sites.editor.domains.addFailed': 'Alan adı eklenemedi',
   'sites.editor.domains.hint':
@@ -41,6 +42,8 @@ export const trSites = {
   'sites.editor.wizard.description':
     'Sektör şablonundan (BusinessTypeTemplate) önceden doldurulmuş bir sayfa oluşturur; sonrasında düzenlenebilir',
   'sites.editor.wizard.sectorKey': 'Sektör anahtarı',
+  'sites.editor.wizard.sectorPlaceholder': 'sektor_anahtari',
+  'sites.editor.wizard.offerPlaceholder': 'ornek-teklif',
   'sites.editor.wizard.offerKey': 'Kampanya teklifi (opsiyonel)',
   'sites.editor.wizard.submit': 'Landing sayfası oluştur',
   'sites.editor.wizard.sectorRequired': 'Sektör anahtarı girin (ör. pilates_studio)',
@@ -70,6 +73,7 @@ export const trSites = {
   'sites.editor.detail.localesTitle': 'Diller',
   'sites.editor.detail.notTranslated': '(çevrilmedi)',
   'sites.editor.detail.slug': 'Yol (slug)',
+  'sites.editor.detail.slugPlaceholder': 'ornek-sayfa',
   'sites.editor.detail.seoTitle': 'SEO başlığı',
   'sites.editor.detail.saveLocale': '{locale} için kaydet',
   'sites.editor.detail.localeRequired': 'Yol (slug) gereklidir',

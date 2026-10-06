@@ -23,6 +23,7 @@ import { AreaField, InputField, LinkButton, SelectField } from '../fields';
 import { usePlatformSession } from '../PlatformSession';
 import { IssueList } from '../studio/VariantEditor';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui';
+import { useConfirm } from '@/components/ui';
 
 type Tone = 'neutral' | 'success' | 'warning' | 'danger' | 'info';
 
@@ -76,6 +77,7 @@ function urlParams(): URLSearchParams {
  */
 export function SocialPosts() {
   const t = useT();
+  const { confirm } = useConfirm();
   const locale = useLocale();
   const { permissions, isSuperAdmin } = usePlatformSession();
   const canManage = isSuperAdmin || permissions.includes('platform.marketing.manage');
@@ -241,7 +243,7 @@ export function SocialPosts() {
   }
 
   async function removePost() {
-    if (!current || !window.confirm(t('marketingSocial.composer.confirmDelete'))) return;
+    if (!current || !(await confirm({ message: t('marketingSocial.composer.confirmDelete'), danger: true }))) return;
     setBusy(true);
     try {
       await bffFetch(`platform/marketing/social-posts/${current.id}`, { method: 'DELETE' });
@@ -546,7 +548,7 @@ export function SocialPosts() {
             )}
             {canSend && editable && current?.status !== 'PENDING_APPROVAL' && (
               <SecondaryButton
-                onClick={() => window.confirm(t('marketingSocial.composer.confirmPublish')) && void run('publish')}
+                onClick={() => void confirm({ message: t('marketingSocial.composer.confirmPublish') }).then((ok) => ok && void run('publish'))}
                 disabled={!canSubmit}
               >
                 {t('marketingSocial.composer.publishNow')}

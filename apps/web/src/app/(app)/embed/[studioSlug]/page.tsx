@@ -204,7 +204,7 @@ export default function EmbedBookingPage() {
                     <Input required value={leadName} onChange={(e) => setLeadName(e.target.value)} />
                   </FieldGroup>
                   <FieldGroup label={t('embed.phone')}>
-                    <Input required type="tel" placeholder="+90 5xx xxx xx xx" value={leadPhone} onChange={(e) => setLeadPhone(e.target.value)} />
+                    <Input required type="tel" placeholder={t('common.phonePlaceholder')} value={leadPhone} onChange={(e) => setLeadPhone(e.target.value)} />
                   </FieldGroup>
                   {/* Honeypot: hidden from real visitors via CSS, bots often fill every field. */}
                   <input

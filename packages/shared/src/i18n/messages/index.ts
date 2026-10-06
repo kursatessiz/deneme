@@ -58,6 +58,7 @@ import { trMMemberCard } from './tr/mMemberCard';
 import { trMAuth } from './tr/mAuth';
 import { trMLoyalty } from './tr/mLoyalty';
 import { trMKiosk } from './tr/mKiosk';
+import { trMReports } from './tr/mReports';
 import { trMNav } from './tr/mNav';
 import { trMNotificationPrefs } from './tr/mNotificationPrefs';
 import { trMPackageCard } from './tr/mPackageCard';
@@ -161,6 +162,7 @@ import { enMMemberCard } from './en/mMemberCard';
 import { enMAuth } from './en/mAuth';
 import { enMLoyalty } from './en/mLoyalty';
 import { enMKiosk } from './en/mKiosk';
+import { enMReports } from './en/mReports';
 import { enMNav } from './en/mNav';
 import { enMNotificationPrefs } from './en/mNotificationPrefs';
 import { enMPackageCard } from './en/mPackageCard';
@@ -316,6 +318,7 @@ export const TR_NAMESPACES = [
   trMAuth,
   trMLoyalty,
   trMKiosk,
+  trMReports,
   trMembers,
   trMMemberCard,
   trMMembersStaff,
@@ -443,6 +446,7 @@ export const EN_NAMESPACES = [
   enMAuth,
   enMLoyalty,
   enMKiosk,
+  enMReports,
   enMembers,
   enMMemberCard,
   enMMembersStaff,

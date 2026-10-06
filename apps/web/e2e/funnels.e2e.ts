@@ -61,8 +61,8 @@ test('owner creates, edits and deletes a tenant funnel', async ({ page }) => {
   await expect(main.getByText('Adımlar arası süre sınırı yok')).toBeVisible();
 
   // Delete.
-  page.once('dialog', (dialog) => dialog.accept());
   await main.getByRole('button', { name: 'Sil' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Onayla', exact: true }).click();
   await expect(funnelSelect.getByRole('option', { name })).toHaveCount(0);
 });
 

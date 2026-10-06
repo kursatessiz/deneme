@@ -15,6 +15,7 @@ import { ChurnSummaryTiles } from '@/components/churn/ChurnSummaryTiles';
 import { Checkbox, Input, Select, Textarea } from '@/components/ui';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { AnchorButton } from '@/components/ui/LinkButton';
+import { useToast } from '@/components/ui';
 
 const LEVEL_TONE: Record<string, 'danger' | 'warning' | 'neutral'> = { HIGH: 'danger', MEDIUM: 'warning', LOW: 'neutral' };
 
@@ -67,6 +68,7 @@ function ContactedDialog({ studioId, member, onClose, onDone }: { studioId: stri
 
 function ChurnList() {
   const t = useT();
+  const toast = useToast();
   const locale = useLocale();
   const { activeStudioId } = useDashboardSession();
   const [level, setLevel] = useState<ChurnRiskLevel | ''>('');
@@ -113,7 +115,7 @@ function ChurnList() {
       await bffFetch(`churn/studio/${activeStudioId}/members/${member.memberId}/snooze`, { method: 'POST', studioId: activeStudioId, body: { days } });
       setReloadKey((k) => k + 1);
     } catch (err) {
-      window.alert(err instanceof BffError ? err.message : t('churn.errors.snoozeFailed'));
+      toast.error(err instanceof BffError ? err.message : t('churn.errors.snoozeFailed'));
     }
   }
 
@@ -123,7 +125,7 @@ function ChurnList() {
       await bffFetch(`churn/studio/${activeStudioId}/recompute`, { method: 'POST', studioId: activeStudioId, body: {} });
       setReloadKey((k) => k + 1);
     } catch (err) {
-      window.alert(err instanceof BffError ? err.message : t('churn.errors.recomputeFailed'));
+      toast.error(err instanceof BffError ? err.message : t('churn.errors.recomputeFailed'));
     }
   }
 

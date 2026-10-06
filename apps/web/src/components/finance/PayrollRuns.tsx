@@ -19,6 +19,7 @@ import { Card } from '@/components/ui/Card';
 import { AnchorButton } from '@/components/ui/LinkButton';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { useToast } from '@/components/ui';
 
 type RunStatus = PayrollRunStatus;
 type PayrollLineDetail = PayrollLineDTO;
@@ -144,6 +145,7 @@ function AdjustLineDialog({
 
 function RunDetail({ studioId, run, onReload }: { studioId: string; run: PayrollRun; onReload: () => void }) {
   const t = useT();
+  const toast = useToast();
   const formatMoney = useFormatMoney();
   const locale = useLocale();
   const [adjustingLine, setAdjustingLine] = useState<PayrollLineDetail | null>(null);
@@ -156,7 +158,7 @@ function RunDetail({ studioId, run, onReload }: { studioId: string; run: Payroll
       await bffFetch(`payroll/runs/${run.id}/approve`, { method: 'POST', studioId });
       onReload();
     } catch (err) {
-      window.alert(err instanceof BffError ? err.message : t('finance.payroll.errors.approveFailed'));
+      toast.error(err instanceof BffError ? err.message : t('finance.payroll.errors.approveFailed'));
     } finally {
       setBusy(false);
     }
@@ -168,7 +170,7 @@ function RunDetail({ studioId, run, onReload }: { studioId: string; run: Payroll
       await bffFetch(`payroll/runs/${run.id}/mark-paid`, { method: 'POST', studioId });
       onReload();
     } catch (err) {
-      window.alert(err instanceof BffError ? err.message : t('finance.payroll.errors.markPaidFailed'));
+      toast.error(err instanceof BffError ? err.message : t('finance.payroll.errors.markPaidFailed'));
     } finally {
       setBusy(false);
     }

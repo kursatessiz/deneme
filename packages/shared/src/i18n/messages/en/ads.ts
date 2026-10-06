@@ -58,6 +58,7 @@ export const enAds: Record<keyof typeof trAds, string> = {
   'ads.utm.month': 'Month',
   'ads.utm.platform': 'Platform',
   'ads.utm.landingPath': 'Landing page path',
+  'ads.utm.landingPathPlaceholder': 'en/sample-page',
   'ads.utm.campaignName': 'Campaign name',
   'ads.utm.urlParams': 'URL parameters',
   'ads.utm.exampleUrl': 'Example landing URL',

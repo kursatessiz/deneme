@@ -47,6 +47,18 @@
         ".env*"
       ]
     },
+    "@platform/web#test": {
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*",
+        "$TURBO_ROOT$/scripts/**",
+        "$TURBO_ROOT$/apps/mobile/app/**",
+        "$TURBO_ROOT$/apps/mobile/src/**"
+      ]
+    },
     "dev": {
       "cache": false,
       "persistent": true

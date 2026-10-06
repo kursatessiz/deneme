@@ -132,7 +132,7 @@ export default function SaglikOzetScreen() {
           {latestRestingHr != null ? (
             <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{t('mHealth.restingHeartRate')}</Text>
-              <Text style={[styles.bigValue, { color: colors.textPrimary }]}>{latestRestingHr} bpm</Text>
+              <Text style={[styles.bigValue, { color: colors.textPrimary }]}>{t('mHealth.bpmValue', { value: latestRestingHr })}</Text>
             </View>
           ) : null}
         </>

@@ -12,6 +12,7 @@ import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { borderWidth, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
 import { Text } from '../../../src/components/Text';
+import { showNotice } from '../../../src/lib/notice';
 
 /** A fresh key per redemption attempt: a retried request never spends twice. */
 function newKey(): string {
@@ -66,10 +67,10 @@ export default function PuanlarimScreen() {
         body: { rewardId, idempotencyKey: newKey() },
       });
       const code = result.redemption.promoCode;
-      Alert.alert(t('mLoyalty.redeemed'), code ? t('mLoyalty.promoCode', { code }) : result.redemption.rewardName);
+      showNotice(t, t('mLoyalty.redeemed'), code ? t('mLoyalty.promoCode', { code }) : result.redemption.rewardName);
       await load();
     } catch (e) {
-      Alert.alert(t('mLoyalty.redeemConfirmTitle'), errorText(e));
+      showNotice(t, t('mLoyalty.redeemConfirmTitle'), errorText(e));
     } finally {
       setBusyRewardId(null);
     }

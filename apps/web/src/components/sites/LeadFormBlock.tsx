@@ -16,6 +16,7 @@ import { Button, Checkbox, FieldGroup, Input, Textarea } from '@/components/ui';
 interface LeadFormI18n {
   fullName: string;
   phone: string;
+  phonePlaceholder: string;
   email: string;
   message: string;
   defaultConsent: string;
@@ -102,7 +103,7 @@ export function LeadFormBlock({
         <Input required value={values.fullName} onChange={(e) => setValues({ ...values, fullName: e.target.value })} />
       </FieldGroup>
       <FieldGroup label={i18n.phone}>
-        <Input required type="tel" value={values.phone} onChange={(e) => setValues({ ...values, phone: e.target.value })} placeholder="+90 5xx xxx xx xx" />
+        <Input required type="tel" value={values.phone} onChange={(e) => setValues({ ...values, phone: e.target.value })} placeholder={i18n.phonePlaceholder} />
       </FieldGroup>
       {fields.includes('email') && (
         <FieldGroup label={i18n.email}>

@@ -1,0 +1,4 @@
+{
+  "_comment": "Explicit exceptions to the i18n guard (scripts/check-i18n.mjs). Each entry: { file (repo-relative), kind, contains (substring of the reported text), reason }. Keep it empty unless a Turkish-character literal is legitimately not UI copy; tenant data and brand names never contain the guarded characters.",
+  "entries": []
+}

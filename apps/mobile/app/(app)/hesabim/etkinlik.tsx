@@ -12,6 +12,7 @@ import { eventErrorText, ticketPriceLabel } from '../../../src/lib/events';
 import { useSession } from '../../../src/lib/session';
 import { borderWidth, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
 import { Text } from '../../../src/components/Text';
+import { showNotice } from '../../../src/lib/notice';
 
 /** One event for a member (G3c-1): sessions, tickets and registering, and the member's own registration with pay and cancel. */
 export default function EtkinlikScreen() {
@@ -69,11 +70,11 @@ export default function EtkinlikScreen() {
           : reg.status === 'PENDING_PAYMENT'
             ? t('mEvents.pendingPayment')
             : t('mEvents.registered');
-      Alert.alert(event.title, message);
+      showNotice(t, event.title, message);
       if (reg.status === 'PENDING_PAYMENT') await openPaymentLink(reg);
       await load();
     } catch (e) {
-      Alert.alert(event.title, eventErrorText(e, t));
+      showNotice(t, event.title, eventErrorText(e, t));
     } finally {
       setBusyKey(null);
     }
@@ -91,7 +92,7 @@ export default function EtkinlikScreen() {
       await openPaymentLink(reg);
       await load();
     } catch (e) {
-      Alert.alert(t('mEvents.pay'), eventErrorText(e, t));
+      showNotice(t, t('mEvents.pay'), eventErrorText(e, t));
     } finally {
       setBusyKey(null);
     }
@@ -102,10 +103,10 @@ export default function EtkinlikScreen() {
     setBusyKey('cancel');
     try {
       await apiRequest(`/studios/${studioId}/events/self/registrations/${registration.id}/cancel`, { method: 'POST', studioId, body: {} });
-      Alert.alert(t('mEvents.cancelConfirmTitle'), t('mEvents.cancelled'));
+      showNotice(t, t('mEvents.cancelConfirmTitle'), t('mEvents.cancelled'));
       await load();
     } catch (e) {
-      Alert.alert(t('mEvents.cancelConfirmTitle'), eventErrorText(e, t));
+      showNotice(t, t('mEvents.cancelConfirmTitle'), eventErrorText(e, t));
     } finally {
       setBusyKey(null);
     }

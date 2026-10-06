@@ -14,6 +14,7 @@ import { formatMoney } from '@/lib/money';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { useConfirm } from '@/components/ui';
 
 function formatDate(iso: string | null, locale: string): string {
   if (!iso) return '';
@@ -27,6 +28,7 @@ function formatDate(iso: string | null, locale: string): string {
 /** App marketplace (G5c-2): try, buy and cancel add-on modules. Owner only (billing.manage). */
 function AddOnsPage() {
   const t = useT();
+  const { confirm } = useConfirm();
   const locale = useLocale();
   const { activeStudioId } = useDashboardSession();
   const [refreshKey, setRefreshKey] = useState(0);
@@ -39,7 +41,7 @@ function AddOnsPage() {
   if (error || !data) return <ErrorState message={error ?? t('addOns.loadFailed')} />;
 
   const run = async (item: StudioAddOnDTO, action: 'start-trial' | 'activate' | 'cancel', body?: { interval: AddOnInterval }) => {
-    if (action === 'cancel' && !window.confirm(t('addOns.action.cancelConfirm'))) return;
+    if (action === 'cancel' && !(await confirm({ message: t('addOns.action.cancelConfirm'), danger: true }))) return;
     setBusyKey(item.key);
     setActionError(null);
     setMessage(null);

@@ -1,3 +1,4 @@
+import { requestTranslator } from '@/lib/bff/request-translator';
 import { NextRequest, NextResponse } from 'next/server';
 import { ERROR_LIMITS, REQUEST_ID_HEADER } from '@platform/shared';
 import { apiInternalBaseUrl } from '@/lib/server-env';
@@ -12,16 +13,17 @@ import { requestIdFrom } from '@/lib/errors/server';
  * (/api/bff/telemetry/errors). The API rate limits, samples and scrubs.
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const t = requestTranslator(req);
   if (!isSameOriginRequest(req.headers.get('origin'), req.headers.get('host')) || !hasValidCsrfHeader(req.headers)) {
-    return NextResponse.json({ message: 'Geçersiz istek kaynağı' }, { status: 403 });
+    return NextResponse.json({ message: t('common.error.invalidRequestOrigin') }, { status: 403 });
   }
   const declared = Number(req.headers.get('content-length') ?? 0);
   if (Number.isFinite(declared) && declared > ERROR_LIMITS.batchBytes) {
-    return NextResponse.json({ message: 'İstek gövdesi çok büyük' }, { status: 413 });
+    return NextResponse.json({ message: t('common.error.requestTooLarge') }, { status: 413 });
   }
   const body = await req.arrayBuffer();
   if (body.byteLength > ERROR_LIMITS.batchBytes) {
-    return NextResponse.json({ message: 'İstek gövdesi çok büyük' }, { status: 413 });
+    return NextResponse.json({ message: t('common.error.requestTooLarge') }, { status: 413 });
   }
 
   const requestId = requestIdFrom(req.headers);
@@ -42,6 +44,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     res.headers.set(REQUEST_ID_HEADER, requestId);
     return res;
   } catch {
-    return NextResponse.json({ message: 'Hata kaydı iletilemedi' }, { status: 502 });
+    return NextResponse.json({ message: t('common.error.errorReportFailed') }, { status: 502 });
   }
 }
