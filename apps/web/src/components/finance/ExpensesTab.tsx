@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
 import { Card } from '@/components/ui/Card';
+import { useConfirm, useToast } from '@/components/ui';
 
 type ExpenseRow = ExpenseDTO;
 
@@ -87,6 +88,8 @@ function NewExpenseDialog({ studioId, onClose, onDone }: { studioId: string; onC
 
 export function ExpensesTab() {
   const t = useT();
+  const { confirm } = useConfirm();
+  const toast = useToast();
   const formatMoney = useFormatMoney();
   const locale = useLocale();
   const { activeStudioId } = useDashboardSession();
@@ -113,12 +116,12 @@ export function ExpensesTab() {
 
   async function handleDelete(id: string) {
     if (!activeStudioId) return;
-    if (!window.confirm(t('finance.expenses.confirmDelete'))) return;
+    if (!(await confirm({ message: t('finance.expenses.confirmDelete'), danger: true }))) return;
     try {
       await bffFetch(`expenses/${id}/studio/${activeStudioId}`, { method: 'DELETE', studioId: activeStudioId });
       setReloadKey((k) => k + 1);
     } catch (err) {
-      window.alert(err instanceof BffError ? err.message : t('finance.expenses.errors.deleteFailed'));
+      toast.error(err instanceof BffError ? err.message : t('finance.expenses.errors.deleteFailed'));
     }
   }
 

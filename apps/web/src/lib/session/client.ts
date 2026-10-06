@@ -1,5 +1,6 @@
 'use client';
 
+import { clientT } from '@/lib/i18n/client-translator';
 import { normalizeRoute } from '@platform/shared';
 import { CSRF_HEADER_NAME, CSRF_HEADER_VALUE } from '@/lib/bff/csrf';
 import { addBreadcrumb } from '@/lib/errors/reporter';
@@ -46,7 +47,7 @@ export async function bffFetch<T>(
   if (!res.ok) {
     const data = await res.json().catch(() => null);
     const code = data && typeof data.code === 'string' ? (data.code as string) : null;
-    throw new BffError((data && (data.message as string)) || `İstek başarısız oldu (${res.status})`, res.status, code);
+    throw new BffError((data && (data.message as string)) || clientT('common.error.requestFailed', { status: res.status }), res.status, code);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;

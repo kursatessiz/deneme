@@ -11,6 +11,7 @@ import { eventErrorText } from '../../../src/lib/events';
 import { useSession } from '../../../src/lib/session';
 import { borderWidth, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
 import { Text } from '../../../src/components/Text';
+import { showNotice } from '../../../src/lib/notice';
 
 const DOOR_STATUSES = new Set(['CONFIRMED', 'ATTENDED', 'NO_SHOW', 'PENDING_PAYMENT']);
 
@@ -68,7 +69,7 @@ function EtkinlikGirisiContent() {
       const updated = await apiRequest<EventRegistrationDTO>(`/studios/${studioId}/events/registrations/${reg.id}/check-in`, { method: 'POST', studioId });
       setRegistrations((list) => (list ?? []).map((r) => (r.id === updated.id ? updated : r)));
     } catch (e) {
-      Alert.alert(t('mEvents.checkin.title'), eventErrorText(e, t));
+      showNotice(t, t('mEvents.checkin.title'), eventErrorText(e, t));
     } finally {
       setBusyId(null);
     }

@@ -20,6 +20,7 @@ import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
 import { Card } from '@/components/ui/Card';
+import { useToast } from '@/components/ui';
 
 type PaymentRow = PaymentDTO;
 
@@ -79,6 +80,7 @@ function RefundDialog({ payment, studioId, onClose, onDone }: { payment: Payment
 
 export function PaymentsTab() {
   const t = useT();
+  const toast = useToast();
   const formatMoney = useFormatMoney();
   const locale = useLocale();
   const { activeStudioId } = useDashboardSession();
@@ -125,7 +127,7 @@ export function PaymentsTab() {
       await bffFetch('payments/bank-transfer/confirm', { method: 'POST', studioId: activeStudioId, body: { paymentId } });
       setReloadKey((k) => k + 1);
     } catch (err) {
-      window.alert(err instanceof BffError ? err.message : t('finance.payments.errors.confirmFailed'));
+      toast.error(err instanceof BffError ? err.message : t('finance.payments.errors.confirmFailed'));
     } finally {
       setConfirmingId(null);
     }

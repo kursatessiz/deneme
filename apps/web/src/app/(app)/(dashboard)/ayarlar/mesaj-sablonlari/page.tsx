@@ -250,7 +250,7 @@ function TemplateEditor({
         <div className="space-y-3">
           {isNew && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <TextField label={t('messaging.templates.keyLabel')} value={draft.key} onChange={(v) => set('key', v.toUpperCase())} placeholder="SPRING_OFFER" />
+              <TextField label={t('messaging.templates.keyLabel')} value={draft.key} onChange={(v) => set('key', v.toUpperCase())} placeholder={t('messaging.templates.keyPlaceholder')} />
               <FieldGroup label={t('messaging.templates.filter.channel')}>
                 <Select value={draft.channel} onChange={(e) => set('channel', e.target.value as EditableChannel)}>
                   {CHANNELS.map((c) => (

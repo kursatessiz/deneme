@@ -13,6 +13,7 @@ import { Badge, InlineMessage, PrimaryButton, SecondaryButton, Section, Settings
 import { Select } from '@/components/ui/Select';
 import { FieldGroup } from '@/components/ui/FieldGroup';
 import { List, ListItem } from '@/components/ui/List';
+import { useConfirm } from '@/components/ui';
 
 interface AdConnectionRow {
   id: string;
@@ -63,6 +64,7 @@ function CopyButton({ text, t }: { text: string; t: (k: string) => string }) {
 
 function ConnectionsSection() {
   const t = useT();
+  const { confirm } = useConfirm();
   const { activeStudioId } = useDashboardSession();
   const [refreshKey, setRefreshKey] = useState(0);
   // refreshKey is folded into the path (not just used as a React key) so
@@ -108,7 +110,7 @@ function ConnectionsSection() {
   };
 
   const remove = async (id: string) => {
-    if (!window.confirm(t('ads.connections.deleteConfirm'))) return;
+    if (!(await confirm({ message: t('ads.connections.deleteConfirm'), danger: true }))) return;
     setActionError(null);
     try {
       await bffFetch(`studios/${activeStudioId}/ads/connections/${id}`, { method: 'DELETE', studioId: activeStudioId });
@@ -299,7 +301,7 @@ function UtmBuilderSection() {
           </Select>
         </FieldGroup>
       </div>
-      <TextField label={t('ads.utm.landingPath')} value={landingPath} onChange={setLandingPath} placeholder="tr/pilates" />
+      <TextField label={t('ads.utm.landingPath')} value={landingPath} onChange={setLandingPath} placeholder={t('ads.utm.landingPathPlaceholder')} />
 
       {buildError && <InlineMessage text={buildError} tone="error" />}
       {!buildError && (

@@ -26,6 +26,7 @@ import { AreaField, InputField, LinkButton, SelectField } from './fields';
 import { usePlatformSession } from './PlatformSession';
 import { Button } from '@/components/ui/Button';
 import { ChipButton } from '@/components/ui/Chip';
+import { useConfirm } from '@/components/ui';
 
 type ViewMode = 'month' | 'week';
 
@@ -73,6 +74,7 @@ function shift(anchor: string, mode: ViewMode, direction: -1 | 1): string {
  */
 export function ContentCalendar() {
   const t = useT();
+  const { confirm } = useConfirm();
   const locale = useLocale();
   const { permissions, isSuperAdmin } = usePlatformSession();
   const canManage = isSuperAdmin || permissions.includes('platform.marketing.manage');
@@ -177,7 +179,7 @@ export function ContentCalendar() {
   }
 
   async function remove() {
-    if (!form?.id || !window.confirm(t('contentCalendar.confirmDelete'))) return;
+    if (!form?.id || !(await confirm({ message: t('contentCalendar.confirmDelete'), danger: true }))) return;
     setBusy(true);
     try {
       await bffFetch(`platform/marketing/calendar/items/${form.id}`, { method: 'DELETE' });

@@ -26,7 +26,6 @@ function uniquePhone(): string {
 }
 
 test('super admin invites a marketing admin, sees the invite, then deactivates them', async ({ page }) => {
-  page.on('dialog', (dialog) => dialog.accept());
   await loginAsSuperAdmin(page);
   await page.goto('/admin/platform-kullanicilari');
 
@@ -46,6 +45,7 @@ test('super admin invites a marketing admin, sees the invite, then deactivates t
   const row = main.getByRole('row').filter({ hasText: fullName });
   await expect(row.getByText('Davet edildi')).toBeVisible();
   await row.getByRole('button', { name: 'Pasifleştir' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Onayla', exact: true }).click();
   await expect(row.getByText('Pasif', { exact: true })).toBeVisible();
 
   await expect(main.getByRole('switch')).toBeVisible();

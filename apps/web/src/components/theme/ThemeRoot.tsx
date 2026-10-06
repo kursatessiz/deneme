@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { resolveTheme, themeColorScheme, themeCssVariables, themePuiMode } from '@platform/shared';
+import { ConfirmProvider } from '@/components/ui/Confirm';
+import { ToastProvider } from '@/components/ui/ToastHost';
 import type { AppearancePreference, ColorMode, TenantThemeInput } from '@platform/shared';
 
 /**
@@ -58,7 +60,10 @@ export function ThemeRoot({
         minHeight: '100vh',
       }}
     >
-      {children}
+      {/* Dialogs and toasts render inside the themed wrapper so they follow the tenant color and the light/dark mode. */}
+      <ToastProvider>
+        <ConfirmProvider>{children}</ConfirmProvider>
+      </ToastProvider>
     </div>
   );
 }

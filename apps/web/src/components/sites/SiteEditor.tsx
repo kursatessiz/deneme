@@ -181,7 +181,7 @@ export function SiteEditor({ studioId, variant }: { studioId: string; variant: '
               {site.domains.length === 0 && <ListItem className="ui-text-muted">{t('sites.editor.domains.empty')}</ListItem>}
             </List>
             <div className="flex gap-2 items-end">
-              <TextField label={t('sites.editor.domains.newDomainLabel')} value={newDomain} onChange={setNewDomain} placeholder="site.ornek.com" />
+              <TextField label={t('sites.editor.domains.newDomainLabel')} value={newDomain} onChange={setNewDomain} placeholder={t('sites.editor.domains.newDomainPlaceholder')} />
               <SecondaryButton onClick={addDomain}>{t('sites.editor.domains.add')}</SecondaryButton>
             </div>
             {domainError && <InlineMessage text={domainError} tone="error" />}
@@ -195,8 +195,8 @@ export function SiteEditor({ studioId, variant }: { studioId: string; variant: '
       {variant === 'platform' && (
         <Section title={t('sites.editor.wizard.title')} description={t('sites.editor.wizard.description')}>
           <div className="grid grid-cols-2 gap-3">
-            <TextField label={t('sites.editor.wizard.sectorKey')} value={wizardSector} onChange={setWizardSector} placeholder="pilates_studio" />
-            <TextField label={t('sites.editor.wizard.offerKey')} value={wizardOffer} onChange={setWizardOffer} placeholder="ucretsiz-deneme" />
+            <TextField label={t('sites.editor.wizard.sectorKey')} value={wizardSector} onChange={setWizardSector} placeholder={t('sites.editor.wizard.sectorPlaceholder')} />
+            <TextField label={t('sites.editor.wizard.offerKey')} value={wizardOffer} onChange={setWizardOffer} placeholder={t('sites.editor.wizard.offerPlaceholder')} />
           </div>
           {wizardError && <InlineMessage text={wizardError} tone="error" />}
           <PrimaryButton onClick={runWizard}>{t('sites.editor.wizard.submit')}</PrimaryButton>
@@ -457,7 +457,7 @@ function PageDetailEditor({
           )}
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <TextField label={t('sites.editor.detail.slug')} value={slug} onChange={setSlug} placeholder="pilates" />
+          <TextField label={t('sites.editor.detail.slug')} value={slug} onChange={setSlug} placeholder={t('sites.editor.detail.slugPlaceholder')} />
           <TextField label={t('sites.editor.detail.seoTitle')} value={seoTitle} onChange={setSeoTitle} placeholder="" />
         </div>
         {localeError && <InlineMessage text={localeError} tone="error" />}

@@ -12,11 +12,13 @@ import { LoadingState, EmptyState, ErrorState } from '@/components/common/DataSt
 import { LeadDetailDrawer } from '@/components/leads/LeadDetailDrawer';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { useToast } from '@/components/ui';
 
 const STAGES: LeadStage[] = [LeadStage.NEW, LeadStage.CONTACTED, LeadStage.TRIAL_BOOKED, LeadStage.TRIAL_DONE, LeadStage.WON, LeadStage.LOST];
 
 function LeadsBoard() {
   const t = useT();
+  const toast = useToast();
   const { activeStudioId } = useDashboardSession();
   const columns = STAGES.map((stage) => ({ stage, label: t(`leads.stage.${stage}`) }));
   const [leads, setLeads] = useState<LeadDTO[] | null>(null);
@@ -43,7 +45,7 @@ function LeadsBoard() {
       const detail = await bffFetch<LeadDetailDTO>(`leads/${leadId}/studio/${activeStudioId}`, { studioId: activeStudioId });
       setSelectedLead(detail);
     } catch (err) {
-      window.alert(err instanceof BffError ? err.message : t('leads.errors.detailLoadFailed'));
+      toast.error(err instanceof BffError ? err.message : t('leads.errors.detailLoadFailed'));
     }
   }
 

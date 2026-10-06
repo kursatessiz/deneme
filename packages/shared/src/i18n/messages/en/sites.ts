@@ -25,6 +25,7 @@ export const enSites: Record<keyof typeof trSites, string> = {
   'sites.editor.domains.verifyCheck': 'Check verification',
   'sites.editor.domains.empty': 'No custom domain added yet',
   'sites.editor.domains.newDomainLabel': 'New domain',
+  'sites.editor.domains.newDomainPlaceholder': 'www.example.com',
   'sites.editor.domains.add': 'Add',
   'sites.editor.domains.addFailed': 'Could not add the domain',
   'sites.editor.domains.hint':
@@ -33,6 +34,8 @@ export const enSites: Record<keyof typeof trSites, string> = {
   'sites.editor.wizard.description':
     'Creates a pre-filled page from the sector template (BusinessTypeTemplate); editable afterwards',
   'sites.editor.wizard.sectorKey': 'Sector key',
+  'sites.editor.wizard.sectorPlaceholder': 'sector_key',
+  'sites.editor.wizard.offerPlaceholder': 'sample-offer',
   'sites.editor.wizard.offerKey': 'Campaign offer (optional)',
   'sites.editor.wizard.submit': 'Create landing page',
   'sites.editor.wizard.sectorRequired': 'Enter a sector key (e.g. pilates_studio)',
@@ -62,6 +65,7 @@ export const enSites: Record<keyof typeof trSites, string> = {
   'sites.editor.detail.localesTitle': 'Languages',
   'sites.editor.detail.notTranslated': '(not translated)',
   'sites.editor.detail.slug': 'Path (slug)',
+  'sites.editor.detail.slugPlaceholder': 'sample-page',
   'sites.editor.detail.seoTitle': 'SEO title',
   'sites.editor.detail.saveLocale': 'Save for {locale}',
   'sites.editor.detail.localeRequired': 'The path (slug) is required',
