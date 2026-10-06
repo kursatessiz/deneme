@@ -11,6 +11,7 @@ overrides:
   deepmerge-ts@<8: ^8.0.0
   multer@<2.3.0: ^2.3.0
   js-yaml@>=5.0.0 <5.4.1: '>=5.4.1'
+  source-map-js@>=1.0.0 <1.2.2: '>=1.2.2'
 
 importers:
 
@@ -257,10 +258,10 @@ importers:
         version: 19.2.18
       jest:
         specifier: ^29.7.0
-        version: 29.7.0(@types/node@26.6.2)(ts-node@10.9.2(@types/node@26.6.2)(typescript@5.9.3))
+        version: 29.7.0(@types/node@22.20.4)(ts-node@10.9.2(@types/node@22.20.4)(typescript@5.9.3))
       ts-jest:
         specifier: ^29.4.13
-        version: 29.4.13(@babel/core@7.29.7)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.29.7))(jest-util@29.7.0)(jest@29.7.0(@types/node@26.6.2)(ts-node@10.9.2(@types/node@26.6.2)(typescript@5.9.3)))(typescript@5.9.3)
+        version: 29.4.13(@babel/core@7.29.7)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.29.7))(jest-util@29.7.0)(jest@29.7.0(@types/node@22.20.4)(ts-node@10.9.2(@types/node@22.20.4)(typescript@5.9.3)))(typescript@5.9.3)
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -5501,8 +5502,8 @@ packages:
     resolution: {integrity: sha512-vZ7rfeehZui7wQs438JXBckYLkIIdfHOXsaVEUMyS5fHo1483l1bMdo0EDSWYclY0yZKFOipDy4KHuKs6ssvdg==}
     engines: {node: '>=8.0.0'}
 
-  source-map-js@1.2.1:
-    resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
+  source-map-js@1.2.2:
+    resolution: {integrity: sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==}
     engines: {node: '>=0.10.0'}
 
   source-map-support@0.5.13:
@@ -11842,7 +11843,7 @@ snapshots:
     dependencies:
       nanoid: 3.3.19
       picocolors: 1.1.1
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
 
   prettier@3.9.9: {}
 
@@ -12433,7 +12434,7 @@ snapshots:
 
   slugify@1.6.9: {}
 
-  source-map-js@1.2.1: {}
+  source-map-js@1.2.2: {}
 
   source-map-support@0.5.13:
     dependencies:
