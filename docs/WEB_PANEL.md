@@ -347,7 +347,7 @@ bugünkü seanslar, program, şubeler ve haftalık takvim.
   aşağı itilir) ve bekleyen kayıt geri yüklenen düzeni saklar. Düğmeye
   basmak sürüklemeyi başlatmaz (sürükleme yalnızca tutamaktandır).
 - Kartın menüsünde dönem seçimi (dönemi olan kartlarda her zaman), düzenleme
-  modunda ayrıca "Yukarı taşı", "Aşağı taşı" ve "Kartı kaldır" (onaylı) vardır.
+  modunda ayrıca "Yukarı taşı", "Aşağı taşı" ve "Kartı kaldır" vardır. Menüdeki "Kartı kaldır" ve Delete tuşu önce "Kartı kaldırmak istediğinize emin misiniz?" diye sorar; kart yalnızca onaydan sonra kalkar.
 - Ekran genişliği 1280 px ve üstünde 12 sütun; 768-1279 px arasında 6 sütun
   (tablet düzeni); 768 px altında tek sütun (kartlar okuma sırasıyla alt alta,
   tam genişlik). Tablet düzeninde boyutlandırma yoktur; her kart saklanan

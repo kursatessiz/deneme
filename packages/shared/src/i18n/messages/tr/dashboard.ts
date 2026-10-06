@@ -89,7 +89,7 @@ export const trDashboard = {
   'dashboard.add.full': 'Panoda en fazla {max} kart olabilir. Yeni kart için önce bir kartı kaldırın.',
   'dashboard.add.noMatch': 'Aramaya uyan kart yok.',
 
-  'dashboard.remove.title': 'Kart kaldırılsın mı?',
+  'dashboard.remove.title': 'Kartı kaldırmak istediğinize emin misiniz?',
   'dashboard.remove.body': '{title} kartı panodan kaldırılacak. Daha sonra Kart ekle ile yeniden ekleyebilirsiniz.',
   'dashboard.remove.confirm': 'Kaldır',
   'dashboard.remove.cancel': 'Vazgeç',
