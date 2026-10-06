@@ -91,7 +91,7 @@ export const enDashboard = {
   'dashboard.add.full': 'A board holds at most {max} cards. Remove a card before adding a new one.',
   'dashboard.add.noMatch': 'No card matches your search.',
 
-  'dashboard.remove.title': 'Remove this card?',
+  'dashboard.remove.title': 'Are you sure you want to remove this card?',
   'dashboard.remove.body': 'The {title} card will be removed from the board. You can add it again later with Add card.',
   'dashboard.remove.confirm': 'Remove',
   'dashboard.remove.cancel': 'Cancel',
