@@ -36,15 +36,16 @@ export function ConsentBanner({
 
   const body = mode === 'opt_in' ? t('consent.optIn.body') : mode === 'kvkk' ? t('consent.kvkk.body') : t('consent.notice.body');
 
-  // The banner is fixed to the bottom, so the page reserves its height while
-  // it is shown; otherwise it covers whatever ends the page (a form's submit
-  // button, a footer link) and that control cannot be reached.
+  // The banner is a full-width band fixed to the bottom of the window until
+  // the visitor decides, so the page reserves its height while it is shown;
+  // otherwise it covers whatever ends the page (a form's submit button, a
+  // footer link) and that control cannot be reached.
   const bannerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = bannerRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
     const reserve = () => {
-      document.body.style.paddingBottom = `${el.offsetHeight + 32}px`;
+      document.body.style.paddingBottom = `${el.offsetHeight}px`;
     };
     reserve();
     const observer = new ResizeObserver(reserve);
@@ -63,59 +64,61 @@ export function ConsentBanner({
       aria-label={t('consent.title')}
       data-testid="consent-banner"
       data-consent-mode={mode}
-      className="pui-card fixed inset-x-4 bottom-4 z-[1000] mx-auto max-w-xl"
+      className="ui-consent-band fixed inset-x-0 bottom-0 z-[1000]"
       style={vars}
     >
-      <div className="pui-card-content">
-        <strong className="ui-heading">{t('consent.title')}</strong>
-        <p className="ui-text-muted">{body}</p>
-        {mode === 'notice' && gpc ? <p className="ui-text-muted">{t('consent.gpcHonoured')}</p> : null}
+      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-4 md:flex-row md:items-end md:justify-between md:gap-6">
+        <div className="grid min-w-0 gap-1">
+          <strong className="ui-heading">{t('consent.title')}</strong>
+          <p className="ui-text-muted">{body}</p>
+          {mode === 'notice' && gpc ? <p className="ui-text-muted">{t('consent.gpcHonoured')}</p> : null}
 
-        {customizing ? (
-          <div className="grid gap-2">
-            <Checkbox
-              checked
-              disabled
-              label={
-                <>
-                  {t('consent.category.necessary')}
-                  <span className="block ui-caption">{t('consent.category.necessaryHint')}</span>
-                </>
-              }
-            />
-            <Checkbox
-              name="analytics"
-              checked={analytics}
-              onChange={(e) => {
-                setAnalytics(e.target.checked);
-                if (!e.target.checked) setAdvertising(false);
-              }}
-              label={
-                <>
-                  {t('consent.category.analytics')}
-                  <span className="block ui-caption">{t('consent.category.analyticsHint')}</span>
-                </>
-              }
-            />
-            <Checkbox
-              name="advertising"
-              checked={advertising}
-              disabled={gpc}
-              onChange={(e) => {
-                setAdvertising(e.target.checked);
-                if (e.target.checked) setAnalytics(true);
-              }}
-              label={
-                <>
-                  {t('consent.category.advertising')}
-                  <span className="block ui-caption">{t('consent.category.advertisingHint')}</span>
-                </>
-              }
-            />
-          </div>
-        ) : null}
+          {customizing ? (
+            <div className="grid gap-2">
+              <Checkbox
+                checked
+                disabled
+                label={
+                  <>
+                    {t('consent.category.necessary')}
+                    <span className="block ui-caption">{t('consent.category.necessaryHint')}</span>
+                  </>
+                }
+              />
+              <Checkbox
+                name="analytics"
+                checked={analytics}
+                onChange={(e) => {
+                  setAnalytics(e.target.checked);
+                  if (!e.target.checked) setAdvertising(false);
+                }}
+                label={
+                  <>
+                    {t('consent.category.analytics')}
+                    <span className="block ui-caption">{t('consent.category.analyticsHint')}</span>
+                  </>
+                }
+              />
+              <Checkbox
+                name="advertising"
+                checked={advertising}
+                disabled={gpc}
+                onChange={(e) => {
+                  setAdvertising(e.target.checked);
+                  if (e.target.checked) setAnalytics(true);
+                }}
+                label={
+                  <>
+                    {t('consent.category.advertising')}
+                    <span className="block ui-caption">{t('consent.category.advertisingHint')}</span>
+                  </>
+                }
+              />
+            </div>
+          ) : null}
+        </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex shrink-0 flex-wrap gap-2">
           {mode === 'notice' ? (
             <>
               <Button size="sm" onClick={() => onDecide({ analytics: true, advertising: !gpc })}>
