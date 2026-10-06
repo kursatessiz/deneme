@@ -27,6 +27,7 @@ import {
   type UpdateLanguageInput,
 } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { apiError } from '../../common/api-error';
 
 const bundledCodes = new Set<string>(BUNDLED_LANGUAGES.map((l) => l.code));
 
@@ -172,7 +173,7 @@ export class I18nService implements OnModuleInit {
 
   async adminCreateLanguage(actorUserId: string, input: CreateLanguageInput): Promise<AdminLanguageDTO> {
     const existing = await this.prisma.language.findUnique({ where: { code: input.code } });
-    if (existing) throw new ConflictException('Bu dil kodu zaten tanımlı.');
+    if (existing) throw new ConflictException(apiError('apiErrors.i18n.languageCodeAlreadyDefined'));
     const row = await this.prisma.language.create({
       data: { code: input.code, name: input.name, nativeName: input.nativeName, isEnabled: false },
     });
@@ -191,7 +192,7 @@ export class I18nService implements OnModuleInit {
   async adminUpdateLanguage(actorUserId: string, code: string, input: UpdateLanguageInput): Promise<AdminLanguageDTO> {
     const existing = await this.getLanguageOrThrow(code);
     if (code === BASE_LOCALE && input.isEnabled === false) {
-      throw new BadRequestException('Temel dil (Türkçe) devre dışı bırakılamaz.');
+      throw new BadRequestException(apiError('apiErrors.i18n.baseLanguageTurkishCannotDisabled'));
     }
     const row = await this.prisma.language.update({
       where: { code },
@@ -217,7 +218,7 @@ export class I18nService implements OnModuleInit {
   async adminDeleteLanguage(actorUserId: string, code: string): Promise<void> {
     const existing = await this.getLanguageOrThrow(code);
     if (bundledCodes.has(code)) {
-      throw new BadRequestException('Yerleşik diller (tr, en) silinemez.');
+      throw new BadRequestException(apiError('apiErrors.i18n.builtLanguagesTrEnCannotDeleted'));
     }
     await this.prisma.$transaction([
       this.prisma.user.updateMany({ where: { locale: code }, data: { locale: null } }),
@@ -297,7 +298,7 @@ export class I18nService implements OnModuleInit {
     await this.getLanguageOrThrow(code);
     const localeBase = this.baseFor(code);
     const base = hasOwn(localeBase, key) ? localeBase[key] : undefined;
-    if (base === undefined) throw new BadRequestException(`"${key}" geçerli bir mesaj anahtarı değil.`);
+    if (base === undefined) throw new BadRequestException(apiError('apiErrors.i18n.invalidMessageKey', { key: key }));
 
     const bundled: Readonly<Record<string, string>> = BUNDLED_MESSAGES[code] ?? {};
     const bundledValue = hasOwn(bundled, key) ? bundled[key] : null;
@@ -307,7 +308,7 @@ export class I18nService implements OnModuleInit {
       const expected = placeholdersOf(base);
       const actual = placeholdersOf(trimmed);
       if (expected.join(',') !== actual.join(',')) {
-        throw new BadRequestException(`"${key}" için yer tutucular kaynak metinle uyuşmuyor: beklenen ${expected.join(', ') || '(yok)'}.`);
+        throw new BadRequestException(apiError('apiErrors.i18n.placeholderMismatch', { key: key, expected: expected.join(', ') || '(yok)' }));
       }
     }
 
@@ -495,7 +496,7 @@ export class I18nService implements OnModuleInit {
 
   private async getLanguageOrThrow(code: string) {
     const language = await this.prisma.language.findUnique({ where: { code } });
-    if (!language) throw new NotFoundException(`"${code}" dili bulunamadı.`);
+    if (!language) throw new NotFoundException(apiError('apiErrors.common.languageNotFound', { locale: code }));
     return language;
   }
 

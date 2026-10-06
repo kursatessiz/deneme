@@ -8,6 +8,7 @@ import type { TenantContext } from '../../auth/tenant-context';
 import { ZodBody, ZodQuery } from '../../../common/zod-body.pipe';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MessageTemplatesService } from './message-templates.service';
+import { apiError } from '../../../common/api-error';
 
 /** Ayarlar > Mesaj şablonları: per-locale templates and sending settings (notifications.manage). */
 @Controller('studios/:studioId/messaging')
@@ -66,7 +67,7 @@ export class MessagingRoutingAdminController {
         where: { id: { not: studioId }, messagingSettings: { path: [path], equals: value } },
         select: { id: true },
       });
-      if (taken) throw new ConflictException('Bu numara başka bir işletmeye atanmış');
+      if (taken) throw new ConflictException(apiError('apiErrors.messaging.numberAssignedAnotherBusiness'));
     }
     return this.templates.updateSettings(studioId, body);
   }

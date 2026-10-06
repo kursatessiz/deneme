@@ -4,6 +4,7 @@ import type { ContactTaskListQuery, CreateContactTaskInput, UpdateContactTaskInp
 import { PrismaService } from '../../prisma/prisma.service';
 import type { TenantContext } from '../../auth/tenant-context';
 import { ContactsService } from '../contacts/contacts.service';
+import { apiError } from '../../../common/api-error';
 
 /** Follow-up tasks on contacts, assigned to staff memberships. */
 @Injectable()
@@ -50,10 +51,10 @@ export class TasksService {
 
   async update(tenant: TenantContext, taskId: string, dto: UpdateContactTaskInput) {
     const task = await this.prisma.contactTask.findFirst({ where: { id: taskId, studioId: tenant.studioId } });
-    if (!task) throw new NotFoundException('Görev bulunamadı');
+    if (!task) throw new NotFoundException(apiError('apiErrors.crm.taskNotFound'));
     await this.contacts.getOwn(tenant, task.contactId);
     if (dto.assigneeMembershipId) await this.contacts.assertStaffMembership(tenant.studioId, dto.assigneeMembershipId);
-    if (dto.title !== undefined && !dto.title) throw new BadRequestException('Başlık giriniz');
+    if (dto.title !== undefined && !dto.title) throw new BadRequestException(apiError('apiErrors.crm.enterTitle'));
     const updated = await this.prisma.contactTask.update({
       where: { id: task.id },
       data: {

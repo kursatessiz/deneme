@@ -19,6 +19,7 @@ import type {
   WebhookVerificationResult,
 } from './payment-provider.interface';
 import { PayoutNotConfiguredError } from './payment-provider.interface';
+import { apiError } from '../../../common/api-error';
 
 /** Stripe integer minor units to a decimal string in the currency's own digits (0, 2 or 3). */
 export function stripeMinorToDecimal(minor: number, currency: string): string {
@@ -92,14 +93,14 @@ export class StripePaymentProvider implements PaymentProviderAdapter {
    */
   private assertMockAllowed(): void {
     if (this.config.get<string>('NODE_ENV') === 'production') {
-      throw new ServiceUnavailableException('Stripe yapılandırılmamış; ödeme alınamıyor.');
+      throw new ServiceUnavailableException(apiError('apiErrors.payments.stripeNotConfiguredPaymentsCannotAccepted'));
     }
   }
 
   private get stripe(): Stripe {
     if (!this.client) {
       const secretKey = this.config.get<string>('STRIPE_SECRET_KEY');
-      if (!secretKey) throw new InternalServerErrorException('Stripe yapılandırılmamış: STRIPE_SECRET_KEY gereklidir');
+      if (!secretKey) throw new InternalServerErrorException(apiError('apiErrors.payments.stripeNotConfiguredStripeSecretKey'));
       this.client = new Stripe(secretKey);
     }
     return this.client;

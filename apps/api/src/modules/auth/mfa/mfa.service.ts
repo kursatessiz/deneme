@@ -8,16 +8,13 @@ import { AuthService } from '../auth.service';
 import { LoginThrottleService } from '../login-throttle.service';
 import { loadPlatformAccess } from '../platform-access';
 import { generateRecoveryCodes, generateTotpSecret, hashRecoveryCode, otpauthUrl, verifyTotp } from './totp';
+import { apiError, codedError } from '../../../common/api-error';
 
 /** Issuer shown in authenticator apps; product-neutral (CLAUDE.md). */
 const DEFAULT_ISSUER = 'Platform';
 
 function invalidCode(): UnauthorizedException {
-  return new UnauthorizedException({
-    statusCode: 401,
-    code: PLATFORM_ACCESS_ERROR_CODES.mfaInvalidCode,
-    message: 'Doğrulama kodu hatalı veya süresi dolmuş',
-  });
+  return new UnauthorizedException(codedError(PLATFORM_ACCESS_ERROR_CODES.mfaInvalidCode, { statusCode: 401 }));
 }
 
 /**
@@ -43,11 +40,11 @@ export class MfaService {
   async beginEnrollment(userId: string): Promise<MfaEnrollmentDTO> {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (!(await loadPlatformAccess(this.prisma, user)) && !(await this.hasPendingPlatformInvite(userId))) {
-      throw new ForbiddenException('İki adımlı doğrulama yalnızca platform hesapları içindir');
+      throw new ForbiddenException(apiError('apiErrors.auth.twoFactorAuthenticationOnlyPlatformAccounts'));
     }
-    if (user.mfaEnabledAt) throw new ConflictException('İki adımlı doğrulama zaten etkin');
+    if (user.mfaEnabledAt) throw new ConflictException(apiError('apiErrors.auth.twoFactorAuthenticationAlreadyEnabled'));
     if (this.config.get<string>('NODE_ENV') === 'production' && !this.cipher.isConfigured) {
-      throw new BadRequestException('INTEGRATION_ENCRYPTION_KEY yapılandırılmadan iki adımlı doğrulama etkinleştirilemez');
+      throw new BadRequestException(apiError('apiErrors.auth.twoFactorAuthenticationCannotEnabledUntil'));
     }
     const secret = generateTotpSecret();
     await this.prisma.user.update({
@@ -62,8 +59,8 @@ export class MfaService {
   async confirmEnrollment(userId: string, code: string, ip: string | null) {
     await this.throttle.assertAllowed('mfa', userId, ip);
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    if (user.mfaEnabledAt) throw new ConflictException('İki adımlı doğrulama zaten etkin');
-    if (!user.totpSecretEncrypted) throw new BadRequestException('Önce kurulumu başlatın');
+    if (user.mfaEnabledAt) throw new ConflictException(apiError('apiErrors.auth.twoFactorAuthenticationAlreadyEnabled'));
+    if (!user.totpSecretEncrypted) throw new BadRequestException(apiError('apiErrors.auth.startSetup'));
 
     const step = verifyTotp(this.cipher.decrypt(user.totpSecretEncrypted), code);
     if (step === null) {
@@ -92,7 +89,7 @@ export class MfaService {
   async verify(userId: string, dto: MfaVerifyInput, ip: string | null) {
     await this.throttle.assertAllowed('mfa', userId, ip);
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    if (!user.mfaEnabledAt || !user.totpSecretEncrypted) throw new BadRequestException('İki adımlı doğrulama etkin değil');
+    if (!user.mfaEnabledAt || !user.totpSecretEncrypted) throw new BadRequestException(apiError('apiErrors.auth.twoFactorAuthenticationNotEnabled'));
 
     let ok = false;
     let usedRecovery = false;
@@ -132,7 +129,7 @@ export class MfaService {
   async regenerateRecoveryCodes(userId: string, code: string, ip: string | null): Promise<{ recoveryCodes: string[] }> {
     await this.throttle.assertAllowed('mfa', userId, ip);
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    if (!user.mfaEnabledAt || !user.totpSecretEncrypted) throw new BadRequestException('İki adımlı doğrulama etkin değil');
+    if (!user.mfaEnabledAt || !user.totpSecretEncrypted) throw new BadRequestException(apiError('apiErrors.auth.twoFactorAuthenticationNotEnabled'));
     const step = verifyTotp(this.cipher.decrypt(user.totpSecretEncrypted), code);
     const claimed =
       step === null

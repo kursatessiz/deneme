@@ -16,6 +16,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { assertBranchAccess } from '../branches/branch-access';
 import { NotificationsService } from '../notifications/notifications.service';
+import { apiError } from '../../common/api-error';
 
 type RatingRow = Prisma.SessionRatingGetPayload<{
   include: {
@@ -38,26 +39,26 @@ export class RatingsService {
 
   /** Rate an own ATTENDED booking, once, within the rating window. */
   async rate(tenant: TenantContext, bookingId: string, dto: RateBookingInput): Promise<RateBookingResultDTO> {
-    if (!tenant.memberProfileId) throw new ForbiddenException('Bu işlemi yalnızca üyeler yapabilir');
+    if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.feedback.onlyMembersCan'));
 
     const booking = await this.prisma.booking.findFirst({
       where: { id: bookingId, studioId: tenant.studioId, memberId: tenant.memberProfileId },
       include: { schedule: true, rating: true },
     });
-    if (!booking) throw new NotFoundException('Rezervasyon bulunamadı');
+    if (!booking) throw new NotFoundException(apiError('apiErrors.common.bookingNotFound'));
     if (booking.status !== 'ATTENDED') {
-      throw new BadRequestException('Yalnızca katıldığınız seanslar puanlanabilir');
+      throw new BadRequestException(apiError('apiErrors.feedback.onlySessionsAttendedCanRated'));
     }
     if (!booking.schedule.trainerId) {
-      throw new BadRequestException('Bu seans için eğitmen bilgisi bulunamadığından puanlanamıyor');
+      throw new BadRequestException(apiError('apiErrors.feedback.sessionCannotRatedBecauseNoTrainer'));
     }
 
     const now = new Date();
     if (!isWithinRatingWindow(booking.schedule.endTime, now)) {
-      throw new BadRequestException('Puanlama süresi (seans sonrası 7 gün) dolmuş');
+      throw new BadRequestException(apiError('apiErrors.feedback.ratingPeriod7DaysAfterSession'));
     }
     if (booking.rating) {
-      throw new ConflictException('Bu seansı zaten puanladınız');
+      throw new ConflictException(apiError('apiErrors.feedback.alreadyRatedSession'));
     }
 
     const comment = dto.comment && dto.comment.length > 0 ? dto.comment : null;
@@ -82,7 +83,7 @@ export class RatingsService {
       });
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw new ConflictException('Bu seansı zaten puanladınız');
+        throw new ConflictException(apiError('apiErrors.feedback.alreadyRatedSession'));
       }
       throw err;
     }
@@ -98,14 +99,14 @@ export class RatingsService {
 
   /** Edit an own rating within the edit window. */
   async edit(tenant: TenantContext, bookingId: string, dto: RateBookingInput): Promise<RateBookingResultDTO> {
-    if (!tenant.memberProfileId) throw new ForbiddenException('Bu işlemi yalnızca üyeler yapabilir');
+    if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.feedback.onlyMembersCan'));
 
     const existing = await this.prisma.sessionRating.findFirst({
       where: { bookingId, studioId: tenant.studioId, memberId: tenant.memberProfileId },
     });
-    if (!existing) throw new NotFoundException('Değerlendirme bulunamadı');
+    if (!existing) throw new NotFoundException(apiError('apiErrors.feedback.reviewNotFound'));
     if (!isWithinRatingEditWindow(existing.createdAt, new Date())) {
-      throw new BadRequestException('Değerlendirme yalnızca ilk 24 saat içinde düzenlenebilir');
+      throw new BadRequestException(apiError('apiErrors.feedback.reviewCanOnlyEditedWithin24'));
     }
 
     const comment = dto.comment && dto.comment.length > 0 ? dto.comment : null;
@@ -129,7 +130,7 @@ export class RatingsService {
 
   /** Attended, unrated sessions still inside the rating window (home screen prompt card). */
   async myPendingPrompts(tenant: TenantContext) {
-    if (!tenant.memberProfileId) throw new ForbiddenException('Bu işlemi yalnızca üyeler yapabilir');
+    if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.feedback.onlyMembersCan'));
     const now = new Date();
     const bookings = await this.prisma.booking.findMany({
       where: {
@@ -155,7 +156,7 @@ export class RatingsService {
 
   /** The caller's own given ratings. */
   async myRatings(tenant: TenantContext): Promise<SessionRatingDTO[]> {
-    if (!tenant.memberProfileId) throw new ForbiddenException('Bu işlemi yalnızca üyeler yapabilir');
+    if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.feedback.onlyMembersCan'));
     const rows = await this.prisma.sessionRating.findMany({
       where: { studioId: tenant.studioId, memberId: tenant.memberProfileId },
       include: {
@@ -173,7 +174,7 @@ export class RatingsService {
   // ---------------------------------------------------------------------
 
   async myReceivedSummary(tenant: TenantContext): Promise<RatingListResultDTO> {
-    if (!tenant.trainerProfileId) throw new ForbiddenException('Bu işlemi yalnızca eğitmenler yapabilir');
+    if (!tenant.trainerProfileId) throw new ForbiddenException(apiError('apiErrors.feedback.onlyTrainersCan'));
     const rows = await this.prisma.sessionRating.findMany({
       where: { studioId: tenant.studioId, trainerProfileId: tenant.trainerProfileId },
       include: {

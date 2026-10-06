@@ -24,6 +24,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LegacyAutomationMigratorService } from '../growth/journeys/legacy-automation-migrator.service';
 import { JourneyScannersService } from '../growth/journeys/journey-scanners.service';
 import { SegmentsService } from '../growth/segments/segments.service';
+import { apiError } from '../../common/api-error';
 
 /** The W10 rule shape the deprecated endpoints keep returning. */
 export interface LegacyRuleView {
@@ -113,7 +114,7 @@ export class AutomationRulesCompatService {
     const type = journey.legacyRuleType as AutomationRuleType;
     const current = await this.toView(journey);
     const params = input.params ?? current.params;
-    if (params.type !== type) throw new NotFoundException('Otomasyon kuralı bulunamadı');
+    if (params.type !== type) throw new NotFoundException(apiError('apiErrors.automations.automationRuleNotFound'));
     let definition = journey.definition as unknown as JourneyDefinition;
     if (params.type === 'WIN_BACK' && definition.trigger.kind === 'segment_entered') {
       await this.prisma.segment.updateMany({
@@ -231,7 +232,7 @@ export class AutomationRulesCompatService {
     const journey = await this.prisma.journey.findFirst({
       where: { studioId, legacyRuleType: { not: null }, OR: [{ id }, { legacyRuleId: id }] },
     });
-    if (!journey) throw new NotFoundException('Otomasyon kuralı bulunamadı');
+    if (!journey) throw new NotFoundException(apiError('apiErrors.automations.automationRuleNotFound'));
     return journey;
   }
 

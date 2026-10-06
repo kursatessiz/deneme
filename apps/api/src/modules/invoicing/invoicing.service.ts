@@ -19,6 +19,7 @@ import type { TenantContext } from '../auth/tenant-context';
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
 import { EInvoiceProviderRegistry } from './providers/einvoice-provider.registry';
 import type { InvoiceBuyer, InvoiceLine } from './providers/einvoice-provider.interface';
+import { apiError } from '../../common/api-error';
 
 type Tx = Prisma.TransactionClient;
 
@@ -68,14 +69,14 @@ export class InvoicingService {
 
   async getBillingProfile(tenant: TenantContext, memberId: string) {
     const member = await this.prisma.memberProfile.findFirst({ where: { id: memberId, studioId: tenant.studioId } });
-    if (!member) throw new NotFoundException('Üye bulunamadı');
+    if (!member) throw new NotFoundException(apiError('apiErrors.common.memberNotFound'));
     return this.prisma.billingProfile.findUnique({ where: { memberId } });
   }
 
   async upsertBillingProfile(tenant: TenantContext, memberId: string, dto: BillingProfileInput) {
     const studioId = tenant.studioId;
     const member = await this.prisma.memberProfile.findFirst({ where: { id: memberId, studioId } });
-    if (!member) throw new NotFoundException('Üye bulunamadı');
+    if (!member) throw new NotFoundException(apiError('apiErrors.common.memberNotFound'));
     return this.prisma.billingProfile.upsert({
       where: { memberId },
       create: { studioId, memberId, ...dto },
@@ -84,12 +85,12 @@ export class InvoicingService {
   }
 
   async getMyBillingProfile(tenant: TenantContext) {
-    if (!tenant.memberProfileId) throw new ForbiddenException('Bu işlem yalnızca üyeler içindir');
+    if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.common.actionOnlyMembers'));
     return this.prisma.billingProfile.findUnique({ where: { memberId: tenant.memberProfileId } });
   }
 
   async upsertMyBillingProfile(tenant: TenantContext, dto: BillingProfileInput) {
-    if (!tenant.memberProfileId) throw new ForbiddenException('Bu işlem yalnızca üyeler içindir');
+    if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.common.actionOnlyMembers'));
     return this.upsertBillingProfile(tenant, tenant.memberProfileId, dto);
   }
 
@@ -130,14 +131,14 @@ export class InvoicingService {
         studio: { select: { defaultLocale: true } },
       },
     });
-    if (!payment) throw new NotFoundException('Ödeme bulunamadı');
+    if (!payment) throw new NotFoundException(apiError('apiErrors.common.paymentNotFound'));
     if (payment.paymentStatus !== PaymentStatus.COMPLETED) {
-      throw new BadRequestException('Yalnızca tamamlanmış ödemeler için fatura kesilebilir');
+      throw new BadRequestException(apiError('apiErrors.invoicing.invoiceCanOnlyIssuedCompletedPayments'));
     }
 
     const settings = await this.prisma.invoiceSettings.findUnique({ where: { studioId } });
     if (!settings || settings.eInvoiceMode === EInvoiceMode.NONE) {
-      throw new BadRequestException('Bu işletme için e-fatura yapılandırılmamış');
+      throw new BadRequestException(apiError('apiErrors.invoicing.eInvoicingNotConfiguredBusiness'));
     }
 
     let invoice = await this.prisma.invoice.findUnique({ where: { paymentId } });
@@ -235,10 +236,10 @@ export class InvoicingService {
   /** Retry endpoint: re-attempts issuing a FAILED invoice, or is a no-op for one already resolved. */
   async retry(tenant: TenantContext, invoiceId: string): Promise<Invoice> {
     const invoice = await this.prisma.invoice.findFirst({ where: { id: invoiceId, studioId: tenant.studioId } });
-    if (!invoice) throw new NotFoundException('Fatura bulunamadı');
+    if (!invoice) throw new NotFoundException(apiError('apiErrors.invoicing.invoiceNotFound'));
     if (invoice.branchId) assertBranchAccess(tenant, invoice.branchId);
     if (invoice.status !== InvoiceStatus.FAILED) {
-      throw new BadRequestException('Yalnızca başarısız faturalar yeniden denenebilir');
+      throw new BadRequestException(apiError('apiErrors.invoicing.onlyFailedInvoicesCanRetried'));
     }
     return this.issueForPayment(tenant.studioId, invoice.paymentId);
   }
@@ -332,13 +333,13 @@ export class InvoicingService {
 
   async getOne(tenant: TenantContext, invoiceId: string) {
     const invoice = await this.prisma.invoice.findFirst({ where: { id: invoiceId, studioId: tenant.studioId } });
-    if (!invoice) throw new NotFoundException('Fatura bulunamadı');
+    if (!invoice) throw new NotFoundException(apiError('apiErrors.invoicing.invoiceNotFound'));
     if (invoice.branchId) assertBranchAccess(tenant, invoice.branchId);
     return invoice;
   }
 
   async listMine(tenant: TenantContext) {
-    if (!tenant.memberProfileId) throw new ForbiddenException('Bu işlem yalnızca üyeler içindir');
+    if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.common.actionOnlyMembers'));
     return this.prisma.invoice.findMany({
       where: { studioId: tenant.studioId, payment: { memberId: tenant.memberProfileId } },
       orderBy: { issueDate: 'desc' },
@@ -346,11 +347,11 @@ export class InvoicingService {
   }
 
   async getMine(tenant: TenantContext, invoiceId: string) {
-    if (!tenant.memberProfileId) throw new ForbiddenException('Bu işlem yalnızca üyeler içindir');
+    if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.common.actionOnlyMembers'));
     const invoice = await this.prisma.invoice.findFirst({
       where: { id: invoiceId, studioId: tenant.studioId, payment: { memberId: tenant.memberProfileId } },
     });
-    if (!invoice) throw new NotFoundException('Fatura bulunamadı');
+    if (!invoice) throw new NotFoundException(apiError('apiErrors.invoicing.invoiceNotFound'));
     return invoice;
   }
 
@@ -369,7 +370,7 @@ export class InvoicingService {
   async cancel(tenant: TenantContext, actorUserId: string, invoiceId: string, dto: CancelInvoiceInput) {
     const invoice = await this.getOne(tenant, invoiceId);
     if (invoice.status !== InvoiceStatus.ISSUED) {
-      throw new BadRequestException('Yalnızca kesilmiş faturalar iptal edilebilir');
+      throw new BadRequestException(apiError('apiErrors.invoicing.onlyIssuedInvoicesCanCancelled'));
     }
     const sameDay = isSameCalendarDay(invoice.issueDate, new Date());
     if (!sameDay) {
@@ -383,11 +384,11 @@ export class InvoicingService {
       try {
         const result = await adapter.cancel({ studioId: tenant.studioId, providerUuid: invoice.providerUuid, reason: dto.reason });
         if (!result.success) {
-          throw new BadRequestException(result.failureMessage ?? 'Sağlayıcı iptali reddetti');
+          throw new BadRequestException(result.failureMessage ?? apiError('apiErrors.invoicing.providerRejectedCancellation'));
         }
       } catch (err) {
         if (err instanceof BadRequestException) throw err;
-        throw new BadRequestException(err instanceof Error ? err.message : 'İptal başarısız');
+        throw new BadRequestException(err instanceof Error ? err.message : apiError('apiErrors.invoicing.cancellationFailed'));
       }
     }
 
@@ -416,7 +417,7 @@ export class InvoicingService {
   async downloadPdf(tenant: TenantContext, invoiceId: string, self: boolean) {
     const invoice = self ? await this.getMine(tenant, invoiceId) : await this.getOne(tenant, invoiceId);
     if (invoice.status !== InvoiceStatus.ISSUED || !invoice.providerUuid) {
-      throw new ConflictException('Fatura henüz kesilmemiş');
+      throw new ConflictException(apiError('apiErrors.invoicing.invoiceNotIssuedYet'));
     }
     const adapter = this.providers.get(invoice.provider);
     return adapter.getPdf(tenant.studioId, invoice.providerUuid);

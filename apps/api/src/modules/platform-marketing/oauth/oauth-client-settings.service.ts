@@ -13,6 +13,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { CredentialCipher } from '../../../common/crypto/credential-cipher';
 import { last4, maskSecret } from './oauth-crypto';
+import { apiError, codedError } from '../../../common/api-error';
 
 const SETTINGS_ID = 'platform';
 
@@ -73,13 +74,13 @@ export class OAuthClientSettingsService {
 
   async set(provider: OAuthProvider, userId: string, input: SetOAuthClientInput): Promise<OAuthClientSettingsDTO> {
     if (this.config.get<string>('NODE_ENV') === 'production' && !this.cipher.isConfigured) {
-      throw new BadRequestException('INTEGRATION_ENCRYPTION_KEY yapılandırılmadan üretimde OAuth istemcisi kaydedilemez');
+      throw new BadRequestException(apiError('apiErrors.platformMarketing.oauthClientCannotSavedProductionUntil'));
     }
     const stored = await this.readAll();
     const current = stored[provider] ?? null;
     const prior = current ? this.decrypt(current) : null;
     const issues = oauthClientIssues(provider, input, { hasSecret: Boolean(prior?.clientSecret), hasDeveloperToken: Boolean(prior?.developerToken) });
-    if (issues.length > 0) throw new BadRequestException({ statusCode: 400, code: 'OAUTH_CLIENT_INVALID', issues, message: 'OAuth istemci ayarı geçersiz' });
+    if (issues.length > 0) throw new BadRequestException(codedError('OAUTH_CLIENT_INVALID', { statusCode: 400, issues }));
 
     const def = OAUTH_PROVIDER_DEFINITIONS[provider];
     const secrets = {
@@ -114,7 +115,7 @@ export class OAuthClientSettingsService {
 
   async remove(provider: OAuthProvider, userId: string): Promise<OAuthClientSettingsDTO> {
     const stored = await this.readAll();
-    if (!stored[provider]) throw new NotFoundException('OAuth istemcisi kayıtlı değil');
+    if (!stored[provider]) throw new NotFoundException(apiError('apiErrors.platformMarketing.oauthClientNotRegistered'));
     const next = { ...stored };
     delete next[provider];
     await this.write(next, userId);

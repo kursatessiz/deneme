@@ -15,6 +15,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { assertBranchAccess } from '../branches/branch-access';
 import { scoreMemberChurnRisk, type ChurnMemberSignals } from './churn-scoring';
+import { apiError } from '../../common/api-error';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const RATE_LIMIT_MS = 10 * 60 * 1000;
@@ -255,7 +256,7 @@ export class ChurnService {
       orderBy: { createdAt: 'desc' },
     });
     if (recent) {
-      throw new HttpException('Yeniden hesaplama en fazla 10 dakikada bir yapılabilir, lütfen daha sonra tekrar deneyin', HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(apiError('apiErrors.churn.recalculationCanDoneMostOnceEvery'), HttpStatus.TOO_MANY_REQUESTS);
     }
     const result = await this.recomputeStudio(tenant.studioId, now);
     await this.prisma.auditLog.create({
@@ -393,7 +394,7 @@ export class ChurnService {
       where: { studioId: tenant.studioId, memberId },
       include: this.snapshotInclude(),
     });
-    if (!row) throw new NotFoundException('Bu üye için henüz risk puanı hesaplanmamış');
+    if (!row) throw new NotFoundException(apiError('apiErrors.churn.noRiskScoreCalculatedMemberYet'));
     assertBranchAccess(tenant, row.member.homeBranchId);
     return this.toSummary(tenant, row);
   }
@@ -404,7 +405,7 @@ export class ChurnService {
 
   async markContacted(tenant: TenantContext, memberId: string, actorUserId: string, input: MarkContactedInput): Promise<ChurnMemberSummaryDTO> {
     const existing = await this.prisma.memberRiskSnapshot.findFirst({ where: { studioId: tenant.studioId, memberId } });
-    if (!existing) throw new NotFoundException('Bu üye için henüz risk puanı hesaplanmamış');
+    if (!existing) throw new NotFoundException(apiError('apiErrors.churn.noRiskScoreCalculatedMemberYet'));
     assertBranchAccess(tenant, await this.memberHomeBranchId(memberId));
 
     const now = new Date();
@@ -429,7 +430,7 @@ export class ChurnService {
 
   async snooze(tenant: TenantContext, memberId: string, actorUserId: string, days: number): Promise<ChurnMemberSummaryDTO> {
     const existing = await this.prisma.memberRiskSnapshot.findFirst({ where: { studioId: tenant.studioId, memberId } });
-    if (!existing) throw new NotFoundException('Bu üye için henüz risk puanı hesaplanmamış');
+    if (!existing) throw new NotFoundException(apiError('apiErrors.churn.noRiskScoreCalculatedMemberYet'));
     assertBranchAccess(tenant, await this.memberHomeBranchId(memberId));
 
     const snoozedUntil = new Date(Date.now() + days * DAY_MS);

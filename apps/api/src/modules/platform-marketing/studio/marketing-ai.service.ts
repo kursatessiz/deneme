@@ -1,7 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import type { Prisma } from '@platform/database';
 import {
-  MARKETING_MIN_CELL,
   MarketingBriefSchema,
   countOrNull,
   runMarketingChecks,
@@ -41,6 +40,7 @@ import { SegmentEvaluatorService } from '../../growth/segments/segment-evaluator
 import { BrandKitService } from './brand-kit.service';
 import { MarketingDraftsService, type NewVariant } from './marketing-drafts.service';
 import { SegmentInsightService } from './segment-insight.service';
+import { codedError } from '../../../common/api-error';
 
 /** Errors that make every further call pointless: the whole request stops. */
 const FATAL_CODES: ReadonlySet<string> = new Set(['MARKETING_AI_BUDGET_EXCEEDED', 'AI_MONTHLY_LIMIT_REACHED', 'AI_NOT_CONFIGURED', 'AI_AUTH_FAILED']);
@@ -131,9 +131,9 @@ export class MarketingAiService {
     const kind = draft.kind as MarketingDraftKind;
     const brief = MarketingBriefSchema.safeParse(draft.brief);
     if (!brief.success || kind === 'SEGMENT_SUGGESTION' || kind === 'RESEARCH_NOTE') {
-      throw new BadRequestException({ statusCode: 400, code: 'DRAFT_KIND_NOT_EDITABLE', message: 'Bu taslak için yeni varyant üretilemez' });
+      throw new BadRequestException(codedError('DRAFT_KIND_NOT_EDITABLE', { statusCode: 400 }));
     }
-    if (draft.status === 'ARCHIVED') throw new ConflictException({ statusCode: 409, code: 'DRAFT_ARCHIVED', message: 'Arşivlenmiş taslak değiştirilemez' });
+    if (draft.status === 'ARCHIVED') throw new ConflictException(codedError('DRAFT_ARCHIVED', { statusCode: 409 }));
     const context = await this.brandKit.requireContext(platform.platformStudioId);
     const { input: brandInput, facts } = this.brandKit.promptInput(context, draft.locale);
     const icp = brief.data.icpKey ? (context.kit.icps.find((i) => i.key === brief.data.icpKey) ?? null) : null;
@@ -159,11 +159,7 @@ export class MarketingAiService {
     const context = await this.brandKit.requireContext(studioId);
     const insight = await this.insight.compute(studioId);
     if (insight.totalContacts === null) {
-      throw new ConflictException({
-        statusCode: 409,
-        code: 'SEGMENT_DATA_TOO_SMALL',
-        message: `Segment önerisi için en az ${MARKETING_MIN_CELL} kişi gerekir`,
-      });
+      throw new ConflictException(codedError('SEGMENT_DATA_TOO_SMALL', { statusCode: 409 }));
     }
     const locale = input.locale ?? context.kit.defaultLocale;
     let result;

@@ -4,6 +4,7 @@ import { SitesService } from './sites.service';
 import { SitesPublicRateLimitGuard } from './sites-rate-limit.guard';
 import { PublicArticlesService } from './public-articles.service';
 import { IndexNowKeyService } from './indexnow/indexnow-key.service';
+import { apiError } from '../../common/api-error';
 
 /**
  * Unauthenticated read routes the web app's rendering layer and Caddy call.
@@ -21,16 +22,16 @@ export class PublicSitesController {
   /** Web middleware: which site does this Host header belong to. */
   @Get('public/sites/resolve')
   async resolve(@Query('host') host: string) {
-    if (!host) throw new NotFoundException('Site bulunamadı');
+    if (!host) throw new NotFoundException(apiError('apiErrors.sites.siteNotFound'));
     const resolved = await this.publicSites.resolveHost(host);
-    if (!resolved) throw new NotFoundException('Site bulunamadı');
+    if (!resolved) throw new NotFoundException(apiError('apiErrors.sites.siteNotFound'));
     return resolved;
   }
 
   /** One published page, for a locale, by its slug. Unpublished or missing locale is a 404. */
   @Get('public/sites/:studioSlug/pages')
   async getPage(@Param('studioSlug') studioSlug: string, @Query('locale') locale: string, @Query('slug') slug: string) {
-    if (!locale || slug === undefined) throw new NotFoundException('Sayfa bulunamadı');
+    if (!locale || slug === undefined) throw new NotFoundException(apiError('apiErrors.sites.pageNotFound'));
     return this.publicSites.getPage(studioSlug, locale, slug || '');
   }
 

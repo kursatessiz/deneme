@@ -32,6 +32,7 @@ import { PromotionsService } from '../promotions/promotions.service';
 import { creditActivePackageUnits } from '../members/package-credit';
 import { LoyaltyLedgerService } from './loyalty-ledger.service';
 import { loyaltyError } from './loyalty.errors';
+import { apiError } from '../../common/api-error';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SUMMARY_LEDGER_ROWS = 20;
@@ -188,7 +189,7 @@ export class LoyaltyService {
 
   async updateRule(studioId: string, ruleId: string, input: UpdateLoyaltyRuleInput): Promise<LoyaltyRuleDTO> {
     const existing = await this.prisma.loyaltyRule.findFirst({ where: { id: ruleId, studioId } });
-    if (!existing) throw new NotFoundException('Kural bulunamadı');
+    if (!existing) throw new NotFoundException(apiError('apiErrors.loyalty.ruleNotFound'));
     const purchase = existing.kind === 'PURCHASE_AMOUNT';
     if (purchase && input.currency !== undefined) await this.assertRuleCurrency(studioId, input.currency);
     const row = await this.prisma.loyaltyRule.update({
@@ -208,7 +209,7 @@ export class LoyaltyService {
   /** Ledger rows keep the rule id as plain data, so a rule can always be removed. */
   async deleteRule(studioId: string, ruleId: string): Promise<void> {
     const deleted = await this.prisma.loyaltyRule.deleteMany({ where: { id: ruleId, studioId } });
-    if (deleted.count === 0) throw new NotFoundException('Kural bulunamadı');
+    if (deleted.count === 0) throw new NotFoundException(apiError('apiErrors.loyalty.ruleNotFound'));
   }
 
   // ---------------------------------------------------------------------------
@@ -242,13 +243,13 @@ export class LoyaltyService {
 
   async updateReward(studioId: string, rewardId: string, input: UpdateLoyaltyRewardInput): Promise<LoyaltyRewardDTO> {
     const existing = await this.prisma.loyaltyReward.findFirst({ where: { id: rewardId, studioId } });
-    if (!existing) throw new NotFoundException('Ödül bulunamadı');
+    if (!existing) throw new NotFoundException(apiError('apiErrors.loyalty.rewardNotFound'));
     const type = existing.type as LoyaltyRewardType;
     const monetary = type === 'DISCOUNT_AMOUNT';
     const value = input.value !== undefined ? input.value : existing.value ? Number(existing.value) : null;
     const currency = monetary ? (input.currency !== undefined ? input.currency : existing.currency) : null;
     const issue = validateLoyaltyReward({ type, value, currency });
-    if (issue) throw new BadRequestException({ message: 'Geçersiz istek', errors: [{ path: 'value', message: issue }] });
+    if (issue) throw new BadRequestException({ ...apiError('apiErrors.common.invalidRequest'), errors: [{ path: 'value', message: issue }] });
     if (monetary) await this.assertRuleCurrency(studioId, currency);
     const row = await this.prisma.loyaltyReward.update({
       where: { id: existing.id },
@@ -269,7 +270,7 @@ export class LoyaltyService {
   /** A reward that was ever redeemed is kept (history names it) and only deactivated. */
   async deleteReward(studioId: string, rewardId: string): Promise<{ deleted: boolean; deactivated: boolean }> {
     const existing = await this.prisma.loyaltyReward.findFirst({ where: { id: rewardId, studioId }, include: { _count: { select: { redemptions: true } } } });
-    if (!existing) throw new NotFoundException('Ödül bulunamadı');
+    if (!existing) throw new NotFoundException(apiError('apiErrors.loyalty.rewardNotFound'));
     if (existing._count.redemptions > 0) {
       await this.prisma.loyaltyReward.update({ where: { id: existing.id }, data: { isActive: false } });
       return { deleted: false, deactivated: true };
@@ -287,12 +288,12 @@ export class LoyaltyService {
       where: { id: memberProfileId, studioId },
       select: { id: true, membershipId: true, membership: { select: { userId: true } } },
     });
-    if (!member) throw new NotFoundException('Üye bulunamadı');
+    if (!member) throw new NotFoundException(apiError('apiErrors.common.memberNotFound'));
     return { membershipId: member.membershipId, userId: member.membership.userId, memberProfileId: member.id };
   }
 
   private async selfRef(tenant: TenantContext): Promise<MemberRef> {
-    if (!tenant.memberProfileId) throw new NotFoundException('Üye profili bulunamadı');
+    if (!tenant.memberProfileId) throw new NotFoundException(apiError('apiErrors.loyalty.memberProfileNotFound'));
     return this.memberRef(tenant.studioId, tenant.memberProfileId);
   }
 
@@ -390,7 +391,7 @@ export class LoyaltyService {
   /** The contact card balance line; a contact without a membership has no account. */
   async contactBalance(studioId: string, contactId: string): Promise<LoyaltyBalanceDTO & { membershipId: string | null }> {
     const contact = await this.prisma.contact.findFirst({ where: { id: contactId, studioId }, select: { membershipId: true } });
-    if (!contact) throw new NotFoundException('Kişi bulunamadı');
+    if (!contact) throw new NotFoundException(apiError('apiErrors.common.contactNotFound'));
     const settings = await this.ledger.settings(studioId);
     if (!contact.membershipId) {
       return { enabled: settings.enabled, balance: 0, lifetimeEarned: 0, lifetimeRedeemed: 0, nextExpiry: null, membershipId: null };
@@ -408,7 +409,7 @@ export class LoyaltyService {
     if (!settings.enabled) throw loyaltyError('LOYALTY_DISABLED');
     if (input.ruleId) {
       const preset = await this.prisma.loyaltyRule.findFirst({ where: { id: input.ruleId, studioId: tenant.studioId, kind: 'MANUAL' } });
-      if (!preset) throw new NotFoundException('Kural bulunamadı');
+      if (!preset) throw new NotFoundException(apiError('apiErrors.loyalty.ruleNotFound'));
     }
     const result = await this.ledger.post({
       studioId: tenant.studioId,
@@ -469,7 +470,7 @@ export class LoyaltyService {
     if (!settings.enabled) throw loyaltyError('LOYALTY_DISABLED');
     if (actor.self && !settings.memberRedeemEnabled) throw loyaltyError('LOYALTY_MEMBER_REDEEM_DISABLED');
     const reward = await this.prisma.loyaltyReward.findFirst({ where: { id: input.rewardId, studioId } });
-    if (!reward) throw new NotFoundException('Ödül bulunamadı');
+    if (!reward) throw new NotFoundException(apiError('apiErrors.loyalty.rewardNotFound'));
     if (!reward.isActive) throw loyaltyError('LOYALTY_REWARD_INACTIVE');
     if (actor.self && !reward.memberRedeemable) throw loyaltyError('LOYALTY_MEMBER_REDEEM_DISABLED');
     const type = reward.type as LoyaltyRewardType;
@@ -493,7 +494,7 @@ export class LoyaltyService {
       });
       if (debit.duplicate) {
         const existing = await tx.loyaltyRedemption.findUnique({ where: { ledgerId: debit.entry.id }, include: { promoCode: true } });
-        if (!existing) throw new NotFoundException('Ödül kullanımı bulunamadı');
+        if (!existing) throw new NotFoundException(apiError('apiErrors.loyalty.rewardRedemptionNotFound'));
         return { redemption: existing, balance: debit.balance, duplicate: true };
       }
 

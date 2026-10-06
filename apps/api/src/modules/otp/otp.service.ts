@@ -4,6 +4,7 @@ import { createHmac, randomInt, timingSafeEqual } from 'crypto';
 import { OtpPurpose } from '@platform/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { apiError } from '../../common/api-error';
 
 export const OTP_TTL_MS = 5 * 60 * 1000;
 export const OTP_MAX_ATTEMPTS = 5;
@@ -13,7 +14,7 @@ export const OTP_MAX_PER_PHONE = 3;
 export const OTP_MAX_PER_IP = 10;
 
 export class TooManyRequestsException extends HttpException {
-  constructor(message = 'Çok fazla deneme yapıldı, lütfen biraz sonra tekrar deneyin') {
+  constructor(message = apiError('apiErrors.otp.tooManyAttemptsShortly')) {
     super(message, HttpStatus.TOO_MANY_REQUESTS);
   }
 }

@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ErrorCaptureService } from './error-capture.service';
 import { ErrorFeedbackService } from './error-feedback.service';
 import { TELEMETRY_MAX_PER_IP, TELEMETRY_MAX_PER_SESSION, TelemetryRateLimiter } from './telemetry-rate-limit.service';
+import { apiError } from '../../common/api-error';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -40,7 +41,7 @@ export class TelemetryController {
   async ingest(@Req() req: Request, @Body() body: unknown): Promise<{ accepted: number }> {
     const declared = Number(req.headers['content-length'] ?? 0);
     if (Number.isFinite(declared) && declared > ERROR_LIMITS.batchBytes) {
-      throw new HttpException('İstek gövdesi çok büyük', HttpStatus.PAYLOAD_TOO_LARGE);
+      throw new HttpException(apiError('apiErrors.errorReporting.requestBodyTooLarge'), HttpStatus.PAYLOAD_TOO_LARGE);
     }
 
     const caller = await this.resolveCaller(req);
@@ -48,10 +49,10 @@ export class TelemetryController {
     const sessionKey = caller.userId ? `u:${caller.userId}` : firstSessionId ? `s:${firstSessionId}` : null;
     const ipOk = await this.limiter.consume('ip', req.ip ?? 'unknown', TELEMETRY_MAX_PER_IP);
     const sessionOk = sessionKey ? await this.limiter.consume('session', sessionKey, TELEMETRY_MAX_PER_SESSION) : true;
-    if (!ipOk || !sessionOk) throw new HttpException('Çok fazla istek', HttpStatus.TOO_MANY_REQUESTS);
+    if (!ipOk || !sessionOk) throw new HttpException(apiError('apiErrors.common.tooManyRequests'), HttpStatus.TOO_MANY_REQUESTS);
 
     const parsed = ErrorBatchSchema.safeParse(body);
-    if (!parsed.success) throw new BadRequestException({ message: 'Geçersiz istek', errors: parsed.error.issues.slice(0, 5).map((i) => i.path.join('.')) });
+    if (!parsed.success) throw new BadRequestException({ ...apiError('apiErrors.common.invalidRequest'), errors: parsed.error.issues.slice(0, 5).map((i) => i.path.join('.')) });
 
     const rate = this.config.get<number>('ERROR_CLIENT_SAMPLE_RATE') ?? 1;
     const now = Date.now();
@@ -92,7 +93,7 @@ export class TelemetryController {
   async feedback(@Req() req: Request, @Param('eventId') eventId: string, @Body() body: unknown): Promise<{ accepted: true }> {
     const declared = Number(req.headers['content-length'] ?? 0);
     if (Number.isFinite(declared) && declared > ERROR_LIMITS.batchBytes) {
-      throw new HttpException('İstek gövdesi çok büyük', HttpStatus.PAYLOAD_TOO_LARGE);
+      throw new HttpException(apiError('apiErrors.errorReporting.requestBodyTooLarge'), HttpStatus.PAYLOAD_TOO_LARGE);
     }
     const caller = await this.resolveCaller(req);
     const bodySession = (body as { sessionId?: unknown } | null)?.sessionId;
@@ -100,13 +101,13 @@ export class TelemetryController {
     const sessionKey = caller.userId ? `u:${caller.userId}` : sessionId ? `s:${sessionId}` : null;
     const ipOk = await this.limiter.consume('ip', req.ip ?? 'unknown', TELEMETRY_MAX_PER_IP);
     const sessionOk = sessionKey ? await this.limiter.consume('session', sessionKey, TELEMETRY_MAX_PER_SESSION) : true;
-    if (!ipOk || !sessionOk) throw new HttpException('Çok fazla istek', HttpStatus.TOO_MANY_REQUESTS);
+    if (!ipOk || !sessionOk) throw new HttpException(apiError('apiErrors.common.tooManyRequests'), HttpStatus.TOO_MANY_REQUESTS);
 
-    if (!UUID.test(eventId)) throw new BadRequestException('Geçersiz istek');
+    if (!UUID.test(eventId)) throw new BadRequestException(apiError('apiErrors.common.invalidRequest'));
     const parsed = ErrorFeedbackSchema.safeParse(body);
-    if (!parsed.success) throw new BadRequestException('Geçersiz istek');
+    if (!parsed.success) throw new BadRequestException(apiError('apiErrors.common.invalidRequest'));
     const text = scrubFeedback(parsed.data.feedback);
-    if (!text) throw new BadRequestException('Geçersiz istek');
+    if (!text) throw new BadRequestException(apiError('apiErrors.common.invalidRequest'));
     await this.feedbackService.attach(eventId.toLowerCase(), caller.userId, text);
     return { accepted: true };
   }

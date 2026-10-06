@@ -15,6 +15,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { assertBranchAccess, assertUnrestricted } from './branch-access';
 import { PlanLimitsService } from '../admin/plan-limits.service';
+import { apiError } from '../../common/api-error';
 
 const UNASSIGNED_LABEL = 'Şubesiz';
 
@@ -85,7 +86,7 @@ export class BranchesService {
       });
       if (upcoming > 0) {
         throw new BadRequestException(
-          `Bu şubede ${upcoming} ileri tarihli seans var. Önce seansları iptal edin veya başka şubeye taşıyın.`,
+          apiError('apiErrors.branches.hasUpcomingSessions', { count: upcoming }),
         );
       }
     }
@@ -133,14 +134,14 @@ export class BranchesService {
     assertUnrestricted(tenant);
     const membership = await this.getStaffMembership(tenant, membershipId);
     if (membership.roleTemplate.isOwner) {
-      throw new BadRequestException('İşletme sahibi tüm şubelere erişir; şube kısıtı uygulanamaz');
+      throw new BadRequestException(apiError('apiErrors.branches.businessOwnerAccessAllBranchesBranch'));
     }
 
     const branchIds = [...new Set(dto.branchIds)];
     if (branchIds.length > 0) {
       const found = await this.prisma.branch.count({ where: { id: { in: branchIds }, studioId: tenant.studioId } });
       if (found !== branchIds.length) {
-        throw new BadRequestException('Seçilen şubelerden biri bu işletmeye ait değil');
+        throw new BadRequestException(apiError('apiErrors.common.selectedBranchesNotBelongBusiness'));
       }
     }
 
@@ -325,7 +326,7 @@ export class BranchesService {
 
   private async getOwned(tenant: TenantContext, branchId: string) {
     const branch = await this.prisma.branch.findFirst({ where: { id: branchId, studioId: tenant.studioId } });
-    if (!branch) throw new NotFoundException('Şube bulunamadı');
+    if (!branch) throw new NotFoundException(apiError('apiErrors.common.branchNotFound'));
     return branch;
   }
 
@@ -334,7 +335,7 @@ export class BranchesService {
       where: { id: membershipId, studioId: tenant.studioId },
       include: { roleTemplate: { select: { isOwner: true } } },
     });
-    if (!membership) throw new NotFoundException('Personel bulunamadı');
+    if (!membership) throw new NotFoundException(apiError('apiErrors.common.staffMemberNotFound'));
     return membership;
   }
 
@@ -346,7 +347,7 @@ export class BranchesService {
 
   private mapUnique(err: unknown): unknown {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      return new ConflictException('Bu isimde bir şube zaten var');
+      return new ConflictException(apiError('apiErrors.branches.branchNameAlreadyExists'));
     }
     return err;
   }

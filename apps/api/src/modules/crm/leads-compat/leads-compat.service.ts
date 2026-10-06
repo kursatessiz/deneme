@@ -28,6 +28,7 @@ import { AttributionService } from '../attribution/attribution.service';
 import { CrmHooksService } from '../hooks/crm-hooks.service';
 import { WebhooksService } from '../../webhooks/webhooks.service';
 import { ConsentConfirmationService } from '../../notifications/consent/consent-confirmation.service';
+import { apiError } from '../../../common/api-error';
 
 const LEAD_INCLUDE = {
   pipelineStage: true,
@@ -100,7 +101,7 @@ export class LeadsCompatService {
         activities: { include: { actorMembership: { include: { user: true } } }, orderBy: { createdAt: 'desc' } },
       },
     });
-    if (!contact) throw new NotFoundException('Potansiyel üye bulunamadı');
+    if (!contact) throw new NotFoundException(apiError('apiErrors.crm.leadNotFound'));
     assertBranchAccess(tenant, contact.branchId);
     const activities: LeadActivityDTO[] = contact.activities.map((a) => ({
       id: a.id,
@@ -283,7 +284,7 @@ export class LeadsCompatService {
       });
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw new ConflictException('Bu telefon numarası veya e-posta ile bir kişi zaten var');
+        throw new ConflictException(apiError('apiErrors.crm.contactPhoneNumberEmailAlreadyExists'));
       }
       throw err;
     }
@@ -303,7 +304,7 @@ export class LeadsCompatService {
     else if (LEAD_STAGE_KEYS.has(fromKey)) allowed = canTransitionLeadStage(fromKey as LeadStage, dto.stage);
     else allowed = true;
     if (!allowed) {
-      throw new BadRequestException(`'${fromKey}' durumundan '${dto.stage}' durumuna geçilemez`);
+      throw new BadRequestException(apiError('apiErrors.crm.invalidStageTransition', { from: fromKey, to: dto.stage }));
     }
     await this.contacts.moveToStage(contact, dto.stage, {
       lostReason: dto.stage === LeadStage.LOST ? dto.lostReason : null,
@@ -340,9 +341,9 @@ export class LeadsCompatService {
     const stage = contact.pipelineStageId
       ? await this.prisma.pipelineStage.findUnique({ where: { id: contact.pipelineStageId } })
       : null;
-    if (stage?.kind === 'WON') throw new BadRequestException('Bu potansiyel üye zaten üyeliğe dönüştürülmüş');
-    if (stage?.kind === 'LOST') throw new BadRequestException('Kaybedilmiş bir potansiyel üye üyeliğe dönüştürülemez');
-    if (!contact.phone) throw new BadRequestException('Telefon numarası olmayan bir kişi üyeliğe dönüştürülemez');
+    if (stage?.kind === 'WON') throw new BadRequestException(apiError('apiErrors.crm.leadAlreadyConvertedMembership'));
+    if (stage?.kind === 'LOST') throw new BadRequestException(apiError('apiErrors.crm.lostLeadCannotConvertedMembership'));
+    if (!contact.phone) throw new BadRequestException(apiError('apiErrors.crm.contactWithoutPhoneNumberCannotConverted'));
 
     const member = await this.members.createMember(tenant, {
       studioId: tenant.studioId,
@@ -374,9 +375,9 @@ export class LeadsCompatService {
       ? await this.prisma.pipelineStage.findUnique({ where: { id: contact.pipelineStageId } })
       : null;
     if (stage && stage.kind !== 'OPEN') {
-      throw new BadRequestException('Bu aşamadaki bir potansiyel üye için deneme seansı ayarlanamaz');
+      throw new BadRequestException(apiError('apiErrors.crm.trialSessionCannotArrangedLeadStage'));
     }
-    if (!contact.phone) throw new BadRequestException('Telefon numarası olmayan bir kişi için deneme seansı ayarlanamaz');
+    if (!contact.phone) throw new BadRequestException(apiError('apiErrors.crm.trialSessionCannotArrangedContactWithout'));
 
     const member = await this.members.createMember(tenant, {
       studioId: tenant.studioId,

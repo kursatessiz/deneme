@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { PLATFORM_ANY_ACCESS_KEY, PLATFORM_PERMISSIONS_KEY } from '../decorators/platform-scoped.decorator';
 import { loadPlatformAccess, mfaGateError, platformAccessDenied, platformMfaGate, requireTwoFactorForPlatformRoles } from '../platform-access';
 import type { AuthenticatedRequest } from '../tenant-context';
+import { apiError } from '../../../common/api-error';
 
 /**
  * Gate for platform-level endpoints (docs/PAZARLAMA_MODULU.md 2.5). Must run
@@ -27,12 +28,12 @@ export class PlatformPermissionGuard implements CanActivate {
     const required = this.reflector.getAllAndOverride<PlatformPermissionKey[] | undefined>(PLATFORM_PERMISSIONS_KEY, targets);
     const anyAccess = this.reflector.getAllAndOverride<boolean | undefined>(PLATFORM_ANY_ACCESS_KEY, targets);
     if ((!required || required.length === 0) && !anyAccess) {
-      throw new ForbiddenException('Bu işlem için yetki tanımlanmamış');
+      throw new ForbiddenException(apiError('apiErrors.auth.noPermissionDefinedAction'));
     }
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const user = request.user;
-    if (!user) throw new UnauthorizedException('Kullanıcı oturumu bulunamadı');
+    if (!user) throw new UnauthorizedException(apiError('apiErrors.auth.userSessionNotFound'));
 
     const access = await loadPlatformAccess(this.prisma, user);
     if (!access) throw platformAccessDenied();
@@ -42,11 +43,11 @@ export class PlatformPermissionGuard implements CanActivate {
 
     const permissions = new Set(access.permissions);
     if (required && required.some((key) => !permissions.has(key))) {
-      throw new ForbiddenException('Bu işlem için yetkiniz yok');
+      throw new ForbiddenException(apiError('apiErrors.auth.notPermissionAction'));
     }
 
     const platformStudio = await this.prisma.studio.findFirst({ where: { isPlatform: true }, select: { id: true } });
-    if (!platformStudio) throw new ForbiddenException('Platform kiracısı bulunamadı');
+    if (!platformStudio) throw new ForbiddenException(apiError('apiErrors.common.platformTenantNotFound'));
 
     request.platform = {
       userId: user.id,

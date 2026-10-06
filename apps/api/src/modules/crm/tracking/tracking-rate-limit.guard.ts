@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type { Request } from 'express';
 import { RedisService } from '../../redis/redis.service';
+import { apiError } from '../../../common/api-error';
 
 const WINDOW_SECONDS = 60;
 /** Per client IP: a busy office or mobile carrier NAT shares one address. */
@@ -34,7 +35,7 @@ export class TrackingRateLimitGuard implements CanActivate {
     for (const [key, max] of keys) {
       const count = await this.increment(key);
       if (count > max) {
-        throw new HttpException('Çok fazla istek, lütfen daha sonra tekrar deneyin', HttpStatus.TOO_MANY_REQUESTS);
+        throw new HttpException(apiError('apiErrors.common.tooManyRequestsLater'), HttpStatus.TOO_MANY_REQUESTS);
       }
     }
     return true;

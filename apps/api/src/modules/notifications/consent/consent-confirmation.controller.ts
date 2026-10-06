@@ -3,6 +3,7 @@ import type { Request } from 'express';
 import type { ConsentConfirmResultDTO } from '@platform/shared';
 import { RedisService } from '../../redis/redis.service';
 import { ConsentConfirmationService } from './consent-confirmation.service';
+import { apiError } from '../../../common/api-error';
 
 const WINDOW_SECONDS = 60;
 const MAX_REQUESTS = 20;
@@ -29,7 +30,7 @@ export class ConsentConfirmRateLimitGuard implements CanActivate {
         const key = `consent-confirm-rl:${ip}`;
         const count = await client.incr(key);
         if (count === 1) await client.expire(key, WINDOW_SECONDS);
-        if (count > MAX_REQUESTS) throw new HttpException('Çok fazla istek, lütfen daha sonra tekrar deneyin', HttpStatus.TOO_MANY_REQUESTS);
+        if (count > MAX_REQUESTS) throw new HttpException(apiError('apiErrors.common.tooManyRequestsLater'), HttpStatus.TOO_MANY_REQUESTS);
         return true;
       } catch (err) {
         if (err instanceof HttpException) throw err;
@@ -43,7 +44,7 @@ export class ConsentConfirmRateLimitGuard implements CanActivate {
       return true;
     }
     entry.count += 1;
-    if (entry.count > MAX_REQUESTS) throw new HttpException('Çok fazla istek, lütfen daha sonra tekrar deneyin', HttpStatus.TOO_MANY_REQUESTS);
+    if (entry.count > MAX_REQUESTS) throw new HttpException(apiError('apiErrors.common.tooManyRequestsLater'), HttpStatus.TOO_MANY_REQUESTS);
     return true;
   }
 }

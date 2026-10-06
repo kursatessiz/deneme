@@ -12,11 +12,12 @@ import type {
   UpdateAddOnInput,
 } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
+import { apiError, codedError } from '../../../common/api-error';
 
 type PricedAddOn = AddOn & { prices: AddOnPrice[] };
 
-export function addOnError(code: (typeof ADD_ON_ERROR_CODES)[keyof typeof ADD_ON_ERROR_CODES], message: string, kind: 'bad' | 'conflict' | 'notFound'): Error {
-  const body = { statusCode: kind === 'bad' ? 400 : kind === 'conflict' ? 409 : 404, code, message };
+export function addOnError(code: (typeof ADD_ON_ERROR_CODES)[keyof typeof ADD_ON_ERROR_CODES], kind: 'bad' | 'conflict' | 'notFound'): Error {
+  const body = codedError(code, { statusCode: kind === 'bad' ? 400 : kind === 'conflict' ? 409 : 404 });
   if (kind === 'bad') return new BadRequestException(body);
   if (kind === 'conflict') return new ConflictException(body);
   return new NotFoundException(body);
@@ -68,9 +69,9 @@ export class AdminAddOnsService {
   }
 
   async create(actorUserId: string, input: CreateAddOnInput): Promise<AdminAddOnDTO> {
-    if (input.isPublished) throw addOnError(ADD_ON_ERROR_CODES.publishNeedsPrice, 'Yayınlamak için önce fiyat girilmelidir', 'bad');
+    if (input.isPublished) throw addOnError(ADD_ON_ERROR_CODES.publishNeedsPrice, 'bad');
     const exists = await this.prisma.addOn.findUnique({ where: { key: input.key }, select: { id: true } });
-    if (exists) throw addOnError(ADD_ON_ERROR_CODES.keyExists, 'Bu anahtarla bir uygulama zaten var', 'conflict');
+    if (exists) throw addOnError(ADD_ON_ERROR_CODES.keyExists, 'conflict');
     const row = await this.prisma.addOn.create({
       data: {
         key: input.key,
@@ -91,9 +92,9 @@ export class AdminAddOnsService {
 
   async update(actorUserId: string, id: string, input: UpdateAddOnInput): Promise<AdminAddOnDTO> {
     const existing = await this.prisma.addOn.findUnique({ where: { id }, include: { prices: true } });
-    if (!existing) throw addOnError(ADD_ON_ERROR_CODES.notFound, 'Uygulama bulunamadı', 'notFound');
+    if (!existing) throw addOnError(ADD_ON_ERROR_CODES.notFound, 'notFound');
     if (input.isPublished === true && existing.prices.length === 0) {
-      throw addOnError(ADD_ON_ERROR_CODES.publishNeedsPrice, 'Yayınlamak için en az bir para biriminde fiyat girilmelidir', 'bad');
+      throw addOnError(ADD_ON_ERROR_CODES.publishNeedsPrice, 'bad');
     }
     const data: Prisma.AddOnUpdateInput = {
       ...(input.name !== undefined ? { name: input.name } : {}),
@@ -118,12 +119,12 @@ export class AdminAddOnsService {
   /** Replaces the whole price set (a currency left out is removed). A published add-on must keep at least one price. */
   async setPrices(actorUserId: string, id: string, input: SetAddOnPricesInput): Promise<AdminAddOnDTO> {
     const existing = await this.prisma.addOn.findUnique({ where: { id }, include: { prices: true } });
-    if (!existing) throw addOnError(ADD_ON_ERROR_CODES.notFound, 'Uygulama bulunamadı', 'notFound');
+    if (!existing) throw addOnError(ADD_ON_ERROR_CODES.notFound, 'notFound');
     if (existing.isPublished && input.prices.length === 0) {
-      throw addOnError(ADD_ON_ERROR_CODES.publishNeedsPrice, 'Yayındaki uygulamanın en az bir fiyatı olmalıdır; önce yayından kaldırın', 'conflict');
+      throw addOnError(ADD_ON_ERROR_CODES.publishNeedsPrice, 'conflict');
     }
     for (const price of input.prices) {
-      if (!isPlatformBillingCurrency(price.currency)) throw new BadRequestException('Geçersiz para birimi');
+      if (!isPlatformBillingCurrency(price.currency)) throw new BadRequestException(apiError('apiErrors.billing.invalidCurrency'));
     }
     const row = await this.prisma.$transaction(async (tx) => {
       await tx.addOnPrice.deleteMany({ where: { addOnId: id, currency: { notIn: input.prices.map((p) => p.currency) } } });

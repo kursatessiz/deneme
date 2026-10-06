@@ -3,10 +3,11 @@ import { LocaleCodeSchema, PublicArticlesQuerySchema, type PublicArticlesQuery }
 import { ZodQuery } from '../../common/zod-body.pipe';
 import { PublicArticlesService } from './public-articles.service';
 import { SitesFeedRateLimitGuard } from './sites-rate-limit.guard';
+import { apiError } from '../../common/api-error';
 
 function localeOr404(locale: string | undefined): string {
   const parsed = LocaleCodeSchema.safeParse(locale);
-  if (!parsed.success) throw new NotFoundException('Locale not found');
+  if (!parsed.success) throw new NotFoundException(apiError('apiErrors.sites.localeNotFound'));
   return parsed.data;
 }
 

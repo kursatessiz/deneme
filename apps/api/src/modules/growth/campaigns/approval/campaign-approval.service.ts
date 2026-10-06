@@ -30,6 +30,7 @@ import { GrowthQueueService } from '../../growth-queue.service';
 import type { ApprovalTargetHandler } from './approval-target-handler';
 import { CampaignPrecheckService } from './campaign-precheck.service';
 import { MarketingSettingsService } from './marketing-settings.service';
+import { apiError, codedError } from '../../../../common/api-error';
 
 /** Who acts on a request: resolved from the platform guard (or the tenant guard's user for campaign edits). */
 export interface ApprovalActor {
@@ -37,8 +38,8 @@ export interface ApprovalActor {
   isSuperAdmin: boolean;
 }
 
-export function approvalError(status: HttpStatus, code: MarketingApprovalErrorCode, message: string): HttpException {
-  return new HttpException({ statusCode: status, code, message }, status);
+export function approvalError(status: HttpStatus, code: MarketingApprovalErrorCode): HttpException {
+  return new HttpException(codedError(code, { statusCode: status }), status);
 }
 
 function asSummary(raw: Prisma.JsonValue): ApprovalSummary {
@@ -89,9 +90,9 @@ export class CampaignApprovalService {
   async requestForCampaign(studioId: string, actor: ApprovalActor, campaignId: string, scheduledAt: string | undefined, now = new Date()): Promise<RequestApprovalResultDTO> {
     const campaign = await this.campaign(studioId, campaignId);
     if (!canRequestCampaignApproval(campaign.status) || campaign.startedAt) {
-      throw approvalError(HttpStatus.CONFLICT, 'CAMPAIGN_NOT_REQUESTABLE', 'Bu durumdaki kampanya için onay istenemez');
+      throw approvalError(HttpStatus.CONFLICT, 'CAMPAIGN_NOT_REQUESTABLE');
     }
-    if (scheduledAt && new Date(scheduledAt).getTime() < now.getTime() - 60_000) throw new BadRequestException('Geçmiş bir zamana planlanamaz');
+    if (scheduledAt && new Date(scheduledAt).getTime() < now.getTime() - 60_000) throw new BadRequestException(apiError('apiErrors.growth.cannotScheduledPast'));
     const schedule = scheduledAt ? new Date(scheduledAt).toISOString() : null;
     const settings = await this.settings.get(studioId);
     const check = await this.precheck.run(campaign, schedule, settings, now);
@@ -136,7 +137,7 @@ export class CampaignApprovalService {
   async approve(studioId: string, actor: ApprovalActor, id: string, note: string | undefined, now = new Date()): Promise<ApprovalRequestDTO> {
     const request = await this.pending(studioId, id, now);
     const outcome = approvalOutcomeFor({ requestedByUserId: request.requestedByUserId, approverUserId: actor.userId, approverIsSuperAdmin: actor.isSuperAdmin });
-    if (outcome === 'FOUR_EYES_VIOLATION') throw approvalError(HttpStatus.FORBIDDEN, 'APPROVAL_FOUR_EYES', 'Kendi talebinizi onaylayamazsınız');
+    if (outcome === 'FOUR_EYES_VIOLATION') throw approvalError(HttpStatus.FORBIDDEN, 'APPROVAL_FOUR_EYES');
     if (request.targetType !== 'CAMPAIGN') return this.approveOther(studioId, actor, request, outcome, note, now);
     const campaign = await this.targetCampaign(request);
 
@@ -145,7 +146,7 @@ export class CampaignApprovalService {
     const print = await this.precheck.fingerprint(campaign, summary.requestedSchedule, now);
     if (print.contentHash !== request.contentHash) {
       await this.invalidate(campaign, request, request.requestedByUserId, now);
-      throw approvalError(HttpStatus.CONFLICT, 'APPROVAL_CONTENT_CHANGED', 'Kampanya talepten sonra değişti; yeni bir onay talebi oluşturuldu');
+      throw approvalError(HttpStatus.CONFLICT, 'APPROVAL_CONTENT_CHANGED');
     }
 
     const sendAt = this.sendTime(summary.requestedSchedule, now);
@@ -183,7 +184,7 @@ export class CampaignApprovalService {
   ): Promise<ApprovalRequestDTO> {
     const handler = this.targetHandlers.get(request.targetType);
     const hash = handler ? await handler.currentHash(request) : null;
-    if (!handler || hash === null) throw approvalError(HttpStatus.CONFLICT, 'APPROVAL_NOT_PENDING', 'Talep artık geçerli değil');
+    if (!handler || hash === null) throw approvalError(HttpStatus.CONFLICT, 'APPROVAL_NOT_PENDING');
     if (hash !== request.contentHash) {
       await this.prisma.$transaction(async (tx) => {
         await tx.approvalRequest.updateMany({
@@ -197,7 +198,7 @@ export class CampaignApprovalService {
         await handler.onClosed(tx, request, 'CONTENT_CHANGED');
         await this.audit(tx, studioId, actor.userId, 'marketing.approval.invalidated', request, { targetId: request.targetId });
       });
-      throw approvalError(HttpStatus.CONFLICT, 'APPROVAL_CONTENT_CHANGED', 'İçerik talepten sonra değişti; yeniden onay istenmeli');
+      throw approvalError(HttpStatus.CONFLICT, 'APPROVAL_CONTENT_CHANGED');
     }
     const summary = asSummary(request.summary);
     const decided = await this.prisma.$transaction(async (tx) => {
@@ -211,7 +212,7 @@ export class CampaignApprovalService {
           ...(outcome === 'SELF_APPROVED' ? { summary: { ...summary, selfApprovedBySuperAdmin: true } as unknown as Prisma.InputJsonValue } : {}),
         },
       });
-      if (moved.count === 0) throw approvalError(HttpStatus.CONFLICT, 'APPROVAL_NOT_PENDING', 'Talep bekleyen durumda değil');
+      if (moved.count === 0) throw approvalError(HttpStatus.CONFLICT, 'APPROVAL_NOT_PENDING');
       const updated = await tx.approvalRequest.findUniqueOrThrow({ where: { id: request.id } });
       await handler.onApproved(tx, updated);
       await this.audit(tx, studioId, actor.userId, outcome === 'SELF_APPROVED' ? 'marketing.approval.self_approved_by_super_admin' : 'marketing.approval.approved', updated, {
@@ -239,7 +240,7 @@ export class CampaignApprovalService {
   async cancel(studioId: string, actor: ApprovalActor, id: string, note: string | undefined, now = new Date()): Promise<ApprovalRequestDTO> {
     const request = await this.pending(studioId, id, now);
     if (!actor.isSuperAdmin && request.requestedByUserId !== actor.userId) {
-      throw approvalError(HttpStatus.FORBIDDEN, 'APPROVAL_CANCEL_FORBIDDEN', 'Yalnızca talep eden veya süper admin iptal edebilir');
+      throw approvalError(HttpStatus.FORBIDDEN, 'APPROVAL_CANCEL_FORBIDDEN');
     }
     const decided = await this.close(request, actor, 'CANCELLED', note, 'marketing.approval.cancelled', now);
     return this.toDto(decided, actor);
@@ -259,7 +260,7 @@ export class CampaignApprovalService {
 
   async detail(studioId: string, actor: ApprovalActor, id: string): Promise<ApprovalRequestDTO> {
     const row = await this.prisma.approvalRequest.findFirst({ where: { id, studioId } });
-    if (!row) throw new NotFoundException('Onay talebi bulunamadı');
+    if (!row) throw new NotFoundException(apiError('apiErrors.growth.approvalRequestNotFound'));
     return this.toDto(row, actor);
   }
 
@@ -381,14 +382,14 @@ export class CampaignApprovalService {
 
   private async campaign(studioId: string, id: string): Promise<Campaign> {
     const campaign = await this.prisma.campaign.findFirst({ where: { id, studioId } });
-    if (!campaign) throw new NotFoundException('Kampanya bulunamadı');
+    if (!campaign) throw new NotFoundException(apiError('apiErrors.growth.campaignNotFound'));
     return campaign;
   }
 
   private async targetCampaign(request: ApprovalRequest): Promise<Campaign> {
     const campaign = request.targetType === 'CAMPAIGN' ? await this.prisma.campaign.findFirst({ where: { id: request.targetId, studioId: request.studioId } }) : null;
     if (!campaign || campaign.approvalRequestId !== request.id || campaign.status !== 'PENDING_APPROVAL') {
-      throw approvalError(HttpStatus.CONFLICT, 'APPROVAL_NOT_PENDING', 'Talep artık geçerli değil');
+      throw approvalError(HttpStatus.CONFLICT, 'APPROVAL_NOT_PENDING');
     }
     return campaign;
   }
@@ -396,12 +397,12 @@ export class CampaignApprovalService {
   /** A PENDING request of the tenant; an expired one is marked EXPIRED on the spot. */
   private async pending(studioId: string, id: string, now: Date): Promise<ApprovalRequest> {
     const request = await this.prisma.approvalRequest.findFirst({ where: { id, studioId } });
-    if (!request) throw new NotFoundException('Onay talebi bulunamadı');
+    if (!request) throw new NotFoundException(apiError('apiErrors.growth.approvalRequestNotFound'));
     if (isApprovalExpired(request, now)) {
       await this.expireDue(now);
-      throw approvalError(HttpStatus.CONFLICT, 'APPROVAL_EXPIRED', 'Onay talebinin süresi doldu');
+      throw approvalError(HttpStatus.CONFLICT, 'APPROVAL_EXPIRED');
     }
-    if (request.status !== 'PENDING') throw approvalError(HttpStatus.CONFLICT, 'APPROVAL_NOT_PENDING', 'Talep bekleyen durumda değil');
+    if (request.status !== 'PENDING') throw approvalError(HttpStatus.CONFLICT, 'APPROVAL_NOT_PENDING');
     return request;
   }
 
@@ -412,7 +413,7 @@ export class CampaignApprovalService {
         where: { id: request.id, status: 'PENDING' },
         data: { status, decidedByUserId: actor.userId, decidedAt: now, decisionNote: note?.trim() || null },
       });
-      if (moved.count === 0) throw approvalError(HttpStatus.CONFLICT, 'APPROVAL_NOT_PENDING', 'Talep bekleyen durumda değil');
+      if (moved.count === 0) throw approvalError(HttpStatus.CONFLICT, 'APPROVAL_NOT_PENDING');
       if (request.targetType === 'CAMPAIGN') {
         await tx.campaign.updateMany({
           where: { id: request.targetId, studioId: request.studioId, approvalRequestId: request.id, status: 'PENDING_APPROVAL' },

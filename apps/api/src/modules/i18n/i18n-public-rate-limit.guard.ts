@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type { Request } from 'express';
 import { RedisService } from '../redis/redis.service';
+import { apiError } from '../../common/api-error';
 
 const WINDOW_SECONDS = 60;
 // Generous: these are cacheable reads served to every visitor's browser/app
@@ -31,7 +32,7 @@ export class I18nPublicRateLimitGuard implements CanActivate {
         const count = await client.incr(key);
         if (count === 1) await client.expire(key, WINDOW_SECONDS);
         if (count > MAX_REQUESTS) {
-          throw new HttpException('Çok fazla istek, lütfen daha sonra tekrar deneyin', HttpStatus.TOO_MANY_REQUESTS);
+          throw new HttpException(apiError('apiErrors.common.tooManyRequestsLater'), HttpStatus.TOO_MANY_REQUESTS);
         }
         return true;
       } catch (err) {
@@ -51,7 +52,7 @@ export class I18nPublicRateLimitGuard implements CanActivate {
     }
     entry.count += 1;
     if (entry.count > MAX_REQUESTS) {
-      throw new HttpException('Çok fazla istek, lütfen daha sonra tekrar deneyin', HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(apiError('apiErrors.common.tooManyRequestsLater'), HttpStatus.TOO_MANY_REQUESTS);
     }
     return true;
   }

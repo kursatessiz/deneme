@@ -8,6 +8,7 @@ import type {
   GetPdfResult,
   IssueInvoiceParams,
 } from './einvoice-provider.interface';
+import { apiError } from '../../../common/api-error';
 
 /**
  * Logo/eLogo e-Arsiv/e-Fatura adapter skeleton. Real HTTP calls are not
@@ -34,28 +35,28 @@ export class ElogoEInvoiceProvider implements EInvoiceProviderAdapter {
     const password = this.config.get<string>('ELOGO_PASSWORD');
     if (!username || !password) {
       throw new InternalServerErrorException(
-        'Logo/eLogo e-fatura sağlayıcısı yapılandırılmamış: ELOGO_USERNAME ve ELOGO_PASSWORD gereklidir',
+        apiError('apiErrors.invoicing.logoElogoEInvoiceProviderNot'),
       );
     }
   }
 
   async issue(_params: IssueInvoiceParams): Promise<EInvoiceIssueResult> {
     this.assertConfigured();
-    throw new InternalServerErrorException('Logo/eLogo entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.invoicing.logoElogoIntegrationNotImplementedYet'));
   }
 
   async cancel(_params: CancelInvoiceParams): Promise<EInvoiceCancelResult> {
     this.assertConfigured();
-    throw new InternalServerErrorException('Logo/eLogo entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.invoicing.logoElogoIntegrationNotImplementedYet'));
   }
 
   async getStatus(): Promise<{ status: string }> {
     this.assertConfigured();
-    throw new InternalServerErrorException('Logo/eLogo entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.invoicing.logoElogoIntegrationNotImplementedYet'));
   }
 
   async getPdf(): Promise<GetPdfResult> {
     this.assertConfigured();
-    throw new InternalServerErrorException('Logo/eLogo entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.invoicing.logoElogoIntegrationNotImplementedYet'));
   }
 }

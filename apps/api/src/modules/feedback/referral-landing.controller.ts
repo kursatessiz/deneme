@@ -1,5 +1,6 @@
 import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
 import { ReferralsService } from './referrals.service';
+import { apiError } from '../../common/api-error';
 
 /**
  * Unauthenticated landing info for a referral share link (e.g. an /r/:code
@@ -13,7 +14,7 @@ export class ReferralLandingController {
   @Get(':code')
   async landing(@Param('code') code: string) {
     const result = await this.referrals.landing(code);
-    if (!result) throw new NotFoundException('Tavsiye kodu bulunamadı');
+    if (!result) throw new NotFoundException(apiError('apiErrors.feedback.referralCodeNotFound'));
     return result;
   }
 }

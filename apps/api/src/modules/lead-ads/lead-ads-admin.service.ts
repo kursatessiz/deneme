@@ -21,6 +21,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CredentialCipher } from '../../common/crypto/credential-cipher';
 import { META_GRAPH_CLIENT } from './meta-graph.client';
 import type { MetaGraphClient } from './meta-graph.client';
+import { apiError } from '../../common/api-error';
 
 const SETTINGS_ID = 'platform';
 const hashToken = (token: string): string => createHash('sha256').update(token, 'utf8').digest('hex');
@@ -98,14 +99,14 @@ export class LeadAdsAdminService {
 
   async configure(studioId: string, connectionId: string, input: ConfigureLeadAdsInput): Promise<HubLeadAdsConnectionDTO> {
     const connection = await this.prisma.adConnection.findFirst({ where: { id: connectionId, studioId, platform: 'META' } });
-    if (!connection) throw new NotFoundException('Meta reklam bağlantısı bulunamadı');
+    if (!connection) throw new NotFoundException(apiError('apiErrors.leadAds.metaAdConnectionNotFound'));
     if (input.appSecret !== undefined && this.config.get<string>('NODE_ENV') === 'production' && !this.cipher.isConfigured) {
-      throw new BadRequestException('INTEGRATION_ENCRYPTION_KEY yapılandırılmadan üretimde uygulama sırrı kaydedilemez');
+      throw new BadRequestException(apiError('apiErrors.leadAds.appSecretCannotSavedProductionUntil'));
     }
     const data: Prisma.AdConnectionUpdateInput = {};
     if (input.appSecret !== undefined) {
       const credentials = this.credentials(connection.encryptedCredentials);
-      if (!credentials) throw new BadRequestException('Bağlantı kimlik bilgileri okunamadı; bağlantıyı yeniden kaydedin');
+      if (!credentials) throw new BadRequestException(apiError('apiErrors.leadAds.connectionCredentialsCouldNotReadSave'));
       data.encryptedCredentials = this.cipher.encrypt(JSON.stringify({ ...credentials, appSecret: input.appSecret }));
     }
     if (input.pageId !== undefined) {
@@ -117,7 +118,7 @@ export class LeadAdsAdminService {
       const updated = await this.prisma.adConnection.update({ where: { id: connection.id }, data });
       return this.connectionDto(studioId, updated);
     } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') throw new ConflictException('Bu Facebook sayfası başka bir bağlantıya tanımlı');
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') throw new ConflictException(apiError('apiErrors.leadAds.facebookPageAssignedAnotherConnection'));
       throw err;
     }
   }
@@ -125,12 +126,12 @@ export class LeadAdsAdminService {
   /** Asks Meta whether the app is subscribed to the page's leadgen field and remembers the answer. */
   async checkSubscription(studioId: string, connectionId: string): Promise<{ connection: HubLeadAdsConnectionDTO; subscribed: boolean }> {
     const connection = await this.prisma.adConnection.findFirst({ where: { id: connectionId, studioId, platform: 'META' } });
-    if (!connection) throw new NotFoundException('Meta reklam bağlantısı bulunamadı');
-    if (!connection.leadAdsPageId) throw new BadRequestException('Önce Facebook sayfa kimliği girilmeli');
+    if (!connection) throw new NotFoundException(apiError('apiErrors.leadAds.metaAdConnectionNotFound'));
+    if (!connection.leadAdsPageId) throw new BadRequestException(apiError('apiErrors.leadAds.enterFacebookPageId'));
     const credentials = this.credentials(connection.encryptedCredentials);
-    if (!credentials) throw new BadRequestException('Bağlantı kimlik bilgileri okunamadı');
+    if (!credentials) throw new BadRequestException(apiError('apiErrors.leadAds.credentialsCouldNotRead'));
     const result = await this.graph.checkPageSubscription(credentials.accessToken, connection.leadAdsPageId);
-    if (!result.ok) throw new BadRequestException('Meta abonelik durumunu vermedi');
+    if (!result.ok) throw new BadRequestException(apiError('apiErrors.leadAds.metaNotReturnSubscriptionStatus'));
     const updated = await this.prisma.adConnection.update({ where: { id: connection.id }, data: { leadAdsSubscribedAt: result.subscribed ? new Date() : null } });
     return { connection: await this.connectionDto(studioId, updated), subscribed: result.subscribed };
   }
@@ -151,7 +152,7 @@ export class LeadAdsAdminService {
 
   async removeForm(studioId: string, formId: string): Promise<{ formId: string }> {
     const removed = await this.prisma.leadAdFormMapping.deleteMany({ where: { studioId, formId } });
-    if (removed.count === 0) throw new NotFoundException('Form eşlemesi bulunamadı');
+    if (removed.count === 0) throw new NotFoundException(apiError('apiErrors.leadAds.formMappingNotFound'));
     return { formId };
   }
 
@@ -181,7 +182,7 @@ export class LeadAdsAdminService {
       where: { id, studioId, status: 'FAILED' },
       data: { status: 'PENDING', attempts: 0, nextAttemptAt: null, lastError: null },
     });
-    if (moved.count === 0) throw new NotFoundException('Başarısız olay bulunamadı');
+    if (moved.count === 0) throw new NotFoundException(apiError('apiErrors.leadAds.failedEventNotFound'));
     return { id };
   }
 

@@ -1,4 +1,6 @@
-import { resolveOfflineTranslate } from '../i18n/offlineTranslate';
+import { translateApiErrorBody } from '@platform/shared';
+import { getActiveLocale } from '../i18n/activeLocale';
+import { resolveOfflineLocale, resolveOfflineTranslate } from '../i18n/offlineTranslate';
 import { ApiError } from './api';
 import { resolveApiUrl } from './api';
 import { getKioskSession } from './kioskStore';
@@ -23,7 +25,11 @@ export async function kioskRequest<T>(path: string, options: KioskRequestOptions
   try {
     response = await fetch(`${resolveApiUrl()}${path}`, {
       method,
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.token}` },
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept-Language': getActiveLocale() ?? (await resolveOfflineLocale()),
+        Authorization: `Bearer ${session.token}`,
+      },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
@@ -41,9 +47,12 @@ export async function kioskRequest<T>(path: string, options: KioskRequestOptions
   }
 
   if (!response.ok) {
-    const errorBody = payload as { message?: string } | null;
-    const message = errorBody?.message ?? (await resolveOfflineTranslate())('mApiErrors.unexpectedError');
-    throw new ApiError(response.status, message);
+    const errorBody = payload as { message?: string; code?: unknown } | null;
+    const t = await resolveOfflineTranslate();
+    const translated = errorBody ? translateApiErrorBody(errorBody as Record<string, unknown>, t) : null;
+    const raw = translated?.message;
+    const message = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw.join(', ') : t('mApiErrors.unexpectedError');
+    throw new ApiError(response.status, message, undefined, typeof errorBody?.code === 'string' ? errorBody.code : undefined);
   }
 
   return payload as T;

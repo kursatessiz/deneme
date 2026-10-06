@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { UpsertSmsPackageInput } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { apiError } from '../../common/api-error';
 
 @Injectable()
 export class AdminSmsPackagesService {
@@ -31,7 +32,7 @@ export class AdminSmsPackagesService {
 
   async setActive(actorUserId: string, key: string, isActive: boolean) {
     const pkg = await this.prisma.smsPackage.findUnique({ where: { key } });
-    if (!pkg) throw new NotFoundException('SMS paketi bulunamadı');
+    if (!pkg) throw new NotFoundException(apiError('apiErrors.admin.smsPackageNotFound'));
     const updated = await this.prisma.smsPackage.update({ where: { id: pkg.id }, data: { isActive } });
     await this.prisma.auditLog.create({
       data: { studioId: null, userId: actorUserId, action: 'sms_package.set_active', entityType: 'SmsPackage', entityId: pkg.id, metadata: { isActive } },

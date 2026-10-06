@@ -17,6 +17,7 @@ import type { ConversionEventType } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { TenantContext } from '../../auth/tenant-context';
 import { CredentialCipher } from '../../../common/crypto/credential-cipher';
+import { apiError } from '../../../common/api-error';
 
 /**
  * Extracts the pixel/dataset id the connection needs for delivery and (for
@@ -48,7 +49,7 @@ export class AdConnectionsService {
     this.assertEncryptionAvailable();
     const credentials = dto.credentials as AdConnectionCredentials;
     const parsed = validateCredentialsFor(dto.platform, credentials);
-    if (!parsed.success) throw new BadRequestException('Bu platform için kimlik bilgileri eksik veya geçersiz');
+    if (!parsed.success) throw new BadRequestException(apiError('apiErrors.ads.credentialsPlatformMissingInvalid'));
 
     try {
       const created = await this.prisma.$transaction(async (tx) => {
@@ -81,7 +82,7 @@ export class AdConnectionsService {
       return toDto(created);
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw new ConflictException('Bu platform ve etiketle bir bağlantı zaten var');
+        throw new ConflictException(apiError('apiErrors.ads.connectionPlatformLabelAlreadyExists'));
       }
       throw err;
     }
@@ -95,7 +96,7 @@ export class AdConnectionsService {
     let credentials: AdConnectionCredentials | null = null;
     if (dto.credentials) {
       const parsed = validateCredentialsFor(platform, dto.credentials);
-      if (!parsed.success) throw new BadRequestException('Bu platform için kimlik bilgileri eksik veya geçersiz');
+      if (!parsed.success) throw new BadRequestException(apiError('apiErrors.ads.credentialsPlatformMissingInvalid'));
       credentials = dto.credentials as AdConnectionCredentials;
       // M4c: a token change through the ads screen keeps the Lead Ads app secret set from the hub.
       if (platform === 'META' && !(credentials as MetaCredentials).appSecret) {
@@ -180,13 +181,13 @@ export class AdConnectionsService {
 
   private async findOwned(studioId: string, connectionId: string) {
     const existing = await this.prisma.adConnection.findFirst({ where: { id: connectionId, studioId } });
-    if (!existing) throw new NotFoundException('Reklam bağlantısı bulunamadı');
+    if (!existing) throw new NotFoundException(apiError('apiErrors.ads.adConnectionNotFound'));
     return existing;
   }
 
   private assertEncryptionAvailable(): void {
     if (this.config.get<string>('NODE_ENV') === 'production' && !this.cipher.isConfigured) {
-      throw new BadRequestException('INTEGRATION_ENCRYPTION_KEY yapılandırılmadan üretimde reklam bağlantısı kaydedilemez');
+      throw new BadRequestException(apiError('apiErrors.ads.adConnectionCannotSavedProductionUntil'));
     }
   }
 }

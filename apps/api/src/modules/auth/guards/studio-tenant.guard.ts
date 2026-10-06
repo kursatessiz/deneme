@@ -10,6 +10,7 @@ import { ALL_PERMISSIONS, isPlatformSystemRoleKey, resolvePermissions } from '@p
 import { PrismaService } from '../../prisma/prisma.service';
 import type { AuthenticatedRequest, TenantContext } from '../tenant-context';
 import { mfaGateError, platformAccessDenied, platformMfaGate, requireTwoFactorForPlatformRoles } from '../platform-access';
+import { apiError } from '../../../common/api-error';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -30,7 +31,7 @@ export class StudioTenantGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const user = request.user;
-    if (!user) throw new UnauthorizedException('Kullanıcı oturumu bulunamadı');
+    if (!user) throw new UnauthorizedException(apiError('apiErrors.auth.userSessionNotFound'));
 
     const studioId = this.resolveStudioId(request);
 
@@ -38,7 +39,7 @@ export class StudioTenantGuard implements CanActivate {
     // gets no bypass: only their own memberships apply (docs/PAZARLAMA_MODULU.md 6.3).
     if (user.isSuperAdmin && !(user.mfaEnabled && !user.mfaVerified)) {
       const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { id: true } });
-      if (!studio) throw new ForbiddenException('İşletme bulunamadı');
+      if (!studio) throw new ForbiddenException(apiError('apiErrors.common.businessNotFound'));
       request.tenant = {
         studioId,
         membershipId: null,
@@ -67,7 +68,7 @@ export class StudioTenantGuard implements CanActivate {
 
     // Same error for "not a member" and "inactive" so studio ids cannot be probed.
     if (!membership || membership.status !== 'ACTIVE' || !membership.studio.isActive) {
-      throw new ForbiddenException('Bu işletmeye erişim yetkiniz yok');
+      throw new ForbiddenException(apiError('apiErrors.auth.notAccessBusiness'));
     }
 
     // Platform system role (M1): the membership only stands while the
@@ -120,12 +121,12 @@ export class StudioTenantGuard implements CanActivate {
     // Every place that names a studio must name the same one.
     const distinct = new Set(candidates);
     if (distinct.size > 1) {
-      throw new ForbiddenException('Farklı bir işletmenin verilerine erişim yetkiniz yok');
+      throw new ForbiddenException(apiError('apiErrors.auth.notAccessAnotherBusinessSData'));
     }
 
     const studioId = candidates[0];
     if (typeof studioId !== 'string' || !UUID.test(studioId)) {
-      throw new BadRequestException('Geçerli bir işletme seçilmedi');
+      throw new BadRequestException(apiError('apiErrors.auth.noValidBusinessSelected'));
     }
     return studioId;
   }

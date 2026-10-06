@@ -3,6 +3,7 @@ import { Prisma } from '@platform/database';
 import type { ContactFieldDefinition } from '@platform/database';
 import type { CreateContactFieldInput, UpdateContactFieldInput } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
+import { apiError } from '../../../common/api-error';
 
 export interface ContactFieldDTO {
   id: string;
@@ -42,7 +43,7 @@ export class FieldsService {
       return toDto(def);
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw new ConflictException('Bu anahtarla bir alan zaten var');
+        throw new ConflictException(apiError('apiErrors.crm.fieldKeyAlreadyExists'));
       }
       throw err;
     }
@@ -51,7 +52,7 @@ export class FieldsService {
   async update(studioId: string, fieldId: string, dto: UpdateContactFieldInput): Promise<ContactFieldDTO> {
     const def = await this.getOwn(studioId, fieldId);
     if (dto.options !== undefined && def.kind !== 'enum') {
-      throw new BadRequestException('Seçenekler yalnızca seçim listesi alanlarında kullanılır');
+      throw new BadRequestException(apiError('apiErrors.crm.optionsOnlyUsedSelectListFields'));
     }
     const updated = await this.prisma.contactFieldDefinition.update({
       where: { id: def.id },
@@ -74,7 +75,7 @@ export class FieldsService {
 
   private async getOwn(studioId: string, fieldId: string): Promise<ContactFieldDefinition> {
     const def = await this.prisma.contactFieldDefinition.findFirst({ where: { id: fieldId, studioId } });
-    if (!def) throw new NotFoundException('Alan bulunamadı');
+    if (!def) throw new NotFoundException(apiError('apiErrors.crm.fieldNotFound'));
     return def;
   }
 }

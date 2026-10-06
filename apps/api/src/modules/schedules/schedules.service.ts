@@ -36,10 +36,11 @@ import { evaluateCancellation, evaluateNoShow, FALLBACK_POLICY, PolicyTerms } fr
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
 import { deriveSpotStatus, SpotOccupant } from './spots';
 import { sortByClosestStart } from '../checkin/checkin-window';
-import type { ScheduleSpotsDTO, SpotGroupDTO } from '@platform/shared';
+import type { ApiErrorKey, ScheduleSpotsDTO, SpotGroupDTO } from '@platform/shared';
+import { apiError, hasApiErrorCode } from '../../common/api-error';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const CAPACITY_FULL = 'Bu seansın kontenjanı doludur';
+const CAPACITY_FULL = apiError('apiErrors.schedules.sessionFull');
 /** Upper bound on entries tried per freed seat, so a long list of unusable entries cannot stall a request. */
 const MAX_PROMOTION_ATTEMPTS = 20;
 
@@ -151,20 +152,20 @@ export class SchedulesService {
       where: { id: dto.serviceTypeId, studioId, isActive: true },
     });
     if (!serviceType) {
-      throw new NotFoundException('Hizmet türü bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.common.serviceTypeNotFound'));
     }
 
     const start = new Date(dto.startTime);
     const end = new Date(dto.endTime);
     if (start >= end) {
-      throw new BadRequestException('Bitiş saati başlangıç saatinden sonra olmalıdır');
+      throw new BadRequestException(apiError('apiErrors.schedules.endTimeMustAfterStartTime'));
     }
 
     let branchId = dto.branchId ?? null;
     if (branchId) {
       const branch = await this.prisma.branch.findFirst({ where: { id: branchId, studioId, isActive: true } });
       if (!branch) {
-        throw new BadRequestException('Seçilen şube bu işletmede bulunamadı veya pasif');
+        throw new BadRequestException(apiError('apiErrors.common.selectedBranchNotFoundBusinessInactive'));
       }
     }
 
@@ -173,17 +174,17 @@ export class SchedulesService {
         where: { id: dto.resourceId, studioId, isMaintenance: false },
       });
       if (!resource) {
-        throw new BadRequestException('Seçilen kaynak bu işletmede bulunamadı veya bakımdadır');
+        throw new BadRequestException(apiError('apiErrors.common.selectedResourceNotFoundBusinessUnder'));
       }
       if (resource.branchId && branchId && resource.branchId !== branchId) {
-        throw new BadRequestException('Seçilen kaynak başka bir şubeye ait');
+        throw new BadRequestException(apiError('apiErrors.schedules.selectedResourceBelongsAnotherBranch'));
       }
       // A room of a branch places the session in that branch.
       branchId = branchId ?? resource.branchId;
     }
 
     if (tenant.branchIds !== null && !branchId) {
-      throw new BadRequestException('Şube seçiniz');
+      throw new BadRequestException(apiError('apiErrors.common.selectBranch'));
     }
     assertBranchAccess(tenant, branchId);
 
@@ -193,12 +194,12 @@ export class SchedulesService {
         include: { qualifications: true },
       });
       if (!trainer) {
-        throw new NotFoundException('Eğitmen bulunamadı');
+        throw new NotFoundException(apiError('apiErrors.common.trainerNotFound'));
       }
       if (serviceType.requiresQualification) {
         const qualified = trainer.qualifications.some((q) => q.serviceTypeId === serviceType.id);
         if (!qualified) {
-          throw new BadRequestException('Eğitmen bu hizmet için yetkin değil');
+          throw new BadRequestException(apiError('apiErrors.schedules.trainerNotQualifiedService'));
         }
       }
     }
@@ -263,17 +264,17 @@ export class SchedulesService {
     const studioId = tenant.studioId;
     const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: scheduleId, studioId } });
     if (!schedule) {
-      throw new NotFoundException('Seans bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.schedules.sessionNotFound'));
     }
     if (schedule.isCancelled) {
-      throw new BadRequestException('İptal edilmiş bir seans güncellenemez');
+      throw new BadRequestException(apiError('apiErrors.schedules.cancelledSessionCannotUpdated'));
     }
     assertBranchAccess(tenant, schedule.branchId);
 
     const start = dto.startTime ? new Date(dto.startTime) : schedule.startTime;
     const end = dto.endTime ? new Date(dto.endTime) : schedule.endTime;
     if (start >= end) {
-      throw new BadRequestException('Bitiş saati başlangıç saatinden sonra olmalıdır');
+      throw new BadRequestException(apiError('apiErrors.schedules.endTimeMustAfterStartTime'));
     }
 
     let branchId = dto.branchId !== undefined ? dto.branchId : schedule.branchId;
@@ -282,14 +283,14 @@ export class SchedulesService {
 
     if (branchId) {
       const branch = await this.prisma.branch.findFirst({ where: { id: branchId, studioId, isActive: true } });
-      if (!branch) throw new BadRequestException('Seçilen şube bu işletmede bulunamadı veya pasif');
+      if (!branch) throw new BadRequestException(apiError('apiErrors.common.selectedBranchNotFoundBusinessInactive'));
     }
 
     if (resourceId) {
       const resource = await this.prisma.resource.findFirst({ where: { id: resourceId, studioId, isMaintenance: false } });
-      if (!resource) throw new BadRequestException('Seçilen kaynak bu işletmede bulunamadı veya bakımdadır');
+      if (!resource) throw new BadRequestException(apiError('apiErrors.common.selectedResourceNotFoundBusinessUnder'));
       if (resource.branchId && branchId && resource.branchId !== branchId) {
-        throw new BadRequestException('Seçilen kaynak başka bir şubeye ait');
+        throw new BadRequestException(apiError('apiErrors.schedules.selectedResourceBelongsAnotherBranch'));
       }
       branchId = branchId ?? resource.branchId;
     }
@@ -297,7 +298,7 @@ export class SchedulesService {
 
     if (trainerId) {
       const trainer = await this.prisma.trainerProfile.findFirst({ where: { id: trainerId, studioId } });
-      if (!trainer) throw new NotFoundException('Eğitmen bulunamadı');
+      if (!trainer) throw new NotFoundException(apiError('apiErrors.common.trainerNotFound'));
     }
 
     await this.assertNoConflict(studioId, start, end, trainerId ?? undefined, resourceId ?? undefined, scheduleId);
@@ -309,11 +310,11 @@ export class SchedulesService {
     const timeChanged = start.getTime() !== schedule.startTime.getTime() || end.getTime() !== schedule.endTime.getTime();
     // A session people already booked cannot move into the past.
     if (timeChanged && activeBookings.length > 0 && start <= new Date()) {
-      throw new BadRequestException('Rezervasyonu olan bir seans geçmiş bir saate taşınamaz');
+      throw new BadRequestException(apiError('apiErrors.schedules.sessionBookingsCannotMovedPastTime'));
     }
     // Capacity never drops below the seats already taken.
     if (dto.capacity !== undefined && dto.capacity < activeBookings.length) {
-      throw new BadRequestException(`Kapasite mevcut rezervasyon sayısının (${activeBookings.length}) altına düşürülemez`);
+      throw new BadRequestException(apiError('apiErrors.schedules.capacityBelowBookings', { count: activeBookings.length }));
     }
 
     const updated = await this.prisma.sessionSchedule.update({
@@ -355,7 +356,7 @@ export class SchedulesService {
 
   /** Members booking for themselves; enforces dto.memberId matches the caller's own profile. */
   async bookSessionSelf(tenant: TenantContext, dto: BookSessionInput) {
-    this.assertSelf(tenant, dto.memberId, 'Yalnızca kendi adınıza rezervasyon yapabilirsiniz');
+    this.assertSelf(tenant, dto.memberId, 'apiErrors.schedules.canOnlyBookYourself');
     const booking = await this.book(tenant.studioId, dto);
     await this.emitBookingCreated(tenant.studioId, booking);
     return booking;
@@ -384,7 +385,7 @@ export class SchedulesService {
     const studioId = tenant.studioId;
     const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: scheduleId, studioId } });
     if (!schedule) {
-      throw new NotFoundException('Seans bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.schedules.sessionNotFound'));
     }
     assertBranchAccess(tenant, schedule.branchId);
 
@@ -484,9 +485,9 @@ export class SchedulesService {
   async changeSpotSelf(tenant: TenantContext, bookingId: string, resourceIds: string[]) {
     const booking = await this.prisma.booking.findFirst({ where: { id: bookingId, studioId: tenant.studioId } });
     if (!booking) {
-      throw new NotFoundException('Rezervasyon bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.common.bookingNotFound'));
     }
-    this.assertSelf(tenant, booking.memberId, 'Yalnızca kendi rezervasyonunuzun yerini değiştirebilirsiniz');
+    this.assertSelf(tenant, booking.memberId, 'apiErrors.schedules.canOnlyMoveOwnBooking');
     return this.doChangeSpot(tenant.studioId, bookingId, resourceIds);
   }
 
@@ -503,10 +504,10 @@ export class SchedulesService {
         include: { schedule: true },
       });
       if (!booking) {
-        throw new NotFoundException('Rezervasyon bulunamadı');
+        throw new NotFoundException(apiError('apiErrors.common.bookingNotFound'));
       }
       if (booking.status !== 'CONFIRMED') {
-        throw new BadRequestException('Yalnızca onaylı rezervasyonların yeri değiştirilebilir');
+        throw new BadRequestException(apiError('apiErrors.schedules.onlyConfirmedBookingsCanMoved'));
       }
 
       await tx.bookingResource.deleteMany({ where: { studioId, bookingId: booking.id } });
@@ -514,10 +515,10 @@ export class SchedulesService {
       for (const resourceId of resourceIds) {
         const resource = await tx.resource.findFirst({ where: { id: resourceId, studioId } });
         if (!resource) {
-          throw new BadRequestException('Seçilen kaynak bu işletmede bulunamadı');
+          throw new BadRequestException(apiError('apiErrors.schedules.selectedResourceNotFound'));
         }
         if (resource.isMaintenance) {
-          throw new BadRequestException('Seçilen yer bakımdadır');
+          throw new BadRequestException(apiError('apiErrors.schedules.selectedSpotUnderMaintenance'));
         }
         try {
           await tx.bookingResource.create({
@@ -532,7 +533,7 @@ export class SchedulesService {
           });
         } catch (err) {
           if (this.isExclusionViolation(err)) {
-            throw new ConflictException('Seçilen yer bu saat için dolu');
+            throw new ConflictException(apiError('apiErrors.schedules.selectedSpotTakenTime'));
           }
           throw err;
         }
@@ -548,22 +549,22 @@ export class SchedulesService {
       include: { serviceType: { include: { requiredResourceTypes: { include: { resourceType: true } } } } },
     });
     if (!schedule) {
-      throw new NotFoundException('Seans bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.schedules.sessionNotFound'));
     }
     if (schedule.isCancelled) {
-      throw new BadRequestException('Bu seans iptal edilmiştir');
+      throw new BadRequestException(apiError('apiErrors.schedules.sessionCancelled'));
     }
 
     const requiresSelectableSpot = (schedule.serviceType.requiredResourceTypes ?? []).some(
       (r) => r.resourceType.selectableByMember,
     );
     if (requiresSelectableSpot && (!dto.resourceIds || dto.resourceIds.length === 0)) {
-      throw new BadRequestException('Bu hizmet için bir yer seçmelisiniz');
+      throw new BadRequestException(apiError('apiErrors.schedules.mustChooseSpotService'));
     }
 
     const member = await this.prisma.memberProfile.findFirst({ where: { id: dto.memberId, studioId } });
     if (!member) {
-      throw new NotFoundException('Üye bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.common.memberNotFound'));
     }
 
     const { memberPackage, unitCost } = await this.resolvePackage(
@@ -582,7 +583,7 @@ export class SchedulesService {
           data: { usedUnits: { increment: unitCost }, remainingUnits: { decrement: unitCost } },
         });
         if (charged.count === 0) {
-          throw new BadRequestException('Pakette yeterli seans/kredi kalmamıştır');
+          throw new BadRequestException(apiError('apiErrors.schedules.packageNoSessionsCreditsLeft'));
         }
         await tx.memberPackage.updateMany({
           where: { id: memberPackage.id, studioId, remainingUnits: 0 },
@@ -603,7 +604,7 @@ export class SchedulesService {
         booking = await this.upsertBooking(tx, studioId, dto.scheduleId, dto.memberId, dto.memberPackageId, unitCost);
       } catch (err) {
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-          throw new ConflictException('Üye bu seansa zaten kayıtlı');
+          throw new ConflictException(apiError('apiErrors.schedules.memberAlreadyBookedIntoSession'));
         }
         throw err;
       }
@@ -611,7 +612,7 @@ export class SchedulesService {
       for (const resourceId of dto.resourceIds ?? []) {
         const resource = await tx.resource.findFirst({ where: { id: resourceId, studioId } });
         if (!resource) {
-          throw new BadRequestException('Seçilen kaynak bu işletmede bulunamadı');
+          throw new BadRequestException(apiError('apiErrors.schedules.selectedResourceNotFound'));
         }
         try {
           await tx.bookingResource.create({
@@ -626,7 +627,7 @@ export class SchedulesService {
           });
         } catch (err) {
           if (this.isExclusionViolation(err)) {
-            throw new ConflictException('Seçilen ekipman bu saat için dolu');
+            throw new ConflictException(apiError('apiErrors.schedules.selectedEquipmentTakenTime'));
           }
           throw err;
         }
@@ -689,13 +690,13 @@ export class SchedulesService {
       where: { id: memberPackageId, studioId },
     });
     if (!memberPackage || memberPackage.memberId !== memberId) {
-      throw new BadRequestException('Seçilen paket bu üyeye ait değil');
+      throw new BadRequestException(apiError('apiErrors.common.selectedPackageNotBelongMember'));
     }
     if (memberPackage.status !== 'ACTIVE') {
-      throw new BadRequestException(`Paket durumu aktif değil (${memberPackage.status})`);
+      throw new BadRequestException(apiError('apiErrors.schedules.packageNotActive', { status: memberPackage.status }));
     }
     if (new Date() > memberPackage.endDate) {
-      throw new BadRequestException('Paketin son kullanım tarihi dolmuştur');
+      throw new BadRequestException(apiError('apiErrors.schedules.packageExpired'));
     }
 
     const coverage = await this.prisma.packageDefinitionService.findUnique({
@@ -707,12 +708,12 @@ export class SchedulesService {
       },
     });
     if (!coverage) {
-      throw new BadRequestException('Seçilen paket bu hizmeti kapsamıyor');
+      throw new BadRequestException(apiError('apiErrors.schedules.selectedPackageNotCoverService'));
     }
     const unitCost = coverage.unitCost;
 
     if (memberPackage.entitlementKind !== 'TIME_UNLIMITED' && (memberPackage.remainingUnits ?? 0) < unitCost) {
-      throw new BadRequestException('Pakette yeterli seans/kredi kalmamıştır');
+      throw new BadRequestException(apiError('apiErrors.schedules.packageNoSessionsCreditsLeft'));
     }
     return { memberPackage, unitCost };
   }
@@ -727,9 +728,9 @@ export class SchedulesService {
       where: { id: dto.bookingId, studioId: tenant.studioId },
     });
     if (!booking) {
-      throw new NotFoundException('Rezervasyon bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.common.bookingNotFound'));
     }
-    this.assertSelf(tenant, booking.memberId, 'Yalnızca kendi rezervasyonunuzu iptal edebilirsiniz');
+    this.assertSelf(tenant, booking.memberId, 'apiErrors.schedules.canOnlyCancelOwnBooking');
     // Members cannot waive their own penalty.
     return this.cancel(tenant, { ...dto, cancelledBy: 'MEMBER' }, false);
   }
@@ -745,10 +746,10 @@ export class SchedulesService {
       },
     });
     if (!booking) {
-      throw new NotFoundException('Rezervasyon bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.common.bookingNotFound'));
     }
     if (booking.status !== 'CONFIRMED') {
-      throw new BadRequestException('Yalnızca onaylı rezervasyonlar iptal edilebilir');
+      throw new BadRequestException(apiError('apiErrors.schedules.onlyConfirmedBookingsCanCancelled'));
     }
 
     const policy = await this.resolvePolicy(studioId, booking.schedule.serviceType.cancellationPolicy);
@@ -775,7 +776,7 @@ export class SchedulesService {
         },
       });
       if (transitioned.count === 0) {
-        throw new ConflictException('Rezervasyon zaten güncellenmiş');
+        throw new ConflictException(apiError('apiErrors.schedules.bookingAlreadyUpdated'));
       }
 
       await this.refund(tx, studioId, booking.memberPackageId, outcome.refundUnits);
@@ -838,13 +839,13 @@ export class SchedulesService {
       },
     });
     if (!booking) {
-      throw new NotFoundException('Rezervasyon bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.common.bookingNotFound'));
     }
     if (booking.status !== 'CONFIRMED') {
-      throw new BadRequestException('Yalnızca onaylı rezervasyonlar gelmedi olarak işaretlenebilir');
+      throw new BadRequestException(apiError('apiErrors.schedules.onlyConfirmedBookingsCanMarkedAs'));
     }
     if (booking.schedule.startTime > new Date()) {
-      throw new BadRequestException('Seans başlamadan gelmedi işaretlenemez');
+      throw new BadRequestException(apiError('apiErrors.schedules.noShowCannotMarkedBeforeSession'));
     }
 
     const policy = await this.resolvePolicy(studioId, booking.schedule.serviceType.cancellationPolicy);
@@ -861,7 +862,7 @@ export class SchedulesService {
         data: { status: 'NO_SHOW', penaltyUnits: outcome.penaltyUnits },
       });
       if (transitioned.count === 0) {
-        throw new ConflictException('Rezervasyon zaten güncellenmiş');
+        throw new ConflictException(apiError('apiErrors.schedules.bookingAlreadyUpdated'));
       }
       await this.refund(tx, studioId, booking.memberPackageId, outcome.refundUnits);
       const updated = await tx.booking.findUniqueOrThrow({ where: { id: booking.id } });
@@ -896,7 +897,7 @@ export class SchedulesService {
       where: { id: bookingId, studioId: tenant.studioId },
     });
     if (!booking) {
-      throw new NotFoundException('Rezervasyon bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.common.bookingNotFound'));
     }
     return this.doCheckIn(tenant.studioId, bookingId);
   }
@@ -907,7 +908,7 @@ export class SchedulesService {
       data: { status: 'ATTENDED', checkInAt: new Date() },
     });
     if (updated.count === 0) {
-      throw new BadRequestException('Yalnızca onaylı rezervasyonlar için giriş yapılabilir');
+      throw new BadRequestException(apiError('apiErrors.schedules.onlyConfirmedBookingsCanChecked'));
     }
 
     // Best-effort: streaks/milestones/badges must never fail a check-in.
@@ -942,10 +943,10 @@ export class SchedulesService {
   async checkInForMember(studioId: string, bookingId: string, expectedMemberId: string) {
     const booking = await this.prisma.booking.findFirst({ where: { id: bookingId, studioId } });
     if (!booking) {
-      throw new NotFoundException('Rezervasyon bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.common.bookingNotFound'));
     }
     if (booking.memberId !== expectedMemberId) {
-      throw new ForbiddenException('Bu rezervasyon size ait değil');
+      throw new ForbiddenException(apiError('apiErrors.schedules.bookingNotBelong'));
     }
     if (booking.status === 'ATTENDED') {
       return booking;
@@ -959,7 +960,7 @@ export class SchedulesService {
       // A concurrent scan may have won the transition; that is still success.
       const current = await this.prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
       if (current.status === 'ATTENDED') return current;
-      throw new BadRequestException('Yalnızca onaylı rezervasyonlar için giriş yapılabilir');
+      throw new BadRequestException(apiError('apiErrors.schedules.onlyConfirmedBookingsCanChecked'));
     }
 
     // Best-effort, same as the staff check-in: never fail a QR/kiosk check-in.
@@ -1019,7 +1020,7 @@ export class SchedulesService {
     await this.assertScheduleBranch(tenant, scheduleId);
     const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: scheduleId, studioId: tenant.studioId } });
     if (!schedule) {
-      throw new NotFoundException('Seans bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.schedules.sessionNotFound'));
     }
 
     const meeting =
@@ -1051,16 +1052,16 @@ export class SchedulesService {
    */
   async joinSession(tenant: TenantContext, scheduleId: string): Promise<JoinSessionResultDTO> {
     if (!tenant.memberProfileId) {
-      throw new ForbiddenException('Yalnızca üyeler katılabilir');
+      throw new ForbiddenException(apiError('apiErrors.schedules.onlyMembersCanJoin'));
     }
     const schedule = await this.prisma.sessionSchedule.findFirst({
       where: { id: scheduleId, studioId: tenant.studioId },
     });
     if (!schedule) {
-      throw new NotFoundException('Seans bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.schedules.sessionNotFound'));
     }
     if (schedule.deliveryMode === SessionDeliveryMode.IN_PERSON || !schedule.meetingUrl) {
-      throw new BadRequestException('Bu seans çevrimiçi katılıma açık değildir');
+      throw new BadRequestException(apiError('apiErrors.schedules.sessionNotOpenOnlineAttendance'));
     }
 
     const booking = await this.prisma.booking.findFirst({
@@ -1072,12 +1073,12 @@ export class SchedulesService {
       },
     });
     if (!booking) {
-      throw new ForbiddenException('Bu seansa katılabilmek için onaylı bir rezervasyonunuz olmalıdır');
+      throw new ForbiddenException(apiError('apiErrors.schedules.mustConfirmedBookingJoinSession'));
     }
 
     const now = new Date();
     if (!isWithinJoinWindow(schedule.startTime, schedule.endTime, now)) {
-      throw new BadRequestException('Katılım bağlantısı yalnızca seans başlamadan 15 dakika önce ile bitişi arasında kullanılabilir');
+      throw new BadRequestException(apiError('apiErrors.schedules.joinLinkCanOnlyUsed15'));
     }
 
     if (booking.status === 'CONFIRMED') {
@@ -1100,7 +1101,7 @@ export class SchedulesService {
   async getWaitlist(tenant: TenantContext, scheduleId: string) {
     const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: scheduleId, studioId: tenant.studioId } });
     if (!schedule) {
-      throw new NotFoundException('Seans bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.schedules.sessionNotFound'));
     }
     assertBranchAccess(tenant, schedule.branchId);
     const canViewContact = tenant.permissions.has('members.contact.view');
@@ -1118,34 +1119,34 @@ export class SchedulesService {
   }
 
   async joinWaitlistSelf(tenant: TenantContext, dto: JoinWaitlistInput) {
-    this.assertSelf(tenant, dto.memberId, 'Yalnızca kendi adınıza bekleme listesine girebilirsiniz');
+    this.assertSelf(tenant, dto.memberId, 'apiErrors.schedules.canOnlyJoinWaitlistYourself');
     return this.join(tenant.studioId, dto);
   }
 
   private async join(studioId: string, dto: JoinWaitlistInput) {
     const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: dto.scheduleId, studioId } });
     if (!schedule) {
-      throw new NotFoundException('Seans bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.schedules.sessionNotFound'));
     }
     if (schedule.isCancelled) {
-      throw new BadRequestException('Bu seans iptal edilmiştir');
+      throw new BadRequestException(apiError('apiErrors.schedules.sessionCancelled'));
     }
     if (schedule.startTime <= new Date()) {
-      throw new BadRequestException('Başlamış bir seansın bekleme listesine girilemez');
+      throw new BadRequestException(apiError('apiErrors.schedules.cannotJoinWaitlistSessionStarted'));
     }
     if (schedule.bookedCount < schedule.capacity) {
-      throw new BadRequestException('Seansta boş yer var, doğrudan rezervasyon yapabilirsiniz');
+      throw new BadRequestException(apiError('apiErrors.schedules.roomSessionCanBookDirectly'));
     }
 
     const member = await this.prisma.memberProfile.findFirst({ where: { id: dto.memberId, studioId } });
     if (!member) {
-      throw new NotFoundException('Üye bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.common.memberNotFound'));
     }
     const live = await this.prisma.booking.findFirst({
       where: { studioId, scheduleId: dto.scheduleId, memberId: dto.memberId, status: { in: ['CONFIRMED', 'ATTENDED'] } },
     });
     if (live) {
-      throw new ConflictException('Üye bu seansa zaten kayıtlı');
+      throw new ConflictException(apiError('apiErrors.schedules.memberAlreadyBookedIntoSession'));
     }
     // Validates ownership, status and coverage now so the member learns about
     // a problem at join time, not when a seat opens.
@@ -1162,7 +1163,7 @@ export class SchedulesService {
         where: { scheduleId_memberId: { scheduleId: dto.scheduleId, memberId: dto.memberId } },
       });
       if (existing && (existing.status === 'WAITING' || existing.status === 'OFFERED')) {
-        throw new ConflictException('Üye zaten bekleme listesinde');
+        throw new ConflictException(apiError('apiErrors.schedules.memberAlreadyWaitlist'));
       }
       const data = {
         memberPackageId: dto.memberPackageId ?? null,
@@ -1184,7 +1185,7 @@ export class SchedulesService {
         return { ...entry, placeInLine: ahead + 1 };
       } catch (err) {
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-          throw new ConflictException('Üye zaten bekleme listesinde');
+          throw new ConflictException(apiError('apiErrors.schedules.memberAlreadyWaitlist'));
         }
         throw err;
       }
@@ -1202,10 +1203,10 @@ export class SchedulesService {
   private async leave(tenant: TenantContext, dto: LeaveWaitlistInput, selfOnly: boolean) {
     const entry = await this.prisma.waitlist.findFirst({ where: { id: dto.waitlistId, studioId: tenant.studioId } });
     if (!entry) {
-      throw new NotFoundException('Bekleme listesi kaydı bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.schedules.waitlistEntryNotFound'));
     }
     if (selfOnly) {
-      this.assertSelf(tenant, entry.memberId, 'Yalnızca kendi bekleme listesi kaydınızı silebilirsiniz');
+      this.assertSelf(tenant, entry.memberId, 'apiErrors.schedules.canOnlyRemoveOwnWaitlistEntry');
     } else {
       await this.assertScheduleBranch(tenant, entry.scheduleId);
     }
@@ -1214,7 +1215,7 @@ export class SchedulesService {
       data: { status: 'CANCELLED', resolvedAt: new Date() },
     });
     if (updated.count === 0) {
-      throw new BadRequestException('Bu kayıt artık beklemede değil');
+      throw new BadRequestException(apiError('apiErrors.schedules.entryNoLongerWaiting'));
     }
     return { id: entry.id, status: 'CANCELLED' as const };
   }
@@ -1271,7 +1272,7 @@ export class SchedulesService {
           data: { scheduleId, type: 'WAITLIST_PROMOTED' },
         });
       } catch (err) {
-        if (err instanceof HttpException && err.message === CAPACITY_FULL) {
+        if (hasApiErrorCode(err, 'apiErrors.schedules.sessionFull')) {
           // Someone took the seat first: put the entry back in line.
           await this.prisma.waitlist.updateMany({
             where: { id: next.id, status: 'OFFERED' },
@@ -1321,8 +1322,8 @@ export class SchedulesService {
       });
       if (flipped.count === 0) {
         const exists = await tx.sessionSchedule.findFirst({ where: { id: scheduleId, studioId }, select: { id: true } });
-        if (!exists) throw new NotFoundException('Seans bulunamadı');
-        throw new BadRequestException('Bu seans zaten iptal edilmiştir');
+        if (!exists) throw new NotFoundException(apiError('apiErrors.schedules.sessionNotFound'));
+        throw new BadRequestException(apiError('apiErrors.schedules.sessionAlreadyCancelled'));
       }
 
       const schedule = await tx.sessionSchedule.findUniqueOrThrow({ where: { id: scheduleId } });
@@ -1406,17 +1407,17 @@ export class SchedulesService {
     const studioId = tenant.studioId;
     const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: scheduleId, studioId } });
     if (!schedule) {
-      throw new NotFoundException('Seans bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.schedules.sessionNotFound'));
     }
     assertBranchAccess(tenant, schedule.branchId);
     if (schedule.isCancelled) {
-      throw new BadRequestException('Bu seans iptal edilmiştir');
+      throw new BadRequestException(apiError('apiErrors.schedules.sessionCancelled'));
     }
     if (schedule.endTime <= new Date()) {
-      throw new BadRequestException('Tamamlanmış bir seansın eğitmeni değiştirilemez');
+      throw new BadRequestException(apiError('apiErrors.schedules.trainerCompletedSessionCannotChanged'));
     }
     if (schedule.trainerId === dto.trainerId) {
-      throw new BadRequestException('Seçilen eğitmen zaten bu seansın eğitmeni');
+      throw new BadRequestException(apiError('apiErrors.schedules.selectedTrainerAlreadyTrainerSession'));
     }
 
     const trainer = await this.prisma.trainerProfile.findFirst({
@@ -1424,11 +1425,11 @@ export class SchedulesService {
       include: { qualifications: true },
     });
     if (!trainer) {
-      throw new NotFoundException('Eğitmen bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.common.trainerNotFound'));
     }
     const serviceType = await this.prisma.serviceType.findFirst({ where: { id: schedule.serviceTypeId, studioId } });
     if (serviceType?.requiresQualification && !trainer.qualifications.some((q) => q.serviceTypeId === serviceType.id)) {
-      throw new BadRequestException('Eğitmen bu hizmet için yetkin değil');
+      throw new BadRequestException(apiError('apiErrors.schedules.trainerNotQualifiedService'));
     }
     await this.assertNoConflict(studioId, schedule.startTime, schedule.endTime, dto.trainerId, undefined, schedule.id);
 
@@ -1505,9 +1506,9 @@ export class SchedulesService {
     if (booking) assertBranchAccess(tenant, booking.schedule.branchId);
   }
 
-  private assertSelf(tenant: TenantContext, memberId: string, message: string) {
+  private assertSelf(tenant: TenantContext, memberId: string, messageKey: ApiErrorKey) {
     if (!tenant.memberProfileId || memberId !== tenant.memberProfileId) {
-      throw new ForbiddenException(message);
+      throw new ForbiddenException(apiError(messageKey));
     }
   }
 
@@ -1560,7 +1561,7 @@ export class SchedulesService {
         where: { studioId, trainerId, isCancelled: false, ...overlap },
       });
       if (trainerConflict) {
-        throw new ConflictException('Seçilen eğitmenin bu saat aralığında başka bir seansı bulunmaktadır');
+        throw new ConflictException(apiError('apiErrors.schedules.selectedTrainerAnotherSessionTimeRange'));
       }
     }
 
@@ -1569,7 +1570,7 @@ export class SchedulesService {
         where: { studioId, resourceId, isCancelled: false, ...overlap },
       });
       if (resourceConflict) {
-        throw new ConflictException('Seçilen kaynak bu saat aralığında doludur');
+        throw new ConflictException(apiError('apiErrors.schedules.selectedResourceTakenTimeRange'));
       }
     }
   }

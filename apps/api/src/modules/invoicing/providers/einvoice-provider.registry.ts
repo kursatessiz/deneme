@@ -7,8 +7,9 @@ import { ElogoEInvoiceProvider } from './elogo-einvoice.provider';
 import { ForibaEInvoiceProvider } from './foriba-einvoice.provider';
 import { UyumsoftEInvoiceProvider } from './uyumsoft-einvoice.provider';
 import type { EInvoiceProviderAdapter } from './einvoice-provider.interface';
+import { apiError } from '../../../common/api-error';
 
-const NOT_CONFIGURED = 'e-Fatura sağlayıcısı henüz yapılandırılmadı.';
+const NOT_CONFIGURED = apiError('apiErrors.invoicing.eInvoiceProviderNotConfiguredYet');
 
 /**
  * Stands in for the mock provider in production: MOCK "issues" every

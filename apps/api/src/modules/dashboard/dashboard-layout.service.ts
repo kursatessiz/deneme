@@ -10,6 +10,7 @@ import {
 import type { DashboardLayout, DashboardLayoutResponseDTO } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
+import { apiError } from '../../common/api-error';
 
 /**
  * The caller's own overview board. Always scoped to the caller's membership
@@ -82,7 +83,7 @@ export class DashboardLayoutService {
   }
 
   private requireMembership(tenant: TenantContext): string {
-    if (!tenant.membershipId) throw new ForbiddenException('Bu işletmede üyeliğiniz olmadan pano kaydedilemez');
+    if (!tenant.membershipId) throw new ForbiddenException(apiError('apiErrors.dashboard.cannotSaveDashboardWithoutMembershipBusiness'));
     return tenant.membershipId;
   }
 }

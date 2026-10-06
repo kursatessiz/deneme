@@ -38,6 +38,7 @@ import { CampaignsService } from '../../growth/campaigns/campaigns.service';
 import { SegmentsService } from '../../growth/segments/segments.service';
 import { MessageTemplatesService } from '../../messaging/settings/message-templates.service';
 import { BrandKitService } from './brand-kit.service';
+import { apiError, codedError } from '../../../common/api-error';
 
 type DraftRow = MarketingDraft & { variants: MarketingDraftVariant[] };
 
@@ -171,7 +172,7 @@ export class MarketingDraftsService {
     const draft = await this.load(platform, draftId);
     const room = MAX_VARIANTS_PER_DRAFT - draft.variants.length;
     const take = variants.slice(0, Math.max(0, room));
-    if (take.length === 0) throw new ConflictException({ statusCode: 409, code: 'DRAFT_VARIANT_LIMIT', message: 'Bir taslakta en fazla 10 varyant olabilir' });
+    if (take.length === 0) throw new ConflictException(codedError('DRAFT_VARIANT_LIMIT', { statusCode: 409 }));
     const start = draft.variants.length;
     const row = await this.prisma.$transaction(async (tx) => {
       await tx.marketingDraftVariant.createMany({
@@ -258,15 +259,15 @@ export class MarketingDraftsService {
 
   async updateVariant(platform: PlatformContext, draftId: string, variantId: string, input: UpdateVariantInput): Promise<MarketingDraftDTO> {
     const draft = await this.load(platform, draftId);
-    if (draft.status === 'ARCHIVED') throw new ConflictException({ statusCode: 409, code: 'DRAFT_ARCHIVED', message: 'Arşivlenmiş taslak düzenlenemez' });
+    if (draft.status === 'ARCHIVED') throw new ConflictException(codedError('DRAFT_ARCHIVED', { statusCode: 409 }));
     const kind = draft.kind as MarketingDraftKind;
     if (!(GENERATABLE_DRAFT_KINDS as readonly string[]).includes(kind)) {
-      throw new BadRequestException({ statusCode: 400, code: 'DRAFT_KIND_NOT_EDITABLE', message: 'Bu tür taslak metin olarak düzenlenemez' });
+      throw new BadRequestException(codedError('DRAFT_KIND_NOT_EDITABLE', { statusCode: 400 }));
     }
     const variant = draft.variants.find((v) => v.id === variantId);
-    if (!variant) throw new NotFoundException('Varyant bulunamadı');
+    if (!variant) throw new NotFoundException(apiError('apiErrors.platformMarketing.variantNotFound'));
     const parsed = parseMarketingContent(kind, input.content);
-    if (!parsed.ok) throw new BadRequestException({ statusCode: 400, message: 'Geçersiz içerik', errors: parsed.issues.map((message) => ({ path: '', message })) });
+    if (!parsed.ok) throw new BadRequestException({ ...apiError('apiErrors.platformMarketing.invalidContent'), errors: parsed.issues.map((message) => ({ path: '', message })) });
     const ctx = await this.brandKit.loadCheckContext(platform.platformStudioId, draft.locale, kind);
     const issues = runMarketingChecks(kind, parsed.content, ctx);
     const row = await this.prisma.$transaction(async (tx) => {
@@ -299,10 +300,10 @@ export class MarketingDraftsService {
   async setAbTest(platform: PlatformContext, draftId: string, input: AbTestSetupInput): Promise<MarketingDraftDTO> {
     const draft = await this.load(platform, draftId);
     if (!(GENERATABLE_DRAFT_KINDS as readonly string[]).includes(draft.kind)) {
-      throw new BadRequestException({ statusCode: 400, code: 'DRAFT_KIND_NOT_EDITABLE', message: 'Bu tür taslak için A/B testi kurulamaz' });
+      throw new BadRequestException(codedError('DRAFT_KIND_NOT_EDITABLE', { statusCode: 400 }));
     }
     const ids = new Set(draft.variants.map((v) => v.id));
-    if (!input.variantIds.every((id) => ids.has(id))) throw new BadRequestException('Varyantlar bu taslağa ait olmalı');
+    if (!input.variantIds.every((id) => ids.has(id))) throw new BadRequestException(apiError('apiErrors.platformMarketing.variantsMustBelongDraft'));
     const row = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.marketingDraft.update({
         where: { id: draftId },
@@ -334,17 +335,17 @@ export class MarketingDraftsService {
     const draft = await this.load(platform, draftId);
     const kind = draft.kind as MarketingDraftKind;
     if (!(CAMPAIGN_EXPORTABLE_KINDS as readonly string[]).includes(kind)) {
-      throw new BadRequestException({ statusCode: 400, code: 'DRAFT_KIND_NOT_EXPORTABLE', message: 'Bu tür taslak kampanyaya aktarılamaz' });
+      throw new BadRequestException(codedError('DRAFT_KIND_NOT_EXPORTABLE', { statusCode: 400 }));
     }
-    if (draft.status === 'ARCHIVED') throw new ConflictException({ statusCode: 409, code: 'DRAFT_ARCHIVED', message: 'Arşivlenmiş taslak aktarılamaz' });
+    if (draft.status === 'ARCHIVED') throw new ConflictException(codedError('DRAFT_ARCHIVED', { statusCode: 409 }));
     const variant = draft.variants.find((v) => v.id === input.variantId);
-    if (!variant) throw new NotFoundException('Varyant bulunamadı');
+    if (!variant) throw new NotFoundException(apiError('apiErrors.platformMarketing.variantNotFound'));
     const parsed = parseMarketingContent(kind, variant.content);
-    if (!parsed.ok) throw new BadRequestException({ statusCode: 400, message: 'Geçersiz içerik' });
+    if (!parsed.ok) throw new BadRequestException(apiError('apiErrors.platformMarketing.invalidContent'));
     const ctx: MarketingCheckContext = await this.brandKit.loadCheckContext(platform.platformStudioId, draft.locale, kind);
     const issues = runMarketingChecks(kind, parsed.content, ctx);
     if (hasBlockingIssues(issues)) {
-      throw new ConflictException({ statusCode: 409, code: 'DRAFT_HAS_BLOCKING_ISSUES', message: 'Taslakta engelleyici marka kontrolü sorunları var', issues });
+      throw new ConflictException(codedError('DRAFT_HAS_BLOCKING_ISSUES', { statusCode: 409, issues }));
     }
 
     const studioId = platform.platformStudioId;
@@ -367,10 +368,10 @@ export class MarketingDraftsService {
         let variantTemplateKey = templateKey;
         if (source.id !== variant.id) {
           const content = parseMarketingContent(kind, source.content);
-          if (!content.ok) throw new BadRequestException({ statusCode: 400, message: 'Geçersiz içerik' });
+          if (!content.ok) throw new BadRequestException(apiError('apiErrors.platformMarketing.invalidContent'));
           const variantIssues = runMarketingChecks(kind, content.content, ctx);
           if (hasBlockingIssues(variantIssues)) {
-            throw new ConflictException({ statusCode: 409, code: 'DRAFT_HAS_BLOCKING_ISSUES', message: 'Taslakta engelleyici marka kontrolü sorunları var', issues: variantIssues });
+            throw new ConflictException(codedError('DRAFT_HAS_BLOCKING_ISSUES', { statusCode: 409, issues: variantIssues }));
           }
           variantTemplateKey = `MKT_${randomBytes(6).toString('hex').toUpperCase()}`;
           await this.templates.upsert(studioId, this.templateInput(kind as CampaignExportableKind, variantTemplateKey, draft.locale, content.content));
@@ -455,7 +456,7 @@ export class MarketingDraftsService {
   /** Loads a draft of the platform tenant; another tenant's id is indistinguishable from a missing one. */
   async load(platform: PlatformContext, id: string): Promise<DraftRow> {
     const row = await this.prisma.marketingDraft.findFirst({ where: { id, studioId: platform.platformStudioId }, include });
-    if (!row) throw new NotFoundException('Taslak bulunamadı');
+    if (!row) throw new NotFoundException(apiError('apiErrors.platformMarketing.draftNotFound'));
     return row;
   }
 }

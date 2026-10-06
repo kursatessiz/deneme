@@ -1,23 +1,24 @@
 import { BadRequestException, ConflictException, ForbiddenException, HttpException } from '@nestjs/common';
 import type { LoyaltyErrorCode } from '@platform/shared';
+import { codedError } from '../../common/api-error';
 
 /**
  * Loyalty errors carry a stable `code` (LOYALTY_ERROR_CODES) next to the
- * Turkish log/diagnostic message; clients translate `loyalty.error.<code>`.
+ * translated message; clients translate `loyalty.error.<code>`.
  */
 export function loyaltyError(code: LoyaltyErrorCode): HttpException {
   switch (code) {
     case 'LOYALTY_DISABLED':
-      return new ConflictException({ statusCode: 409, code, message: 'Sadakat programı bu işletmede kapalı' });
+      return new ConflictException(codedError(code, { statusCode: 409 }));
     case 'LOYALTY_INSUFFICIENT_BALANCE':
-      return new ConflictException({ statusCode: 409, code, message: 'Puan bakiyesi yetersiz' });
+      return new ConflictException(codedError(code, { statusCode: 409 }));
     case 'LOYALTY_REWARD_INACTIVE':
-      return new BadRequestException({ statusCode: 400, code, message: 'Ödül kullanılabilir durumda değil' });
+      return new BadRequestException(codedError(code, { statusCode: 400 }));
     case 'LOYALTY_MEMBER_REDEEM_DISABLED':
-      return new ForbiddenException({ statusCode: 403, code, message: 'Ödüller üye uygulamasından kullanılamıyor' });
+      return new ForbiddenException(codedError(code, { statusCode: 403 }));
     case 'LOYALTY_NO_ACTIVE_PACKAGE':
-      return new ConflictException({ statusCode: 409, code, message: 'Hak eklenebilecek aktif bir paket yok' });
+      return new ConflictException(codedError(code, { statusCode: 409 }));
     case 'LOYALTY_CURRENCY_MISMATCH':
-      return new BadRequestException({ statusCode: 400, code, message: 'Para birimi işletmenin para birimiyle aynı olmalıdır' });
+      return new BadRequestException(codedError(code, { statusCode: 400 }));
   }
 }

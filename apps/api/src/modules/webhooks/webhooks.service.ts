@@ -6,6 +6,7 @@ import { assertPublicHttpsHostname } from './ssrf-check';
 import { MAX_REST_HOOKS_PER_STUDIO, WEBHOOK_EVENTS, isPlatformWebhookEvent, isWebhookEvent } from '@platform/shared';
 import type { CreateWebhookEndpointInput, SubscribeHookInput, UpdateWebhookEndpointInput, WebhookEvent } from '@platform/shared';
 import type { TenantContext } from '../auth/tenant-context';
+import { apiError } from '../../common/api-error';
 
 function generateSecret(): string {
   return `whsec_${randomBytes(24).toString('base64url')}`;
@@ -82,7 +83,7 @@ export class WebhooksService {
     await this.assertEventsAllowed(studioId, [dto.event]);
     const existing = await this.prisma.webhookEndpoint.count({ where: { studioId } });
     if (existing >= MAX_REST_HOOKS_PER_STUDIO) {
-      throw new ConflictException('Bu işletme için en fazla webhook sayısına ulaşıldı');
+      throw new ConflictException(apiError('apiErrors.webhooks.maximumNumberWebhooksBusinessReached'));
     }
     const secret = generateSecret();
     const endpoint = await this.prisma.webhookEndpoint.create({
@@ -136,7 +137,7 @@ export class WebhooksService {
   async redeliver(tenant: TenantContext, userId: string, endpointId: string, deliveryId: string) {
     await this.findOwned(tenant.studioId, endpointId);
     const delivery = await this.prisma.webhookDelivery.findFirst({ where: { id: deliveryId, endpointId } });
-    if (!delivery) throw new NotFoundException('Teslimat kaydı bulunamadı');
+    if (!delivery) throw new NotFoundException(apiError('apiErrors.webhooks.deliveryRecordNotFound'));
     const updated = await this.prisma.webhookDelivery.update({
       where: { id: deliveryId },
       data: { status: 'PENDING', nextAttemptAt: new Date(), lastError: null },
@@ -183,12 +184,12 @@ export class WebhooksService {
   private async assertEventsAllowed(studioId: string, events: readonly string[]): Promise<void> {
     if (!events.some(isPlatformWebhookEvent)) return;
     const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { isPlatform: true } });
-    if (!studio?.isPlatform) throw new BadRequestException('Bu olaylar yalnızca platform kiracısı için kullanılabilir');
+    if (!studio?.isPlatform) throw new BadRequestException(apiError('apiErrors.webhooks.eventsCanOnlyUsedPlatformTenant'));
   }
 
   private async findOwned(studioId: string, id: string) {
     const endpoint = await this.prisma.webhookEndpoint.findFirst({ where: { id, studioId } });
-    if (!endpoint) throw new NotFoundException('Webhook uç noktası bulunamadı');
+    if (!endpoint) throw new NotFoundException(apiError('apiErrors.webhooks.webhookEndpointNotFound'));
     return endpoint;
   }
 

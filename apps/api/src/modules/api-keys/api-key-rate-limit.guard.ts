@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
 import type { ApiKeyAuthenticatedRequest } from './api-key-tenant-context';
+import { apiError } from '../../common/api-error';
 
 const WINDOW_SECONDS = 60;
 const MAX_REQUESTS = 120;
@@ -29,7 +30,7 @@ export class ApiKeyRateLimitGuard implements CanActivate {
         const count = await client.incr(key);
         if (count === 1) await client.expire(key, WINDOW_SECONDS);
         if (count > MAX_REQUESTS) {
-          throw new HttpException('Çok fazla istek, lütfen daha sonra tekrar deneyin', HttpStatus.TOO_MANY_REQUESTS);
+          throw new HttpException(apiError('apiErrors.common.tooManyRequestsLater'), HttpStatus.TOO_MANY_REQUESTS);
         }
         return true;
       } catch (err) {
@@ -49,7 +50,7 @@ export class ApiKeyRateLimitGuard implements CanActivate {
     }
     entry.count += 1;
     if (entry.count > MAX_REQUESTS) {
-      throw new HttpException('Çok fazla istek, lütfen daha sonra tekrar deneyin', HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(apiError('apiErrors.common.tooManyRequestsLater'), HttpStatus.TOO_MANY_REQUESTS);
     }
     return true;
   }

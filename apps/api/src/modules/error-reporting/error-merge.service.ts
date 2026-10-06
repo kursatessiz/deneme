@@ -4,6 +4,7 @@ import { ERROR_LIMITS } from '@platform/shared';
 import type { ErrorGroupSummaryDTO } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { toSummary } from './error-query.service';
+import { apiError } from '../../common/api-error';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -20,16 +21,16 @@ export class ErrorMergeService {
   constructor(private readonly prisma: PrismaService) {}
 
   async merge(sourceId: string, targetId: string, userId: string): Promise<ErrorGroupSummaryDTO> {
-    if (!UUID.test(sourceId) || !UUID.test(targetId)) throw new NotFoundException('Hata grubu bulunamadı');
-    if (sourceId === targetId) throw new ConflictException('Bir grup kendisiyle birleştirilemez');
+    if (!UUID.test(sourceId) || !UUID.test(targetId)) throw new NotFoundException(apiError('apiErrors.errorReporting.errorGroupNotFound'));
+    if (sourceId === targetId) throw new ConflictException(apiError('apiErrors.errorReporting.groupCannotMergedIntoItself'));
 
     const target = await this.prisma.$transaction(
       async (tx) => {
         const source = await tx.errorGroup.findUnique({ where: { id: sourceId } });
         const dest = await tx.errorGroup.findUnique({ where: { id: targetId } });
-        if (!source || !dest) throw new NotFoundException('Hata grubu bulunamadı');
-        if (source.mergedIntoId) throw new ConflictException('Bu grup zaten başka bir gruba birleştirilmiş');
-        if (dest.mergedIntoId) throw new ConflictException('Hedef grup zaten başka bir gruba birleştirilmiş');
+        if (!source || !dest) throw new NotFoundException(apiError('apiErrors.errorReporting.errorGroupNotFound'));
+        if (source.mergedIntoId) throw new ConflictException(apiError('apiErrors.errorReporting.groupAlreadyMergedIntoAnotherGroup'));
+        if (dest.mergedIntoId) throw new ConflictException(apiError('apiErrors.errorReporting.targetGroupAlreadyMergedIntoAnother'));
 
         await tx.errorGroup.update({ where: { id: source.id }, data: { mergedIntoId: dest.id } });
 

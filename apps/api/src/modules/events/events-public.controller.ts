@@ -6,6 +6,7 @@ import { ZodBody } from '../../common/zod-body.pipe';
 import { RedisService } from '../redis/redis.service';
 import { readVisitorId } from '../crm/tracking/tracking-utils';
 import { EventRegistrationsService } from './event-registrations.service';
+import { apiError } from '../../common/api-error';
 
 const WINDOW_SECONDS = 60;
 /** Reads are cheap listings; writes create contacts and hold seats. */
@@ -36,7 +37,7 @@ export class EventsPublicRateLimitGuard implements CanActivate {
         if (client.status === 'wait') await client.connect();
         const count = await client.incr(key);
         if (count === 1) await client.expire(key, WINDOW_SECONDS);
-        if (count > limit) throw new HttpException('Too many requests', HttpStatus.TOO_MANY_REQUESTS);
+        if (count > limit) throw new HttpException(apiError('apiErrors.common.tooManyRequests'), HttpStatus.TOO_MANY_REQUESTS);
         return true;
       } catch (err) {
         if (err instanceof HttpException) throw err;
@@ -51,7 +52,7 @@ export class EventsPublicRateLimitGuard implements CanActivate {
       return true;
     }
     entry.count += 1;
-    if (entry.count > limit) throw new HttpException('Too many requests', HttpStatus.TOO_MANY_REQUESTS);
+    if (entry.count > limit) throw new HttpException(apiError('apiErrors.common.tooManyRequests'), HttpStatus.TOO_MANY_REQUESTS);
     return true;
   }
 }

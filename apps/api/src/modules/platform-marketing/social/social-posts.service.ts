@@ -31,6 +31,7 @@ import { mediaUrlsOf, socialPostContentHash } from '../../social/social-content-
 import { socialError } from '../../social/social-connections.service';
 import { SocialPublishingService } from '../../social/social-publishing.service';
 import { BrandKitService } from '../studio/brand-kit.service';
+import { apiError, codedError } from '../../../common/api-error';
 
 type Tx = Prisma.TransactionClient;
 type PostWithConnection = SocialPost & { connection: SocialConnection };
@@ -133,7 +134,7 @@ export class SocialPostsService implements OnModuleInit, ApprovalTargetHandler {
   async update(platform: PlatformContext, id: string, input: UpdateSocialPostInput): Promise<SocialPostDTO> {
     const studioId = platform.platformStudioId;
     const existing = await this.find(studioId, id);
-    if (!isSocialPostEditable(existing.status)) throw socialError('SOCIAL_POST_NOT_EDITABLE', 'Bu durumdaki gönderi değiştirilemez');
+    if (!isSocialPostEditable(existing.status)) throw socialError('SOCIAL_POST_NOT_EDITABLE');
     const connection = input.connectionId ? await this.connection(studioId, input.connectionId) : existing.connection;
     await this.assertLinks(studioId, input);
 
@@ -179,7 +180,7 @@ export class SocialPostsService implements OnModuleInit, ApprovalTargetHandler {
   async remove(platform: PlatformContext, id: string): Promise<{ deleted: true }> {
     const studioId = platform.platformStudioId;
     const existing = await this.find(studioId, id);
-    if (!['DRAFT', 'CANCELLED', 'FAILED'].includes(existing.status)) throw socialError('SOCIAL_POST_NOT_EDITABLE', 'Bu durumdaki gönderi silinemez');
+    if (!['DRAFT', 'CANCELLED', 'FAILED'].includes(existing.status)) throw socialError('SOCIAL_POST_NOT_EDITABLE');
     await this.prisma.$transaction(async (tx) => {
       await tx.socialPost.delete({ where: { id } });
       await this.audit(tx, studioId, platform.userId, 'social.post.delete', id, { status: existing.status });
@@ -190,10 +191,10 @@ export class SocialPostsService implements OnModuleInit, ApprovalTargetHandler {
   async cancel(platform: PlatformContext, id: string): Promise<SocialPostDTO> {
     const studioId = platform.platformStudioId;
     const existing = await this.find(studioId, id);
-    if (!isSocialPostEditable(existing.status)) throw socialError('SOCIAL_POST_NOT_EDITABLE', 'Bu durumdaki gönderi iptal edilemez');
+    if (!isSocialPostEditable(existing.status)) throw socialError('SOCIAL_POST_NOT_EDITABLE');
     const row = await this.prisma.$transaction(async (tx) => {
       const moved = await tx.socialPost.updateMany({ where: { id, studioId, status: existing.status }, data: { status: 'CANCELLED', nextAttemptAt: null } });
-      if (moved.count === 0) throw socialError('SOCIAL_POST_NOT_EDITABLE', 'Gönderinin durumu değişti');
+      if (moved.count === 0) throw socialError('SOCIAL_POST_NOT_EDITABLE');
       if (existing.approvalRequestId) await this.cancelRequest(tx, existing, 'CANCELLED');
       await this.audit(tx, studioId, platform.userId, 'social.post.cancel', id, { from: existing.status });
       return tx.socialPost.findUniqueOrThrow({ where: { id }, include: { connection: true } });
@@ -205,7 +206,7 @@ export class SocialPostsService implements OnModuleInit, ApprovalTargetHandler {
   async schedule(platform: PlatformContext, id: string, scheduledAtInput: string, now = new Date()): Promise<SocialPostDTO> {
     const scheduledAt = new Date(scheduledAtInput);
     if (scheduledAt.getTime() < now.getTime() - PAST_GRACE_MS) {
-      throw new BadRequestException({ statusCode: 400, code: 'SOCIAL_SCHEDULE_IN_PAST', message: 'Yayın zamanı geçmişte olamaz' });
+      throw new BadRequestException(codedError('SOCIAL_SCHEDULE_IN_PAST', { statusCode: 400 }));
     }
     const row = await this.submit(platform, id, scheduledAt, now, 'SCHEDULE');
     return (await this.toDtos([row]))[0];
@@ -218,11 +219,11 @@ export class SocialPostsService implements OnModuleInit, ApprovalTargetHandler {
    */
   async publishNow(platform: PlatformContext, id: string, now = new Date()): Promise<SocialPostDTO> {
     const existing = await this.find(platform.platformStudioId, id);
-    if (existing.status === 'PENDING_APPROVAL') throw socialError('SOCIAL_APPROVAL_REQUIRED', 'Bu gönderi için süper admin onayı bekleniyor');
+    if (existing.status === 'PENDING_APPROVAL') throw socialError('SOCIAL_APPROVAL_REQUIRED');
     const row = await this.submit(platform, id, now, now, 'NOW');
     if (row.status === 'SCHEDULED') {
       const outcome = await this.publishing.publish(row.id, now);
-      if (outcome.kind === 'QUOTA_EXHAUSTED') throw socialError('SOCIAL_QUOTA_EXHAUSTED', 'Instagram 24 saatlik yayın sınırı doldu; gönderi planlı kalır');
+      if (outcome.kind === 'QUOTA_EXHAUSTED') throw socialError('SOCIAL_QUOTA_EXHAUSTED');
     }
     return this.get(platform, id);
   }
@@ -260,12 +261,12 @@ export class SocialPostsService implements OnModuleInit, ApprovalTargetHandler {
     const studioId = platform.platformStudioId;
     const post = await this.find(studioId, id);
     if (!['DRAFT', 'FAILED', 'PENDING_APPROVAL', 'SCHEDULED'].includes(post.status)) {
-      throw socialError('SOCIAL_POST_NOT_SCHEDULABLE', 'Bu durumdaki gönderi planlanamaz');
+      throw socialError('SOCIAL_POST_NOT_SCHEDULABLE');
     }
     const mediaUrls = mediaUrlsOf(post.mediaUrls);
     const shape = validateSocialPostShape(post.connection.provider, { mediaUrls });
     if (shape.length > 0) {
-      throw new BadRequestException({ statusCode: 400, code: 'SOCIAL_POST_INVALID', message: 'Gönderi seçilen ağın kurallarına uymuyor', issues: shape });
+      throw new BadRequestException(codedError('SOCIAL_POST_INVALID', { statusCode: 400, issues: shape }));
     }
     // The brand kit may have changed since the post was saved: check again on every submission.
     const brandCheck = await this.brandCheck(studioId, post.connection, post.locale, post.text, post.link);
@@ -395,13 +396,13 @@ export class SocialPostsService implements OnModuleInit, ApprovalTargetHandler {
 
   private async find(studioId: string, id: string): Promise<PostWithConnection> {
     const post = await this.prisma.socialPost.findFirst({ where: { id, studioId }, include: { connection: true } });
-    if (!post) throw new NotFoundException('Gönderi bulunamadı');
+    if (!post) throw new NotFoundException(apiError('apiErrors.platformMarketing.postNotFound'));
     return post;
   }
 
   private async connection(studioId: string, id: string): Promise<SocialConnection> {
     const connection = await this.prisma.socialConnection.findFirst({ where: { id, studioId } });
-    if (!connection) throw new BadRequestException({ statusCode: HttpStatus.BAD_REQUEST, code: 'SOCIAL_POST_INVALID', message: 'Sosyal hesap bulunamadı' });
+    if (!connection) throw new BadRequestException(codedError('SOCIAL_POST_INVALID', { statusCode: HttpStatus.BAD_REQUEST }));
     return connection;
   }
 
@@ -409,11 +410,11 @@ export class SocialPostsService implements OnModuleInit, ApprovalTargetHandler {
   private async assertLinks(studioId: string, input: { aiDraftId?: string | null; calendarItemId?: string | null }): Promise<void> {
     if (input.aiDraftId) {
       const draft = await this.prisma.marketingDraft.findFirst({ where: { id: input.aiDraftId, studioId }, select: { id: true } });
-      if (!draft) throw new BadRequestException({ statusCode: 400, code: 'SOCIAL_POST_INVALID', message: 'Taslak bulunamadı' });
+      if (!draft) throw new BadRequestException(codedError('SOCIAL_POST_INVALID', { statusCode: 400 }));
     }
     if (input.calendarItemId) {
       const item = await this.prisma.contentCalendarItem.findFirst({ where: { id: input.calendarItemId, studioId }, select: { channel: true } });
-      if (!item || item.channel !== 'SOCIAL') throw new BadRequestException({ statusCode: 400, code: 'SOCIAL_POST_INVALID', message: 'Sosyal takvim öğesi bulunamadı' });
+      if (!item || item.channel !== 'SOCIAL') throw new BadRequestException(codedError('SOCIAL_POST_INVALID', { statusCode: 400 }));
     }
   }
 

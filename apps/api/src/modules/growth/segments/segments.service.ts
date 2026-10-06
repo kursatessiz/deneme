@@ -17,6 +17,7 @@ import type {
 } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SegmentEvaluatorService } from './segment-evaluator.service';
+import { apiError } from '../../../common/api-error';
 
 const SAMPLE_SIZE = 10;
 /** Dynamic segments are recomputed on the heartbeat when older than this. */
@@ -80,7 +81,7 @@ export class SegmentsService {
 
   async get(studioId: string, id: string): Promise<Segment> {
     const row = await this.prisma.segment.findFirst({ where: { id, studioId, archivedAt: null } });
-    if (!row) throw new NotFoundException('Segment bulunamadı');
+    if (!row) throw new NotFoundException(apiError('apiErrors.growth.segmentNotFound'));
     return row;
   }
 
@@ -156,7 +157,7 @@ export class SegmentsService {
     const campaigns = await this.prisma.campaign.count({ where: { studioId, segmentId: segment.id, status: { in: ['DRAFT', 'SCHEDULED', 'SENDING', 'PENDING_APPROVAL', 'PAUSED'] } } });
     const journeys = await this.prisma.journey.findMany({ where: { studioId, status: { in: ['ACTIVE', 'PAUSED'] } }, select: { definition: true } });
     const usedByJourney = journeys.some((j) => JSON.stringify(j.definition).includes(segment.id));
-    if (campaigns > 0 || usedByJourney) throw new ConflictException('Segment bir kampanya veya akış tarafından kullanılıyor');
+    if (campaigns > 0 || usedByJourney) throw new ConflictException(apiError('apiErrors.growth.segmentUsedCampaignJourney'));
     await this.prisma.segment.update({ where: { id: segment.id }, data: { archivedAt: new Date() } });
     return { archived: true };
   }
@@ -180,11 +181,11 @@ export class SegmentsService {
   /** STATIC segments only: add or remove contacts of this studio by hand. */
   async updateMembers(studioId: string, id: string, input: SegmentMembersInput): Promise<SegmentDTO> {
     const segment = await this.get(studioId, id);
-    if (segment.kind !== 'STATIC') throw new BadRequestException('Yalnızca statik segmentlere elle kişi eklenebilir');
+    if (segment.kind !== 'STATIC') throw new BadRequestException(apiError('apiErrors.growth.contactsCanOnlyAddedManuallyStatic'));
     const owned = input.add.length
       ? await this.prisma.contact.findMany({ where: { id: { in: input.add }, studioId, mergedIntoId: null }, select: { id: true } })
       : [];
-    if (owned.length !== new Set(input.add).size) throw new BadRequestException('Kişilerden biri bu işletmede bulunamadı');
+    if (owned.length !== new Set(input.add).size) throw new BadRequestException(apiError('apiErrors.growth.contactsNotFoundBusiness'));
     const now = new Date();
     await this.prisma.$transaction([
       this.prisma.segmentMember.createMany({

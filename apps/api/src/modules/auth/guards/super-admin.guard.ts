@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../tenant-context';
 import { mfaGateError, platformMfaGate } from '../platform-access';
+import { apiError } from '../../../common/api-error';
 
 /**
  * Single gate for every platform-owner (super-admin) endpoint. Must run
@@ -18,7 +19,7 @@ export class SuperAdminGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     if (!request.user?.isSuperAdmin) {
-      throw new ForbiddenException('Bu işlem için yetkiniz yok');
+      throw new ForbiddenException(apiError('apiErrors.auth.notPermissionAction'));
     }
     const gate = platformMfaGate(request.user, false);
     if (gate !== 'ok') throw mfaGateError(gate);

@@ -1,5 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import type { TenantContext } from '../auth/tenant-context';
+import { apiError } from '../../common/api-error';
 
 /**
  * Branch scoping for staff. A null branch on a row means "not tied to a
@@ -11,7 +12,7 @@ export function canAccessBranch(tenant: TenantContext, branchId: string | null |
 
 export function assertBranchAccess(tenant: TenantContext, branchId: string | null | undefined): void {
   if (!canAccessBranch(tenant, branchId)) {
-    throw new ForbiddenException('Bu şubede işlem yetkiniz yok');
+    throw new ForbiddenException(apiError('apiErrors.common.notPermissionBranch'));
   }
 }
 
@@ -34,6 +35,6 @@ export function branchScope(
 /** Staff restricted to some branches may not create branches or grant access. */
 export function assertUnrestricted(tenant: TenantContext): void {
   if (tenant.branchIds !== null) {
-    throw new ForbiddenException('Bu işlem tüm şubelere erişimi olan kullanıcılar içindir');
+    throw new ForbiddenException(apiError('apiErrors.branches.actionOnlyUsersAccessAllBranches'));
   }
 }

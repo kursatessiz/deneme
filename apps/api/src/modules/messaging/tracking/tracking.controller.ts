@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import { readVisitorId } from '../../crm/tracking/tracking-utils';
 import { TrackingService } from './tracking.service';
+import { apiError } from '../../../common/api-error';
 
 /** Transparent 1x1 GIF. */
 const PIXEL = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
@@ -44,14 +45,14 @@ export class MessageTrackingController {
   @HttpCode(200)
   async click(@Param('token') token: string, @Req() req: Request): Promise<{ url: string }> {
     const url = await this.tracking.recordClick(token, req.headers['user-agent'], readVisitorId(req.headers));
-    if (!url) throw new NotFoundException('Bağlantı bulunamadı');
+    if (!url) throw new NotFoundException(apiError('apiErrors.messaging.connectionNotFound'));
     return { url };
   }
 
   @Get('u/:token')
   async unsubscribeInfo(@Param('token') token: string) {
     const info = await this.tracking.unsubscribeInfo(token);
-    if (!info) throw new NotFoundException('Bağlantı geçersiz');
+    if (!info) throw new NotFoundException(apiError('apiErrors.messaging.connectionInvalid'));
     return info;
   }
 
@@ -60,7 +61,7 @@ export class MessageTrackingController {
   @HttpCode(200)
   async unsubscribe(@Param('token') token: string) {
     const result = await this.tracking.unsubscribe(token);
-    if (!result) throw new NotFoundException('Bağlantı geçersiz');
+    if (!result) throw new NotFoundException(apiError('apiErrors.messaging.connectionInvalid'));
     return result;
   }
 }

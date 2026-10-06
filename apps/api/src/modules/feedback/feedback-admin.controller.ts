@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Post } from '@nestjs/common';
 import { SuperAdminOnly } from '../auth/decorators/super-admin-only.decorator';
 import { RatingPromptService } from './rating-prompt.service';
+import { apiError } from '../../common/api-error';
 
 /**
  * Platform-wide rating-prompt trigger, not tied to a single studio. The
@@ -17,7 +18,7 @@ export class FeedbackAdminController {
     let now = new Date();
     if (body?.now && process.env.NODE_ENV === 'test') {
       now = new Date(body.now);
-      if (Number.isNaN(now.getTime())) throw new BadRequestException('Geçersiz tarih');
+      if (Number.isNaN(now.getTime())) throw new BadRequestException(apiError('apiErrors.feedback.invalidDate'));
     }
     return this.ratingPrompt.promptRecentAttendees(now);
   }

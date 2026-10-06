@@ -38,6 +38,7 @@ import { OAuthConnectService } from '../oauth/oauth-connect.service';
 import type { PlatformContext, TenantContext } from '../../auth/tenant-context';
 import { DNS_LOOKUP } from './email-domain-dns';
 import { EmailDomainService, toEmailDomainDto } from './email-domain.service';
+import { apiError } from '../../../common/api-error';
 
 export { DNS_LOOKUP };
 
@@ -218,7 +219,7 @@ export class IntegrationHubService {
       return toEmailDomainDto(row, this.emailDomains.sesRegion());
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw new ConflictException('Bu alan adı zaten ekli');
+        throw new ConflictException(apiError('apiErrors.platformMarketing.domainAlreadyAdded'));
       }
       throw err;
     }
@@ -378,7 +379,7 @@ export class IntegrationHubService {
 
   private async findDomain(platform: PlatformContext, id: string) {
     const domain = await this.prisma.emailSenderDomain.findFirst({ where: { id, studioId: platform.platformStudioId } });
-    if (!domain) throw new NotFoundException('Alan adı bulunamadı');
+    if (!domain) throw new NotFoundException(apiError('apiErrors.common.domainNotFound'));
     return domain;
   }
 

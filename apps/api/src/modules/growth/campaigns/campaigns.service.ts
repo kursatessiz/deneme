@@ -39,6 +39,7 @@ import { CampaignAbService, parseAbSetup, parseOverrides } from './campaign-ab.s
 import { CampaignSendTimeService } from './campaign-send-time.service';
 import { MarketingGuardsService } from './marketing-guards.service';
 import { PlatformEventsService } from '../../webhooks/platform-events.service';
+import { apiError } from '../../../common/api-error';
 
 const HOUR_MS = 60 * 60 * 1000;
 /** A recipient being sent is leased for this long (concurrent workers). */
@@ -93,7 +94,7 @@ export class CampaignsService {
 
   async get(studioId: string, id: string): Promise<CampaignWithSegment> {
     const row = await this.prisma.campaign.findFirst({ where: { id, studioId }, include: { segment: { select: { name: true } } } });
-    if (!row) throw new NotFoundException('Kampanya bulunamadı');
+    if (!row) throw new NotFoundException(apiError('apiErrors.growth.campaignNotFound'));
     return row;
   }
 
@@ -134,7 +135,7 @@ export class CampaignsService {
   async update(studioId: string, id: string, input: UpdateCampaignInput, actorUserId: string | null = null): Promise<CampaignDTO> {
     const campaign = await this.get(studioId, id);
     if (campaign.status !== 'DRAFT' && campaign.status !== 'SCHEDULED' && campaign.status !== 'PENDING_APPROVAL') {
-      throw new ConflictException('Gönderimi başlamış kampanya değiştirilemez');
+      throw new ConflictException(apiError('apiErrors.growth.campaignWhoseSendingStartedCannotChanged'));
     }
     if (input.segmentId) await this.segments.get(studioId, input.segmentId);
     const plan = await this.planAbAndTiming(studioId, campaign, input);
@@ -161,7 +162,7 @@ export class CampaignsService {
 
   async remove(studioId: string, id: string): Promise<{ deleted: true }> {
     const campaign = await this.get(studioId, id);
-    if (campaign.status !== 'DRAFT') throw new ConflictException('Yalnızca taslak kampanyalar silinebilir');
+    if (campaign.status !== 'DRAFT') throw new ConflictException(apiError('apiErrors.growth.onlyDraftCampaignsCanDeleted'));
     await this.prisma.campaign.delete({ where: { id: campaign.id } });
     return { deleted: true };
   }
@@ -187,24 +188,24 @@ export class CampaignsService {
     const abTest = input.abTest !== undefined ? input.abTest : storedSetup;
     let variants: CampaignVariantInput[] | null = null;
     if (abTest === null) {
-      if (input.variants) throw new BadRequestException('Varyantlar için A/B testi ayarı gerekir');
+      if (input.variants) throw new BadRequestException(apiError('apiErrors.growth.bTestSettingsRequiredVariants'));
       // A test that is removed takes its variants with it.
       variants = existing ? [] : null;
     } else if (input.variants) {
       variants = input.variants;
     } else if (!existing || (await this.ab.variantsOf(existing.id)).length < 2) {
-      throw new BadRequestException('A/B testi için en az iki varyant gerekir');
+      throw new BadRequestException(apiError('apiErrors.growth.bTestNeedsLeastTwoVariants'));
     }
     if (variants && variants.length > 0) {
       await this.ab.validate(studioId, variants);
       const channel = input.channel !== undefined ? input.channel : existing?.channel;
       if (channel === 'WHATSAPP' && variants.some((v) => v.overrides && Object.keys(v.overrides).length > 0 && !v.templateKey)) {
-        throw new BadRequestException('WhatsApp varyantları ayrı bir şablonla farklılaşmalıdır');
+        throw new BadRequestException(apiError('apiErrors.growth.whatsappVariantsMustDifferSeparateTemplate'));
       }
     }
     const sendTimeMode = input.sendTimeMode ?? existing?.sendTimeMode ?? 'FIXED';
     const requestedLocal = input.sendTimeLocal !== undefined ? input.sendTimeLocal : (existing?.sendTimeLocal ?? null);
-    if (sendTimeMode === 'RECIPIENT_LOCAL' && !requestedLocal) throw new BadRequestException('Alıcı yerel saati için bir saat girilmelidir');
+    if (sendTimeMode === 'RECIPIENT_LOCAL' && !requestedLocal) throw new BadRequestException(apiError('apiErrors.growth.timeMustEnteredRecipientSLocal'));
     return { abTest, variants, sendTimeMode, sendTimeLocal: sendTimeMode === 'FIXED' ? null : requestedLocal };
   }
 
@@ -212,11 +213,11 @@ export class CampaignsService {
     const campaign = await this.get(studioId, id);
     // Platform tenant (M3b): only an approval (or a self-approval) schedules a send.
     if (await this.approvals.isPlatformStudio(studioId)) {
-      throw approvalError(HttpStatus.CONFLICT, 'CAMPAIGN_APPROVAL_REQUIRED', 'Bu kampanya ancak onay talebiyle gönderilebilir');
+      throw approvalError(HttpStatus.CONFLICT, 'CAMPAIGN_APPROVAL_REQUIRED');
     }
-    if (campaign.status !== 'DRAFT' && campaign.status !== 'SCHEDULED') throw new ConflictException('Kampanya zaten gönderiliyor veya bitti');
+    if (campaign.status !== 'DRAFT' && campaign.status !== 'SCHEDULED') throw new ConflictException(apiError('apiErrors.growth.campaignAlreadySendingFinished'));
     const scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : now;
-    if (scheduledAt.getTime() < now.getTime() - 60_000) throw new BadRequestException('Geçmiş bir zamana planlanamaz');
+    if (scheduledAt.getTime() < now.getTime() - 60_000) throw new BadRequestException(apiError('apiErrors.growth.cannotScheduledPast'));
     const updated = await this.prisma.campaign.update({
       where: { id: campaign.id },
       data: { status: 'SCHEDULED', scheduledAt },
@@ -229,7 +230,7 @@ export class CampaignsService {
   async cancel(studioId: string, id: string, now = new Date(), actorUserId: string | null = null): Promise<CampaignDTO> {
     const campaign = await this.get(studioId, id);
     if (!['SCHEDULED', 'SENDING', 'DRAFT', 'PENDING_APPROVAL', 'PAUSED'].includes(campaign.status)) {
-      throw new ConflictException('Bu kampanya iptal edilemez');
+      throw new ConflictException(apiError('apiErrors.growth.campaignCannotCancelled'));
     }
     const results = await this.prisma.$transaction([
       this.prisma.campaign.update({ where: { id: campaign.id }, data: { status: 'CANCELLED', cancelledAt: now, pauseReason: null } }),
@@ -263,10 +264,10 @@ export class CampaignsService {
   /** Platform tenant (M3b): a paused campaign never sends; its pending recipients wait. */
   async pause(studioId: string, id: string, userId: string, now = new Date()): Promise<CampaignDTO> {
     const campaign = await this.get(studioId, id);
-    if (!canPauseCampaign(campaign.status)) throw approvalError(HttpStatus.CONFLICT, 'CAMPAIGN_NOT_PAUSABLE', 'Yalnızca planlanmış veya gönderilen kampanya duraklatılabilir');
+    if (!canPauseCampaign(campaign.status)) throw approvalError(HttpStatus.CONFLICT, 'CAMPAIGN_NOT_PAUSABLE');
     await this.prisma.$transaction(async (tx) => {
       const moved = await tx.campaign.updateMany({ where: { id: campaign.id, status: campaign.status }, data: { status: 'PAUSED', pauseReason: null } });
-      if (moved.count === 0) throw approvalError(HttpStatus.CONFLICT, 'CAMPAIGN_NOT_PAUSABLE', 'Kampanyanın durumu değişti');
+      if (moved.count === 0) throw approvalError(HttpStatus.CONFLICT, 'CAMPAIGN_NOT_PAUSABLE');
       await tx.auditLog.create({
         data: { studioId, userId, action: 'marketing.campaign.paused', entityType: 'Campaign', entityId: campaign.id, metadata: { from: campaign.status, at: now.toISOString() } },
       });
@@ -281,7 +282,7 @@ export class CampaignsService {
    */
   async resume(studioId: string, id: string, userId: string, now = new Date()): Promise<CampaignDTO> {
     const campaign = await this.get(studioId, id);
-    if (!canResumeCampaign(campaign.status)) throw approvalError(HttpStatus.CONFLICT, 'CAMPAIGN_NOT_RESUMABLE', 'Yalnızca duraklatılmış kampanya sürdürülebilir');
+    if (!canResumeCampaign(campaign.status)) throw approvalError(HttpStatus.CONFLICT, 'CAMPAIGN_NOT_RESUMABLE');
     if (campaign.startedAt && !(await this.approvals.stillValid(campaign, now))) {
       const request = campaign.approvalRequestId ? await this.prisma.approvalRequest.findFirst({ where: { id: campaign.approvalRequestId, studioId } }) : null;
       if (request) await this.approvals.invalidate(campaign, request, userId, now);
@@ -291,7 +292,7 @@ export class CampaignsService {
     const next = campaign.startedAt ? 'SENDING' : 'SCHEDULED';
     await this.prisma.$transaction(async (tx) => {
       const moved = await tx.campaign.updateMany({ where: { id: campaign.id, status: 'PAUSED' }, data: { status: next, pauseReason: null } });
-      if (moved.count === 0) throw approvalError(HttpStatus.CONFLICT, 'CAMPAIGN_NOT_RESUMABLE', 'Kampanyanın durumu değişti');
+      if (moved.count === 0) throw approvalError(HttpStatus.CONFLICT, 'CAMPAIGN_NOT_RESUMABLE');
       await tx.auditLog.create({
         data: { studioId, userId, action: 'marketing.campaign.resumed', entityType: 'Campaign', entityId: campaign.id, metadata: { to: next, at: now.toISOString() } },
       });
@@ -304,7 +305,7 @@ export class CampaignsService {
   /** Sends the campaign's message to the caller's own membership, through the engine, outside the campaign stats. */
   async testSend(tenant: TenantContext, id: string): Promise<CampaignTestSendResultDTO> {
     const campaign = await this.get(tenant.studioId, id);
-    if (!tenant.membershipId) throw new BadRequestException('Test gönderimi için bu işletmede bir üyeliğiniz olmalı');
+    if (!tenant.membershipId) throw new BadRequestException(apiError('apiErrors.growth.needMembershipBusinessSendTest'));
     const result = await this.messaging.send({
       studioId: tenant.studioId,
       recipient: { membershipId: tenant.membershipId },
@@ -518,11 +519,11 @@ export class CampaignsService {
   async pickWinner(studioId: string, id: string, input: PickCampaignWinnerInput, actorUserId: string | null = null, now = new Date()): Promise<CampaignDTO> {
     const campaign = await this.get(studioId, id);
     const variants = parseAbSetup(campaign.abTest) ? await this.ab.variantsOf(campaign.id) : [];
-    if (variants.length < 2) throw new ConflictException('Bu kampanyada A/B testi yok');
-    if (campaign.status !== 'SENDING') throw new ConflictException('Kazanan yalnızca test gönderimi sürerken seçilebilir');
-    if (variants.some((v) => v.isWinner)) throw new ConflictException('Kazanan zaten seçildi');
+    if (variants.length < 2) throw new ConflictException(apiError('apiErrors.growth.campaignHasNoAbTest'));
+    if (campaign.status !== 'SENDING') throw new ConflictException(apiError('apiErrors.growth.winnerCanOnlyPickedWhileTest'));
+    if (variants.some((v) => v.isWinner)) throw new ConflictException(apiError('apiErrors.growth.winnerAlreadyPicked'));
     const key = await this.ab.decide(campaign, input.variantKey ?? null, now, actorUserId);
-    if (!key) throw new ConflictException('Kazanan zaten seçildi');
+    if (!key) throw new ConflictException(apiError('apiErrors.growth.winnerAlreadyPicked'));
     await this.queue.scheduleCampaign(campaign.id, now);
     return this.detail(studioId, id);
   }

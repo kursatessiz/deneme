@@ -49,3 +49,4 @@ export * from './integrations-hub';
 export * from './marketing';
 export * from './audit';
 export * from './dashboard';
+export * from './api-errors';

@@ -28,6 +28,7 @@ import type { TenantContext } from '../../auth/tenant-context';
 import { ContactsService, canSeeMemberContact } from '../../crm/contacts/contacts.service';
 import { CrmHooksService } from '../../crm/hooks/crm-hooks.service';
 import { MessagingService } from '../engine/messaging.service';
+import { apiError } from '../../../common/api-error';
 
 const CONVERSATION_INCLUDE = {
   contact: { select: { id: true, firstName: true, lastName: true, phone: true, email: true, membershipId: true } },
@@ -128,17 +129,17 @@ export class InboxService {
 
   async reply(tenant: TenantContext, conversationId: string, dto: InboxReplyInput): Promise<ConversationDetailDTO> {
     const conversation = await this.getOwn(tenant, conversationId);
-    if (conversation.status === 'CLOSED') throw new BadRequestException('Kapalı bir konuşmaya cevap yazılamaz; önce yeniden açın');
+    if (conversation.status === 'CLOSED') throw new BadRequestException(apiError('apiErrors.messaging.cannotReplyClosedConversationReopen'));
 
     if (conversation.channel === 'IN_APP') {
-      if (!dto.body) throw new BadRequestException('Uygulama içi sohbette yalnızca metin gönderilebilir');
+      if (!dto.body) throw new BadRequestException(apiError('apiErrors.messaging.onlyTextCanSentAppChat'));
       await this.appendOut(tenant, conversation, dto.body);
       return this.detail(tenant, conversationId);
     }
 
     if (conversation.channel === 'WHATSAPP' && dto.body && !whatsappWindowOpen(conversation.lastInboundAt)) {
       throw new UnprocessableEntityException(
-        'WhatsApp 24 saatlik müşteri hizmetleri penceresi kapandı: yalnızca onaylı bir şablon gönderilebilir',
+        apiError('apiErrors.messaging.24HourWhatsappCustomerServiceWindow'),
       );
     }
     const studio = await this.prisma.studio.findUniqueOrThrow({ where: { id: tenant.studioId }, select: { name: true } });
@@ -156,7 +157,7 @@ export class InboxService {
     });
     if (!result.success && !result.notificationLogId) {
       // Nothing was recorded (no address, no approved template, ...): tell the sender why.
-      throw new UnprocessableEntityException(result.reason ?? 'Mesaj gönderilemedi');
+      throw new UnprocessableEntityException(result.reason ?? apiError('apiErrors.messaging.messageCouldNotBeSent'));
     }
     return this.detail(tenant, conversationId);
   }
@@ -164,7 +165,7 @@ export class InboxService {
   async assign(tenant: TenantContext, conversationId: string, dto: AssignConversationInput): Promise<ConversationSummaryDTO> {
     const conversation = await this.getOwn(tenant, conversationId);
     const membershipId = dto.membershipId === 'me' ? tenant.membershipId : dto.membershipId;
-    if (dto.membershipId === 'me' && !membershipId) throw new BadRequestException('Bu işletmede bir üyeliğiniz yok');
+    if (dto.membershipId === 'me' && !membershipId) throw new BadRequestException(apiError('apiErrors.messaging.noMembershipBusiness'));
     if (membershipId) await this.contacts.assertStaffMembership(tenant.studioId, membershipId);
     const updated = await this.prisma.conversation.update({
       where: { id: conversation.id },
@@ -185,7 +186,7 @@ export class InboxService {
       return this.toSummary(updated, canSeeMemberContact(tenant));
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw new ConflictException('Bu kişiyle aynı kanalda açık bir konuşma zaten var');
+        throw new ConflictException(apiError('apiErrors.messaging.alreadyOpenConversationContactSameChannel'));
       }
       throw err;
     }
@@ -226,14 +227,14 @@ export class InboxService {
 
   async updateSavedReply(tenant: TenantContext, id: string, dto: SavedReplyInput): Promise<SavedReplyDTO> {
     const changed = await this.prisma.savedReply.updateMany({ where: { id, studioId: tenant.studioId }, data: dto });
-    if (changed.count === 0) throw new NotFoundException('Hazır cevap bulunamadı');
+    if (changed.count === 0) throw new NotFoundException(apiError('apiErrors.messaging.quickReplyNotFound'));
     const r = await this.prisma.savedReply.findUniqueOrThrow({ where: { id } });
     return { id: r.id, title: r.title, body: r.body, updatedAt: r.updatedAt.toISOString() };
   }
 
   async deleteSavedReply(tenant: TenantContext, id: string): Promise<{ deleted: true }> {
     const removed = await this.prisma.savedReply.deleteMany({ where: { id, studioId: tenant.studioId } });
-    if (removed.count === 0) throw new NotFoundException('Hazır cevap bulunamadı');
+    if (removed.count === 0) throw new NotFoundException(apiError('apiErrors.messaging.quickReplyNotFound'));
     return { deleted: true };
   }
 
@@ -263,7 +264,7 @@ export class InboxService {
 
   async memberSend(tenant: TenantContext, body: string): Promise<MemberChatDTO> {
     const contact = await this.memberContact(tenant, true);
-    if (!contact) throw new ForbiddenException('Sohbet yalnızca üyeler içindir');
+    if (!contact) throw new ForbiddenException(apiError('apiErrors.messaging.chatOnlyMembers'));
     let conversation = await this.prisma.conversation.findFirst({
       where: { studioId: tenant.studioId, contactId: contact.id, channel: 'IN_APP', status: 'OPEN' },
     });
@@ -316,7 +317,7 @@ export class InboxService {
     });
     if (changed.count === 0) {
       const exists = await this.prisma.notificationLog.count({ where: { id, studioId: tenant.studioId, userId, channel: 'IN_APP' } });
-      if (exists === 0) throw new NotFoundException('Mesaj bulunamadı');
+      if (exists === 0) throw new NotFoundException(apiError('apiErrors.messaging.messageNotFound'));
     }
     return { read: true };
   }
@@ -357,7 +358,7 @@ export class InboxService {
       where: { id: conversationId, studioId: tenant.studioId },
       include: CONVERSATION_INCLUDE,
     });
-    if (!conversation) throw new NotFoundException('Konuşma bulunamadı');
+    if (!conversation) throw new NotFoundException(apiError('apiErrors.common.conversationNotFound'));
     return conversation;
   }
 

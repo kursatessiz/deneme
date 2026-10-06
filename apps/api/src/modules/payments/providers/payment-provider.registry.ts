@@ -7,8 +7,9 @@ import { IyzicoPaymentProvider } from './iyzico-payment.provider';
 import { PaytrPaymentProvider } from './paytr-payment.provider';
 import { StripePaymentProvider } from './stripe-payment.provider';
 import type { PaymentProviderAdapter } from './payment-provider.interface';
+import { apiError } from '../../../common/api-error';
 
-const NOT_CONFIGURED = 'Online ödeme henüz yapılandırılmadı. Nakit, kart veya havale ile ödeme alınabilir.';
+const NOT_CONFIGURED = apiError('apiErrors.payments.onlinePaymentNotConfiguredYetPayments');
 
 /**
  * Stands in for the mock provider in production: the mock completes every

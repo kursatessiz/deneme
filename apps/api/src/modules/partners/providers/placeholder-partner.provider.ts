@@ -1,6 +1,7 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import type { PartnerProvider } from '@platform/database';
 import type { PartnerConnectionCredentials } from '@platform/shared';
+import { apiError } from '../../../common/api-error';
 import type {
   PartnerProviderAdapter,
   PushAvailabilityParams,
@@ -33,7 +34,7 @@ export class PlaceholderPartnerProvider implements PartnerProviderAdapter {
     _credentials: PartnerConnectionCredentials,
     _params: PushAvailabilityParams,
   ): Promise<PushAvailabilityResult> {
-    return Promise.reject(new ServiceUnavailableException(NOT_CONTRACTED));
+    return Promise.reject(new ServiceUnavailableException(apiError('apiErrors.partners.partnerNotContracted')));
   }
 
   verifyWebhookSignature(): WebhookVerificationResult {

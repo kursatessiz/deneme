@@ -31,6 +31,7 @@ import { maskLeaderboardName } from '@platform/shared';
 import { Prisma, PaymentMethod, PaymentProvider, PaymentStatus, PackageDefinition } from '@platform/database';
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
 import { PaymentWebhookRouter } from './payment-webhook-router';
+import { apiError, codedError } from '../../common/api-error';
 
 type Tx = Prisma.TransactionClient;
 
@@ -123,26 +124,26 @@ export class PaymentsService {
       this.prisma.packageDefinition.findFirst({ where: { id: dto.packageDefinitionId, studioId } }),
       this.prisma.memberProfile.findFirst({ where: { id: dto.memberId, studioId } }),
     ]);
-    if (!pkgDef) throw new NotFoundException('Paket tanımı bulunamadı');
-    if (!member) throw new NotFoundException('Üye bulunamadı');
+    if (!pkgDef) throw new NotFoundException(apiError('apiErrors.common.packageDefinitionNotFound'));
+    if (!member) throw new NotFoundException(apiError('apiErrors.common.memberNotFound'));
 
     const branchId = dto.branchId ?? member.homeBranchId ?? null;
     if (branchId) assertBranchAccess(tenant, branchId);
     else if (tenant.branchIds !== null) {
-      throw new BadRequestException('Şube seçiniz');
+      throw new BadRequestException(apiError('apiErrors.common.selectBranch'));
     }
 
     const hasPromoOrGiftCard = Boolean(dto.promoCode || dto.giftCardCode);
 
     if (dto.paymentMethod === PaymentMethod.BANK_TRANSFER) {
       if (!dto.bankReference) {
-        throw new BadRequestException('Havale/EFT referansı zorunludur');
+        throw new BadRequestException(apiError('apiErrors.payments.bankTransferReferenceRequired'));
       }
       // A pending bank transfer only activates on later confirmation, so a
       // promo/gift-card redemption here could not be reserved atomically
       // with the sale; require an immediate payment method instead.
       if (hasPromoOrGiftCard) {
-        throw new BadRequestException('Promosyon kodu ve hediye kartı yalnızca anlık ödemelerde kullanılabilir');
+        throw new BadRequestException(apiError('apiErrors.payments.promoCodesGiftCardsCanOnly'));
       }
       const payment = await this.prisma.payment.create({
         data: {
@@ -188,7 +189,7 @@ export class PaymentsService {
         return { payment, memberPackage, pending: false };
       }
       if (hasPromoOrGiftCard) {
-        throw new BadRequestException('Promosyon kodu ve hediye kartı yalnızca anlık ödemelerde kullanılabilir');
+        throw new BadRequestException(apiError('apiErrors.payments.promoCodesGiftCardsCanOnly'));
       }
       const payment = await this.prisma.payment.create({
         data: {
@@ -226,7 +227,7 @@ export class PaymentsService {
         reference: `sell_${dto.memberId}_${pkgDef.id}_${Date.now()}`,
       });
       if (!charge.success) {
-        throw new BadRequestException(charge.failureMessage ?? 'Kart reddedildi');
+        throw new BadRequestException(charge.failureMessage ?? apiError('apiErrors.payments.cardDeclined'));
       }
       providerRef = charge.providerReference;
     }
@@ -239,13 +240,13 @@ export class PaymentsService {
   /** Member self-service checkout: always an online mock/real checkout, package activates once completed. */
   async memberCheckout(tenant: TenantContext, dto: MemberCheckoutInput) {
     if (!tenant.memberProfileId || dto.memberId !== tenant.memberProfileId) {
-      throw new ForbiddenException('Yalnızca kendi adınıza satın alma yapabilirsiniz');
+      throw new ForbiddenException(apiError('apiErrors.payments.canOnlyMakePurchasesYourself'));
     }
     const studioId = tenant.studioId;
     const pkgDef = await this.prisma.packageDefinition.findFirst({
       where: { id: dto.packageDefinitionId, studioId, isActive: true },
     });
-    if (!pkgDef) throw new NotFoundException('Paket tanımı bulunamadı');
+    if (!pkgDef) throw new NotFoundException(apiError('apiErrors.common.packageDefinitionNotFound'));
     const member = await this.prisma.memberProfile.findFirstOrThrow({ where: { id: dto.memberId, studioId } });
     const userId = await this.resolveUserId(studioId, dto.memberId);
     const studio = await this.prisma.studio.findUniqueOrThrow({ where: { id: studioId }, select: { currency: true } });
@@ -299,7 +300,7 @@ export class PaymentsService {
     }
 
     if (hasPromoOrGiftCard) {
-      throw new BadRequestException('Promosyon kodu ve hediye kartı yalnızca anlık ödemelerde kullanılabilir');
+      throw new BadRequestException(apiError('apiErrors.payments.promoCodesGiftCardsCanOnly'));
     }
     const payment = await this.prisma.payment.create({
       data: {
@@ -321,9 +322,9 @@ export class PaymentsService {
   async confirmBankTransfer(tenant: TenantContext, actorUserId: string, dto: ConfirmBankTransferInput) {
     const studioId = tenant.studioId;
     const payment = await this.prisma.payment.findFirst({ where: { id: dto.paymentId, studioId } });
-    if (!payment) throw new NotFoundException('Ödeme bulunamadı');
+    if (!payment) throw new NotFoundException(apiError('apiErrors.common.paymentNotFound'));
     if (payment.paymentMethod !== PaymentMethod.BANK_TRANSFER) {
-      throw new BadRequestException('Yalnızca havale/EFT ödemeleri bu şekilde onaylanır');
+      throw new BadRequestException(apiError('apiErrors.payments.onlyBankTransferPaymentsConfirmedWay'));
     }
     if (payment.branchId) assertBranchAccess(tenant, payment.branchId);
 
@@ -331,12 +332,12 @@ export class PaymentsService {
     // A package always belongs to a member; a guest payment never carries one.
     const memberId = payment.memberId;
     if (!meta?.packageDefinitionId || !memberId) {
-      throw new BadRequestException('Ödemede paket bilgisi bulunamadı');
+      throw new BadRequestException(apiError('apiErrors.payments.noPackageInformationFoundPayment'));
     }
     const pkgDef = await this.prisma.packageDefinition.findFirst({
       where: { id: meta.packageDefinitionId, studioId },
     });
-    if (!pkgDef) throw new NotFoundException('Paket tanımı bulunamadı');
+    if (!pkgDef) throw new NotFoundException(apiError('apiErrors.common.packageDefinitionNotFound'));
 
     const result = await this.prisma.$transaction(async (tx) => {
       // Conditional transition: a second confirm call cannot activate the package twice.
@@ -345,7 +346,7 @@ export class PaymentsService {
         data: { paymentStatus: PaymentStatus.COMPLETED },
       });
       if (transitioned.count === 0) {
-        throw new ConflictException('Bu ödeme zaten onaylanmış');
+        throw new ConflictException(apiError('apiErrors.payments.paymentAlreadyConfirmed'));
       }
       const memberPackage = await this.createMemberPackageTx(
         tx,
@@ -532,7 +533,7 @@ export class PaymentsService {
   }
 
   async listMyPayments(tenant: TenantContext) {
-    if (!tenant.memberProfileId) throw new ForbiddenException('Bu işlem yalnızca üyeler içindir');
+    if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.common.actionOnlyMembers'));
     return this.prisma.payment.findMany({
       where: { studioId: tenant.studioId, memberId: tenant.memberProfileId },
       orderBy: { paidAt: 'desc' },
@@ -542,19 +543,15 @@ export class PaymentsService {
   async refundPayment(tenant: TenantContext, actorUserId: string, paymentId: string, dto: RefundPaymentInput) {
     const studioId = tenant.studioId;
     const payment = await this.prisma.payment.findFirst({ where: { id: paymentId, studioId } });
-    if (!payment) throw new NotFoundException('Ödeme bulunamadı');
+    if (!payment) throw new NotFoundException(apiError('apiErrors.common.paymentNotFound'));
     if (payment.branchId) assertBranchAccess(tenant, payment.branchId);
     if (payment.paymentStatus !== PaymentStatus.COMPLETED) {
-      throw new BadRequestException('Yalnızca tamamlanmış ödemeler iade edilebilir');
+      throw new BadRequestException(apiError('apiErrors.payments.onlyCompletedPaymentsCanRefunded'));
     }
     // G3c-2: a desk sale's payment is refunded from the sale, which also
     // returns the stock; refunding it here would leave the sale and stock out of step.
     if ((await this.prisma.sale.count({ where: { studioId, paymentId: payment.id } })) > 0) {
-      throw new ConflictException({
-        statusCode: 409,
-        code: 'RETAIL_PAYMENT_IS_RETAIL',
-        message: 'Bu ödeme bir ürün satışına aittir; iade satış ekranından yapılır',
-      });
+      throw new ConflictException(codedError('RETAIL_PAYMENT_IS_RETAIL', { statusCode: 409 }));
     }
 
     // Exact decimal arithmetic: money never goes through binary floats.
@@ -563,7 +560,7 @@ export class PaymentsService {
     const remaining = paid.minus(alreadyRefunded);
     const requested = dto.amount !== undefined ? new Prisma.Decimal(dto.amount).toDecimalPlaces(2) : remaining;
     if (requested.lte(0) || requested.gt(remaining)) {
-      throw new BadRequestException('İade tutarı ödenen ve henüz iade edilmemiş tutarı aşamaz');
+      throw new BadRequestException(apiError('apiErrors.payments.refundAmountCannotExceedAmountPaid'));
     }
     const newRefunded = alreadyRefunded.plus(requested);
     const fullyRefunded = newRefunded.gte(paid);
@@ -600,7 +597,7 @@ export class PaymentsService {
       },
     });
     if (reserved.count === 0) {
-      throw new ConflictException('Bu ödeme başka bir işlemde güncellendi, tekrar deneyin');
+      throw new ConflictException(apiError('apiErrors.payments.paymentUpdatedAnotherOperation'));
     }
 
     // Only the non-gift-card portion of this refund goes through the provider.
@@ -625,7 +622,7 @@ export class PaymentsService {
           where: { id: payment.id, studioId, refundedAmount: newRefunded, giftCardRefunded: newGiftCardRefunded },
           data: { refundedAmount: alreadyRefunded, giftCardRefunded: giftCardAlreadyRefunded, paymentStatus: PaymentStatus.COMPLETED },
         });
-        throw new BadRequestException(refundResult.failureMessage ?? 'İade sağlayıcı tarafından reddedildi');
+        throw new BadRequestException(refundResult.failureMessage ?? apiError('apiErrors.payments.refundRejectedByProvider'));
       }
     }
 
@@ -677,7 +674,7 @@ export class PaymentsService {
   // ---------------------------------------------------------------------------
 
   async addStoredCardSelf(tenant: TenantContext, dto: CardTokenInput) {
-    if (!tenant.memberProfileId) throw new ForbiddenException('Bu işlem yalnızca üyeler içindir');
+    if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.common.actionOnlyMembers'));
     return this.prisma.storedCard.create({
       data: {
         studioId: tenant.studioId,
@@ -693,7 +690,7 @@ export class PaymentsService {
   }
 
   async listMyStoredCards(tenant: TenantContext) {
-    if (!tenant.memberProfileId) throw new ForbiddenException('Bu işlem yalnızca üyeler içindir');
+    if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.common.actionOnlyMembers'));
     return this.prisma.storedCard.findMany({
       where: { studioId: tenant.studioId, memberId: tenant.memberProfileId },
       orderBy: { createdAt: 'desc' },
@@ -711,9 +708,9 @@ export class PaymentsService {
       this.prisma.memberProfile.findFirst({ where: { id: dto.memberId, studioId } }),
       this.prisma.storedCard.findFirst({ where: { id: dto.storedCardId, studioId, memberId: dto.memberId } }),
     ]);
-    if (!pkgDef) throw new NotFoundException('Paket tanımı bulunamadı');
-    if (!member) throw new NotFoundException('Üye bulunamadı');
-    if (!card) throw new NotFoundException('Kayıtlı kart bulunamadı');
+    if (!pkgDef) throw new NotFoundException(apiError('apiErrors.common.packageDefinitionNotFound'));
+    if (!member) throw new NotFoundException(apiError('apiErrors.common.memberNotFound'));
+    if (!card) throw new NotFoundException(apiError('apiErrors.payments.savedCardNotFound'));
 
     const start = dto.startDate ? new Date(dto.startDate) : new Date();
     const end = new Date(start.getTime() + pkgDef.validityDays * 24 * 60 * 60 * 1000);
@@ -734,15 +731,15 @@ export class PaymentsService {
   }
 
   async cancelSubscriptionSelf(tenant: TenantContext, subscriptionId: string, dto: CancelSubscriptionInput) {
-    if (!tenant.memberProfileId) throw new ForbiddenException('Bu işlem yalnızca üyeler içindir');
+    if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.common.actionOnlyMembers'));
     return this.cancelSubscription(tenant, subscriptionId, dto, tenant.memberProfileId);
   }
 
   async cancelSubscription(tenant: TenantContext, subscriptionId: string, dto: CancelSubscriptionInput, requireMemberId?: string) {
     const sub = await this.prisma.memberSubscription.findFirst({ where: { id: subscriptionId, studioId: tenant.studioId } });
-    if (!sub) throw new NotFoundException('Abonelik bulunamadı');
+    if (!sub) throw new NotFoundException(apiError('apiErrors.payments.subscriptionNotFound'));
     if (requireMemberId && sub.memberId !== requireMemberId) {
-      throw new ForbiddenException('Yalnızca kendi aboneliğinizi iptal edebilirsiniz');
+      throw new ForbiddenException(apiError('apiErrors.payments.canOnlyCancelOwnSubscription'));
     }
     if (dto.atPeriodEnd) {
       return this.prisma.memberSubscription.update({ where: { id: sub.id }, data: { cancelAtPeriodEnd: true } });
@@ -755,15 +752,15 @@ export class PaymentsService {
 
   async pauseSubscription(tenant: TenantContext, subscriptionId: string, _dto: PauseSubscriptionInput) {
     const sub = await this.prisma.memberSubscription.findFirst({ where: { id: subscriptionId, studioId: tenant.studioId } });
-    if (!sub) throw new NotFoundException('Abonelik bulunamadı');
-    if (sub.status === 'CANCELLED') throw new BadRequestException('İptal edilmiş abonelik durdurulamaz');
+    if (!sub) throw new NotFoundException(apiError('apiErrors.payments.subscriptionNotFound'));
+    if (sub.status === 'CANCELLED') throw new BadRequestException(apiError('apiErrors.payments.cancelledSubscriptionCannotPaused'));
     return this.prisma.memberSubscription.update({ where: { id: sub.id }, data: { status: 'PAUSED' } });
   }
 
   async resumeSubscription(tenant: TenantContext, subscriptionId: string) {
     const sub = await this.prisma.memberSubscription.findFirst({ where: { id: subscriptionId, studioId: tenant.studioId } });
-    if (!sub) throw new NotFoundException('Abonelik bulunamadı');
-    if (sub.status !== 'PAUSED') throw new BadRequestException('Yalnızca durdurulmuş abonelikler devam ettirilebilir');
+    if (!sub) throw new NotFoundException(apiError('apiErrors.payments.subscriptionNotFound'));
+    if (sub.status !== 'PAUSED') throw new BadRequestException(apiError('apiErrors.payments.onlyPausedSubscriptionsCanResumed'));
     const now = new Date();
     return this.prisma.memberSubscription.update({
       where: { id: sub.id },
@@ -772,7 +769,7 @@ export class PaymentsService {
   }
 
   async listMySubscriptions(tenant: TenantContext) {
-    if (!tenant.memberProfileId) throw new ForbiddenException('Bu işlem yalnızca üyeler içindir');
+    if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.common.actionOnlyMembers'));
     return this.prisma.memberSubscription.findMany({
       where: { studioId: tenant.studioId, memberId: tenant.memberProfileId },
       include: { packageDefinition: true },
@@ -786,10 +783,10 @@ export class PaymentsService {
 
   async handleWebhook(providerName: string, headers: Record<string, string | string[] | undefined>, rawBody: string) {
     const adapter = this.providers.byName(providerName);
-    if (!adapter) throw new NotFoundException('Bilinmeyen sağlayıcı');
+    if (!adapter) throw new NotFoundException(apiError('apiErrors.common.unknownProvider'));
     const verification = adapter.verifyWebhook(headers, rawBody);
     if (!verification.valid || !verification.providerReference) {
-      throw new BadRequestException('Geçersiz webhook imzası');
+      throw new BadRequestException(apiError('apiErrors.payments.invalidWebhookSignature'));
     }
 
     const payment = await this.prisma.payment.findFirst({

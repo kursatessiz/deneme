@@ -9,6 +9,7 @@ import type {
   RefundParams,
   WebhookVerificationResult,
 } from './payment-provider.interface';
+import { apiError } from '../../../common/api-error';
 
 /**
  * PayTR adapter skeleton. Real HTTP calls are not implemented; every method
@@ -42,24 +43,24 @@ export class PaytrPaymentProvider implements PaymentProviderAdapter {
     const merchantSalt = this.config.get<string>('PAYTR_MERCHANT_SALT');
     if (!merchantId || !merchantKey || !merchantSalt) {
       throw new InternalServerErrorException(
-        'PayTR sağlayıcısı yapılandırılmamış: PAYTR_MERCHANT_ID, PAYTR_MERCHANT_KEY ve PAYTR_MERCHANT_SALT gereklidir',
+        apiError('apiErrors.payments.paytrProviderNotConfiguredPaytrMerchant'),
       );
     }
   }
 
   async createCheckout(_params: CreateCheckoutParams): Promise<ProviderCheckoutResult> {
     this.assertConfigured();
-    throw new InternalServerErrorException('PayTR entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.payments.paytrIntegrationNotImplementedYet'));
   }
 
   async chargeStoredCard(_params: ChargeStoredCardParams): Promise<ProviderChargeResult> {
     this.assertConfigured();
-    throw new InternalServerErrorException('PayTR entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.payments.paytrIntegrationNotImplementedYet'));
   }
 
   async refund(_params: RefundParams): Promise<ProviderChargeResult> {
     this.assertConfigured();
-    throw new InternalServerErrorException('PayTR entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.payments.paytrIntegrationNotImplementedYet'));
   }
 
   verifyWebhook(_headers: Record<string, string | string[] | undefined>, _rawBody: string): WebhookVerificationResult {

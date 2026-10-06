@@ -7,6 +7,7 @@ import {
   resolvePlatformTenantPermissions,
 } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { apiError } from '../../common/api-error';
 
 type Tx = Prisma.TransactionClient;
 
@@ -50,7 +51,7 @@ export class PlatformAccessService {
       where: { isPlatform: true },
       select: { id: true, name: true, currency: true, defaultLocale: true },
     });
-    if (!studio) throw new NotFoundException('Platform kiracısı bulunamadı');
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.platformTenantNotFound'));
     return studio;
   }
 
@@ -86,7 +87,7 @@ export class PlatformAccessService {
    */
   async activateInTx(tx: Tx, userId: string): Promise<{ membershipId: string; platformStudioId: string }> {
     const pm = await tx.platformMembership.findUnique({ where: { userId } });
-    if (!pm) throw new NotFoundException('Platform üyeliği bulunamadı');
+    if (!pm) throw new NotFoundException(apiError('apiErrors.platformAccess.platformMembershipNotFound'));
     const studio = await this.platformStudio(tx);
     const roleTemplateId = await this.syncSystemRoleTemplate(tx, studio.id, pm.roleTemplateId);
     const now = new Date();
@@ -109,8 +110,8 @@ export class PlatformAccessService {
   /** Revocation: platform record and mirrored membership PASSIVE, refresh token dropped; takes effect on the next request. */
   async deactivateInTx(tx: Tx, userId: string): Promise<void> {
     const pm = await tx.platformMembership.findUnique({ where: { userId } });
-    if (!pm) throw new NotFoundException('Platform üyeliği bulunamadı');
-    if (pm.status === 'PASSIVE') throw new ConflictException('Platform üyeliği zaten pasif');
+    if (!pm) throw new NotFoundException(apiError('apiErrors.platformAccess.platformMembershipNotFound'));
+    if (pm.status === 'PASSIVE') throw new ConflictException(apiError('apiErrors.platformAccess.platformMembershipAlreadyInactive'));
     await tx.platformMembership.update({ where: { id: pm.id }, data: { status: 'PASSIVE', deactivatedAt: new Date() } });
     if (pm.platformStudioMembershipId) {
       await tx.membership.updateMany({ where: { id: pm.platformStudioMembershipId }, data: { status: 'PASSIVE' } });
@@ -123,7 +124,7 @@ export class PlatformAccessService {
   /** Moves the member to another platform role; an ACTIVE member's platform tenant membership follows in the same transaction. */
   async changeRoleInTx(tx: Tx, userId: string, platformRoleTemplateId: string): Promise<void> {
     const pm = await tx.platformMembership.findUnique({ where: { userId } });
-    if (!pm) throw new NotFoundException('Platform üyeliği bulunamadı');
+    if (!pm) throw new NotFoundException(apiError('apiErrors.platformAccess.platformMembershipNotFound'));
     await tx.platformMembership.update({ where: { id: pm.id }, data: { roleTemplateId: platformRoleTemplateId } });
     if (pm.status === 'ACTIVE' && pm.platformStudioMembershipId) {
       const studio = await this.platformStudio(tx);

@@ -11,6 +11,7 @@ import type { ErrorSettingsDTO, ErrorSettingsUpdate, ErrorSpikeSettings } from '
 import { PrismaService } from '../prisma/prisma.service';
 import { CredentialCipher } from '../../common/crypto/credential-cipher';
 import { assertPublicHttpsHostname } from '../webhooks/ssrf-check';
+import { apiError } from '../../common/api-error';
 
 export const ERROR_SETTINGS_ID = 'platform';
 
@@ -94,7 +95,7 @@ export class ErrorSettingsService {
     const data: Prisma.ErrorSettingsUncheckedUpdateInput = { updatedByUserId: actorUserId };
     const touchesSecrets = input.webhook?.url != null || input.webhook?.secret != null || input.slack?.url != null;
     if (touchesSecrets && this.isProduction && !this.cipher.isConfigured) {
-      throw new BadRequestException('Şifreleme anahtarı tanımlı olmadığı için uyarı hedefleri kaydedilemez');
+      throw new BadRequestException(apiError('apiErrors.errorReporting.alertTargetsCannotSavedBecauseNo'));
     }
 
     if (input.spike) {

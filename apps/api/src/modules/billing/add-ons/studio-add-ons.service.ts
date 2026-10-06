@@ -32,6 +32,7 @@ import type { TenantContext } from '../../auth/tenant-context';
 import { AddOnChargeService } from './add-on-charge.service';
 import { addOnError, toLocalizedText, toPriceDtos, toStringArray } from './admin-add-ons.service';
 import { resolveFeaturesForStudio } from './effective-feature';
+import { apiError, codedError } from '../../../common/api-error';
 
 type CatalogueRow = AddOn & { prices: AddOnPrice[]; studioAddOns: StudioAddOn[] };
 
@@ -74,12 +75,12 @@ export class StudioAddOnsService {
     const currency = studioBillingCurrency(studio);
     const addOn = await this.publishedAddOn(key);
     if (addOn.trialDays <= 0) {
-      throw addOnError(ADD_ON_ERROR_CODES.trialUnavailable, 'Bu uygulama için ücretsiz deneme sunulmuyor', 'bad');
+      throw addOnError(ADD_ON_ERROR_CODES.trialUnavailable, 'bad');
     }
     const price = addOnPriceIn(toPriceDtos(addOn.prices), currency);
-    if (!price) throw addOnError(ADD_ON_ERROR_CODES.priceUnavailable, 'Bu uygulama faturalama para biriminde satılmıyor', 'bad');
+    if (!price) throw addOnError(ADD_ON_ERROR_CODES.priceUnavailable, 'bad');
     const existing = await this.prisma.studioAddOn.findUnique({ where: { studioId_addOnId: { studioId: tenant.studioId, addOnId: addOn.id } } });
-    if (existing?.trialStartedAt) throw addOnError(ADD_ON_ERROR_CODES.trialUsed, 'Bu uygulamanın ücretsiz denemesi daha önce kullanıldı', 'conflict');
+    if (existing?.trialStartedAt) throw addOnError(ADD_ON_ERROR_CODES.trialUsed, 'conflict');
 
     const trialEndsAt = trialEndFrom(now, addOn.trialDays);
     const data = {
@@ -96,13 +97,13 @@ export class StudioAddOnsService {
       if (existing) {
         // A failed first purchase left an EXPIRED placeholder without a trial: the trial is still unused.
         const moved = await this.prisma.studioAddOn.updateMany({ where: { id: existing.id, trialStartedAt: null }, data });
-        if (moved.count === 0) throw addOnError(ADD_ON_ERROR_CODES.trialUsed, 'Bu uygulamanın ücretsiz denemesi daha önce kullanıldı', 'conflict');
+        if (moved.count === 0) throw addOnError(ADD_ON_ERROR_CODES.trialUsed, 'conflict');
       } else {
         await this.prisma.studioAddOn.create({ data: { studioId: tenant.studioId, addOnId: addOn.id, ...data } });
       }
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw addOnError(ADD_ON_ERROR_CODES.trialUsed, 'Bu uygulamanın ücretsiz denemesi daha önce kullanıldı', 'conflict');
+        throw addOnError(ADD_ON_ERROR_CODES.trialUsed, 'conflict');
       }
       throw err;
     }
@@ -120,7 +121,7 @@ export class StudioAddOnsService {
     const studio = await this.assertCanBuy(tenant.studioId);
     const currency = studioBillingCurrency(studio);
     const addOn = await this.prisma.addOn.findUnique({ where: { key }, include: { prices: true } });
-    if (!addOn) throw addOnError(ADD_ON_ERROR_CODES.notFound, 'Uygulama bulunamadı', 'notFound');
+    if (!addOn) throw addOnError(ADD_ON_ERROR_CODES.notFound, 'notFound');
     const existing = await this.prisma.studioAddOn.findUnique({ where: { studioId_addOnId: { studioId: tenant.studioId, addOnId: addOn.id } } });
 
     let interval: AddOnInterval = dto.interval;
@@ -131,15 +132,15 @@ export class StudioAddOnsService {
       const overdue = existing.currentPeriodEnd !== null && existing.currentPeriodEnd <= now;
       const snapshot = parseAddOnSnapshot(existing.priceSnapshot);
       if (!overdue || !snapshot || snapshot.amount === null || snapshot.interval === null) {
-        throw addOnError(ADD_ON_ERROR_CODES.alreadyActive, 'Bu uygulama zaten etkin', 'conflict');
+        throw addOnError(ADD_ON_ERROR_CODES.alreadyActive, 'conflict');
       }
       interval = snapshot.interval;
       amount = snapshot.amount;
       chargeCurrency = snapshot.currency;
     } else {
-      if (!addOn.isPublished) throw addOnError(ADD_ON_ERROR_CODES.notFound, 'Uygulama bulunamadı', 'notFound');
+      if (!addOn.isPublished) throw addOnError(ADD_ON_ERROR_CODES.notFound, 'notFound');
       const price = addOnPriceIn(toPriceDtos(addOn.prices), currency);
-      if (!price) throw addOnError(ADD_ON_ERROR_CODES.priceUnavailable, 'Bu uygulama faturalama para biriminde satılmıyor', 'bad');
+      if (!price) throw addOnError(ADD_ON_ERROR_CODES.priceUnavailable, 'bad');
       amount = interval === 'YEAR' ? price.priceYearly : price.priceMonthly;
     }
 
@@ -148,7 +149,7 @@ export class StudioAddOnsService {
         where: { studioAddOnId: existing.id, status: 'PENDING', createdAt: { gte: new Date(now.getTime() - HOUR_MS) } },
         select: { id: true },
       });
-      if (pending) throw addOnError(ADD_ON_ERROR_CODES.paymentPending, 'Bekleyen bir ödeme var; tamamlanmasını bekleyin', 'conflict');
+      if (pending) throw addOnError(ADD_ON_ERROR_CODES.paymentPending, 'conflict');
     }
     let row: StudioAddOn;
     if (existing?.status === 'ACTIVE') {
@@ -170,24 +171,24 @@ export class StudioAddOnsService {
       { studioAddOnId: row.id, studioId: tenant.studioId, addOnKey: key, currency: chargeCurrency, amount, interval, actorUserId },
       now,
     );
-    if (result.status === 'FAILED') throw result.error instanceof Error ? result.error : new BadRequestException('Ödeme başlatılamadı');
+    if (result.status === 'FAILED') throw result.error instanceof Error ? result.error : new BadRequestException(apiError('apiErrors.billing.paymentCouldNotStarted'));
     return { item: await this.itemFor(tenant.studioId, key, now), pending: result.status === 'PENDING', checkoutUrl: result.checkoutUrl };
   }
 
   /** Cancel: usable until the period end (or the trial end), then the heartbeat expires it. Always allowed, also in restricted mode. */
   async cancel(tenant: TenantContext, actorUserId: string, key: string, now = new Date()): Promise<StudioAddOnActionResultDTO> {
     const addOn = await this.prisma.addOn.findUnique({ where: { key }, select: { id: true } });
-    if (!addOn) throw addOnError(ADD_ON_ERROR_CODES.notFound, 'Uygulama bulunamadı', 'notFound');
+    if (!addOn) throw addOnError(ADD_ON_ERROR_CODES.notFound, 'notFound');
     const row = await this.prisma.studioAddOn.findUnique({ where: { studioId_addOnId: { studioId: tenant.studioId, addOnId: addOn.id } } });
     if (!row || (row.status !== 'TRIALING' && row.status !== 'ACTIVE')) {
-      throw addOnError(ADD_ON_ERROR_CODES.notCancellable, 'Bu uygulama iptal edilemez', 'conflict');
+      throw addOnError(ADD_ON_ERROR_CODES.notCancellable, 'conflict');
     }
     const accessEnd = row.status === 'TRIALING' ? row.trialEndsAt : row.currentPeriodEnd;
     const moved = await this.prisma.studioAddOn.updateMany({
       where: { id: row.id, status: row.status },
       data: { status: 'CANCELLED', cancelledAt: now, currentPeriodEnd: accessEnd, nextRenewalAttemptAt: null },
     });
-    if (moved.count === 0) throw new ConflictException({ statusCode: 409, code: ADD_ON_ERROR_CODES.notCancellable, message: 'Uygulamanın durumu değişti, tekrar deneyin' });
+    if (moved.count === 0) throw new ConflictException(codedError(ADD_ON_ERROR_CODES.notCancellable, { statusCode: 409 }));
     await this.audit(tenant.studioId, actorUserId, 'add_on.cancel', row.id, { key, from: row.status, accessUntil: accessEnd?.toISOString() ?? null });
     return { item: await this.itemFor(tenant.studioId, key, now), pending: false, checkoutUrl: null };
   }
@@ -218,21 +219,21 @@ export class StudioAddOnsService {
       where: { id: studioId },
       select: { id: true, billingStatus: true, isPlatform: true, countryCode: true, billingCurrency: true },
     });
-    if (!studio) throw new NotFoundException('İşletme bulunamadı');
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.businessNotFound'));
     return studio;
   }
 
   /** Buying or trying needs a healthy account: restricted-mode tenants must activate their account first. */
   private async assertCanBuy(studioId: string) {
     const studio = await this.studio(studioId);
-    if (studio.isPlatform) throw new BadRequestException('Platform kiracısı uygulama ekleyemez');
+    if (studio.isPlatform) throw new BadRequestException(apiError('apiErrors.billing.platformTenantCannotAddApps'));
     if (isWriteRestricted(studio.billingStatus)) throw billingRestrictedError();
     return studio;
   }
 
   private async publishedAddOn(key: string) {
     const addOn = await this.prisma.addOn.findFirst({ where: { key, isPublished: true }, include: { prices: true } });
-    if (!addOn) throw addOnError(ADD_ON_ERROR_CODES.notFound, 'Uygulama bulunamadı', 'notFound');
+    if (!addOn) throw addOnError(ADD_ON_ERROR_CODES.notFound, 'notFound');
     return addOn;
   }
 

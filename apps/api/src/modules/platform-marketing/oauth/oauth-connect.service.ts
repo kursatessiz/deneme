@@ -37,11 +37,12 @@ import { OAuthClientSettingsService, type ResolvedOAuthClient } from './oauth-cl
 import { OAuthCallError, OAuthProviderClient, type OAuthTokenSet } from './oauth-provider.client';
 import { codeChallengeS256, constantTimeEqualHex, generateCodeVerifier, generateOAuthState, hashOAuthState, sanitizeProviderCode } from './oauth-crypto';
 import { buildOAuthReturnUrl, isAllowedReturnUrl } from './oauth-redirect';
+import { apiError, codedError } from '../../../common/api-error';
 
 const MINUTE = 60_000;
 
-function oauthError(status: 400 | 404 | 409, code: string, message: string, extra: Record<string, unknown> = {}) {
-  const body = { statusCode: status, code, message, ...extra };
+function oauthError(status: 400 | 404 | 409, code: string, extra: Record<string, unknown> = {}) {
+  const body = codedError(code, { statusCode: status, ...extra });
   if (status === 404) return new NotFoundException(body);
   if (status === 409) return new ConflictException(body);
   return new BadRequestException(body);
@@ -112,12 +113,12 @@ export class OAuthConnectService {
 
   async start(platform: PlatformContext, via: IntegrationEntryPoint, provider: OAuthProvider, input: StartOAuthInput): Promise<OAuthStartResultDTO> {
     if (this.config.get<string>('NODE_ENV') === 'production' && !this.cipher.isConfigured) {
-      throw oauthError(409, 'OAUTH_PROVIDER_NOT_CONFIGURED', 'INTEGRATION_ENCRYPTION_KEY yapılandırılmadan OAuth bağlantısı kurulamaz');
+      throw oauthError(409, 'OAUTH_PROVIDER_NOT_CONFIGURED');
     }
     const client = await this.clients.resolve(provider);
-    if (!client) throw oauthError(409, 'OAUTH_PROVIDER_NOT_CONFIGURED', 'Bu sağlayıcı için OAuth istemcisi tanımlı değil');
+    if (!client) throw oauthError(409, 'OAUTH_PROVIDER_NOT_CONFIGURED');
     const issues = oauthTargetIssues(provider, input.target);
-    if (issues.length > 0) throw oauthError(400, 'OAUTH_TARGET_INVALID', 'Hedef bu sağlayıcıya uygun değil', { issues });
+    if (issues.length > 0) throw oauthError(400, 'OAUTH_TARGET_INVALID', { issues });
 
     const studioId = platform.platformStudioId;
     const target = input.target;
@@ -130,15 +131,15 @@ export class OAuthConnectService {
         break;
       case 'RECONNECT_AD_CONNECTION': {
         const row = await this.prisma.adConnection.findFirst({ where: { id: target.connectionId, studioId }, select: { id: true, platform: true } });
-        if (!row) throw oauthError(404, 'OAUTH_TARGET_NOT_FOUND', 'Bağlantı bulunamadı');
-        if (oauthProviderForAdPlatform(row.platform) !== provider) throw oauthError(400, 'OAUTH_TARGET_INVALID', 'Hedef bu sağlayıcıya uygun değil', { issues: ['NO_AD_PLATFORM'] });
+        if (!row) throw oauthError(404, 'OAUTH_TARGET_NOT_FOUND');
+        if (oauthProviderForAdPlatform(row.platform) !== provider) throw oauthError(400, 'OAUTH_TARGET_INVALID', { issues: ['NO_AD_PLATFORM'] });
         targetId = row.id;
         break;
       }
       case 'RECONNECT_SOCIAL_CONNECTION': {
         const row = await this.prisma.socialConnection.findFirst({ where: { id: target.connectionId, studioId }, select: { id: true, provider: true } });
-        if (!row) throw oauthError(404, 'OAUTH_TARGET_NOT_FOUND', 'Bağlantı bulunamadı');
-        if (oauthProviderForSocial(row.provider) !== provider) throw oauthError(400, 'OAUTH_TARGET_INVALID', 'Hedef bu sağlayıcıya uygun değil', { issues: ['SOCIAL_PROVIDER_MISMATCH'] });
+        if (!row) throw oauthError(404, 'OAUTH_TARGET_NOT_FOUND');
+        if (oauthProviderForSocial(row.provider) !== provider) throw oauthError(400, 'OAUTH_TARGET_INVALID', { issues: ['SOCIAL_PROVIDER_MISMATCH'] });
         targetId = row.id;
         break;
       }
@@ -214,7 +215,7 @@ export class OAuthConnectService {
     }
     const appBase = this.config.get<string>('PUBLIC_APP_URL', 'http://localhost:3000');
     const url = buildOAuthReturnUrl(appBase, row.returnTo, result);
-    if (!isAllowedReturnUrl(appBase, url)) throw new BadRequestException('Geçersiz dönüş adresi');
+    if (!isAllowedReturnUrl(appBase, url)) throw new BadRequestException(apiError('apiErrors.platformMarketing.invalidReturnAddress'));
     return url;
   }
 
@@ -407,7 +408,7 @@ export class OAuthConnectService {
   }
 
   private stateInvalid() {
-    return oauthError(400, 'OAUTH_STATE_INVALID', 'Geçersiz veya süresi dolmuş yetkilendirme isteği');
+    return oauthError(400, 'OAUTH_STATE_INVALID');
   }
 
   private async auditFailure(row: OauthState, reason: string, detail: string): Promise<void> {

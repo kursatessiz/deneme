@@ -26,6 +26,7 @@ import { branchScope } from '../branches/branch-access';
 import { I18nService } from '../i18n/i18n.service';
 import { exportTranslator } from './accounting-i18n';
 import { buildAccountingWorkbook } from './accounting-xlsx';
+import { apiError } from '../../common/api-error';
 
 /** Upper bound of payments in one export; a longer period is exported in parts. */
 export const ACCOUNTING_MAX_PAYMENTS = 50_000;
@@ -172,7 +173,7 @@ export class AccountingService {
       take: ACCOUNTING_MAX_PAYMENTS + 1,
     });
     if (payments.length > ACCOUNTING_MAX_PAYMENTS) {
-      throw new BadRequestException('Seçilen dönemde çok fazla ödeme var; tarih aralığını daraltın');
+      throw new BadRequestException(apiError('apiErrors.accounting.tooManyPaymentsSelectedPeriodNarrow'));
     }
 
     // Refunds of payments that are not retail sales come from the audit

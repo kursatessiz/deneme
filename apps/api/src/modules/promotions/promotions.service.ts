@@ -9,8 +9,10 @@ import {
   PromoCodeKind,
   RedemptionCounterSubject,
 } from '@platform/database';
+import { apiErrorBaseMessage } from '@platform/shared';
 import type {
   AdjustGiftCardInput,
+  ApiErrorKey,
   CreatePromoCodeInput,
   IssueGiftCardInput,
   UpdatePromoCodeInput,
@@ -23,6 +25,7 @@ import { generateGiftCardCode, hashGiftCardCode, last4OfGiftCardCode } from './g
 /** Length of the random part of a loyalty reward code ("LOY-" + this many characters). */
 const LOYALTY_CODE_LENGTH = 10;
 import { computePromoDiscount } from './promo-pricing';
+import { apiError } from '../../common/api-error';
 
 type Tx = Prisma.TransactionClient;
 
@@ -77,7 +80,7 @@ export class PromotionsService {
   /** Public: a studio's active trial offers by slug, no auth, minimal fields. */
   async listPublicTrialOffers(slug: string) {
     const studio = await this.prisma.studio.findFirst({ where: { slug, isActive: true } });
-    if (!studio) throw new NotFoundException('İşletme bulunamadı');
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.businessNotFound'));
     const offers = await this.prisma.packageDefinition.findMany({
       where: { studioId: studio.id, isTrial: true, isActive: true },
       orderBy: { price: 'asc' },
@@ -108,7 +111,7 @@ export class PromotionsService {
       limit: pkgDef.trialLimitPerUser,
     });
     if (!ok) {
-      throw new ConflictException('Bu deneme seansı hakkınız bu işletmede daha önce kullanılmış');
+      throw new ConflictException(apiError('apiErrors.promotions.trialSessionEntitlementAlreadyUsedBusiness'));
     }
   }
 
@@ -142,7 +145,7 @@ export class PromotionsService {
       });
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw new ConflictException('Bu kod bu işletmede zaten kullanımda');
+        throw new ConflictException(apiError('apiErrors.promotions.codeAlreadyUseBusiness'));
       }
       throw err;
     }
@@ -150,7 +153,7 @@ export class PromotionsService {
 
   async updatePromoCode(tenant: TenantContext, promoCodeId: string, dto: UpdatePromoCodeInput) {
     const existing = await this.prisma.promoCode.findFirst({ where: { id: promoCodeId, studioId: tenant.studioId } });
-    if (!existing) throw new NotFoundException('Promosyon kodu bulunamadı');
+    if (!existing) throw new NotFoundException(apiError('apiErrors.promotions.promoCodeNotFound'));
     return this.prisma.promoCode.update({
       where: { id: existing.id },
       data: {
@@ -172,7 +175,7 @@ export class PromotionsService {
 
   async getPromoCode(tenant: TenantContext, promoCodeId: string) {
     const promo = await this.prisma.promoCode.findFirst({ where: { id: promoCodeId, studioId: tenant.studioId } });
-    if (!promo) throw new NotFoundException('Promosyon kodu bulunamadı');
+    if (!promo) throw new NotFoundException(apiError('apiErrors.promotions.promoCodeNotFound'));
     return promo;
   }
 
@@ -189,19 +192,19 @@ export class PromotionsService {
     const pkgDef = await this.prisma.packageDefinition.findFirst({
       where: { id: packageDefinitionId, studioId: tenant.studioId },
     });
-    if (!pkgDef) throw new NotFoundException('Paket tanımı bulunamadı');
+    if (!pkgDef) throw new NotFoundException(apiError('apiErrors.common.packageDefinitionNotFound'));
     const basePrice = pkgDef.price;
 
-    if (!tenant.memberProfileId) throw new ForbiddenException('Bu işlem yalnızca üyeler içindir');
+    if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.common.actionOnlyMembers'));
     const userId = await this.resolveUserIdForMember(tenant.studioId, tenant.memberProfileId);
 
     const promo = await this.findActivePromoCode(tenant.studioId, code);
     if (!promo) {
-      return { valid: false, reason: 'Kod bulunamadı veya pasif', basePrice: basePrice.toFixed(2), discountAmount: '0.00', finalAmount: basePrice.toFixed(2), bonusUnits: 0 };
+      return { valid: false, reason: apiErrorBaseMessage('apiErrors.promotions.codeNotFoundInactive'), reasonKey: 'apiErrors.promotions.codeNotFoundInactive', basePrice: basePrice.toFixed(2), discountAmount: '0.00', finalAmount: basePrice.toFixed(2), bonusUnits: 0 };
     }
     const validation = await this.validatePromoRules(promo, pkgDef, basePrice, userId);
     if (!validation.valid) {
-      return { valid: false, reason: validation.reason, basePrice: basePrice.toFixed(2), discountAmount: '0.00', finalAmount: basePrice.toFixed(2), bonusUnits: 0 };
+      return { valid: false, reason: apiErrorBaseMessage(validation.reasonKey), reasonKey: validation.reasonKey, basePrice: basePrice.toFixed(2), discountAmount: '0.00', finalAmount: basePrice.toFixed(2), bonusUnits: 0 };
     }
     const { discountAmount, finalAmount, bonusUnits } = computePromoDiscount(promo.kind, promo.value, basePrice);
     return {
@@ -232,32 +235,32 @@ export class PromotionsService {
     pkgDef: PackageDefinition,
     basePrice: Prisma.Decimal,
     userId: string,
-  ): Promise<{ valid: true } | { valid: false; reason: string }> {
+  ): Promise<{ valid: true } | { valid: false; reasonKey: ApiErrorKey }> {
     const now = new Date();
-    if (promo.restrictedToUserId && promo.restrictedToUserId !== userId) return { valid: false, reason: 'Bu kod başka bir üyeye özeldir' };
-    if (promo.validFrom && now < promo.validFrom) return { valid: false, reason: 'Kodun geçerlilik tarihi henüz başlamadı' };
-    if (promo.validTo && now > promo.validTo) return { valid: false, reason: 'Kodun süresi dolmuş' };
+    if (promo.restrictedToUserId && promo.restrictedToUserId !== userId) return { valid: false, reasonKey: 'apiErrors.promotions.codeRestrictedToAnotherMember' };
+    if (promo.validFrom && now < promo.validFrom) return { valid: false, reasonKey: 'apiErrors.promotions.codeNotStartedYet' };
+    if (promo.validTo && now > promo.validTo) return { valid: false, reasonKey: 'apiErrors.promotions.codeExpired' };
     if (
       promo.applicablePackageDefinitionIds.length > 0 &&
       !promo.applicablePackageDefinitionIds.includes(pkgDef.id)
     ) {
-      return { valid: false, reason: 'Kod bu paket için geçerli değil' };
+      return { valid: false, reasonKey: 'apiErrors.promotions.codeNotValidForPackage' };
     }
     if (promo.minAmount && basePrice.lt(promo.minAmount)) {
-      return { valid: false, reason: 'Tutar bu kod için minimum tutarın altında' };
+      return { valid: false, reasonKey: 'apiErrors.promotions.amountBelowCodeMinimum' };
     }
     if (promo.maxRedemptions !== null && promo.redeemedCount >= promo.maxRedemptions) {
-      return { valid: false, reason: 'Kod kullanım limitine ulaştı' };
+      return { valid: false, reasonKey: 'apiErrors.promotions.codeReachedUsageLimit' };
     }
     if (promo.newMembersOnly) {
       const priorPayments = await this.prisma.payment.count({
         where: { studioId: promo.studioId, paymentStatus: 'COMPLETED', member: { membership: { userId } } },
       });
-      if (priorPayments > 0) return { valid: false, reason: 'Kod yalnızca yeni üyeler içindir' };
+      if (priorPayments > 0) return { valid: false, reasonKey: 'apiErrors.promotions.codeNewMembersOnly' };
     }
     const usedByUser = await this.prisma.promoRedemption.count({ where: { promoCodeId: promo.id, userId } });
     if (usedByUser >= promo.perUserLimit) {
-      return { valid: false, reason: 'Bu kodu daha önce kullandınız' };
+      return { valid: false, reasonKey: 'apiErrors.promotions.alreadyUsedCode' };
     }
     return { valid: true };
   }
@@ -278,9 +281,9 @@ export class PromotionsService {
     let discountAmount = new Prisma.Decimal(0);
     if (opts.promoCode) {
       const promo = await this.findActivePromoCode(studioId, opts.promoCode);
-      if (!promo) throw new BadRequestException('Promosyon kodu bulunamadı veya pasif');
+      if (!promo) throw new BadRequestException(apiError('apiErrors.promotions.promoCodeNotFoundInactive'));
       const validation = await this.validatePromoRules(promo, pkgDef, basePrice, userId);
-      if (!validation.valid) throw new BadRequestException(validation.reason);
+      if (!validation.valid) throw new BadRequestException(apiError(validation.reasonKey));
       discountAmount = computePromoDiscount(promo.kind, promo.value, basePrice).discountAmount;
     }
     const afterDiscount = basePrice.minus(discountAmount);
@@ -289,9 +292,9 @@ export class PromotionsService {
     if (opts.giftCardCode) {
       const codeHash = hashGiftCardCode(opts.giftCardCode);
       const card = await this.prisma.giftCard.findFirst({ where: { studioId, codeHash } });
-      if (!card) throw new BadRequestException('Hediye kartı bulunamadı');
-      if (card.status !== GiftCardStatus.ACTIVE) throw new BadRequestException('Hediye kartı kullanılabilir durumda değil');
-      if (card.expiresAt && card.expiresAt < new Date()) throw new BadRequestException('Hediye kartının süresi dolmuş');
+      if (!card) throw new BadRequestException(apiError('apiErrors.promotions.giftCardNotFound'));
+      if (card.status !== GiftCardStatus.ACTIVE) throw new BadRequestException(apiError('apiErrors.promotions.giftCardNotAvailable'));
+      if (card.expiresAt && card.expiresAt < new Date()) throw new BadRequestException(apiError('apiErrors.promotions.giftCardExpired'));
       const requested = opts.giftCardAmount !== undefined ? new Prisma.Decimal(opts.giftCardAmount) : afterDiscount;
       giftCardAmount = Prisma.Decimal.min(requested, card.balance, afterDiscount).toDecimalPlaces(2);
     }
@@ -321,10 +324,10 @@ export class PromotionsService {
     basePrice: Prisma.Decimal,
   ): Promise<PromoApplication> {
     const promo = await tx.promoCode.findFirst({ where: { studioId, code: code.trim().toUpperCase(), isActive: true } });
-    if (!promo) throw new BadRequestException('Promosyon kodu bulunamadı veya pasif');
+    if (!promo) throw new BadRequestException(apiError('apiErrors.promotions.promoCodeNotFoundInactive'));
 
     const validation = await this.validatePromoRulesTx(tx, promo, pkgDef, basePrice, userId);
-    if (!validation.valid) throw new BadRequestException(validation.reason);
+    if (!validation.valid) throw new BadRequestException(apiError(validation.reasonKey));
 
     // Atomic: total redemptions across every user can never exceed maxRedemptions.
     if (promo.maxRedemptions !== null) {
@@ -332,7 +335,7 @@ export class PromotionsService {
         where: { id: promo.id, studioId, redeemedCount: { lt: promo.maxRedemptions } },
         data: { redeemedCount: { increment: 1 } },
       });
-      if (reserved.count === 0) throw new ConflictException('Kod kullanım limitine ulaştı');
+      if (reserved.count === 0) throw new ConflictException(apiError('apiErrors.promotions.codeReachedUsageLimit'));
     } else {
       await tx.promoCode.update({ where: { id: promo.id }, data: { redeemedCount: { increment: 1 } } });
     }
@@ -345,7 +348,7 @@ export class PromotionsService {
       userId,
       limit: promo.perUserLimit,
     });
-    if (!slot) throw new ConflictException('Bu kodu daha önce kullandınız');
+    if (!slot) throw new ConflictException(apiError('apiErrors.promotions.alreadyUsedCode'));
 
     const { discountAmount, bonusUnits } = computePromoDiscount(promo.kind, promo.value, basePrice);
     return { promoCode: promo, discountAmount, bonusUnits };
@@ -357,25 +360,25 @@ export class PromotionsService {
     pkgDef: PackageDefinition | null,
     basePrice: Prisma.Decimal,
     userId: string,
-  ): Promise<{ valid: true } | { valid: false; reason: string }> {
+  ): Promise<{ valid: true } | { valid: false; reasonKey: ApiErrorKey }> {
     const now = new Date();
-    if (promo.restrictedToUserId && promo.restrictedToUserId !== userId) return { valid: false, reason: 'Bu kod başka bir üyeye özeldir' };
-    if (promo.validFrom && now < promo.validFrom) return { valid: false, reason: 'Kodun geçerlilik tarihi henüz başlamadı' };
-    if (promo.validTo && now > promo.validTo) return { valid: false, reason: 'Kodun süresi dolmuş' };
+    if (promo.restrictedToUserId && promo.restrictedToUserId !== userId) return { valid: false, reasonKey: 'apiErrors.promotions.codeRestrictedToAnotherMember' };
+    if (promo.validFrom && now < promo.validFrom) return { valid: false, reasonKey: 'apiErrors.promotions.codeNotStartedYet' };
+    if (promo.validTo && now > promo.validTo) return { valid: false, reasonKey: 'apiErrors.promotions.codeExpired' };
     if (!pkgDef && (promo.kind === PromoCodeKind.FREE_UNITS || promo.applicablePackageDefinitionIds.length > 0)) {
-      return { valid: false, reason: 'Kod bu satış için geçerli değil' };
+      return { valid: false, reasonKey: 'apiErrors.promotions.codeNotValidForSale' };
     }
     if (pkgDef && promo.applicablePackageDefinitionIds.length > 0 && !promo.applicablePackageDefinitionIds.includes(pkgDef.id)) {
-      return { valid: false, reason: 'Kod bu paket için geçerli değil' };
+      return { valid: false, reasonKey: 'apiErrors.promotions.codeNotValidForPackage' };
     }
     if (promo.minAmount && basePrice.lt(promo.minAmount)) {
-      return { valid: false, reason: 'Tutar bu kod için minimum tutarın altında' };
+      return { valid: false, reasonKey: 'apiErrors.promotions.amountBelowCodeMinimum' };
     }
     if (promo.newMembersOnly) {
       const priorPayments = await tx.payment.count({
         where: { studioId: promo.studioId, paymentStatus: 'COMPLETED', member: { membership: { userId } } },
       });
-      if (priorPayments > 0) return { valid: false, reason: 'Kod yalnızca yeni üyeler içindir' };
+      if (priorPayments > 0) return { valid: false, reasonKey: 'apiErrors.promotions.codeNewMembersOnly' };
     }
     return { valid: true };
   }
@@ -422,7 +425,7 @@ export class PromotionsService {
       where: { id: dto.memberId, studioId: tenant.studioId },
       include: { membership: true },
     });
-    if (!member) throw new NotFoundException('Üye bulunamadı');
+    if (!member) throw new NotFoundException(apiError('apiErrors.common.memberNotFound'));
 
     const branchId = dto.branchId ?? member.homeBranchId ?? null;
     if (branchId) assertBranchAccess(tenant, branchId);
@@ -484,19 +487,19 @@ export class PromotionsService {
 
   async getGiftCard(tenant: TenantContext, giftCardId: string) {
     const card = await this.prisma.giftCard.findFirst({ where: { id: giftCardId, studioId: tenant.studioId } });
-    if (!card) throw new NotFoundException('Hediye kartı bulunamadı');
+    if (!card) throw new NotFoundException(apiError('apiErrors.promotions.giftCardNotFound'));
     return card;
   }
 
   async cancelGiftCard(tenant: TenantContext, actorUserId: string, giftCardId: string) {
     const card = await this.getGiftCard(tenant, giftCardId);
-    if (card.status === GiftCardStatus.CANCELLED) throw new BadRequestException('Kart zaten iptal edilmiş');
+    if (card.status === GiftCardStatus.CANCELLED) throw new BadRequestException(apiError('apiErrors.promotions.cardAlreadyCancelled'));
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.giftCard.updateMany({
         where: { id: card.id, studioId: tenant.studioId, status: { not: GiftCardStatus.CANCELLED } },
         data: { status: GiftCardStatus.CANCELLED },
       });
-      if (result.count === 0) throw new ConflictException('Kart durumu az önce değişti, tekrar deneyin');
+      if (result.count === 0) throw new ConflictException(apiError('apiErrors.promotions.cardStatusJustChanged'));
       await tx.auditLog.create({
         data: { studioId: tenant.studioId, userId: actorUserId, action: 'promotions.gift_card.cancel', entityType: 'GiftCard', entityId: card.id },
       });
@@ -510,14 +513,14 @@ export class PromotionsService {
     const card = await this.getGiftCard(tenant, giftCardId);
     const delta = new Prisma.Decimal(dto.amount).toDecimalPlaces(2);
     const newBalance = card.balance.plus(delta);
-    if (newBalance.lt(0)) throw new BadRequestException('Bakiye negatif olamaz');
+    if (newBalance.lt(0)) throw new BadRequestException(apiError('apiErrors.common.balanceCannotNegative'));
 
     return this.prisma.$transaction(async (tx) => {
       const result = await tx.giftCard.updateMany({
         where: { id: card.id, studioId: tenant.studioId, balance: card.balance },
         data: { balance: newBalance },
       });
-      if (result.count === 0) throw new ConflictException('Kart bakiyesi az önce değişti, tekrar deneyin');
+      if (result.count === 0) throw new ConflictException(apiError('apiErrors.promotions.cardBalanceJustChanged'));
       await tx.giftCardTransaction.create({
         data: { giftCardId: card.id, studioId: tenant.studioId, type: GiftCardTransactionType.ADJUST, amount: delta, actorUserId, note: dto.note },
       });
@@ -551,7 +554,7 @@ export class PromotionsService {
   async checkGiftCardBalance(tenant: TenantContext, code: string) {
     const codeHash = hashGiftCardCode(code);
     const card = await this.prisma.giftCard.findFirst({ where: { studioId: tenant.studioId, codeHash } });
-    if (!card) throw new NotFoundException('Hediye kartı bulunamadı');
+    if (!card) throw new NotFoundException(apiError('apiErrors.promotions.giftCardNotFound'));
     const status = this.effectiveStatus(card);
     return { last4: card.last4, balance: card.balance.toFixed(2), currency: card.currency, status, expiresAt: card.expiresAt };
   }
@@ -572,12 +575,12 @@ export class PromotionsService {
   async applyGiftCardTx(tx: Tx, studioId: string, code: string, requestedAmount: Prisma.Decimal): Promise<GiftCardApplication> {
     const codeHash = hashGiftCardCode(code);
     const card = await tx.giftCard.findFirst({ where: { studioId, codeHash } });
-    if (!card) throw new BadRequestException('Hediye kartı bulunamadı');
-    if (card.status !== GiftCardStatus.ACTIVE) throw new BadRequestException('Hediye kartı kullanılabilir durumda değil');
-    if (card.expiresAt && card.expiresAt < new Date()) throw new BadRequestException('Hediye kartının süresi dolmuş');
+    if (!card) throw new BadRequestException(apiError('apiErrors.promotions.giftCardNotFound'));
+    if (card.status !== GiftCardStatus.ACTIVE) throw new BadRequestException(apiError('apiErrors.promotions.giftCardNotAvailable'));
+    if (card.expiresAt && card.expiresAt < new Date()) throw new BadRequestException(apiError('apiErrors.promotions.giftCardExpired'));
 
     const amount = Prisma.Decimal.min(requestedAmount, card.balance).toDecimalPlaces(2);
-    if (amount.lte(0)) throw new BadRequestException('Hediye kartı bakiyesi yetersiz');
+    if (amount.lte(0)) throw new BadRequestException(apiError('apiErrors.promotions.insufficientGiftCardBalance'));
 
     const remaining = card.balance.minus(amount);
     const reserved = await tx.giftCard.updateMany({
@@ -585,7 +588,7 @@ export class PromotionsService {
       data: { balance: remaining, status: remaining.lte(0) ? GiftCardStatus.REDEEMED : GiftCardStatus.ACTIVE },
     });
     if (reserved.count === 0) {
-      throw new ConflictException('Hediye kartı bakiyesi başka bir işlemde kullanıldı, tekrar deneyin');
+      throw new ConflictException(apiError('apiErrors.promotions.giftCardBalanceUsedAnotherOperation'));
     }
     return { giftCardId: card.id, amountApplied: amount };
   }

@@ -13,6 +13,7 @@ import type {
 } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CampaignSendTimeService } from './campaign-send-time.service';
+import { apiError } from '../../../common/api-error';
 
 const MINUTE_MS = 60 * 1000;
 const RELEASE_CHUNK = 1000;
@@ -58,11 +59,11 @@ export class CampaignAbService {
     for (const v of variants) {
       if (v.templateKey) {
         const exists = await this.prisma.messageTemplate.count({ where: { key: v.templateKey, isActive: true, OR: [{ studioId }, { studioId: null }] } });
-        if (exists === 0) throw new BadRequestException(`Varyant ${v.key}: "${v.templateKey}" şablonu bulunamadı`);
+        if (exists === 0) throw new BadRequestException(apiError('apiErrors.growth.variantTemplateNotFound', { variant: v.key, template: v.templateKey }));
       }
       if (v.aiDraftId) {
         const draft = await this.prisma.marketingDraft.count({ where: { id: v.aiDraftId, studioId } });
-        if (draft === 0) throw new BadRequestException(`Varyant ${v.key}: yapay zeka taslağı bulunamadı`);
+        if (draft === 0) throw new BadRequestException(apiError('apiErrors.growth.variantDraftNotFound', { variant: v.key }));
       }
     }
   }
@@ -188,10 +189,10 @@ export class CampaignAbService {
    */
   async decide(campaign: Campaign, requestedKey: string | null, now: Date, actorUserId: string | null = null): Promise<string | null> {
     const setup = parseAbSetup(campaign.abTest);
-    if (!setup) throw new ConflictException('Bu kampanyada A/B testi yok');
+    if (!setup) throw new ConflictException(apiError('apiErrors.growth.campaignHasNoAbTest'));
     const variants = await this.variantsOf(campaign.id);
-    if (variants.length === 0) throw new ConflictException('Bu kampanyada varyant yok');
-    if (requestedKey && !variants.some((v) => v.key === requestedKey)) throw new BadRequestException('Böyle bir varyant yok');
+    if (variants.length === 0) throw new ConflictException(apiError('apiErrors.growth.campaignNoVariants'));
+    if (requestedKey && !variants.some((v) => v.key === requestedKey)) throw new BadRequestException(apiError('apiErrors.growth.noSuchVariantExists'));
     const rows = await this.variantStats(campaign, variants.map((v) => v.key));
     const winnerKey = requestedKey ?? pickWinnerKey(rows, setup.metric);
     if (!winnerKey) return null;

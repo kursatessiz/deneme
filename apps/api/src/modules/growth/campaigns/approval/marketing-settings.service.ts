@@ -11,6 +11,7 @@ import type {
 } from '@platform/shared';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ContactConsentService } from '../../../notifications/consent/contact-consent.service';
+import { apiError } from '../../../../common/api-error';
 
 function segmentRule(raw: Prisma.JsonValue | null): SegmentGroup | null {
   if (raw === null) return null;
@@ -86,7 +87,7 @@ export class MarketingSettingsService {
 
   async platformStudioId(): Promise<string> {
     const studio = await this.prisma.studio.findFirst({ where: { isPlatform: true }, select: { id: true } });
-    if (!studio) throw new NotFoundException('Platform kiracısı bulunamadı');
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.platformTenantNotFound'));
     return studio.id;
   }
 
@@ -113,7 +114,7 @@ export class MarketingSettingsService {
     if (input.weeklySummaryRecipients) {
       const allowed = new Set((await this.recipients()).map((r) => r.userId));
       if (input.weeklySummaryRecipients.some((id) => !allowed.has(id))) {
-        throw new BadRequestException('Özet alıcıları yalnızca platform kullanıcıları olabilir');
+        throw new BadRequestException(apiError('apiErrors.growth.digestRecipientsCanOnlyPlatformUsers'));
       }
     }
     const before = await this.get(studioId);

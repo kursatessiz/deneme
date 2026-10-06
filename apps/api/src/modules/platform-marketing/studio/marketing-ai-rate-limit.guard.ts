@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../../auth/tenant-context';
 import { RedisService } from '../../redis/redis.service';
+import { codedError } from '../../../common/api-error';
 
 const WINDOW_SECONDS = 60;
 /** Model calls per user per minute (docs/PAZARLAMA_MODULU.md 6.2). */
@@ -21,7 +22,7 @@ export class MarketingAiRateLimitGuard implements CanActivate {
     const req = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const count = await this.increment(`mkt-ai-rl:${req.user?.id ?? 'anon'}`);
     if (count > MARKETING_AI_MAX_PER_WINDOW) {
-      throw new HttpException({ statusCode: 429, code: 'MARKETING_AI_RATE_LIMITED', message: 'Çok fazla istek, lütfen bir dakika sonra tekrar deneyin' }, HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(codedError('MARKETING_AI_RATE_LIMITED', { statusCode: 429 }), HttpStatus.TOO_MANY_REQUESTS);
     }
     return true;
   }

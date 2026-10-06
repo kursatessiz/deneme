@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type { Request } from 'express';
 import { RedisService } from '../redis/redis.service';
+import { apiError } from '../../common/api-error';
 
 const WINDOW_SECONDS = 300;
 const MAX_REQUESTS = 60;
@@ -28,7 +29,7 @@ export class CalendarFeedRateLimitGuard implements CanActivate {
       const count = await client.incr(key);
       if (count === 1) await client.expire(key, WINDOW_SECONDS);
       if (count > MAX_REQUESTS) {
-        throw new HttpException('Çok fazla istek', HttpStatus.TOO_MANY_REQUESTS);
+        throw new HttpException(apiError('apiErrors.common.tooManyRequests'), HttpStatus.TOO_MANY_REQUESTS);
       }
       return true;
     } catch (err) {

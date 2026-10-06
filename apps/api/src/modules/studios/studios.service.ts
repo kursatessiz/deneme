@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { PrismaService } from '../prisma/prisma.service';
 import { BILLING_CURRENCY_LOCKED_ERROR_CODE, DashboardMetricsDTO, StudioRegion, studioBillingCurrency } from '@platform/shared';
 import { loadAllowedThemeFamiliesForStudio } from '../appearance/theme-families';
+import { apiError, codedError } from '../../common/api-error';
 
 @Injectable()
 export class StudiosService {
@@ -37,7 +38,7 @@ export class StudiosService {
     });
 
     if (!studio) {
-      throw new NotFoundException(`'${slug}' stüdyosu bulunamadı`);
+      throw new NotFoundException(apiError('apiErrors.common.businessSlugNotFound', { slug: slug }));
     }
 
     return { ...studio, allowedThemeFamilies: await loadAllowedThemeFamiliesForStudio(this.prisma, studio.id) };
@@ -94,18 +95,14 @@ export class StudiosService {
     if (billingBefore !== billingAfter) {
       const paid = await this.prisma.platformBillingPayment.findFirst({ where: { studioId, status: { in: ['COMPLETED', 'PENDING'] } }, select: { id: true } });
       if (paid) {
-        throw new ConflictException({
-          statusCode: 409,
-          code: BILLING_CURRENCY_LOCKED_ERROR_CODE,
-          message: 'Tamamlanmış bir abonelik ödemesi olduğu için faturalama para birimi değiştirilemez; değişikliği platform yöneticisi yapabilir.',
-        });
+        throw new ConflictException(codedError(BILLING_CURRENCY_LOCKED_ERROR_CODE, { statusCode: 409 }));
       }
     }
     if (region.currency !== studio.currency) {
       const hasPayments = await this.prisma.payment.findFirst({ where: { studioId }, select: { id: true } });
       if (hasPayments) {
         throw new ConflictException(
-          'Bu stüdyoda kaydedilmiş ödemeler var; para birimi değiştirilemez. Mevcut tutarlar otomatik olarak yeni para birimine çevrilmez.',
+          apiError('apiErrors.studios.businessRecordedPaymentsCurrencyCannotChanged'),
         );
       }
     }

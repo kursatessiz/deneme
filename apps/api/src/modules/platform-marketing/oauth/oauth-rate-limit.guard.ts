@@ -2,6 +2,7 @@ import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } 
 import type { Request } from 'express';
 import type { AuthenticatedRequest } from '../../auth/tenant-context';
 import { RedisService } from '../../redis/redis.service';
+import { codedError } from '../../../common/api-error';
 
 const WINDOW_SECONDS = 60;
 /** OAuth starts per user per minute (M4a). */
@@ -25,7 +26,7 @@ abstract class FixedWindowGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const count = await this.increment(this.keyOf(context));
     if (count > this.max) {
-      throw new HttpException({ statusCode: 429, code: 'OAUTH_RATE_LIMITED', message: 'Çok fazla istek, lütfen bir dakika sonra tekrar deneyin' }, HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(codedError('OAUTH_RATE_LIMITED', { statusCode: 429 }), HttpStatus.TOO_MANY_REQUESTS);
     }
     return true;
   }

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { GlossaryTermDTO, GlossaryTermInput } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
+import { apiError } from '../../../common/api-error';
 
 type GlossaryRow = { id: string; locale: string; term: string; translation: string | null; note: string | null; updatedAt: Date };
 
@@ -15,7 +16,7 @@ export class GlossaryService {
 
   private async assertLanguage(locale: string): Promise<void> {
     const language = await this.prisma.language.findUnique({ where: { code: locale } });
-    if (!language) throw new NotFoundException(`"${locale}" dili bulunamadı.`);
+    if (!language) throw new NotFoundException(apiError('apiErrors.common.languageNotFound', { locale: locale }));
   }
 
   async list(locale: string): Promise<GlossaryTermDTO[]> {
@@ -41,7 +42,7 @@ export class GlossaryService {
 
   async remove(actorUserId: string, locale: string, id: string): Promise<void> {
     const deleted = await this.prisma.aiGlossaryTerm.deleteMany({ where: { id, locale } });
-    if (deleted.count === 0) throw new NotFoundException('Terim bulunamadı.');
+    if (deleted.count === 0) throw new NotFoundException(apiError('apiErrors.ai.termNotFound'));
     await this.prisma.auditLog.create({
       data: { userId: actorUserId, action: 'ai.glossary.delete', entityType: 'AiGlossaryTerm', entityId: id, metadata: { locale } },
     });

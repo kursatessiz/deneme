@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
+import { apiError } from '../../common/api-error';
 
 @Injectable()
 export class TrainersService {
@@ -39,7 +40,7 @@ export class TrainersService {
     if (!tenant.permissions.has('commissions.view.all')) {
       const canViewOwn = tenant.permissions.has('commissions.view.own') && trainerId === tenant.trainerProfileId;
       if (!canViewOwn) {
-        throw new ForbiddenException('Bu hakedişi görüntüleme yetkiniz yok');
+        throw new ForbiddenException(apiError('apiErrors.trainers.notPermissionViewPayout'));
       }
     }
 
@@ -48,7 +49,7 @@ export class TrainersService {
       include: { membership: { include: { user: true } }, commissionRule: true },
     });
     if (!trainer) {
-      throw new NotFoundException('Eğitmen bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.common.trainerNotFound'));
     }
 
     const startDate = new Date(year, month - 1, 1);

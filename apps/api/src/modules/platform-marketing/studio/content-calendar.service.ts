@@ -15,6 +15,7 @@ import {
 } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { PlatformContext } from '../../auth/tenant-context';
+import { apiError, codedError } from '../../../common/api-error';
 
 const dayStart = (date: string) => new Date(`${date}T00:00:00.000Z`);
 
@@ -103,10 +104,10 @@ export class ContentCalendarService {
   async update(platform: PlatformContext, id: string, input: UpdateContentItemInput): Promise<ContentItemDTO> {
     const studioId = platform.platformStudioId;
     const existing = await this.prisma.contentCalendarItem.findFirst({ where: { id, studioId } });
-    if (!existing) throw new NotFoundException('Takvim öğesi bulunamadı');
+    if (!existing) throw new NotFoundException(apiError('apiErrors.platformMarketing.calendarItemNotFound'));
     const movesDate = input.scheduledDate !== undefined && input.scheduledDate !== toDateOnly(existing.scheduledDate);
     if (movesDate && !isCalendarItemMovable(existing.status as CalendarStatus)) {
-      throw new ConflictException({ statusCode: 409, code: 'CALENDAR_ITEM_LOCKED', message: 'Gönderilmiş veya iptal edilmiş öğenin tarihi değiştirilemez' });
+      throw new ConflictException(codedError('CALENDAR_ITEM_LOCKED', { statusCode: 409 }));
     }
     await this.assertLinks(studioId, input);
     const row = await this.prisma.$transaction(async (tx) => {
@@ -136,7 +137,7 @@ export class ContentCalendarService {
   async remove(platform: PlatformContext, id: string): Promise<{ deleted: true }> {
     const studioId = platform.platformStudioId;
     const existing = await this.prisma.contentCalendarItem.findFirst({ where: { id, studioId } });
-    if (!existing) throw new NotFoundException('Takvim öğesi bulunamadı');
+    if (!existing) throw new NotFoundException(apiError('apiErrors.platformMarketing.calendarItemNotFound'));
     await this.prisma.$transaction(async (tx) => {
       await tx.contentCalendarItem.delete({ where: { id } });
       await this.audit(tx, platform, 'marketing.calendar.delete', id, { title: existing.title });
@@ -148,18 +149,18 @@ export class ContentCalendarService {
   private async assertLinks(studioId: string, input: { draftId?: string | null; campaignId?: string | null; ownerUserId?: string | null }): Promise<void> {
     if (input.draftId) {
       const draft = await this.prisma.marketingDraft.findFirst({ where: { id: input.draftId, studioId }, select: { id: true } });
-      if (!draft) throw new BadRequestException({ statusCode: 400, code: 'CALENDAR_DRAFT_NOT_FOUND', message: 'Taslak bulunamadı' });
+      if (!draft) throw new BadRequestException(codedError('CALENDAR_DRAFT_NOT_FOUND', { statusCode: 400 }));
     }
     if (input.campaignId) {
       const campaign = await this.prisma.campaign.findFirst({ where: { id: input.campaignId, studioId }, select: { id: true } });
-      if (!campaign) throw new BadRequestException({ statusCode: 400, code: 'CALENDAR_CAMPAIGN_NOT_FOUND', message: 'Kampanya bulunamadı' });
+      if (!campaign) throw new BadRequestException(codedError('CALENDAR_CAMPAIGN_NOT_FOUND', { statusCode: 400 }));
     }
     if (input.ownerUserId) {
       const owner = await this.prisma.user.findFirst({
         where: { id: input.ownerUserId, OR: [{ isSuperAdmin: true }, { platformMembership: { is: { status: 'ACTIVE' } } }] },
         select: { id: true },
       });
-      if (!owner) throw new BadRequestException({ statusCode: 400, code: 'CALENDAR_OWNER_NOT_FOUND', message: 'Sorumlu kullanıcı bulunamadı' });
+      if (!owner) throw new BadRequestException(codedError('CALENDAR_OWNER_NOT_FOUND', { statusCode: 400 }));
     }
   }
 

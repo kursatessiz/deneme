@@ -10,15 +10,16 @@ import { loadAllowedThemeFamilies } from '../appearance/theme-families';
 import { LoginThrottleService } from './login-throttle.service';
 import { isStudioBillingStatus } from '@platform/shared';
 import { loadPlatformAccess, requireTwoFactorForPlatformRoles } from './platform-access';
+import { apiError } from '../../common/api-error';
 
 export const PIN_MAX_FAILURES = 5;
 /** Refresh token lifetime of super admins and platform members (tenant users keep 30 days). */
 export const PLATFORM_REFRESH_TTL = '7d';
 export const PIN_LOCK_MS = 15 * 60 * 1000;
-const INVALID_CODE = 'Kod geçersiz veya süresi dolmuş';
-const INVALID_PIN = 'Telefon numarası veya PIN hatalı';
+const INVALID_CODE = apiError('apiErrors.invites.codeInvalidExpired');
+const INVALID_PIN = apiError('apiErrors.auth.incorrectPhoneNumberPin');
 
-const INVALID_CREDENTIALS = 'Hatalı e-posta/telefon veya şifre';
+const INVALID_CREDENTIALS = apiError('apiErrors.auth.incorrectEmailPhonePassword');
 // Compared against when the user does not exist, so response time does not
 // reveal which phone numbers are registered.
 const DUMMY_HASH = bcrypt.hashSync('timing-equalizer', 10);
@@ -84,7 +85,7 @@ export class AuthService {
       data: { failedPinAttempts: { increment: 1 }, pinLockedUntil: null },
     });
     if (reserved.count === 0) {
-      throw new ForbiddenException('Çok fazla hatalı deneme. Hesap geçici olarak kilitlendi, SMS kodu ile giriş yapın');
+      throw new ForbiddenException(apiError('apiErrors.auth.tooManyFailedAttemptsAccountTemporarily'));
     }
 
     if (!(await bcrypt.compare(pin, user.pinHash))) {
@@ -136,7 +137,7 @@ export class AuthService {
     }
     await this.throttle.recordSuccess('password', identifier);
     if (!user.isActive) {
-      throw new UnauthorizedException('Hesabınız askıya alınmıştır');
+      throw new UnauthorizedException(apiError('apiErrors.auth.accountSuspended'));
     }
 
     const tokens = await this.issueTokens(user.id);
@@ -144,21 +145,21 @@ export class AuthService {
   }
 
   async refreshToken(incomingRefreshToken: string) {
-    if (!incomingRefreshToken) throw new UnauthorizedException('Oturum geçersiz');
+    if (!incomingRefreshToken) throw new UnauthorizedException(apiError('apiErrors.auth.invalidSession'));
 
     let claims: { sub?: string; typ?: string };
     try {
       claims = this.jwtService.verify(incomingRefreshToken);
     } catch {
-      throw new UnauthorizedException('Oturum geçersiz');
+      throw new UnauthorizedException(apiError('apiErrors.auth.invalidSession'));
     }
-    if (claims.typ !== 'refresh' || !claims.sub) throw new UnauthorizedException('Oturum geçersiz');
+    if (claims.typ !== 'refresh' || !claims.sub) throw new UnauthorizedException(apiError('apiErrors.auth.invalidSession'));
 
     const user = await this.prisma.user.findUnique({ where: { id: claims.sub } });
-    if (!user || !user.isActive || !user.refreshTokenHash) throw new UnauthorizedException('Oturum geçersiz');
+    if (!user || !user.isActive || !user.refreshTokenHash) throw new UnauthorizedException(apiError('apiErrors.auth.invalidSession'));
 
     const isTokenMatch = await bcrypt.compare(incomingRefreshToken, user.refreshTokenHash);
-    if (!isTokenMatch) throw new UnauthorizedException('Yenileme jetonu geçersiz');
+    if (!isTokenMatch) throw new UnauthorizedException(apiError('apiErrors.auth.invalidRefreshToken'));
 
     // Rotate: the presented refresh token cannot be used again. A session that
     // passed the TOTP step keeps it, unless 2FA was reset or re-enrolled since.

@@ -9,6 +9,7 @@ import { AttributionService } from '../attribution/attribution.service';
 import { ConversionOutboxService } from './conversion-outbox.service';
 import { GrowthEventsService } from '../hooks/growth-events.service';
 import { PlatformEventsService } from '../../webhooks/platform-events.service';
+import { apiError } from '../../../common/api-error';
 
 export interface RecordConversionInput {
   studioId: string;
@@ -74,7 +75,7 @@ export class ConversionService {
       isTest: input.isTest ?? false,
     });
     if (!parsed.success) {
-      throw new BadRequestException(`Geçersiz dönüşüm olayı: ${parsed.error.issues.map((i) => i.path.join('.')).join(', ')}`);
+      throw new BadRequestException(apiError('apiErrors.crm.invalidConversionEvent', { fields: parsed.error.issues.map((i) => i.path.join('.')).join(', ') }));
     }
 
     const existing = await this.findBySource(input.studioId, input.source.kind, input.source.id);
@@ -87,10 +88,10 @@ export class ConversionService {
         select: { id: true, isTest: true },
       }),
     ]);
-    if (!studio) throw new BadRequestException('İşletme bulunamadı');
-    if (!contact) throw new BadRequestException('Kişi bu işletmede bulunamadı');
+    if (!studio) throw new BadRequestException(apiError('apiErrors.common.businessNotFound'));
+    if (!contact) throw new BadRequestException(apiError('apiErrors.crm.contactNotFoundBusiness'));
     if (PLATFORM_ONLY.has(input.type) && !studio.isPlatform) {
-      throw new BadRequestException('Bu dönüşüm türü yalnızca platform kiracısında kaydedilir');
+      throw new BadRequestException(apiError('apiErrors.crm.conversionTypeOnlyRecordedPlatformTenant'));
     }
 
     const lastTouch = await this.attribution.lastTouchFor(input.studioId, contact.id, occurredAt);

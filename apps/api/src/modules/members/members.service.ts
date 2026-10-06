@@ -8,6 +8,7 @@ import { assertBranchAccess } from '../branches/branch-access';
 import { ReferralsService } from '../feedback/referrals.service';
 import { PlanLimitsService } from '../admin/plan-limits.service';
 import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
+import { apiError } from '../../common/api-error';
 
 @Injectable()
 export class MembersService {
@@ -56,12 +57,12 @@ export class MembersService {
   /** Staff set a member's home branch; members may set their own. Null clears it. */
   async setHomeBranch(tenant: TenantContext, memberId: string, dto: SetHomeBranchInput) {
     const member = await this.prisma.memberProfile.findFirst({ where: { id: memberId, studioId: tenant.studioId } });
-    if (!member) throw new NotFoundException('Üye bulunamadı');
+    if (!member) throw new NotFoundException(apiError('apiErrors.common.memberNotFound'));
     if (dto.branchId) {
       const branch = await this.prisma.branch.findFirst({
         where: { id: dto.branchId, studioId: tenant.studioId, isActive: true },
       });
-      if (!branch) throw new BadRequestException('Seçilen şube bu işletmede bulunamadı veya pasif');
+      if (!branch) throw new BadRequestException(apiError('apiErrors.common.selectedBranchNotFoundBusinessInactive'));
     }
     const updated = await this.prisma.memberProfile.update({
       where: { id: member.id },
@@ -78,7 +79,7 @@ export class MembersService {
    */
   async getSelfPackages(tenant: TenantContext, serviceTypeId?: string) {
     if (!tenant.memberProfileId) {
-      throw new ForbiddenException('Bu işletmede üye profiliniz yok');
+      throw new ForbiddenException(apiError('apiErrors.members.noMemberProfileBusiness'));
     }
     const packages = await this.prisma.memberPackage.findMany({
       where: {
@@ -132,7 +133,7 @@ export class MembersService {
     });
 
     if (!member) {
-      throw new NotFoundException('Üye bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.common.memberNotFound'));
     }
 
     return this.toDetail(member, tenant);
@@ -146,7 +147,7 @@ export class MembersService {
       where: { studioId, key: 'member' },
     });
     if (!roleTemplate) {
-      throw new NotFoundException('Üye rol şablonu bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.common.memberRoleTemplateNotFound'));
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -170,7 +171,7 @@ export class MembersService {
       // member in place (flag cleared, row reused); any other existing
       // membership is a real member already and cannot be re-created.
       if (existingMembership && !existingMembership.isPartnerGuest) {
-        throw new ConflictException('Bu telefon numarasına sahip bir üyelik bu işletmede zaten mevcut');
+        throw new ConflictException(apiError('apiErrors.members.membershipPhoneNumberAlreadyExistsBusiness'));
       }
 
       const membership = existingMembership
@@ -242,10 +243,10 @@ export class MembersService {
       this.prisma.studio.findUniqueOrThrow({ where: { id: studioId }, select: { currency: true } }),
     ]);
     if (!pkgDef) {
-      throw new NotFoundException('Paket tanımı bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.common.packageDefinitionNotFound'));
     }
     if (!member) {
-      throw new NotFoundException('Üye bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.common.memberNotFound'));
     }
 
     const startDate = dto.startDate ? new Date(dto.startDate) : new Date();
@@ -295,12 +296,12 @@ export class MembersService {
       include: { packageDefinition: true },
     });
     if (!memberPackage) {
-      throw new NotFoundException('Paket bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.members.packageNotFound'));
     }
 
     if (dto.days > memberPackage.packageDefinition.freezeDaysAllowed) {
       throw new BadRequestException(
-        `Bu paket en fazla ${memberPackage.packageDefinition.freezeDaysAllowed} gün dondurulabilir.`,
+        apiError('apiErrors.members.freezeDaysExceeded', { count: memberPackage.packageDefinition.freezeDaysAllowed }),
       );
     }
 
@@ -338,10 +339,10 @@ export class MembersService {
     const studioId = tenant.studioId;
     const memberPackage = await this.prisma.memberPackage.findFirst({ where: { id: packageId, studioId } });
     if (!memberPackage) {
-      throw new NotFoundException('Paket bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.members.packageNotFound'));
     }
     if (memberPackage.status !== 'FROZEN') {
-      throw new BadRequestException('Bu paket dondurulmuş durumda değil');
+      throw new BadRequestException(apiError('apiErrors.members.packageNotFrozen'));
     }
 
     const now = new Date();
@@ -364,7 +365,7 @@ export class MembersService {
         data: { status: 'ACTIVE', frozenUntil: null, endDate: newEndDate },
       });
       if (flipped.count === 0) {
-        throw new BadRequestException('Bu paket dondurulmuş durumda değil');
+        throw new BadRequestException(apiError('apiErrors.members.packageNotFrozen'));
       }
       return tx.memberPackage.findUniqueOrThrow({ where: { id: packageId } });
     });

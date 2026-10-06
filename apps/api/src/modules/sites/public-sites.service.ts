@@ -8,6 +8,7 @@ import { canonicalOriginOf } from './canonical-origin';
 import { SiteAggregateRatingService } from './site-aggregate-rating.service';
 import { loadAllowedThemeFamiliesForStudio } from '../appearance/theme-families';
 import { loadPoweredBy } from './powered-by';
+import { apiError } from '../../common/api-error';
 
 function toLocaleDto(l: { locale: string; slug: string; seoTitle: string | null; seoDescription: string | null; ogImageUrl: string | null; legalApproved: boolean; legalApprovedAt: Date | null }): PageLocaleDTO {
   return {
@@ -65,13 +66,13 @@ export class PublicSitesService {
 
   async getPage(studioSlug: string, locale: string, slug: string): Promise<PublicPageDTO> {
     const studio = await this.prisma.studio.findFirst({ where: { slug: studioSlug, isActive: true }, include: { site: true } });
-    if (!studio?.site) throw new NotFoundException('Site bulunamadı');
+    if (!studio?.site) throw new NotFoundException(apiError('apiErrors.sites.siteNotFound'));
 
     const localeRow = await this.prisma.pageLocale.findFirst({
       where: { siteId: studio.site.id, locale, slug, page: { status: 'PUBLISHED' } },
       include: { page: { include: { locales: true, blocks: { orderBy: { position: 'asc' } } } } },
     });
-    if (!localeRow) throw new NotFoundException('Sayfa bulunamadı');
+    if (!localeRow) throw new NotFoundException(apiError('apiErrors.sites.pageNotFound'));
     const page = localeRow.page;
 
     const context = await this.buildContext(studio, page.blocks.map((b) => b.type));
@@ -111,7 +112,7 @@ export class PublicSitesService {
       where: { slug: studioSlug, isActive: true },
       select: { id: true, slug: true, isPlatform: true, site: { select: { id: true, primaryDomain: true, seoSettings: true, domains: { select: { domain: true, status: true, verifiedAt: true } } } } },
     });
-    if (!studio?.site) throw new NotFoundException('Site bulunamadı');
+    if (!studio?.site) throw new NotFoundException(apiError('apiErrors.sites.siteNotFound'));
     const seo = parseSiteSeoSettings(studio.site.seoSettings);
     return {
       ...(await loadPoweredBy(this.prisma, studio)),

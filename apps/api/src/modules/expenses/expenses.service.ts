@@ -4,6 +4,7 @@ import type { CreateExpenseInput, ExpenseDTO, ListExpensesQuery } from '@platfor
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
+import { apiError } from '../../common/api-error';
 
 type ExpenseWithCreator = Prisma.ExpenseGetPayload<{ include: { createdBy: true } }>;
 
@@ -80,11 +81,11 @@ export class ExpensesService {
 
   async remove(tenant: TenantContext, actorUserId: string, expenseId: string): Promise<void> {
     const expense = await this.prisma.expense.findFirst({ where: { id: expenseId, studioId: tenant.studioId } });
-    if (!expense) throw new NotFoundException('Gider bulunamadı');
+    if (!expense) throw new NotFoundException(apiError('apiErrors.expenses.expenseNotFound'));
     if (expense.branchId) assertBranchAccess(tenant, expense.branchId);
     if (tenant.branchIds !== null && !expense.branchId) {
       // Branch-restricted staff may not delete a studio-wide (no-branch) expense.
-      throw new ForbiddenException('Bu gideri silme yetkiniz yok');
+      throw new ForbiddenException(apiError('apiErrors.expenses.notPermissionDeleteExpense'));
     }
 
     await this.prisma.$transaction([

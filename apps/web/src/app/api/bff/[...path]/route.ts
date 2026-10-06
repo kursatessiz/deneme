@@ -26,6 +26,8 @@ import { reportServerError, requestIdFrom } from '@/lib/errors/server';
  * docs/WEB_PANEL.md for the full design.
  */
 
+const LOCALE_TAG = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
+
 interface TokenPair {
   accessToken: string;
   refreshToken: string;
@@ -42,6 +44,11 @@ async function forward(
   const headers = stripHopByHopHeaders(req.headers);
   headers.set(REQUEST_ID_HEADER, requestId);
   if (accessToken) headers.set('authorization', `Bearer ${accessToken}`);
+
+  // The viewer's explicit language (pw_locale cookie) goes to the API as Accept-Language, so any
+  // server-rendered text it still produces follows the same language as the translated errors.
+  const localeCookie = req.cookies.get(PW_LOCALE_COOKIE)?.value;
+  if (localeCookie && LOCALE_TAG.test(localeCookie)) headers.set('accept-language', localeCookie);
 
   const studioId = req.headers.get('x-studio-id') ?? req.cookies.get(ACTIVE_STUDIO_COOKIE)?.value;
   if (studioId) headers.set('x-studio-id', studioId);

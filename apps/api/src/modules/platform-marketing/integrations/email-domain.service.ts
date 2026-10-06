@@ -7,6 +7,7 @@ import type { DnsRecordStatus, EmailDomainPurpose, EmailSenderDomainDTO, Expecte
 import { PrismaService } from '../../prisma/prisma.service';
 import { DNS_LOOKUP, checkEmailDomainDns, expectedEmailDomainRecords, type DnsLookup, type EmailDomainDnsConfig } from './email-domain-dns';
 import { SES_IDENTITY_PORT, type SesIdentityInfo, type SesIdentityPort } from './ses-identity.port';
+import { apiError } from '../../../common/api-error';
 
 const HOUR_MS = 3_600_000;
 /** A domain that is not fully verified is re-checked this often by the heartbeat; a verified one once a day. */
@@ -142,9 +143,9 @@ export class EmailDomainService {
   /** Creates or fetches the SES identity with Easy DKIM, stores the tokens and returns the records to publish. Super admin only (the controller). */
   async provision(studioId: string, userId: string, id: string): Promise<SesProvisionResultDTO> {
     const domain = await this.prisma.emailSenderDomain.findFirst({ where: { id, studioId } });
-    if (!domain) throw new NotFoundException('Alan adı bulunamadı');
+    if (!domain) throw new NotFoundException(apiError('apiErrors.common.domainNotFound'));
     if (this.ses.provider === 'MOCK' && this.config.get<string>('NODE_ENV') === 'production') {
-      throw new ServiceUnavailableException('E-posta sağlayıcısı (SES) yapılandırılmamış');
+      throw new ServiceUnavailableException(apiError('apiErrors.platformMarketing.emailProviderSesNotConfigured'));
     }
 
     let created: boolean;
@@ -153,9 +154,9 @@ export class EmailDomainService {
       ({ created, info } = await this.ses.ensureIdentity(domain.domain, domain.mailFromDomain));
     } catch (err) {
       this.logger.warn(`SES identity provisioning failed for ${domain.domain}: ${err instanceof Error ? err.name : 'unknown'}`);
-      throw new BadGatewayException('SES kimliği kurulamadı; kimlik bilgilerini ve izinleri kontrol edin');
+      throw new BadGatewayException(apiError('apiErrors.platformMarketing.sesIdentityCouldNotSetUp'));
     }
-    if (info.dkimTokens.length === 0) throw new BadGatewayException('SES DKIM anahtarları henüz üretmedi; biraz sonra tekrar deneyin');
+    if (info.dkimTokens.length === 0) throw new BadGatewayException(apiError('apiErrors.platformMarketing.sesNotGeneratedDkimKeysYet'));
 
     const live = this.ses.provider === 'SES';
     const row = await this.prisma.$transaction(async (tx) => {

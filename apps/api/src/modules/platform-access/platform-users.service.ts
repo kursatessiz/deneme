@@ -14,6 +14,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { InvitesService } from '../invites/invites.service';
 import type { PlatformContext } from '../auth/tenant-context';
 import { PlatformAccessService } from './platform-access.service';
+import { apiError } from '../../common/api-error';
 
 function maskPhone(phone: string): string {
   return phone.length > 6 ? `${phone.slice(0, 6)}*****${phone.slice(-2)}` : '*****';
@@ -93,7 +94,7 @@ export class PlatformUsersService {
   async invite(actorUserId: string, dto: PlatformInviteInput) {
     await this.access.ensureDefaults();
     const template = await this.prisma.platformRoleTemplate.findUnique({ where: { id: dto.roleTemplateId } });
-    if (!template) throw new BadRequestException('Platform rolü bulunamadı');
+    if (!template) throw new BadRequestException(apiError('apiErrors.platformAccess.platformRoleNotFound'));
     const studio = await this.access.platformStudio();
     const systemRoleTemplateId = await this.access.systemRoleTemplateId(template.id);
 
@@ -106,9 +107,9 @@ export class PlatformUsersService {
         create: { phone: dto.phone, firstName, lastName },
         update: {},
       });
-      if (user.isSuperAdmin) throw new ConflictException('Bu kişi zaten süper admin');
+      if (user.isSuperAdmin) throw new ConflictException(apiError('apiErrors.platformAccess.personAlreadySuperAdmin'));
       const pm = await tx.platformMembership.findUnique({ where: { userId: user.id } });
-      if (pm?.status === 'ACTIVE') throw new ConflictException('Bu kişinin platform üyeliği zaten aktif');
+      if (pm?.status === 'ACTIVE') throw new ConflictException(apiError('apiErrors.platformAccess.personSPlatformMembershipAlreadyActive'));
       if (pm) {
         await tx.platformMembership.update({
           where: { id: pm.id },
@@ -138,7 +139,7 @@ export class PlatformUsersService {
   async changeRole(actorUserId: string, userId: string, roleTemplateId: string): Promise<PlatformMemberDTO> {
     const pm = await this.getMember(userId);
     const template = await this.prisma.platformRoleTemplate.findUnique({ where: { id: roleTemplateId } });
-    if (!template) throw new BadRequestException('Platform rolü bulunamadı');
+    if (!template) throw new BadRequestException(apiError('apiErrors.platformAccess.platformRoleNotFound'));
     await this.prisma.$transaction(async (tx) => {
       await this.access.changeRoleInTx(tx, userId, template.id);
       await this.audit(tx, actorUserId, 'platform_user.role_changed', userId, { fromRoleTemplateId: pm.roleTemplateId, toRoleTemplateId: template.id });
@@ -162,7 +163,7 @@ export class PlatformUsersService {
 
   async reactivate(actorUserId: string, userId: string): Promise<PlatformMemberDTO> {
     const pm = await this.getMember(userId);
-    if (pm.status !== 'PASSIVE') throw new ConflictException('Yalnızca pasif bir platform üyeliği yeniden etkinleştirilebilir');
+    if (pm.status !== 'PASSIVE') throw new ConflictException(apiError('apiErrors.platformAccess.onlyInactivePlatformMembershipCanReactivated'));
     await this.prisma.$transaction(async (tx) => {
       await this.access.activateInTx(tx, userId);
       await this.audit(tx, actorUserId, 'platform_user.reactivated', userId, { roleTemplateId: pm.roleTemplateId });
@@ -229,14 +230,14 @@ export class PlatformUsersService {
 
   private async getMember(userId: string) {
     const pm = await this.prisma.platformMembership.findUnique({ where: { userId }, include: { user: { select: { phone: true } } } });
-    if (!pm) throw new NotFoundException('Platform kullanıcısı bulunamadı');
+    if (!pm) throw new NotFoundException(apiError('apiErrors.platformAccess.platformUserNotFound'));
     return pm;
   }
 
   private async one(userId: string): Promise<PlatformMemberDTO> {
     const all = await this.list();
     const found = all.find((m) => m.userId === userId);
-    if (!found) throw new NotFoundException('Platform kullanıcısı bulunamadı');
+    if (!found) throw new NotFoundException(apiError('apiErrors.platformAccess.platformUserNotFound'));
     return found;
   }
 

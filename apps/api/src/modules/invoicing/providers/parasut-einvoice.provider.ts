@@ -8,6 +8,7 @@ import type {
   GetPdfResult,
   IssueInvoiceParams,
 } from './einvoice-provider.interface';
+import { apiError } from '../../../common/api-error';
 
 /**
  * Parasut e-Arsiv/e-Fatura adapter skeleton. Real HTTP calls are not
@@ -33,28 +34,28 @@ export class ParasutEInvoiceProvider implements EInvoiceProviderAdapter {
     const clientSecret = this.config.get<string>('PARASUT_CLIENT_SECRET');
     if (!clientId || !clientSecret) {
       throw new InternalServerErrorException(
-        'Paraşüt e-fatura sağlayıcısı yapılandırılmamış: PARASUT_CLIENT_ID ve PARASUT_CLIENT_SECRET gereklidir',
+        apiError('apiErrors.invoicing.parasutEInvoiceProviderNotConfigured'),
       );
     }
   }
 
   async issue(_params: IssueInvoiceParams): Promise<EInvoiceIssueResult> {
     this.assertConfigured();
-    throw new InternalServerErrorException('Paraşüt entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.invoicing.parasutIntegrationNotImplementedYet'));
   }
 
   async cancel(_params: CancelInvoiceParams): Promise<EInvoiceCancelResult> {
     this.assertConfigured();
-    throw new InternalServerErrorException('Paraşüt entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.invoicing.parasutIntegrationNotImplementedYet'));
   }
 
   async getStatus(): Promise<{ status: string }> {
     this.assertConfigured();
-    throw new InternalServerErrorException('Paraşüt entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.invoicing.parasutIntegrationNotImplementedYet'));
   }
 
   async getPdf(): Promise<GetPdfResult> {
     this.assertConfigured();
-    throw new InternalServerErrorException('Paraşüt entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.invoicing.parasutIntegrationNotImplementedYet'));
   }
 }

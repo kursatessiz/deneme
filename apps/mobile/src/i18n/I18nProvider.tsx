@@ -8,6 +8,7 @@ import { resolveLocale } from '@platform/shared';
 import type { PublicLanguagesDTO, Translate } from '@platform/shared';
 
 import { apiRequest } from '../lib/api';
+import { setActiveLocale } from './activeLocale';
 import { useSession } from '../lib/session';
 import { fetchLocaleMessages, fetchPublicLanguages } from './fetchMessages';
 import { buildLocaleCandidates, mergeMessages, shouldRefetchMessages } from './localeResolution';
@@ -115,6 +116,8 @@ export function I18nProvider({ children }: { children: ReactNode }): ReactElemen
 
   const localeRef = useRef(locale);
   localeRef.current = locale;
+  // The fetch wrappers outside React read the active locale for Accept-Language and error translation.
+  setActiveLocale(locale);
 
   const refetchMessages = useCallback(async (forLocale: string, knownVersion?: string) => {
     const result = await fetchLocaleMessages(forLocale, knownVersion);

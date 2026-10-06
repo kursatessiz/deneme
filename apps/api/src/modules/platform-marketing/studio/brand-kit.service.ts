@@ -22,6 +22,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import type { PlatformContext } from '../../auth/tenant-context';
 import type { BrandFactPrompt, BrandPromptInput } from '../../ai/marketing-prompts';
+import { apiError, codedError } from '../../../common/api-error';
 
 type KitWithLocales = BrandKit & { locales: BrandKitLocale[] };
 
@@ -184,7 +185,7 @@ export class BrandKitService {
       return toFactDto(row);
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw new ConflictException({ statusCode: 409, code: 'FACT_KEY_EXISTS', message: 'Bu anahtarla bir ürün gerçeği zaten var' });
+        throw new ConflictException(codedError('FACT_KEY_EXISTS', { statusCode: 409 }));
       }
       throw err;
     }
@@ -193,7 +194,7 @@ export class BrandKitService {
   async updateFact(platform: PlatformContext, id: string, input: UpdateProductFactInput): Promise<ProductFactDTO> {
     const studioId = platform.platformStudioId;
     const existing = await this.prisma.productFact.findFirst({ where: { id, studioId } });
-    if (!existing) throw new NotFoundException('Ürün gerçeği bulunamadı');
+    if (!existing) throw new NotFoundException(apiError('apiErrors.platformMarketing.productFactNotFound'));
     try {
       const row = await this.prisma.$transaction(async (tx) => {
         const updated = await tx.productFact.update({
@@ -215,7 +216,7 @@ export class BrandKitService {
       return toFactDto(row);
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw new ConflictException({ statusCode: 409, code: 'FACT_KEY_EXISTS', message: 'Bu anahtarla bir ürün gerçeği zaten var' });
+        throw new ConflictException(codedError('FACT_KEY_EXISTS', { statusCode: 409 }));
       }
       throw err;
     }
@@ -224,7 +225,7 @@ export class BrandKitService {
   async removeFact(platform: PlatformContext, id: string): Promise<{ deleted: true }> {
     const studioId = platform.platformStudioId;
     const existing = await this.prisma.productFact.findFirst({ where: { id, studioId } });
-    if (!existing) throw new NotFoundException('Ürün gerçeği bulunamadı');
+    if (!existing) throw new NotFoundException(apiError('apiErrors.platformMarketing.productFactNotFound'));
     await this.prisma.$transaction(async (tx) => {
       await tx.productFact.delete({ where: { id } });
       await this.bumpVersion(tx, studioId);
@@ -240,7 +241,7 @@ export class BrandKitService {
       this.prisma.productFact.findMany({ where: { studioId }, orderBy: { key: 'asc' } }),
     ]);
     if (!kit) {
-      throw new ConflictException({ statusCode: 409, code: 'BRAND_KIT_REQUIRED', message: 'Önce marka kitini oluşturun' });
+      throw new ConflictException(codedError('BRAND_KIT_REQUIRED', { statusCode: 409 }));
     }
     return { kit: toKitDto(kit), facts: facts.map(toFactDto).filter((f) => isFactUsable(f, today)) };
   }

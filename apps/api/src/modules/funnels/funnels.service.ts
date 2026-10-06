@@ -17,6 +17,7 @@ import type { TenantContext } from '../auth/tenant-context';
 import { assertBranchAccess } from '../branches/branch-access';
 import { buildFunnelSql, parseFunnelRows } from './funnel-sql';
 import type { FunnelSqlGroup } from './funnel-sql';
+import { apiError } from '../../common/api-error';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -73,14 +74,14 @@ export class FunnelsService {
     if (input.windowDays !== undefined) data.windowDays = input.windowDays;
     // The studioId stays in the write itself, not only in a preceding lookup.
     const res = await this.prisma.funnel.updateMany({ where: { id, studioId: tenant.studioId }, data });
-    if (res.count === 0) throw new NotFoundException('Huni bulunamadı');
+    if (res.count === 0) throw new NotFoundException(apiError('apiErrors.funnels.funnelNotFound'));
     await this.audit(tenant, actorUserId, 'funnel.update', id, { fields: Object.keys(input) });
     return toSummary(await this.findOwned(tenant, id));
   }
 
   async remove(tenant: TenantContext, actorUserId: string, id: string): Promise<void> {
     const res = await this.prisma.funnel.deleteMany({ where: { id, studioId: tenant.studioId } });
-    if (res.count === 0) throw new NotFoundException('Huni bulunamadı');
+    if (res.count === 0) throw new NotFoundException(apiError('apiErrors.funnels.funnelNotFound'));
     await this.audit(tenant, actorUserId, 'funnel.delete', id, {});
   }
 
@@ -150,7 +151,7 @@ export class FunnelsService {
   private async resolve(studioId: string, id: string): Promise<FunnelSummaryDTO> {
     const ready = findReadyMadeFunnel(id);
     if (ready) {
-      if (ready.platformOnly && !(await this.isPlatformStudio(studioId))) throw new NotFoundException('Huni bulunamadı');
+      if (ready.platformOnly && !(await this.isPlatformStudio(studioId))) throw new NotFoundException(apiError('apiErrors.funnels.funnelNotFound'));
       return {
         id: ready.id,
         kind: 'READY_MADE',
@@ -162,13 +163,13 @@ export class FunnelsService {
         createdAt: null,
       };
     }
-    if (!UUID_RE.test(id)) throw new NotFoundException('Huni bulunamadı');
+    if (!UUID_RE.test(id)) throw new NotFoundException(apiError('apiErrors.funnels.funnelNotFound'));
     return toSummary(await this.findOwned({ studioId }, id));
   }
 
   private async findOwned(tenant: Pick<TenantContext, 'studioId'>, id: string): Promise<Funnel> {
     const row = await this.prisma.funnel.findFirst({ where: { id, studioId: tenant.studioId } });
-    if (!row) throw new NotFoundException('Huni bulunamadı');
+    if (!row) throw new NotFoundException(apiError('apiErrors.funnels.funnelNotFound'));
     return row;
   }
 

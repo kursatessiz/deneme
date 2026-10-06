@@ -20,6 +20,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { AiSettingsService } from './ai-settings.service';
 import { AiError } from './ai-errors';
+import { apiError } from '../../common/api-error';
 
 export interface RecordUsageInput {
   studioId: string | null;
@@ -89,7 +90,7 @@ export class AiUsageService {
 
   async resolveBudget(studioId: string): Promise<ResolvedBudget> {
     const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { aiMonthlyBudgetCents: true } });
-    if (!studio) throw new NotFoundException('İşletme bulunamadı');
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.businessNotFound'));
     if (studio.aiMonthlyBudgetCents !== null) {
       return { cents: studio.aiMonthlyBudgetCents, source: 'OVERRIDE', overrideCents: studio.aiMonthlyBudgetCents };
     }
@@ -165,7 +166,7 @@ export class AiUsageService {
 
   async setTenantLimit(actorUserId: string, studioId: string, monthlyBudgetCents: number | null): Promise<ResolvedBudget> {
     const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { id: true, aiMonthlyBudgetCents: true } });
-    if (!studio) throw new NotFoundException('İşletme bulunamadı');
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.businessNotFound'));
     await this.prisma.$transaction([
       this.prisma.studio.update({ where: { id: studioId }, data: { aiMonthlyBudgetCents: monthlyBudgetCents } }),
       this.prisma.auditLog.create({

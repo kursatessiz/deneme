@@ -10,6 +10,7 @@ import type {
   ErrorAlertSink,
 } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { apiError } from '../../common/api-error';
 
 const PAGE_SIZE = 25;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -102,9 +103,9 @@ export class ErrorAlertRecordsService {
 
   /** Marks the alert as seen by a super admin. Acknowledging twice keeps the first acknowledgement. */
   async acknowledge(id: string, userId: string, now = new Date()): Promise<ErrorAlertDTO> {
-    if (!UUID.test(id)) throw new NotFoundException('Uyarı bulunamadı');
+    if (!UUID.test(id)) throw new NotFoundException(apiError('apiErrors.errorReporting.alertNotFound'));
     const existing = await this.prisma.errorAlert.findUnique({ where: { id }, select: { id: true } });
-    if (!existing) throw new NotFoundException('Uyarı bulunamadı');
+    if (!existing) throw new NotFoundException(apiError('apiErrors.errorReporting.alertNotFound'));
     await this.prisma.errorAlert.updateMany({ where: { id, acknowledgedAt: null }, data: { acknowledgedAt: now, acknowledgedByUserId: userId } });
     await this.prisma.auditLog.create({
       data: { studioId: null, userId, action: 'error_alert.acknowledge', entityType: 'ErrorAlert', entityId: id },

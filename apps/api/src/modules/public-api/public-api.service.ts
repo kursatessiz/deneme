@@ -8,6 +8,7 @@ import { assertStudioWritable } from '../auth/guards/billing-write.guard';
 
 import { loadAllowedThemeFamiliesForStudio } from '../appearance/theme-families';
 import { loadPoweredBy } from '../sites/powered-by';
+import { apiError } from '../../common/api-error';
 /**
  * The read/write logic behind both `/v1/public/*` (API-key authenticated
  * third-party integrations, see PublicApiController) and the embeddable
@@ -148,7 +149,7 @@ export class PublicApiService {
       where: { slug, isActive: true },
       select: { id: true, slug: true, isPlatform: true, name: true, embedAllowedOrigins: true, logoUrl: true, themeFamily: true, themePrimary: true, gradientPresetKey: true, timezone: true },
     });
-    if (!studio) throw new NotFoundException(`'${slug}' stüdyosu bulunamadı`);
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.businessSlugNotFound', { slug: slug }));
     return { ...studio, allowedThemeFamilies: await loadAllowedThemeFamiliesForStudio(this.prisma, studio.id) };
   }
 
@@ -160,13 +161,13 @@ export class PublicApiService {
 
   private async resolveMemberByPhone(studioId: string, phone: string) {
     const user = await this.prisma.user.findUnique({ where: { phone } });
-    if (!user) throw new NotFoundException('Bu telefon numarasıyla kayıtlı bir kullanıcı bulunamadı');
+    if (!user) throw new NotFoundException(apiError('apiErrors.publicApi.noUserRegisteredPhoneNumber'));
     const membership = await this.prisma.membership.findUnique({
       where: { userId_studioId: { userId: user.id, studioId } },
       include: { memberProfile: true },
     });
     if (!membership || membership.status !== 'ACTIVE' || !membership.memberProfile) {
-      throw new NotFoundException('Bu telefon numarasıyla kayıtlı aktif bir üye bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.publicApi.noActiveMemberRegisteredPhoneNumber'));
     }
     return membership.memberProfile;
   }
@@ -187,7 +188,7 @@ export class PublicApiService {
 
   async cancelBooking(studioId: string, bookingId: string, reason: string | undefined) {
     const booking = await this.prisma.booking.findFirst({ where: { id: bookingId, studioId } });
-    if (!booking) throw new NotFoundException('Rezervasyon bulunamadı');
+    if (!booking) throw new NotFoundException(apiError('apiErrors.common.bookingNotFound'));
     const tenant = this.toStaffTenant(studioId);
     // SchedulesService.cancelBooking itself emits the booking.cancelled webhook.
     return this.schedules.cancelBooking(tenant, { bookingId, cancelledBy: 'STUDIO', reason, waivePenalty: false });
