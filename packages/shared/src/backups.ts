@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { vmsg } from './validation-key';
 
 /**
  * D2 database backups managed from the super admin panel (docs/YEDEKLER.md).
@@ -51,7 +52,7 @@ export const BACKUP_STALE_TEMPLATE_KEY = 'BACKUP_STALE';
  */
 export const BACKUP_NAME_PATTERN = /^db_\d{8}_\d{6}Z?(?:-(?:host|api))?\.sql\.gz$/;
 
-const BackupNameSchema = z.string().trim().regex(BACKUP_NAME_PATTERN, 'Geçersiz yedek adı');
+const BackupNameSchema = z.string().trim().regex(BACKUP_NAME_PATTERN, vmsg('validation.invalidBackupName'));
 
 /** "HH:MM", 24-hour, UTC. */
 export const BACKUP_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -59,13 +60,13 @@ export const BACKUP_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 export const UpdateBackupSettingsSchema = z
   .object({
     scheduleEnabled: z.boolean(),
-    scheduleTimeUtc: z.string().regex(BACKUP_TIME_PATTERN, 'Saat SS:DD biçiminde olmalıdır'),
+    scheduleTimeUtc: z.string().regex(BACKUP_TIME_PATTERN, vmsg('validation.timeInHhMmFormat')),
     /** Off-site objects older than this many days are pruned after a verified backup; 0 turns pruning off. */
     retentionDays: z.number().int().min(0).max(3650),
   })
   .strict()
   .refine((v) => v.retentionDays === 0 || v.retentionDays >= 7, {
-    message: 'Saklama süresi 0 (kapalı) veya en az 7 gün olmalıdır',
+    message: vmsg('validation.retention0OffOrLeast7'),
     path: ['retentionDays'],
   });
 export type UpdateBackupSettingsInput = z.infer<typeof UpdateBackupSettingsSchema>;

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { messagePlaceholders } from '../messaging-engine';
+import { vmsg } from '../validation-key';
 
 /**
  * Campaign A/B test (M3c, docs/PAZARLAMA_MODULU.md 4.3 item 2): the test
@@ -20,7 +21,7 @@ export const AB_TEST_MIN_SHARE_PERCENT = 5;
 export const AB_TEST_MAX_SHARE_PERCENT = 50;
 export const AB_TEST_MAX_WAIT_MINUTES = 7 * 24 * 60;
 
-export const CampaignTemplateKeySchema = z.string().trim().regex(/^[A-Z][A-Z0-9_]{1,59}$/, 'Geçersiz şablon anahtarı');
+export const CampaignTemplateKeySchema = z.string().trim().regex(/^[A-Z][A-Z0-9_]{1,59}$/, vmsg('validation.invalidTemplateKey'));
 
 export const CampaignAbTestSchema = z
   .object({
@@ -42,7 +43,7 @@ const OverrideText = (max: number) =>
     .trim()
     .min(1)
     .max(max)
-    .refine((v) => messagePlaceholders(v).every((p) => OVERRIDE_PLACEHOLDERS.includes(p)), { message: 'Yalnızca {firstName} ve {studioName} değişkenleri kullanılabilir' });
+    .refine((v) => messagePlaceholders(v).every((p) => OVERRIDE_PLACEHOLDERS.includes(p)), { message: vmsg('validation.onlyFirstnameAndStudionameVariablesUsed') });
 
 /** E-mail: subject, preheader and body; SMS: body. WhatsApp always uses its approved template and ignores overrides. */
 export const CampaignVariantOverridesSchema = z
@@ -70,7 +71,7 @@ export const CampaignVariantsSchema = z
   .array(CampaignVariantInputSchema)
   .min(2, 'En az iki varyant gerekir')
   .max(CAMPAIGN_MAX_VARIANTS)
-  .refine((v) => new Set(v.map((x) => x.key)).size === v.length, { message: 'Varyant anahtarları benzersiz olmalı' });
+  .refine((v) => new Set(v.map((x) => x.key)).size === v.length, { message: vmsg('validation.variantKeysUnique') });
 
 export const PickCampaignWinnerSchema = z
   .object({

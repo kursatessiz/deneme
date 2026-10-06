@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { PermissionKey } from '../permissions';
 import type { MessageKey } from '../i18n';
+import { vmsg } from '../validation-key';
 
 /**
  * Card catalogue of the overview page (docs/WEB_PANEL.md, "Genel bakış
@@ -96,7 +97,7 @@ export interface DashboardPeriodSetting {
 
 function periodSetting(periods: readonly DashboardPeriod[], defaultPeriod: DashboardPeriod): DashboardPeriodSetting {
   const schema = DashboardWidgetSettingsSchema.refine((s) => s.period === undefined || periods.includes(s.period), {
-    message: 'Bu kart için geçersiz dönem',
+    message: vmsg('validation.invalidPeriodForThisCard'),
     path: ['period'],
   });
   return { periods, defaultPeriod, schema };

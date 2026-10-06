@@ -4,6 +4,7 @@ import { interpolate, placeholdersOf } from './i18n/translator';
 import type { MessageParams } from './i18n/translator';
 import { complianceRegionOf } from './growth/regions';
 import type { ComplianceRegion } from './growth/regions';
+import { vmsg } from './validation-key';
 
 /**
  * G1c messaging engine contracts (docs/MESAJLASMA.md): purposes, tenant
@@ -34,7 +35,7 @@ export const FrequencyCapSchema = z
     perWeek: z.number().int().min(0).max(200),
   })
   .strict()
-  .refine((v) => v.perWeek >= v.perDay, { message: 'Haftalık sınır günlük sınırdan küçük olamaz', path: ['perWeek'] });
+  .refine((v) => v.perWeek >= v.perDay, { message: vmsg('validation.weeklyLimitLowerThanDailyLimit'), path: ['perWeek'] });
 export type FrequencyCap = z.infer<typeof FrequencyCapSchema>;
 
 export const DEFAULT_FREQUENCY_CAP: FrequencyCap = { perDay: 3, perWeek: 10 };
@@ -42,7 +43,7 @@ export const DEFAULT_FREQUENCY_CAP: FrequencyCap = { perDay: 3, perWeek: 10 };
 /** Local send time ("HH:mm") a campaign falls back to when its send time mode needs one and none is given (M3c). */
 export const DEFAULT_CAMPAIGN_SEND_TIME_LOCAL = '10:00';
 
-const E164 = z.string().regex(/^\+[1-9]\d{6,14}$/, 'Telefon numarası E.164 biçiminde olmalıdır');
+const E164 = z.string().regex(/^\+[1-9]\d{6,14}$/, vmsg('validation.phoneNumberInE164Format'));
 
 /**
  * Stored in Studio.messagingSettings (the WhatsApp -> SMS channel order stays
@@ -56,7 +57,7 @@ export type SmsRegistrationStatus = (typeof SMS_REGISTRATION_STATUSES)[number];
 export const SmsSenderRegistrationSchema = z
   .object({
     /** Alphanumeric sender id (3-11 letters and digits, the intersection of the providers' rules). */
-    senderId: z.string().trim().regex(/^[A-Za-z][A-Za-z0-9 ]{2,10}$/, 'Gönderici kimliği 3-11 karakter, harfle başlamalı').nullable().optional(),
+    senderId: z.string().trim().regex(/^[A-Za-z][A-Za-z0-9 ]{2,10}$/, vmsg('validation.senderId311CharactersAnd')).nullable().optional(),
     status: z.enum(SMS_REGISTRATION_STATUSES),
     updatedAt: z.string().datetime().optional(),
   })
@@ -82,18 +83,18 @@ export const MessagingSettingsSchema = z
     /** Fallback local send time of campaigns on the recipient-local and best-time modes ("HH:mm"). */
     defaultSendTimeLocal: z
       .string()
-      .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Saat SS:dd biçiminde olmalı')
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/, vmsg('validation.timeInHhMmFormat2'))
       .nullable()
       .optional(),
     /** Display name on outgoing email; defaults to the studio name. */
     emailFromName: z.string().trim().min(1).max(80).nullable().optional(),
     /** Reply-To for outgoing email; defaults to the studio email. */
-    emailReplyTo: z.string().trim().email('Geçersiz e-posta adresi').max(254).nullable().optional(),
+    emailReplyTo: z.string().trim().email(vmsg('validation.invalidEmailAddress')).max(254).nullable().optional(),
     /** The tenant's own WhatsApp Business phone number id (inbound routing). */
     whatsappPhoneNumberId: z
       .string()
       .trim()
-      .regex(/^\d{5,30}$/, 'Geçersiz WhatsApp telefon numarası kimliği')
+      .regex(/^\d{5,30}$/, vmsg('validation.invalidWhatsappPhoneNumberId'))
       .nullable()
       .optional(),
     /** The tenant's own inbound SMS number (Twilio "To"), for inbound routing. */

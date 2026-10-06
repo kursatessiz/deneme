@@ -32,6 +32,7 @@ import { Prisma, PaymentMethod, PaymentProvider, PaymentStatus, PackageDefinitio
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
 import { PaymentWebhookRouter } from './payment-webhook-router';
 import { apiError, codedError } from '../../common/api-error';
+import { serverT, studioLocale } from '../../common/server-i18n';
 
 type Tx = Prisma.TransactionClient;
 
@@ -174,13 +175,15 @@ export class PaymentsService {
 
     if (dto.paymentMethod === PaymentMethod.ONLINE_IYZICO || dto.paymentMethod === PaymentMethod.ONLINE_PAYTR) {
       const provider = dto.paymentMethod === PaymentMethod.ONLINE_IYZICO ? PaymentProvider.IYZICO : PaymentProvider.PAYTR;
+      // Checkout and charge descriptions are written in the business language.
+      const saleText = serverT(await studioLocale(this.prisma, studioId));
       const checkout = await this.providers.get(provider).createCheckout({
         studioId,
         memberId: dto.memberId,
         amount: methodAmount,
         currency: dto.currency,
         installmentCount: dto.installmentCount,
-        description: `${pkgDef.name} paket satışı`,
+        description: saleText('apiTexts.payments.packageSale', { name: pkgDef.name }),
         reference: `sell_${dto.memberId}_${pkgDef.id}_${Date.now()}`,
       });
       if (checkout.status === 'COMPLETED') {
@@ -223,7 +226,7 @@ export class PaymentsService {
         amount: methodAmount,
         currency: dto.currency,
         installmentCount: dto.installmentCount,
-        description: `${pkgDef.name} paket satışı`,
+        description: serverT(await studioLocale(this.prisma, studioId))('apiTexts.payments.packageSale', { name: pkgDef.name }),
         reference: `sell_${dto.memberId}_${pkgDef.id}_${Date.now()}`,
       });
       if (!charge.success) {
@@ -267,7 +270,7 @@ export class PaymentsService {
       amount: methodAmount,
       currency: studio.currency,
       installmentCount: dto.installmentCount,
-      description: `${pkgDef.name} paket satın alma`,
+      description: serverT(await studioLocale(this.prisma, studioId))('apiTexts.payments.packagePurchase', { name: pkgDef.name }),
       reference: `checkout_${dto.memberId}_${pkgDef.id}_${Date.now()}`,
     });
 
@@ -651,7 +654,7 @@ export class PaymentsService {
     // docs/INVOICING.md for the reconciliation note on partial refunds.
     if (fullyRefunded) {
       try {
-        await this.invoicing.cancelForRefund(tenant, actorUserId, payment.id, `İade: ${dto.reason}`);
+        await this.invoicing.cancelForRefund(tenant, actorUserId, payment.id, serverT(await studioLocale(this.prisma, tenant.studioId))('apiTexts.payments.refundReason', { reason: dto.reason ?? '' }));
       } catch (err) {
         this.logger.warn(`Invoice cancel-on-refund failed for payment ${payment.id}: ${err instanceof Error ? err.message : err}`);
       }

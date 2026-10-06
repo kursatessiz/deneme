@@ -1,4 +1,6 @@
-import { CreateScheduleSchema, SellPackageSchema } from '@platform/shared';
+import { BASE_MESSAGES, CreateScheduleSchema, SellPackageSchema, createTranslator } from '@platform/shared';
+
+const t = createTranslator({ locale: 'tr', messages: BASE_MESSAGES, fallback: BASE_MESSAGES });
 
 import { fieldErrorsFromZod } from './formErrors';
 
@@ -13,7 +15,7 @@ describe('fieldErrorsFromZod with the shared schedule schema', () => {
     });
     expect(result.success).toBe(false);
     if (result.success) return;
-    const errors = fieldErrorsFromZod(result.error);
+    const errors = fieldErrorsFromZod(result.error, t);
     expect(errors.studioId).toBeDefined();
     expect(errors.title).toBeDefined();
     expect(errors.startTime).toBeDefined();
@@ -40,7 +42,7 @@ describe('fieldErrorsFromZod with the shared schedule schema', () => {
     });
     expect(result.success).toBe(false);
     if (result.success) return;
-    expect(fieldErrorsFromZod(result.error).endTime).toBeDefined();
+    expect(fieldErrorsFromZod(result.error, t).endTime).toBeDefined();
   });
 });
 
@@ -56,6 +58,6 @@ describe('fieldErrorsFromZod with the shared sell-package schema', () => {
     });
     expect(result.success).toBe(false);
     if (result.success) return;
-    expect(fieldErrorsFromZod(result.error).paidAmount).toBeDefined();
+    expect(fieldErrorsFromZod(result.error, t).paidAmount).toBeDefined();
   });
 });

@@ -4,6 +4,7 @@ import type { PoweredByDTO } from '../branding';
 import { UpdateSiteSeoSettingsSchema, type SiteSeoSettings } from './seo-settings';
 import type { AiCrawlerPolicy } from './robots';
 import type { PublicAggregateRatingDTO } from './aggregate-rating';
+import { vmsg } from '../validation-key';
 
 /**
  * Page engine core contracts (docs/SAYFA_MOTORU.md). `Site` -> `Page` ->
@@ -30,7 +31,7 @@ const Slug = z
   .toLowerCase()
   .min(1)
   .max(160)
-  .regex(/^[a-z0-9]+(-[a-z0-9]+)*(\/[a-z0-9]+(-[a-z0-9]+)*)*$/, 'Geçersiz yol (slug)');
+  .regex(/^[a-z0-9]+(-[a-z0-9]+)*(\/[a-z0-9]+(-[a-z0-9]+)*)*$/, vmsg('validation.invalidPathSlug'));
 const LocaleCode = z.string().trim().min(2).max(10);
 /** A page slug may not start with the blog segment: `/<locale>/blog/...` belongs to the article routes (S2b). */
 const PageSlug = Slug.refine((slug) => !isReservedPageSlug(slug), 'Reserved path (blog)');
@@ -53,7 +54,7 @@ export const AddSiteDomainSchema = z.object({
     .trim()
     .toLowerCase()
     .max(190)
-    .regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/, 'Geçersiz alan adı'),
+    .regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/, vmsg('validation.invalidDomainName')),
 });
 export type AddSiteDomainInput = z.infer<typeof AddSiteDomainSchema>;
 

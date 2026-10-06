@@ -63,6 +63,9 @@ export default function VideolarScreen() {
     [items, serviceTypeFilter],
   );
 
+  // lockedReasonKey is the apiErrors key of the Turkish lockedReason: show it in the app language.
+  const lockedText = (item: MemberVideoContentDTO): string => (item.lockedReasonKey ? t(item.lockedReasonKey) : item.lockedReason ?? '');
+
   const handleWatch = async (item: MemberVideoContentDTO) => {
     if (!studioId || item.isLocked) return;
     setStartingId(item.id);
@@ -131,7 +134,7 @@ export default function VideolarScreen() {
           <Pressable
             key={item.id}
             accessibilityRole="button"
-            accessibilityLabel={item.isLocked ? t('mVideoContent.a11y.locked', { title: item.title, reason: item.lockedReason ?? '' }) : item.title}
+            accessibilityLabel={item.isLocked ? t('mVideoContent.a11y.locked', { title: item.title, reason: lockedText(item) }) : item.title}
             disabled={item.isLocked || startingId === item.id}
             onPress={() => handleWatch(item)}
             style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, opacity: item.isLocked ? 0.6 : 1 }]}
@@ -144,7 +147,7 @@ export default function VideolarScreen() {
               {item.serviceTypeName ? ` · ${item.serviceTypeName}` : ''}
             </Text>
             {item.isLocked ? (
-              <Text style={[styles.cardLocked, { color: palette.warning }]}>{item.lockedReason}</Text>
+              <Text style={[styles.cardLocked, { color: palette.warning }]}>{lockedText(item)}</Text>
             ) : item.lastPositionSeconds ? (
               <Text style={[styles.cardMeta, { color: colors.primaryText }]}>
                 {t('mVideoContent.resumePosition', { position: formatDuration(item.lastPositionSeconds, t) })}

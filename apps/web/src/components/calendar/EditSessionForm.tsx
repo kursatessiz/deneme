@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { UpdateScheduleSchema } from '@platform/shared';
+import { UpdateScheduleSchema, firstIssueMessage } from '@platform/shared';
 import type { UpdateScheduleInput } from '@platform/shared';
 import { useT } from '@/components/i18n/I18nProvider';
 import type { BranchRow, ResourceRow, ScheduleRow, TrainerRow } from '@/lib/calendar/types';
@@ -63,7 +63,7 @@ export function EditSessionForm({
     };
     const result = UpdateScheduleSchema.safeParse(payload);
     if (!result.success) {
-      setError(result.error.issues[0]?.message ?? t('common.invalidForm'));
+      setError(firstIssueMessage(result.error, t) ?? t('common.invalidForm'));
       return;
     }
     setError(null);

@@ -11,6 +11,7 @@ import { LoginThrottleService } from './login-throttle.service';
 import { isStudioBillingStatus } from '@platform/shared';
 import { loadPlatformAccess, requireTwoFactorForPlatformRoles } from './platform-access';
 import { apiError } from '../../common/api-error';
+import { pickBundledLocale, requestedLocale, requestT, serverT } from '../../common/server-i18n';
 
 export const PIN_MAX_FAILURES = 5;
 /** Refresh token lifetime of super admins and platform members (tenant users keep 30 days). */
@@ -38,16 +39,18 @@ export class AuthService {
    * unregistered phones get no SMS (no enumeration, no SMS pumping).
    */
   async requestLoginOtp(phone: string, ip: string | null) {
-    const user = await this.prisma.user.findUnique({ where: { phone }, select: { isActive: true } });
+    const user = await this.prisma.user.findUnique({ where: { phone }, select: { isActive: true, locale: true } });
+    // The code is texted in the user's own language, else the one the request asked for.
+    const sms = serverT(pickBundledLocale([user?.locale, requestedLocale()]));
     await this.otp.issue({
       phone,
       purpose: OtpPurpose.LOGIN,
       ip,
       deliver: Boolean(user?.isActive),
       studioId: null,
-      message: (code) => `Giris kodunuz: ${code}. Kodu kimseyle paylasmayin.`,
+      message: (code) => sms('apiTexts.otp.loginSms', { code }),
     });
-    return { message: 'Numara kayıtlıysa doğrulama kodu gönderildi' };
+    return { message: requestT()('apiTexts.otp.loginRequested'), messageKey: 'apiTexts.otp.loginRequested' as const };
   }
 
   async verifyLoginOtp(phone: string, code: string) {

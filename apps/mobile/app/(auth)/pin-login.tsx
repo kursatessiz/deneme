@@ -1,4 +1,4 @@
-import { PhoneSchema } from '@platform/shared';
+import { PhoneSchema, firstIssueMessage } from '@platform/shared';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { StyleSheet } from 'react-native';
@@ -32,7 +32,7 @@ export default function PinLoginScreen() {
 
     const parsedPhone = PhoneSchema.safeParse(phone);
     if (!parsedPhone.success) {
-      setPhoneError(parsedPhone.error.issues[0]?.message ?? t('mAuth.phone.invalid'));
+      setPhoneError(firstIssueMessage(parsedPhone.error, t) ?? t('mAuth.phone.invalid'));
       return;
     }
     if (!/^\d{6}$/.test(pin)) {

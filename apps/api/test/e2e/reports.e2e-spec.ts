@@ -298,6 +298,14 @@ describe('Reports (e2e)', () => {
       expect(header).toBe('Tarih;Seans;Kapasite;Rezervasyon;Katılım;Doluluk');
       expect(firstRow).toBe('2025-03-03;1;4;3;2;%75');
     });
+
+    it('CSV export headers follow the request language (Accept-Language)', async () => {
+      const res = await as(ownerToken).get(`/reports/studio/${ZEN}/occupancy?from=${FROM}&to=${TO}&branchId=${branchA}&format=csv`).set('Accept-Language', 'en-US,en;q=0.9');
+      expect(res.status).toBe(200);
+      const [header, firstRow] = res.text.slice(1).split('\r\n');
+      expect(header).toBe('Date;Sessions;Capacity;Bookings;Attended;Occupancy');
+      expect(firstRow).toBe('2025-03-03;1;4;3;2;%75');
+    });
   });
 
   describe('revenue', () => {

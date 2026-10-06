@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ReferralRewardType, ReferralStatus } from './enums';
+import { vmsg } from './validation-key';
 
 /**
  * W15: post-class ratings, Google review redirect, refer-a-friend. See
@@ -19,7 +20,7 @@ export const GOOD_RATING_THRESHOLD = 4;
 
 export const RateBookingSchema = z
   .object({
-    score: z.number().int().min(1, '1 ile 5 arasında bir puan giriniz').max(5, '1 ile 5 arasında bir puan giriniz'),
+    score: z.number().int().min(1, vmsg('validation.enterRatingBetween1And5')).max(5, vmsg('validation.enterRatingBetween1And5')),
     comment: z.string().trim().max(1000, 'Yorum en fazla 1000 karakter olabilir').optional().or(z.literal('')),
   })
   .strict();
@@ -117,12 +118,12 @@ export function isValidGoogleReviewUrl(value: string): boolean {
 export const GoogleReviewUrlSchema = z
   .string()
   .trim()
-  .url('Geçerli bir bağlantı giriniz')
+  .url(vmsg('validation.enterValidLink'))
   .refine(
     (v) => v.startsWith('https://'),
-    'Bağlantı https:// ile başlamalıdır',
+    vmsg('validation.linkStartWithHttps'),
   )
-  .refine(isValidGoogleReviewUrl, 'Bağlantı g.page, search.google.com/local/writereview veya google.com/maps ile başlamalıdır');
+  .refine(isValidGoogleReviewUrl, vmsg('validation.linkStartWithGPageSearch'));
 
 export const UpdateFeedbackSettingsSchema = z
   .object({
@@ -147,7 +148,7 @@ export const ReferralCodeInputSchema = z
   .string()
   .trim()
   .toUpperCase()
-  .regex(/^[A-Z0-9]{4,24}$/, 'Geçersiz tavsiye kodu')
+  .regex(/^[A-Z0-9]{4,24}$/, vmsg('validation.invalidReferralCode'))
   .optional()
   .or(z.literal(''));
 
@@ -175,7 +176,7 @@ export interface ReferralDTO {
 
 export const VoidReferralSchema = z
   .object({
-    reason: z.string().trim().min(3, 'İptal sebebi giriniz').max(500),
+    reason: z.string().trim().min(3, vmsg('validation.enterCancellationReason')).max(500),
   })
   .strict();
 export type VoidReferralInput = z.infer<typeof VoidReferralSchema>;

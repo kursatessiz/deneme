@@ -1,3 +1,4 @@
+import { HOST_NOT_ALLOWED_MESSAGE } from '../../ads/ads-http-client';
 import type { AdsHttpResponse } from '../../ads/ads-http-client';
 import { SocialPublishError } from '../social-publisher';
 
@@ -47,7 +48,7 @@ export function transportFailure(label: string, err: unknown, secrets: readonly 
   if (err instanceof SocialPublishError) return err;
   const raw = err instanceof Error ? err.message : 'unknown error';
   // A host refused by the allow-list is a programming error, not a transient one.
-  const blocked = raw.includes('izin verilmeyen host');
+  const blocked = raw.includes(HOST_NOT_ALLOWED_MESSAGE);
   return new SocialPublishError(blocked ? 'PERMANENT' : 'RETRYABLE', `${label}: ${sanitizeProviderMessage(raw, secrets)}`, null);
 }
 

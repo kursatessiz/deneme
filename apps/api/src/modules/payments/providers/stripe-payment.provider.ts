@@ -250,7 +250,7 @@ export class StripePaymentProvider implements PaymentProviderAdapter {
 
   private accountOptions(accountId: string | null | undefined): Stripe.RequestOptions {
     if (!accountId) {
-      throw new PayoutNotConfiguredError('Stripe bağlı hesap kimliği (providerAccountId) tanımlı değil');
+      throw new PayoutNotConfiguredError('The Stripe connected account id (providerAccountId) is not set');
     }
     return { stripeAccount: accountId };
   }

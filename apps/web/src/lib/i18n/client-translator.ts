@@ -1,4 +1,4 @@
-import { BASE_MESSAGES, createTranslator } from '@platform/shared';
+import { BASE_MESSAGES, createTranslator, translateValidationMessage } from '@platform/shared';
 import type { MessageParams, Translate } from '@platform/shared';
 
 /**
@@ -15,4 +15,14 @@ export function registerClientTranslator(t: Translate): void {
 
 export function clientT(key: string, params?: MessageParams): string {
   return (current ?? base)(key, params);
+}
+
+/** Message of a shared Zod rule (a `validation.*` key, see `vmsg`) in the active language; other text passes through. */
+export function validationText(message: string): string {
+  return translateValidationMessage(message, clientT);
+}
+
+/** First Zod issue message in the active language, or `fallback` when there is none. */
+export function validationMessageOf(message: string | undefined, fallback: string): string {
+  return message === undefined ? fallback : validationText(message);
 }

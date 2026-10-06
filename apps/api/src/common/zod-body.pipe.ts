@@ -1,6 +1,6 @@
 import { BadRequestException, Body, PipeTransform, Query } from '@nestjs/common';
 import type { ZodTypeAny, z } from 'zod';
-import { apiError } from './api-error';
+import { apiError, fieldError } from './api-error';
 
 /** Validates with a shared Zod schema and returns 400 with field messages. */
 export class ZodValidationPipe<T extends ZodTypeAny> implements PipeTransform<unknown, z.infer<T>> {
@@ -11,7 +11,7 @@ export class ZodValidationPipe<T extends ZodTypeAny> implements PipeTransform<un
     if (!result.success) {
       throw new BadRequestException({
         ...apiError('apiErrors.common.invalidRequest'),
-        errors: result.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+        errors: result.error.issues.map((i) => fieldError(i.path.join('.'), i.message)),
       });
     }
     return result.data;

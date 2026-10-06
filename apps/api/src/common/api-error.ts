@@ -1,5 +1,5 @@
 import { HttpException } from '@nestjs/common';
-import { apiErrorBaseMessageForCode, buildApiErrorResponse } from '@platform/shared';
+import { apiErrorBaseMessageForCode, buildApiErrorResponse, validationBaseMessage } from '@platform/shared';
 import type { ApiErrorKey, ApiErrorParams, ApiErrorResponse } from '@platform/shared';
 
 /**
@@ -41,4 +41,13 @@ export function hasApiErrorCode(error: unknown, key: ApiErrorKey): boolean {
  */
 export function codedError(code: string, extra: Record<string, unknown> = {}): Record<string, unknown> {
   return { ...extra, code, message: apiErrorBaseMessageForCode(code) ?? code };
+}
+
+/**
+ * One entry of `errors[]`: `message` is the Turkish text (older clients), `messageKey` the
+ * `validation.*` key (with params) that web and mobile translate; a plain sentence has no key.
+ */
+export function fieldError(path: string, message: string): { path: string; message: string; messageKey?: string } {
+  const text = validationBaseMessage(message);
+  return text === message ? { path, message } : { path, message: text, messageKey: message };
 }

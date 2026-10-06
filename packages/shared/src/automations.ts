@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { vmsg } from './validation-key';
 
 /**
  * W10: automated marketing and lifecycle flows. Rules are tenant data
@@ -112,7 +113,7 @@ export const CreateAutomationRuleSchema = z
   })
   .strict()
   .refine((v) => v.type === v.params.type, {
-    message: 'params.type, type alanıyla eşleşmelidir',
+    message: vmsg('validation.paramsTypeMatchTypeField'),
     path: ['params', 'type'],
   })
   .refine(
@@ -121,7 +122,7 @@ export const CreateAutomationRuleSchema = z
       v.params.daysBefore !== undefined ||
       v.params.remainingUnitsAtMost !== undefined,
     {
-      message: 'daysBefore veya remainingUnitsAtMost alanlarından en az biri girilmelidir',
+      message: vmsg('validation.leastOneDaysbeforeOrRemainingunitsatmostRequired'),
       path: ['params'],
     },
   );
@@ -142,7 +143,7 @@ export const UpdateAutomationRuleSchema = z
       v.params.daysBefore !== undefined ||
       v.params.remainingUnitsAtMost !== undefined,
     {
-      message: 'daysBefore veya remainingUnitsAtMost alanlarından en az biri girilmelidir',
+      message: vmsg('validation.leastOneDaysbeforeOrRemainingunitsatmostRequired'),
       path: ['params'],
     },
   );

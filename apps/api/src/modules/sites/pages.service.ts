@@ -17,7 +17,8 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { SiteCacheService } from './site-cache.service';
 import { IndexNowService } from './indexnow/indexnow.service';
-import { apiError } from '../../common/api-error';
+import { apiError, fieldError } from '../../common/api-error';
+import { pickBundledLocale, requestLocale, serverT } from '../../common/server-i18n';
 
 function toLocaleDto(l: { locale: string; slug: string; seoTitle: string | null; seoDescription: string | null; ogImageUrl: string | null; legalApproved: boolean; legalApprovedAt: Date | null }): PageLocaleDTO {
   return {
@@ -136,7 +137,7 @@ export class PagesService {
         data = validateBlockData(b.type, b.data);
       } catch (err) {
         if (err instanceof ZodError) {
-          throw new BadRequestException({ ...apiError('apiErrors.sites.invalidBlockContent', { type: b.type }), errors: err.issues.map((i) => ({ path: i.path.join('.'), message: i.message })) });
+          throw new BadRequestException({ ...apiError('apiErrors.sites.invalidBlockContent', { type: b.type }), errors: err.issues.map((i) => fieldError(i.path.join('.'), i.message)) });
         }
         throw err;
       }
@@ -227,7 +228,7 @@ export class PagesService {
     const businessType = await this.prisma.businessTypeTemplate.findUnique({ where: { key: input.sectorKey } });
     if (!businessType) throw new NotFoundException(apiError('apiErrors.sites.industryNotFound'));
     const vocabulary = (businessType.vocabulary as Record<string, string>) ?? {};
-    const memberWord = vocabulary.member ?? 'Üye';
+    const memberWord = vocabulary.member ?? serverT(requestLocale())('apiTexts.sites.wizard.defaultMemberWord');
 
     const siteId = await this.siteIdOf(studioId);
     const internalLabel = input.offerKey ? `${businessType.name} - ${input.offerKey}` : businessType.name;
@@ -245,29 +246,36 @@ export class PagesService {
       });
     }
 
+    // Starter copy per locale from the catalogue; a locale without bundled messages gets English.
+    const copyFor = (locale: string) => serverT(pickBundledLocale([locale, 'en']));
     const heroText = Object.fromEntries(
-      input.locales.map((locale) => [
-        locale,
-        locale === 'tr'
-          ? { title: `${businessType.name} işletmeniz için tek platform`, subtitle: `${memberWord} yönetimi, takvim, paket ve ödeme bir arada.`, primaryCtaLabel: 'Ücretsiz deneyin', primaryCtaHref: '#iletisim' }
-          : { title: `The all-in-one platform for your ${businessType.name}`, subtitle: 'Scheduling, packages, payments and reporting in one place.', primaryCtaLabel: 'Start free trial', primaryCtaHref: '#contact' },
-      ]),
+      input.locales.map((locale) => {
+        const t = copyFor(locale);
+        return [
+          locale,
+          {
+            title: t('apiTexts.sites.wizard.heroTitle', { sector: businessType.name }),
+            subtitle: t('apiTexts.sites.wizard.heroSubtitle', { member: memberWord }),
+            primaryCtaLabel: t('apiTexts.sites.wizard.heroCta'),
+            primaryCtaHref: locale === 'tr' ? '#iletisim' : '#contact',
+          },
+        ];
+      }),
     );
     const ctaText = Object.fromEntries(
-      input.locales.map((locale) => [
-        locale,
-        locale === 'tr'
-          ? { title: 'Hemen başlayın', buttonLabel: 'İletişime geçin', buttonHref: '#iletisim' }
-          : { title: 'Get started today', buttonLabel: 'Contact us', buttonHref: '#contact' },
-      ]),
+      input.locales.map((locale) => {
+        const t = copyFor(locale);
+        return [locale, { title: t('apiTexts.sites.wizard.ctaTitle'), buttonLabel: t('apiTexts.sites.wizard.ctaButton'), buttonHref: locale === 'tr' ? '#iletisim' : '#contact' }];
+      }),
     );
     const leadFormText = Object.fromEntries(
-      input.locales.map((locale) => [
-        locale,
-        locale === 'tr'
-          ? { title: 'Bize ulaşın', submitLabel: 'Gönder', consentText: 'İletişim bilgilerimin bu işletme tarafından aranmak için kullanılmasına izin veriyorum.' }
-          : { title: 'Contact us', submitLabel: 'Send', consentText: 'I agree to be contacted using the details above.' },
-      ]),
+      input.locales.map((locale) => {
+        const t = copyFor(locale);
+        return [
+          locale,
+          { title: t('apiTexts.sites.wizard.formTitle'), submitLabel: t('apiTexts.sites.wizard.formSubmit'), consentText: t('apiTexts.sites.wizard.formConsent') },
+        ];
+      }),
     );
 
     await this.prisma.$transaction([

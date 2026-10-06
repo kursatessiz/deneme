@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { HttpsUrlSchema } from './validators';
+import { vmsg } from './validation-key';
 
 /**
  * Community feed and access tiers (G5b, docs/TOPLULUK.md). A post is shown
@@ -104,7 +105,7 @@ export const CreateCommunityPostSchema = z
   .strict()
   .superRefine((post, ctx) => {
     const issue = communityPostShapeIssue(post);
-    if (issue) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [issue], message: 'Gönderi türü için gerekli alan eksik veya fazla' });
+    if (issue) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [issue], message: vmsg('validation.requiredFieldForPostTypeMissing') });
   });
 export type CreateCommunityPostInput = z.infer<typeof CreateCommunityPostSchema>;
 
@@ -149,7 +150,7 @@ export const AccessTierRuleInputSchema = z
   })
   .strict()
   .refine((r) => (r.kind === 'PACKAGE_DEFINITION') === (r.packageDefinitionId !== null), {
-    message: 'Paket kuralı için bir paket seçilmelidir',
+    message: vmsg('validation.selectPackageForPackageRule'),
     path: ['packageDefinitionId'],
   });
 export type AccessTierRuleInput = z.infer<typeof AccessTierRuleInputSchema>;

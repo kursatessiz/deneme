@@ -16,6 +16,6 @@ export async function refreshGoogleAccessToken(http: AdsHttpClient, credentials:
     },
   );
   const token = (res.body as { access_token?: string } | null)?.access_token;
-  if (!res.ok || !token) throw new Error('Google OAuth erişim jetonu alınamadı');
+  if (!res.ok || !token) throw new Error('Could not obtain a Google OAuth access token');
   return token;
 }

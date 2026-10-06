@@ -16,8 +16,8 @@ import type { TenantContext } from '../auth/tenant-context';
 import { assertBranchAccess, assertUnrestricted } from './branch-access';
 import { PlanLimitsService } from '../admin/plan-limits.service';
 import { apiError } from '../../common/api-error';
+import { requestT } from '../../common/server-i18n';
 
-const UNASSIGNED_LABEL = 'Şubesiz';
 
 interface BookingAggregateRow {
   branch_id: string | null;
@@ -291,7 +291,7 @@ export class BranchesService {
     const row = (id: string | null) => {
       let r = out.get(id);
       if (!r) {
-        r = emptySummary(id, UNASSIGNED_LABEL);
+        r = emptySummary(id, requestT()('apiTexts.branches.unassigned'));
         out.set(id, r);
       }
       return r;

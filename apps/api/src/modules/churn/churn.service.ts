@@ -16,6 +16,7 @@ import type { TenantContext } from '../auth/tenant-context';
 import { assertBranchAccess } from '../branches/branch-access';
 import { scoreMemberChurnRisk, type ChurnMemberSignals } from './churn-scoring';
 import { apiError } from '../../common/api-error';
+import { requestT } from '../../common/server-i18n';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const RATE_LIMIT_MS = 10 * 60 * 1000;
@@ -486,7 +487,8 @@ export class ChurnService {
       previousScore: row.previousScore,
       level: row.level,
       onboarding: row.onboarding,
-      reasons: row.reasons as unknown as ChurnReasonDTO[],
+      // The stored label is Turkish; show it in the viewer's language by reason key.
+      reasons: (row.reasons as unknown as ChurnReasonDTO[]).map((r) => ({ ...r, label: requestT()(`churn.reason.${r.key}`) })),
       lastAttendedAt: row.lastAttendedAt ? row.lastAttendedAt.toISOString() : null,
       activePackageEndDate: row.activePackageEndDate ? row.activePackageEndDate.toISOString() : null,
       contactedAt: row.contactedAt ? row.contactedAt.toISOString() : null,

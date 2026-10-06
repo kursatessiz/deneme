@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { vmsg } from './validation-key';
 
 /**
  * Loyalty points (G3a, docs/SADAKAT.md). The ledger is append-only: every
@@ -73,7 +74,7 @@ export const UpdateLoyaltySettingsSchema = z
   })
   .strict()
   .refine((v) => v.expiryMode !== 'MONTHS_AFTER_EARN' || (v.expiryMonths ?? null) !== null, {
-    message: 'Son kullanma için ay sayısı giriniz',
+    message: vmsg('validation.enterNumberMonthsUntilExpiry'),
     path: ['expiryMonths'],
   });
 export type UpdateLoyaltySettingsInput = z.infer<typeof UpdateLoyaltySettingsSchema>;
@@ -92,7 +93,7 @@ export interface LoyaltySettingsDTO {
 // Earn rules
 // ---------------------------------------------------------------------------
 
-const CurrencySchema = z.string().regex(/^[A-Z]{3}$/, 'Geçersiz para birimi');
+const CurrencySchema = z.string().regex(/^[A-Z]{3}$/, vmsg('validation.invalidCurrency'));
 
 export const LoyaltyRuleConditionsSchema = z
   .object({
@@ -120,7 +121,7 @@ export const CreateLoyaltyRuleSchema = z
   .object({ kind: z.enum(LOYALTY_RULE_KINDS), ...RuleBase })
   .strict()
   .refine((v) => v.kind !== 'PURCHASE_AMOUNT' || (v.perAmount != null && v.currency != null), {
-    message: 'Tutar kuralı için tutar ve para birimi giriniz',
+    message: vmsg('validation.enterAmountAndCurrencyForAmount'),
     path: ['perAmount'],
   });
 export type CreateLoyaltyRuleInput = z.infer<typeof CreateLoyaltyRuleSchema>;
@@ -234,8 +235,8 @@ export const LoyaltyAdjustSchema = z
       .int()
       .min(-LOYALTY_MAX_POINTS)
       .max(LOYALTY_MAX_POINTS)
-      .refine((n) => n !== 0, 'Puan sıfır olamaz'),
-    note: z.string().trim().min(1, 'Açıklama giriniz').max(300),
+      .refine((n) => n !== 0, vmsg('validation.pointsZero')),
+    note: z.string().trim().min(1, vmsg('validation.enterDescription')).max(300),
     /** A MANUAL preset rule, for reporting. */
     ruleId: z.string().uuid().optional(),
     /** Client-generated key: a retried request never adjusts twice. */

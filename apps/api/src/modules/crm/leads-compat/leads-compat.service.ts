@@ -29,6 +29,8 @@ import { CrmHooksService } from '../hooks/crm-hooks.service';
 import { WebhooksService } from '../../webhooks/webhooks.service';
 import { ConsentConfirmationService } from '../../notifications/consent/consent-confirmation.service';
 import { apiError } from '../../../common/api-error';
+import { requestT } from '../../../common/server-i18n';
+import { activityBodyFor, activityFields, activityText } from '../activity-text';
 
 const LEAD_INCLUDE = {
   pipelineStage: true,
@@ -106,7 +108,7 @@ export class LeadsCompatService {
     const activities: LeadActivityDTO[] = contact.activities.map((a) => ({
       id: a.id,
       type: a.type,
-      body: a.body,
+      body: activityBodyFor(a, requestT()),
       actorName: a.actorMembership?.user ? contactDisplayName(a.actorMembership.user) : null,
       createdAt: a.createdAt.toISOString(),
     }));
@@ -128,15 +130,17 @@ export class LeadsCompatService {
       if (!existing.pipelineStage || existing.pipelineStage.kind === 'LOST') {
         await this.contacts.moveToStage(existing, 'NEW', {
           actorMembershipId: tenant.membershipId,
-          activityBody: 'Aday olarak yeniden satış hattına alındı',
+          activity: activityText('apiTexts.crm.reenteredAsLead'),
         });
       }
+      const reapplied = activityFields(activityText('apiTexts.crm.reapplied', { detail: dto.notes ?? dto.sourceDetail ?? dto.source }));
       const activity = await this.prisma.contactActivity.create({
         data: {
           studioId,
           contactId: existing.id,
           type: 'NOTE',
-          body: `Tekrar başvuru: ${dto.notes ?? dto.sourceDetail ?? dto.source}`,
+          body: reapplied.body,
+          metadata: { i18n: reapplied.i18n },
           actorMembershipId: tenant.membershipId,
         },
       });
@@ -182,13 +186,11 @@ export class LeadsCompatService {
       include: { pipelineStage: true },
     });
     if (existing && existing.pipelineStage && existing.pipelineStage.kind !== 'LOST') {
+      const reapplied = activityFields(
+        dto.interest ? activityText('apiTexts.crm.webFormReappliedWithInterest', { interest: dto.interest }) : activityText('apiTexts.crm.webFormReapplied'),
+      );
       await this.prisma.contactActivity.create({
-        data: {
-          studioId,
-          contactId: existing.id,
-          type: 'FORM',
-          body: `Web formu üzerinden tekrar başvuru${dto.interest ? `: ${dto.interest}` : ''}`,
-        },
+        data: { studioId, contactId: existing.id, type: 'FORM', body: reapplied.body, metadata: { i18n: reapplied.i18n } },
       });
       await this.attribution.identify(studioId, visitorId, existing.id);
       await this.recordMarketingConsent(studioId, existing.id, dto, edgeCountry);
@@ -198,7 +200,7 @@ export class LeadsCompatService {
     let contactId: string;
     let leadContact: LeadWebhookContact;
     if (existing) {
-      await this.contacts.moveToStage(existing, 'NEW', { activityBody: 'Web formu ile yeniden satış hattına alındı' });
+      await this.contacts.moveToStage(existing, 'NEW', { activity: activityText('apiTexts.crm.webFormReentered') });
       contactId = existing.id;
       leadContact = existing;
     } else {
@@ -217,8 +219,9 @@ export class LeadsCompatService {
       contactId = contact.id;
       leadContact = contact;
     }
+    const consentActivity = activityFields(activityText('apiTexts.crm.webFormConsent'));
     await this.prisma.contactActivity.create({
-      data: { studioId, contactId, type: 'FORM', body: 'İletişim izni web formu üzerinden onaylandı' },
+      data: { studioId, contactId, type: 'FORM', body: consentActivity.body, metadata: { i18n: consentActivity.i18n } },
     });
     await this.attribution.identify(studioId, visitorId, contactId);
     await this.recordMarketingConsent(studioId, contactId, dto, edgeCountry);
@@ -309,7 +312,9 @@ export class LeadsCompatService {
     await this.contacts.moveToStage(contact, dto.stage, {
       lostReason: dto.stage === LeadStage.LOST ? dto.lostReason : null,
       actorMembershipId: tenant.membershipId,
-      activityBody: `Aşama değişti: ${fromKey} -> ${dto.stage}${dto.lostReason ? ` (${dto.lostReason})` : ''}`,
+      activity: dto.lostReason
+        ? activityText('apiTexts.crm.stageChangedWithReason', { from: fromKey, to: dto.stage, reason: dto.lostReason })
+        : activityText('apiTexts.crm.stageChanged', { from: fromKey, to: dto.stage }),
     });
     return this.leadDto(tenant.studioId, contact.id);
   }
@@ -363,7 +368,7 @@ export class LeadsCompatService {
     const fresh = await this.prisma.contact.findUniqueOrThrow({ where: { id: contact.id } });
     await this.contacts.moveToStage(fresh, LeadStage.WON, {
       actorMembershipId: tenant.membershipId,
-      activityBody: `Üyeliğe dönüştürüldü: ${stage?.key ?? LeadStage.NEW} -> WON`,
+      activity: activityText('apiTexts.crm.convertedToMember', { from: stage?.key ?? LeadStage.NEW }),
     });
     return { lead: await this.leadDto(tenant.studioId, contact.id), member };
   }
@@ -400,7 +405,7 @@ export class LeadsCompatService {
     const fresh = await this.prisma.contact.findUniqueOrThrow({ where: { id: contact.id } });
     await this.contacts.moveToStage(fresh, LeadStage.TRIAL_BOOKED, {
       actorMembershipId: tenant.membershipId,
-      activityBody: 'Deneme seansı planlandı',
+      activity: activityText('apiTexts.crm.trialPlanned'),
     });
     await this.hooks.onTrialBooked(tenant.studioId, contact.id, booking.id);
     return { lead: await this.leadDto(tenant.studioId, contact.id), member, booking };
@@ -457,6 +462,7 @@ function toActivityRow(a: {
   studioId: string;
   type: string;
   body: string;
+  metadata?: unknown;
   actorMembershipId: string | null;
   createdAt: Date;
 }) {
@@ -466,7 +472,7 @@ function toActivityRow(a: {
     contactId: a.contactId,
     studioId: a.studioId,
     type: a.type,
-    body: a.body,
+    body: activityBodyFor({ body: a.body, metadata: a.metadata ?? null }, requestT()),
     actorMembershipId: a.actorMembershipId,
     createdAt: a.createdAt.toISOString(),
   };

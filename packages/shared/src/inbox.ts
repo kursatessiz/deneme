@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ENGINE_CHANNELS } from './messaging-engine';
 import type { EngineChannel } from './messaging-engine';
+import { vmsg } from './validation-key';
 
 /**
  * Inbox (Gelen kutusu): inbound WhatsApp/SMS replies and in-app member chat
@@ -41,7 +42,7 @@ export const InboxReplySchema = z
   })
   .strict()
   .refine((v) => Boolean(v.body) !== Boolean(v.templateKey), {
-    message: 'Ya metin ya da şablon gönderilmelidir',
+    message: vmsg('validation.sendEitherTextOrTemplate'),
     path: ['body'],
   });
 export type InboxReplyInput = z.infer<typeof InboxReplySchema>;

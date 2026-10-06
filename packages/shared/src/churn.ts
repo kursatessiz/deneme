@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { vmsg } from './validation-key';
+import { BASE_MESSAGES } from './i18n/messages';
 
 /**
  * W12 churn risk: tenant-tunable scoring weights (Studio.churnWeights) and
@@ -65,7 +67,7 @@ export const ChurnWeightsSchema = z
   })
   .strict()
   .refine((v) => v.mediumThreshold < v.highThreshold, {
-    message: 'Orta seviye eşiği yüksek seviye eşiğinden küçük olmalıdır',
+    message: vmsg('validation.mediumThresholdLowerThanHighThreshold'),
     path: ['mediumThreshold'],
   });
 export type ChurnWeights = z.infer<typeof ChurnWeightsSchema>;
@@ -92,16 +94,10 @@ export const CHURN_REASON_KEYS = [
 ] as const;
 export type ChurnReasonKey = (typeof CHURN_REASON_KEYS)[number];
 
-export const CHURN_REASON_LABELS: Record<ChurnReasonKey, string> = {
-  attendance_declining: 'Katılım son 28 günde düştü',
-  inactive: 'Uzun süredir derse gelmiyor',
-  package_ending_soon: 'Aktif paketi yakında bitiyor, yenileme yok',
-  package_low_units: 'Paket hakkı neredeyse tükendi, yenileme yok',
-  package_frozen: 'Paketi dondurulmuş',
-  late_cancels_no_shows: 'Son 28 günde geç iptal / gelmeme',
-  failed_payments: 'Son 28 günde başarısız ödeme denemesi',
-  onboarding: 'Yeni üye (ilk 60 gün, alışma sürecinde)',
-};
+/** Turkish base label of each reason (the `churn.reason.<key>` message); screens translate by `key`. */
+export const CHURN_REASON_LABELS: Record<ChurnReasonKey, string> = Object.fromEntries(
+  CHURN_REASON_KEYS.map((key) => [key, BASE_MESSAGES[`churn.reason.${key}`]]),
+) as Record<ChurnReasonKey, string>;
 
 export interface ChurnReasonDTO {
   key: ChurnReasonKey;

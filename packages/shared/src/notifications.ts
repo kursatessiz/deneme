@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import { vmsg } from './validation-key';
+import { BASE_MESSAGES } from './i18n/messages';
+import { createTranslator } from './i18n/translator';
+import type { Translate } from './i18n/translator';
+
+const BASE_TRANSLATE: Translate = createTranslator({ locale: 'tr', messages: BASE_MESSAGES, fallback: BASE_MESSAGES });
 
 /**
  * Notification categories a user can control under "Hesabım > Bildirim
@@ -8,9 +14,8 @@ import { z } from 'zod';
 export const NOTIFICATION_CHANNELS = ['push', 'sms'] as const;
 export type NotificationPreferenceChannel = (typeof NOTIFICATION_CHANNELS)[number];
 
+/** Label and description of a category are the `apiTexts.notifCategory.<KEY>.label|description` messages. */
 export interface NotificationCategoryDefinition {
-  label: string;
-  description: string;
   defaults: Record<NotificationPreferenceChannel, boolean>;
   /** Commercial messages need explicit opt-in (ETK / IYS); default off. */
   marketing: boolean;
@@ -20,57 +25,41 @@ export interface NotificationCategoryDefinition {
 
 export const NOTIFICATION_CATEGORIES = {
   BOOKING_REMINDER: {
-    label: 'Seans hatırlatmaları',
-    description: 'Rezervasyonunuz yaklaşırken hatırlatma',
     defaults: { push: true, sms: false },
     marketing: false,
     staffOnly: false,
   },
   BOOKING_CHANGE: {
-    label: 'Rezervasyon değişiklikleri',
-    description: 'Seans iptali, saat veya eğitmen değişikliği',
     defaults: { push: true, sms: true },
     marketing: false,
     staffOnly: false,
   },
   WAITLIST: {
-    label: 'Bekleme listesi',
-    description: 'Bekleme listesinden yer açıldığında',
     defaults: { push: true, sms: true },
     marketing: false,
     staffOnly: false,
   },
   PACKAGE: {
-    label: 'Paket ve üyelik',
-    description: 'Paket bitişi, kalan hak ve dondurma bildirimleri',
     defaults: { push: true, sms: false },
     marketing: false,
     staffOnly: false,
   },
   TRAINER_SCHEDULE: {
-    label: 'Ders programım',
-    description: 'Size atanan veya değişen dersler (eğitmenler için)',
     defaults: { push: true, sms: false },
     marketing: false,
     staffOnly: true,
   },
   MARKETING: {
-    label: 'Kampanya ve duyurular',
-    description: 'İşletmelerin kampanya ve duyuruları (açık rıza gerekir)',
     defaults: { push: false, sms: false },
     marketing: true,
     staffOnly: false,
   },
   ACHIEVEMENT: {
-    label: 'Başarılar ve rozetler',
-    description: 'Yeni rozet, seri ve aylık hedef bildirimleri',
     defaults: { push: true, sms: false },
     marketing: false,
     staffOnly: false,
   },
   FEEDBACK: {
-    label: 'Üye geri bildirimleri',
-    description: 'Düşük puanlı seans değerlendirmeleri (işletme sahibi ve yöneticiler için)',
     defaults: { push: true, sms: false },
     marketing: false,
     staffOnly: true,
@@ -84,7 +73,7 @@ const ChannelTogglesSchema = z.object({ push: z.boolean(), sms: z.boolean() }).s
 
 export const NotificationPreferencesSchema = z
   .record(z.enum(NOTIFICATION_CATEGORY_KEYS as [NotificationCategory, ...NotificationCategory[]]), ChannelTogglesSchema)
-  .refine((v) => Object.keys(v).length > 0, 'En az bir kategori gönderilmeli');
+  .refine((v) => Object.keys(v).length > 0, vmsg('validation.leastOneCategorySent'));
 
 /** PUT body: any subset of categories; missing ones keep their value. */
 export const UpdateNotificationPreferencesSchema = z.object({ preferences: NotificationPreferencesSchema }).strict();
@@ -106,7 +95,7 @@ export interface NotificationPreferencesDTO {
 export const RegisterPushDeviceSchema = z
   .object({
     /** Expo push token: ExponentPushToken[...] */
-    token: z.string().regex(/^Expo(nent)?PushToken\[[A-Za-z0-9_-]{10,200}\]$/, 'Geçersiz push token'),
+    token: z.string().regex(/^Expo(nent)?PushToken\[[A-Za-z0-9_-]{10,200}\]$/, vmsg('validation.invalidPushToken')),
     platform: z.enum(['ios', 'android']),
     deviceName: z.string().max(100).optional(),
   })
@@ -117,6 +106,7 @@ export type RegisterPushDeviceInput = z.infer<typeof RegisterPushDeviceSchema>;
 export function resolveNotificationPreferences(
   stored: { category: string; push: boolean; sms: boolean }[],
   options: { includeStaff: boolean },
+  t: Translate = BASE_TRANSLATE,
 ): NotificationPreferenceItemDTO[] {
   return NOTIFICATION_CATEGORY_KEYS.filter((key) => options.includeStaff || !NOTIFICATION_CATEGORIES[key].staffOnly).map(
     (key) => {
@@ -124,8 +114,8 @@ export function resolveNotificationPreferences(
       const row = stored.find((s) => s.category === key);
       return {
         category: key,
-        label: def.label,
-        description: def.description,
+        label: t(`apiTexts.notifCategory.${key}.label`),
+        description: t(`apiTexts.notifCategory.${key}.description`),
         marketing: def.marketing,
         push: row ? row.push : def.defaults.push,
         sms: row ? row.sms : def.defaults.sms,

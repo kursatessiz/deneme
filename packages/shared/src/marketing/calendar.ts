@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { vmsg } from '../validation-key';
 
 /**
  * Content calendar of the marketing panel (docs/PAZARLAMA_MODULU.md 3.4).
@@ -14,15 +15,15 @@ export type CalendarChannel = (typeof CALENDAR_CHANNELS)[number];
 
 const DateOnly = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih YYYY-AA-GG biçiminde olmalı')
+  .regex(/^\d{4}-\d{2}-\d{2}$/, vmsg('validation.dateInYyyyMmDdFormat2'))
   .refine((v) => {
     const d = new Date(`${v}T00:00:00.000Z`);
     return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(v);
-  }, 'Geçersiz tarih');
+  }, vmsg('validation.invalidDate'));
 
 export const CreateContentItemSchema = z
   .object({
-    title: z.string().trim().min(1, 'Başlık giriniz').max(160),
+    title: z.string().trim().min(1, vmsg('validation.enterTitle')).max(160),
     channel: z.enum(CALENDAR_CHANNELS),
     scheduledDate: DateOnly,
     status: z.enum(CALENDAR_STATUSES).default('PLANNED'),
@@ -45,9 +46,9 @@ export const ContentItemsQuerySchema = z
     channel: z.enum(CALENDAR_CHANNELS).optional(),
   })
   .strict()
-  .refine((v) => v.from <= v.to, { message: 'Başlangıç bitişten sonra olamaz', path: ['to'] })
+  .refine((v) => v.from <= v.to, { message: vmsg('validation.startAfterEnd'), path: ['to'] })
   .refine((v) => (new Date(`${v.to}T00:00:00Z`).getTime() - new Date(`${v.from}T00:00:00Z`).getTime()) / 86_400_000 <= 92, {
-    message: 'En fazla 92 günlük aralık istenebilir',
+    message: vmsg('validation.rangeMost92DaysRequested'),
     path: ['to'],
   });
 export type ContentItemsQuery = z.infer<typeof ContentItemsQuerySchema>;

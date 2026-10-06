@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AI_CRAWLER_POLICIES, DEFAULT_AI_CRAWLER_POLICY, type AiCrawlerPolicy } from './robots';
+import { vmsg } from '../validation-key';
 
 /**
  * Per-site search settings (S3, docs/SEO.md). Stored in `Site.seoSettings` (JSON) so a new setting needs no
@@ -15,7 +16,7 @@ export const SearchVerificationTokenSchema = z.preprocess(
   z
     .string()
     .trim()
-    .regex(/^[A-Za-z0-9_-]{8,100}$/, 'Doğrulama kodu 8-100 karakter olmalı; yalnızca harf, rakam, tire ve alt çizgi')
+    .regex(/^[A-Za-z0-9_-]{8,100}$/, vmsg('validation.verificationCode8100CharactersLetters'))
     .nullable(),
 );
 

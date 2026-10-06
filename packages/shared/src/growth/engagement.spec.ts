@@ -1,3 +1,4 @@
+import { validationBaseMessage } from '../validation-messages';
 import { AUTOMATION_RULE_TYPES } from '../automations';
 import { DEFAULT_LEGACY_PARAMS, WIN_BACK_SEGMENT_PLACEHOLDER, journeyTemplates, legacyRuleFromJourney, legacyRuleToJourney, legacyTemplateRule, winBackSegmentRules } from './journey-api';
 import { JourneyDefinitionSchema, nextLocalTime, validateJourneyGraph } from './journeys';
@@ -60,13 +61,13 @@ describe('journey validation additions', () => {
 
   it('requires trigger parameters and exactly one template reference', () => {
     const noLead = JourneyDefinitionSchema.parse({ ...base, trigger: { kind: 'event', event: 'booking_upcoming' } });
-    expect(validateJourneyGraph(noLead).join(' ')).toContain('Rezervasyon');
+    expect(validateJourneyGraph(noLead).map(validationBaseMessage).join(' ')).toContain('Rezervasyon');
     const wrongParam = JourneyDefinitionSchema.parse({ ...base, trigger: { kind: 'event', event: 'lead', leadMinutes: 60 } });
-    expect(validateJourneyGraph(wrongParam).join(' ')).toContain('leadMinutes');
+    expect(validateJourneyGraph(wrongParam).map(validationBaseMessage).join(' ')).toContain('leadMinutes');
     const noTemplate = JourneyDefinitionSchema.parse({ ...base, steps: { send: { type: 'send', purpose: 'COMMERCIAL', next: null } } });
-    expect(validateJourneyGraph(noTemplate).join(' ')).toContain('templateKey');
+    expect(validateJourneyGraph(noTemplate).map(validationBaseMessage).join(' ')).toContain('templateKey');
     const pkg = JourneyDefinitionSchema.parse({ ...base, trigger: { kind: 'event', event: 'package_expiring' } });
-    expect(validateJourneyGraph(pkg).join(' ')).toContain('Paket');
+    expect(validateJourneyGraph(pkg).map(validationBaseMessage).join(' ')).toContain('Paket');
   });
 
   it('accepts award_points (G3a) and requires a reason', () => {
@@ -79,7 +80,7 @@ describe('journey validation additions', () => {
       ...base,
       steps: { send: { type: 'award_points', points: 10, reasonKey: ' ', next: null } },
     });
-    expect(validateJourneyGraph(noReason).join(' ')).toContain('açıklama');
+    expect(validateJourneyGraph(noReason).map(validationBaseMessage).join(' ')).toContain('açıklama');
   });
 
   it('requires an assignee for role or user tasks', () => {
@@ -87,7 +88,7 @@ describe('journey validation additions', () => {
       ...base,
       steps: { send: { type: 'create_task', titleKey: 'Call', assignTo: 'USER', dueInMinutes: 10, next: null } },
     });
-    expect(validateJourneyGraph(def).join(' ')).toContain('assigneeId');
+    expect(validateJourneyGraph(def).map(validationBaseMessage).join(' ')).toContain('assigneeId');
   });
 });
 

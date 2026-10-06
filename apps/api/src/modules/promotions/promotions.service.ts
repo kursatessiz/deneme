@@ -26,6 +26,7 @@ import { generateGiftCardCode, hashGiftCardCode, last4OfGiftCardCode } from './g
 const LOYALTY_CODE_LENGTH = 10;
 import { computePromoDiscount } from './promo-pricing';
 import { apiError } from '../../common/api-error';
+import { serverT, studioLocale } from '../../common/server-i18n';
 
 type Tx = Prisma.TransactionClient;
 
@@ -460,7 +461,7 @@ export class PromotionsService {
           currency: dto.currency,
           paymentMethod: dto.paymentMethod,
           paymentStatus: 'COMPLETED',
-          notes: `Hediye kartı satışı (${giftCard.last4})`,
+          notes: serverT(await studioLocale(this.prisma, tenant.studioId))('apiTexts.payments.giftCardSale', { last4: giftCard.last4 }),
         },
       });
       await tx.giftCardTransaction.create({

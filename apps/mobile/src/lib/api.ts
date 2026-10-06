@@ -144,7 +144,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     const translated = errorBody ? translateApiErrorBody(errorBody as Record<string, unknown>, t) : null;
     const raw = translated?.message;
     const message = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw.join(', ') : t('mApiErrors.unexpectedError');
-    throw new ApiError(response.status, message, errorBody?.errors, code);
+    const fieldErrors = (translated?.errors ?? errorBody?.errors) as ApiFieldError[] | undefined;
+    throw new ApiError(response.status, message, fieldErrors, code);
   }
 
   return payload as T;

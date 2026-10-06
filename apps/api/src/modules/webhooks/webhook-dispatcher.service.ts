@@ -45,7 +45,7 @@ export class WebhookDispatcherService {
       if (!delivery.endpoint.isActive) {
         await this.prisma.webhookDelivery.update({
           where: { id: delivery.id },
-          data: { status: 'ABANDONED', lastError: 'Uç nokta pasif' },
+          data: { status: 'ABANDONED', lastError: 'Endpoint is inactive' },
         });
         outcome.abandoned += 1;
         continue;
@@ -156,7 +156,7 @@ export class WebhookDispatcherService {
           });
         },
       );
-      req.on('timeout', () => req.destroy(new Error('Zaman aşımı')));
+      req.on('timeout', () => req.destroy(new Error('Request timed out')));
       req.on('error', (err) => resolve({ ok: false, error: err.message }));
       req.write(body);
       req.end();

@@ -56,7 +56,8 @@
         ".env*",
         "$TURBO_ROOT$/scripts/**",
         "$TURBO_ROOT$/apps/mobile/app/**",
-        "$TURBO_ROOT$/apps/mobile/src/**"
+        "$TURBO_ROOT$/apps/mobile/src/**",
+        "$TURBO_ROOT$/apps/api/src/**"
       ]
     },
     "dev": {

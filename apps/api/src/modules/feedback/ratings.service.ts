@@ -271,8 +271,8 @@ export class RatingsService {
         studioId,
         category: 'FEEDBACK',
         message: {
-          title: 'Düşük puanlı bir değerlendirme geldi',
-          body: `${trainerName} - ${rating.score}/5${rating.comment ? `: "${rating.comment}"` : ''}`,
+          titleKey: 'apiTexts.notify.lowRating.title',
+          bodyText: `${trainerName} - ${rating.score}/5${rating.comment ? `: "${rating.comment}"` : ''}`,
           data: { type: 'RATING_LOW', ratingId: rating.id },
         },
       });

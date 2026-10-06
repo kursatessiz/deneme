@@ -19,6 +19,7 @@ import {
 import { normalizePhone } from './phone';
 import { TaxNumberSchema, TcknSchema, VknSchema } from './tax-id';
 import { ALL_PERMISSIONS, PermissionKeySchema } from './permissions';
+import { vmsg } from './validation-key';
 
 const CURRENCY_CODE = z.string().length(3).default('TRY');
 
@@ -28,24 +29,24 @@ export const PhoneSchema = z
   .transform((value, ctx) => {
     const normalized = normalizePhone(value);
     if (!normalized) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Geçerli bir telefon numarası giriniz (örn: 0532 111 22 33)' });
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: vmsg('validation.enterValidPhoneNumberEG') });
       return z.NEVER;
     }
     return normalized;
   });
 
 export const LoginSchema = z.object({
-  emailOrPhone: z.string().min(3, 'Geçerli bir e-posta veya telefon giriniz'),
-  password: z.string().min(6, 'Şifre en az 6 karakter olmalıdır'),
+  emailOrPhone: z.string().min(3, vmsg('validation.enterValidEmailOrPhoneNumber')),
+  password: z.string().min(6, vmsg('validation.passwordLeast6Characters')),
 });
 export type LoginInput = z.infer<typeof LoginSchema>;
 
 export const CreateMemberSchema = z.object({
   studioId: z.string().uuid(),
-  firstName: z.string().trim().min(2, 'Ad en az 2 karakter olmalıdır'),
-  lastName: z.string().trim().min(2, 'Soyad en az 2 karakter olmalıdır'),
+  firstName: z.string().trim().min(2, vmsg('validation.nameLeast2Characters')),
+  lastName: z.string().trim().min(2, vmsg('validation.lastNameLeast2Characters')),
   phone: PhoneSchema,
-  email: z.string().email('Geçersiz e-posta formatı').optional().or(z.literal('')),
+  email: z.string().email(vmsg('validation.invalidEmailFormat')).optional().or(z.literal('')),
   birthDate: z.string().optional(),
   emergencyContactName: z.string().optional(),
   emergencyContactPhone: z.string().optional(),
@@ -56,7 +57,7 @@ export const CreateMemberSchema = z.object({
     .string()
     .trim()
     .toUpperCase()
-    .regex(/^[A-Z0-9]{4,24}$/, 'Geçersiz tavsiye kodu')
+    .regex(/^[A-Z0-9]{4,24}$/, vmsg('validation.invalidReferralCode'))
     .optional()
     .or(z.literal('')),
 });
@@ -104,16 +105,16 @@ export type CreateInviteInput = z.infer<typeof CreateInviteSchema>;
 export const CreatePackageDefinitionSchema = z
   .object({
     studioId: z.string().uuid(),
-    name: z.string().trim().min(3, 'Paket adı zorunludur'),
+    name: z.string().trim().min(3, vmsg('validation.packageNameRequired')),
     entitlementKind: z.nativeEnum(EntitlementKind),
-    totalUnits: z.number().int().positive('Seans/kredi sayısı 0 dan büyük olmalıdır').optional(),
-    validityDays: z.number().int().positive('Geçerlilik süresi en az 1 gün olmalıdır'),
-    price: z.number().nonnegative('Fiyat 0 veya üzeri olmalıdır'),
+    totalUnits: z.number().int().positive(vmsg('validation.sessionCreditCountGreaterThan0')).optional(),
+    validityDays: z.number().int().positive(vmsg('validation.validityLeast1Day')),
+    price: z.number().nonnegative(vmsg('validation.price0OrMore')),
     freezeDaysAllowed: z.number().int().nonnegative().default(0),
     isTransferable: z.boolean().default(false),
     services: z
       .array(z.object({ serviceTypeId: z.string().uuid(), unitCost: z.number().int().positive().default(1) }))
-      .min(1, 'Paket en az bir hizmeti kapsamalıdır'),
+      .min(1, vmsg('validation.packageCoverLeastOneService')),
   })
   .refine((v) => v.entitlementKind === EntitlementKind.TIME_UNLIMITED || v.totalUnits !== undefined, {
     path: ['totalUnits'],
@@ -148,8 +149,8 @@ export type UnfreezePackageInput = z.infer<typeof UnfreezePackageSchema>;
 export const HttpsUrlSchema = z
   .string()
   .trim()
-  .url('Geçerli bir bağlantı giriniz')
-  .refine((v) => v.startsWith('https://'), 'Bağlantı https:// ile başlamalıdır');
+  .url(vmsg('validation.enterValidLink'))
+  .refine((v) => v.startsWith('https://'), vmsg('validation.linkStartWithHttps'));
 
 /** W19: delivery-mode and meeting-link fields shared by session creation and the meeting-edit endpoint. */
 export const SessionMeetingFieldsSchema = z
@@ -162,11 +163,11 @@ export const SessionMeetingFieldsSchema = z
   })
   .refine((v) => v.deliveryMode === SessionDeliveryMode.IN_PERSON || v.meetingProvider !== undefined, {
     path: ['meetingProvider'],
-    message: 'Çevrimiçi/hibrit seanslar için bir yayın sağlayıcısı seçmelisiniz',
+    message: vmsg('validation.selectStreamingProviderForOnlineHybrid'),
   })
   .refine((v) => v.meetingProvider !== VideoMeetingProviderKind.MANUAL || !!v.manualMeetingUrl, {
     path: ['manualMeetingUrl'],
-    message: 'Elle bağlantı için https bağlantısı giriniz',
+    message: vmsg('validation.enterHttpsLinkForManualLink'),
   });
 export type SessionMeetingFieldsInput = z.infer<typeof SessionMeetingFieldsSchema>;
 
@@ -180,7 +181,7 @@ export const CreateScheduleSchema = z
     serviceTypeId: z.string().uuid(),
     resourceId: z.string().uuid().optional(),
     trainerId: z.string().uuid().optional(),
-    title: z.string().trim().min(3, 'Seans başlığı giriniz'),
+    title: z.string().trim().min(3, vmsg('validation.enterSessionTitle')),
     startTime: z.string().datetime(),
     endTime: z.string().datetime(),
     capacity: z.number().int().positive().optional(),
@@ -193,15 +194,15 @@ export const CreateScheduleSchema = z
   })
   .refine((v) => new Date(v.endTime) > new Date(v.startTime), {
     path: ['endTime'],
-    message: 'Bitiş saati başlangıçtan sonra olmalıdır',
+    message: vmsg('validation.endTimeAfterStartTime'),
   })
   .refine((v) => v.deliveryMode === SessionDeliveryMode.IN_PERSON || v.meetingProvider !== undefined, {
     path: ['meetingProvider'],
-    message: 'Çevrimiçi/hibrit seanslar için bir yayın sağlayıcısı seçmelisiniz',
+    message: vmsg('validation.selectStreamingProviderForOnlineHybrid'),
   })
   .refine((v) => v.meetingProvider !== VideoMeetingProviderKind.MANUAL || !!v.manualMeetingUrl, {
     path: ['manualMeetingUrl'],
-    message: 'Elle bağlantı için https bağlantısı giriniz',
+    message: vmsg('validation.enterHttpsLinkForManualLink'),
   });
 export type CreateScheduleInput = z.infer<typeof CreateScheduleSchema>;
 
@@ -215,15 +216,15 @@ export const UpdateScheduleSchema = z
     branchId: z.string().uuid().nullable().optional(),
     resourceId: z.string().uuid().nullable().optional(),
     trainerId: z.string().uuid().nullable().optional(),
-    title: z.string().trim().min(3, 'Seans başlığı giriniz').optional(),
+    title: z.string().trim().min(3, vmsg('validation.enterSessionTitle')).optional(),
     startTime: z.string().datetime().optional(),
     endTime: z.string().datetime().optional(),
     capacity: z.number().int().positive().optional(),
   })
-  .refine((v) => Object.keys(v).length > 0, { message: 'Güncellenecek en az bir alan giriniz' })
+  .refine((v) => Object.keys(v).length > 0, { message: vmsg('validation.enterLeastOneFieldUpdate') })
   .refine((v) => !v.startTime || !v.endTime || new Date(v.endTime) > new Date(v.startTime), {
     path: ['endTime'],
-    message: 'Bitiş saati başlangıçtan sonra olmalıdır',
+    message: vmsg('validation.endTimeAfterStartTime'),
   });
 export type UpdateScheduleInput = z.infer<typeof UpdateScheduleSchema>;
 
@@ -239,7 +240,7 @@ export type BookSessionInput = z.infer<typeof BookSessionSchema>;
 
 export const ChangeSpotSchema = z.object({
   /** The new set of resources held by this booking; replaces the previous set. */
-  resourceIds: z.array(z.string().uuid()).min(1, 'En az bir yer seçilmelidir').max(5),
+  resourceIds: z.array(z.string().uuid()).min(1, vmsg('validation.selectLeastOnePlace')).max(5),
 });
 export type ChangeSpotInput = z.infer<typeof ChangeSpotSchema>;
 
@@ -291,10 +292,10 @@ export function isWeakPin(pin: string): boolean {
 
 export const PinSchema = z
   .string()
-  .regex(/^\d{6}$/, 'PIN 6 haneli bir sayı olmalıdır')
-  .refine((pin) => !isWeakPin(pin), 'Bu PIN çok kolay tahmin edilir, başka bir PIN seçin');
+  .regex(/^\d{6}$/, vmsg('validation.pin6DigitNumber'))
+  .refine((pin) => !isWeakPin(pin), vmsg('validation.thisPinTooEasyGuessChoose'));
 
-export const OtpCodeSchema = z.string().regex(/^\d{6}$/, 'Doğrulama kodu 6 haneli olmalıdır');
+export const OtpCodeSchema = z.string().regex(/^\d{6}$/, vmsg('validation.verificationCode6Digits'));
 
 export const RequestLoginOtpSchema = z.object({ phone: PhoneSchema });
 export type RequestLoginOtpInput = z.infer<typeof RequestLoginOtpSchema>;
@@ -323,7 +324,7 @@ export type AcceptInviteInput = z.infer<typeof AcceptInviteSchema>;
 
 export const CreateResourceTypeSchema = z.object({
   studioId: z.string().uuid(),
-  name: z.string().trim().min(2, 'Kaynak türü adı en az 2 karakter olmalıdır'),
+  name: z.string().trim().min(2, vmsg('validation.resourceTypeNameLeast2Characters')),
   selectableByMember: z.boolean().default(false),
 });
 export type CreateResourceTypeInput = z.infer<typeof CreateResourceTypeSchema>;
@@ -340,7 +341,7 @@ export const CreateResourceSchema = z.object({
   branchId: z.string().uuid().optional(),
   resourceTypeId: z.string().uuid(),
   parentResourceId: z.string().uuid().optional(),
-  name: z.string().trim().min(1, 'Kaynak adı zorunludur'),
+  name: z.string().trim().min(1, vmsg('validation.resourceNameRequired')),
   capacity: z.number().int().positive().default(1),
   serialNumber: z.string().max(100).optional(),
   /** Grid coordinates for a spot map; both required together, optional overall. */
@@ -368,7 +369,7 @@ export type UpdateResourceInput = z.infer<typeof UpdateResourceSchema>;
 
 export const CreateCancellationPolicySchema = z.object({
   studioId: z.string().uuid(),
-  name: z.string().trim().min(2, 'Politika adı en az 2 karakter olmalıdır'),
+  name: z.string().trim().min(2, vmsg('validation.policyNameLeast2Characters')),
   freeCancelHours: z.number().int().nonnegative(),
   lateCancelChargeUnits: z.number().int().nonnegative().default(1),
   noShowChargeUnits: z.number().int().nonnegative().default(1),
@@ -388,13 +389,13 @@ export type UpdateCancellationPolicyInput = z.infer<typeof UpdateCancellationPol
 
 export const CreateServiceTypeSchema = z.object({
   studioId: z.string().uuid(),
-  name: z.string().trim().min(2, 'Hizmet adı en az 2 karakter olmalıdır'),
+  name: z.string().trim().min(2, vmsg('validation.serviceNameLeast2Characters')),
   description: z.string().max(2000).optional(),
-  durationMin: z.number().int().positive('Süre 0 dan büyük olmalıdır'),
+  durationMin: z.number().int().positive(vmsg('validation.durationGreaterThan0')),
   capacity: z.number().int().positive().default(1),
   minRepeatIntervalDays: z.number().int().positive().optional(),
   prerequisiteFormId: z.string().uuid().optional(),
-  allowedEntitlementKinds: z.array(z.nativeEnum(EntitlementKind)).min(1, 'En az bir hak türü seçilmelidir'),
+  allowedEntitlementKinds: z.array(z.nativeEnum(EntitlementKind)).min(1, vmsg('validation.selectLeastOneEntitlementType')),
   cancellationPolicyId: z.string().uuid().optional(),
   commissionRuleId: z.string().uuid().optional(),
   requiresQualification: z.boolean().default(false),
@@ -464,10 +465,10 @@ const optionalText = (max: number) =>
 
 export const CreateBranchSchema = z.object({
   studioId: z.string().uuid(),
-  name: z.string().trim().min(2, 'Şube adı giriniz').max(100),
+  name: z.string().trim().min(2, vmsg('validation.enterBranchName')).max(100),
   address: optionalText(500),
   phone: optionalText(30),
-  email: z.string().trim().email('Geçerli bir e-posta giriniz').max(120).nullable().optional(),
+  email: z.string().trim().email(vmsg('validation.enterValidEmail')).max(120).nullable().optional(),
   timezone: optionalText(60),
   sortOrder: z.number().int().min(0).max(999).default(0),
 });
@@ -500,9 +501,9 @@ export const ReportRangeSchema = z
     const start = from ?? new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
     return { from: start, to: end };
   })
-  .refine((r) => r.from < r.to, { message: 'Başlangıç tarihi bitişten önce olmalıdır', path: ['from'] })
+  .refine((r) => r.from < r.to, { message: vmsg('validation.startDateBeforeEndDate'), path: ['from'] })
   .refine((r) => r.to.getTime() - r.from.getTime() <= 366 * 24 * 60 * 60 * 1000, {
-    message: 'Rapor aralığı en fazla bir yıl olabilir',
+    message: vmsg('validation.reportRangeMostOneYear'),
     path: ['to'],
   });
 export type ReportRange = z.infer<typeof ReportRangeSchema>;
@@ -517,7 +518,7 @@ export const CardTokenSchema = z.object({
   last4: z
     .string()
     .trim()
-    .regex(/^\d{4}$/, 'Son 4 hane 4 rakam olmalıdır'),
+    .regex(/^\d{4}$/, vmsg('validation.last4Digits4Numbers')),
   brand: z.string().trim().min(2).max(20),
   expMonth: z.number().int().min(1).max(12),
   expYear: z.number().int().min(new Date().getFullYear()).max(new Date().getFullYear() + 20),
@@ -594,7 +595,7 @@ export type PauseSubscriptionInput = z.infer<typeof PauseSubscriptionSchema>;
 export const RefundPaymentSchema = z.object({
   /** Omitted means a full refund of the remaining (unrefunded) amount. */
   amount: z.number().positive().optional(),
-  reason: z.string().trim().min(3, 'İade nedeni giriniz').max(500),
+  reason: z.string().trim().min(3, vmsg('validation.enterRefundReason')).max(500),
 });
 export type RefundPaymentInput = z.infer<typeof RefundPaymentSchema>;
 
@@ -631,7 +632,7 @@ export const PayrollPeriodSchema = z
     branchId: z.string().uuid().nullable().optional(),
   })
   .refine((r) => r.periodStart < r.periodEnd, {
-    message: 'Dönem başlangıcı bitişten önce olmalıdır',
+    message: vmsg('validation.periodStartBeforeEnd'),
     path: ['periodEnd'],
   });
 export type PayrollPeriodInput = z.infer<typeof PayrollPeriodSchema>;
@@ -648,7 +649,7 @@ export type ListPayrollRunsInput = z.infer<typeof ListPayrollRunsSchema>;
 export const AdjustPayrollLineSchema = z.object({
   /** Positive adds to the trainer's net, negative subtracts. */
   amount: z.coerce.number().finite(),
-  note: z.string().trim().min(3, 'Düzeltme için bir açıklama giriniz').max(500),
+  note: z.string().trim().min(3, vmsg('validation.enterExplanationForAdjustment')).max(500),
 });
 export type AdjustPayrollLineInput = z.infer<typeof AdjustPayrollLineSchema>;
 
@@ -661,7 +662,7 @@ export const CreateLeadSchema = z.object({
   branchId: z.string().uuid().optional(),
   fullName: z.string().trim().min(2, 'Ad soyad giriniz').max(150),
   phone: PhoneSchema,
-  email: z.string().trim().email('Geçersiz e-posta formatı').max(120).optional().or(z.literal('')),
+  email: z.string().trim().email(vmsg('validation.invalidEmailFormat')).max(120).optional().or(z.literal('')),
   source: z.nativeEnum(LeadSource).default(LeadSource.OTHER),
   sourceDetail: z.string().trim().max(200).optional(),
   interestServiceTypeId: z.string().uuid().optional(),
@@ -697,7 +698,7 @@ export const ChangeLeadStageSchema = z
     lostReason: z.string().trim().max(500).optional(),
   })
   .refine((v) => v.stage !== LeadStage.LOST || Boolean(v.lostReason), {
-    message: 'Kayıp nedeni giriniz',
+    message: vmsg('validation.enterLossReason'),
     path: ['lostReason'],
   });
 export type ChangeLeadStageInput = z.infer<typeof ChangeLeadStageSchema>;
@@ -730,9 +731,9 @@ export type BookLeadTrialInput = z.infer<typeof BookLeadTrialSchema>;
 export const PublicLeadFormSchema = z.object({
   fullName: z.string().trim().min(2, 'Ad soyad giriniz').max(150),
   phone: PhoneSchema,
-  email: z.string().trim().email('Geçersiz e-posta formatı').max(120).optional().or(z.literal('')),
+  email: z.string().trim().email(vmsg('validation.invalidEmailFormat')).max(120).optional().or(z.literal('')),
   interest: z.string().trim().max(200).optional(),
-  consent: z.literal(true, { errorMap: () => ({ message: 'İletişim izni gereklidir' }) }),
+  consent: z.literal(true, { errorMap: () => ({ message: vmsg('validation.contactConsentRequired') }) }),
   /**
    * Separate, optional commercial-message consent (never pre-ticked). M3e:
    * recorded as CONSENT on the e-mail (when given) and SMS channels; in a
@@ -743,7 +744,7 @@ export const PublicLeadFormSchema = z.object({
   formVersion: z
     .string()
     .trim()
-    .regex(/^[A-Za-z0-9._:-]{1,60}$/, 'Geçersiz form sürümü')
+    .regex(/^[A-Za-z0-9._:-]{1,60}$/, vmsg('validation.invalidFormVersion'))
     .optional(),
   /** Page language, for the confirmation e-mail. */
   locale: z.string().trim().regex(/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})?$/).optional(),
@@ -760,7 +761,7 @@ export const PublicLeadFormSchema = z.object({
     .string()
     .trim()
     .toUpperCase()
-    .regex(/^[A-Z0-9]{4,24}$/, 'Geçersiz tavsiye kodu')
+    .regex(/^[A-Z0-9]{4,24}$/, vmsg('validation.invalidReferralCode'))
     .optional()
     .or(z.literal('')),
 });
@@ -783,7 +784,7 @@ export const InvoiceSettingsSchema = z.object({
   seriesPrefix: z
     .string()
     .trim()
-    .regex(/^[A-Z0-9]{1,10}$/, 'Seri kodu 1-10 büyük harf/rakam olmalıdır')
+    .regex(/^[A-Z0-9]{1,10}$/, vmsg('validation.serialCode110UppercaseLetters'))
     .default('A'),
   autoIssueOnPayment: z.boolean().default(false),
 });
@@ -797,14 +798,14 @@ const billingProfileBase = z.object({
   taxOffice: z.string().trim().max(100).optional(),
   vkn: VknSchema.optional(),
   address: z.string().trim().max(1000).optional(),
-  email: z.string().trim().email('Geçerli bir e-posta giriniz').optional(),
+  email: z.string().trim().email(vmsg('validation.enterValidEmail')).optional(),
 });
 
 /** A company buyer needs its title, tax office and VKN to issue a valid e-invoice. */
 export const BillingProfileSchema = billingProfileBase.superRefine((value, ctx) => {
   if (value.kind === BillingProfileKind.COMPANY) {
     if (!value.companyTitle) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['companyTitle'], message: 'Şirket unvanı zorunludur' });
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['companyTitle'], message: vmsg('validation.companyNameRequired') });
     }
     if (!value.vkn) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['vkn'], message: 'VKN zorunludur' });
@@ -827,7 +828,7 @@ export const ListInvoicesQuerySchema = z.object({
 export type ListInvoicesQuery = z.infer<typeof ListInvoicesQuerySchema>;
 
 export const CancelInvoiceSchema = z.object({
-  reason: z.string().trim().min(3, 'İptal nedeni giriniz').max(500),
+  reason: z.string().trim().min(3, vmsg('validation.enterCancellationReason2')).max(500),
 });
 export type CancelInvoiceInput = z.infer<typeof CancelInvoiceSchema>;
 
@@ -837,9 +838,9 @@ export type CancelInvoiceInput = z.infer<typeof CancelInvoiceSchema>;
 
 export const CreatePromoCodeSchema = z
   .object({
-    code: z.string().trim().min(3, 'Kod en az 3 karakter olmalıdır').max(40),
+    code: z.string().trim().min(3, vmsg('validation.codeLeast3Characters')).max(40),
     kind: z.nativeEnum(PromoCodeKind),
-    value: z.number().positive('Değer sıfırdan büyük olmalıdır'),
+    value: z.number().positive(vmsg('validation.valueGreaterThanZero')),
     validFrom: z.string().datetime().optional(),
     validTo: z.string().datetime().optional(),
     maxRedemptions: z.number().int().positive().optional(),
@@ -850,11 +851,11 @@ export const CreatePromoCodeSchema = z
     isActive: z.boolean().default(true),
   })
   .refine((v) => v.kind !== 'PERCENT' || v.value <= 100, {
-    message: 'Yüzde indirimi 100\'den büyük olamaz',
+    message: vmsg('validation.percentageDiscountExceed100'),
     path: ['value'],
   })
   .refine((v) => !v.validFrom || !v.validTo || v.validFrom <= v.validTo, {
-    message: 'Geçerlilik başlangıcı bitişten sonra olamaz',
+    message: vmsg('validation.validityStartAfterItsEnd'),
     path: ['validTo'],
   });
 export type CreatePromoCodeInput = z.infer<typeof CreatePromoCodeSchema>;
@@ -883,7 +884,7 @@ export const IssueGiftCardSchema = z.object({
   /** The member the sale is recorded against (the purchaser, or whoever is checking out). */
   memberId: z.string().uuid(),
   branchId: z.string().uuid().optional(),
-  initialAmount: z.number().positive('Tutar sıfırdan büyük olmalıdır'),
+  initialAmount: z.number().positive(vmsg('validation.amountGreaterThanZero')),
   currency: CURRENCY_CODE,
   recipientName: z.string().trim().max(120).optional(),
   recipientPhone: PhoneSchema.optional(),
@@ -895,7 +896,7 @@ export const IssueGiftCardSchema = z.object({
 export type IssueGiftCardInput = z.infer<typeof IssueGiftCardSchema>;
 
 export const AdjustGiftCardSchema = z.object({
-  amount: z.number().refine((v) => v !== 0, 'Tutar sıfır olamaz'),
+  amount: z.number().refine((v) => v !== 0, vmsg('validation.amountZero')),
   note: z.string().trim().min(3, 'Not giriniz').max(500),
 });
 export type AdjustGiftCardInput = z.infer<typeof AdjustGiftCardSchema>;
@@ -911,13 +912,13 @@ export type CheckGiftCardBalanceInput = z.infer<typeof CheckGiftCardBalanceSchem
 
 export const CreateRoleTemplateSchema = z.object({
   studioId: z.string().uuid(),
-  name: z.string().trim().min(2, 'Rol adı giriniz').max(80),
+  name: z.string().trim().min(2, vmsg('validation.enterRoleName')).max(80),
   permissions: z.array(PermissionKeySchema).max(ALL_PERMISSIONS.length),
 });
 export type CreateRoleTemplateInput = z.infer<typeof CreateRoleTemplateSchema>;
 
 export const UpdateRoleTemplateSchema = z.object({
-  name: z.string().trim().min(2, 'Rol adı giriniz').max(80).optional(),
+  name: z.string().trim().min(2, vmsg('validation.enterRoleName')).max(80).optional(),
   permissions: z.array(PermissionKeySchema).max(ALL_PERMISSIONS.length).optional(),
 });
 export type UpdateRoleTemplateInput = z.infer<typeof UpdateRoleTemplateSchema>;
@@ -934,7 +935,7 @@ export type AssignRoleTemplateInput = z.infer<typeof AssignRoleTemplateSchema>;
 export const CreateExpenseSchema = z.object({
   branchId: z.string().uuid().optional(),
   category: z.string().trim().min(2, 'Kategori giriniz').max(60),
-  amount: z.number().positive('Tutar sıfırdan büyük olmalıdır'),
+  amount: z.number().positive(vmsg('validation.amountGreaterThanZero')),
   spentAt: z.string().datetime(),
   note: z.string().trim().max(1000).optional(),
 });

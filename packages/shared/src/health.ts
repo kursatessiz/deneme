@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { HealthActivityType, HealthPlatform } from './enums';
+import { vmsg } from './validation-key';
 
 /**
  * Apple Health / Android Health Connect integration (W21). Health data is
@@ -62,18 +63,18 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export const HealthDailySummaryEntrySchema = z
   .object({
-    date: z.string().regex(DATE_RE, 'Tarih YYYY-AA-GG biçiminde olmalıdır'),
-    steps: z.number().int().min(0, 'Adım sayısı negatif olamaz').max(100_000, 'Adım sayısı çok yüksek').optional(),
+    date: z.string().regex(DATE_RE, vmsg('validation.dateInYyyyMmDdFormat')),
+    steps: z.number().int().min(0, vmsg('validation.stepCountNegative')).max(100_000, vmsg('validation.stepCountTooHigh')).optional(),
     activeEnergyKcal: z
       .number()
       .min(0, 'Kalori negatif olamaz')
-      .max(10_000, 'Kalori çok yüksek')
+      .max(10_000, vmsg('validation.caloriesAreTooHigh'))
       .optional(),
     restingHeartRate: z
       .number()
       .int()
-      .min(25, 'Dinlenme nabzı çok düşük')
-      .max(220, 'Dinlenme nabzı çok yüksek')
+      .min(25, vmsg('validation.restingHeartRateTooLow'))
+      .max(220, vmsg('validation.restingHeartRateTooHigh'))
       .optional(),
   })
   .strict();
@@ -84,12 +85,12 @@ export const UpsertHealthSummariesSchema = z
   .object({
     summaries: z
       .array(HealthDailySummaryEntrySchema)
-      .min(1, 'En az bir gün gönderilmelidir')
-      .max(31, 'Tek seferde en fazla 31 gün gönderilebilir'),
+      .min(1, vmsg('validation.leastOneDaySent'))
+      .max(31, vmsg('validation.most31DaysSentOnce')),
   })
   .strict()
   .refine((v) => new Set(v.summaries.map((s) => s.date)).size === v.summaries.length, {
-    message: 'Aynı tarih birden fazla kez gönderilemez',
+    message: vmsg('validation.sameDateSentMoreThanOnce'),
     path: ['summaries'],
   });
 export type UpsertHealthSummariesInput = z.infer<typeof UpsertHealthSummariesSchema>;

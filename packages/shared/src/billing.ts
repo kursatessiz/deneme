@@ -9,6 +9,7 @@ import { MARKETING_APPROVAL_TRANSLATED_ERRORS } from './marketing/approvals';
 import { SOCIAL_TRANSLATED_ERRORS } from './marketing/social';
 import { OAUTH_TRANSLATED_ERRORS } from './marketing/oauth';
 import { CONSENT_CONFIRMATION_TRANSLATED_ERRORS } from './marketing/consent';
+import { vmsg } from './validation-key';
 
 /**
  * Platform billing of tenants (G5c-1, docs/DENEME_VE_ETKINLESTIRME.md):
@@ -226,7 +227,7 @@ export type PlatformCreditKind = (typeof PLATFORM_CREDIT_KINDS)[number];
 export const REFERRAL_REWARD_KINDS = ['AMOUNT', 'FREE_MONTHS'] as const;
 export type ReferralRewardKind = (typeof REFERRAL_REWARD_KINDS)[number];
 
-const DecimalAmount = z.string().regex(/^\d{1,8}(\.\d{1,2})?$/, 'Geçersiz tutar');
+const DecimalAmount = z.string().regex(/^\d{1,8}(\.\d{1,2})?$/, vmsg('validation.invalidAmount'));
 
 /**
  * Super-admin setting: what a referrer earns when a referred business pays.
@@ -362,7 +363,7 @@ export const StudioReferralCodeSchema = z
   .string()
   .trim()
   .toUpperCase()
-  .regex(STUDIO_REFERRAL_CODE_PATTERN, 'Geçersiz tavsiye kodu');
+  .regex(STUDIO_REFERRAL_CODE_PATTERN, vmsg('validation.invalidReferralCode'));
 
 /** Reads and normalises pw_ref from a landing URL; null when absent or malformed. */
 export function parseReferralParam(url: string): string | null {

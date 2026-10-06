@@ -55,8 +55,9 @@ export class RatingPromptService {
           studioId: booking.studioId,
           category: 'BOOKING_REMINDER',
           message: {
-            title: 'Seansını nasıl buldun?',
-            body: `${booking.schedule.serviceType.name} seansını puanlamak ister misin?`,
+            titleKey: 'apiTexts.notify.ratingPrompt.title',
+            bodyKey: 'apiTexts.notify.ratingPrompt.body',
+            bodyParams: { service: booking.schedule.serviceType.name },
             data: { type: 'RATE_SESSION', bookingId: booking.id },
           },
         });

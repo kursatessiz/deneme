@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { PLATFORM_BILLING_CURRENCIES, PlatformBillingCurrencySchema, planPriceIn, trialDaysLeft } from './billing';
 import type { PlatformBillingCurrency } from './billing';
 import { addMonthsUtc } from './loyalty';
+import { vmsg } from './validation-key';
 
 /**
  * Add-on marketplace (G5c-2, docs/UYGULAMA_PAZARI.md): platform-defined
@@ -44,7 +45,7 @@ export type LocalizedText = Record<string, string>;
 export function localizedTextSchema(maxLength: number) {
   return z
     .record(z.string().regex(/^[a-z]{2,3}(-[A-Z]{2})?$/), z.string().trim().max(maxLength))
-    .refine((v) => (v.tr ?? '').length > 0 && (v.en ?? '').length > 0, { message: 'Türkçe ve İngilizce metin zorunludur' });
+    .refine((v) => (v.tr ?? '').length > 0 && (v.en ?? '').length > 0, { message: vmsg('validation.turkishAndEnglishTextAreRequired') });
 }
 
 /**
@@ -80,21 +81,21 @@ const HttpsUrl = z
   .trim()
   .max(500)
   .url()
-  .refine((u) => u.startsWith('https://'), { message: 'Yalnızca https bağlantısı kabul edilir' });
+  .refine((u) => u.startsWith('https://'), { message: vmsg('validation.onlyHttpsLinksAreAccepted') });
 
 const AddOnFieldsSchema = z.object({
   name: localizedTextSchema(100),
   description: localizedTextSchema(1000),
   promoVideoUrl: HttpsUrl.nullable(),
   screenshotUrls: z.array(HttpsUrl).max(ADD_ON_MAX_SCREENSHOTS),
-  featureFlagKey: z.string().trim().regex(FEATURE_FLAG_KEY_PATTERN, 'Geçersiz özellik anahtarı'),
+  featureFlagKey: z.string().trim().regex(FEATURE_FLAG_KEY_PATTERN, vmsg('validation.invalidFeatureKey')),
   trialDays: z.number().int().min(0).max(ADD_ON_MAX_TRIAL_DAYS),
   isPublished: z.boolean(),
   sortOrder: z.number().int().min(0).max(10_000),
 });
 
 export const CreateAddOnSchema = AddOnFieldsSchema.extend({
-  key: z.string().trim().regex(ADD_ON_KEY_PATTERN, 'Geçersiz anahtar'),
+  key: z.string().trim().regex(ADD_ON_KEY_PATTERN, vmsg('validation.invalidKey')),
   promoVideoUrl: HttpsUrl.nullable().default(null),
   screenshotUrls: z.array(HttpsUrl).max(ADD_ON_MAX_SCREENSHOTS).default([]),
   trialDays: z.number().int().min(0).max(ADD_ON_MAX_TRIAL_DAYS).default(DEFAULT_ADD_ON_TRIAL_DAYS),
@@ -110,7 +111,7 @@ const PriceAmount = z
   .number()
   .positive()
   .max(1_000_000)
-  .refine((n) => Math.round(n * 100) / 100 === n, { message: 'En fazla iki ondalık basamak' });
+  .refine((n) => Math.round(n * 100) / 100 === n, { message: vmsg('validation.mostTwoDecimalPlaces') });
 
 export const AddOnPriceInputSchema = z
   .object({ currency: PlatformBillingCurrencySchema, priceMonthly: PriceAmount, priceYearly: PriceAmount })

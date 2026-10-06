@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { redactPii } from './marketing/privacy';
+import { vmsg } from './validation-key';
 
 /**
  * Super admin audit view (M3d, docs/PAZARLAMA_MODULU.md 6.3):
@@ -22,7 +23,7 @@ export const AuditLogQuerySchema = z
     limit: z.coerce.number().int().min(1).max(AUDIT_PAGE_SIZE_MAX).default(AUDIT_PAGE_SIZE_DEFAULT),
   })
   .strict()
-  .refine((q) => q.from === undefined || q.to === undefined || new Date(q.from) <= new Date(q.to), { message: 'Başlangıç bitişten sonra olamaz', path: ['from'] });
+  .refine((q) => q.from === undefined || q.to === undefined || new Date(q.from) <= new Date(q.to), { message: vmsg('validation.startAfterEnd'), path: ['from'] });
 export type AuditLogQuery = z.infer<typeof AuditLogQuerySchema>;
 
 export interface AuditLogItemDTO {

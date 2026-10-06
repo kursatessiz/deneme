@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { ApprovalReasonCode } from './approvals';
 import type { HubConnectionAuthDTO } from './oauth';
 import { hasBlockingIssues, runMarketingChecks, type MarketingCheckContext, type MarketingCheckIssue } from './checks';
+import { vmsg } from '../validation-key';
 
 /**
  * Organic social publishing (M4b, docs/PAZARLAMA_MODULU.md 5.2 and 6.1):
@@ -216,19 +217,19 @@ const HttpsUrl = z
   .trim()
   .max(2_000)
   .url()
-  .refine((v) => v.startsWith('https://'), { message: 'https bağlantısı giriniz' });
+  .refine((v) => v.startsWith('https://'), { message: vmsg('validation.enterHttpsLink') });
 
 const ExternalId = z
   .string()
   .trim()
-  .min(1, 'Hesap kimliği giriniz')
+  .min(1, vmsg('validation.enterAccountId'))
   .max(80)
-  .regex(/^[A-Za-z0-9_.:-]+$/, 'Geçersiz hesap kimliği');
+  .regex(/^[A-Za-z0-9_.:-]+$/, vmsg('validation.invalidAccountId'));
 
 /** Write-only: never echoed back by any endpoint. */
 export const SocialCredentialsSchema = z
   .object({
-    accessToken: z.string().trim().min(8, 'Erişim anahtarı giriniz').max(4_000),
+    accessToken: z.string().trim().min(8, vmsg('validation.enterAccessToken')).max(4_000),
     /** Instagram only: the host the token belongs to (Facebook login tokens use graph.facebook.com, Instagram login tokens graph.instagram.com). */
     apiHost: z.enum([META_GRAPH_HOST, INSTAGRAM_GRAPH_HOST]).optional(),
   })
@@ -256,7 +257,7 @@ export type UpdateSocialConnectionInput = z.infer<typeof UpdateSocialConnectionS
 const Locale = z
   .string()
   .trim()
-  .regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/, 'Geçersiz dil kodu')
+  .regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/, vmsg('validation.invalidLanguageCode'))
   .max(10);
 
 export const CreateSocialPostSchema = z

@@ -33,7 +33,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import type { TenantContext } from '../../auth/tenant-context';
 import { SegmentEvaluatorService } from '../segments/segment-evaluator.service';
 import { JourneyEngineService } from './journey-engine.service';
-import { apiError } from '../../../common/api-error';
+import { apiError, fieldError } from '../../../common/api-error';
 
 type Db = PrismaService | Prisma.TransactionClient;
 
@@ -100,11 +100,11 @@ export class JourneysService {
   async validateDefinition(studioId: string, raw: unknown, db: Db = this.prisma): Promise<JourneyDefinition> {
     const parsed = JourneyDefinitionSchema.safeParse(raw);
     if (!parsed.success) {
-      throw new BadRequestException({ ...apiError('apiErrors.growth.invalidJourney'), errors: parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })) });
+      throw new BadRequestException({ ...apiError('apiErrors.growth.invalidJourney'), errors: parsed.error.issues.map((i) => fieldError(i.path.join('.'), i.message)) });
     }
     const def = parsed.data;
     const issues = validateJourneyGraph(def);
-    if (issues.length) throw new BadRequestException({ ...apiError('apiErrors.growth.invalidJourney'), errors: issues.map((message) => ({ path: 'definition', message })) });
+    if (issues.length) throw new BadRequestException({ ...apiError('apiErrors.growth.invalidJourney'), errors: issues.map((message) => fieldError('definition', message)) });
     for (const group of conditionsOf(def)) await this.evaluator.validate(studioId, group);
 
     if (def.trigger.kind === 'segment_entered') {

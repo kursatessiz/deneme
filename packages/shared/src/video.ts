@@ -2,6 +2,7 @@ import type { ApiErrorKey } from './api-errors';
 import { z } from 'zod';
 import { VideoContentProvider, VideoContentVisibility } from './enums';
 import { HttpsUrlSchema } from './validators';
+import { vmsg } from './validation-key';
 
 /**
  * W19: live online sessions (join links, delivery mode) and the on-demand
@@ -38,9 +39,9 @@ export interface JoinSessionResultDTO {
 
 export const CreateVideoContentSchema = z
   .object({
-    title: z.string().trim().min(3, 'Başlık en az 3 karakter olmalıdır').max(150),
+    title: z.string().trim().min(3, vmsg('validation.titleLeast3Characters')).max(150),
     description: z.string().trim().max(2000).optional().or(z.literal('')),
-    durationSeconds: z.number().int().positive('Süre 0 dan büyük olmalıdır'),
+    durationSeconds: z.number().int().positive(vmsg('validation.durationGreaterThan0')),
     provider: z.nativeEnum(VideoContentProvider).default(VideoContentProvider.EXTERNAL_URL),
     sourceUrl: HttpsUrlSchema.optional(),
     thumbnailUrl: HttpsUrlSchema.optional(),
@@ -52,15 +53,15 @@ export const CreateVideoContentSchema = z
   })
   .refine((v) => v.provider !== VideoContentProvider.EXTERNAL_URL || !!v.sourceUrl, {
     path: ['sourceUrl'],
-    message: 'Harici bağlantı için https bağlantısı giriniz',
+    message: vmsg('validation.enterHttpsLinkForExternalLink'),
   })
   .refine((v) => v.provider !== VideoContentProvider.UPLOADED, {
     path: ['provider'],
-    message: 'Yükleme henüz desteklenmiyor, yalnızca harici bağlantı kullanılabilir',
+    message: vmsg('validation.uploadNotSupportedYetOnlyExternal'),
   })
   .refine((v) => v.visibility !== VideoContentVisibility.SPECIFIC_PACKAGES || v.packageDefinitionIds.length > 0, {
     path: ['packageDefinitionIds'],
-    message: 'Belirli paketler için en az bir paket seçmelisiniz',
+    message: vmsg('validation.selectLeastOnePackageForSpecific'),
   });
 export type CreateVideoContentInput = z.infer<typeof CreateVideoContentSchema>;
 

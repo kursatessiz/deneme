@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { BadgeKind } from './enums';
+import { vmsg } from './validation-key';
 
 /**
  * Gamification (W16): streaks, milestones, badges and monthly goals. The
@@ -16,14 +17,14 @@ import { BadgeKind } from './enums';
 export const MilestoneSessionsParamsSchema = z
   .object({
     kind: z.literal(BadgeKind.MILESTONE_SESSIONS),
-    sessions: z.number().int().positive('Seans sayısı pozitif olmalıdır'),
+    sessions: z.number().int().positive(vmsg('validation.sessionCountPositive')),
   })
   .strict();
 
 export const StreakWeeksParamsSchema = z
   .object({
     kind: z.literal(BadgeKind.STREAK_WEEKS),
-    weeks: z.number().int().positive('Hafta sayısı pozitif olmalıdır'),
+    weeks: z.number().int().positive(vmsg('validation.weekCountPositive')),
     /** Minimum attended sessions per ISO week to count that week. */
     minSessionsPerWeek: z.number().int().positive().default(1),
   })
@@ -52,7 +53,7 @@ export const EarlyBirdParamsSchema = z
 export const VarietyParamsSchema = z
   .object({
     kind: z.literal(BadgeKind.VARIETY),
-    distinctServiceTypes: z.number().int().positive('Hizmet türü sayısı pozitif olmalıdır'),
+    distinctServiceTypes: z.number().int().positive(vmsg('validation.serviceTypeCountPositive')),
   })
   .strict();
 
@@ -74,15 +75,15 @@ const BADGE_KEY_RE = /^[a-z0-9][a-z0-9-]{1,59}$/;
 
 export const CreateBadgeDefinitionSchema = z
   .object({
-    key: z.string().regex(BADGE_KEY_RE, 'Anahtar küçük harf, rakam ve tire içermelidir'),
-    name: z.string().trim().min(2, 'Ad en az 2 karakter olmalıdır').max(100),
+    key: z.string().regex(BADGE_KEY_RE, vmsg('validation.keyContainLowercaseLettersDigitsAnd2')),
+    name: z.string().trim().min(2, vmsg('validation.nameLeast2Characters')).max(100),
     description: z.string().trim().max(500).optional().or(z.literal('')),
     kind: z.nativeEnum(BadgeKind),
     threshold: BadgeThresholdParamsSchema,
     isActive: z.boolean().default(true),
   })
   .strict()
-  .refine((v) => v.threshold.kind === v.kind, { message: 'threshold.kind, kind ile eşleşmelidir', path: ['threshold'] });
+  .refine((v) => v.threshold.kind === v.kind, { message: vmsg('validation.thresholdKindMatchKind'), path: ['threshold'] });
 export type CreateBadgeDefinitionInput = z.infer<typeof CreateBadgeDefinitionSchema>;
 
 export const UpdateBadgeDefinitionSchema = z
@@ -112,12 +113,12 @@ export interface BadgeDefinitionDTO {
 // ---------------------------------------------------------------------------
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
-export const MonthSchema = z.string().regex(MONTH_RE, 'Ay YYYY-MM biçiminde olmalıdır');
+export const MonthSchema = z.string().regex(MONTH_RE, vmsg('validation.monthInYyyyMmFormat'));
 
 export const SetMonthlyGoalSchema = z
   .object({
     month: MonthSchema,
-    targetSessions: z.number().int().positive('Hedef pozitif olmalıdır').max(100),
+    targetSessions: z.number().int().positive(vmsg('validation.goalPositive')).max(100),
   })
   .strict();
 export type SetMonthlyGoalInput = z.infer<typeof SetMonthlyGoalSchema>;

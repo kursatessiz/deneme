@@ -28,4 +28,12 @@ export const trChurn = {
   'churn.summary.MEDIUM': 'Orta risk',
   'churn.summary.LOW': 'Düşük risk',
   'churn.summary.weekOverWeek': 'Geçen haftaya göre {delta}',
+  'churn.reason.attendance_declining': 'Katılım son 28 günde düştü',
+  'churn.reason.inactive': 'Uzun süredir derse gelmiyor',
+  'churn.reason.package_ending_soon': 'Aktif paketi yakında bitiyor, yenileme yok',
+  'churn.reason.package_low_units': 'Paket hakkı neredeyse tükendi, yenileme yok',
+  'churn.reason.package_frozen': 'Paketi dondurulmuş',
+  'churn.reason.late_cancels_no_shows': 'Son 28 günde geç iptal / gelmeme',
+  'churn.reason.failed_payments': 'Son 28 günde başarısız ödeme denemesi',
+  'churn.reason.onboarding': 'Yeni üye (ilk 60 gün, alışma sürecinde)',
 } as const satisfies Record<string, string>;

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { LifecycleStage } from './conversions';
 import { SEGMENT_FIELDS, SegmentGroupSchema } from './segments';
 import type { BuiltInSegmentField, SegmentFieldKind, SegmentGroup } from './segments';
+import { vmsg } from '../validation-key';
 
 /**
  * Segment API contracts (G2a, docs/KAMPANYA_VE_AKISLAR.md). A DYNAMIC
@@ -64,7 +65,7 @@ export const CreateSegmentSchema = z
     seedFromRules: z.boolean().optional(),
   })
   .strict()
-  .refine((v) => v.kind === 'STATIC' || v.rules !== undefined, { message: 'Dinamik segment için kural giriniz', path: ['rules'] });
+  .refine((v) => v.kind === 'STATIC' || v.rules !== undefined, { message: vmsg('validation.enterRuleForDynamicSegment'), path: ['rules'] });
 export type CreateSegmentInput = z.infer<typeof CreateSegmentSchema>;
 
 export const UpdateSegmentSchema = z

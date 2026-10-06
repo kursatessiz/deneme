@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CountryCodeSchema } from '../growth/regions';
+import { vmsg } from '../validation-key';
 
 /**
  * Meta Lead Ads intake (M4c, docs/PAZARLAMA_MODULU.md 5.2). Pure contracts
@@ -137,7 +138,7 @@ export type MetaLead = z.infer<typeof MetaLeadSchema>;
 
 /** Question key (Meta `field_data[].name`) -> contact field. Stored per form as data. */
 export const LeadAdFieldMappingSchema = z.record(z.string().trim().min(1).max(120), z.enum(LEAD_AD_FIELD_TARGETS)).refine((v) => Object.keys(v).length <= 60, {
-  message: 'En fazla 60 soru eşlenebilir',
+  message: vmsg('validation.most60QuestionsMapped'),
 });
 export type LeadAdFieldMapping = z.infer<typeof LeadAdFieldMappingSchema>;
 
@@ -297,7 +298,7 @@ export function isTransientGraphFailure(status: number, errorCode: number | null
 export const LEAD_ADS_CONNECTION_STATUSES = ['NOT_CONFIGURED', 'CONFIGURED', 'RECEIVING', 'ERROR'] as const;
 export type LeadAdsConnectionStatus = (typeof LEAD_ADS_CONNECTION_STATUSES)[number];
 
-const FORM_ID = z.string().trim().regex(/^\d{5,40}$/, 'Geçersiz form kimliği');
+const FORM_ID = z.string().trim().regex(/^\d{5,40}$/, vmsg('validation.invalidFormId'));
 
 export const LeadAdFormIdParamSchema = FORM_ID;
 
@@ -320,12 +321,12 @@ export const ConfigureLeadAdsSchema = z
     appSecret: z.string().trim().min(16).max(200).optional(),
   })
   .strict()
-  .refine((v) => v.pageId !== undefined || v.appSecret !== undefined, { message: 'Sayfa kimliği veya uygulama sırrı gerekli' });
+  .refine((v) => v.pageId !== undefined || v.appSecret !== undefined, { message: vmsg('validation.pageIdOrAppSecretRequired') });
 export type ConfigureLeadAdsInput = z.infer<typeof ConfigureLeadAdsSchema>;
 
 /** PUT /admin/integrations/lead-ads/verify-token: a chosen token, or none to generate one. */
 export const SetLeadgenVerifyTokenSchema = z
-  .object({ token: z.string().trim().regex(/^[A-Za-z0-9_-]{16,128}$/, 'Doğrulama belirteci 16-128 harf, rakam, tire veya alt çizgi olmalı').optional() })
+  .object({ token: z.string().trim().regex(/^[A-Za-z0-9_-]{16,128}$/, vmsg('validation.verificationToken16128LettersDigits')).optional() })
   .strict();
 export type SetLeadgenVerifyTokenInput = z.infer<typeof SetLeadgenVerifyTokenSchema>;
 

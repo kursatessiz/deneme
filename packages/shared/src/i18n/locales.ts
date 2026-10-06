@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { vmsg } from '../validation-key';
 
 /**
  * Platform languages. Turkish is the base language: every message key is
@@ -15,7 +16,7 @@ export const BASE_LOCALE = 'tr' as const;
 /** ISO 639-1/639-2 language with an optional ISO 3166 region, e.g. "en", "de", "pt-BR". */
 export const LocaleCodeSchema = z
   .string()
-  .regex(/^[a-z]{2,3}(-[A-Z]{2})?$/, 'Geçersiz dil kodu');
+  .regex(/^[a-z]{2,3}(-[A-Z]{2})?$/, vmsg('validation.invalidLanguageCode'));
 export type LocaleCode = z.infer<typeof LocaleCodeSchema>;
 
 export interface LanguageDTO {

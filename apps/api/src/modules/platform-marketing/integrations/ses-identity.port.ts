@@ -74,7 +74,7 @@ export class AwsSesIdentityClient implements SesIdentityPort {
       }
     }
     const info = await this.getIdentity(domain);
-    if (!info) throw new Error('SES kimliği oluşturulduktan sonra okunamadı');
+    if (!info) throw new Error('SES identity could not be read after it was created');
     return { created, info };
   }
 

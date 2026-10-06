@@ -23,6 +23,7 @@ import { LoyaltyEarnService } from '../loyalty/loyalty-earn.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { computeStreakWeeks, countDistinctServiceTypes, countSessionsInLocalMonth, getLocalMonthKey, isEarlyBirdSession } from './gamification-calculations';
 import { apiError } from '../../common/api-error';
+import { requestT } from '../../common/server-i18n';
 
 interface AttendedSession {
   startTime: Date;
@@ -294,7 +295,11 @@ export class GamificationService {
           userId: member.membership.userId,
           studioId,
           category: 'ACHIEVEMENT',
-          message: { title: `Yeni rozet: ${badge.name}`, body: badge.description ?? 'Tebrikler, yeni bir rozet kazandın.' },
+          message: {
+            titleKey: 'apiTexts.notify.badge.title',
+            titleParams: { name: badge.name },
+            ...(badge.description ? { bodyText: badge.description } : { bodyKey: 'apiTexts.notify.badge.bodyFallback' as const }),
+          },
         });
       } catch (err) {
         this.logger.warn(`Achievement notification failed for member ${memberId}: ${(err as Error).message}`);
@@ -407,31 +412,33 @@ export class GamificationService {
     },
   ): { ratio: number; label: string } {
     const clamp = (v: number) => Math.max(0, Math.min(1, v));
+    // Shown to the member who asks, in their language.
+    const t = requestT();
     switch (threshold.kind) {
       case BadgeKind.MILESTONE_SESSIONS:
-        return { ratio: clamp(ctx.totalAttendedSessions / threshold.sessions), label: `${ctx.totalAttendedSessions}/${threshold.sessions} seans` };
+        return { ratio: clamp(ctx.totalAttendedSessions / threshold.sessions), label: t('apiTexts.badge.progress.sessions', { current: ctx.totalAttendedSessions, target: threshold.sessions }) };
       case BadgeKind.STREAK_WEEKS: {
         const { currentStreakWeeks, bestStreakWeeks } = computeStreakWeeks(ctx.attendedAt, ctx.timeZone, threshold.minSessionsPerWeek);
         const streak = Math.max(currentStreakWeeks, bestStreakWeeks);
-        return { ratio: clamp(streak / threshold.weeks), label: `${streak}/${threshold.weeks} hafta` };
+        return { ratio: clamp(streak / threshold.weeks), label: t('apiTexts.badge.progress.weeks', { current: streak, target: threshold.weeks }) };
       }
       case BadgeKind.VARIETY:
         return {
           ratio: clamp(ctx.distinctServiceTypes / threshold.distinctServiceTypes),
-          label: `${ctx.distinctServiceTypes}/${threshold.distinctServiceTypes} hizmet türü`,
+          label: t('apiTexts.badge.progress.serviceTypes', { current: ctx.distinctServiceTypes, target: threshold.distinctServiceTypes }),
         };
       case BadgeKind.FIRST_SESSION:
-        return { ratio: clamp(ctx.totalAttendedSessions >= 1 ? 1 : 0), label: ctx.totalAttendedSessions >= 1 ? 'Hazır' : '0/1 seans' };
+        return { ratio: clamp(ctx.totalAttendedSessions >= 1 ? 1 : 0), label: t(ctx.totalAttendedSessions >= 1 ? 'apiTexts.badge.progress.ready' : 'apiTexts.badge.progress.firstSession') };
       case BadgeKind.EARLY_BIRD:
-        return { ratio: 0, label: 'Saat 08:00den önce başlayan bir seansa katıl' };
+        return { ratio: 0, label: t('apiTexts.badge.progress.earlyBird') };
       case BadgeKind.MONTHLY_GOAL_MET:
         if (ctx.currentMonthTarget) {
           return {
             ratio: clamp(ctx.currentMonthProgress / ctx.currentMonthTarget),
-            label: `${ctx.currentMonthProgress}/${ctx.currentMonthTarget} (bu ay)`,
+            label: t('apiTexts.badge.progress.monthlyGoal', { current: ctx.currentMonthProgress, target: ctx.currentMonthTarget }),
           };
         }
-        return { ratio: ctx.anyMonthlyGoalMet ? 1 : 0, label: 'Aylık hedef belirleyin' };
+        return { ratio: ctx.anyMonthlyGoalMet ? 1 : 0, label: t('apiTexts.badge.progress.setMonthlyGoal') };
       default:
         return { ratio: 0, label: '' };
     }

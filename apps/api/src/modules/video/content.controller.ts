@@ -13,6 +13,7 @@ import {
   StartWatchingInput,
 } from '@platform/shared';
 import { toCsv } from '../../common/csv';
+import { requestT } from '../../common/server-i18n';
 import { StudioScoped, RequirePermission, SelfService, AllowWhenRestricted } from '../auth/decorators/require-permission.decorator';
 import { Tenant } from '../auth/decorators/current-user.decorator';
 import { ZodBody, ZodQuery } from '../../common/zod-body.pipe';
@@ -63,8 +64,9 @@ export class ContentController {
   async reports(@Tenant() tenant: TenantContext, @Res() res: Response) {
     const stats = await this.content.stats(tenant);
     if (res.req.query.format === 'csv') {
+      const t = requestT();
       const csv = toCsv(
-        ['İçerik', 'İzlenme', 'Tamamlanma', 'Tekil İzleyici'],
+        [t('apiTexts.csv.content'), t('apiTexts.csv.views'), t('apiTexts.csv.completions'), t('apiTexts.csv.uniqueViewers')],
         stats.map((s) => [s.title, s.views, s.completions, s.uniqueViewers]),
       );
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');

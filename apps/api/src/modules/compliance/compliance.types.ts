@@ -47,6 +47,8 @@ export interface CanSendInput {
    * check. Kept for callers that must deliberately bypass the window.
    */
   skipQuietHours?: boolean;
+  /** Language of `reason` (a bundled locale; Turkish when omitted). The sender's diagnostics use the business language. */
+  locale?: string | null;
 }
 
 export interface CanSendResult {
@@ -57,7 +59,7 @@ export interface CanSendResult {
   legalBasis?: ConsentLegalBasis;
   /** False when the basis was derived without a recorded consent row (the caller records it first). */
   legalBasisRecorded?: boolean;
-  /** Human-readable (Turkish) reason, for logs and the sender's own diagnostics -- never shown to the recipient. */
+  /** Human-readable reason (in `CanSendInput.locale`), for logs and the sender's own diagnostics -- never shown to the recipient. */
   reason?: string;
   region: ComplianceRegion;
 }

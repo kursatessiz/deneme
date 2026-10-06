@@ -11,6 +11,8 @@ import {
 import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import type { LocalizedNotice } from '../notifications/notifications.service';
+import type { PushMessage } from '../notifications/push.service';
 import { GamificationService } from '../gamification/gamification.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { VideoMeetingService } from '../video/providers/video-meeting.service';
@@ -36,8 +38,10 @@ import { evaluateCancellation, evaluateNoShow, FALLBACK_POLICY, PolicyTerms } fr
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
 import { deriveSpotStatus, SpotOccupant } from './spots';
 import { sortByClosestStart } from '../checkin/checkin-window';
-import type { ApiErrorKey, ScheduleSpotsDTO, SpotGroupDTO } from '@platform/shared';
+import type { ApiErrorKey, ApiTextKey, ScheduleSpotsDTO, SpotGroupDTO } from '@platform/shared';
 import { apiError, hasApiErrorCode } from '../../common/api-error';
+import { errorMessageIn, requestT, serverT, studioLocale } from '../../common/server-i18n';
+import type { ServerT } from '../../common/server-i18n';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const CAPACITY_FULL = apiError('apiErrors.schedules.sessionFull');
@@ -334,11 +338,13 @@ export class SchedulesService {
     // Tell booked members the new time (best effort, never undoes the move).
     if (timeChanged && activeBookings.length > 0) {
       const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { timezone: true } });
-      const when = start.toLocaleString('tr-TR', { dateStyle: 'medium', timeStyle: 'short', timeZone: studio?.timezone ?? 'Europe/Istanbul' });
+      const timeZone = studio?.timezone ?? 'Europe/Istanbul';
       for (const b of activeBookings) {
         await this.notifyMember(studioId, b.memberId, 'BOOKING_CHANGE', {
-          title: 'Seans saatiniz değişti',
-          body: `Rezervasyonunuz olan seans ${when} saatine taşındı.`,
+          titleKey: 'apiTexts.notify.sessionMoved.title',
+          bodyKey: 'apiTexts.notify.sessionMoved.body',
+          // Date and time follow the recipient's language, like the sentence around them.
+          bodyParams: ({ locale }) => ({ when: new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(start) }),
           data: { type: 'SESSION_MOVED', scheduleId },
         });
       }
@@ -811,21 +817,29 @@ export class SchedulesService {
       penaltyUnits: outcome.penaltyUnits,
       creditRefunded: outcome.refundUnits > 0,
       promotedFromWaitlist: promoted,
-      message: this.cancellationMessage(outcome.isLate, outcome.refundUnits, outcome.penaltyUnits, policy),
+      ...this.cancellationMessage(outcome.isLate, outcome.refundUnits, outcome.penaltyUnits, policy),
     };
   }
 
-  private cancellationMessage(isLate: boolean, refund: number, penalty: number, policy: PolicyTerms): string {
-    if (!isLate) {
+  /** Result text of a cancellation, in the requester's language; `messageKey` and `messageParams` let a client re-render it. */
+  private cancellationMessage(
+    isLate: boolean,
+    refund: number,
+    penalty: number,
+    policy: PolicyTerms,
+  ): { message: string; messageKey: ApiTextKey; messageParams?: Record<string, number> } {
+    const t = requestT();
+    const result = (key: ApiTextKey, params?: Record<string, number>) => ({ message: t(key, params), messageKey: key, ...(params ? { messageParams: params } : {}) });
+    if (!isLate) return result(refund > 0 ? 'apiTexts.cancel.cancelledRefunded' : 'apiTexts.cancel.cancelled');
+    if (penalty === 0) return result(refund > 0 ? 'apiTexts.cancel.lateNoPenaltyRefunded' : 'apiTexts.cancel.cancelled');
+    if (policy.freeCancelHours > 0) {
       return refund > 0
-        ? 'Rezervasyon iptal edildi, seans hakkı paketinize iade edildi.'
-        : 'Rezervasyon iptal edildi.';
+        ? result('apiTexts.cancel.lateCharged.hoursRefunded', { hours: policy.freeCancelHours, penalty, refund })
+        : result('apiTexts.cancel.lateCharged.hours', { hours: policy.freeCancelHours, penalty });
     }
-    if (penalty === 0) {
-      return refund > 0 ? 'Geç iptal cezası uygulanmadı, seans hakkı paketinize iade edildi.' : 'Rezervasyon iptal edildi.';
-    }
-    const window = policy.freeCancelHours > 0 ? `Seansa ${policy.freeCancelHours} saatten az kaldığı için ` : 'Seans başladığı için ';
-    return `${window}${penalty} birim geç iptal olarak düşüldü${refund > 0 ? `, ${refund} birim iade edildi` : ''}.`;
+    return refund > 0
+      ? result('apiTexts.cancel.lateCharged.startedRefunded', { penalty, refund })
+      : result('apiTexts.cancel.lateCharged.started', { penalty });
   }
 
   async markNoShow(tenant: TenantContext, bookingId: string, dto: MarkNoShowInput) {
@@ -1267,8 +1281,9 @@ export class SchedulesService {
         // book() already marked the entry PROMOTED inside its transaction.
         promoted++;
         await this.notifyMember(studioId, next.memberId, 'WAITLIST', {
-          title: 'Bekleme listesinden yer açıldı',
-          body: `${schedule.title} seansına rezervasyonunuz onaylandı.`,
+          titleKey: 'apiTexts.notify.waitlistPromoted.title',
+          bodyKey: 'apiTexts.notify.waitlistPromoted.body',
+          bodyParams: { title: schedule.title },
           data: { scheduleId, type: 'WAITLIST_PROMOTED' },
         });
       } catch (err) {
@@ -1280,17 +1295,19 @@ export class SchedulesService {
           });
           break;
         }
-        const reason = err instanceof HttpException ? err.message : 'Beklenmeyen hata';
+        // Stored for staff in the business language; the member's notification is written in their own.
+        const reasonIn = (t: ServerT) => (err instanceof HttpException ? errorMessageIn(err, t) : t('apiTexts.notify.unexpectedError'));
         await this.prisma.waitlist.updateMany({
           where: { id: next.id, status: 'OFFERED' },
-          data: { status: 'EXPIRED', resolvedAt: new Date(), failureReason: reason.slice(0, 200) },
+          data: { status: 'EXPIRED', resolvedAt: new Date(), failureReason: reasonIn(serverT(await studioLocale(this.prisma, studioId))).slice(0, 200) },
         });
         if (!(err instanceof HttpException)) {
           this.logger.error(`Waitlist entry ${next.id} could not be promoted: ${(err as Error).message}`);
         }
         await this.notifyMember(studioId, next.memberId, 'WAITLIST', {
-          title: 'Bekleme listesi',
-          body: `${schedule.title} seansında yer açıldı ancak rezervasyon yapılamadı: ${reason}`,
+          titleKey: 'apiTexts.notify.waitlistFailed.title',
+          bodyKey: 'apiTexts.notify.waitlistFailed.body',
+          bodyParams: ({ t }) => ({ title: schedule.title, reason: reasonIn(t) }),
           data: { scheduleId, type: 'WAITLIST_FAILED' },
         });
       }
@@ -1312,7 +1329,8 @@ export class SchedulesService {
   async cancelSession(tenant: TenantContext, actorUserId: string, scheduleId: string, dto: CancelSessionInput) {
     const studioId = tenant.studioId;
     await this.assertScheduleBranch(tenant, scheduleId);
-    const reason = dto.reason ?? 'Seans işletme tarafından iptal edildi';
+    // Stored on each cancelled booking: written in the business language when the staff gave no reason.
+    const reason = dto.reason ?? serverT(await studioLocale(this.prisma, studioId))('apiTexts.notify.sessionCancelled.defaultReason');
     const now = new Date();
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -1380,11 +1398,11 @@ export class SchedulesService {
 
     let membersNotified = 0;
     if (dto.notifyMembers) {
-      const body = `${result.schedule.title} seansı işletme tarafından iptal edildi.${dto.reason ? ` Neden: ${dto.reason}` : ''} Kullandığınız hak paketinize iade edildi.`;
       for (const memberId of result.cancelledMemberIds) {
         const sent = await this.notifyMember(studioId, memberId, 'BOOKING_CHANGE', {
-          title: 'Seans iptal edildi',
-          body,
+          titleKey: 'apiTexts.notify.sessionCancelled.title',
+          bodyKey: dto.reason ? 'apiTexts.notify.sessionCancelled.bodyWithReason' : 'apiTexts.notify.sessionCancelled.body',
+          bodyParams: { title: result.schedule.title, ...(dto.reason ? { reason: dto.reason } : {}) },
           data: { scheduleId, type: 'SESSION_CANCELLED' },
         });
         if (sent) membersNotified++;
@@ -1445,7 +1463,7 @@ export class SchedulesService {
     });
 
     const trainerUser = updated.trainer?.membership.user;
-    const trainerName = trainerUser ? `${trainerUser.firstName} ${trainerUser.lastName}`.trim() : 'yeni eğitmen';
+    const trainerFullName = trainerUser ? `${trainerUser.firstName} ${trainerUser.lastName}`.trim() : '';
     let membersNotified = 0;
     if (dto.notifyMembers) {
       const bookings = await this.prisma.booking.findMany({
@@ -1454,8 +1472,9 @@ export class SchedulesService {
       });
       for (const b of bookings) {
         const sent = await this.notifyMember(studioId, b.memberId, 'BOOKING_CHANGE', {
-          title: 'Eğitmen değişikliği',
-          body: `${schedule.title} seansını ${trainerName} yürütecek.`,
+          titleKey: 'apiTexts.notify.trainerChanged.title',
+          bodyKey: 'apiTexts.notify.trainerChanged.body',
+          bodyParams: ({ t }) => ({ title: schedule.title, trainer: trainerFullName || t('apiTexts.notify.trainerChanged.fallbackName') }),
           data: { scheduleId: schedule.id, type: 'TRAINER_SUBSTITUTED' },
         });
         if (sent) membersNotified++;
@@ -1463,8 +1482,9 @@ export class SchedulesService {
     }
     if (trainerUser) {
       await this.notifyUserSafe(trainerUser.id, studioId, 'TRAINER_SCHEDULE', {
-        title: 'Yeni seans atandı',
-        body: `${schedule.title} seansı size atandı.`,
+        titleKey: 'apiTexts.notify.trainerAssigned.title',
+        bodyKey: 'apiTexts.notify.trainerAssigned.body',
+        bodyParams: { title: schedule.title },
         data: { scheduleId: schedule.id, type: 'TRAINER_ASSIGNED' },
       });
     }
@@ -1516,7 +1536,7 @@ export class SchedulesService {
     studioId: string,
     memberProfileId: string,
     category: NotificationCategory,
-    message: { title: string; body: string; data?: Record<string, string> },
+    message: PushMessage | LocalizedNotice,
   ): Promise<boolean> {
     const profile = await this.prisma.memberProfile.findFirst({
       where: { id: memberProfileId, studioId },
@@ -1531,7 +1551,7 @@ export class SchedulesService {
     userId: string,
     studioId: string,
     category: NotificationCategory,
-    message: { title: string; body: string; data?: Record<string, string> },
+    message: PushMessage | LocalizedNotice,
   ): Promise<boolean> {
     try {
       await this.notifications.notifyUser({ userId, studioId, category, message });

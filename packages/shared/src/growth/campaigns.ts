@@ -5,6 +5,7 @@ import { CampaignAbTestSchema, CampaignTemplateKeySchema, CampaignVariantsSchema
 import type { CampaignAbPhase, CampaignAbTestInput, CampaignVariantDTO } from './campaign-ab';
 import { CAMPAIGN_SEND_TIME_MODES, LOCAL_TIME_PATTERN } from './send-time';
 import type { CampaignSendTimeMode } from './send-time';
+import { vmsg } from '../validation-key';
 
 /**
  * Campaigns (G2a, docs/KAMPANYA_VE_AKISLAR.md): a one-off commercial
@@ -33,7 +34,7 @@ export const CAMPAIGN_QUIET_HOURS_MAX_DEFER_HOURS = 48;
 
 const TemplateKeySchema = CampaignTemplateKeySchema;
 
-const SendTimeLocalSchema = z.string().regex(LOCAL_TIME_PATTERN, 'Saat SS:dd biçiminde olmalı');
+const SendTimeLocalSchema = z.string().regex(LOCAL_TIME_PATTERN, vmsg('validation.timeInHhMmFormat2'));
 
 export const CreateCampaignSchema = z
   .object({

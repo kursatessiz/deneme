@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { DASHBOARD_GRID } from './grid';
 import { DashboardWidgetKeySchema, DashboardWidgetSettingsSchema, getDashboardWidget, isDashboardWidgetKey } from './widgets';
 import type { DashboardWidgetKey, DashboardWidgetSettings } from './widgets';
+import { vmsg } from '../validation-key';
 
 /**
  * One card on the board, in the 12 column grid: `x`/`w` are columns,
@@ -42,10 +43,10 @@ export const DashboardLayoutSchema = z
     const singletons = new Set<DashboardWidgetKey>();
     layout.items.forEach((item, index) => {
       if (item.x + item.w > DASHBOARD_GRID.columns) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Kart ızgaranın dışına taşıyor', path: ['items', index, 'w'] });
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: vmsg('validation.cardExtendsOutsideGrid'), path: ['items', index, 'w'] });
       }
       if (ids.has(item.id)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Kart kimliği tekrar ediyor', path: ['items', index, 'id'] });
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: vmsg('validation.duplicateCardId'), path: ['items', index, 'id'] });
       }
       ids.add(item.id);
       // An unknown key is already reported by the item schema; superRefine still runs after non-fatal issues.
@@ -53,17 +54,17 @@ export const DashboardLayoutSchema = z
       const definition = getDashboardWidget(item.widget);
       if (definition.singleton) {
         if (singletons.has(item.widget)) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Bu kart panoda yalnızca bir kez yer alabilir', path: ['items', index, 'widget'] });
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: vmsg('validation.thisCardAppearOnDashboardOnly'), path: ['items', index, 'widget'] });
         }
         singletons.add(item.widget);
       }
       if (item.settings !== undefined) {
         if (!definition.settings) {
           if (Object.keys(item.settings).length > 0) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Bu kartın ayarı yok', path: ['items', index, 'settings'] });
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: vmsg('validation.thisCardHasNoSettings'), path: ['items', index, 'settings'] });
           }
         } else if (!definition.settings.schema.safeParse(item.settings).success) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Bu kart için geçersiz dönem', path: ['items', index, 'settings', 'period'] });
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: vmsg('validation.invalidPeriodForThisCard'), path: ['items', index, 'settings', 'period'] });
         }
       }
     });

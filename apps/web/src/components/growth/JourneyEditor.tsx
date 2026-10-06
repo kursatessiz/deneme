@@ -12,6 +12,7 @@ import {
   UNAVAILABLE_JOURNEY_STEP_TYPES,
   UNAVAILABLE_SEGMENT_FIELDS,
   validateJourneyGraph,
+  translateValidationMessage,
 } from '@platform/shared';
 import type {
   JourneyDefinition,
@@ -365,11 +366,11 @@ export function JourneyEditor({ journeyId }: { journeyId?: string }) {
   function validate(): JourneyDefinition | null {
     const parsed = JourneyDefinitionSchema.safeParse(def);
     if (!parsed.success) {
-      setIssues(parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`));
+      setIssues(parsed.error.issues.map((i) => `${i.path.join('.')}: ${translateValidationMessage(i.message, t)}`));
       return null;
     }
     const graph = validateJourneyGraph(parsed.data);
-    setIssues(graph);
+    setIssues(graph.map((issue) => translateValidationMessage(issue, t)));
     return graph.length ? null : parsed.data;
   }
 

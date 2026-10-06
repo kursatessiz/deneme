@@ -20,6 +20,7 @@ import { assertBranchAccess, branchScope } from '../branches/branch-access';
 import { EInvoiceProviderRegistry } from './providers/einvoice-provider.registry';
 import type { InvoiceBuyer, InvoiceLine } from './providers/einvoice-provider.interface';
 import { apiError } from '../../common/api-error';
+import { serverT } from '../../common/server-i18n';
 
 type Tx = Prisma.TransactionClient;
 
@@ -152,13 +153,13 @@ export class InvoicingService {
     const buyer = this.buildBuyer(billingProfile, payment.member?.membership.user ?? payment.contact ?? this.walkInBuyer(payment.studio.defaultLocale));
 
     if (settings.eInvoiceMode === EInvoiceMode.EFATURA && !buyer.vkn) {
-      const reason = 'e-Fatura için alıcının VKN bilgisi zorunludur; üye şirket fatura profili eksik';
+      const reason = serverT(payment.studio.defaultLocale)('apiTexts.invoicing.vknRequired');
       invoice = await this.persistDraftOrFail(invoice, studioId, payment, settings, buyer, reason);
       return invoice;
     }
 
     const { net, vat } = splitVat(payment.amount, settings.defaultVatRate);
-    const description = payment.memberPackage?.packageDefinition?.name ?? 'Paket/hizmet ödemesi';
+    const description = payment.memberPackage?.packageDefinition?.name ?? serverT(payment.studio.defaultLocale)('apiTexts.invoicing.defaultLine');
     const lines: InvoiceLine[] = [
       { description, quantity: 1, unitPrice: Number(payment.amount), total: Number(payment.amount) },
     ];
@@ -213,7 +214,7 @@ export class InvoicingService {
         currency: payment.currency,
       });
       if (!result.success) {
-        return this.markFailed(invoice.id, result.failureMessage ?? 'Sağlayıcı faturayı reddetti');
+        return this.markFailed(invoice.id, result.failureMessage ?? serverT(payment.studio.defaultLocale)('apiTexts.invoicing.providerRejected'));
       }
       return this.prisma.invoice.update({
         where: { id: invoice.id },

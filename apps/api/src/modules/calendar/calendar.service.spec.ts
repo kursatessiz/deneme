@@ -18,6 +18,9 @@ describe('CalendarService', () => {
     booking: {
       findMany: jest.fn(),
     },
+    user: {
+      findUnique: jest.fn().mockResolvedValue({ locale: null }),
+    },
   };
 
   const mockMeBookings = {

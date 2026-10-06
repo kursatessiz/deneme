@@ -1,4 +1,23 @@
 {
-  "_comment": "Explicit exceptions to the i18n guard (scripts/check-i18n.mjs). Each entry: { file (repo-relative), kind, contains (substring of the reported text), reason }. Keep it empty unless a Turkish-character literal is legitimately not UI copy; tenant data and brand names never contain the guarded characters.",
-  "entries": []
+  "_comment": "Explicit exceptions to the i18n guard (scripts/check-i18n.mjs). Each entry: { file (repo-relative), kind, contains (substring of the reported text), reason }. Keep it small: add an entry only when a Turkish literal is legitimately not copy shown to a reader. Tenant data and brand names never contain the guarded characters.",
+  "entries": [
+    {
+      "file": "apps/api/src/modules/ai/prompts.ts",
+      "kind": "turkish",
+      "contains": "You translate the user interface",
+      "reason": "System prompt for the translation model: it quotes the Turkish words member, instructor and session as examples of generic vocabulary. The text is sent to the model, never shown to a reader."
+    },
+    {
+      "file": "apps/api/src/modules/ai/providers/fake-ai.adapter.ts",
+      "kind": "turkish",
+      "contains": "tesekkurler",
+      "reason": "Canned reply of the deterministic fake AI provider used in development and tests; it stands in for a model answer and is not product copy."
+    },
+    {
+      "file": "apps/api/src/modules/invoicing/providers/mock-einvoice.provider.ts",
+      "kind": "turkish",
+      "contains": "e-Ar",
+      "reason": "Placeholder e-Arsiv document of the MOCK e-invoice provider. e-Arsiv is the Turkish regulated invoice format, so its mock stays Turkish; the real provider returns the provider's own document."
+    }
+  ]
 }

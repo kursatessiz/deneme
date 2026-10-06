@@ -8,6 +8,7 @@ import { medianOf } from '../funnels';
 import { redactPii } from './privacy';
 import { AdSpendCapStatusSchema, FUSE_REASONS } from './guards';
 import { AdCapPauseSchema } from './ad-cap-pause';
+import { vmsg } from '../validation-key';
 
 /**
  * Platform marketing dashboard (M3a, docs/PAZARLAMA_MODULU.md 3.3). One
@@ -48,13 +49,13 @@ export const DashboardQuerySchema = z
     compare: z.enum(['previous']).optional(),
   })
   .strict()
-  .refine((v) => (v.from === undefined) === (v.to === undefined), { message: 'Başlangıç ve bitiş birlikte verilmelidir', path: ['from'] })
+  .refine((v) => (v.from === undefined) === (v.to === undefined), { message: vmsg('validation.startAndEndProvidedTogether'), path: ['from'] })
   .refine((v) => v.from === undefined || v.to === undefined || Date.parse(v.from) < Date.parse(v.to), {
-    message: 'Başlangıç bitişten önce olmalı',
+    message: vmsg('validation.startBeforeEnd'),
     path: ['from'],
   })
   .refine((v) => v.from === undefined || v.to === undefined || (Date.parse(v.to) - Date.parse(v.from)) / DAY_MS <= DASHBOARD_MAX_RANGE_DAYS, {
-    message: `En fazla ${DASHBOARD_MAX_RANGE_DAYS} günlük aralık istenebilir`,
+    message: vmsg('validation.maxRangeDays', { days: DASHBOARD_MAX_RANGE_DAYS }),
     path: ['to'],
   });
 export type DashboardQuery = z.infer<typeof DashboardQuerySchema>;

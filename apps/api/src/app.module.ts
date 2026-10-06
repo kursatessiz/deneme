@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { RequestLocaleMiddleware } from './common/server-i18n';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -127,4 +128,9 @@ import { PlatformMarketingModule } from './modules/platform-marketing/platform-m
     PlatformMarketingModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    // Remember the requester's language (Accept-Language) for success messages, CSV headers and labels.
+    consumer.apply(RequestLocaleMiddleware).forRoutes('{*path}');
+  }
+}

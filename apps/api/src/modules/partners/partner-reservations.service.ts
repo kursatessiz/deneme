@@ -5,6 +5,7 @@ import { normalizePhone, parsePartnerConnectionConfig, type PartnerWebhookPayloa
 import { PrismaService } from '../prisma/prisma.service';
 import { computeReservedSpots, isAllocationClosed } from './partner-quota';
 import { apiError } from '../../common/api-error';
+import { serverT, studioLocale } from '../../common/server-i18n';
 
 type Tx = Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
 
@@ -149,6 +150,8 @@ export class PartnerReservationsService {
     // applied here, only what the partner itself reports.
     const isLate =
       config.followsPartnerCancellationPolicy && payload.cancelledWithinPartnerPolicy === false;
+    // Stored on the booking: written in the business language.
+    const cancelledByPartnerText = serverT(await studioLocale(this.prisma, studioId))('apiTexts.partners.cancelledByPartner');
 
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.booking.updateMany({
@@ -156,7 +159,7 @@ export class PartnerReservationsService {
         data: {
           status: isLate ? BookingStatus.CANCELLED_LATE : BookingStatus.CANCELLED_EARLY,
           cancelledAt: new Date(),
-          cancellationReason: 'Partner tarafından iptal edildi',
+          cancellationReason: cancelledByPartnerText,
           isLateCancellation: isLate,
           partnerCancelled: true,
         },

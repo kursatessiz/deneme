@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ACCOUNTING_DELIMITERS, ACCOUNTING_MAX_RANGE_DAYS, amountToMinor, minorToAmount } from './accounting';
 import type { AccountingColumn } from './accounting';
+import { vmsg } from './validation-key';
 
 /**
  * Bank payouts and reconciliation (G5d-2, docs/BANKA_ODEMELERI.md): pure
@@ -71,7 +72,7 @@ export const ListPayoutsQuerySchema = z
     page: z.coerce.number().int().min(1).max(10_000).default(1),
     pageSize: z.coerce.number().int().min(1).max(PAYOUT_MAX_PAGE_SIZE).default(25),
   })
-  .refine((q) => !q.from || !q.to || q.from <= q.to, { message: 'Başlangıç tarihi bitişten sonra olamaz', path: ['from'] });
+  .refine((q) => !q.from || !q.to || q.from <= q.to, { message: vmsg('validation.startDateAfterEndDate'), path: ['from'] });
 export type ListPayoutsQuery = z.infer<typeof ListPayoutsQuerySchema>;
 
 export const MatchPayoutItemSchema = z.object({ paymentId: z.string().uuid() }).strict();
@@ -85,7 +86,7 @@ export const UpdatePayoutConnectionSchema = z
       .trim()
       .min(1)
       .max(120)
-      .regex(/^[A-Za-z0-9_-]+$/, 'Geçersiz hesap kimliği')
+      .regex(/^[A-Za-z0-9_-]+$/, vmsg('validation.invalidAccountId'))
       .nullable(),
   })
   .strict();
@@ -104,7 +105,7 @@ export const PayoutExportQuerySchema = z
       .transform((v): keyof typeof ACCOUNTING_DELIMITERS => (v === ',' || v === 'comma' ? 'comma' : 'semicolon')),
     locale: z
       .string()
-      .regex(/^[a-z]{2,3}(-[A-Z]{2})?$/, 'Geçersiz dil kodu')
+      .regex(/^[a-z]{2,3}(-[A-Z]{2})?$/, vmsg('validation.invalidLanguageCode'))
       .optional(),
   })
   .transform(({ from, to, ...rest }) => {
@@ -113,9 +114,9 @@ export const PayoutExportQuerySchema = z
     const start = from ?? new Date(end.getTime() - 90 * DAY_MS);
     return { ...rest, from: start, to: end };
   })
-  .refine((q) => q.from <= q.to, { message: 'Başlangıç tarihi bitişten sonra olamaz', path: ['from'] })
+  .refine((q) => q.from <= q.to, { message: vmsg('validation.startDateAfterEndDate'), path: ['from'] })
   .refine((q) => q.to.getTime() - q.from.getTime() <= ACCOUNTING_MAX_RANGE_DAYS * DAY_MS, {
-    message: 'Dışa aktarım aralığı en fazla bir yıl olabilir',
+    message: vmsg('validation.exportRangeMostOneYear'),
     path: ['to'],
   });
 export type PayoutExportQuery = z.infer<typeof PayoutExportQuerySchema>;

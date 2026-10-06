@@ -4,6 +4,7 @@ import type { TenantTheme } from './design/tokens';
 import { isStoredThemeFamilyKey } from './design/themes';
 import type { MessageParams } from './i18n/translator';
 import { renderMessageText, renderMessageTextLenient } from './messaging-engine';
+import { vmsg } from './validation-key';
 
 /**
  * Block-based email bodies (docs/MESAJLASMA.md, "E-posta blokları"). A
@@ -20,7 +21,7 @@ const URL_WITH_PLACEHOLDERS = z
   .trim()
   .min(1)
   .max(2000)
-  .refine((v) => /^(https?:\/\/|\{[a-zA-Z0-9_]+\})/.test(v), 'Bağlantı http(s):// ile veya bir {degisken} ile başlamalıdır');
+  .refine((v) => /^(https?:\/\/|\{[a-zA-Z0-9_]+\})/.test(v), vmsg('validation.linkStartWithHttpSOr'));
 
 export const EmailBlockSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('heading'), text: z.string().trim().min(1).max(200) }).strict(),
@@ -29,7 +30,7 @@ export const EmailBlockSchema = z.discriminatedUnion('type', [
   z
     .object({
       type: z.literal('image'),
-      src: z.string().trim().url().max(2000).refine((v) => v.startsWith('https://'), 'Görsel adresi https olmalıdır'),
+      src: z.string().trim().url().max(2000).refine((v) => v.startsWith('https://'), vmsg('validation.imageAddressHttps')),
       alt: z.string().trim().max(200).default(''),
       href: URL_WITH_PLACEHOLDERS.optional(),
     })

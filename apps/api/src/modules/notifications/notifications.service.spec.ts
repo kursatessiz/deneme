@@ -1,5 +1,6 @@
 import { NotificationsService } from './notifications.service';
 import type { MessagingService } from '../messaging/engine/messaging.service';
+import type { PrismaService } from '../prisma/prisma.service';
 
 /**
  * NotificationsService is the compatibility facade over the messaging
@@ -8,7 +9,7 @@ import type { MessagingService } from '../messaging/engine/messaging.service';
  */
 describe('NotificationsService (facade over MessagingService)', () => {
   const send = jest.fn();
-  const service = new NotificationsService({ send } as unknown as MessagingService);
+  const service = new NotificationsService({ send } as unknown as MessagingService, {} as unknown as PrismaService);
 
   beforeEach(() => send.mockReset());
 

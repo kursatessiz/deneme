@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { LIFECYCLE_STAGES } from './conversions';
+import { vmsg } from '../validation-key';
 
 /**
  * Segment rule language (section 3.5). Rules are data: the API compiles them
@@ -106,7 +107,7 @@ export function validateSegmentRules(
   const issues: SegmentValidationIssue[] = [];
   let count = 0;
   const walk = (group: SegmentGroup, path: string, depth: number) => {
-    if (depth > MAX_SEGMENT_DEPTH) issues.push({ path, message: 'Çok fazla iç içe grup' });
+    if (depth > MAX_SEGMENT_DEPTH) issues.push({ path, message: vmsg('validation.tooManyNestedGroups') });
     group.rules.forEach((rule, index) => {
       const here = `${path}.rules[${index}]`;
       if ('combinator' in rule) {
@@ -118,43 +119,43 @@ export function validateSegmentRules(
         ? customFieldKinds[rule.field.slice('custom.'.length)]
         : (SEGMENT_FIELDS as Record<string, SegmentFieldKind>)[rule.field];
       if (!kind) {
-        issues.push({ path: here, message: `Bilinmeyen alan: ${rule.field}` });
+        issues.push({ path: here, message: vmsg('validation.unknownField', { field: rule.field }) });
         return;
       }
       const ops = SEGMENT_OPERATORS[kind] as readonly string[];
       if (!ops.includes(rule.op)) {
-        issues.push({ path: here, message: `${rule.field} için geçersiz işlem: ${rule.op}` });
+        issues.push({ path: here, message: vmsg('validation.invalidOperatorForField', { field: rule.field, op: rule.op }) });
         return;
       }
       const needsNoValue = ['is_empty', 'is_not_empty', 'is_true', 'is_false'].includes(rule.op);
       const needsList = ['in', 'not_in', 'has_any', 'has_all', 'has_none', 'between'].includes(rule.op);
       if (needsNoValue) {
-        if (rule.value !== undefined) issues.push({ path: here, message: 'Bu işlem değer almaz' });
+        if (rule.value !== undefined) issues.push({ path: here, message: vmsg('validation.thisOperatorTakesNoValue') });
         return;
       }
       if (rule.value === undefined) {
-        issues.push({ path: here, message: 'Değer gerekli' });
+        issues.push({ path: here, message: vmsg('validation.valueRequired') });
         return;
       }
       if (needsList !== Array.isArray(rule.value)) {
-        issues.push({ path: here, message: needsList ? 'Liste değer gerekli' : 'Tek değer gerekli' });
+        issues.push({ path: here, message: needsList ? vmsg('validation.listValueRequired') : vmsg('validation.singleValueRequired') });
         return;
       }
       if (rule.op === 'between' && (rule.value as unknown[]).length !== 2) {
-        issues.push({ path: here, message: 'Aralık iki değer almalı' });
+        issues.push({ path: here, message: vmsg('validation.rangeTakesTwoValues') });
       }
       const allowed = (SEGMENT_ENUM_VALUES as Record<string, readonly string[] | undefined>)[rule.field];
       if (allowed) {
         const values = Array.isArray(rule.value) ? rule.value : [rule.value];
         for (const v of values) {
           if (typeof v !== 'string' || !allowed.includes(v)) {
-            issues.push({ path: here, message: `Geçersiz değer: ${String(v)}` });
+            issues.push({ path: here, message: vmsg('validation.invalidValueFor', { value: String(v) }) });
           }
         }
       }
     });
   };
   walk(root, 'root', 1);
-  if (count > MAX_SEGMENT_CONDITIONS) issues.push({ path: 'root', message: 'Çok fazla koşul' });
+  if (count > MAX_SEGMENT_CONDITIONS) issues.push({ path: 'root', message: vmsg('validation.tooManyConditions') });
   return issues;
 }

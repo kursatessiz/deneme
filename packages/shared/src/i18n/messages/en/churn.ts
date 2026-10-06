@@ -30,4 +30,12 @@ export const enChurn = {
   'churn.summary.MEDIUM': 'Medium risk',
   'churn.summary.LOW': 'Low risk',
   'churn.summary.weekOverWeek': 'Vs. last week {delta}',
+  'churn.reason.attendance_declining': 'Attendance dropped in the last 28 days',
+  'churn.reason.inactive': 'Has not attended for a long time',
+  'churn.reason.package_ending_soon': 'Active package ends soon, no renewal',
+  'churn.reason.package_low_units': 'Package entitlements almost used up, no renewal',
+  'churn.reason.package_frozen': 'Package is frozen',
+  'churn.reason.late_cancels_no_shows': 'Late cancellations / no-shows in the last 28 days',
+  'churn.reason.failed_payments': 'Failed payment attempts in the last 28 days',
+  'churn.reason.onboarding': 'New member (first 60 days, settling in)',
 } as const satisfies Record<keyof typeof trChurn, string>;

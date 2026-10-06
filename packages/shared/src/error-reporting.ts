@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { vmsg } from './validation-key';
 
 /**
  * Platform-wide error capture and reporting (H1, docs/HATA_RAPORLAMA.md).
@@ -114,12 +115,12 @@ const ReleaseSchema = z
   .string()
   .min(1)
   .max(64)
-  .refine((v) => isPlainToken(v, '._-'), 'Geçersiz sürüm');
+  .refine((v) => isPlainToken(v, '._-'), vmsg('validation.invalidVersion'));
 const EnvironmentSchema = z
   .string()
   .min(1)
   .max(20)
-  .refine((v) => isPlainToken(v, '_-'), 'Geçersiz ortam');
+  .refine((v) => isPlainToken(v, '_-'), vmsg('validation.invalidEnvironment'));
 
 export const BreadcrumbSchema = z.object({
   type: z.enum(BREADCRUMB_TYPES),
@@ -127,7 +128,7 @@ export const BreadcrumbSchema = z.object({
   at: z.string().datetime(),
   data: z
     .record(z.string().max(40), z.string().max(ERROR_LIMITS.breadcrumbDataValueLength))
-    .refine((d) => Object.keys(d).length <= ERROR_LIMITS.breadcrumbDataKeys, 'Çok fazla alan')
+    .refine((d) => Object.keys(d).length <= ERROR_LIMITS.breadcrumbDataKeys, vmsg('validation.tooManyFields'))
     .optional(),
 });
 export type Breadcrumb = z.infer<typeof BreadcrumbSchema>;
@@ -145,14 +146,14 @@ export const ClientErrorEventSchema = z.object({
   environment: EnvironmentSchema,
   /** Route pattern or screen name, never a full URL with a query string. */
   route: z.string().max(ERROR_LIMITS.routeLength).optional(),
-  requestId: z.string().refine(isValidRequestId, 'Geçersiz istek kimliği').optional(),
+  requestId: z.string().refine(isValidRequestId, vmsg('validation.invalidRequestId')).optional(),
   type: z.string().min(1).max(ERROR_LIMITS.typeLength),
   message: z.string().max(ERROR_LIMITS.messageLength),
   stack: z.string().max(ERROR_LIMITS.stackLength).optional(),
   breadcrumbs: z.array(BreadcrumbSchema).max(ERROR_LIMITS.breadcrumbs).optional(),
   timestamp: z.string().datetime(),
   /** Random per browser tab session; only used for the per-session rate limit. */
-  sessionId: z.string().refine(isValidRequestId, 'Geçersiz oturum kimliği').optional(),
+  sessionId: z.string().refine(isValidRequestId, vmsg('validation.invalidSessionId')).optional(),
 });
 export type ClientErrorEvent = z.infer<typeof ClientErrorEventSchema>;
 

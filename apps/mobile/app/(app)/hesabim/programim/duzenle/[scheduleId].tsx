@@ -52,7 +52,7 @@ function DuzenleContent() {
       capacity: capacity ? Number(capacity) : undefined,
     });
     if (!parsed.success) {
-      setFieldErrors(fieldErrorsFromZod(parsed.error));
+      setFieldErrors(fieldErrorsFromZod(parsed.error, t));
       return;
     }
     setIsSubmitting(true);

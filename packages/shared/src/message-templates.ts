@@ -4,6 +4,7 @@ import type { EmailBlock } from './email-blocks';
 import { BUNDLED_MESSAGES } from './i18n/messages';
 import type { MessageKey } from './i18n/messages';
 import type { MessagePurpose } from './messaging-engine';
+import { vmsg } from './validation-key';
 
 /**
  * Message templates (docs/MESAJLASMA.md, "Şablonlar"). A template is keyed
@@ -301,10 +302,10 @@ export function builtinTemplateMessageKeys(): string[] {
 
 export const TenantTemplateUpsertSchema = z
   .object({
-    key: z.string().trim().regex(/^[A-Z][A-Z0-9_]{1,59}$/, 'Anahtar büyük harf, rakam ve alt çizgiden oluşmalıdır'),
+    key: z.string().trim().regex(/^[A-Z][A-Z0-9_]{1,59}$/, vmsg('validation.keyConsistUppercaseLettersDigitsAnd')),
     channel: z.enum(TEMPLATE_CHANNELS),
-    locale: z.string().trim().regex(/^[a-z]{2}(-[A-Z]{2})?$/, 'Geçersiz dil kodu'),
-    body: z.string().trim().min(1, 'Şablon metni boş olamaz').max(2000),
+    locale: z.string().trim().regex(/^[a-z]{2}(-[A-Z]{2})?$/, vmsg('validation.invalidLanguageCode')),
+    body: z.string().trim().min(1, vmsg('validation.templateTextEmpty')).max(2000),
     subject: z.string().trim().min(1).max(200).nullable().optional(),
     blocks: EmailBlocksSchema.nullable().optional(),
     whatsappTemplateName: z.string().trim().max(120).nullable().optional(),
@@ -313,10 +314,10 @@ export const TenantTemplateUpsertSchema = z
   })
   .strict()
   .refine((v) => v.channel !== 'WHATSAPP' || !!v.whatsappTemplateName, {
-    message: 'WhatsApp şablonları için onaylı şablon adı zorunludur',
+    message: vmsg('validation.approvedTemplateNameRequiredForWhatsapp'),
     path: ['whatsappTemplateName'],
   })
-  .refine((v) => v.channel !== 'EMAIL' || !!v.subject, { message: 'E-posta şablonları için konu zorunludur', path: ['subject'] });
+  .refine((v) => v.channel !== 'EMAIL' || !!v.subject, { message: vmsg('validation.subjectRequiredForEmailTemplates'), path: ['subject'] });
 export type TenantTemplateUpsertInput = z.infer<typeof TenantTemplateUpsertSchema>;
 
 export const TemplateListQuerySchema = z

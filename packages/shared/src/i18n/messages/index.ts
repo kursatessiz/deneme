@@ -1,4 +1,6 @@
 import { trApiErrors } from './tr/apiErrors';
+import { trValidation } from './tr/validation';
+import { trApiTexts } from './tr/apiTexts';
 import { trMApiErrors } from './tr/mApiErrors';
 import { trMErrors } from './tr/mErrors';
 import { trAdminI18n } from './tr/admin-i18n';
@@ -103,6 +105,8 @@ import { trAdminErrors } from './tr/admin-errors';
 import { trCommunity } from './tr/community';
 import { trMCommunity } from './tr/mCommunity';
 import { enApiErrors } from './en/apiErrors';
+import { enValidation } from './en/validation';
+import { enApiTexts } from './en/apiTexts';
 import { enMApiErrors } from './en/mApiErrors';
 import { enMErrors } from './en/mErrors';
 import { enAdminI18n } from './en/admin-i18n';
@@ -263,6 +267,8 @@ import { enIntegrationsOAuth } from './en/integrationsOAuth';
  */
 export const TR_NAMESPACES = [
   trApiErrors,
+  trValidation,
+  trApiTexts,
   trMApiErrors,
   trMErrors,
   trAdminI18n,
@@ -391,6 +397,8 @@ export const TR_NAMESPACES = [
 
 export const EN_NAMESPACES = [
   enApiErrors,
+  enValidation,
+  enApiTexts,
   enMApiErrors,
   enMErrors,
   enAdminI18n,

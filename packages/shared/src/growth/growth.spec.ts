@@ -1,3 +1,4 @@
+import { validationBaseMessage } from '../validation-messages';
 import {
   AD_URL_TEMPLATES,
   buildCampaignName,
@@ -144,7 +145,7 @@ describe('segments', () => {
         { combinator: 'and', rules: [{ combinator: 'and', rules: [{ combinator: 'and', rules: [{ field: 'contact.locale', op: 'eq', value: 'en' }] }] }] },
       ],
     });
-    const messages = issues.map((i) => i.message).join(' | ');
+    const messages = issues.map((i) => validationBaseMessage(i.message)).join(' | ');
     expect(messages).toContain('Bilinmeyen alan: contact.nope');
     expect(messages).toContain('geçersiz işlem');
     expect(messages).toContain('Geçersiz değer: ALIEN');
@@ -187,24 +188,24 @@ describe('journeys', () => {
       ...trialNurture,
       steps: { ...trialNurture.steps, offer: { ...trialNurture.steps.offer, next: 'welcome' } },
     });
-    expect(validateJourneyGraph(cyclic)).toContain('Akışta döngü var');
+    expect(validateJourneyGraph(cyclic).map(validationBaseMessage)).toContain('Akışta döngü var');
 
     const dangling = JourneyDefinitionSchema.parse({
       ...trialNurture,
       steps: { ...trialNurture.steps, offer: { ...trialNurture.steps.offer, next: 'missing' } },
     });
-    expect(validateJourneyGraph(dangling)[0]).toContain('missing');
+    expect(validationBaseMessage(validateJourneyGraph(dangling)[0])).toContain('missing');
 
     const orphan = JourneyDefinitionSchema.parse({
       ...trialNurture,
       steps: { ...trialNurture.steps, lonely: { type: 'wait', minutes: 5, next: null } },
     });
-    expect(validateJourneyGraph(orphan).join(' ')).toContain('lonely');
+    expect(validateJourneyGraph(orphan).map(validationBaseMessage).join(' ')).toContain('lonely');
 
     const badWait = JourneyDefinitionSchema.parse({
       ...trialNurture,
       steps: { ...trialNurture.steps, wait_day: { type: 'wait', next: 'attended' } },
     });
-    expect(validateJourneyGraph(badWait).join(' ')).toContain('bekleme');
+    expect(validateJourneyGraph(badWait).map(validationBaseMessage).join(' ')).toContain('bekleme');
   });
 });

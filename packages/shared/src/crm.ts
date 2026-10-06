@@ -6,6 +6,7 @@ import type { ConversionEventType, LifecycleStage } from './growth/conversions';
 import { CountryCodeSchema } from './growth/regions';
 import type { SegmentFieldKind } from './growth/segments';
 import type { ConsentLegalBasis } from './marketing/consent';
+import { vmsg } from './validation-key';
 
 /**
  * CRM contracts (G1b): contacts, pipeline stages, custom fields, tasks and
@@ -93,7 +94,7 @@ const TagSchema = z
   .transform((value, ctx) => {
     const tag = normalizeTag(value);
     if (!tag) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Geçersiz etiket' });
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: vmsg('validation.invalidLabel') });
       return z.NEVER;
     }
     return tag;
@@ -103,7 +104,7 @@ const CustomFieldValueSchema = z.union([z.string().max(500), z.number().finite()
 export const ContactCustomFieldsSchema = z.record(z.string().regex(/^[a-z][a-z0-9_]{0,59}$/), CustomFieldValueSchema);
 export type ContactCustomFields = z.infer<typeof ContactCustomFieldsSchema>;
 
-const EmailSchema = z.string().trim().email('Geçersiz e-posta formatı').max(120);
+const EmailSchema = z.string().trim().email(vmsg('validation.invalidEmailFormat')).max(120);
 
 const ContactFieldsSchema = z.object({
   firstName: z.string().trim().min(1, 'Ad giriniz').max(60),
@@ -179,7 +180,7 @@ export const MergeContactsSchema = z
     mergedId: z.string().uuid(),
   })
   .strict()
-  .refine((v) => v.survivorId !== v.mergedId, { message: 'Bir kişi kendisiyle birleştirilemez', path: ['mergedId'] });
+  .refine((v) => v.survivorId !== v.mergedId, { message: vmsg('validation.contactMergedWithItself'), path: ['mergedId'] });
 export type MergeContactsInput = z.infer<typeof MergeContactsSchema>;
 
 export const ContactTagsSchema = z
@@ -209,7 +210,7 @@ export const LocalizedLabelSchema = z
 
 export const CreateContactFieldSchema = z
   .object({
-    key: z.string().regex(/^[a-z][a-z0-9_]{0,59}$/, 'Anahtar küçük harf, rakam ve alt çizgi içerebilir'),
+    key: z.string().regex(/^[a-z][a-z0-9_]{0,59}$/, vmsg('validation.keyContainLowercaseLettersDigitsAnd')),
     label: LocalizedLabelSchema,
     kind: z.enum(CONTACT_FIELD_KINDS),
     options: z.array(z.string().trim().min(1).max(80)).max(50).optional(),
@@ -217,7 +218,7 @@ export const CreateContactFieldSchema = z
   })
   .strict()
   .refine((v) => v.kind !== 'enum' || (v.options?.length ?? 0) > 0, {
-    message: 'Seçenek listesi giriniz',
+    message: vmsg('validation.enterOptionList'),
     path: ['options'],
   });
 export type CreateContactFieldInput = z.infer<typeof CreateContactFieldSchema>;
@@ -252,17 +253,17 @@ export function validateCustomFieldValue(
     case 'string':
       return typeof value === 'string' ? null : 'Metin bekleniyor';
     case 'number':
-      return typeof value === 'number' ? null : 'Sayı bekleniyor';
+      return typeof value === 'number' ? null : vmsg('validation.numberExpected');
     case 'boolean':
-      return typeof value === 'boolean' ? null : 'Evet/hayır bekleniyor';
+      return typeof value === 'boolean' ? null : vmsg('validation.yesNoValueExpected');
     case 'date':
       return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value))
         ? null
         : 'Tarih (YYYY-AA-GG) bekleniyor';
     case 'enum':
-      return typeof value === 'string' && def.options.includes(value) ? null : 'Listede olmayan değer';
+      return typeof value === 'string' && def.options.includes(value) ? null : vmsg('validation.valueNotInList');
     default:
-      return 'Bilinmeyen alan türü';
+      return vmsg('validation.unknownFieldType');
   }
 }
 
@@ -272,7 +273,7 @@ export function validateCustomFieldValue(
 
 export const CreatePipelineStageSchema = z
   .object({
-    key: z.string().regex(/^[A-Z][A-Z0-9_]{0,39}$/, 'Anahtar büyük harf, rakam ve alt çizgi içerebilir'),
+    key: z.string().regex(/^[A-Z][A-Z0-9_]{0,39}$/, vmsg('validation.keyContainUppercaseLettersDigitsAnd')),
     name: z.string().trim().min(1).max(80),
     kind: z.enum(PIPELINE_STAGE_KINDS).default('OPEN'),
     sortOrder: z.number().int().min(0).max(1000).optional(),
@@ -295,7 +296,7 @@ export type UpdatePipelineStageInput = z.infer<typeof UpdatePipelineStageSchema>
 
 export const CreateContactTaskSchema = z
   .object({
-    title: z.string().trim().min(1, 'Başlık giriniz').max(200),
+    title: z.string().trim().min(1, vmsg('validation.enterTitle')).max(200),
     notes: z.string().trim().max(2000).optional(),
     dueAt: z.string().datetime().optional(),
     assigneeMembershipId: z.string().uuid().optional(),
@@ -341,7 +342,7 @@ export const AttributionReportQuerySchema = z
     groupBy: z.enum(ATTRIBUTION_GROUP_BY).default('source'),
   })
   .strict()
-  .refine((v) => Date.parse(v.from) < Date.parse(v.to), { message: 'Başlangıç bitişten önce olmalı', path: ['from'] });
+  .refine((v) => Date.parse(v.from) < Date.parse(v.to), { message: vmsg('validation.startBeforeEnd'), path: ['from'] });
 export type AttributionReportQuery = z.infer<typeof AttributionReportQuerySchema>;
 
 /** Tenant setting (G2b): replaces the previously hard-coded DEFAULT_ATTRIBUTION_WINDOW_DAYS. */
@@ -461,7 +462,7 @@ export const UpdateContactConsentSchema = z
     evidence: z.string().trim().max(300).optional(),
   })
   .strict()
-  .refine((v) => !v.granted || (v.evidence?.length ?? 0) > 0, { message: 'Onayın nasıl alındığını yazınız', path: ['evidence'] });
+  .refine((v) => !v.granted || (v.evidence?.length ?? 0) > 0, { message: vmsg('validation.describeHowConsentWasObtained'), path: ['evidence'] });
 export type UpdateContactConsentInput = z.infer<typeof UpdateContactConsentSchema>;
 
 export interface ContactConsentDTO {

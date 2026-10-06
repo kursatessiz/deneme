@@ -8,6 +8,7 @@ import {
   resolveNotificationPreferences,
 } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { requestT } from '../../common/server-i18n';
 
 @Injectable()
 export class NotificationPreferencesService {
@@ -18,7 +19,8 @@ export class NotificationPreferencesService {
       this.prisma.notificationPreference.findMany({ where: { userId } }),
       this.isTrainer(userId),
     ]);
-    return { items: resolveNotificationPreferences(rows, { includeStaff: isStaff }) };
+    // Labels follow the language of the request.
+    return { items: resolveNotificationPreferences(rows, { includeStaff: isStaff }, requestT()) };
   }
 
   async update(userId: string, dto: UpdateNotificationPreferencesInput): Promise<NotificationPreferencesDTO> {
