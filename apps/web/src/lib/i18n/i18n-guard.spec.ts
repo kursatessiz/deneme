@@ -9,13 +9,13 @@ interface Finding {
   text: string;
 }
 
-function scan(platform: 'web' | 'mobile', fileName: string, source: string): Finding[] {
+function scan(platform: 'web' | 'mobile' | 'api', fileName: string, source: string): Finding[] {
   const out = execFileSync('node', [GUARD, '--stdin', platform, fileName], { input: source, encoding: 'utf8' });
   return JSON.parse(out) as Finding[];
 }
 
 describe('i18n regression guard (scripts/check-i18n.mjs)', () => {
-  it('passes on the repository: no Turkish-character copy outside messages/, no native dialogs, no bare Alert.alert', () => {
+  it('passes on the repository: no Turkish-character copy outside messages/ (web, mobile, API), no native dialogs, no bare Alert.alert', () => {
     const res = spawnSync('node', [GUARD], { encoding: 'utf8' });
     expect(res.stderr).toBe('');
     expect(res.status).toBe(0);
@@ -44,5 +44,16 @@ describe('i18n regression guard (scripts/check-i18n.mjs)', () => {
   it('flags Alert.alert without a buttons array in mobile and accepts one with buttons', () => {
     expect(scan('mobile', 'a.tsx', "Alert.alert('t', 'm');\n").map((f) => f.kind)).toEqual(['alert-no-buttons']);
     expect(scan('mobile', 'a.tsx', "Alert.alert('t', 'm', [{ text: 'ok' }]);\n")).toEqual([]);
+  });
+
+  it('flags a Turkish-character or ASCII-transliterated Turkish literal in the API', () => {
+    const source = "const a = { message: 'Rezervasyon iptal edildi' };\nconst b = `${x} kodunuz`;\nconst c = 'Giris kodunuz';\nconst d = 'Booking cancelled';\n";
+    expect(scan('api', 'a.ts', source).map((f) => f.kind)).toEqual(['turkish', 'turkish']);
+    expect(scan('api', 'a.ts', "const a = 'Değişti';\n").map((f) => f.kind)).toEqual(['turkish']);
+  });
+
+  it('lets the API log operator text, comments and English diagnostics through', () => {
+    const source = "// Üyeler\nthis.logger.warn(`İYS revocation failed: ${e}`);\nLogger.error('İleti Merkezi failed');\nconst a = 'Endpoint is inactive';\n";
+    expect(scan('api', 'a.ts', source)).toEqual([]);
   });
 });

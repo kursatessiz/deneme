@@ -2,9 +2,11 @@
 // i18n regression guard (docs/I18N.md, "Regresyon korumasi"). Fails when apps/web/apps/mobile source contains:
 //  - a Turkish-character string literal or JSX text outside messages/ (user-visible copy must come from i18n keys),
 //  - window.confirm/alert/prompt in apps/web/src (use useConfirm()/useToast() from components/ui),
-//  - Alert.alert without a buttons array in apps/mobile (the OS-default "OK" ignores the app language).
+//  - Alert.alert without a buttons array in apps/mobile (the OS-default "OK" ignores the app language),
+//  - a Turkish-character (or ASCII-transliterated Turkish) string literal in apps/api/src outside logger calls: a text the API
+//    produces for a reader comes from the apiTexts / apiErrors / validation namespaces (docs/I18N.md, "API metinleri").
 // Usage: node scripts/check-i18n.mjs            scan the repository
-//        node scripts/check-i18n.mjs --stdin <web|mobile> <file name>   scan source from stdin, print JSON (used by the unit test)
+//        node scripts/check-i18n.mjs --stdin <web|mobile|api> <file name>   scan source from stdin, print JSON (used by the unit test)
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,9 +17,12 @@ const TARGETS = [
   { dir: 'apps/web/src', platform: 'web' },
   { dir: 'apps/mobile/app', platform: 'mobile' },
   { dir: 'apps/mobile/src', platform: 'mobile' },
+  { dir: 'apps/api/src', platform: 'api' },
 ];
 const SKIP_DIRS = new Set(['node_modules', '.next', 'dist', 'messages', '.expo']);
 const SKIP_FILE = /(\.(spec|test|e2e)\.tsx?|\.d\.ts)$/;
+/** apps/api/src files that hold test doubles rather than product code. */
+const SKIP_API_FILE = /(^|\/)(test|__mocks__)\//;
 
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
@@ -43,8 +48,9 @@ for (const { dir, platform } of TARGETS) {
   for (const file of walk(join(ROOT, dir))) {
     const text = readFileSync(file, 'utf8');
     // Cheap pre-filter: only parse files that can possibly produce a finding.
-    if (!/[çğıöşüÇĞİÖŞÜ]|confirm|alert|prompt|Alert/.test(text)) continue;
+    if (!/[çğıöşüÇĞİÖŞÜ]|confirm|alert|prompt|Alert|icin|kodunuz|dogrulama|paylasmayin|giris|daveti|gecersiz|bulunamadi|olmalidir|basarisiz|tesekkurler/i.test(text)) continue;
     const rel = relative(ROOT, file).split(sep).join('/');
+    if (platform === 'api' && SKIP_API_FILE.test(rel)) continue;
     for (const f of scanSource(file, text, { platform })) {
       if (!isAllowed(rel, f)) failures.push(`${rel}:${f.line} [${f.kind}] ${f.text}`);
     }

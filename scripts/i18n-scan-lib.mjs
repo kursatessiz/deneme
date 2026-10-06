@@ -8,7 +8,24 @@ const ts = require('typescript');
 /** Characters that only occur in Turkish text; a string literal or JSX text holding one is user-visible copy that belongs in messages/. */
 export const TURKISH_CHARS = /[çğıöşüÇĞİÖŞÜ]/;
 
+/**
+ * Whole words that mark ASCII-transliterated Turkish copy (no Turkish characters, so TURKISH_CHARS misses it),
+ * e.g. the OTP SMS "Giris kodunuz". Checked in apps/api only, where a user-facing sentence must come from apiTexts.
+ */
+export const ASCII_TURKISH_WORDS = /\b(icin|kodunuz|dogrulama|paylasmayin|giris|daveti|gecersiz|bulunamadi|olmalidir|basarisiz|tesekkurler)\b/i;
+
 const NATIVE_DIALOGS = new Set(['confirm', 'alert', 'prompt']);
+
+/** True when the node sits inside a logger/console call: operator logs are not user-facing copy. */
+function insideLogCall(node) {
+  for (let p = node.parent; p; p = p.parent) {
+    if (ts.isCallExpression(p)) {
+      const callee = p.expression.getText();
+      if (/(^|\.)(logger|log)\.(log|warn|error|debug|verbose|fatal)$/.test(callee) || /^(Logger|console)\./.test(callee)) return true;
+    }
+  }
+  return false;
+}
 
 /** Names declared anywhere in the file (functions, variables incl. destructuring, parameters), so a local `confirm` from useConfirm() is not a native dialog. */
 function declaredNames(sf) {
@@ -29,7 +46,8 @@ function declaredNames(sf) {
 
 /**
  * Returns findings `{ line, kind, text }` for one file.
- *  - `turkish`: a Turkish-character string literal, template chunk or JSX text.
+ *  - `turkish`: a Turkish-character string literal, template chunk or JSX text. For `platform: 'api'` the literal must be outside
+ *    logger/console calls, and an ASCII-transliterated Turkish word (ASCII_TURKISH_WORDS) counts too.
  *  - `native-dialog` (web only): window.confirm/alert/prompt or an undeclared bare confirm/alert/prompt call.
  *  - `alert-no-buttons` (mobile only): Alert.alert without a buttons array, which shows the OS-default "OK".
  */
@@ -45,7 +63,9 @@ export function scanSource(fileName, text, { platform }) {
 
   (function visit(node) {
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) {
-      if (TURKISH_CHARS.test(node.text)) add(node, 'turkish', node.text);
+      if (platform === 'api') {
+        if ((TURKISH_CHARS.test(node.text) || ASCII_TURKISH_WORDS.test(node.text)) && !insideLogCall(node)) add(node, 'turkish', node.text);
+      } else if (TURKISH_CHARS.test(node.text)) add(node, 'turkish', node.text);
     } else if (ts.isJsxText(node)) {
       if (TURKISH_CHARS.test(node.text)) add(node, 'turkish', node.text);
     } else if (ts.isCallExpression(node)) {
