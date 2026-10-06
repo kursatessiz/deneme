@@ -8,6 +8,7 @@ import {
   restoreCard,
   singleColumnItems,
   singleColumnOrder,
+  tabletBoardGeometry,
   TRASH_HIT_SLOP,
   visibleMobileQuickActions,
 } from './dashboardBoard';
@@ -68,6 +69,32 @@ describe('single column order', () => {
     const shuffled = [board[4], board[2], board[0], board[3], board[1]];
     expect(singleColumnItems(shuffled).map((i) => i.id)).toEqual([ID(1), ID(2), ID(3), ID(4), ID(5)]);
     expect(singleColumnItems(shuffled)[1]).toEqual(board[1]);
+  });
+});
+
+describe('tabletBoardGeometry', () => {
+  it('lays cards out on six columns with the shared row unit and no overlaps', () => {
+    const { frames, height } = tabletBoardGeometry(board, 768);
+    expect(frames.map((f) => f.id)).toEqual(board.map((i) => i.id));
+    for (const f of frames) {
+      expect(f.left).toBeGreaterThanOrEqual(0);
+      expect(f.left + f.width).toBeLessThanOrEqual(768 + 0.001);
+      expect(f.top + f.height).toBeLessThanOrEqual(height + 0.001);
+    }
+    for (let i = 0; i < frames.length; i += 1) {
+      for (let j = i + 1; j < frames.length; j += 1) {
+        const a = frames[i];
+        const b = frames[j];
+        const apart = a.left + a.width <= b.left + 0.001 || b.left + b.width <= a.left + 0.001 || a.top + a.height <= b.top + 0.001 || b.top + b.height <= a.top + 0.001;
+        expect(apart).toBe(true);
+      }
+    }
+    // quickActions takes the full width.
+    expect(frames[0].width).toBeCloseTo(768, 3);
+  });
+
+  it('is empty for an empty board', () => {
+    expect(tabletBoardGeometry([], 800)).toEqual({ frames: [], height: 0 });
   });
 });
 

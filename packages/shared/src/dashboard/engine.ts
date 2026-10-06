@@ -184,34 +184,68 @@ export function readingOrder(items: readonly DashboardLayoutItem[]): DashboardLa
   return [...items].sort((a, b) => a.y - b.y || a.x - b.x);
 }
 
+/** Widths a card may take on the 6 column tablet grid. */
+export const TABLET_CARD_WIDTHS = [2, 4, 6] as const;
+export type TabletCardWidth = (typeof TABLET_CARD_WIDTHS)[number];
+
+/**
+ * Narrowest tablet width a card may take, derived from its catalogue minimum
+ * in the 12 column space: small cards (minW <= 3: KPI, lists) 2, charts and
+ * tables (minW <= 4) 4, wide ones (calendar, quick actions) the full 6.
+ */
+export function tabletMinWidth(widget: DashboardWidgetKey): TabletCardWidth {
+  const { minW } = getDashboardWidget(widget).size;
+  if (minW <= 3) return 2;
+  if (minW <= 4) return 4;
+  return 6;
+}
+
+/** Tablet width of a card saved `w` columns wide: w <= 4 -> 2, w <= 8 -> 4, else 6, never under the card's own minimum. */
+export function tabletWidthFor(widget: DashboardWidgetKey, w: number): TabletCardWidth {
+  const wanted: TabletCardWidth = w <= 4 ? 2 : w <= 8 ? 4 : 6;
+  return Math.max(wanted, tabletMinWidth(widget)) as TabletCardWidth;
+}
+
+/**
+ * The 6 column arrangement of tablets (web 768-1279px, mobile tablets).
+ * Cards are never resized there: each takes 2, 4 or 6 columns derived from
+ * its saved width (tabletWidthFor) and its saved height clamped to the
+ * card's limits. They are visited in saved reading order and each goes into
+ * the first free slot from the top, so a later narrower card fills a gap
+ * left of an earlier one and the board has no holes a card could fill.
+ * Derived only, never stored.
+ */
+export function tabletLayout(items: readonly DashboardLayoutItem[]): DashboardLayoutItem[] {
+  const columns = DASHBOARD_GRID.tabletColumns;
+  const placed: DashboardLayoutItem[] = [];
+  for (const item of readingOrder(items)) {
+    const limits = widgetLimits(item.widget);
+    const w = tabletWidthFor(item.widget, item.w);
+    const h = clampInt(item.h, limits.minH, limits.maxH);
+    const { x, y } = findFirstFit(placed, w, h, columns);
+    placed.push({ ...item, x, y, w, h });
+  }
+  const byId = new Map(placed.map((p) => [p.id, p]));
+  return items.map((item) => byId.get(item.id) ?? item);
+}
+
 /**
  * The arrangement a narrower screen shows. 12 returns the layout as it is;
- * 6 halves widths (never under half the widget's minimum, never over 6) and
- * packs the cards in reading order into the first slot at or below the
- * previous card's row; 1 stacks them full width in reading order. Heights
- * are kept. Derived only, never stored.
+ * 6 is the tablet layout (tabletLayout: widths 2, 4 or 6, dense packing);
+ * 1 stacks the cards full width in reading order. Heights are kept. Derived
+ * only, never stored.
  */
 export function scaleForColumns(items: readonly DashboardLayoutItem[], columns: DashboardColumnCount): DashboardLayoutItem[] {
   if (columns === COLUMNS) return items.map((item) => ({ ...item }));
-  const ordered = readingOrder(items);
   if (columns === 1) {
     let y = 0;
-    return ordered.map((item) => {
+    return readingOrder(items).map((item) => {
       const next = { ...item, x: 0, y, w: 1 };
       y += item.h;
       return next;
     });
   }
-  const placed: DashboardLayoutItem[] = [];
-  let rowFloor = 0;
-  for (const item of ordered) {
-    const { size } = getDashboardWidget(item.widget);
-    const w = clampInt(Math.round(item.w / 2), Math.ceil(size.minW / 2), columns);
-    const { x, y } = findFirstFit(placed, w, item.h, columns, rowFloor);
-    placed.push({ ...item, x, y, w });
-    rowFloor = y;
-  }
-  return placed;
+  return tabletLayout(items);
 }
 
 /**

@@ -1,4 +1,4 @@
-import { removeItem, restoreItem, scaleForColumns } from '@platform/shared';
+import { DASHBOARD_GRID, dashboardRowsToPx, layoutBottom, removeItem, restoreItem, scaleForColumns, tabletLayout } from '@platform/shared';
 import type { DashboardLayoutItem, MessageKey, PermissionKey } from '@platform/shared';
 
 /**
@@ -58,6 +58,43 @@ export function singleColumnItems(items: readonly DashboardLayoutItem[]): Dashbo
   return singleColumnOrder(items)
     .map((id) => byId.get(id))
     .filter((item): item is DashboardLayoutItem => item !== undefined);
+}
+
+/** Pixel frame of a card on the tablet board, relative to the board's top left corner. */
+export interface TabletFrame {
+  id: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+export interface TabletBoardGeometry {
+  frames: TabletFrame[];
+  /** Total height of the board in px. */
+  height: number;
+}
+
+/**
+ * Pixel geometry of the 6 column tablet board for a container `width` px
+ * wide: the shared tabletLayout (widths 2, 4 or 6, dense packing) with the
+ * shared row unit and gap, so web and mobile show the same arrangement.
+ * Frames come in the input order; cards are never resized on tablets.
+ */
+export function tabletBoardGeometry(items: readonly DashboardLayoutItem[], width: number): TabletBoardGeometry {
+  const columns = DASHBOARD_GRID.tabletColumns;
+  const gap = DASHBOARD_GRID.gap;
+  const placed = tabletLayout(items);
+  const cell = Math.max(1, (width - gap * (columns - 1)) / columns);
+  const frames = placed.map((item) => ({
+    id: item.id,
+    left: item.x * (cell + gap),
+    top: item.y * (DASHBOARD_GRID.rowHeight + gap),
+    width: item.w * cell + (item.w - 1) * gap,
+    height: dashboardRowsToPx(item.h),
+  }));
+  const rows = layoutBottom(placed);
+  return { frames, height: rows === 0 ? 0 : dashboardRowsToPx(rows) };
 }
 
 export interface RemovalResult {

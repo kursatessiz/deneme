@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Alert, RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getDashboardWidget, resolveWidgetPeriod } from '@platform/shared';
@@ -15,14 +15,16 @@ import { TrashTarget } from '../../../src/dashboard/TrashTarget';
 import { useDashboardBoard } from '../../../src/dashboard/useDashboardBoard';
 import { WidgetBody } from '../../../src/dashboard/widgets';
 import { useT } from '../../../src/i18n';
-import { UNDO_WINDOW_MS, removeCard, restoreCard, singleColumnItems } from '../../../src/lib/dashboardBoard';
+import { UNDO_WINDOW_MS, removeCard, restoreCard, singleColumnItems, tabletBoardGeometry } from '../../../src/lib/dashboardBoard';
+import { isTabletWidth } from '../../../src/lib/layout';
 import type { Rect } from '../../../src/lib/dashboardBoard';
 import { useSession } from '../../../src/lib/session';
 import { borderWidth, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
 
 /**
  * Staff overview board: the same cards as the web overview, in one column
- * in the engine's single column order. A card is removed by holding it,
+ * in the engine's single column order on phones and on the shared 6 column
+ * tablet layout (cards 2, 4 or 6 columns wide) on tablets. A card is removed by holding it,
  * dragging it onto the trash can and releasing there; the board offers an
  * undo for a few seconds. Adding and resizing cards stay on the web.
  */
@@ -93,7 +95,11 @@ function Board() {
     setRefreshing(false);
   };
 
+  const { width } = useWindowDimensions();
+  const tablet = isTabletWidth(width);
   const ordered = singleColumnItems(board.items);
+  const boardWidth = Math.max(0, width - spacing[4] * 2);
+  const geometry = tablet ? tabletBoardGeometry(ordered, boardWidth) : null;
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={['left', 'right', 'bottom']}>
@@ -130,8 +136,9 @@ function Board() {
           <EmptyState title={t('dashboard.empty.board')} action={<Button compact variant="outline" tone="surface" label={t('dashboard.actions.reset')} onPress={confirmReset} />} />
         ) : null}
 
-        {board.status === 'ready'
-          ? ordered.map((item) => {
+        {board.status === 'ready' ? (
+          <View style={geometry ? { height: geometry.height } : undefined}>
+            {ordered.map((item) => {
               const period = resolveWidgetPeriod(item.widget, item.settings);
               return (
                 <DraggableCard
@@ -143,6 +150,7 @@ function Board() {
                   hint={t('mDashboard.card.hint')}
                   removeLabel={t('dashboard.card.remove')}
                   liftedAnnouncement={t('mDashboard.card.dragging', { title: titleOf(item) })}
+                  frame={geometry?.frames.find((f) => f.id === item.id)}
                   onLift={() => setDragging(true)}
                   onHover={setOverTrash}
                   onCancel={handleCancel}
@@ -151,8 +159,9 @@ function Board() {
                   <WidgetBody item={item} state={board.dataOf(item)} />
                 </DraggableCard>
               );
-            })
-          : null}
+            })}
+          </View>
+        ) : null}
       </ScrollView>
 
       {dragging ? <TrashTarget active={overTrash} label={t('mDashboard.trash.label')} onMeasure={(rect) => (trashRect.current = rect)} /> : null}

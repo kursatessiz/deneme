@@ -15,6 +15,9 @@ import {
   resizeLimitHit,
   restoreItem,
   scaleForColumns,
+  tabletLayout,
+  tabletMinWidth,
+  tabletWidthFor,
 } from './engine';
 import { DASHBOARD_WIDGETS, getDashboardWidget } from './widgets';
 import type { DashboardWidgetKey } from './widgets';
@@ -273,19 +276,8 @@ describe('scaleForColumns', () => {
     expect(scaled[0]).not.toBe(board[0]);
   });
 
-  it('packs into 6 columns without overlaps and keeps reading order', () => {
-    const scaled = scaleForColumns(board, 6);
-    expect(noOverlaps(scaled)).toBe(true);
-    expect(within(scaled, 6)).toBe(true);
-    expect(readingOrder(scaled).map((it) => it.widget)).toEqual(readingOrder(board).map((it) => it.widget));
-    expect(find(scaled, board[0].id).w).toBe(6);
-    expect(find(scaled, board[1].id).w).toBe(2);
-    expect(find(scaled, board[5].id).w).toBe(4);
-  });
-
-  it('never goes under half the widget minimum', () => {
-    const scaled = scaleForColumns([item('weekCalendar', 0, 0, 6, 4)], 6);
-    expect(scaled[0].w).toBe(3);
+  it('uses the tablet layout for 6 columns', () => {
+    expect(scaleForColumns(board, 6)).toEqual(tabletLayout(board));
   });
 
   it('stacks in one column in reading order', () => {
@@ -294,6 +286,80 @@ describe('scaleForColumns', () => {
     expect(noOverlaps(scaled)).toBe(true);
     expect(scaled.map((it) => it.widget)).toEqual(readingOrder(board).map((it) => it.widget));
     expect(scaled[1].y).toBe(board[0].h);
+  });
+});
+
+describe('tabletLayout', () => {
+  const board = normalizeLayout([
+    item('quickActions', 0, 0, 12, 1),
+    item('revenue', 0, 1, 3, 2),
+    item('activeMembers', 3, 1, 3, 2),
+    item('occupancy', 6, 1, 3, 2),
+    item('todaySessions', 9, 1, 3, 2),
+    item('weekCalendar', 0, 3, 8, 5),
+    item('branches', 8, 3, 4, 4),
+    item('revenueTrend', 0, 8, 6, 4),
+    item('recentPayments', 6, 8, 6, 5),
+    item('churnRisk', 0, 13, 3, 2),
+  ]);
+
+  function holeFree(items: readonly DashboardLayoutItem[]): boolean {
+    return items.every((it) => {
+      const others = items.filter((o) => o.id !== it.id);
+      const slot = findFirstFit(others, it.w, it.h, 6);
+      return slot.y > it.y || (slot.y === it.y && slot.x >= it.x);
+    });
+  }
+
+  it('maps saved widths to 2, 4 or 6 columns with per card minimums', () => {
+    expect(tabletWidthFor('revenue', 3)).toBe(2);
+    expect(tabletWidthFor('revenue', 4)).toBe(2);
+    expect(tabletWidthFor('branches', 4)).toBe(2);
+    expect(tabletWidthFor('branches', 8)).toBe(4);
+    expect(tabletWidthFor('revenueTrend', 4)).toBe(4);
+    expect(tabletWidthFor('revenueTrend', 6)).toBe(4);
+    expect(tabletWidthFor('revenueTrend', 9)).toBe(6);
+    expect(tabletWidthFor('weekCalendar', 6)).toBe(6);
+    expect(tabletWidthFor('quickActions', 6)).toBe(6);
+    expect(tabletMinWidth('revenue')).toBe(2);
+    expect(tabletMinWidth('todaySchedule')).toBe(4);
+  });
+
+  it('packs without overlaps, only 2, 4 or 6 wide, inside 6 columns', () => {
+    const out = tabletLayout(board);
+    expect(noOverlaps(out)).toBe(true);
+    expect(within(out, 6)).toBe(true);
+    expect(out.every((it) => [2, 4, 6].includes(it.w))).toBe(true);
+    expect(out.map((it) => it.id)).toEqual(board.map((it) => it.id));
+  });
+
+  it('keeps full width cards on their own rows and heights within limits', () => {
+    const out = tabletLayout(board);
+    expect(find(out, board[0].id).w).toBe(6);
+    const calendar = find(out, board[5].id);
+    expect(calendar.w).toBe(6);
+    expect(calendar.h).toBe(5);
+    expect(tabletLayout([item('revenue', 0, 0, 3, 9)])[0].h).toBe(3);
+  });
+
+  it('leaves no hole a card could fill and fills gaps with later narrower cards', () => {
+    const out = tabletLayout(board);
+    expect(holeFree(out)).toBe(true);
+    const mixed = tabletLayout([
+      item('revenueTrend', 0, 0, 6, 4),
+      item('weekCalendar', 0, 4, 8, 4),
+      item('revenue', 0, 8, 3, 2),
+    ]);
+    // The KPI card sits next to the first chart instead of below the calendar.
+    expect(mixed[2].y).toBe(0);
+    expect(mixed[2].x).toBe(4);
+  });
+
+  it('does not mutate its input and handles an empty board', () => {
+    const copy = JSON.parse(JSON.stringify(board));
+    tabletLayout(board);
+    expect(board).toEqual(copy);
+    expect(tabletLayout([])).toEqual([]);
   });
 });
 
