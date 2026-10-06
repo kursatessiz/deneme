@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { COMMERCIAL_SEND_WINDOW, complianceRegionOf, evaluateCommercialEligibility } from '@platform/shared';
 import type { CommercialIneligibilityReason, ComplianceRegion, ConsentLegalBasis } from '@platform/shared';
 import type { CanSendInput, CanSendResult } from './compliance.types';
+import { serverT } from '../../common/server-i18n';
+import type { ServerT } from '../../common/server-i18n';
 
 /** Every region sends commercial messages only inside this local-time window (docs section 2.3: TCPA's 08:00-21:00, applied as the platform-wide default quiet hours). */
 const QUIET_HOURS_START = COMMERCIAL_SEND_WINDOW.startHour;
@@ -20,13 +22,14 @@ const QUIET_HOURS_END = COMMERCIAL_SEND_WINDOW.endHour;
 export class ComplianceService {
   canSend(input: CanSendInput): CanSendResult {
     const region = complianceRegionOf(input.recipient.countryCode);
+    const t = serverT(input.locale);
 
     if (input.purpose === 'TRANSACTIONAL') {
       return { allow: true, region };
     }
 
     if (input.recipient.optedOut) {
-      return { allow: false, region, reasonCode: 'OPTED_OUT', reason: 'Alıcı bu kanaldan çıktı (STOP/abonelikten çık)' };
+      return { allow: false, region, reasonCode: 'OPTED_OUT', reason: t('apiTexts.compliance.optedOut') };
     }
 
     let basis: { legalBasis?: ConsentLegalBasis; legalBasisRecorded?: boolean } = {};
@@ -35,7 +38,7 @@ export class ComplianceService {
       // M3e: the shared rule set decides the legal basis per region and channel (never a country in code).
       const decision = evaluateCommercialEligibility({ region, channel: input.channel, optedOut: false, ...facts });
       if (!decision.eligible) {
-        return { allow: false, region, reasonCode: decision.reason, reason: this.ineligibleMessage(decision.reason, region) };
+        return { allow: false, region, reasonCode: decision.reason, reason: this.ineligibleMessage(decision.reason, region, t) };
       }
       basis = { legalBasis: decision.basis, legalBasisRecorded: decision.recorded };
     } else if (!input.recipient.consentGranted) {
@@ -43,7 +46,7 @@ export class ComplianceService {
         allow: false,
         region,
         reasonCode: 'CONSENT_REQUIRED',
-        reason: this.consentDeniedMessage(region),
+        reason: this.consentDeniedMessage(region, t),
       };
     }
 
@@ -58,39 +61,39 @@ export class ComplianceService {
         allow: false,
         region,
         reasonCode: 'QUIET_HOURS',
-        reason: `Sessiz saatler dışında (${QUIET_HOURS_START}:00-${QUIET_HOURS_END}:00 alıcı yerel saati)`,
+        reason: t('apiTexts.compliance.quietHours', { start: QUIET_HOURS_START, end: QUIET_HOURS_END }),
       };
     }
 
     return { allow: true, region, ...basis };
   }
 
-  private ineligibleMessage(reason: CommercialIneligibilityReason, region: ComplianceRegion): string {
+  private ineligibleMessage(reason: CommercialIneligibilityReason, region: ComplianceRegion, t: ServerT): string {
     switch (reason) {
       case 'DOUBLE_OPT_IN_PENDING':
-        return 'Çift onay bekleniyor (onay bağlantısına henüz tıklanmadı)';
+        return t('apiTexts.compliance.doubleOptInPending');
       case 'NO_LEGAL_BASIS':
-        return 'Alıcının bölgesinde geçerli bir izin dayanağı yok';
+        return t('apiTexts.compliance.noLegalBasis');
       case 'TR_EXEMPTION_DISABLED':
-        return 'Tacir muafiyeti kapalı ve açık onay yok';
+        return t('apiTexts.compliance.exemptionDisabled');
       case 'OPTED_OUT':
-        return 'Alıcı bu kanaldan çıktı (STOP/abonelikten çık)';
+        return t('apiTexts.compliance.optedOut');
       default:
-        return this.consentDeniedMessage(region);
+        return this.consentDeniedMessage(region, t);
     }
   }
 
-  private consentDeniedMessage(region: ComplianceRegion): string {
+  private consentDeniedMessage(region: ComplianceRegion, t: ServerT): string {
     switch (region) {
       case 'TR':
-        return 'KVKK/İYS ticari ileti onayı yok';
+        return t('apiTexts.compliance.consentTr');
       case 'EU':
       case 'UK':
-        return 'GDPR açık rızası yok';
+        return t('apiTexts.compliance.consentEu');
       case 'US':
-        return 'TCPA açık yazılı onayı yok';
+        return t('apiTexts.compliance.consentUs');
       default:
-        return 'Açık rıza yok';
+        return t('apiTexts.compliance.consentDefault');
     }
   }
 

@@ -32,7 +32,7 @@ import { PromotionsService } from '../promotions/promotions.service';
 import { creditActivePackageUnits } from '../members/package-credit';
 import { LoyaltyLedgerService } from './loyalty-ledger.service';
 import { loyaltyError } from './loyalty.errors';
-import { apiError } from '../../common/api-error';
+import { apiError, fieldError } from '../../common/api-error';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SUMMARY_LEDGER_ROWS = 20;
@@ -249,7 +249,7 @@ export class LoyaltyService {
     const value = input.value !== undefined ? input.value : existing.value ? Number(existing.value) : null;
     const currency = monetary ? (input.currency !== undefined ? input.currency : existing.currency) : null;
     const issue = validateLoyaltyReward({ type, value, currency });
-    if (issue) throw new BadRequestException({ ...apiError('apiErrors.common.invalidRequest'), errors: [{ path: 'value', message: issue }] });
+    if (issue) throw new BadRequestException({ ...apiError('apiErrors.common.invalidRequest'), errors: [fieldError('value', issue)] });
     if (monetary) await this.assertRuleCurrency(studioId, currency);
     const row = await this.prisma.loyaltyReward.update({
       where: { id: existing.id },

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { vmsg } from '../validation-key';
 
 /**
  * Country, currency and compliance region. Nothing in the platform assumes
@@ -8,10 +9,10 @@ import { z } from 'zod';
  * See docs/BUYUME_VE_GLOBAL_MIMARI.md section 2.
  */
 
-export const CountryCodeSchema = z.string().regex(/^[A-Z]{2}$/, 'Geçersiz ülke kodu');
+export const CountryCodeSchema = z.string().regex(/^[A-Z]{2}$/, vmsg('validation.invalidCountryCode'));
 export type CountryCode = z.infer<typeof CountryCodeSchema>;
 
-export const CurrencyCodeSchema = z.string().regex(/^[A-Z]{3}$/, 'Geçersiz para birimi');
+export const CurrencyCodeSchema = z.string().regex(/^[A-Z]{3}$/, vmsg('validation.invalidCurrency'));
 export type CurrencyCode = z.infer<typeof CurrencyCodeSchema>;
 
 export const TAX_REGIMES = ['TR_KDV', 'EU_VAT', 'UK_VAT', 'US_SALES_TAX', 'NONE'] as const;
@@ -70,7 +71,7 @@ export type StudioRegion = z.infer<typeof StudioRegionSchema>;
 /** A monetary amount. `amount` is a decimal string to avoid float rounding. */
 export const MoneySchema = z
   .object({
-    amount: z.string().regex(/^-?\d{1,12}(\.\d{1,4})?$/, 'Geçersiz tutar'),
+    amount: z.string().regex(/^-?\d{1,12}(\.\d{1,4})?$/, vmsg('validation.invalidAmount')),
     currency: CurrencyCodeSchema,
   })
   .strict();

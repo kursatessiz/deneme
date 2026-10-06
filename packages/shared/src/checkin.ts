@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { vmsg } from './validation-key';
 
 /**
  * Check-in kiosk and QR (W17): schemas shared by the API and the mobile app.
@@ -11,7 +12,7 @@ import { z } from 'zod';
 
 export const CreateCheckInPointSchema = z.object({
   branchId: z.string().uuid(),
-  name: z.string().trim().min(2, 'Nokta adı en az 2 karakter olmalıdır').max(100),
+  name: z.string().trim().min(2, vmsg('validation.pointNameLeast2Characters')).max(100),
 });
 export type CreateCheckInPointInput = z.infer<typeof CreateCheckInPointSchema>;
 
@@ -19,8 +20,8 @@ export type CreateCheckInPointInput = z.infer<typeof CreateCheckInPointSchema>;
 export const CheckInPointTokenSchema = z
   .string()
   .trim()
-  .min(32, 'Geçersiz QR kodu')
-  .max(200, 'Geçersiz QR kodu');
+  .min(32, vmsg('validation.invalidQrCode'))
+  .max(200, vmsg('validation.invalidQrCode'));
 
 export const ScanCheckInPointSchema = z.object({
   token: CheckInPointTokenSchema,
@@ -32,7 +33,7 @@ export type ScanCheckInPointInput = z.infer<typeof ScanCheckInPointSchema>;
 // ---------------------------------------------------------------------------
 
 /** Signed, short-lived token; opaque to callers, verified server-side only. */
-export const DynamicQrTokenSchema = z.string().trim().min(20, 'Geçersiz QR kodu').max(2000, 'Geçersiz QR kodu');
+export const DynamicQrTokenSchema = z.string().trim().min(20, vmsg('validation.invalidQrCode')).max(2000, vmsg('validation.invalidQrCode'));
 
 export const StaffCheckInMemberQrSchema = z.object({
   token: DynamicQrTokenSchema,
@@ -53,7 +54,7 @@ export type KioskCheckInInput = z.infer<typeof KioskCheckInSchema>;
 
 export const CreateKioskDeviceSchema = z.object({
   branchId: z.string().uuid(),
-  name: z.string().trim().min(2, 'Cihaz adı en az 2 karakter olmalıdır').max(100),
+  name: z.string().trim().min(2, vmsg('validation.deviceNameLeast2Characters')).max(100),
 });
 export type CreateKioskDeviceInput = z.infer<typeof CreateKioskDeviceSchema>;
 
@@ -62,7 +63,7 @@ export const PairingCodeSchema = z
   .string()
   .trim()
   .toUpperCase()
-  .regex(/^[A-HJ-NP-Z2-9]{8}$/, 'Eşleştirme kodu 8 karakter olmalıdır');
+  .regex(/^[A-HJ-NP-Z2-9]{8}$/, vmsg('validation.pairingCode8Characters'));
 
 export const PairKioskDeviceSchema = z.object({
   pairingCode: PairingCodeSchema,

@@ -7,7 +7,7 @@ import {
   OAUTH_PROVIDER_DEFINITIONS,
   type OAuthProvider,
 } from '@platform/shared';
-import { AdsHttpClient, type AdsHttpResponse } from '../../ads/ads-http-client';
+import { AdsHttpClient, HOST_NOT_ALLOWED_MESSAGE, type AdsHttpResponse } from '../../ads/ads-http-client';
 import { sanitizeProviderCode } from './oauth-crypto';
 
 /** What a token endpoint gave back, normalised across providers. */
@@ -212,7 +212,7 @@ export class OAuthProviderClient {
       return await fn();
     } catch (err) {
       if (err instanceof OAuthCallError) throw err;
-      if (err instanceof Error && err.message.includes('izin verilmeyen host')) throw new OAuthCallError('PERMANENT', 'host_not_allowed');
+      if (err instanceof Error && err.message.includes(HOST_NOT_ALLOWED_MESSAGE)) throw new OAuthCallError('PERMANENT', 'host_not_allowed');
       throw new OAuthCallError('TRANSIENT', 'network');
     }
   }

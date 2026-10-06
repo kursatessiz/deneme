@@ -65,7 +65,7 @@ describe('AuthService', () => {
       expect(mockOtp.issue).toHaveBeenCalledWith(
         expect.objectContaining({ phone: '+905321110000', purpose: OtpPurpose.LOGIN, deliver: false }),
       );
-      expect(result).toEqual({ message: 'Numara kayıtlıysa doğrulama kodu gönderildi' });
+      expect(result).toEqual({ message: 'Numara kayıtlıysa doğrulama kodu gönderildi', messageKey: 'apiTexts.otp.loginRequested' });
     });
 
     it('returns the exact same body for a known, active phone (deliver=true)', async () => {
@@ -76,7 +76,7 @@ describe('AuthService', () => {
       expect(mockOtp.issue).toHaveBeenCalledWith(
         expect.objectContaining({ phone: '+905321112233', purpose: OtpPurpose.LOGIN, deliver: true }),
       );
-      expect(result).toEqual({ message: 'Numara kayıtlıysa doğrulama kodu gönderildi' });
+      expect(result).toEqual({ message: 'Numara kayıtlıysa doğrulama kodu gönderildi', messageKey: 'apiTexts.otp.loginRequested' });
     });
 
     it('does not deliver for an inactive user either', async () => {

@@ -41,6 +41,8 @@ import { MessagingUrls } from '../tracking/messaging-urls.service';
 import { TemplateResolver, localeChain } from './template-resolver.service';
 import type { ResolvedTemplateVariant } from './template-resolver.service';
 import { OptOutService } from './opt-out.service';
+import { serverT } from '../../../common/server-i18n';
+import type { ServerT } from '../../../common/server-i18n';
 import type { ResolvedRecipient, SendMessageInput, SendMessageResult } from './messaging.types';
 
 export const REDACTED = '[gizli icerik]';
@@ -80,6 +82,8 @@ interface AttemptContext {
   keyClaimed: boolean;
   frequency: FrequencyCounts | null;
   fallbackOfId: string | undefined;
+  /** Translator for the reasons a send is skipped: staff diagnostics, in the business language. */
+  reasonT: ServerT;
 }
 
 type AttemptOutcome =
@@ -128,7 +132,8 @@ export class MessagingService {
       throw new Error('MessagingService.send needs templateKey, templateId or content');
     }
     const studio = input.studioId ? await this.prisma.studio.findUnique({ where: { id: input.studioId }, select: STUDIO_SELECT }) : null;
-    if (input.studioId && !studio) return { success: false, reason: 'İşletme bulunamadı', reasonCode: 'RECIPIENT_NOT_FOUND' };
+    const reasonT = serverT(studio?.defaultLocale);
+    if (input.studioId && !studio) return { success: false, reason: reasonT('apiTexts.send.studioNotFound'), reasonCode: 'RECIPIENT_NOT_FOUND' };
 
     if (input.idempotencyKey && input.studioId) {
       const prior = await this.priorResult(input.studioId, input.idempotencyKey);
@@ -136,7 +141,7 @@ export class MessagingService {
     }
 
     const recipient = await this.resolveRecipient(input.studioId, input.recipient);
-    if (!recipient) return { success: false, reason: 'Kullanıcı bulunamadı', reasonCode: 'RECIPIENT_NOT_FOUND' };
+    if (!recipient) return { success: false, reason: reasonT('apiTexts.send.userNotFound'), reasonCode: 'RECIPIENT_NOT_FOUND' };
 
     const settings = parseNotificationSettings(studio?.notificationSettings);
     const ctx: AttemptContext = {
@@ -152,6 +157,7 @@ export class MessagingService {
       keyClaimed: false,
       frequency: null,
       fallbackOfId: undefined,
+      reasonT,
     };
 
     const order: EngineChannel[] = input.channel
@@ -160,7 +166,7 @@ export class MessagingService {
         ? input.channels
         : effectiveChannelOrder(settings);
 
-    let last: { reason: string; code: MessageSendReasonCode } = { reason: 'Yapılandırılmış kanal yok', code: 'NO_TEMPLATE' };
+    let last: { reason: string; code: MessageSendReasonCode } = { reason: reasonT('apiTexts.send.noChannel'), code: 'NO_TEMPLATE' };
     for (const channel of order) {
       const outcome = await this.attempt(ctx, channel);
       if (outcome.kind !== 'skipped') return outcome.result;
@@ -175,34 +181,34 @@ export class MessagingService {
   // ---------------------------------------------------------------------------
 
   private async attempt(ctx: AttemptContext, channel: EngineChannel): Promise<AttemptOutcome> {
-    const { input, recipient, studio } = ctx;
+    const { input, recipient, studio, reasonT } = ctx;
 
     // 1. Member toggles for legacy categories (SMS/WhatsApp follow "sms", push/in-app follow "push").
     if (ctx.prefs) {
       const allowed = channel === 'PUSH' || channel === 'IN_APP' ? ctx.prefs.push : channel === 'EMAIL' ? true : ctx.prefs.sms;
-      if (!allowed) return { kind: 'skipped', reason: 'Kullanıcı bu kategori için kapatmış', code: 'PREFERENCE_OFF' };
+      if (!allowed) return { kind: 'skipped', reason: reasonT('apiTexts.send.categoryOff'), code: 'PREFERENCE_OFF' };
     }
 
     const address = this.addressFor(channel, recipient);
-    if (!address) return { kind: 'skipped', reason: `Alıcının ${channel} adresi yok`, code: 'NO_ADDRESS' };
+    if (!address) return { kind: 'skipped', reason: reasonT('apiTexts.send.noAddress', { channel }), code: 'NO_ADDRESS' };
     if (channel === 'PUSH' && !(await this.push.hasDevices(address))) {
-      return { kind: 'skipped', reason: 'Kayıtlı cihaz yok', code: 'NO_ADDRESS' };
+      return { kind: 'skipped', reason: reasonT('apiTexts.send.noDevice'), code: 'NO_ADDRESS' };
     }
 
     // 2. Template (or free text).
     const variant = await this.variantFor(ctx, channel);
     if (!variant) {
-      return { kind: 'skipped', reason: `"${input.templateKey ?? input.templateId ?? input.type}" için ${channel} şablonu yok`, code: 'NO_TEMPLATE' };
+      return { kind: 'skipped', reason: reasonT('apiTexts.send.noTemplate', { template: input.templateKey ?? input.templateId ?? input.type ?? '', channel }), code: 'NO_TEMPLATE' };
     }
     const freeFormWhatsApp = channel === 'WHATSAPP' && Boolean(input.whatsappFreeForm);
     if (channel === 'WHATSAPP' && !freeFormWhatsApp && (!variant.whatsappTemplateName || variant.whatsappStatus !== 'APPROVED')) {
-      return { kind: 'skipped', reason: 'WhatsApp şablonu Meta tarafından onaylı değil', code: 'TEMPLATE_NOT_APPROVED' };
+      return { kind: 'skipped', reason: reasonT('apiTexts.send.whatsappNotApproved'), code: 'TEMPLATE_NOT_APPROVED' };
     }
     const purpose: MessagePurpose = input.purpose === 'COMMERCIAL' || !variant.isTransactional ? 'COMMERCIAL' : 'TRANSACTIONAL';
 
     // 3. Compliance: consent, opt-out and (commercial only) quiet hours.
     if (purpose === 'COMMERCIAL') {
-      if (!input.studioId || !studio) return { kind: 'skipped', reason: 'Ticari mesaj bir işletme adına gönderilmelidir', code: 'CONSENT_REQUIRED' };
+      if (!input.studioId || !studio) return { kind: 'skipped', reason: reasonT('apiTexts.send.commercialNeedsStudio'), code: 'CONSENT_REQUIRED' };
       const [consent, suppressed] = await Promise.all([
         this.consentFor(input.studioId, recipient, channel),
         channel === 'PUSH' || channel === 'IN_APP' ? Promise.resolve(false) : this.optOut.isSuppressed(input.studioId, channel, address),
@@ -220,9 +226,10 @@ export class MessagingService {
         purpose,
         now: ctx.now,
         studioTimezone: studio.timezone,
+        locale: studio.defaultLocale,
       });
       if (!decision.allow) {
-        return { kind: 'skipped', reason: decision.reason ?? `${channel} için gönderim engellendi`, code: decision.reasonCode ?? 'CONSENT_REQUIRED' };
+        return { kind: 'skipped', reason: decision.reason ?? reasonT('apiTexts.send.blocked', { channel }), code: decision.reasonCode ?? 'CONSENT_REQUIRED' };
       }
       if (decision.legalBasis === 'TR_MERCHANT_EXEMPTION' && decision.legalBasisRecorded === false && recipient.contactId) {
         // M3e: a merchant-exemption send is recorded (and registered with the TR registry) before it goes out.
@@ -232,7 +239,7 @@ export class MessagingService {
       // 4. Frequency cap per contact, all channels together.
       ctx.frequency ??= await this.frequencyCounts(input.studioId, recipient, ctx.now);
       if (frequencyCapReached(ctx.frequency, ctx.messaging.frequencyCap)) {
-        return { kind: 'skipped', reason: 'Sıklık sınırı aşıldı (kişi başına ticari mesaj)', code: 'FREQUENCY_CAP' };
+        return { kind: 'skipped', reason: reasonT('apiTexts.send.frequencyCap'), code: 'FREQUENCY_CAP' };
       }
     }
 
@@ -274,7 +281,7 @@ export class MessagingService {
       throw err;
     }
     if (channel === 'EMAIL' && !subject) {
-      return { kind: 'skipped', reason: 'E-posta konusu yok', code: 'NO_TEMPLATE' };
+      return { kind: 'skipped', reason: ctx.reasonT('apiTexts.send.noEmailSubject'), code: 'NO_TEMPLATE' };
     }
 
     // 5. Idempotency claim: the first delivery record of this send carries the key.
@@ -339,7 +346,7 @@ export class MessagingService {
     }
     return {
       kind: 'skipped',
-      reason: result.errorMessage ?? `${channel} gönderimi başarısız`,
+      reason: result.errorMessage ?? ctx.reasonT('apiTexts.send.failed', { channel }),
       code: result.notConfigured ? 'NOT_CONFIGURED' : 'PROVIDER_ERROR',
       logId: log.id,
     };
@@ -374,7 +381,7 @@ export class MessagingService {
         let reservation: { walletId: string; balanceAfter: number } | null = null;
         if (input.studioId && input.billing !== 'EXEMPT') {
           reservation = await this.reserveSmsCredit(input.studioId);
-          if (!reservation) return { provider, skippedReason: { reason: 'Stüdyo SMS kredisi yetersiz', code: 'INSUFFICIENT_CREDIT' } };
+          if (!reservation) return { provider, skippedReason: { reason: ctx.reasonT('apiTexts.send.insufficientSmsCredit'), code: 'INSUFFICIENT_CREDIT' } };
         }
         if (!adapter.isConfigured() && input.sensitive && this.config.get<string>('NODE_ENV') === 'development') {
           // Local development only: show the real text so codes can be used.
@@ -432,7 +439,7 @@ export class MessagingService {
         return {
           provider: 'EXPO',
           pushedDevices: devices,
-          result: devices > 0 ? { success: true } : { success: false, errorMessage: 'Kayıtlı cihaz yok' },
+          result: devices > 0 ? { success: true } : { success: false, errorMessage: ctx.reasonT('apiTexts.send.noDevice') },
         };
       }
       case 'IN_APP':
@@ -458,10 +465,10 @@ export class MessagingService {
     if (commercial) {
       unsubscribeToken = this.urls.sign('u', log.id);
       if (!unsubscribeToken) {
-        return { provider, skippedReason: { reason: 'Takip anahtarı (MESSAGING_TRACKING_SECRET) yapılandırılmamış', code: 'NOT_CONFIGURED' } };
+        return { provider, skippedReason: { reason: ctx.reasonT('apiTexts.send.trackingNotConfigured'), code: 'NOT_CONFIGURED' } };
       }
       if (!studio?.address?.trim()) {
-        return { provider, skippedReason: { reason: 'İşletme adresi tanımlı değil (ticari e-posta için zorunlu)', code: 'NOT_CONFIGURED' } };
+        return { provider, skippedReason: { reason: ctx.reasonT('apiTexts.send.studioAddressMissing'), code: 'NOT_CONFIGURED' } };
       }
     }
 

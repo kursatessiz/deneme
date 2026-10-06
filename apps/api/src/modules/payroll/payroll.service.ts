@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { Prisma } from '@platform/database';
 import type { AdjustPayrollLineInput, GeneratePayrollRunInput, ListPayrollRunsInput, PayrollLineDTO, PayrollRunDTO } from '@platform/shared';
 import { toCsv } from '../../common/csv';
+import { requestT } from '../../common/server-i18n';
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
@@ -278,8 +279,9 @@ export class PayrollService {
 
   async exportCsv(tenant: TenantContext, runId: string): Promise<string> {
     const run = await this.getRun(tenant, runId);
+    const t = requestT();
     return toCsv(
-      ['Eğitmen', 'Seans', 'Katılımcı', 'Brüt', 'Düzeltme', 'Net'],
+      [t('apiTexts.csv.trainer'), t('apiTexts.csv.sessions'), t('apiTexts.csv.attendees'), t('apiTexts.csv.gross'), t('apiTexts.csv.adjustments'), t('apiTexts.csv.net')],
       (run.lines ?? []).map((line) => [
         line.trainerFullName,
         line.sessions,

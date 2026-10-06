@@ -7,6 +7,7 @@ import { BASE_MESSAGES } from './i18n/messages';
 import type { trApiErrors } from './i18n/messages/tr/apiErrors';
 import { hasOwn } from './i18n/own';
 import { createTranslator } from './i18n/translator';
+import { translateValidationMessage } from './validation-messages';
 import type { MessageParams, Translate } from './i18n/translator';
 import { LOYALTY_ERROR_CODES } from './loyalty';
 import { MARKETING_STUDIO_ERROR_CODES } from './marketing/drafts';
@@ -125,7 +126,24 @@ function readParams(value: unknown): ApiErrorParams | undefined {
  */
 export function translateApiErrorBody<T extends Record<string, unknown>>(body: T | null, t: Translate): T | null {
   if (!body) return body;
-  const key = isApiErrorKey(body.messageKey) ? body.messageKey : apiErrorMessageKey(body.code);
-  if (!key) return body;
-  return { ...body, message: t(key, readParams(body.params)) };
+  const withFields = translateFieldErrors(body, t);
+  const key = isApiErrorKey(withFields.messageKey) ? withFields.messageKey : apiErrorMessageKey(withFields.code);
+  if (!key) return withFields;
+  return { ...withFields, message: t(key, readParams(withFields.params)) };
+}
+
+/**
+ * Translates the `errors[].message` field messages of a validation failure
+ * (shared Zod rules carry `validation.*` keys, see `vmsg`; the API sends the key as `messageKey` and the Turkish text as `message`); other entries stay as they are.
+ */
+function translateFieldErrors<T extends Record<string, unknown>>(body: T, t: Translate): T {
+  const errors = body.errors;
+  if (!Array.isArray(errors)) return body;
+  const translated = errors.map((entry: unknown) => {
+    if (typeof entry !== 'object' || entry === null) return entry;
+    const { message, messageKey } = entry as { message?: unknown; messageKey?: unknown };
+    const source = typeof messageKey === 'string' ? messageKey : message;
+    return typeof source === 'string' ? { ...entry, message: translateValidationMessage(source, t) } : entry;
+  });
+  return { ...body, errors: translated };
 }

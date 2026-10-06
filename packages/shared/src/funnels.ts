@@ -4,6 +4,7 @@ import type { ConversionEventType } from './growth/conversions';
 import { ATTRIBUTION_DIRECT, ATTRIBUTION_NONE } from './crm';
 import { compareKpi } from './report-compare';
 import type { KpiComparison } from './report-compare';
+import { vmsg } from './validation-key';
 
 /**
  * Conversion funnels (G5d-1, docs/HUNILER.md). A funnel is an ordered list of
@@ -55,9 +56,9 @@ export type FunnelBreakdown = (typeof FUNNEL_BREAKDOWNS)[number];
 /** Tenant funnel steps: 2-6 distinct ConversionEvent types (the visit pseudo step is ready-made only). */
 export const TenantFunnelStepsSchema = z
   .array(z.enum(CONVERSION_EVENT_TYPES))
-  .min(FUNNEL_MIN_STEPS, `En az ${FUNNEL_MIN_STEPS} adım gerekir`)
-  .max(FUNNEL_MAX_STEPS, `En fazla ${FUNNEL_MAX_STEPS} adım olabilir`)
-  .refine((steps) => new Set(steps).size === steps.length, { message: 'Bir adım türü yalnızca bir kez kullanılabilir' });
+  .min(FUNNEL_MIN_STEPS, vmsg('validation.stepsMin', { min: FUNNEL_MIN_STEPS }))
+  .max(FUNNEL_MAX_STEPS, vmsg('validation.stepsMax', { max: FUNNEL_MAX_STEPS }))
+  .refine((steps) => new Set(steps).size === steps.length, { message: vmsg('validation.stepTypeUsedOnlyOnce') });
 
 const FunnelWindowSchema = z.number().int().min(1).max(FUNNEL_MAX_WINDOW_DAYS);
 

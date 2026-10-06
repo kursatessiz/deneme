@@ -9,7 +9,7 @@ import {
 } from '@platform/shared';
 import type { SegmentCondition, SegmentFieldKind, SegmentGroup } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
-import { apiError } from '../../../common/api-error';
+import { apiError, fieldError } from '../../../common/api-error';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -53,7 +53,7 @@ export class SegmentEvaluatorService {
     if (!parsed.success) {
       throw new BadRequestException({
         ...apiError('apiErrors.growth.invalidSegmentRule'),
-        errors: parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+        errors: parsed.error.issues.map((i) => fieldError(i.path.join('.'), i.message)),
       });
     }
     const kinds = await this.customFieldKinds(studioId);
@@ -62,7 +62,7 @@ export class SegmentEvaluatorService {
       .filter((f) => f in UNAVAILABLE_SEGMENT_FIELDS)
       .map((f) => ({ path: 'root', message: UNAVAILABLE_SEGMENT_FIELDS[f as keyof typeof UNAVAILABLE_SEGMENT_FIELDS] as string }));
     const all = [...issues, ...unavailable];
-    if (all.length) throw new BadRequestException({ ...apiError('apiErrors.growth.invalidSegmentRule'), errors: all });
+    if (all.length) throw new BadRequestException({ ...apiError('apiErrors.growth.invalidSegmentRule'), errors: all.map((i) => fieldError(i.path, i.message)) });
     return parsed.data;
   }
 

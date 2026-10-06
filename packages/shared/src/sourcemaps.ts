@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { vmsg } from './validation-key';
 
 /**
  * Source map upload contract (H2, docs/HATA_RAPORLAMA.md). CI and the mobile
@@ -113,7 +114,7 @@ export function sourcemapPathCandidates(frameUrl: string, max = 8): string[] {
 
 export const SourcemapUploadSchema = z
   .object({
-    release: z.string().refine(isValidSourcemapRelease, 'Geçersiz sürüm'),
+    release: z.string().refine(isValidSourcemapRelease, vmsg('validation.invalidVersion')),
     platform: z.enum(SOURCEMAP_PLATFORMS),
     /** Bundle path as the client reports it in stack frames (e.g. _next/static/chunks/app-1a2b.js). */
     path: z.string().min(1).max(SOURCEMAP_LIMITS.pathLength * 2),

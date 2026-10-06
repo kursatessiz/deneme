@@ -9,6 +9,7 @@ import { EmailBlocksSchema } from './email-blocks';
 import { WHATSAPP_TEMPLATE_STATUSES } from './message-templates';
 import { DEFAULT_THEME_FAMILY, OPTIONAL_THEME_FAMILY_KEYS, THEME_FAMILY_KEYS } from './design/themes';
 import type { ThemeFamilyKey } from './design/themes';
+import { vmsg } from './validation-key';
 
 // ---------------------------------------------------------------------------
 // Super-admin (platform owner) panel: backlog 4.1-4.3.
@@ -45,18 +46,18 @@ export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;
 // -- Tenants ------------------------------------------------------------
 
 export const CreateTenantSchema = z.object({
-  name: z.string().trim().min(2, 'İşletme adı en az 2 karakter olmalıdır').max(100),
+  name: z.string().trim().min(2, vmsg('validation.businessNameLeast2Characters')).max(100),
   slug: z
     .string()
     .trim()
     .toLowerCase()
-    .regex(/^[a-z0-9-]{2,60}$/, 'Slug yalnızca küçük harf, rakam ve tire içerebilir'),
-  businessTypeTemplateKey: z.string().min(1, 'İşletme türü şablonu seçilmelidir'),
-  planKey: z.string().min(1, 'Plan seçilmelidir'),
+    .regex(/^[a-z0-9-]{2,60}$/, vmsg('validation.slugOnlyContainLowercaseLettersDigits')),
+  businessTypeTemplateKey: z.string().min(1, vmsg('validation.selectBusinessTypeTemplate')),
+  planKey: z.string().min(1, vmsg('validation.selectPlan')),
   /** Drives the new studio's default currency, timezone, tax regime and default locale (countryDefaultsOf). */
   countryCode: CountryCodeSchema,
-  ownerFirstName: z.string().trim().min(1, 'Sahibin adı zorunludur').max(60),
-  ownerLastName: z.string().trim().min(1, 'Sahibin soyadı zorunludur').max(60),
+  ownerFirstName: z.string().trim().min(1, vmsg('validation.ownerFirstNameRequired')).max(60),
+  ownerLastName: z.string().trim().min(1, vmsg('validation.ownerLastNameRequired')).max(60),
   ownerPhone: PhoneSchema,
   ownerChannel: z.nativeEnum(InviteChannel).default(InviteChannel.SHOWN),
   /** Business referral code the new owner was given (G5c-1); optional, validated against existing studios. */
@@ -118,7 +119,7 @@ export const UpsertPlanSchema = z
       }
     }
     if (value.priceMonthly !== undefined && !value.currency) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['currency'], message: 'Fiyatın para birimi seçilmelidir' });
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['currency'], message: vmsg('validation.selectCurrencyForPrice') });
     }
   });
 export type UpsertPlanInput = z.infer<typeof UpsertPlanSchema>;
@@ -150,11 +151,11 @@ export const SetFeatureFlagSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['businessTypeTemplateId'],
-        message: 'İş türü kapsamı için şablon seçilmelidir',
+        message: vmsg('validation.selectTemplateForBusinessTypeScope'),
       });
     }
     if (value.scope === FeatureFlagScope.TENANT && !value.studioId) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['studioId'], message: 'Kiracı kapsamı için işletme seçilmelidir' });
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['studioId'], message: vmsg('validation.selectBusinessForTenantScope') });
     }
     if (value.scope === FeatureFlagScope.GLOBAL && (value.businessTypeTemplateId || value.studioId)) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['scope'], message: 'Global kapsamda ek hedef belirtilemez' });
@@ -183,7 +184,7 @@ export const UpdateTenantThemeFamiliesSchema = z
   })
   .refine((v) => v.current === DEFAULT_THEME_FAMILY || (v.allowed as readonly string[]).includes(v.current), {
     path: ['current'],
-    message: 'Mevcut aile izin verilen ailelerden biri olmalıdır',
+    message: vmsg('validation.currentFamilyOneAllowedFamilies'),
   });
 export type UpdateTenantThemeFamiliesInput = z.infer<typeof UpdateTenantThemeFamiliesSchema>;
 
@@ -213,7 +214,7 @@ export const AdminUpsertMessageTemplateSchema = z
     key: z.string().trim().min(1).max(60),
     channel: z.nativeEnum(NotificationChannel),
     locale: z.string().trim().min(2).max(5).default('tr'),
-    body: z.string().trim().min(1, 'Şablon metni boş olamaz').max(2000),
+    body: z.string().trim().min(1, vmsg('validation.templateTextEmpty')).max(2000),
     whatsappTemplateName: z.string().trim().max(120).optional(),
     /** Meta approval state of the WhatsApp template; admin-entered names are treated as approved unless stated. */
     whatsappStatus: z.enum(WHATSAPP_TEMPLATE_STATUSES).default('APPROVED'),
@@ -224,11 +225,11 @@ export const AdminUpsertMessageTemplateSchema = z
     isActive: z.boolean().default(true),
   })
   .refine((v) => v.channel !== NotificationChannel.WHATSAPP || !!v.whatsappTemplateName, {
-    message: 'WhatsApp şablonları için onaylı şablon adı zorunludur',
+    message: vmsg('validation.approvedTemplateNameRequiredForWhatsapp'),
     path: ['whatsappTemplateName'],
   })
   .refine((v) => v.channel !== NotificationChannel.EMAIL || !!v.subject, {
-    message: 'E-posta şablonları için konu zorunludur',
+    message: vmsg('validation.subjectRequiredForEmailTemplates'),
     path: ['subject'],
   });
 export type AdminUpsertMessageTemplateInput = z.infer<typeof AdminUpsertMessageTemplateSchema>;

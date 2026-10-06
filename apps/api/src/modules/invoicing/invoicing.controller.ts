@@ -15,6 +15,7 @@ import { StudioScoped, RequirePermission, SelfService, AllowWhenRestricted } fro
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import { ZodBody, ZodQuery } from '../../common/zod-body.pipe';
 import { toCsv } from '../../common/csv';
+import { requestT } from '../../common/server-i18n';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
 
 @Controller('invoicing/settings')
@@ -91,8 +92,19 @@ export class InvoicesController {
   @Header('Content-Disposition', 'attachment; filename="faturalar.csv"')
   async export(@Tenant() tenant: TenantContext, @ZodQuery(ListInvoicesQuerySchema) query: ListInvoicesQuery) {
     const rows = await this.invoicing.exportCsv(tenant, query);
+    const t = requestT();
     return toCsv(
-      ['Fatura No', 'Tarih', 'Durum', 'Ara Toplam', 'KDV', 'Toplam', 'Para Birimi', 'Sağlayıcı', 'Sağlayıcı UUID'],
+      [
+        t('apiTexts.csv.invoiceNumber'),
+        t('apiTexts.csv.date'),
+        t('apiTexts.csv.status'),
+        t('apiTexts.csv.subtotal'),
+        t('apiTexts.csv.vat'),
+        t('apiTexts.csv.total'),
+        t('apiTexts.csv.currency'),
+        t('apiTexts.csv.invoiceProvider'),
+        t('apiTexts.csv.providerUuid'),
+      ],
       rows.map((r) => [r.number, r.issueDate.toISOString(), r.status, r.subtotal, r.vatAmount, r.total, r.currency, r.provider, r.providerUuid]),
     );
   }

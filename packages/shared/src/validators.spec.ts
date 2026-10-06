@@ -1,3 +1,4 @@
+import { validationBaseMessage } from './validation-messages';
 import {
   LoginSchema,
   CreateMemberSchema,
@@ -40,7 +41,7 @@ describe('Shared Zod Validators', () => {
       const result = LoginSchema.safeParse(input);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors[0].message).toContain('en az 6 karakter');
+        expect(validationBaseMessage(result.error.errors[0].message)).toContain('en az 6 karakter');
       }
     });
   });

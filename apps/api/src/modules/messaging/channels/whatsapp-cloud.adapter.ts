@@ -31,7 +31,7 @@ export class WhatsAppCloudAdapter implements MessageChannel {
 
   async send(request: ChannelSendRequest): Promise<ChannelSendResult> {
     if (!request.freeForm && !request.whatsappTemplateName) {
-      return { success: false, errorMessage: 'WhatsApp şablon adı belirtilmemiş' };
+      return { success: false, errorMessage: 'WhatsApp template name is missing' };
     }
 
     if (!this.isConfigured()) {

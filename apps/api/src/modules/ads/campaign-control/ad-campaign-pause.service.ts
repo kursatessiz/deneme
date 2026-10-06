@@ -43,7 +43,7 @@ export class AdCampaignPauseService {
 
   async pause(connection: PausableConnection, campaignExternalId: string): Promise<PauseOutcome> {
     if (!isAdPauseCapable(connection.platform)) {
-      return { ok: false, unsupported: true, error: `${connection.platform} için duraklatma desteklenmiyor` };
+      return { ok: false, unsupported: true, error: `Pausing is not supported for ${connection.platform}` };
     }
     try {
       const credentials = JSON.parse(this.cipher.decrypt(connection.encryptedCredentials)) as AdConnectionCredentials;

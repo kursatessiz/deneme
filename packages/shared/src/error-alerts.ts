@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { Translate } from './i18n/translator';
 import { ERROR_LIMITS, scrubPii, truncate } from './error-reporting';
 import type { ErrorSource } from './error-reporting';
+import { vmsg } from './validation-key';
 
 /**
  * H3 error reporting completion (docs/HATA_RAPORLAMA.md): spike detection,
@@ -318,7 +319,7 @@ const WebhookUrlSchema = z
   .string()
   .trim()
   .max(500)
-  .refine((v) => v.startsWith('https://') && v.length > 'https://'.length && !/\s/.test(v), 'Webhook adresi https:// ile başlamalıdır');
+  .refine((v) => v.startsWith('https://') && v.length > 'https://'.length && !/\s/.test(v), vmsg('validation.webhookAddressStartWithHttps'));
 
 export const ErrorSettingsUpdateSchema = z
   .object({
@@ -340,7 +341,7 @@ export const ErrorSettingsUpdateSchema = z
           .string()
           .trim()
           .max(500)
-          .refine(isSlackWebhookUrl, 'Geçersiz Slack webhook adresi')
+          .refine(isSlackWebhookUrl, vmsg('validation.invalidSlackWebhookAddress'))
           .nullable()
           .optional(),
         enabled: z.boolean().optional(),

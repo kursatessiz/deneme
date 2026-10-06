@@ -104,13 +104,13 @@ describe('provider failure classification', () => {
 describe('allow-listed HTTP client with OAuth scopes', () => {
   const http = new AdsHttpClient();
   it('refuses any host outside the provider list before sending', async () => {
-    await expect(http.postForm('oauth:GOOGLE', 'https://evil.example/token', {}, { a: 'b' })).rejects.toThrow('izin verilmeyen host');
-    await expect(http.getJson('oauth:META', 'https://graph.facebook.com.evil.example/me', {})).rejects.toThrow('izin verilmeyen host');
-    await expect(http.getJson('oauth:LINKEDIN', 'https://graph.facebook.com/me', {})).rejects.toThrow('izin verilmeyen host');
+    await expect(http.postForm('oauth:GOOGLE', 'https://evil.example/token', {}, { a: 'b' })).rejects.toThrow('Host not allowed');
+    await expect(http.getJson('oauth:META', 'https://graph.facebook.com.evil.example/me', {})).rejects.toThrow('Host not allowed');
+    await expect(http.getJson('oauth:LINKEDIN', 'https://graph.facebook.com/me', {})).rejects.toThrow('Host not allowed');
   });
 
   it('maps an allow-list refusal to a permanent failure and a network error to a transient one', async () => {
-    const refused = { postForm: async () => Promise.reject(new Error('Reklam platformu için izin verilmeyen host: evil.example')) } as unknown as AdsHttpClient;
+    const refused = { postForm: async () => Promise.reject(new Error('Host not allowed for the ad platform: evil.example')) } as unknown as AdsHttpClient;
     await expect(new OAuthProviderClient(refused).refreshGrant('GOOGLE', { clientId: 'a', clientSecret: 'b' }, 'r')).rejects.toMatchObject({ kind: 'PERMANENT', code: 'host_not_allowed' });
     const failing = { postForm: async () => Promise.reject(new TypeError('fetch failed')) } as unknown as AdsHttpClient;
     await expect(new OAuthProviderClient(failing).refreshGrant('GOOGLE', { clientId: 'a', clientSecret: 'b' }, 'r')).rejects.toMatchObject({ kind: 'TRANSIENT', code: 'network' });

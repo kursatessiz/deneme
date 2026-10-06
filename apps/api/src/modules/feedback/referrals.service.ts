@@ -15,6 +15,7 @@ import { generateReferralCode } from './referral-code';
 import { creditActivePackageUnits } from '../members/package-credit';
 import { LoyaltyEarnService } from '../loyalty/loyalty-earn.service';
 import { apiError } from '../../common/api-error';
+import { requestT } from '../../common/server-i18n';
 
 type ReferralRow = Prisma.ReferralGetPayload<{
   include: {
@@ -52,9 +53,10 @@ export class ReferralsService {
     }
 
     const studio = await this.prisma.studio.findUnique({ where: { id: tenant.studioId }, select: { name: true } });
+    const t = requestT();
     return {
       code: row.code,
-      shareText: `${studio?.name ?? 'Stüdyomuz'}a katıl ve avantajlardan yararlan! Kayıt olurken tavsiye kodumu kullan: ${row.code}`,
+      shareText: studio?.name ? t('apiTexts.referral.shareText', { studio: studio.name, code: row.code }) : t('apiTexts.referral.shareTextNoName', { code: row.code }),
     };
   }
 
@@ -314,7 +316,7 @@ export class ReferralsService {
     if (!row) return null;
     return {
       studioName: row.studio.name,
-      offerText: `Arkadaşınızın tavsiye kodu ile kaydolun; ilk katılımınızdan sonra o da ${row.studio.referralRewardUnits} ekstra seans hakkı kazanır.`,
+      offerText: requestT()('apiTexts.referral.offerText', { count: row.studio.referralRewardUnits }),
     };
   }
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { vmsg } from './validation-key';
 
 /**
  * Turkish tax identifier validation: TCKN (11-digit national ID, used by
@@ -54,14 +55,14 @@ export const EARSIV_GENERIC_CONSUMER_TCKN = '11111111111';
 export const TcknSchema = z
   .string()
   .trim()
-  .regex(/^\d{11}$/, 'TCKN 11 haneli olmalıdır')
-  .refine(isValidTckn, 'Geçersiz TCKN');
+  .regex(/^\d{11}$/, vmsg('validation.nationalIdNumber11Digits'))
+  .refine(isValidTckn, vmsg('validation.invalidNationalIdNumber'));
 
 export const VknSchema = z
   .string()
   .trim()
-  .regex(/^\d{10}$/, 'VKN 10 haneli olmalıdır')
-  .refine(isValidVkn, 'Geçersiz VKN');
+  .regex(/^\d{10}$/, vmsg('validation.taxIdNumber10Digits'))
+  .refine(isValidVkn, vmsg('validation.invalidTaxIdNumber'));
 
 /** Accepts either a 10-digit VKN or an 11-digit TCKN, checksum-validated. */
 export const TaxNumberSchema = z.union([VknSchema, TcknSchema]);

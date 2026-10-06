@@ -14,7 +14,7 @@ export class InvalidAdIdError extends Error {}
 
 function digits(value: string, what: string): string {
   const cleaned = value.replace(/-/g, '');
-  if (!DIGITS.test(cleaned)) throw new InvalidAdIdError(`${what} numeric olmalı`);
+  if (!DIGITS.test(cleaned)) throw new InvalidAdIdError(`${what} must be numeric`);
   return cleaned;
 }
 
@@ -27,7 +27,7 @@ export interface MetaPauseRequest {
 /** Meta Graph: POST /{campaign-id} with status=PAUSED. */
 export function buildMetaPauseRequest(campaignId: string, accessToken: string): MetaPauseRequest {
   return {
-    url: `https://${META_CAPI_HOST}/${META_GRAPH_API_VERSION}/${digits(campaignId, 'Meta kampanya kimliği')}`,
+    url: `https://${META_CAPI_HOST}/${META_GRAPH_API_VERSION}/${digits(campaignId, 'Meta campaign id')}`,
     form: { status: 'PAUSED', access_token: accessToken },
   };
 }
@@ -39,8 +39,8 @@ export interface GooglePauseRequest {
 
 /** Google Ads: campaigns:mutate with an update of `status` to PAUSED. */
 export function buildGooglePauseRequest(customerId: string, campaignId: string): GooglePauseRequest {
-  const customer = digits(customerId, 'Google müşteri kimliği');
-  const campaign = digits(campaignId, 'Google kampanya kimliği');
+  const customer = digits(customerId, 'Google customer id');
+  const campaign = digits(campaignId, 'Google campaign id');
   return {
     url: `https://${GOOGLE_ADS_HOST}/${GOOGLE_ADS_API_VERSION}/customers/${customer}/campaigns:mutate`,
     body: { operations: [{ updateMask: 'status', update: { resourceName: `customers/${customer}/campaigns/${campaign}`, status: 'PAUSED' } }] },

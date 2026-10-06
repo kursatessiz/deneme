@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { LocaleCodeSchema } from '../i18n/locales';
+import { vmsg } from '../validation-key';
 
 /**
  * Brand kit and product facts of the platform tenant (docs/PAZARLAMA_MODULU.md
@@ -24,7 +25,7 @@ const HttpsUrl = z
   .trim()
   .url()
   .max(300)
-  .refine((v) => /^https:\/\//i.test(v), 'Bağlantı https ile başlamalı');
+  .refine((v) => /^https:\/\//i.test(v), vmsg('validation.linkStartWithHttps2'));
 const PhraseList = (maxItems: number, maxLength: number) =>
   z
     .array(ShortText(maxLength))
@@ -68,7 +69,7 @@ export const IcpSchema = z
     key: z
       .string()
       .trim()
-      .regex(/^[a-z][a-z0-9_]{1,39}$/, 'Anahtar küçük harf, rakam ve alt çizgiden oluşmalı'),
+      .regex(/^[a-z][a-z0-9_]{1,39}$/, vmsg('validation.keyConsistLowercaseLettersDigitsAnd')),
     name: ShortText(80),
     description: z.string().trim().max(600).default(''),
   })
@@ -108,15 +109,15 @@ export const UpsertBrandKitSchema = z
     locales: z.array(BrandKitLocaleInputSchema).min(1).max(BRAND_MAX_LOCALES),
   })
   .strict()
-  .refine((v) => new Set(v.locales.map((l) => l.locale)).size === v.locales.length, { message: 'Aynı dil iki kez girilemez', path: ['locales'] })
-  .refine((v) => new Set(v.icps.map((i) => i.key)).size === v.icps.length, { message: 'Hedef kitle anahtarları benzersiz olmalı', path: ['icps'] })
-  .refine((v) => v.locales.some((l) => l.locale === v.defaultLocale), { message: 'Varsayılan dil için üslup satırı gerekli', path: ['defaultLocale'] });
+  .refine((v) => new Set(v.locales.map((l) => l.locale)).size === v.locales.length, { message: vmsg('validation.sameLanguageEnteredTwice'), path: ['locales'] })
+  .refine((v) => new Set(v.icps.map((i) => i.key)).size === v.icps.length, { message: vmsg('validation.audienceKeysUnique'), path: ['icps'] })
+  .refine((v) => v.locales.some((l) => l.locale === v.defaultLocale), { message: vmsg('validation.toneLineRequiredForDefaultLanguage'), path: ['defaultLocale'] });
 export type UpsertBrandKitInput = z.infer<typeof UpsertBrandKitSchema>;
 
 const FACT_KEY = z
   .string()
   .trim()
-  .regex(/^[a-z][a-z0-9_.]{1,59}$/, 'Anahtar küçük harf, rakam, nokta ve alt çizgiden oluşmalı');
+  .regex(/^[a-z][a-z0-9_.]{1,59}$/, vmsg('validation.keyConsistLowercaseLettersDigitsDots'));
 
 export const ProductFactInputSchema = z
   .object({

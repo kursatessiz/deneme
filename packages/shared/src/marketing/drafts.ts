@@ -3,6 +3,8 @@ import { LocaleCodeSchema } from '../i18n/locales';
 import { SegmentGroupSchema, type SegmentGroup } from '../growth/segments';
 import type { MarketingCheckIssue } from './checks';
 import type { CampaignAbMetric, CampaignAbTestInput } from '../growth/campaign-ab';
+import { vmsg } from '../validation-key';
+import { validationBaseMessage } from '../validation-messages';
 
 /**
  * AI studio drafts (docs/PAZARLAMA_MODULU.md 4.3). Every model output is a
@@ -83,7 +85,7 @@ export const WhatsappContentSchema = z
     templateName: z
       .string()
       .trim()
-      .regex(/^[a-z][a-z0-9_]{2,59}$/, 'Şablon adı küçük harf, rakam ve alt çizgiden oluşmalı'),
+      .regex(/^[a-z][a-z0-9_]{2,59}$/, vmsg('validation.templateNameConsistLowercaseLettersDigits')),
     category: z.enum(['MARKETING', 'UTILITY']).default('MARKETING'),
     body: NonEmpty(4_000),
   })
@@ -156,7 +158,7 @@ export type MarketingContent = Record<string, unknown>;
 export function parseMarketingContent(kind: MarketingDraftKind, raw: unknown): { ok: true; content: MarketingContent } | { ok: false; issues: string[] } {
   const parsed = MARKETING_CONTENT_SCHEMAS[kind].safeParse(raw);
   if (parsed.success) return { ok: true, content: parsed.data as MarketingContent };
-  return { ok: false, issues: parsed.error.issues.map((i) => `${i.path.join('.') || 'content'}: ${i.message}`) };
+  return { ok: false, issues: parsed.error.issues.map((i) => `${i.path.join('.') || 'content'}: ${validationBaseMessage(i.message)}`) };
 }
 
 // -- requests --------------------------------------------------------------------
@@ -182,8 +184,8 @@ export const GenerateDraftsSchema = z
     variantCount: z.number().int().min(1).max(MAX_VARIANTS).default(3),
   })
   .strict()
-  .refine((v) => new Set(v.locales).size === v.locales.length && new Set(v.kinds).size === v.kinds.length, { message: 'Yinelenen dil veya tür' })
-  .refine((v) => v.locales.length * v.kinds.length <= MAX_GENERATIONS_PER_REQUEST, { message: 'Tek istekte en fazla 12 üretim yapılabilir' });
+  .refine((v) => new Set(v.locales).size === v.locales.length && new Set(v.kinds).size === v.kinds.length, { message: vmsg('validation.duplicateLanguageOrType') })
+  .refine((v) => v.locales.length * v.kinds.length <= MAX_GENERATIONS_PER_REQUEST, { message: vmsg('validation.most12GenerationsMadeInOne') });
 export type GenerateDraftsInput = z.infer<typeof GenerateDraftsSchema>;
 
 export const AddVariantsSchema = z.object({ count: z.number().int().min(1).max(MAX_VARIANTS).default(3) }).strict();
@@ -268,7 +270,7 @@ export const ResearchRequestSchema = z
       .max(RESEARCH_MAX_SOURCES),
   })
   .strict()
-  .refine((v) => v.sources.reduce((sum, s) => sum + s.text.length, 0) <= RESEARCH_MAX_TOTAL_CHARS, { message: 'Kaynak metinleri toplamı çok uzun', path: ['sources'] });
+  .refine((v) => v.sources.reduce((sum, s) => sum + s.text.length, 0) <= RESEARCH_MAX_TOTAL_CHARS, { message: vmsg('validation.sourceTextsAreTooLongIn'), path: ['sources'] });
 export type ResearchRequestInput = z.infer<typeof ResearchRequestSchema>;
 
 export const DraftListQuerySchema = z

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { LocaleCodeSchema } from '../i18n/locales';
 import { AiModelIdSchema, AiModelPriceSchema, type AiModelPrice, type AiTask } from './models';
+import { vmsg } from '../validation-key';
 
 /**
  * Request schemas and response shapes of the AI endpoints
@@ -66,7 +67,7 @@ export const SetAiApiKeySchema = z
       .trim()
       .min(20)
       .max(300)
-      .regex(/^[\x21-\x7e]+$/, 'Geçersiz anahtar'),
+      .regex(/^[\x21-\x7e]+$/, vmsg('validation.invalidKey')),
   })
   .strict();
 export type SetAiApiKeyInput = z.infer<typeof SetAiApiKeySchema>;

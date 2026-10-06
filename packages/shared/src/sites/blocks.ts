@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { vmsg } from '../validation-key';
 
 /**
  * Page engine block types (docs/SAYFA_MOTORU.md, docs/BUYUME_VE_GLOBAL_MIMARI.md
@@ -32,7 +33,7 @@ export function isBlockType(value: string): value is BlockType {
 
 const LocaleCode = z.string().trim().min(2).max(10);
 /** A URL from our own upload storage only (never an arbitrary external image URL). */
-const StorageUrl = z.string().trim().url().max(2000).regex(/^https:\/\//i, 'Yalnızca https adresi');
+const StorageUrl = z.string().trim().url().max(2000).regex(/^https:\/\//i, vmsg('validation.onlyHttpsAddress'));
 const PlainText = z.string().trim().max(4000);
 const ShortText = z.string().trim().max(200);
 /**
@@ -41,7 +42,7 @@ const ShortText = z.string().trim().max(200);
  * //host) is rejected, so authored links can never run script.
  */
 export const SAFE_HREF_PATTERN = /^(\/(?!\/)[^\s]*|#[A-Za-z0-9_-]*|https?:\/\/[^\s]+|mailto:[^\s]+|tel:\+?[0-9 ()-]+)$/i;
-const Href = z.string().trim().max(500).regex(SAFE_HREF_PATTERN, 'Geçersiz bağlantı');
+const Href = z.string().trim().max(500).regex(SAFE_HREF_PATTERN, vmsg('validation.invalidLink'));
 
 function localeMap<T extends z.ZodTypeAny>(shape: T) {
   return z.record(LocaleCode, shape);

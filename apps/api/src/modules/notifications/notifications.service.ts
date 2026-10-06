@@ -1,8 +1,32 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { maskPhone } from '@platform/shared';
-import type { MessageSendReasonCode, NotificationCategory } from '@platform/shared';
+import type { MessageParams, MessageSendReasonCode, NotificationCategory } from '@platform/shared';
 import type { PushMessage } from './push.service';
 import { MessagingService } from '../messaging/engine/messaging.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { recipientLocale, serverT } from '../../common/server-i18n';
+import type { ServerT, ServerTextKey } from '../../common/server-i18n';
+
+/**
+ * Parameters of a localized text. A function receives the recipient's language and
+ * translator, for values that are themselves text or depend on the language (a date).
+ */
+export type LocalizedParams = MessageParams | ((ctx: { locale: string; t: ServerT }) => MessageParams);
+
+/** A notification written as message keys, rendered in the recipient's language when it is sent. */
+export interface LocalizedNotice {
+  titleKey: ServerTextKey;
+  titleParams?: LocalizedParams;
+  /** Message key of the body; leave it out and pass `bodyText` for text that is business data (a badge description). */
+  bodyKey?: ServerTextKey;
+  bodyParams?: LocalizedParams;
+  bodyText?: string;
+  data?: Record<string, string>;
+}
+
+export function isLocalizedNotice(message: PushMessage | LocalizedNotice): message is LocalizedNotice {
+  return 'titleKey' in message;
+}
 
 export interface SendSmsParams {
   /** Null for platform messages (login codes). */
@@ -50,7 +74,10 @@ export interface SendResult {
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
 
-  constructor(private readonly messaging: MessagingService) {}
+  constructor(
+    private readonly messaging: MessagingService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   /**
    * Template send on the tenant's channel order (WhatsApp -> SMS by
@@ -85,9 +112,11 @@ export class NotificationsService {
     userId: string;
     studioId: string | null;
     category: NotificationCategory;
-    message: PushMessage;
+    /** Free text, or message keys rendered in the recipient's language (see `recipientLocale`). */
+    message: PushMessage | LocalizedNotice;
     smsText?: string;
   }): Promise<{ push: number; sms: boolean }> {
+    const message = isLocalizedNotice(params.message) ? await this.render(params.userId, params.studioId, params.message) : params.message;
     const pushed = await this.messaging.send({
       studioId: params.studioId,
       recipient: { userId: params.userId },
@@ -95,7 +124,7 @@ export class NotificationsService {
       purpose: 'TRANSACTIONAL',
       category: params.category,
       type: params.category,
-      content: { subject: params.message.title, text: params.message.body, data: params.message.data },
+      content: { subject: message.title, text: message.body, data: message.data },
     });
 
     let smsSent = false;
@@ -113,6 +142,19 @@ export class NotificationsService {
       smsSent = sms.success;
     }
     return { push: pushed.pushedDevices ?? 0, sms: smsSent };
+  }
+
+  /** Renders a keyed notice in the recipient's language: own choice, business default, Turkish. */
+  private async render(userId: string, studioId: string | null, notice: LocalizedNotice): Promise<PushMessage> {
+    const locale = await recipientLocale(this.prisma, { userId, studioId });
+    const t = serverT(locale);
+    const resolve = (params: LocalizedParams | undefined): MessageParams | undefined =>
+      typeof params === 'function' ? params({ locale, t }) : params;
+    return {
+      title: t(notice.titleKey, resolve(notice.titleParams)),
+      body: notice.bodyText ?? (notice.bodyKey ? t(notice.bodyKey, resolve(notice.bodyParams)) : ''),
+      ...(notice.data ? { data: notice.data } : {}),
+    };
   }
 
   /**

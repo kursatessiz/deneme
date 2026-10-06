@@ -20,6 +20,7 @@ import { buildGoogleAdsPayload } from './google-ads.adapter';
 import { refreshGoogleAccessToken } from './google-oauth';
 import { buildMetaCapiPayload } from './meta-capi.adapter';
 import { buildTikTokEventsPayload } from './tiktok-events.adapter';
+import { serverT, studioLocale } from '../../../common/server-i18n';
 
 const BATCH_SIZE = 50;
 const PLATFORM_BY_TARGET: Record<ConversionDeliveryTarget, AdConnectionPlatform | null> = {
@@ -90,12 +91,12 @@ export class ConversionDeliveryDispatcherService {
   ) {
     const target = delivery.target as ConversionDeliveryTarget;
     const platform = PLATFORM_BY_TARGET[target];
-    if (!platform) return this.terminal(delivery.id, 'FAILED', 'Bu hedef için adaptör yok');
+    if (!platform) return this.terminal(delivery.id, 'FAILED', serverT(await studioLocale(this.prisma, delivery.studioId))('apiTexts.ads.noAdapterForTarget'));
 
     const connection = await this.prisma.adConnection.findFirst({
       where: { studioId: delivery.studioId, platform, status: 'CONNECTED' },
     });
-    if (!connection) return this.terminal(delivery.id, 'FAILED', 'Bağlı reklam hesabı bulunamadı');
+    if (!connection) return this.terminal(delivery.id, 'FAILED', serverT(await studioLocale(this.prisma, delivery.studioId))('apiTexts.ads.connectedAccountNotFound'));
 
     const credentials = JSON.parse(this.cipher.decrypt(connection.encryptedCredentials)) as AdConnectionCredentials;
     const event = delivery.conversionEvent;

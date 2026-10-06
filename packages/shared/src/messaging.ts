@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { vmsg } from './validation-key';
 
 /**
  * W7 messaging: tenant-configurable channel order/fallback, message
@@ -24,13 +25,13 @@ export const NotificationSettingsSchema = z
   .object({
     order: z
       .array(z.enum(MESSAGE_CHANNELS))
-      .min(1, 'En az bir kanal seçilmelidir')
+      .min(1, vmsg('validation.selectLeastOneChannel'))
       .refine((v) => new Set(v).size === v.length, 'Kanallar tekrar edemez'),
     whatsappEnabled: z.boolean().default(true),
     smsSenderName: z
       .string()
       .trim()
-      .max(11, 'SMS başlığı en fazla 11 karakter olabilir')
+      .max(11, vmsg('validation.smsSenderMost11Characters'))
       .optional(),
   })
   .strict();
@@ -111,14 +112,14 @@ export const UpsertMessageTemplateSchema = z
     key: z.string().trim().min(1).max(60),
     channel: z.enum(['WHATSAPP', 'SMS', 'PUSH', 'EMAIL', 'IN_APP']),
     locale: z.string().trim().min(2).max(5).default('tr'),
-    body: z.string().trim().min(1, 'Şablon metni boş olamaz').max(2000),
+    body: z.string().trim().min(1, vmsg('validation.templateTextEmpty')).max(2000),
     whatsappTemplateName: z.string().trim().max(120).optional(),
     isTransactional: z.boolean().default(true),
     isActive: z.boolean().default(true),
   })
   .strict()
   .refine((v) => v.channel !== 'WHATSAPP' || !!v.whatsappTemplateName, {
-    message: 'WhatsApp şablonları için onaylı şablon adı zorunludur',
+    message: vmsg('validation.approvedTemplateNameRequiredForWhatsapp'),
     path: ['whatsappTemplateName'],
   });
 export type UpsertMessageTemplateInput = z.infer<typeof UpsertMessageTemplateSchema>;
@@ -151,7 +152,7 @@ export const UpdateNotificationSettingsSchema = NotificationSettingsSchema;
 export const TopUpSmsWalletSchema = z
   .object({
     studioId: z.string().uuid(),
-    credits: z.number().int().refine((v) => v !== 0, 'Kredi miktarı sıfır olamaz'),
+    credits: z.number().int().refine((v) => v !== 0, vmsg('validation.creditAmountZero')),
     note: z.string().trim().max(200).optional(),
   })
   .strict();

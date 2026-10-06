@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { GOOGLE_ADS_API_VERSION, GOOGLE_ADS_HOST, GOOGLE_OAUTH_HOST, META_GRAPH_API_VERSION, type AdConnectionPlatform } from '../growth/ads';
 import type { IntegrationEntryPoint } from '../integrations-hub';
 import { LINKEDIN_API_HOST, META_GRAPH_HOST, SOCIAL_LINKEDIN_API_VERSION, SOCIAL_PROVIDERS, type SocialProvider } from './social';
+import { vmsg } from '../validation-key';
 
 /**
  * OAuth connect (M4a, docs/PAZARLAMA_MODULU.md 5.2): the super admin enters
@@ -238,7 +239,7 @@ export const OAUTH_RETURN_PATHS: Readonly<Record<IntegrationEntryPoint, string>>
 export const OAUTH_TARGET_KINDS = ['NEW_AD_CONNECTION', 'NEW_SOCIAL_CONNECTION', 'RECONNECT_AD_CONNECTION', 'RECONNECT_SOCIAL_CONNECTION'] as const;
 export type OAuthTargetKind = (typeof OAUTH_TARGET_KINDS)[number];
 
-const TenDigits = z.string().trim().regex(/^\d{10}$/, '10 haneli müşteri kimliği bekleniyor');
+const TenDigits = z.string().trim().regex(/^\d{10}$/, vmsg('validation.10DigitCustomerIdExpected'));
 
 export const OAuthStartTargetSchema = z.discriminatedUnion('kind', [
   z

@@ -114,7 +114,7 @@ export class AdSpendSyncService {
       const meta = credentials as MetaCredentials;
       const url = buildMetaInsightsUrl(externalAccountId, level, range.from, range.to);
       const res = await this.http.getJson('META', `${url}&access_token=${encodeURIComponent(meta.accessToken)}`, {});
-      if (!res.ok) throw new Error('Meta Insights isteği başarısız');
+      if (!res.ok) throw new Error('Meta Insights request failed');
       return parseMetaInsightsResponse(level, currency, res.body);
     }
     if (platform === 'GOOGLE') {
@@ -126,7 +126,7 @@ export class AdSpendSyncService {
         { authorization: `Bearer ${accessToken}`, 'developer-token': google.developerToken, 'login-customer-id': google.loginCustomerId },
         { query: buildGoogleSpendQuery(level, range.from, range.to) },
       );
-      if (!res.ok) throw new Error('Google Ads GAQL isteği başarısız');
+      if (!res.ok) throw new Error('Google Ads GAQL request failed');
       return parseGoogleSpendResponse(level, currency, res.body);
     }
     // TikTok's integrated report is queried per day; the sync window is
@@ -135,7 +135,7 @@ export class AdSpendSyncService {
     const out: SpendRow[] = [];
     for (const day of datesBetween(range.from, range.to)) {
       const res = await this.http.getJson('TIKTOK', buildTikTokSpendUrl(externalAccountId, level, day, day), { 'access-token': tiktok.accessToken });
-      if (!res.ok) throw new Error('TikTok raporlama isteği başarısız');
+      if (!res.ok) throw new Error('TikTok reporting request failed');
       out.push(...parseTikTokSpendResponse(level, currency, day, res.body));
     }
     return out;

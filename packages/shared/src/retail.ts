@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { currencyMinorUnitDigits } from './growth/regions';
+import { vmsg } from './validation-key';
 
 /**
  * Retail and stock (G3c-2, docs/PERAKENDE.md): physical products and simple
@@ -303,13 +304,13 @@ export function saleStatusAfterRefund(lines: readonly { quantity: number; refund
 const MoneyStringSchema = z
   .string()
   .trim()
-  .regex(/^\d{1,10}(\.\d{1,2})?$/, 'Geçersiz tutar');
-const CurrencySchema = z.string().regex(/^[A-Z]{3}$/, 'Geçersiz para birimi');
+  .regex(/^\d{1,10}(\.\d{1,2})?$/, vmsg('validation.invalidAmount'));
+const CurrencySchema = z.string().regex(/^[A-Z]{3}$/, vmsg('validation.invalidCurrency'));
 const TaxRateSchema = z
   .number()
   .min(0)
   .max(100)
-  .refine((v) => Math.abs(v * 100 - Math.round(v * 100)) < 1e-9, { message: 'Vergi oranı en fazla iki ondalık basamak içerebilir' });
+  .refine((v) => Math.abs(v * 100 - Math.round(v * 100)) < 1e-9, { message: vmsg('validation.taxRateHaveMostTwoDecimal') });
 const OptionalText = (max: number) => z.string().trim().min(1).max(max).nullable().optional();
 
 export const RetailSettingsSchema = z
@@ -319,7 +320,7 @@ export const RetailSettingsSchema = z
     receiptPrefix: z
       .string()
       .trim()
-      .regex(/^[A-Z0-9-]{1,10}$/, 'Fiş öneki yalnızca büyük harf, rakam ve tire içerebilir')
+      .regex(/^[A-Z0-9-]{1,10}$/, vmsg('validation.receiptPrefixOnlyContainUppercaseLetters'))
       .optional(),
   })
   .strict();
@@ -350,7 +351,7 @@ const ProductFields = {
   barcode: z
     .string()
     .trim()
-    .regex(/^[A-Za-z0-9-]{1,64}$/, 'Geçersiz barkod')
+    .regex(/^[A-Za-z0-9-]{1,64}$/, vmsg('validation.invalidBarcode'))
     .nullable()
     .optional(),
   description: z.string().trim().max(1000).nullable().optional(),
@@ -364,7 +365,7 @@ const ProductFields = {
   isActive: z.boolean().optional(),
   trackStock: z.boolean().optional(),
   lowStockThreshold: z.number().int().min(0).max(RETAIL_MAX_QUANTITY).nullable().optional(),
-  imageUrl: z.string().trim().url().max(500).startsWith('https://', 'Görsel adresi https ile başlamalıdır').nullable().optional(),
+  imageUrl: z.string().trim().url().max(500).startsWith('https://', vmsg('validation.imageAddressStartWithHttps')).nullable().optional(),
 };
 
 export const CreateProductSchema = z.object(ProductFields).strict();
@@ -404,14 +405,14 @@ export const AdjustStockSchema = z
     productId: z.string().uuid(),
     branchId: z.string().uuid(),
     /** Signed change, e.g. -2 for two broken bottles. */
-    delta: z.number().int().min(-RETAIL_MAX_QUANTITY).max(RETAIL_MAX_QUANTITY).refine((v) => v !== 0, 'Değişim sıfır olamaz').optional(),
+    delta: z.number().int().min(-RETAIL_MAX_QUANTITY).max(RETAIL_MAX_QUANTITY).refine((v) => v !== 0, vmsg('validation.changeZero')).optional(),
     /** Stock count: the quantity found on the shelf. */
     countedQuantity: z.number().int().min(0).max(RETAIL_MAX_QUANTITY).optional(),
     reason: z.string().trim().min(3, 'Neden giriniz').max(200),
   })
   .strict()
   .refine((v) => (v.delta === undefined) !== (v.countedQuantity === undefined), {
-    message: 'Değişim veya sayım miktarından yalnızca biri girilmelidir',
+    message: vmsg('validation.enterOnlyOneChangeOrCount'),
     path: ['delta'],
   });
 export type AdjustStockInput = z.infer<typeof AdjustStockSchema>;
@@ -458,7 +459,7 @@ export const CheckoutSchema = z
           })
           .strict(),
       )
-      .min(1, 'Sepet boş')
+      .min(1, vmsg('validation.cartEmpty'))
       .max(RETAIL_MAX_CART_LINES),
     paymentMethod: z.enum(RETAIL_PAYMENT_METHODS),
     promoCode: z.string().trim().min(3).max(40).optional(),

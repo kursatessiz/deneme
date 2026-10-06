@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { vmsg } from '../validation-key';
 
 /**
  * AI core (G3b, docs/YAPAY_ZEKA.md): the tasks the platform runs on a
@@ -32,7 +33,7 @@ export const AiModelIdSchema = z
   .trim()
   .min(3)
   .max(80)
-  .regex(/^[a-z0-9][a-z0-9.-]*$/, 'Geçersiz model kimliği');
+  .regex(/^[a-z0-9][a-z0-9.-]*$/, vmsg('validation.invalidModelIdentifier'));
 
 /**
  * USD per million tokens. One token at $X per million costs exactly X

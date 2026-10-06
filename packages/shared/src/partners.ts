@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { vmsg } from './validation-key';
 
 /**
  * W20 aggregator/marketplace partner integrations (ClassPass, Urban Sports
@@ -18,7 +19,7 @@ export type PartnerConnectionStatusName = (typeof PARTNER_CONNECTION_STATUSES)[n
 const decimalString = z
   .string()
   .trim()
-  .regex(/^\d+(\.\d{1,2})?$/, 'Tutar 0.00 formatında bir metin olmalıdır');
+  .regex(/^\d+(\.\d{1,2})?$/, vmsg('validation.amountTextIn000Format'));
 
 /**
  * Stored on PartnerConnection.config (plain Json, never secret): which

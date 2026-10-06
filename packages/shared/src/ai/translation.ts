@@ -3,6 +3,7 @@ import { hasOwn } from '../i18n/own';
 import { TRANSLATION_MAX_LENGTH, validatePackMessages } from '../i18n/pack';
 import { placeholdersOf, pluralBaseOf } from '../i18n/translator';
 import type { AiErrorCode } from './api';
+import { vmsg } from '../validation-key';
 
 /**
  * Automatic translation of the UI catalogue (G3b, docs/YAPAY_ZEKA.md).
@@ -234,7 +235,7 @@ export const StartTranslationJobSchema = z
   })
   .strict()
   .refine((v) => !v.overwrite || v.confirmOverwrite === true, {
-    message: 'Tümünün üzerine yazmak için onay gerekli',
+    message: vmsg('validation.confirmationRequiredOverwriteEverything'),
     path: ['confirmOverwrite'],
   });
 export type StartTranslationJobInput = z.infer<typeof StartTranslationJobSchema>;

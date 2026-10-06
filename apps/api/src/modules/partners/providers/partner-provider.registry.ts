@@ -7,7 +7,7 @@ import type { PartnerProviderAdapter } from './partner-provider.interface';
 import { apiError } from '../../../common/api-error';
 
 const MOCK_DISABLED_MESSAGE =
-  'MOCK partner sağlayıcısı üretimde kullanılamaz. Gerçek bir toplayıcı bağlantısı yapılandırın.';
+  'The MOCK partner provider cannot be used in production. Configure a real aggregator connection.';
 
 /**
  * Stands in for the mock adapter in production, mirroring

@@ -13,6 +13,7 @@ import {
 } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AdCampaignPauseService, type PausableConnection } from '../../ads/campaign-control/ad-campaign-pause.service';
+import { serverT, studioLocale } from '../../../common/server-i18n';
 
 const DAY_MS = 86_400_000;
 const MAX_ERROR_LENGTH = 500;
@@ -105,7 +106,7 @@ export class AdCapAutoPauseService {
       }
 
       // The campaign belongs to one ad account: try the connected accounts of the platform until one accepts.
-      let error = 'Bağlı hesap yok';
+      let error = serverT(await studioLocale(this.prisma, studioId))('apiTexts.ads.noConnectedAccount');
       let accepted = false;
       for (const connection of connections) {
         const outcome = await this.pauser.pause(connection, entity.externalId);

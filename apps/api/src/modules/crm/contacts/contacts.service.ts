@@ -29,6 +29,9 @@ import { toCsv } from '../../../common/csv';
 import { GrowthEventsService } from '../hooks/growth-events.service';
 import { PlatformEventsService } from '../../webhooks/platform-events.service';
 import { apiError } from '../../../common/api-error';
+import { requestT } from '../../../common/server-i18n';
+import { activityBodyFor, activityFields, activityText } from '../activity-text';
+import type { ActivityText } from '../activity-text';
 
 type Db = PrismaService | Prisma.TransactionClient;
 
@@ -219,12 +222,18 @@ export class ContactsService {
   async moveToStage(
     contact: Pick<Contact, 'id' | 'studioId' | 'lifecycleStage' | 'pipelineStageId'>,
     stageKey: string,
-    opts: { lostReason?: string | null; actorMembershipId?: string | null; activityBody?: string } = {},
+    opts: { lostReason?: string | null; actorMembershipId?: string | null; activity?: ActivityText } = {},
   ): Promise<void> {
     const target = await this.pipeline.getByKey(contact.studioId, stageKey);
     const current = contact.pipelineStageId
       ? await this.prisma.pipelineStage.findUnique({ where: { id: contact.pipelineStageId } })
       : null;
+    const stageActivity = activityFields(
+      opts.activity ??
+        (opts.lostReason
+          ? activityText('apiTexts.crm.stageChangedWithReason', { from: current?.key ?? '-', to: target.key, reason: opts.lostReason })
+          : activityText('apiTexts.crm.stageChanged', { from: current?.key ?? '-', to: target.key })),
+    );
     const lifecycleEvent = lifecycleEventForStage(target.key, target.kind);
     const lifecycle = nextLifecycle(contact.lifecycleStage, lifecycleEvent);
     await this.prisma.$transaction(async (tx) => {
@@ -241,11 +250,9 @@ export class ContactsService {
           studioId: contact.studioId,
           contactId: contact.id,
           type: 'STAGE_CHANGE',
-          body:
-            opts.activityBody ??
-            `Aşama değişti: ${current?.key ?? '-'} -> ${target.key}${opts.lostReason ? ` (${opts.lostReason})` : ''}`,
+          body: stageActivity.body,
           actorMembershipId: opts.actorMembershipId ?? null,
-          metadata: { from: current?.key ?? null, to: target.key },
+          metadata: { from: current?.key ?? null, to: target.key, i18n: stageActivity.i18n },
         },
       });
     });
@@ -296,7 +303,7 @@ export class ContactsService {
       activities: contact.activities.map((a) => ({
         id: a.id,
         type: a.type,
-        body: a.body,
+        body: activityBodyFor(a, requestT()),
         actorName: a.actorMembership?.user ? contactDisplayName(a.actorMembership.user) : null,
         createdAt: a.createdAt.toISOString(),
       })),
@@ -542,14 +549,15 @@ export class ContactsService {
         },
       });
 
+      const mergedActivity = activityFields(activityText('apiTexts.crm.merged', { name: contactDisplayName(merged) }));
       await tx.contactActivity.create({
         data: {
           studioId,
           contactId: survivor.id,
           type: 'MERGE',
-          body: `${contactDisplayName(merged)} birleştirildi`,
+          body: mergedActivity.body,
           actorMembershipId: tenant.membershipId,
-          metadata: { mergedId: merged.id, phone: merged.phone, email: merged.email },
+          metadata: { mergedId: merged.id, phone: merged.phone, email: merged.email, i18n: mergedActivity.i18n },
         },
       });
       await tx.auditLog.create({

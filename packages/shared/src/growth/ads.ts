@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { CONVERSION_EVENT_TYPES } from './conversions';
 import type { ConversionEventType } from './conversions';
+import { vmsg } from '../validation-key';
 
 /**
  * Ad platform connections, conversion delivery and spend sync (G2b). See
@@ -39,7 +40,7 @@ export const MetaCredentialsSchema = z
   .object({
     accessToken: last4,
     /** Meta pixel / dataset ids are numeric. */
-    pixelId: z.string().trim().regex(/^\d{5,20}$/, 'Geçersiz pixel kimliği'),
+    pixelId: z.string().trim().regex(/^\d{5,20}$/, vmsg('validation.invalidPixelId')),
     /** For test-mode events, shown in Meta Events Manager's test events tab. */
     testEventCode: z.string().trim().max(40).optional(),
     /** M4c: the Meta app secret that signs Lead Ads webhooks; set from the integrations hub, kept across token changes. */
@@ -54,10 +55,10 @@ export const GoogleCredentialsSchema = z
     clientSecret: last4,
     refreshToken: last4,
     developerToken: last4,
-    loginCustomerId: z.string().trim().regex(/^\d{10}$/, '10 haneli müşteri kimliği bekleniyor'),
-    customerId: z.string().trim().regex(/^\d{10}$/, '10 haneli müşteri kimliği bekleniyor'),
+    loginCustomerId: z.string().trim().regex(/^\d{10}$/, vmsg('validation.10DigitCustomerIdExpected')),
+    customerId: z.string().trim().regex(/^\d{10}$/, vmsg('validation.10DigitCustomerIdExpected')),
     /** Not a secret: the account's public "AW-XXXXXXXXX" tag id, needed to load the browser gtag on public pages (Consent Mode v2). */
-    conversionId: z.string().trim().regex(/^AW-\d+$/, "AW-XXXXXXXXX biçiminde olmalı"),
+    conversionId: z.string().trim().regex(/^AW-\d+$/, vmsg('validation.inAwXxxxxxxxxFormat')),
   })
   .strict();
 export type GoogleCredentials = z.infer<typeof GoogleCredentialsSchema>;
@@ -66,7 +67,7 @@ export const TikTokCredentialsSchema = z
   .object({
     accessToken: last4,
     /** TikTok pixel codes are uppercase letters and digits. */
-    pixelCode: z.string().trim().regex(/^[A-Z0-9]{10,30}$/, 'Geçersiz pixel kodu'),
+    pixelCode: z.string().trim().regex(/^[A-Z0-9]{10,30}$/, vmsg('validation.invalidPixelCode')),
   })
   .strict();
 export type TikTokCredentials = z.infer<typeof TikTokCredentialsSchema>;
@@ -102,7 +103,7 @@ export const CreateAdConnectionSchema = z
     const schema = credentialsByPlatform(v.platform);
     const parsed = schema.safeParse(v.credentials);
     if (!parsed.success) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Bu platform için kimlik bilgileri eksik veya geçersiz', path: ['credentials'] });
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: vmsg('validation.credentialsForThisPlatformAreMissing'), path: ['credentials'] });
     }
   });
 export type CreateAdConnectionInput = z.infer<typeof CreateAdConnectionSchema>;

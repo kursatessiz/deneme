@@ -5,6 +5,7 @@ import type { CalendarFeedCreatedDTO } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { MeBookingsService } from './me-bookings.service';
 import { buildIcsCalendar, type IcsEventInput } from './ics-builder';
+import { recipientLocale, serverT } from '../../common/server-i18n';
 
 const LOOKBACK_DAYS = 30;
 const PRODUCT_ID = '-//platform//calendar-feed//TR';
@@ -59,9 +60,11 @@ export class CalendarService {
 
   /** Builds the ICS document for a resolved user: upcoming bookings plus the last 30 days. */
   async buildIcsForUser(userId: string): Promise<string> {
+    // The feed is fetched by a calendar app that sends no language: use the user's own choice.
+    const calendarName = serverT(await recipientLocale(this.prisma, { userId }))('apiTexts.calendar.feedName');
     const memberProfileIds = await this.meBookings.memberProfileIdsFor(userId);
     if (memberProfileIds.length === 0) {
-      return buildIcsCalendar({ calendarName: 'Rezervasyonlarım', productId: PRODUCT_ID, events: [] });
+      return buildIcsCalendar({ calendarName, productId: PRODUCT_ID, events: [] });
     }
 
     const since = new Date();
@@ -95,7 +98,7 @@ export class CalendarService {
       createdAt: booking.createdAt,
     }));
 
-    return buildIcsCalendar({ calendarName: 'Rezervasyonlarım', productId: PRODUCT_ID, events });
+    return buildIcsCalendar({ calendarName, productId: PRODUCT_ID, events });
   }
 
   private buildUrls(rawToken: string): { url: string; webcalUrl: string } {

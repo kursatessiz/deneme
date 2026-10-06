@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { PhoneSchema } from './validators';
+import { vmsg } from './validation-key';
 
 /**
  * Events, workshops and multi-session courses (G3c-1, docs/ETKINLIKLER.md).
@@ -179,7 +180,7 @@ export function paymentDueAt(now: Date, holdMs: number, startsAt: Date | null): 
 // Schemas
 // ---------------------------------------------------------------------------
 
-const CurrencySchema = z.string().regex(/^[A-Z]{3}$/, 'Geçersiz para birimi');
+const CurrencySchema = z.string().regex(/^[A-Z]{3}$/, vmsg('validation.invalidCurrency'));
 const IsoDate = z.string().datetime({ offset: true });
 const Money = z.number().min(0).max(10_000_000);
 
@@ -191,17 +192,17 @@ export const EventOccurrenceInputSchema = z
     trainerId: z.string().uuid().nullable().optional(),
   })
   .strict()
-  .refine((o) => new Date(o.startsAt) < new Date(o.endsAt), { message: 'Bitiş başlangıçtan sonra olmalıdır', path: ['endsAt'] });
+  .refine((o) => new Date(o.startsAt) < new Date(o.endsAt), { message: vmsg('validation.endAfterStart'), path: ['endsAt'] });
 export type EventOccurrenceInput = z.infer<typeof EventOccurrenceInputSchema>;
 
 const EventBase = {
-  title: z.string().trim().min(1, 'Başlık giriniz').max(160),
+  title: z.string().trim().min(1, vmsg('validation.enterTitle')).max(160),
   description: z.string().trim().max(5000).nullable().optional(),
   branchId: z.string().uuid().nullable().optional(),
   capacity: z.number().int().min(1).max(EVENT_MAX_CAPACITY),
   waitlistEnabled: z.boolean().default(false),
   visibility: z.enum(EVENT_VISIBILITIES).default('MEMBERS_ONLY'),
-  coverImageUrl: z.string().trim().url().max(2000).refine((u) => u.startsWith('https://'), 'https bağlantısı giriniz').nullable().optional(),
+  coverImageUrl: z.string().trim().url().max(2000).refine((u) => u.startsWith('https://'), vmsg('validation.enterHttpsLink')).nullable().optional(),
   registrationOpensAt: IsoDate.nullable().optional(),
   registrationClosesAt: IsoDate.nullable().optional(),
   /** Full refund until this many hours before the first occurrence, none after. */
@@ -215,7 +216,7 @@ export const CreateEventSchema = z
     occurrences: z.array(EventOccurrenceInputSchema).max(EVENT_MAX_OCCURRENCES).default([]),
   })
   .strict()
-  .refine((v) => v.kind !== 'SINGLE' || v.occurrences.length <= 1, { message: 'Tek seferlik etkinliğin tek oturumu olur', path: ['occurrences'] });
+  .refine((v) => v.kind !== 'SINGLE' || v.occurrences.length <= 1, { message: vmsg('validation.oneTimeEventHasSingleSession'), path: ['occurrences'] });
 export type CreateEventInput = z.infer<typeof CreateEventSchema>;
 
 export const UpdateEventSchema = z
@@ -261,7 +262,7 @@ export const CreateTicketTypeSchema = z
   .object(TicketBase)
   .strict()
   .refine((v) => (v.creditServiceTypeId == null) === (v.creditUnits == null), {
-    message: 'Paket hakkıyla ödeme için hizmet türü ve hak sayısı birlikte girilir',
+    message: vmsg('validation.forPaymentWithPackageEntitlementEnter'),
     path: ['creditUnits'],
   });
 export type CreateTicketTypeInput = z.infer<typeof CreateTicketTypeSchema>;
@@ -306,7 +307,7 @@ export const StaffRegisterSchema = z
     notes: z.string().trim().max(500).optional(),
   })
   .strict()
-  .refine((v) => Boolean(v.memberId) !== Boolean(v.contactId), { message: 'Üye veya kişi seçiniz', path: ['memberId'] });
+  .refine((v) => Boolean(v.memberId) !== Boolean(v.contactId), { message: vmsg('validation.selectMemberOrContact'), path: ['memberId'] });
 export type StaffRegisterInput = z.infer<typeof StaffRegisterSchema>;
 
 /** A member registering themselves. */
@@ -327,7 +328,7 @@ export const PublicEventRegisterSchema = z.object({
   firstName: z.string().trim().min(1, 'Ad giriniz').max(60),
   lastName: z.string().trim().max(60).default(''),
   phone: PhoneSchema,
-  email: z.string().trim().email('Geçersiz e-posta formatı').max(120).optional().or(z.literal('')),
+  email: z.string().trim().email(vmsg('validation.invalidEmailFormat')).max(120).optional().or(z.literal('')),
   /** Explicit agreement to be contacted about this registration. */
   consent: z.literal(true, { errorMap: () => ({ message: 'Onay gereklidir' }) }),
   /** Honeypot: real visitors never fill it in; a filled one is dropped silently. */

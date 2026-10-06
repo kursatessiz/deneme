@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser, Tenant } from '../../auth/decorators/current-user.decorator';
 import { RequirePermission, SelfService, StudioScoped, AllowWhenRestricted } from '../../auth/decorators/require-permission.decorator';
 import { toCsv } from '../../../common/csv';
+import { requestT } from '../../../common/server-i18n';
 import { ZodBody } from '../../../common/zod-body.pipe';
 import type { AuthUser, TenantContext } from '../../auth/tenant-context';
 import { ConsentService } from './consent.service';
@@ -48,8 +49,18 @@ export class ConsentController {
   @Header('Content-Disposition', 'attachment; filename="iletisim-izinleri.csv"')
   async exportForStudio(@Tenant() tenant: TenantContext) {
     const rows = await this.consent.listForStudio(tenant.studioId);
+    const t = requestT();
     return toCsv(
-      ['Ad Soyad', 'Telefon', 'Kanal', 'Durum', 'Kaynak', 'Onay Tarihi', 'İptal Tarihi', 'İYS Senkron'],
+      [
+        t('apiTexts.csv.fullName'),
+        t('apiTexts.csv.phone'),
+        t('apiTexts.csv.channel'),
+        t('apiTexts.csv.status'),
+        t('apiTexts.csv.source'),
+        t('apiTexts.csv.grantedAt'),
+        t('apiTexts.csv.revokedAt'),
+        t('apiTexts.csv.iysSync'),
+      ],
       rows.map((r) => [r.fullName, r.phone, r.channel, r.status, r.source, r.grantedAt, r.revokedAt, r.iysSyncedAt]),
     );
   }

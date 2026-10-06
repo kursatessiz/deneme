@@ -24,6 +24,7 @@ import { PLATFORM_ACCESS_ERROR_CODES, isPlatformSystemRoleKey, isWriteRestricted
 import { PlatformAccessService } from '../platform-access/platform-access.service';
 import { billingRestrictedError } from '../auth/guards/billing-write.guard';
 import { apiError, codedError } from '../../common/api-error';
+import { pickBundledLocale, requestedLocale, requestT, serverT } from '../../common/server-i18n';
 
 export const INVITE_TTL_MS = 72 * 60 * 60 * 1000;
 /** Documents a person must accept to join a studio (latest published version). */
@@ -193,15 +194,17 @@ export class InvitesService {
 
   async requestOtp(token: string, ip: string | null) {
     const invite = await this.findUsable(token);
+    // The invitee has no account yet: the language of their request, else the business default.
+    const sms = serverT(pickBundledLocale([requestedLocale(), invite.studio.defaultLocale]));
     await this.otp.issue({
       phone: invite.phone,
       purpose: OtpPurpose.INVITE,
       ip,
       deliver: true,
       studioId: invite.studioId,
-      message: (code) => `${invite.studio.name} daveti icin dogrulama kodunuz: ${code}`,
+      message: (code) => sms('apiTexts.otp.inviteSms', { studio: invite.studio.name, code }),
     });
-    return { message: 'Doğrulama kodu gönderildi', phoneMasked: maskPhone(invite.phone) };
+    return { message: requestT()('apiTexts.otp.inviteSent'), messageKey: 'apiTexts.otp.inviteSent' as const, phoneMasked: maskPhone(invite.phone) };
   }
 
   async accept(token: string, dto: AcceptInviteInput, ip: string | null, visitorId: string | null = null) {
@@ -325,7 +328,7 @@ export class InvitesService {
     const invite = await this.prisma.inviteToken.findUnique({
       where: { tokenHash: hashInviteToken(token) },
       include: {
-        studio: { select: { name: true, logoUrl: true, isActive: true } },
+        studio: { select: { name: true, logoUrl: true, isActive: true, defaultLocale: true } },
         roleTemplate: { select: { key: true, name: true } },
         platformRoleTemplate: { select: { name: true } },
       },

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { EntitlementKind } from './enums';
+import { vmsg } from './validation-key';
 
 /**
  * "Hesabım" (my account) widgets and calendar: upcoming bookings and
@@ -55,7 +56,7 @@ export interface CalendarFeedCreatedDTO {
 
 export const CalendarFeedTokenParamSchema = z
   .object({
-    token: z.string().regex(/^[a-f0-9]{64}$/, 'Geçersiz takvim token'),
+    token: z.string().regex(/^[a-f0-9]{64}$/, vmsg('validation.invalidCalendarToken')),
   })
   .strict();
 export type CalendarFeedTokenParam = z.infer<typeof CalendarFeedTokenParamSchema>;

@@ -39,7 +39,7 @@ export class SesEmailAdapter {
     if (!this.isConfigured()) {
       if (this.config.get<string>('NODE_ENV') === 'production') {
         this.logger.error('SES is not configured (SES_REGION, SES_FROM_ADDRESS); refusing to pretend an email was sent');
-        return { success: false, notConfigured: true, errorMessage: 'E-posta sağlayıcısı yapılandırılmamış' };
+        return { success: false, notConfigured: true, errorMessage: 'Email provider is not configured' };
       }
       this.logger.log(`[MOCK EMAIL] ${request.to} <- "${request.subject}"`);
       return { success: true, providerMessageId: `mock-ses-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` };

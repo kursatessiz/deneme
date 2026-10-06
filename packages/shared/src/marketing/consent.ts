@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { COMPLIANCE_REGIONS, complianceRegionOf, type ComplianceRegion } from '../growth/regions';
+import { vmsg } from '../validation-key';
 
 /**
  * Legal basis of commercial messages and double opt-in (M3e,
@@ -64,7 +65,7 @@ export const DoubleOptInRegionCodeSchema = z
   .string()
   .trim()
   .toUpperCase()
-  .refine((v) => (COMPLIANCE_REGIONS as readonly string[]).includes(v) || /^[A-Z]{2}$/.test(v), { message: 'Geçersiz bölge veya ülke kodu' });
+  .refine((v) => (COMPLIANCE_REGIONS as readonly string[]).includes(v) || /^[A-Z]{2}$/.test(v), { message: vmsg('validation.invalidRegionOrCountryCode') });
 
 export const DoubleOptInRegionsSchema = z
   .array(DoubleOptInRegionCodeSchema)

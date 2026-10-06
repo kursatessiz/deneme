@@ -11,6 +11,7 @@ import {
   isThemeFamilyAllowed,
 } from './themes';
 import type { ColorMode, GradientPreset, PerfectRoleColors, StoredThemeFamilyKey, ThemeColors, ThemeFamily, ThemeFamilyKey } from './themes';
+import { vmsg } from '../validation-key';
 
 /**
  * Design tokens shared by web and mobile: the Perfect UI tokens
@@ -113,12 +114,12 @@ export const TenantThemeSchema = z
   .object({
     logoUrl: z.string().url().nullable(),
     themeFamily: z.enum(STORED_THEME_FAMILY_KEYS),
-    themePrimary: z.string().regex(HEX, 'Renk #RRGGBB formatında olmalı'),
+    themePrimary: z.string().regex(HEX, vmsg('validation.colorInRrggbbFormat')),
     gradientPresetKey: z.enum(GRADIENT_PRESET_KEYS as [GradientPresetKey, ...GradientPresetKey[]]),
   })
   .refine(
     (t) => t.themeFamily === DEFAULT_THEME_FAMILY || familyOfGradient(t.gradientPresetKey) === t.themeFamily,
-    { path: ['gradientPresetKey'], message: 'Gradyan seçilen tema ailesine ait olmalı' },
+    { path: ['gradientPresetKey'], message: vmsg('validation.gradientBelongSelectedThemeFamily') },
   );
 export type TenantTheme = z.infer<typeof TenantThemeSchema>;
 

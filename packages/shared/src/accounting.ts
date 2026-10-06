@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { currencyMinorUnitDigits } from './growth/regions';
 import { allocateProportionally, roundDivHalfUp, taxRateToBasisPoints } from './retail';
+import { vmsg } from './validation-key';
 
 /**
  * Accounting export (G3c-3, docs/MUHASEBE.md): pure row builders, currency
@@ -44,7 +45,7 @@ export const AccountingExportQuerySchema = z
     /** Language of the CSV / XLSX header row; defaults to the studio language. */
     locale: z
       .string()
-      .regex(/^[a-z]{2,3}(-[A-Z]{2})?$/, 'Geçersiz dil kodu')
+      .regex(/^[a-z]{2,3}(-[A-Z]{2})?$/, vmsg('validation.invalidLanguageCode'))
       .optional(),
   })
   .transform(({ from, to, ...rest }) => {
@@ -52,9 +53,9 @@ export const AccountingExportQuerySchema = z
     const start = from ?? new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
     return { ...rest, from: start, to: end };
   })
-  .refine((q) => q.from <= q.to, { message: 'Başlangıç tarihi bitişten sonra olamaz', path: ['from'] })
+  .refine((q) => q.from <= q.to, { message: vmsg('validation.startDateAfterEndDate'), path: ['from'] })
   .refine((q) => q.to.getTime() - q.from.getTime() <= ACCOUNTING_MAX_RANGE_DAYS * 24 * 60 * 60 * 1000, {
-    message: 'Dışa aktarım aralığı en fazla bir yıl olabilir',
+    message: vmsg('validation.exportRangeMostOneYear'),
     path: ['to'],
   });
 export type AccountingExportQuery = z.infer<typeof AccountingExportQuerySchema>;

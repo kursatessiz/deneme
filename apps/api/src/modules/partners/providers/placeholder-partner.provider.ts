@@ -10,7 +10,7 @@ import type {
 } from './partner-provider.interface';
 
 const NOT_CONTRACTED =
-  'Bu toplayıcı/pazaryeri partneri için henüz bir sözleşme ve API kimlik bilgisi yoktur. Gereken bilgiler için docs/PARTNERS.md dosyasına bakın.';
+  'There is no contract or API credential for this aggregator/marketplace partner yet. See docs/PARTNERS.md for what is required.';
 
 /**
  * Shared skeleton for every real aggregator/marketplace partner (ClassPass,

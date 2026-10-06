@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { vmsg } from '../validation-key';
 import { CONVERSION_EVENT_TYPES } from './conversions';
 import { SegmentGroupSchema } from './segments';
 import { NOTIFICATION_CATEGORY_KEYS } from '../notifications';
@@ -163,9 +164,9 @@ export const MAX_JOURNEY_STEPS = 50;
 export function validateJourneyGraph(definition: JourneyDefinition): string[] {
   const issues: string[] = [];
   const ids = Object.keys(definition.steps);
-  if (ids.length === 0) issues.push('En az bir adım gerekli');
-  if (ids.length > MAX_JOURNEY_STEPS) issues.push('Çok fazla adım');
-  if (!definition.steps[definition.entryStepId]) issues.push(`Başlangıç adımı yok: ${definition.entryStepId}`);
+  if (ids.length === 0) issues.push(vmsg('validation.journeyNoSteps'));
+  if (ids.length > MAX_JOURNEY_STEPS) issues.push(vmsg('validation.journeyTooManySteps'));
+  if (!definition.steps[definition.entryStepId]) issues.push(vmsg('validation.journeyEntryStepMissing', { id: definition.entryStepId }));
 
   const successors = (step: JourneyStep): Array<string | null> =>
     step.type === 'branch' ? [step.ifTrue, step.ifFalse] : [step.next];
@@ -173,39 +174,39 @@ export function validateJourneyGraph(definition: JourneyDefinition): string[] {
   const trigger = definition.trigger;
   if (trigger.kind === 'event') {
     if (trigger.event === 'booking_upcoming' && trigger.leadMinutes === undefined) {
-      issues.push('Rezervasyon hatırlatması için seanstan ne kadar önce gönderileceği girilmeli');
+      issues.push(vmsg('validation.journeyLeadMinutesRequired'));
     }
     if (trigger.leadMinutes !== undefined && trigger.event !== 'booking_upcoming') {
-      issues.push('leadMinutes yalnızca booking_upcoming tetikleyicisinde kullanılır');
+      issues.push(vmsg('validation.journeyLeadMinutesOnlyUpcoming'));
     }
     if (trigger.event === 'package_expiring' && trigger.daysBefore === undefined && trigger.remainingUnitsAtMost === undefined) {
-      issues.push('Paket bitişi için gün sayısı veya kalan hak sınırı girilmeli');
+      issues.push(vmsg('validation.journeyPackageExpiryNeedsLimit'));
     }
     if (trigger.daysBefore !== undefined && trigger.event !== 'package_expiring' && trigger.event !== 'birthday') {
-      issues.push('daysBefore yalnızca package_expiring ve birthday tetikleyicilerinde kullanılır');
+      issues.push(vmsg('validation.journeyDaysBeforeOnly'));
     }
     if (trigger.remainingUnitsAtMost !== undefined && trigger.event !== 'package_expiring') {
-      issues.push('remainingUnitsAtMost yalnızca package_expiring tetikleyicisinde kullanılır');
+      issues.push(vmsg('validation.journeyRemainingUnitsOnly'));
     }
   }
 
   for (const [id, step] of Object.entries(definition.steps)) {
     if (step.type === 'wait' && (step.minutes === undefined) === (step.untilLocalTime === undefined)) {
-      issues.push(`${id}: bekleme için ya süre ya da saat verilmeli`);
+      issues.push(vmsg('validation.journeyWaitNeedsOne', { id }));
     }
     if (step.type === 'send' && (step.templateId === undefined) === (step.templateKey === undefined)) {
-      issues.push(`${id}: şablon için ya templateId ya da templateKey verilmeli`);
+      issues.push(vmsg('validation.journeySendNeedsOne', { id }));
     }
     if (step.type === 'create_task' && step.assignTo !== 'CONTACT_OWNER' && !step.assigneeId) {
-      issues.push(`${id}: görev ataması için assigneeId gerekli`);
+      issues.push(vmsg('validation.journeyTaskNeedsAssignee', { id }));
     }
     const unavailable = UNAVAILABLE_JOURNEY_STEP_TYPES[step.type];
-    if (unavailable) issues.push(`${id}: ${unavailable}`);
+    if (unavailable) issues.push(vmsg('validation.journeyStepUnavailable', { id, reason: unavailable }));
     if (step.type === 'award_points' && !step.reasonKey.trim()) {
-      issues.push(`${id}: puan verme adımı için açıklama giriniz`);
+      issues.push(vmsg('validation.journeyAwardNeedsReason', { id }));
     }
     for (const next of successors(step)) {
-      if (next !== null && !definition.steps[next]) issues.push(`${id} adımı olmayan bir adıma bağlı: ${next}`);
+      if (next !== null && !definition.steps[next]) issues.push(vmsg('validation.journeyStepLinksMissing', { id, next }));
     }
   }
   if (issues.length) return issues;
@@ -223,9 +224,9 @@ export function validateJourneyGraph(definition: JourneyDefinition): string[] {
     state.set(id, 'done');
     return true;
   };
-  if (!visit(definition.entryStepId)) issues.push('Akışta döngü var');
+  if (!visit(definition.entryStepId)) issues.push(vmsg('validation.journeyCycle'));
   const unreachable = ids.filter((id) => !state.has(id));
-  if (unreachable.length) issues.push(`Ulaşılamayan adımlar: ${unreachable.join(', ')}`);
+  if (unreachable.length) issues.push(vmsg('validation.journeyUnreachable', { ids: unreachable.join(', ') }));
   return issues;
 }
 

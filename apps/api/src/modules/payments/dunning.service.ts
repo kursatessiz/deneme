@@ -2,6 +2,7 @@ import { Injectable, Logger, Optional } from '@nestjs/common';
 import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import type { LocalizedNotice } from '../notifications/notifications.service';
 import { PaymentProviderRegistry } from './providers/payment-provider.registry';
 import { MemberSubscriptionStatus, PaymentAttemptStatus, PaymentMethod, PaymentProvider, PaymentStatus } from '@platform/database';
 import type { MemberSubscription, PackageDefinition, PaymentAttempt, StoredCard } from '@platform/database';
@@ -227,20 +228,22 @@ export class DunningService {
 
     if (willCancel) {
       await this.notifyMemberSafe(sub, {
-        title: 'Üyelik aboneliği iptal edildi',
-        body: `${sub.packageDefinition.name} otomatik yenileme ödemesi tekrarlanan denemelere rağmen alınamadı; aboneliğiniz iptal edildi.`,
+        titleKey: 'apiTexts.notify.dunningCancelled.title',
+        bodyKey: 'apiTexts.notify.dunningCancelled.body',
+        bodyParams: { package: sub.packageDefinition.name },
       });
       return { subscriptionId: sub.id, outcome: 'cancelled' };
     }
 
     await this.notifyMemberSafe(sub, {
-      title: 'Ödeme alınamadı',
-      body: `${sub.packageDefinition.name} otomatik yenileme ödemesi alınamadı, tekrar denenecek.`,
+      titleKey: 'apiTexts.notify.dunningFailed.title',
+      bodyKey: 'apiTexts.notify.dunningFailed.body',
+      bodyParams: { package: sub.packageDefinition.name },
     });
     return { subscriptionId: sub.id, outcome: 'retry_scheduled', nextChargeAt: nextRetryAt ?? undefined };
   }
 
-  private async notifyMemberSafe(sub: SubscriptionWithRelations, message: { title: string; body: string }) {
+  private async notifyMemberSafe(sub: SubscriptionWithRelations, message: LocalizedNotice) {
     try {
       const profile = await this.prisma.memberProfile.findFirst({
         where: { id: sub.memberId },

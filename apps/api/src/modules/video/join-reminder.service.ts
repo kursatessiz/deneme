@@ -55,8 +55,9 @@ export class JoinReminderService {
           studioId: booking.studioId,
           category: 'BOOKING_REMINDER',
           message: {
-            title: 'Katılım bağlantın hazır',
-            body: `${booking.schedule.serviceType.name} seansına katılmak için uygulamayı açabilirsin.`,
+            titleKey: 'apiTexts.notify.joinReady.title',
+            bodyKey: 'apiTexts.notify.joinReady.body',
+            bodyParams: { service: booking.schedule.serviceType.name },
             data: { type: 'SESSION_JOIN_READY', scheduleId: booking.scheduleId, bookingId: booking.id },
           },
         });

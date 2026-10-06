@@ -3,6 +3,7 @@ import { CurrencyCodeSchema } from '../growth/regions';
 import { SegmentGroupSchema, type SegmentGroup } from '../growth/segments';
 import { DEFAULT_DOUBLE_OPT_IN_REGIONS, DoubleOptInRegionsSchema } from './consent';
 import { EmailWarmupPlanSchema } from './guards';
+import { vmsg } from '../validation-key';
 
 /**
  * Marketing settings of the platform tenant (M3b, docs/PAZARLAMA_MODULU.md
@@ -68,7 +69,7 @@ export interface MarketingSettingsDTO {
 }
 
 /** A positive money amount with at most two decimals, as text (never a float). */
-export const MoneyAmountSchema = z.string().trim().regex(/^\d{1,12}(\.\d{1,2})?$/, 'Geçersiz tutar');
+export const MoneyAmountSchema = z.string().trim().regex(/^\d{1,12}(\.\d{1,2})?$/, vmsg('validation.invalidAmount'));
 
 const count = (max: number) => z.number().int().min(0).max(max);
 const percent = z.number().min(0).max(100);

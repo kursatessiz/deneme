@@ -16,11 +16,16 @@ import type { TenantContext } from '../../auth/tenant-context';
 import { AdsHttpClient } from '../ads-http-client';
 import { refreshGoogleAccessToken } from '../delivery/google-oauth';
 import { AdConnectionsService } from './ad-connections.service';
+import type { ApiTextKey } from '@platform/shared';
 import { apiError } from '../../../common/api-error';
+import { requestT } from '../../../common/server-i18n';
 
 export interface TestConnectionResult {
   ok: boolean;
+  /** In the requester's language. */
   message: string;
+  /** The `apiTexts.ads.test.*` key of `message`, for clients that translate it themselves. */
+  messageKey?: ApiTextKey;
 }
 
 /**
@@ -58,7 +63,7 @@ export class AdConnectionTestService {
   private async testMeta(credentials: MetaCredentials): Promise<TestConnectionResult> {
     const url = `https://${META_CAPI_HOST}/${META_GRAPH_API_VERSION}/${credentials.pixelId}?fields=id&access_token=${encodeURIComponent(credentials.accessToken)}`;
     const res = await this.http.getJson('META', url, {});
-    if (res.ok) return { ok: true, message: 'Meta pixel erişimi doğrulandı' };
+    if (res.ok) return { ok: true, message: requestT()('apiTexts.ads.test.metaOk'), messageKey: 'apiTexts.ads.test.metaOk' };
     return { ok: false, message: metaErrorMessage(res.body) };
   }
 
@@ -67,7 +72,7 @@ export class AdConnectionTestService {
     try {
       accessToken = await refreshGoogleAccessToken(this.http, credentials);
     } catch {
-      return { ok: false, message: 'Google OAuth yenileme jetonu geçersiz' };
+      return { ok: false, message: requestT()('apiTexts.ads.test.googleTokenInvalid'), messageKey: 'apiTexts.ads.test.googleTokenInvalid' };
     }
 
     // A cheap authenticated call against the customer resource.
@@ -77,19 +82,20 @@ export class AdConnectionTestService {
       'developer-token': credentials.developerToken,
       'login-customer-id': credentials.loginCustomerId,
     });
-    if (res.ok) return { ok: true, message: 'Google Ads hesap erişimi doğrulandı' };
-    return { ok: false, message: 'Google Ads hesabına erişilemedi (müşteri kimliğini ve geliştirici anahtarını kontrol edin)' };
+    if (res.ok) return { ok: true, message: requestT()('apiTexts.ads.test.googleOk'), messageKey: 'apiTexts.ads.test.googleOk' };
+    return { ok: false, message: requestT()('apiTexts.ads.test.googleFailed'), messageKey: 'apiTexts.ads.test.googleFailed' };
   }
 
   private async testTikTok(credentials: TikTokCredentials): Promise<TestConnectionResult> {
     const url = `https://${TIKTOK_EVENTS_HOST}/open_api/v1.3/pixel/list/?pixel_code=${encodeURIComponent(credentials.pixelCode)}`;
     const res = await this.http.getJson('TIKTOK', url, { 'access-token': credentials.accessToken });
-    if (res.ok) return { ok: true, message: 'TikTok pixel erişimi doğrulandı' };
-    return { ok: false, message: 'TikTok pixel erişimi doğrulanamadı' };
+    if (res.ok) return { ok: true, message: requestT()('apiTexts.ads.test.tiktokOk'), messageKey: 'apiTexts.ads.test.tiktokOk' };
+    return { ok: false, message: requestT()('apiTexts.ads.test.tiktokFailed'), messageKey: 'apiTexts.ads.test.tiktokFailed' };
   }
 }
 
 function metaErrorMessage(body: unknown): string {
   const msg = (body as { error?: { message?: string } } | null)?.error?.message;
-  return msg ? `Meta hatası: ${msg}` : 'Meta pixel erişimi doğrulanamadı';
+  const t = requestT();
+  return msg ? t('apiTexts.ads.test.metaError', { message: msg }) : t('apiTexts.ads.test.metaFailed');
 }

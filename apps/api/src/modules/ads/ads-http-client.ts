@@ -2,6 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { AD_PLATFORM_ALLOWED_HOSTS, OAUTH_PROVIDER_ALLOWED_HOSTS, SOCIAL_PROVIDER_ALLOWED_HOSTS } from '@platform/shared';
 import type { AdConnectionPlatform, OAuthProvider, SocialProvider } from '@platform/shared';
 
+/** Start of the error raised for a host outside the platform allow-list; callers match on it. */
+export const HOST_NOT_ALLOWED_MESSAGE = 'Host not allowed for the ad platform';
+
 /** OAuth token and identity calls of a provider (M4a); prefixed so 'META' / 'GOOGLE' never mean the ad platform lists. */
 export type OAuthOutboundScope = `oauth:${OAuthProvider}`;
 
@@ -59,7 +62,7 @@ export class AdsHttpClient {
   private assertAllowedHost(platform: OutboundScope, url: string): void {
     const host = new URL(url).hostname;
     if (!allowedHostsOf(platform).includes(host)) {
-      throw new Error(`Reklam platformu için izin verilmeyen host: ${host}`);
+      throw new Error(`${HOST_NOT_ALLOWED_MESSAGE}: ${host}`);
     }
   }
 
