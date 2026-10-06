@@ -158,7 +158,13 @@ ayrıca zorlar).
 /studios/:studioId/dashboard/data` (`src/dashboard/useDashboardBoard.ts`).
 Kaydedilen düzen her zaman 12 sütunludur; mobil yalnızca motorun tek sütun
 ölçeklemesiyle (`scaleForColumns(items, 1)`: okuma sırası, tam genişlik)
-tek sütun gösterir. Düzenlemeler iyimser uygulanır, 800 ms sonra tek PUT
+telefonda tek sütun gösterir. Tablet genişliğinde (`isTabletWidth`, 768 pt ve
+üstü) pano web'in tablet düzeniyle aynıdır: paylaşılan `tabletLayout` kartlara
+2, 4 veya 6 sütun verir (saklanan genişlikten türetilir, kartın alt sınırının
+altına inmez), `tabletBoardGeometry` bunu ortak satır birimi ve boşlukla
+piksel çerçevelerine çevirir ve kartlar mutlak konumla yerleşir
+(`DraggableCard` `frame`). Tablette de boyutlandırma yoktur; basılı tutup
+çöp kutusuna sürükleyerek kaldırma aynen çalışır. Düzenlemeler iyimser uygulanır, 800 ms sonra tek PUT
 gider (aynı anda tek istek; arada yapılan düzenleme ardından saklanır),
 başarısız kayıt son saklanan düzene döner ve kısa bir uyarı gösterir. Bekleyen
 kayıt ekrandan çıkınca veya uygulama arka plana gidince gönderilir. Kart
