@@ -16,6 +16,7 @@ import {
   SetHomeBranchSchema,
   SetHomeBranchInput,
 } from '@platform/shared';
+import { apiError } from '../../common/api-error';
 
 @Controller('members')
 @StudioScoped()
@@ -36,7 +37,7 @@ export class MembersController {
   @AllowWhenRestricted()
   @SelfService()
   async setOwnHomeBranch(@Tenant() tenant: TenantContext, @ZodBody(SetHomeBranchSchema) body: SetHomeBranchInput) {
-    if (!tenant.memberProfileId) throw new ForbiddenException('Bu işletmede üye profiliniz yok');
+    if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.members.noMemberProfileBusiness'));
     return this.membersService.setHomeBranch(tenant, tenant.memberProfileId, body);
   }
 

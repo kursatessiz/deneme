@@ -33,6 +33,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import type { TenantContext } from '../../auth/tenant-context';
 import { SegmentEvaluatorService } from '../segments/segment-evaluator.service';
 import { JourneyEngineService } from './journey-engine.service';
+import { apiError } from '../../../common/api-error';
 
 type Db = PrismaService | Prisma.TransactionClient;
 
@@ -87,7 +88,7 @@ export class JourneysService {
 
   async get(studioId: string, id: string): Promise<Journey> {
     const row = await this.prisma.journey.findFirst({ where: { id, studioId } });
-    if (!row) throw new NotFoundException('Akış bulunamadı');
+    if (!row) throw new NotFoundException(apiError('apiErrors.growth.journeyNotFound'));
     return row;
   }
 
@@ -99,28 +100,28 @@ export class JourneysService {
   async validateDefinition(studioId: string, raw: unknown, db: Db = this.prisma): Promise<JourneyDefinition> {
     const parsed = JourneyDefinitionSchema.safeParse(raw);
     if (!parsed.success) {
-      throw new BadRequestException({ message: 'Geçersiz akış', errors: parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })) });
+      throw new BadRequestException({ ...apiError('apiErrors.growth.invalidJourney'), errors: parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })) });
     }
     const def = parsed.data;
     const issues = validateJourneyGraph(def);
-    if (issues.length) throw new BadRequestException({ message: 'Geçersiz akış', errors: issues.map((message) => ({ path: 'definition', message })) });
+    if (issues.length) throw new BadRequestException({ ...apiError('apiErrors.growth.invalidJourney'), errors: issues.map((message) => ({ path: 'definition', message })) });
     for (const group of conditionsOf(def)) await this.evaluator.validate(studioId, group);
 
     if (def.trigger.kind === 'segment_entered') {
       const segment = await db.segment.findFirst({ where: { id: def.trigger.segmentId, studioId, archivedAt: null }, select: { id: true } });
-      if (!segment) throw new BadRequestException('Tetikleyici segment bu işletmede bulunamadı');
+      if (!segment) throw new BadRequestException(apiError('apiErrors.growth.triggerSegmentNotFoundBusiness'));
     }
     for (const [stepId, step] of Object.entries(def.steps)) {
       if (step.type === 'send' && step.templateId) {
         const tpl = await db.messageTemplate.findFirst({ where: { id: step.templateId, OR: [{ studioId }, { studioId: null }] }, select: { id: true } });
-        if (!tpl) throw new BadRequestException(`${stepId}: şablon bulunamadı`);
+        if (!tpl) throw new BadRequestException(apiError('apiErrors.growth.stepTemplateNotFound', { step: stepId }));
       }
       if (step.type === 'create_task' && step.assigneeId) {
         const found =
           step.assignTo === 'USER'
             ? await db.membership.findFirst({ where: { id: step.assigneeId, studioId }, select: { id: true } })
             : await db.roleTemplate.findFirst({ where: { id: step.assigneeId, studioId }, select: { id: true } });
-        if (!found) throw new BadRequestException(`${stepId}: görev ataması bu işletmede bulunamadı`);
+        if (!found) throw new BadRequestException(apiError('apiErrors.growth.stepAssigneeNotFound', { step: stepId }));
       }
     }
     return def;
@@ -143,7 +144,7 @@ export class JourneysService {
   /** A journey from the gallery, as a DRAFT. Win-back also gets its own audience segment. */
   async createFromTemplate(tenant: TenantContext, input: CreateJourneyFromTemplateInput): Promise<JourneyDTO> {
     const template = journeyTemplates().find((t) => t.key === input.templateKey);
-    if (!template) throw new NotFoundException('Şablon bulunamadı');
+    if (!template) throw new NotFoundException(apiError('apiErrors.common.templateNotFound'));
     const studio = await this.prisma.studio.findUniqueOrThrow({ where: { id: tenant.studioId }, select: { defaultLocale: true } });
     const t = createTranslator({ locale: studio.defaultLocale, messages: BUNDLED_MESSAGES[studio.defaultLocale] ?? BASE_MESSAGES, fallback: BASE_MESSAGES });
     const name = input.name ?? t(`journeys.template.${template.key}.name` as MessageKey);
@@ -180,8 +181,8 @@ export class JourneysService {
 
   async update(studioId: string, id: string, input: UpdateJourneyInput): Promise<JourneyDTO> {
     const journey = await this.get(studioId, id);
-    if (input.definition && journey.status === 'ACTIVE') throw new ConflictException('Çalışan bir akışın adımları değiştirilemez; önce durdurun');
-    if (journey.status === 'ARCHIVED') throw new ConflictException('Arşivlenmiş akış değiştirilemez');
+    if (input.definition && journey.status === 'ACTIVE') throw new ConflictException(apiError('apiErrors.growth.stepsRunningJourneyCannotChangedStop'));
+    if (journey.status === 'ARCHIVED') throw new ConflictException(apiError('apiErrors.growth.archivedJourneyCannotChanged'));
     const definition = input.definition ? await this.validateDefinition(studioId, input.definition) : undefined;
     const row = await this.prisma.journey.update({
       where: { id: journey.id },
@@ -196,7 +197,7 @@ export class JourneysService {
 
   async activate(studioId: string, id: string, now = new Date()): Promise<JourneyDTO> {
     const journey = await this.get(studioId, id);
-    if (journey.status === 'ARCHIVED') throw new ConflictException('Arşivlenmiş akış başlatılamaz');
+    if (journey.status === 'ARCHIVED') throw new ConflictException(apiError('apiErrors.growth.archivedJourneyCannotStarted'));
     await this.validateDefinition(studioId, journey.definition);
     const row = await this.prisma.journey.update({
       where: { id: journey.id },
@@ -207,7 +208,7 @@ export class JourneysService {
 
   async pause(studioId: string, id: string): Promise<JourneyDTO> {
     const journey = await this.get(studioId, id);
-    if (journey.status !== 'ACTIVE') throw new ConflictException('Yalnızca çalışan bir akış durdurulabilir');
+    if (journey.status !== 'ACTIVE') throw new ConflictException(apiError('apiErrors.growth.onlyRunningJourneyCanStopped'));
     return toJourneyDto(await this.prisma.journey.update({ where: { id: journey.id }, data: { status: 'PAUSED' } }));
   }
 
@@ -220,9 +221,9 @@ export class JourneysService {
 
   async remove(studioId: string, id: string): Promise<{ deleted: true }> {
     const journey = await this.get(studioId, id);
-    if (journey.status !== 'DRAFT') throw new ConflictException('Yalnızca taslak akış silinebilir');
+    if (journey.status !== 'DRAFT') throw new ConflictException(apiError('apiErrors.growth.onlyDraftJourneyCanDeleted'));
     const enrollments = await this.prisma.journeyEnrollment.count({ where: { journeyId: journey.id } });
-    if (enrollments > 0) throw new ConflictException('Kişi girmiş bir akış silinemez; arşivleyin');
+    if (enrollments > 0) throw new ConflictException(apiError('apiErrors.growth.journeyContactsEnteredCannotDeletedArchive'));
     await this.prisma.journey.delete({ where: { id: journey.id } });
     return { deleted: true };
   }

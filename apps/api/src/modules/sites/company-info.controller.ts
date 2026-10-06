@@ -5,6 +5,7 @@ import { SuperAdminOnly } from '../auth/decorators/super-admin-only.decorator';
 import { ZodBody } from '../../common/zod-body.pipe';
 import { CompanyInfoService } from './company-info.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { apiError } from '../../common/api-error';
 
 /** The platform's own legal identity, edited from the super admin panel only. */
 @Controller('admin/company-info')
@@ -29,7 +30,7 @@ export class CompanyInfoController {
   @Get('platform-studio-id')
   async platformStudioId() {
     const studio = await this.prisma.studio.findFirst({ where: { isPlatform: true }, select: { id: true } });
-    if (!studio) throw new NotFoundException('Platform kiracısı bulunamadı');
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.platformTenantNotFound'));
     return { studioId: studio.id };
   }
 }

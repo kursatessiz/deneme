@@ -13,6 +13,7 @@ import type {
   UpdateServiceTypeInput,
   ServiceTypeQualificationInput,
 } from '@platform/shared';
+import { apiError } from '../../common/api-error';
 
 @Injectable()
 export class CatalogService {
@@ -35,7 +36,7 @@ export class CatalogService {
         data: { studioId: tenant.studioId, name: dto.name, selectableByMember: dto.selectableByMember },
       });
     } catch (err) {
-      if (this.isUniqueViolation(err)) throw new ConflictException('Bu isimde bir kaynak türü zaten var');
+      if (this.isUniqueViolation(err)) throw new ConflictException(apiError('apiErrors.catalog.resourceTypeNameAlreadyExists'));
       throw err;
     }
   }
@@ -48,7 +49,7 @@ export class CatalogService {
         data: { name: dto.name, selectableByMember: dto.selectableByMember },
       });
     } catch (err) {
-      if (this.isUniqueViolation(err)) throw new ConflictException('Bu isimde bir kaynak türü zaten var');
+      if (this.isUniqueViolation(err)) throw new ConflictException(apiError('apiErrors.catalog.resourceTypeNameAlreadyExists'));
       throw err;
     }
   }
@@ -59,7 +60,7 @@ export class CatalogService {
       where: { resourceTypeId: id, studioId: tenant.studioId, isActive: true },
     });
     if (inUse) {
-      throw new BadRequestException('Bu kaynak türüne bağlı aktif kaynaklar var, önce onları pasifleştirin');
+      throw new BadRequestException(apiError('apiErrors.catalog.activeResourcesResourceTypeDeactivateThem'));
     }
     return this.prisma.resourceType.update({ where: { id }, data: { isActive: false } });
   }
@@ -105,7 +106,7 @@ export class CatalogService {
     if (dto.branchId) await this.assertOwnedBranch(studioId, dto.branchId);
     if (dto.parentResourceId) {
       if (dto.parentResourceId === id) {
-        throw new BadRequestException('Bir kaynak kendisinin üst kaynağı olamaz');
+        throw new BadRequestException(apiError('apiErrors.catalog.resourceCannotOwnParent'));
       }
       await this.getOwnedResource(studioId, dto.parentResourceId);
     }
@@ -188,13 +189,13 @@ export class CatalogService {
   async deactivateCancellationPolicy(tenant: TenantContext, id: string) {
     const policy = await this.getOwnedPolicy(tenant.studioId, id);
     if (policy.isDefault) {
-      throw new BadRequestException('Varsayılan iptal politikası pasifleştirilemez, önce başka bir politikayı varsayılan yapın');
+      throw new BadRequestException(apiError('apiErrors.catalog.defaultCancellationPolicyCannotDeactivatedMake'));
     }
     const inUse = await this.prisma.serviceType.findFirst({
       where: { cancellationPolicyId: id, studioId: tenant.studioId, isActive: true },
     });
     if (inUse) {
-      throw new BadRequestException('Bu politikayı kullanan aktif hizmet türleri var');
+      throw new BadRequestException(apiError('apiErrors.catalog.activeServiceTypesUsingPolicy'));
     }
     return this.prisma.cancellationPolicy.update({ where: { id }, data: { isActive: false } });
   }
@@ -243,7 +244,7 @@ export class CatalogService {
         include: { requiredResourceTypes: true },
       });
     } catch (err) {
-      if (this.isUniqueViolation(err)) throw new ConflictException('Bu isimde bir hizmet türü zaten var');
+      if (this.isUniqueViolation(err)) throw new ConflictException(apiError('apiErrors.catalog.serviceTypeNameAlreadyExists'));
       throw err;
     }
   }
@@ -294,7 +295,7 @@ export class CatalogService {
         });
       });
     } catch (err) {
-      if (this.isUniqueViolation(err)) throw new ConflictException('Bu isimde bir hizmet türü zaten var');
+      if (this.isUniqueViolation(err)) throw new ConflictException(apiError('apiErrors.catalog.serviceTypeNameAlreadyExists'));
       throw err;
     }
   }
@@ -310,7 +311,7 @@ export class CatalogService {
     const trainer = await this.prisma.trainerProfile.findFirst({
       where: { id: dto.trainerProfileId, studioId },
     });
-    if (!trainer) throw new NotFoundException('Eğitmen bulunamadı');
+    if (!trainer) throw new NotFoundException(apiError('apiErrors.common.trainerNotFound'));
 
     return this.prisma.trainerQualification.upsert({
       where: { trainerProfileId_serviceTypeId: { trainerProfileId: dto.trainerProfileId, serviceTypeId } },
@@ -345,43 +346,43 @@ export class CatalogService {
 
   private async getOwnedResourceType(studioId: string, id: string) {
     const row = await this.prisma.resourceType.findFirst({ where: { id, studioId } });
-    if (!row) throw new NotFoundException('Kaynak türü bulunamadı');
+    if (!row) throw new NotFoundException(apiError('apiErrors.catalog.resourceTypeNotFound'));
     return row;
   }
 
   private async getOwnedResource(studioId: string, id: string) {
     const row = await this.prisma.resource.findFirst({ where: { id, studioId } });
-    if (!row) throw new NotFoundException('Kaynak bulunamadı');
+    if (!row) throw new NotFoundException(apiError('apiErrors.catalog.resourceNotFound'));
     return row;
   }
 
   private async getOwnedPolicy(studioId: string, id: string) {
     const row = await this.prisma.cancellationPolicy.findFirst({ where: { id, studioId } });
-    if (!row) throw new NotFoundException('İptal politikası bulunamadı');
+    if (!row) throw new NotFoundException(apiError('apiErrors.catalog.cancellationPolicyNotFound'));
     return row;
   }
 
   private async getOwnedServiceType(studioId: string, id: string) {
     const row = await this.prisma.serviceType.findFirst({ where: { id, studioId } });
-    if (!row) throw new NotFoundException('Hizmet türü bulunamadı');
+    if (!row) throw new NotFoundException(apiError('apiErrors.common.serviceTypeNotFound'));
     return row;
   }
 
   private async assertOwnedBranch(studioId: string, id: string) {
     const row = await this.prisma.branch.findFirst({ where: { id, studioId } });
-    if (!row) throw new BadRequestException('Seçilen şube bu işletmede bulunamadı');
+    if (!row) throw new BadRequestException(apiError('apiErrors.catalog.selectedBranchNotFoundBusiness'));
   }
 
   private async assertOwnedCommissionRule(studioId: string, id: string) {
     const row = await this.prisma.commissionRule.findFirst({ where: { id, studioId } });
-    if (!row) throw new BadRequestException('Seçilen komisyon kuralı bu işletmede bulunamadı');
+    if (!row) throw new BadRequestException(apiError('apiErrors.catalog.selectedCommissionRuleNotFoundBusiness'));
   }
 
   private async assertOwnedForm(studioId: string, id: string) {
     const row = await this.prisma.measurementFormTemplate.findFirst({
       where: { id, OR: [{ studioId }, { studioId: null }] },
     });
-    if (!row) throw new BadRequestException('Seçilen ölçüm formu bu işletmede bulunamadı');
+    if (!row) throw new BadRequestException(apiError('apiErrors.catalog.selectedMeasurementFormNotFoundBusiness'));
   }
 
   private async assertOwnedResourceTypes(studioId: string, ids: string[]) {
@@ -389,7 +390,7 @@ export class CatalogService {
     if (unique.length === 0) return;
     const rows = await this.prisma.resourceType.findMany({ where: { id: { in: unique }, studioId } });
     if (rows.length !== unique.length) {
-      throw new BadRequestException('Seçilen kaynak türlerinden biri bu işletmede bulunamadı');
+      throw new BadRequestException(apiError('apiErrors.catalog.selectedResourceTypesNotFoundBusiness'));
     }
   }
 

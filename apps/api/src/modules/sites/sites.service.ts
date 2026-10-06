@@ -5,6 +5,7 @@ import type { SiteDTO, SiteDomainDTO, UpdateSiteInput } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { DnsVerificationService } from './dns.service';
 import { SiteCacheService } from './site-cache.service';
+import { apiError } from '../../common/api-error';
 
 /** Base domain tenant sites are served on as `<slug>.<SITES_DOMAIN>`. */
 export function sitesBaseDomain(): string {
@@ -38,7 +39,7 @@ export class SitesService {
   /** Every studio may have at most one site; it is created lazily on first access. */
   async ensureSite(studioId: string): Promise<SiteDTO> {
     const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { isPlatform: true, defaultLocale: true } });
-    if (!studio) throw new NotFoundException('İşletme bulunamadı');
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.businessNotFound'));
     let site = await this.prisma.site.findUnique({ where: { studioId }, include: { domains: true } });
     if (!site) {
       site = await this.prisma.site.create({
@@ -57,7 +58,7 @@ export class SitesService {
   async updateSite(studioId: string, input: UpdateSiteInput): Promise<SiteDTO> {
     const site = await this.getSiteOrThrow(studioId);
     if (input.enabledLocales && !input.enabledLocales.includes(input.defaultLocale ?? site.defaultLocale)) {
-      throw new BadRequestException('Varsayılan dil, etkin diller listesinde olmalıdır');
+      throw new BadRequestException(apiError('apiErrors.sites.defaultLanguageMustListEnabledLanguages'));
     }
     const seoSettings = input.seo ? mergeSiteSeoSettings(parseSiteSeoSettings(site.seoSettings), input.seo) : undefined;
     const updated = await this.prisma.site.update({
@@ -77,10 +78,10 @@ export class SitesService {
   }
 
   async addDomain(studioId: string, domain: string): Promise<SiteDomainDTO> {
-    if (!isValidDomain(domain)) throw new BadRequestException('Geçersiz alan adı');
+    if (!isValidDomain(domain)) throw new BadRequestException(apiError('apiErrors.sites.invalidDomain'));
     const site = await this.getSiteOrThrow(studioId);
     const existing = await this.prisma.siteDomain.findUnique({ where: { domain } });
-    if (existing) throw new ConflictException('Bu alan adı zaten kullanımda');
+    if (existing) throw new ConflictException(apiError('apiErrors.sites.domainAlreadyUse'));
     const created = await this.prisma.siteDomain.create({
       data: { siteId: site.id, domain, verificationToken: randomBytes(20).toString('hex') },
     });
@@ -90,7 +91,7 @@ export class SitesService {
   async removeDomain(studioId: string, domainId: string): Promise<void> {
     const site = await this.getSiteOrThrow(studioId);
     const domain = await this.prisma.siteDomain.findFirst({ where: { id: domainId, siteId: site.id } });
-    if (!domain) throw new NotFoundException('Alan adı bulunamadı');
+    if (!domain) throw new NotFoundException(apiError('apiErrors.common.domainNotFound'));
     await this.prisma.siteDomain.delete({ where: { id: domainId } });
     void this.siteCache.purgeStudio(studioId);
   }
@@ -102,7 +103,7 @@ export class SitesService {
   async verifyDomain(studioId: string, domainId: string): Promise<SiteDomainDTO> {
     const site = await this.getSiteOrThrow(studioId);
     const domain = await this.prisma.siteDomain.findFirst({ where: { id: domainId, siteId: site.id } });
-    if (!domain) throw new NotFoundException('Alan adı bulunamadı');
+    if (!domain) throw new NotFoundException(apiError('apiErrors.common.domainNotFound'));
     const ok = await this.dns.verify(domain.domain, domain.verificationToken, platformCnameTarget());
     const updated = await this.prisma.siteDomain.update({
       where: { id: domainId },
@@ -137,7 +138,7 @@ export class SitesService {
 
   private async getSiteOrThrow(studioId: string) {
     const site = await this.prisma.site.findUnique({ where: { studioId }, include: { domains: true } });
-    if (!site) throw new NotFoundException('Bu işletme için henüz bir web sitesi yok');
+    if (!site) throw new NotFoundException(apiError('apiErrors.sites.businessNotWebsiteYet'));
     return site;
   }
 

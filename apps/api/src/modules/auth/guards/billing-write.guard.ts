@@ -5,16 +5,13 @@ import type { PermissionKey } from '@platform/shared';
 import { ALLOW_WHEN_RESTRICTED_KEY, PERMISSIONS_KEY } from '../decorators/require-permission.decorator';
 import type { AuthenticatedRequest } from '../tenant-context';
 import type { PrismaClient } from '@platform/database';
+import { codedError } from '../../../common/api-error';
 
 const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /** The 403 a write gets in restricted mode; clients translate `billing.error.BILLING_RESTRICTED`. */
 export function billingRestrictedError(): ForbiddenException {
-  return new ForbiddenException({
-    statusCode: 403,
-    code: BILLING_RESTRICTED_ERROR_CODE,
-    message: 'İşletme hesabı kısıtlı modda. Yeni kayıt oluşturmak için hesabı etkinleştirin.',
-  });
+  return new ForbiddenException(codedError(BILLING_RESTRICTED_ERROR_CODE, { statusCode: 403 }));
 }
 
 /**

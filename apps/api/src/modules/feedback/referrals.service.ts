@@ -14,6 +14,7 @@ import type { TenantContext } from '../auth/tenant-context';
 import { generateReferralCode } from './referral-code';
 import { creditActivePackageUnits } from '../members/package-credit';
 import { LoyaltyEarnService } from '../loyalty/loyalty-earn.service';
+import { apiError } from '../../common/api-error';
 
 type ReferralRow = Prisma.ReferralGetPayload<{
   include: {
@@ -34,7 +35,7 @@ export class ReferralsService {
   // ---------------------------------------------------------------------
 
   async myCode(tenant: TenantContext): Promise<ReferralCodeDTO> {
-    if (!tenant.memberProfileId) throw new ForbiddenException('Bu işlemi yalnızca üyeler yapabilir');
+    if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.feedback.onlyMembersCan'));
 
     let row = await this.prisma.referralCode.findUnique({ where: { memberId: tenant.memberProfileId } });
     if (!row) {
@@ -45,7 +46,7 @@ export class ReferralsService {
         select: { membership: { select: { isPartnerGuest: true } } },
       });
       if (member?.membership.isPartnerGuest) {
-        throw new ForbiddenException('Bu işlemi yalnızca üyeler yapabilir');
+        throw new ForbiddenException(apiError('apiErrors.feedback.onlyMembersCan'));
       }
       row = await this.createCodeWithRetry(tenant.studioId, tenant.memberProfileId);
     }
@@ -58,7 +59,7 @@ export class ReferralsService {
   }
 
   async myReferrals(tenant: TenantContext): Promise<ReferralDTO[]> {
-    if (!tenant.memberProfileId) throw new ForbiddenException('Bu işlemi yalnızca üyeler yapabilir');
+    if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.feedback.onlyMembersCan'));
     const rows = await this.prisma.referral.findMany({
       where: { studioId: tenant.studioId, referrerMemberId: tenant.memberProfileId },
       include: { referrerMember: { include: { membership: { include: { user: true } } } }, referredUser: true },
@@ -255,9 +256,9 @@ export class ReferralsService {
   /** Staff-initiated reward, bypassing automatic qualification (e.g. a manual sale over the phone). */
   async manualReward(tenant: TenantContext, actorUserId: string, referralId: string): Promise<ReferralDTO> {
     const referral = await this.prisma.referral.findFirst({ where: { id: referralId, studioId: tenant.studioId } });
-    if (!referral) throw new NotFoundException('Tavsiye kaydı bulunamadı');
-    if (referral.status === PrismaReferralStatus.REWARDED) throw new ConflictException('Bu tavsiye zaten ödüllendirilmiş');
-    if (referral.status === PrismaReferralStatus.VOIDED) throw new BadRequestException('İptal edilmiş bir tavsiye ödüllendirilemez');
+    if (!referral) throw new NotFoundException(apiError('apiErrors.feedback.referralRecordNotFound'));
+    if (referral.status === PrismaReferralStatus.REWARDED) throw new ConflictException(apiError('apiErrors.feedback.referralAlreadyRewarded'));
+    if (referral.status === PrismaReferralStatus.VOIDED) throw new BadRequestException(apiError('apiErrors.feedback.cancelledReferralCannotRewarded'));
 
     if (referral.status === PrismaReferralStatus.PENDING) {
       await this.prisma.referral.updateMany({
@@ -279,9 +280,9 @@ export class ReferralsService {
 
   async voidReferral(tenant: TenantContext, actorUserId: string, referralId: string, dto: VoidReferralInput): Promise<ReferralDTO> {
     const referral = await this.prisma.referral.findFirst({ where: { id: referralId, studioId: tenant.studioId } });
-    if (!referral) throw new NotFoundException('Tavsiye kaydı bulunamadı');
+    if (!referral) throw new NotFoundException(apiError('apiErrors.feedback.referralRecordNotFound'));
     if (referral.status === PrismaReferralStatus.REWARDED) {
-      throw new BadRequestException('Ödül verilmiş bir tavsiye iptal edilemez');
+      throw new BadRequestException(apiError('apiErrors.feedback.rewardedReferralCannotCancelled'));
     }
     const updated = await this.prisma.referral.update({
       where: { id: referral.id },
@@ -330,7 +331,7 @@ export class ReferralsService {
         throw err;
       }
     }
-    throw new ConflictException('Tavsiye kodu oluşturulamadı, lütfen tekrar deneyin');
+    throw new ConflictException(apiError('apiErrors.feedback.referralCodeCouldNotCreated'));
   }
 
   private toDto(row: ReferralRow): ReferralDTO {

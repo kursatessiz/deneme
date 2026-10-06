@@ -3,6 +3,7 @@ import type { Response } from 'express';
 import type { PublicLanguagesDTO } from '@platform/shared';
 import { I18nService } from './i18n.service';
 import { I18nPublicRateLimitGuard } from './i18n-public-rate-limit.guard';
+import { apiError } from '../../common/api-error';
 
 /**
  * Unauthenticated i18n reads consumed by web and mobile at boot: the
@@ -27,7 +28,7 @@ export class I18nPublicController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.i18n.getLocaleMessages(locale);
-    if (!result) throw new NotFoundException(`"${locale}" dili bulunamadı veya etkin değil.`);
+    if (!result) throw new NotFoundException(apiError('apiErrors.i18n.languageNotFoundOrDisabled', { locale: locale }));
 
     res.setHeader('ETag', result.version);
     res.setHeader('Cache-Control', 'public, max-age=300');

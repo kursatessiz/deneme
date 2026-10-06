@@ -11,6 +11,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { CredentialCipher } from '../../common/crypto/credential-cipher';
+import { apiError } from '../../common/api-error';
 
 /**
  * Public shape returned by every connections endpoint: credentials are
@@ -83,7 +84,7 @@ export class PartnerConnectionsService {
       return this.toSummary(created);
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw new ConflictException('Bu sağlayıcı ve etiketle bir bağlantı zaten var');
+        throw new ConflictException(apiError('apiErrors.partners.connectionProviderLabelAlreadyExists'));
       }
       throw err;
     }
@@ -99,7 +100,7 @@ export class PartnerConnectionsService {
       where: { id: connectionId, studioId: tenant.studioId },
     });
     if (!existing) {
-      throw new NotFoundException('Partner bağlantısı bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.partners.partnerConnectionNotFound'));
     }
     if (dto.credentials) {
       this.assertEncryptionAvailable();
@@ -144,7 +145,7 @@ export class PartnerConnectionsService {
       where: { id: connectionId, studioId: tenant.studioId },
     });
     if (!existing) {
-      throw new NotFoundException('Partner bağlantısı bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.partners.partnerConnectionNotFound'));
     }
     await this.prisma.$transaction([
       this.prisma.partnerConnection.delete({ where: { id: connectionId } }),
@@ -172,7 +173,7 @@ export class PartnerConnectionsService {
   private assertEncryptionAvailable(): void {
     if (this.config.get<string>('NODE_ENV') === 'production' && !this.cipher.isConfigured) {
       throw new BadRequestException(
-        'INTEGRATION_ENCRYPTION_KEY yapılandırılmadan üretimde partner kimlik bilgisi kaydedilemez',
+        apiError('apiErrors.partners.partnerCredentialsCannotSavedProductionUntil'),
       );
     }
   }
@@ -183,13 +184,13 @@ export class PartnerConnectionsService {
         where: { id: { in: config.serviceTypeIds }, studioId },
       });
       if (found !== config.serviceTypeIds.length) {
-        throw new BadRequestException('Seçilen hizmet türlerinden biri bu işletmeye ait değil');
+        throw new BadRequestException(apiError('apiErrors.partners.selectedServiceTypesNotBelongBusiness'));
       }
     }
     if (config.branchIds.length > 0) {
       const found = await this.prisma.branch.count({ where: { id: { in: config.branchIds }, studioId } });
       if (found !== config.branchIds.length) {
-        throw new BadRequestException('Seçilen şubelerden biri bu işletmeye ait değil');
+        throw new BadRequestException(apiError('apiErrors.common.selectedBranchesNotBelongBusiness'));
       }
     }
   }

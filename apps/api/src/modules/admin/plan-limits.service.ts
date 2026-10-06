@@ -1,14 +1,15 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { SubscriptionStatus } from '@platform/database';
-import type { PlanLimits } from '@platform/shared';
+import type { ApiErrorKey, PlanLimits } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { apiError } from '../../common/api-error';
 
 export type PlanLimitKind = 'maxActiveMembers' | 'maxStaff' | 'maxBranches';
 
-const LIMIT_MESSAGES: Record<PlanLimitKind, string> = {
-  maxActiveMembers: 'Planınızın izin verdiği aktif üye sayısına ulaşıldı',
-  maxStaff: 'Planınızın izin verdiği personel sayısına ulaşıldı',
-  maxBranches: 'Planınızın izin verdiği şube sayısına ulaşıldı',
+const LIMIT_MESSAGES: Record<PlanLimitKind, ApiErrorKey> = {
+  maxActiveMembers: 'apiErrors.admin.activeMemberLimitReached',
+  maxStaff: 'apiErrors.admin.staffLimitReached',
+  maxBranches: 'apiErrors.admin.branchLimitReached',
 };
 
 /**
@@ -42,7 +43,7 @@ export class PlanLimitsService {
     const current = await this.countCurrent(studioId, kind);
     if (current >= max) {
       throw new HttpException(
-        { statusCode: HttpStatus.PAYMENT_REQUIRED, message: LIMIT_MESSAGES[kind], limit: max, current },
+        { statusCode: HttpStatus.PAYMENT_REQUIRED, ...apiError(LIMIT_MESSAGES[kind]), limit: max, current },
         HttpStatus.PAYMENT_REQUIRED,
       );
     }

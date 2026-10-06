@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { RedisService } from '../redis/redis.service';
+import { apiError } from '../../common/api-error';
 
 /** Failed attempts allowed per account identifier (phone or email) per window. */
 export const LOGIN_MAX_FAILURES_PER_IDENTIFIER = 10;
@@ -8,7 +9,7 @@ export const LOGIN_MAX_FAILURES_PER_IDENTIFIER = 10;
 export const LOGIN_MAX_FAILURES_PER_IP = 50;
 export const LOGIN_FAILURE_WINDOW_SECONDS = 15 * 60;
 
-const TOO_MANY = 'Çok fazla hatalı giriş denemesi. Lütfen daha sonra tekrar deneyin veya SMS kodu ile giriş yapın';
+const TOO_MANY = apiError('apiErrors.auth.tooManyFailedSignAttemptsLater');
 
 type Bucket = 'id' | 'ip';
 /** 'mfa': TOTP and recovery code attempts, keyed by user id (M1). */

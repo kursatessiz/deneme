@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import { assertBranchAccess } from '../branches/branch-access';
 import type { KioskTokenClaims } from './kiosk-context';
+import { apiError } from '../../common/api-error';
 
 const PAIRING_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // unambiguous, matches PairingCodeSchema
 const PAIRING_CODE_LENGTH = 8;
@@ -34,7 +35,7 @@ export class KioskService {
   async createDevice(tenant: TenantContext, actor: AuthUser, dto: CreateKioskDeviceInput) {
     assertBranchAccess(tenant, dto.branchId);
     const branch = await this.prisma.branch.findFirst({ where: { id: dto.branchId, studioId: tenant.studioId } });
-    if (!branch) throw new NotFoundException('Şube bulunamadı');
+    if (!branch) throw new NotFoundException(apiError('apiErrors.common.branchNotFound'));
 
     const pairingCode = generatePairingCode();
     const device = await this.prisma.$transaction(async (tx) => {
@@ -88,7 +89,7 @@ export class KioskService {
 
   async revokeDevice(tenant: TenantContext, actor: AuthUser, deviceId: string) {
     const device = await this.prisma.kioskDevice.findFirst({ where: { id: deviceId, studioId: tenant.studioId } });
-    if (!device) throw new NotFoundException('Kiosk cihazı bulunamadı');
+    if (!device) throw new NotFoundException(apiError('apiErrors.checkin.kioskDeviceNotFound'));
     assertBranchAccess(tenant, device.branchId);
 
     await this.prisma.$transaction(async (tx) => {
@@ -113,7 +114,7 @@ export class KioskService {
       where: { pairingCodeHash: hashCode(pairingCode), pairedAt: null, revokedAt: null },
     });
     if (!device || !device.pairingCodeExpiresAt || device.pairingCodeExpiresAt <= new Date()) {
-      throw new BadRequestException('Eşleştirme kodu geçersiz veya süresi doldu');
+      throw new BadRequestException(apiError('apiErrors.checkin.pairingCodeInvalidExpired'));
     }
 
     const now = new Date();
@@ -122,7 +123,7 @@ export class KioskService {
         where: { id: device.id, pairedAt: null, revokedAt: null },
         data: { pairedAt: now, pairingCodeHash: null, pairingCodeExpiresAt: null, lastSeenAt: now },
       });
-      if (claimed.count !== 1) throw new BadRequestException('Eşleştirme kodu geçersiz veya süresi doldu');
+      if (claimed.count !== 1) throw new BadRequestException(apiError('apiErrors.checkin.pairingCodeInvalidExpired'));
       await tx.auditLog.create({
         data: {
           studioId: device.studioId,

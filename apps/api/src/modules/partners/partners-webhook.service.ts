@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PartnerConnectionsService } from './partner-connections.service';
 import { PartnerReservationsService, type PartnerBookingResult } from './partner-reservations.service';
 import { PartnerProviderRegistry } from './providers/partner-provider.registry';
+import { apiError } from '../../common/api-error';
 
 /**
  * Inbound webhook processing: verify the HMAC signature (constant-time,
@@ -30,12 +31,12 @@ export class PartnersWebhookService {
   ): Promise<PartnerBookingResult> {
     const connection = await this.prisma.partnerConnection.findUnique({ where: { id: connectionId } });
     if (!connection || connection.provider.toLowerCase() !== providerParam.toLowerCase()) {
-      throw new NotFoundException('Partner bağlantısı bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.partners.partnerConnectionNotFound'));
     }
 
     const credentials = await this.connections.getDecryptedCredentials(connectionId);
     if (!credentials) {
-      throw new BadRequestException('Partner bağlantısı için kimlik bilgisi yapılandırılmamış');
+      throw new BadRequestException(apiError('apiErrors.partners.noCredentialsConfiguredPartnerConnection'));
     }
 
     const adapter = this.registry.get(connection.provider);
@@ -49,14 +50,14 @@ export class PartnersWebhookService {
       new Date(),
     );
     if (!verification.valid) {
-      throw new BadRequestException(`Geçersiz webhook imzası: ${verification.reason ?? 'bilinmiyor'}`);
+      throw new BadRequestException(apiError('apiErrors.partners.invalidWebhookSignature', { reason: verification.reason ?? 'bilinmiyor' }));
     }
 
     let parsedBody: unknown;
     try {
       parsedBody = JSON.parse(rawBody);
     } catch {
-      throw new BadRequestException('Geçersiz JSON gövdesi');
+      throw new BadRequestException(apiError('apiErrors.partners.invalidJsonBody'));
     }
     const payload = PartnerWebhookPayloadSchema.parse(parsedBody);
 
@@ -87,7 +88,7 @@ export class PartnersWebhookService {
       case 'CHECK_IN':
         return this.reservations.recordCheckIn(connection.studioId, connectionId, payload);
       default:
-        throw new BadRequestException('Bilinmeyen olay türü');
+        throw new BadRequestException(apiError('apiErrors.partners.unknownEventType'));
     }
   }
 

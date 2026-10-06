@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, VideoContentVisibility } from '@platform/database';
-import type { AccessTierRuleKind } from '@platform/shared';
+import { apiErrorBaseMessage } from '@platform/shared';
+import type { AccessTierRuleKind, ApiErrorKey } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { communityError } from './community.errors';
@@ -53,23 +54,34 @@ export function visiblePostsWhere(access: CommunityAccess): Prisma.CommunityPost
   return { ...base, OR: anyTier };
 }
 
+/** Lock state of a video item: `reason` is the Turkish base text, `reasonKey` its apiErrors key for translation. */
+export interface VideoLockResult {
+  locked: boolean;
+  reason: string | null;
+  reasonKey: ApiErrorKey | null;
+}
+
+function lockedFor(reasonKey: ApiErrorKey): VideoLockResult {
+  return { locked: true, reason: apiErrorBaseMessage(reasonKey), reasonKey };
+}
+
 /** Lock state of a video library item for one member (W19 rules, unchanged). */
 export function videoLock(
   content: { visibility: VideoContentVisibility | string; packages?: { packageDefinitionId: string }[] },
   activePackageDefIds: ReadonlySet<string>,
-): { locked: boolean; reason: string | null } {
+): VideoLockResult {
   if (content.visibility === VideoContentVisibility.ALL_MEMBERS) {
-    return { locked: false, reason: null };
+    return { locked: false, reason: null, reasonKey: null };
   }
   if (content.visibility === VideoContentVisibility.MEMBERS_WITH_ACTIVE_PACKAGE) {
-    if (activePackageDefIds.size > 0) return { locked: false, reason: null };
-    return { locked: true, reason: 'Bu içeriği izlemek için aktif bir paketiniz olmalıdır' };
+    if (activePackageDefIds.size > 0) return { locked: false, reason: null, reasonKey: null };
+    return lockedFor('apiErrors.community.activePackageRequiredToWatch');
   }
   // SPECIFIC_PACKAGES
   const required = content.packages ?? [];
   const unlocked = required.some((p) => activePackageDefIds.has(p.packageDefinitionId));
-  if (unlocked) return { locked: false, reason: null };
-  return { locked: true, reason: 'Bu içerik yalnızca belirli paket sahiplerine açıktır' };
+  if (unlocked) return { locked: false, reason: null, reasonKey: null };
+  return lockedFor('apiErrors.community.contentForSpecificPackagesOnly');
 }
 
 /**
@@ -113,7 +125,7 @@ export class CommunityAccessService {
   videoLock(
     content: { visibility: VideoContentVisibility | string; packages?: { packageDefinitionId: string }[] },
     activePackageDefIds: ReadonlySet<string>,
-  ): { locked: boolean; reason: string | null } {
+  ): VideoLockResult {
     return videoLock(content, activePackageDefIds);
   }
 }

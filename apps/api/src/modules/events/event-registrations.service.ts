@@ -49,6 +49,7 @@ import { EventsService } from './events.service';
 import { eventError } from './events.errors';
 import { EVENT_INCLUDE, PUBLIC_EVENT_INCLUDE, REGISTRATION_INCLUDE, RegistrationWithPerson, toEventDTO, toPublicEventDTO, toRegistrationDTO } from './events.mapper';
 import { assertStudioWritable } from '../auth/guards/billing-write.guard';
+import { apiError } from '../../common/api-error';
 
 const HOUR_MS = 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;
@@ -565,7 +566,7 @@ export class EventRegistrationsService {
   // -------------------------------------------------------------------------
 
   private assertMember(tenant: TenantContext): string {
-    if (!tenant.memberProfileId) throw new ForbiddenException({ statusCode: 403, message: 'Members only' });
+    if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.common.actionOnlyMembers'));
     return tenant.memberProfileId;
   }
 

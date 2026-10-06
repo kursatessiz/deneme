@@ -4,6 +4,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthUser } from './tenant-context';
+import { apiError } from '../../common/api-error';
 
 export interface AccessTokenClaims {
   sub: string;
@@ -31,7 +32,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: { sub?: string; typ?: string; mfa?: unknown }): Promise<AuthUser> {
     if (payload.typ !== 'access' || !payload.sub) {
-      throw new UnauthorizedException('Geçersiz oturum anahtarı');
+      throw new UnauthorizedException(apiError('apiErrors.auth.invalidSessionKey'));
     }
 
     const user = await this.prisma.user.findUnique({
@@ -39,7 +40,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       select: { id: true, phone: true, firstName: true, lastName: true, isSuperAdmin: true, isActive: true, mfaEnabledAt: true },
     });
     if (!user || !user.isActive) {
-      throw new UnauthorizedException('Kullanıcı bulunamadı veya hesabı devre dışı');
+      throw new UnauthorizedException(apiError('apiErrors.auth.userNotFoundAccountDisabled'));
     }
 
     return {

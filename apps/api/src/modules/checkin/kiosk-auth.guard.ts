@@ -2,8 +2,9 @@ import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import type { KioskContext, KioskRequest, KioskTokenClaims } from './kiosk-context';
+import { apiError } from '../../common/api-error';
 
-const INVALID = 'Kiosk oturumu geçersiz';
+const INVALID = apiError('apiErrors.checkin.invalidKioskSession');
 
 /**
  * Accepts only a kiosk-typed JWT (typ "kiosk") issued by KioskService.pair.

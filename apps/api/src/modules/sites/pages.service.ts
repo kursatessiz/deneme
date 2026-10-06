@@ -17,6 +17,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { SiteCacheService } from './site-cache.service';
 import { IndexNowService } from './indexnow/indexnow.service';
+import { apiError } from '../../common/api-error';
 
 function toLocaleDto(l: { locale: string; slug: string; seoTitle: string | null; seoDescription: string | null; ogImageUrl: string | null; legalApproved: boolean; legalApprovedAt: Date | null }): PageLocaleDTO {
   return {
@@ -84,7 +85,7 @@ export class PagesService {
 
   async deletePage(studioId: string, pageId: string): Promise<void> {
     const page = await this.pageOrThrow(studioId, pageId, {});
-    if (page.status !== 'DRAFT') throw new BadRequestException('Yayındaki bir sayfa silinemez; önce yayından kaldırın');
+    if (page.status !== 'DRAFT') throw new BadRequestException(apiError('apiErrors.sites.publishedPageCannotDeletedUnpublish'));
     await this.prisma.page.delete({ where: { id: page.id } });
   }
 
@@ -100,7 +101,7 @@ export class PagesService {
       return toLocaleDto(row);
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw new ConflictException('Bu dilde bu yol (slug) zaten başka bir sayfada kullanılıyor');
+        throw new ConflictException(apiError('apiErrors.sites.slugAlreadyUsedAnotherPageLanguage'));
       }
       throw err;
     }
@@ -114,7 +115,7 @@ export class PagesService {
 
   async setLegalApproval(studioId: string, pageId: string, locale: string, approved: boolean): Promise<PageLocaleDTO> {
     const page = await this.pageOrThrow(studioId, pageId, {});
-    if (page.kind !== 'LEGAL') throw new BadRequestException('Hukuki onay yalnızca yasal sayfalar içindir');
+    if (page.kind !== 'LEGAL') throw new BadRequestException(apiError('apiErrors.sites.legalConsentOnlyLegalPages'));
     const row = await this.prisma.pageLocale.update({
       where: { pageId_locale: { pageId: page.id, locale } },
       data: { legalApproved: approved, legalApprovedAt: approved ? new Date() : null },
@@ -126,16 +127,16 @@ export class PagesService {
   async replaceBlocks(studioId: string, pageId: string, blocks: UpsertBlockInput[]): Promise<BlockDTO[]> {
     const page = await this.pageOrThrow(studioId, pageId, { site: true });
     const validated = blocks.map((b, index) => {
-      if (!isBlockType(b.type)) throw new BadRequestException(`Bilinmeyen blok türü: ${b.type}`);
+      if (!isBlockType(b.type)) throw new BadRequestException(apiError('apiErrors.sites.unknownBlockType', { type: b.type }));
       if (page.site.kind === 'PLATFORM' && (TENANT_ONLY_BLOCK_TYPES as readonly string[]).includes(b.type)) {
-        throw new BadRequestException(`${b.type} bloğu yalnızca işletme siteleri içindir`);
+        throw new BadRequestException(apiError('apiErrors.sites.blockBusinessOnly', { type: b.type }));
       }
       let data: unknown;
       try {
         data = validateBlockData(b.type, b.data);
       } catch (err) {
         if (err instanceof ZodError) {
-          throw new BadRequestException({ message: `Geçersiz blok içeriği (${b.type})`, errors: err.issues.map((i) => ({ path: i.path.join('.'), message: i.message })) });
+          throw new BadRequestException({ ...apiError('apiErrors.sites.invalidBlockContent', { type: b.type }), errors: err.issues.map((i) => ({ path: i.path.join('.'), message: i.message })) });
         }
         throw err;
       }
@@ -152,7 +153,7 @@ export class PagesService {
 
   async publish(studioId: string, pageId: string, userId: string | null): Promise<PageSummaryDTO> {
     const page = await this.pageOrThrow(studioId, pageId, { locales: true, blocks: { orderBy: { position: 'asc' } } });
-    if (page.locales.length === 0) throw new BadRequestException('Yayınlamadan önce en az bir dil için içerik ekleyin');
+    if (page.locales.length === 0) throw new BadRequestException(apiError('apiErrors.sites.addContentLeastLanguageBeforePublishing'));
     const nextVersion = await this.nextVersionNumber(page.id);
     const snapshot = { locales: page.locales.map(toLocaleDto), blocks: page.blocks.map(toBlockDto) } as unknown as Prisma.InputJsonValue;
     const [, updated] = await this.prisma.$transaction([
@@ -191,7 +192,7 @@ export class PagesService {
   async rollback(studioId: string, pageId: string, versionId: string, userId: string | null): Promise<PageSummaryDTO> {
     const page = await this.pageOrThrow(studioId, pageId, {});
     const version = await this.prisma.pageVersion.findFirst({ where: { id: versionId, pageId: page.id } });
-    if (!version) throw new NotFoundException('Sürüm bulunamadı');
+    if (!version) throw new NotFoundException(apiError('apiErrors.sites.versionNotFound'));
     const snapshot = version.snapshot as unknown as { locales: PageLocaleDTO[]; blocks: BlockDTO[] };
 
     await this.prisma.$transaction([
@@ -224,7 +225,7 @@ export class PagesService {
   /** Super admin wizard: creates a sector landing page pre-filled from BusinessTypeTemplate vocabulary. */
   async createSectorLandingWizard(studioId: string, input: CreateSectorLandingWizardInput): Promise<PageSummaryDTO> {
     const businessType = await this.prisma.businessTypeTemplate.findUnique({ where: { key: input.sectorKey } });
-    if (!businessType) throw new NotFoundException('Sektör bulunamadı');
+    if (!businessType) throw new NotFoundException(apiError('apiErrors.sites.industryNotFound'));
     const vocabulary = (businessType.vocabulary as Record<string, string>) ?? {};
     const memberWord = vocabulary.member ?? 'Üye';
 
@@ -281,7 +282,7 @@ export class PagesService {
 
   private async siteIdOf(studioId: string): Promise<string> {
     const site = await this.prisma.site.findUnique({ where: { studioId }, select: { id: true } });
-    if (!site) throw new NotFoundException('Bu işletme için henüz bir web sitesi yok');
+    if (!site) throw new NotFoundException(apiError('apiErrors.sites.businessNotWebsiteYet'));
     return site.id;
   }
 
@@ -293,7 +294,7 @@ export class PagesService {
   private async pageOrThrow<T extends Prisma.PageInclude>(studioId: string, pageId: string, include: T) {
     const siteId = await this.siteIdOf(studioId);
     const page = await this.prisma.page.findFirst({ where: { id: pageId, siteId }, include });
-    if (!page) throw new NotFoundException('Sayfa bulunamadı');
+    if (!page) throw new NotFoundException(apiError('apiErrors.sites.pageNotFound'));
     return page as Prisma.PageGetPayload<{ include: T }> & { siteId: string };
   }
 }

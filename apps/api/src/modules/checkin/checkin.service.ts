@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'crypto';
-import type { CreateCheckInPointInput, UpdateCheckInWindowInput } from '@platform/shared';
+import type { ApiErrorKey, CreateCheckInPointInput, UpdateCheckInWindowInput } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchedulesService } from '../schedules/schedules.service';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
@@ -15,8 +15,9 @@ import { assertBranchAccess } from '../branches/branch-access';
 import { signDynamicQrToken, verifyDynamicQrToken } from './dynamic-qr-token';
 import { computeCheckInWindow } from './checkin-window';
 import { DynamicQrNonceStore } from './dynamic-qr-nonce.store';
+import { apiError } from '../../common/api-error';
 
-const INVALID_QR = 'Geçersiz QR kodu';
+const INVALID_QR = apiError('apiErrors.checkin.invalidQrCode');
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -58,7 +59,7 @@ export class CheckInService {
   async createPoint(tenant: TenantContext, dto: CreateCheckInPointInput) {
     assertBranchAccess(tenant, dto.branchId);
     const branch = await this.prisma.branch.findFirst({ where: { id: dto.branchId, studioId: tenant.studioId } });
-    if (!branch) throw new NotFoundException('Şube bulunamadı');
+    if (!branch) throw new NotFoundException(apiError('apiErrors.common.branchNotFound'));
 
     const rawToken = randomBytes(24).toString('base64url'); // 192 bits
     const point = await this.prisma.checkInPoint.create({
@@ -96,14 +97,14 @@ export class CheckInService {
   async scanPoint(user: AuthUser, rawToken: string) {
     const point = await this.prisma.checkInPoint.findUnique({ where: { tokenHash: hashToken(rawToken) } });
     if (!point) throw new NotFoundException(INVALID_QR);
-    if (!point.isActive) throw new BadRequestException('Bu QR kodu artık aktif değil, resepsiyona danışın');
+    if (!point.isActive) throw new BadRequestException(apiError('apiErrors.checkin.qrCodeNoLongerActiveAsk'));
 
     const membership = await this.prisma.membership.findUnique({
       where: { userId_studioId: { userId: user.id, studioId: point.studioId } },
       include: { memberProfile: true, studio: { select: { isActive: true } } },
     });
     if (!membership || membership.status !== 'ACTIVE' || !membership.studio.isActive || !membership.memberProfile) {
-      throw new ForbiddenException('Bu QR başka bir işletmeye ait, bu işletmede üyeliğiniz yok');
+      throw new ForbiddenException(apiError('apiErrors.checkin.qrBelongsAnotherBusinessNoMembership'));
     }
 
     return this.resolveAndCheckIn(point.studioId, new Set([point.branchId]), membership.memberProfile.id, point.branchId);
@@ -128,7 +129,7 @@ export class CheckInService {
     );
     if (candidates.length === 0) {
       const nearMiss = await this.nearestUpcomingOrPast(studioId, memberProfileId, nearMissBranchId, now);
-      throw new BadRequestException(nearMiss ?? 'Bu saat için onaylı bir rezervasyonunuz yok');
+      throw new BadRequestException(apiError(nearMiss ?? 'apiErrors.checkin.noConfirmedBookingThisTime'));
     }
 
     const chosen = candidates[0];
@@ -141,7 +142,7 @@ export class CheckInService {
     memberId: string,
     branchId: string,
     now: Date,
-  ): Promise<string | null> {
+  ): Promise<ApiErrorKey | null> {
     // Bounded to a few hours out: a booking days away should not make a
     // member think "too early, come back later" when they are really just
     // stopping by with nothing to check into right now.
@@ -156,7 +157,7 @@ export class CheckInService {
       orderBy: { schedule: { startTime: 'asc' } },
       include: { schedule: true },
     });
-    if (upcoming) return 'Check-in penceresi henüz açılmadı, seans saatine yaklaşınca tekrar deneyin';
+    if (upcoming) return 'apiErrors.checkin.windowNotOpenYet';
 
     const past = await this.prisma.booking.findFirst({
       where: {
@@ -167,14 +168,14 @@ export class CheckInService {
       },
       orderBy: { schedule: { startTime: 'desc' } },
     });
-    if (past) return 'Check-in penceresi kapandı, resepsiyona danışın';
+    if (past) return 'apiErrors.checkin.windowClosed';
 
     return null;
   }
 
   private async findOwnedPoint(tenant: TenantContext, pointId: string) {
     const point = await this.prisma.checkInPoint.findFirst({ where: { id: pointId, studioId: tenant.studioId } });
-    if (!point) throw new NotFoundException('Check-in noktası bulunamadı');
+    if (!point) throw new NotFoundException(apiError('apiErrors.checkin.checkPointNotFound'));
     assertBranchAccess(tenant, point.branchId);
     return point;
   }
@@ -197,7 +198,7 @@ export class CheckInService {
       include: { memberProfile: true, studio: { select: { isActive: true } } },
     });
     if (!membership || membership.status !== 'ACTIVE' || !membership.studio.isActive || !membership.memberProfile) {
-      throw new ForbiddenException('Bu işletmede aktif üyeliğiniz yok');
+      throw new ForbiddenException(apiError('apiErrors.checkin.noActiveMembershipBusiness'));
     }
     const jwtSecret = this.config.getOrThrow<string>('JWT_SECRET');
     const { token, expiresAt } = signDynamicQrToken(jwtSecret, membership.id, studioId);
@@ -219,16 +220,16 @@ export class CheckInService {
     const jwtSecret = this.config.getOrThrow<string>('JWT_SECRET');
     const verified = verifyDynamicQrToken(jwtSecret, rawToken);
     if (!verified.ok) {
-      if (verified.error === 'EXPIRED') throw new BadRequestException('QR kodunun süresi doldu, üye yeniden oluştursun');
+      if (verified.error === 'EXPIRED') throw new BadRequestException(apiError('apiErrors.checkin.qrCodeExpiredAskMemberGenerate'));
       throw new BadRequestException(INVALID_QR);
     }
     if (verified.payload.studioId !== studioId) {
-      throw new ForbiddenException('Bu QR başka bir işletmeye ait');
+      throw new ForbiddenException(apiError('apiErrors.checkin.qrBelongsAnotherBusiness'));
     }
 
     const claimed = await this.nonces.claim(verified.payload.nonce);
     if (!claimed) {
-      throw new ConflictException('Bu QR kodu zaten kullanıldı, üye ekranı yenilesin');
+      throw new ConflictException(apiError('apiErrors.checkin.qrCodeAlreadyUsedAskMember'));
     }
 
     const membership = await this.prisma.membership.findFirst({
@@ -236,7 +237,7 @@ export class CheckInService {
       include: { memberProfile: true, studio: { select: { isActive: true } } },
     });
     if (!membership || membership.status !== 'ACTIVE' || !membership.studio.isActive || !membership.memberProfile) {
-      throw new NotFoundException('Üye bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.common.memberNotFound'));
     }
 
     if (scheduleId) {
@@ -244,9 +245,9 @@ export class CheckInService {
         where: { studioId, scheduleId, memberId: membership.memberProfile.id, status: { in: ['CONFIRMED', 'ATTENDED'] } },
         include: { schedule: { select: { branchId: true } } },
       });
-      if (!booking) throw new NotFoundException('Bu seans için rezervasyon bulunamadı');
+      if (!booking) throw new NotFoundException(apiError('apiErrors.checkin.noBookingFoundSession'));
       if (allowedBranchIds && booking.schedule.branchId && !allowedBranchIds.has(booking.schedule.branchId)) {
-        throw new ForbiddenException('Bu şubede işlem yetkiniz yok');
+        throw new ForbiddenException(apiError('apiErrors.common.notPermissionBranch'));
       }
       const checked = await this.schedules.checkInForMember(studioId, booking.id, membership.memberProfile.id);
       return { resolved: true as const, bookingId: checked.id, status: checked.status, checkInAt: checked.checkInAt };
@@ -264,7 +265,7 @@ export class CheckInService {
     );
 
     if (candidates.length === 0) {
-      throw new BadRequestException('Bu üye için şu anda check-in edilebilecek bir rezervasyon yok');
+      throw new BadRequestException(apiError('apiErrors.checkin.memberNoBookingCanChecked'));
     }
     if (candidates.length > 1) {
       // Ambiguous: let the caller (reception/kiosk UI) show today's bookings to pick from.

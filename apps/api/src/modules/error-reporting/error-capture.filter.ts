@@ -15,6 +15,20 @@ export function routeOf(req: Request): string {
 }
 
 /**
+ * An error body with a stable `code` (apiError, codedError, ...) but no
+ * `statusCode` gets one, so every coded error has the same shape as a plain
+ * Nest exception: `{ statusCode, code, message, params? }`.
+ */
+export function withStatusCode(exception: unknown): unknown {
+  if (!(exception instanceof HttpException)) return exception;
+  const body = exception.getResponse();
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return exception;
+  const record = body as Record<string, unknown>;
+  if (typeof record.code !== 'string' || 'statusCode' in record) return exception;
+  return new HttpException({ statusCode: exception.getStatus(), ...record }, exception.getStatus());
+}
+
+/**
  * Global filter that records unexpected server errors and then defers to
  * Nest's default handling, so every response keeps its existing shape.
  * Only 5xx are recorded: HttpExceptions with a 4xx status are expected
@@ -53,6 +67,6 @@ export class ErrorCaptureFilter extends BaseExceptionFilter {
         // Capturing must never change how the error is answered.
       }
     }
-    super.catch(exception, host);
+    super.catch(withStatusCode(exception), host);
   }
 }

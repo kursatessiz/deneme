@@ -9,6 +9,7 @@ import { ZodBody, ZodQuery } from '../../common/zod-body.pipe';
 import { XLSX_CONTENT_TYPE } from '../accounting/accounting-xlsx';
 import { PayoutsService } from './payouts.service';
 import { PayoutSyncService } from './payout-sync.service';
+import { codedError } from '../../common/api-error';
 
 /**
  * Bank payouts and reconciliation (G5d-2, docs/BANKA_ODEMELERI.md). Reading,
@@ -40,7 +41,7 @@ export class PayoutsController {
   @Patch('connections/:provider')
   @RequirePermission('payouts.manage')
   setAccount(@Tenant() tenant: TenantContext, @Param('provider') provider: string, @ZodBody(UpdatePayoutConnectionSchema) body: UpdatePayoutConnectionInput) {
-    if (!(PAYOUT_PROVIDERS as readonly string[]).includes(provider)) throw new BadRequestException({ statusCode: 400, code: PAYOUT_ERROR_CODES.unknownProvider, message: 'Bilinmeyen sağlayıcı' });
+    if (!(PAYOUT_PROVIDERS as readonly string[]).includes(provider)) throw new BadRequestException(codedError(PAYOUT_ERROR_CODES.unknownProvider, { statusCode: 400 }));
     return this.sync.setAccount(tenant.studioId, provider as PayoutProvider, body.providerAccountId);
   }
 

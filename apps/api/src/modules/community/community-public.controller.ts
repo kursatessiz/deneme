@@ -2,6 +2,7 @@ import { CanActivate, Controller, ExecutionContext, Get, HttpException, HttpStat
 import type { Request } from 'express';
 import { RedisService } from '../redis/redis.service';
 import { CommunityPostsService } from './community-posts.service';
+import { apiError } from '../../common/api-error';
 
 const WINDOW_SECONDS = 60;
 const MAX_READS = 60;
@@ -27,7 +28,7 @@ export class CommunityPublicRateLimitGuard implements CanActivate {
         if (client.status === 'wait') await client.connect();
         const count = await client.incr(key);
         if (count === 1) await client.expire(key, WINDOW_SECONDS);
-        if (count > MAX_READS) throw new HttpException('Too many requests', HttpStatus.TOO_MANY_REQUESTS);
+        if (count > MAX_READS) throw new HttpException(apiError('apiErrors.common.tooManyRequests'), HttpStatus.TOO_MANY_REQUESTS);
         return true;
       } catch (err) {
         if (err instanceof HttpException) throw err;
@@ -42,7 +43,7 @@ export class CommunityPublicRateLimitGuard implements CanActivate {
       return true;
     }
     entry.count += 1;
-    if (entry.count > MAX_READS) throw new HttpException('Too many requests', HttpStatus.TOO_MANY_REQUESTS);
+    if (entry.count > MAX_READS) throw new HttpException(apiError('apiErrors.common.tooManyRequests'), HttpStatus.TOO_MANY_REQUESTS);
     return true;
   }
 }

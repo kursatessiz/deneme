@@ -28,6 +28,7 @@ import {
   UpdateSessionMeetingSchema,
   UpdateSessionMeetingInput,
 } from '@platform/shared';
+import { apiError } from '../../common/api-error';
 
 @Controller('schedules')
 @StudioScoped()
@@ -61,10 +62,10 @@ export class SchedulesController {
     const end = endDate ? new Date(endDate) : new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
     // Member browsing stays bounded: at most one month per request.
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
-      throw new BadRequestException('Geçerli bir tarih aralığı giriniz');
+      throw new BadRequestException(apiError('apiErrors.schedules.enterValidDateRange'));
     }
     if (end.getTime() - start.getTime() > 31 * 24 * 60 * 60 * 1000) {
-      throw new BadRequestException('Tarih aralığı en fazla 31 gün olabilir');
+      throw new BadRequestException(apiError('apiErrors.schedules.dateRangeCanMost31Days'));
     }
     return this.schedulesService.getSchedulesSelf(tenant, start, end);
   }

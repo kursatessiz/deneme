@@ -4,6 +4,7 @@ import { BookingStatus, MembershipStatus, Prisma, type PrismaClient } from '@pla
 import { normalizePhone, parsePartnerConnectionConfig, type PartnerWebhookPayload } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeReservedSpots, isAllocationClosed } from './partner-quota';
+import { apiError } from '../../common/api-error';
 
 type Tx = Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
 
@@ -13,9 +14,9 @@ export interface PartnerBookingResult {
   idempotent: boolean;
 }
 
-const CAPACITY_FULL = 'Seans dolu';
-const QUOTA_FULL = 'Bu partner için ayrılan kontenjan dolu';
-const QUOTA_RELEASED = 'Bu seans için partner kontenjanı serbest bırakılmıştır';
+const CAPACITY_FULL = apiError('apiErrors.partners.sessionFull');
+const QUOTA_FULL = apiError('apiErrors.partners.quotaAllocatedPartnerFull');
+const QUOTA_RELEASED = apiError('apiErrors.partners.partnerQuotaSessionReleased');
 
 /**
  * Inbound side of W20: turns a verified partner webhook event into a real
@@ -45,22 +46,22 @@ export class PartnerReservationsService {
     }
 
     const connection = await this.prisma.partnerConnection.findFirst({ where: { id: connectionId, studioId } });
-    if (!connection) throw new NotFoundException('Partner bağlantısı bulunamadı');
+    if (!connection) throw new NotFoundException(apiError('apiErrors.partners.partnerConnectionNotFound'));
     const config = parsePartnerConnectionConfig(connection.config);
 
     const scheduleId = payload.scheduleId;
     if (!scheduleId) {
-      throw new BadRequestException('scheduleId belirtilmelidir (scheduleExternalId eşlemesi henüz desteklenmiyor)');
+      throw new BadRequestException(apiError('apiErrors.partners.scheduleIdRequired'));
     }
     const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: scheduleId, studioId } });
     if (!schedule || schedule.isCancelled) {
-      throw new BadRequestException('Seans bulunamadı veya iptal edilmiş');
+      throw new BadRequestException(apiError('apiErrors.partners.sessionNotFoundCancelled'));
     }
     if (config.serviceTypeIds.length > 0 && !config.serviceTypeIds.includes(schedule.serviceTypeId)) {
-      throw new BadRequestException('Bu hizmet türü partner ile paylaşılmamış');
+      throw new BadRequestException(apiError('apiErrors.partners.serviceTypeNotSharedPartner'));
     }
     if (config.branchIds.length > 0 && schedule.branchId && !config.branchIds.includes(schedule.branchId)) {
-      throw new BadRequestException('Bu şube partner ile paylaşılmamış');
+      throw new BadRequestException(apiError('apiErrors.partners.branchNotSharedPartner'));
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -105,7 +106,7 @@ export class PartnerReservationsService {
         });
       } catch (err) {
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-          throw new ConflictException('Bu rezervasyon zaten kaydedilmiş');
+          throw new ConflictException(apiError('apiErrors.partners.bookingAlreadyRecorded'));
         }
         throw err;
       }
@@ -133,14 +134,14 @@ export class PartnerReservationsService {
       where: { partnerConnectionId: connectionId, externalReservationId: payload.externalReservationId },
     });
     if (!booking) {
-      throw new NotFoundException('İptal edilecek partner rezervasyonu bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.partners.partnerBookingCancelNotFound'));
     }
     if (booking.status === BookingStatus.CANCELLED_EARLY || booking.status === BookingStatus.CANCELLED_LATE) {
       return { bookingId: booking.id, status: booking.status, idempotent: true };
     }
 
     const connection = await this.prisma.partnerConnection.findFirst({ where: { id: connectionId, studioId } });
-    if (!connection) throw new NotFoundException('Partner bağlantısı bulunamadı');
+    if (!connection) throw new NotFoundException(apiError('apiErrors.partners.partnerConnectionNotFound'));
     const config = parsePartnerConnectionConfig(connection.config);
 
     // Partner cancellations follow the partner's own policy flag, not the
@@ -195,7 +196,7 @@ export class PartnerReservationsService {
       where: { partnerConnectionId: connectionId, externalReservationId: payload.externalReservationId },
     });
     if (!booking) {
-      throw new NotFoundException('Check-in yapılacak partner rezervasyonu bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.partners.partnerBookingCheckNotFound'));
     }
     if (booking.status === BookingStatus.ATTENDED) {
       return { bookingId: booking.id, status: booking.status, idempotent: true };
@@ -279,7 +280,7 @@ export class PartnerReservationsService {
     }
 
     const roleTemplate = await tx.roleTemplate.findFirst({ where: { studioId, key: 'member' } });
-    if (!roleTemplate) throw new NotFoundException('Üye rol şablonu bulunamadı');
+    if (!roleTemplate) throw new NotFoundException(apiError('apiErrors.common.memberRoleTemplateNotFound'));
 
     let user = normalizedPhone ? await tx.user.findUnique({ where: { phone: normalizedPhone } }) : null;
     let isPlaceholder = false;
@@ -339,9 +340,9 @@ export class PartnerReservationsService {
 
   private async memberProfileIdForUser(tx: Tx, studioId: string, userId: string): Promise<string> {
     const membership = await tx.membership.findUnique({ where: { userId_studioId: { userId, studioId } } });
-    if (!membership) throw new NotFoundException('Partner misafiri üyeliği bulunamadı');
+    if (!membership) throw new NotFoundException(apiError('apiErrors.partners.partnerGuestMembershipNotFound'));
     const profile = await tx.memberProfile.findUnique({ where: { membershipId: membership.id } });
-    if (!profile) throw new NotFoundException('Partner misafiri üye kartı bulunamadı');
+    if (!profile) throw new NotFoundException(apiError('apiErrors.partners.partnerGuestMemberCardNotFound'));
     return profile.id;
   }
 

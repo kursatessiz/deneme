@@ -23,13 +23,14 @@ import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 import { PLATFORM_ACCESS_ERROR_CODES, isPlatformSystemRoleKey, isWriteRestricted } from '@platform/shared';
 import { PlatformAccessService } from '../platform-access/platform-access.service';
 import { billingRestrictedError } from '../auth/guards/billing-write.guard';
+import { apiError, codedError } from '../../common/api-error';
 
 export const INVITE_TTL_MS = 72 * 60 * 60 * 1000;
 /** Documents a person must accept to join a studio (latest published version). */
 export const REQUIRED_DOCUMENTS: DocumentType[] = [DocumentType.KVKK_NOTICE, DocumentType.MEMBERSHIP_CONTRACT];
 /** A platform account (M1) is staff of the platform, not a customer: only the privacy notice applies. */
 export const PLATFORM_REQUIRED_DOCUMENTS: DocumentType[] = [DocumentType.KVKK_NOTICE];
-const INVALID_INVITE = 'Davet bulunamadı, süresi dolmuş veya daha önce kullanılmış';
+const INVALID_INVITE = apiError('apiErrors.invites.invitationNotFoundExpiredAlreadyUsed');
 
 export function hashInviteToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -54,11 +55,11 @@ export class InvitesService {
 
   async create(tenant: TenantContext, creator: AuthUser, dto: CreateInviteInput) {
     if (dto.roleKey === 'owner') {
-      throw new ForbiddenException('İşletme sahibi rolü davet ile verilemez');
+      throw new ForbiddenException(apiError('apiErrors.invites.businessOwnerRoleCannotGrantedInvitation'));
     }
     const required = dto.roleKey === 'member' ? 'members.manage' : 'staff.manage';
     if (!tenant.permissions.has(required)) {
-      throw new ForbiddenException('Bu rol için davet oluşturma yetkiniz yok');
+      throw new ForbiddenException(apiError('apiErrors.invites.notPermissionCreateInvitationRole'));
     }
     // Restricted mode (G5c-1): staff invites stay available (staff.manage is
     // on the allow-list), new members do not.
@@ -69,24 +70,20 @@ export class InvitesService {
     // (docs/PAZARLAMA_MODULU.md 2.6), never through a tenant invite.
     const studio = await this.prisma.studio.findUnique({ where: { id: tenant.studioId }, select: { isPlatform: true } });
     if (studio?.isPlatform || isPlatformSystemRoleKey(dto.roleKey)) {
-      throw new ForbiddenException({
-        statusCode: 403,
-        code: PLATFORM_ACCESS_ERROR_CODES.platformTenantInvite,
-        message: 'Platform kiracısına davet yalnızca süper admin panelinden gönderilir',
-      });
+      throw new ForbiddenException(codedError(PLATFORM_ACCESS_ERROR_CODES.platformTenantInvite, { statusCode: 403 }));
     }
     await this.planLimits.assertWithinLimit(tenant.studioId, dto.roleKey === 'member' ? 'maxActiveMembers' : 'maxStaff');
 
     const role = await this.prisma.roleTemplate.findUnique({
       where: { studioId_key: { studioId: tenant.studioId, key: dto.roleKey } },
     });
-    if (!role || role.isOwner) throw new BadRequestException('Rol bulunamadı');
+    if (!role || role.isOwner) throw new BadRequestException(apiError('apiErrors.common.roleNotFound'));
 
     const existing = await this.prisma.membership.findFirst({
       where: { studioId: tenant.studioId, status: 'ACTIVE', user: { phone: dto.phone } },
       select: { id: true },
     });
-    if (existing) throw new ConflictException('Bu telefon numarası işletmede zaten aktif');
+    if (existing) throw new ConflictException(apiError('apiErrors.invites.phoneNumberAlreadyActiveBusiness'));
 
     return this.buildInvite(tenant.studioId, creator.id, role.id, dto.phone, dto.fullName, dto.channel);
   }
@@ -214,16 +211,16 @@ export class InvitesService {
     const documents = await this.requiredDocuments(invite.studioId, isPlatformInvite);
     const accepted = new Set(dto.acceptedDocumentVersionIds);
     if (documents.some((d) => !accepted.has(d.id))) {
-      throw new BadRequestException('Devam etmek için sözleşme ve KVKK metinlerini onaylamanız gerekir');
+      throw new BadRequestException(apiError('apiErrors.invites.mustAcceptContractPrivacyNoticeContinue'));
     }
 
     if (!(await this.otp.verify(invite.phone, OtpPurpose.INVITE, dto.code))) {
-      throw new UnauthorizedException('Kod geçersiz veya süresi dolmuş');
+      throw new UnauthorizedException(apiError('apiErrors.invites.codeInvalidExpired'));
     }
 
     const existingUser = await this.prisma.user.findUnique({ where: { phone: invite.phone } });
     if (!existingUser?.pinHash && !dto.pin) {
-      throw new BadRequestException('Uygulamaya giriş için bir PIN belirleyin');
+      throw new BadRequestException(apiError('apiErrors.invites.setPinSignApp'));
     }
     const pinHash = dto.pin ? await bcrypt.hash(dto.pin, 10) : undefined;
     const [firstName, ...rest] = invite.fullName.trim().split(/\s+/);
@@ -256,7 +253,7 @@ export class InvitesService {
       const current = await tx.membership.findUnique({
         where: { userId_studioId: { userId: user.id, studioId: invite.studioId } },
       });
-      if (current?.status === 'ACTIVE') throw new ConflictException('Bu işletmede zaten aktif üyeliğiniz var');
+      if (current?.status === 'ACTIVE') throw new ConflictException(apiError('apiErrors.invites.alreadyActiveMembershipBusiness'));
 
       // Completing real onboarding always promotes a partner-guest
       // membership to a real member (the flag is cleared, the row is
@@ -357,7 +354,7 @@ export class InvitesService {
   ): Promise<string> {
     const platformRoleTemplateId = invite.platformRoleTemplateId as string;
     const pm = await tx.platformMembership.findUnique({ where: { userId } });
-    if (pm?.status === 'ACTIVE') throw new ConflictException('Platform üyeliğiniz zaten aktif');
+    if (pm?.status === 'ACTIVE') throw new ConflictException(apiError('apiErrors.invites.platformMembershipAlreadyActive'));
     if (pm) {
       await tx.platformMembership.update({ where: { id: pm.id }, data: { roleTemplateId: platformRoleTemplateId } });
     } else {

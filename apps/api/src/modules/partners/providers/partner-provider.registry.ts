@@ -4,6 +4,7 @@ import { PartnerProvider } from '@platform/database';
 import { MockPartnerProvider } from './mock-partner.provider';
 import { PlaceholderPartnerProvider } from './placeholder-partner.provider';
 import type { PartnerProviderAdapter } from './partner-provider.interface';
+import { apiError } from '../../../common/api-error';
 
 const MOCK_DISABLED_MESSAGE =
   'MOCK partner sağlayıcısı üretimde kullanılamaz. Gerçek bir toplayıcı bağlantısı yapılandırın.';
@@ -16,7 +17,7 @@ const MOCK_DISABLED_MESSAGE =
  */
 const disabledMockProvider: PartnerProviderAdapter = {
   name: PartnerProvider.MOCK,
-  pushAvailability: () => Promise.reject(new ServiceUnavailableException(MOCK_DISABLED_MESSAGE)),
+  pushAvailability: () => Promise.reject(new ServiceUnavailableException(apiError('apiErrors.partners.mockProviderDisabledInProduction'))),
   verifyWebhookSignature: () => ({ valid: false, reason: MOCK_DISABLED_MESSAGE }),
 };
 

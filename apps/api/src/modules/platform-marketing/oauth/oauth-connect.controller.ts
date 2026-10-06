@@ -19,12 +19,13 @@ import { ZodBody, ZodValidationPipe } from '../../../common/zod-body.pipe';
 import { OAuthClientSettingsService } from './oauth-client-settings.service';
 import { OAuthConnectService } from './oauth-connect.service';
 import { OAuthCallbackRateLimitGuard, OAuthStartRateLimitGuard } from './oauth-rate-limit.guard';
+import { apiError, codedError } from '../../../common/api-error';
 
 const ProviderParam = new ZodValidationPipe(OAuthProviderSlugSchema);
 
 function providerOf(slug: string): OAuthProvider {
   const provider = oauthProviderFromSlug(slug);
-  if (!provider) throw new BadRequestException('Bilinmeyen sağlayıcı');
+  if (!provider) throw new BadRequestException(apiError('apiErrors.common.unknownProvider'));
   return provider;
 }
 
@@ -68,7 +69,7 @@ export class OAuthCallbackController {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Referrer-Policy', 'no-referrer');
     const parsed = OAuthCallbackQuerySchema.safeParse(query);
-    if (!parsed.success) throw new BadRequestException({ statusCode: 400, code: 'OAUTH_STATE_INVALID', message: 'Geçersiz veya süresi dolmuş yetkilendirme isteği' });
+    if (!parsed.success) throw new BadRequestException(codedError('OAUTH_STATE_INVALID', { statusCode: 400 }));
     const target = await this.oauth.callback(providerOf(slug), parsed.data);
     res.redirect(302, target);
   }

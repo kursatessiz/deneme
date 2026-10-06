@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { UpsertBusinessTypeTemplateInput } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { apiError } from '../../common/api-error';
 
 const DEFAULT_SERVICE_DURATION_MIN = 50;
 const DEFAULT_SERVICE_CAPACITY = 1;
@@ -62,8 +63,8 @@ export class AdminBusinessTypesService {
       this.prisma.studio.findUnique({ where: { id: studioId }, select: { id: true } }),
       this.prisma.businessTypeTemplate.findUnique({ where: { key: templateKey } }),
     ]);
-    if (!studio) throw new NotFoundException('İşletme bulunamadı');
-    if (!template) throw new NotFoundException('İşletme türü şablonu bulunamadı');
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.businessNotFound'));
+    if (!template) throw new NotFoundException(apiError('apiErrors.admin.businessTypeTemplateNotFound'));
 
     const defaults = (template.defaults ?? {}) as {
       resourceTypeNames?: string[];

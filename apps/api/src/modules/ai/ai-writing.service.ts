@@ -11,6 +11,7 @@ import {
   parseReplyOutput,
   replyUserMessage,
 } from './prompts';
+import { apiError } from '../../common/api-error';
 
 /** Messages of a conversation sent as context for a reply suggestion. */
 export const REPLY_CONTEXT_MESSAGES = 10;
@@ -53,7 +54,7 @@ export class AiWritingService {
       where: { id: conversationId, studioId: tenant.studioId },
       select: { id: true, contact: { select: { locale: true } }, studio: { select: { name: true, defaultLocale: true } } },
     });
-    if (!conversation) throw new NotFoundException('Konuşma bulunamadı');
+    if (!conversation) throw new NotFoundException(apiError('apiErrors.common.conversationNotFound'));
     const recent = await this.prisma.conversationMessage.findMany({
       where: { conversationId: conversation.id, studioId: tenant.studioId },
       orderBy: { createdAt: 'desc' },

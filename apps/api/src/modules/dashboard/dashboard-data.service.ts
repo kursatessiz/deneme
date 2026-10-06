@@ -31,6 +31,7 @@ import { ChurnService } from '../churn/churn.service';
 import { ReportsService } from '../reports/reports.service';
 import { RetailCatalogService } from '../retail/retail-catalog.service';
 import { TtlPromiseCache } from './dashboard-cache';
+import { apiError } from '../../common/api-error';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Computed cards are reused for this long (per studio, branch, caller scope, card and settings). */
@@ -73,7 +74,7 @@ export class DashboardDataService {
     if (request.branchId) {
       assertBranchAccess(tenant, request.branchId);
       const branch = await this.prisma.branch.findFirst({ where: { id: request.branchId, studioId: tenant.studioId }, select: { id: true } });
-      if (!branch) throw new NotFoundException('Şube bulunamadı');
+      if (!branch) throw new NotFoundException(apiError('apiErrors.common.branchNotFound'));
     }
     const studio = await this.prisma.studio.findUniqueOrThrow({ where: { id: tenant.studioId }, select: { timezone: true, currency: true } });
     const ctx: StudioContext = { timeZone: studio.timezone, currency: studio.currency, now: new Date(), branchId: request.branchId };

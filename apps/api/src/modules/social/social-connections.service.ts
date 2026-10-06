@@ -17,9 +17,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CredentialCipher } from '../../common/crypto/credential-cipher';
 import { SocialPublishError } from './social-publisher';
 import { SocialPublisherRegistry } from './social-publisher.registry';
+import { apiError, codedError } from '../../common/api-error';
 
-export function socialError(code: string, message: string): ConflictException {
-  return new ConflictException({ statusCode: 409, code, message });
+export function socialError(code: string): ConflictException {
+  return new ConflictException(codedError(code, { statusCode: 409 }));
 }
 
 /**
@@ -45,7 +46,7 @@ export class SocialConnectionsService {
 
   async get(studioId: string, id: string): Promise<SocialConnection> {
     const row = await this.prisma.socialConnection.findFirst({ where: { id, studioId } });
-    if (!row) throw new NotFoundException('Sosyal hesap bulunamadı');
+    if (!row) throw new NotFoundException(apiError('apiErrors.social.socialAccountNotFound'));
     return row;
   }
 
@@ -65,7 +66,7 @@ export class SocialConnectionsService {
       return this.toDto(row);
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw socialError('SOCIAL_CONNECTION_DUPLICATE', 'Bu hesap zaten bağlı');
+        throw socialError('SOCIAL_CONNECTION_DUPLICATE');
       }
       throw err;
     }
@@ -102,7 +103,7 @@ export class SocialConnectionsService {
   async remove(studioId: string, id: string): Promise<{ id: string; provider: SocialProvider; externalId: string }> {
     const row = await this.get(studioId, id);
     const active = await this.prisma.socialPost.count({ where: { studioId, connectionId: id, status: { in: [...SOCIAL_ACTIVE_STATUSES] } } });
-    if (active > 0) throw socialError('SOCIAL_CONNECTION_IN_USE', 'Bu hesabın bekleyen veya planlı gönderileri var');
+    if (active > 0) throw socialError('SOCIAL_CONNECTION_IN_USE');
     await this.prisma.socialConnection.delete({ where: { id } });
     return { id, provider: row.provider, externalId: row.externalId };
   }

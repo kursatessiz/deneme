@@ -1,6 +1,7 @@
 import { lookup } from 'dns/promises';
 import { BadRequestException } from '@nestjs/common';
 import { isPrivateOrReservedIp } from './ssrf-guard';
+import { apiError } from '../../common/api-error';
 
 export interface ResolvedAddress {
   address: string;
@@ -22,20 +23,20 @@ export async function resolvePublicHttpsAddresses(rawUrl: string): Promise<Resol
   try {
     url = new URL(rawUrl);
   } catch {
-    throw new BadRequestException('Geçersiz webhook adresi');
+    throw new BadRequestException(apiError('apiErrors.webhooks.invalidWebhookAddress'));
   }
   if (url.protocol !== 'https:') {
-    throw new BadRequestException('Webhook adresi https:// ile başlamalıdır');
+    throw new BadRequestException(apiError('apiErrors.webhooks.webhookAddressMustStartHttps'));
   }
 
   let addresses: { address: string; family: number }[];
   try {
     addresses = await lookup(url.hostname, { all: true });
   } catch {
-    throw new BadRequestException('Webhook adresinin sunucusu çözümlenemedi');
+    throw new BadRequestException(apiError('apiErrors.webhooks.webhookAddressHostCouldNotResolved'));
   }
   if (addresses.length === 0 || addresses.some((a) => isPrivateOrReservedIp(a.address))) {
-    throw new BadRequestException('Webhook adresi özel veya ayrılmış bir IP adresine işaret edemez');
+    throw new BadRequestException(apiError('apiErrors.webhooks.webhookAddressCannotPointPrivateReserved'));
   }
   return addresses.map((a) => ({ address: a.address, family: a.family === 6 ? 6 : 4 }));
 }

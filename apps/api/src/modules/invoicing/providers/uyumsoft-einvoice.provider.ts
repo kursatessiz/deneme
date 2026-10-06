@@ -8,6 +8,7 @@ import type {
   GetPdfResult,
   IssueInvoiceParams,
 } from './einvoice-provider.interface';
+import { apiError } from '../../../common/api-error';
 
 /**
  * Uyumsoft e-Arsiv/e-Fatura adapter skeleton. Real HTTP calls are not
@@ -32,28 +33,28 @@ export class UyumsoftEInvoiceProvider implements EInvoiceProviderAdapter {
     const password = this.config.get<string>('UYUMSOFT_PASSWORD');
     if (!username || !password) {
       throw new InternalServerErrorException(
-        'Uyumsoft e-fatura sağlayıcısı yapılandırılmamış: UYUMSOFT_USERNAME ve UYUMSOFT_PASSWORD gereklidir',
+        apiError('apiErrors.invoicing.uyumsoftEInvoiceProviderNotConfigured'),
       );
     }
   }
 
   async issue(_params: IssueInvoiceParams): Promise<EInvoiceIssueResult> {
     this.assertConfigured();
-    throw new InternalServerErrorException('Uyumsoft entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.invoicing.uyumsoftIntegrationNotImplementedYet'));
   }
 
   async cancel(_params: CancelInvoiceParams): Promise<EInvoiceCancelResult> {
     this.assertConfigured();
-    throw new InternalServerErrorException('Uyumsoft entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.invoicing.uyumsoftIntegrationNotImplementedYet'));
   }
 
   async getStatus(): Promise<{ status: string }> {
     this.assertConfigured();
-    throw new InternalServerErrorException('Uyumsoft entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.invoicing.uyumsoftIntegrationNotImplementedYet'));
   }
 
   async getPdf(): Promise<GetPdfResult> {
     this.assertConfigured();
-    throw new InternalServerErrorException('Uyumsoft entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.invoicing.uyumsoftIntegrationNotImplementedYet'));
   }
 }

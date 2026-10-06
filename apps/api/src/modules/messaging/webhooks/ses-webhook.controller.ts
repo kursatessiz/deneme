@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { DeliveryStatusService } from './delivery-status.service';
 import { SNS_CERT_FETCHER, SnsVerifier, isTrustedSnsUrl, parseSnsEnvelope, snsConfirmSubscriptionUrl } from './sns-verifier';
 import type { SnsCertFetcher } from './sns-verifier';
+import { apiError } from '../../../common/api-error';
 
 interface SesEvent {
   eventType?: string;
@@ -36,7 +37,7 @@ export class SesWebhookController {
   @HttpCode(200)
   async receive(@Body() body: unknown): Promise<{ ok: true; type: string }> {
     const envelope = parseSnsEnvelope(body);
-    if (!envelope) throw new BadRequestException('Geçersiz SNS iletisi');
+    if (!envelope) throw new BadRequestException(apiError('apiErrors.messaging.invalidSnsMessage'));
     const allowed = (this.config.get<string>('SES_SNS_TOPIC_ARNS') ?? '')
       .split(',')
       .map((s) => s.trim())

@@ -17,6 +17,7 @@ import { HealthPlatform as SharedHealthPlatform } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { assertBranchAccess } from '../branches/branch-access';
+import { apiError } from '../../common/api-error';
 
 /**
  * Apple Health / Android Health Connect integration (W21). Health data is
@@ -31,7 +32,7 @@ export class MemberHealthService {
   /** The caller's own MemberProfile id, or 403 for staff-only memberships. */
   private requireMemberId(tenant: TenantContext): string {
     if (!tenant.memberProfileId) {
-      throw new ForbiddenException('Bu özellik yalnızca üyeler içindir');
+      throw new ForbiddenException(apiError('apiErrors.common.featureOnlyMembers'));
     }
     return tenant.memberProfileId;
   }
@@ -74,10 +75,10 @@ export class MemberHealthService {
     ip: string | null,
   ): Promise<HealthConsentStatusDTO> {
     this.requireMemberId(tenant);
-    if (!tenant.membershipId) throw new ForbiddenException('Bu özellik yalnızca üyeler içindir');
+    if (!tenant.membershipId) throw new ForbiddenException(apiError('apiErrors.common.featureOnlyMembers'));
     const doc = await this.latestHealthDataDocument(tenant.studioId);
     if (!doc) {
-      throw new NotFoundException('Sağlık verisi onam metni yayınlanmamış');
+      throw new NotFoundException(apiError('apiErrors.memberHealth.healthDataConsentTextNotPublished'));
     }
     await this.prisma.consent.upsert({
       where: { membershipId_documentVersionId: { membershipId: tenant.membershipId, documentVersionId: doc.id } },
@@ -95,7 +96,7 @@ export class MemberHealthService {
   private async assertActiveConsent(tenant: TenantContext): Promise<void> {
     const status = await this.getConsentStatus(tenant);
     if (!status.hasActiveConsent) {
-      throw new ForbiddenException('Önce sağlık verisi paylaşımı için onay vermelisiniz');
+      throw new ForbiddenException(apiError('apiErrors.memberHealth.mustConsentHealthDataSharing'));
     }
   }
 
@@ -149,7 +150,7 @@ export class MemberHealthService {
 
     const settings = await this.prisma.memberHealthSettings.findUnique({ where: { memberId } });
     if (!settings?.readAggregates || !settings.shareWithStudio) {
-      throw new ForbiddenException('Sağlık verisi paylaşımı açık değil');
+      throw new ForbiddenException(apiError('apiErrors.memberHealth.healthDataSharingNotEnabled'));
     }
 
     await this.prisma.$transaction(
@@ -208,15 +209,15 @@ export class MemberHealthService {
 
     const settings = await this.prisma.memberHealthSettings.findUnique({ where: { memberId } });
     if (!settings?.writeWorkouts) {
-      throw new ForbiddenException('Sağlığa antrenman yazma özelliği açık değil');
+      throw new ForbiddenException(apiError('apiErrors.memberHealth.writingWorkoutsHealthNotEnabled'));
     }
 
     const booking = await this.prisma.booking.findFirst({
       where: { id: dto.bookingId, studioId: tenant.studioId, memberId },
     });
-    if (!booking) throw new NotFoundException('Rezervasyon bulunamadı');
+    if (!booking) throw new NotFoundException(apiError('apiErrors.common.bookingNotFound'));
     if (booking.status !== BookingStatus.ATTENDED) {
-      throw new ForbiddenException('Yalnızca katılım sağlanmış seanslar sağlığa yazılabilir');
+      throw new ForbiddenException(apiError('apiErrors.memberHealth.onlyAttendedSessionsCanWrittenHealth'));
     }
 
     // Idempotent: a prior record for this (member, booking, platform) is
@@ -311,7 +312,7 @@ export class MemberHealthService {
       where: { id: memberId, studioId: tenant.studioId },
       select: { id: true, homeBranchId: true },
     });
-    if (!member) throw new NotFoundException('Üye bulunamadı');
+    if (!member) throw new NotFoundException(apiError('apiErrors.common.memberNotFound'));
     assertBranchAccess(tenant, member.homeBranchId);
 
     const settings = await this.prisma.memberHealthSettings.findUnique({ where: { memberId } });

@@ -22,6 +22,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { LoyaltyEarnService } from '../loyalty/loyalty-earn.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { computeStreakWeeks, countDistinctServiceTypes, countSessionsInLocalMonth, getLocalMonthKey, isEarlyBirdSession } from './gamification-calculations';
+import { apiError } from '../../common/api-error';
 
 interface AttendedSession {
   startTime: Date;
@@ -84,7 +85,7 @@ export class GamificationService {
       return this.toDefinitionDTO(row);
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw new ConflictException('Bu anahtarla bir rozet zaten var');
+        throw new ConflictException(apiError('apiErrors.gamification.badgeKeyAlreadyExists'));
       }
       throw err;
     }
@@ -93,10 +94,10 @@ export class GamificationService {
   async updateDefinition(tenant: TenantContext, id: string, input: UpdateBadgeDefinitionInput): Promise<BadgeDefinitionDTO> {
     const existing = await this.prisma.badgeDefinition.findFirst({ where: { id, studioId: tenant.studioId } });
     if (!existing) {
-      throw new NotFoundException('Rozet tanımı bulunamadı (yalnızca işletmenizin kendi rozetleri düzenlenebilir)');
+      throw new NotFoundException(apiError('apiErrors.gamification.badgeNotFoundOnlyOwnEdited'));
     }
     if (input.threshold && input.threshold.kind !== existing.kind) {
-      throw new BadRequestException('threshold.kind, rozetin türüyle eşleşmelidir');
+      throw new BadRequestException(apiError('apiErrors.gamification.thresholdKindMustMatchBadgeKind'));
     }
     const row = await this.prisma.badgeDefinition.update({
       where: { id },
@@ -113,11 +114,11 @@ export class GamificationService {
   async deleteDefinition(tenant: TenantContext, id: string): Promise<void> {
     const existing = await this.prisma.badgeDefinition.findFirst({ where: { id, studioId: tenant.studioId } });
     if (!existing) {
-      throw new NotFoundException('Rozet tanımı bulunamadı (yalnızca işletmenizin kendi rozetleri silinebilir)');
+      throw new NotFoundException(apiError('apiErrors.gamification.badgeNotFoundOnlyOwnDeleted'));
     }
     const earned = await this.prisma.memberBadge.count({ where: { badgeDefinitionId: id } });
     if (earned > 0) {
-      throw new ConflictException('Bu rozet üyeler tarafından kazanılmış; silmek yerine pasif hale getirin');
+      throw new ConflictException(apiError('apiErrors.gamification.badgeEarnedMembersDeactivateInsteadDeleting'));
     }
     await this.prisma.badgeDefinition.delete({ where: { id } });
   }
@@ -505,7 +506,7 @@ export class GamificationService {
 
   private requireMemberId(tenant: TenantContext): string {
     if (!tenant.memberProfileId) {
-      throw new ForbiddenException('Bu özellik yalnızca üyeler içindir');
+      throw new ForbiddenException(apiError('apiErrors.common.featureOnlyMembers'));
     }
     return tenant.memberProfileId;
   }

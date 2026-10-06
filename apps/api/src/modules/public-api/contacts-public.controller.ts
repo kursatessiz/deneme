@@ -16,11 +16,12 @@ import { ZodBody } from '../../common/zod-body.pipe';
 import { PublicContactsService } from './contacts-public.service';
 import { PublicIdempotencyService } from './idempotency.service';
 import { hashPublicRequest } from './idempotency.util';
+import { apiError } from '../../common/api-error';
 
 function idempotencyKeyOf(header: string | undefined): string | undefined {
   if (header === undefined) return undefined;
   const parsed = PublicIdempotencyKeySchema.safeParse(header);
-  if (!parsed.success) throw new BadRequestException(parsed.error.issues[0]?.message ?? 'Geçersiz Idempotency-Key');
+  if (!parsed.success) throw new BadRequestException(apiError('apiErrors.publicApi.invalidIdempotencyKey'));
   return parsed.data;
 }
 

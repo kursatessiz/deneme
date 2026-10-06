@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ErrorCaptureService } from './error-capture.service';
+import { apiError } from '../../common/api-error';
 
 /**
  * The optional "what were you doing" note a user attaches to an error event
@@ -20,11 +21,11 @@ export class ErrorFeedbackService {
   async attach(eventId: string, callerUserId: string | null, feedback: string): Promise<void> {
     const event = await this.prisma.errorEvent.findUnique({ where: { id: eventId }, select: { id: true, userIdHash: true } });
     // The same answer for a missing event and one the caller does not own: ids are not probeable.
-    if (!event) throw new NotFoundException('Hata kaydı bulunamadı');
+    if (!event) throw new NotFoundException(apiError('apiErrors.errorReporting.errorRecordNotFound'));
     if (event.userIdHash && (!callerUserId || this.capture.hashUserId(callerUserId) !== event.userIdHash)) {
-      throw new NotFoundException('Hata kaydı bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.errorReporting.errorRecordNotFound'));
     }
     const updated = await this.prisma.errorEvent.updateMany({ where: { id: eventId, feedback: null }, data: { feedback } });
-    if (updated.count === 0) throw new ConflictException('Bu hata için zaten bir not gönderildi');
+    if (updated.count === 0) throw new ConflictException(apiError('apiErrors.errorReporting.noteAlreadySentError'));
   }
 }

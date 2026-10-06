@@ -6,6 +6,7 @@ import {
   type PlatformPermissionKey,
 } from '@platform/shared';
 import type { PrismaClient } from '@platform/database';
+import { codedError } from '../../common/api-error';
 
 /**
  * Platform-level access resolution shared by PlatformPermissionGuard,
@@ -63,20 +64,9 @@ export function platformMfaGate(
 }
 
 export function mfaGateError(gate: Exclude<MfaGate, 'ok'>): ForbiddenException {
-  return new ForbiddenException({
-    statusCode: 403,
-    code: gate,
-    message:
-      gate === PLATFORM_ACCESS_ERROR_CODES.mfaRequired
-        ? 'Bu işlem için iki adımlı doğrulama kodunu girmeniz gerekir'
-        : 'Devam etmek için iki adımlı doğrulamayı etkinleştirin',
-  });
+  return new ForbiddenException(codedError(gate, { statusCode: 403 }));
 }
 
 export function platformAccessDenied(): ForbiddenException {
-  return new ForbiddenException({
-    statusCode: 403,
-    code: PLATFORM_ACCESS_ERROR_CODES.platformAccessDenied,
-    message: 'Bu işlem için platform yetkiniz yok',
-  });
+  return new ForbiddenException(codedError(PLATFORM_ACCESS_ERROR_CODES.platformAccessDenied, { statusCode: 403 }));
 }

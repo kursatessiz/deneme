@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Post } from '@nestjs/common';
 import { SuperAdminOnly } from '../auth/decorators/super-admin-only.decorator';
 import { JobsService } from './jobs.service';
+import { apiError } from '../../common/api-error';
 
 /**
  * Super-admin trigger for the scheduler heartbeat (automations, dunning,
@@ -18,11 +19,11 @@ export class SchedulerController {
     // A custom clock is for tests and local runs only: in production it
     // could fire future reminders and campaigns early.
     if (body?.now && process.env.NODE_ENV === 'production') {
-      throw new BadRequestException('Üretimde zaman değeri verilemez');
+      throw new BadRequestException(apiError('apiErrors.jobs.timeValueCannotSuppliedProduction'));
     }
     const now = body?.now ? new Date(body.now) : new Date();
     if (Number.isNaN(now.getTime())) {
-      throw new BadRequestException('Geçersiz zaman değeri');
+      throw new BadRequestException(apiError('apiErrors.jobs.invalidTimeValue'));
     }
     return this.jobs.runAll(now);
   }

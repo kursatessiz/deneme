@@ -15,9 +15,10 @@ import {
   resendAllowed,
   resendWindowStart,
 } from './consent-confirmation.tokens';
+import { apiError, codedError } from '../../../common/api-error';
 
-function confirmationError(status: HttpStatus, code: ConsentConfirmationErrorCode, message: string): HttpException {
-  return new HttpException({ statusCode: status, code, message }, status);
+function confirmationError(status: HttpStatus, code: ConsentConfirmationErrorCode): HttpException {
+  return new HttpException(codedError(code, { statusCode: status }), status);
 }
 
 /**
@@ -86,19 +87,19 @@ export class ConsentConfirmationService {
       where: { id: contactId, studioId, mergedIntoId: null },
       select: { id: true, email: true, locale: true, membership: { select: { user: { select: { email: true } } } } },
     });
-    if (!contact) throw new NotFoundException('Kişi bulunamadı');
+    if (!contact) throw new NotFoundException(apiError('apiErrors.common.contactNotFound'));
     const pending = await this.prisma.contactConsent.findFirst({
       where: { studioId, contactId, status: 'GRANTED', confirmationRequestedAt: { not: null }, confirmedAt: null },
       orderBy: { channel: 'asc' },
       select: { id: true },
     });
-    if (!pending) throw confirmationError(HttpStatus.CONFLICT, 'CONSENT_CONFIRMATION_NOT_PENDING', 'Bekleyen bir çift onay yok');
+    if (!pending) throw confirmationError(HttpStatus.CONFLICT, 'CONSENT_CONFIRMATION_NOT_PENDING');
     if (!(contact.email ?? contact.membership?.user.email)) {
-      throw confirmationError(HttpStatus.CONFLICT, 'CONSENT_CONFIRMATION_NO_EMAIL', 'Kişinin e-posta adresi yok');
+      throw confirmationError(HttpStatus.CONFLICT, 'CONSENT_CONFIRMATION_NO_EMAIL');
     }
     const sentInWindow = await this.sentInWindow(studioId, contactId, now);
     if (!resendAllowed(sentInWindow)) {
-      throw confirmationError(HttpStatus.TOO_MANY_REQUESTS, 'CONSENT_CONFIRMATION_RATE_LIMITED', 'Günlük onay e-postası sınırı doldu');
+      throw confirmationError(HttpStatus.TOO_MANY_REQUESTS, 'CONSENT_CONFIRMATION_RATE_LIMITED');
     }
     const sent = await this.issue(studioId, contactId, pending.id, contact.locale, now);
     await this.prisma.auditLog.create({

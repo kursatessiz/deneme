@@ -28,6 +28,7 @@ import {
   type TranslatedValue,
 } from '../prompts';
 import { AiQueueService } from './ai-queue.service';
+import { apiError, apiErrorWithCode } from '../../../common/api-error';
 
 /** Keys per model request: large enough to amortise the prompt, small enough to stay well under max_tokens. */
 export const TRANSLATION_BATCH_SIZE = 50;
@@ -126,13 +127,13 @@ export class TranslationEngineService {
 
   async start(actorUserId: string, locale: string, input: StartTranslationJobInput): Promise<TranslationJobDTO> {
     const language = await this.prisma.language.findUnique({ where: { code: locale } });
-    if (!language) throw new NotFoundException(`"${locale}" dili bulunamadı.`);
-    if (language.code === BASE_LOCALE) throw new BadRequestException('Temel dil (Türkçe) kaynak olduğu için çevrilmez.');
+    if (!language) throw new NotFoundException(apiError('apiErrors.common.languageNotFound', { locale: locale }));
+    if (language.code === BASE_LOCALE) throw new BadRequestException(apiError('apiErrors.ai.baseLanguageTurkishSourceNotTranslated'));
     await this.ai.assertConfigured();
 
     const active = await this.prisma.aiTranslationJob.findFirst({ where: { locale: language.code, status: { in: ['QUEUED', 'RUNNING'] } } });
     if (active) {
-      throw new ConflictException({ statusCode: 409, message: 'Bu dil için süren bir çeviri işi var.', code: 'TRANSLATION_JOB_ACTIVE', jobId: active.id });
+      throw new ConflictException(apiErrorWithCode('TRANSLATION_JOB_ACTIVE', 'apiErrors.ai.translationJobActive', undefined, { statusCode: 409, jobId: active.id }));
     }
 
     const units = await this.unitsFor(language.code, input.namespaces, input.overwrite);
@@ -170,7 +171,7 @@ export class TranslationEngineService {
 
   async cancel(actorUserId: string, jobId: string): Promise<TranslationJobDTO> {
     const job = await this.prisma.aiTranslationJob.findUnique({ where: { id: jobId } });
-    if (!job) throw new NotFoundException('Çeviri işi bulunamadı.');
+    if (!job) throw new NotFoundException(apiError('apiErrors.ai.translationJobNotFound'));
     if (job.status !== 'QUEUED' && job.status !== 'RUNNING') return this.toDTO(job);
     const now = new Date();
     // The batch in flight (if any) still finishes and is saved; nothing after it runs.
@@ -186,7 +187,7 @@ export class TranslationEngineService {
 
   async get(jobId: string): Promise<TranslationJobDTO> {
     const job = await this.prisma.aiTranslationJob.findUnique({ where: { id: jobId } });
-    if (!job) throw new NotFoundException('Çeviri işi bulunamadı.');
+    if (!job) throw new NotFoundException(apiError('apiErrors.ai.translationJobNotFound'));
     return this.toDTO(job);
   }
 
@@ -202,7 +203,7 @@ export class TranslationEngineService {
    */
   async runNow(actorUserId: string, jobId: string, budgetMs = 60_000): Promise<TranslationJobDTO> {
     const job = await this.prisma.aiTranslationJob.findUnique({ where: { id: jobId }, select: { id: true, locale: true } });
-    if (!job) throw new NotFoundException('Çeviri işi bulunamadı.');
+    if (!job) throw new NotFoundException(apiError('apiErrors.ai.translationJobNotFound'));
     await this.prisma.auditLog.create({
       data: { userId: actorUserId, action: 'ai.translation.run', entityType: 'AiTranslationJob', entityId: jobId, metadata: { locale: job.locale } },
     });

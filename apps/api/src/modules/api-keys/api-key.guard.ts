@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { parseApiKey, verifySecret } from './api-key.util';
 import { REQUIRE_SCOPE_KEY } from './require-scope.decorator';
 import type { ApiKeyAuthenticatedRequest } from './api-key-tenant-context';
+import { apiError } from '../../common/api-error';
 
 /**
  * Authenticates `/v1/public/*` requests by `Authorization: Bearer pk_live_...`.
@@ -24,11 +25,11 @@ export class ApiKeyGuard implements CanActivate {
     const header = request.headers['authorization'];
     const value = Array.isArray(header) ? header[0] : header;
     if (!value || !value.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Authorization: Bearer <api key> gereklidir');
+      throw new UnauthorizedException(apiError('apiErrors.apiKeys.authorizationBearerApiKeyRequired'));
     }
     const parsed = parseApiKey(value.slice('Bearer '.length));
     if (!parsed) {
-      throw new UnauthorizedException('Geçersiz API anahtarı biçimi');
+      throw new UnauthorizedException(apiError('apiErrors.apiKeys.invalidApiKeyFormat'));
     }
 
     // Prefix is indexed and unique; the secret is verified in-process with a
@@ -36,13 +37,13 @@ export class ApiKeyGuard implements CanActivate {
     // secret for a real prefix from a wrong prefix.
     const apiKey = await this.prisma.apiKey.findUnique({ where: { prefix: parsed.prefix } });
     if (!apiKey || !verifySecret(parsed.secret, parsed.prefix, apiKey.secretHash)) {
-      throw new UnauthorizedException('Geçersiz API anahtarı');
+      throw new UnauthorizedException(apiError('apiErrors.apiKeys.invalidApiKey'));
     }
     if (apiKey.revokedAt) {
-      throw new UnauthorizedException('Bu API anahtarı iptal edilmiştir');
+      throw new UnauthorizedException(apiError('apiErrors.apiKeys.apiKeyRevoked'));
     }
     if (apiKey.expiresAt && apiKey.expiresAt.getTime() <= Date.now()) {
-      throw new UnauthorizedException('Bu API anahtarının süresi dolmuştur');
+      throw new UnauthorizedException(apiError('apiErrors.apiKeys.apiKeyExpired'));
     }
 
     const requiredScopes = this.reflector.getAllAndOverride<string[]>(REQUIRE_SCOPE_KEY, [
@@ -53,7 +54,7 @@ export class ApiKeyGuard implements CanActivate {
     if (requiredScopes?.length) {
       const missing = requiredScopes.filter((s) => !scopes.has(s as ApiKeyScope));
       if (missing.length > 0) {
-        throw new ForbiddenException(`Bu işlem için yetki alanı eksik: ${missing.join(', ')}`);
+        throw new ForbiddenException(apiError('apiErrors.apiKeys.missingScopes', { scopes: missing.join(', ') }));
       }
     }
 

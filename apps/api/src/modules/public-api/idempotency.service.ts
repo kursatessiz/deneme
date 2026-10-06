@@ -1,9 +1,11 @@
-import { ConflictException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { Prisma } from '@platform/database';
 import { PUBLIC_IDEMPOTENCY_TTL_HOURS } from '@platform/shared';
 import type { PublicApiErrorCode } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { classifyExistingClaim } from './idempotency.util';
+import { apiErrorWithCode } from '../../common/api-error';
+import type { ApiErrorKey } from '@platform/shared';
 
 export interface StoredResponse {
   status: number;
@@ -15,8 +17,8 @@ export interface IdempotentResult extends StoredResponse {
   replayed: boolean;
 }
 
-function apiError(status: HttpStatus, code: PublicApiErrorCode, message: string): HttpException {
-  return new HttpException({ statusCode: status, code, message }, status);
+function publicApiError(status: HttpStatus, code: PublicApiErrorCode, key: ApiErrorKey): HttpException {
+  return new HttpException(apiErrorWithCode(code, key, undefined, { statusCode: status }), status);
 }
 
 /**
@@ -81,16 +83,16 @@ export class PublicIdempotencyService {
     // Deleted between the failed insert and now (a failed request released it): claim again once.
     if (!existing) return retried ? this.raceLost() : this.claim(studioId, apiKeyId, key, requestHash, now, true);
     const state = classifyExistingClaim(existing, requestHash, now);
-    if (state.kind === 'MISMATCH') throw apiError(HttpStatus.UNPROCESSABLE_ENTITY, 'IDEMPOTENCY_KEY_REUSED', 'Bu Idempotency-Key farklı bir istekle daha önce kullanıldı');
+    if (state.kind === 'MISMATCH') throw publicApiError(HttpStatus.UNPROCESSABLE_ENTITY, 'IDEMPOTENCY_KEY_REUSED', 'apiErrors.publicApi.idempotencyKeyReused');
     if (state.kind === 'REPLAY') return { kind: 'REPLAY', response: { status: existing.responseStatus ?? 200, body: existing.responseBody } };
     if (state.kind === 'STALE' && !retried) {
       await this.prisma.publicApiIdempotencyKey.deleteMany({ where: { id: existing.id, status: 'IN_PROGRESS' } });
       return this.claim(studioId, apiKeyId, key, requestHash, now, true);
     }
-    throw apiError(HttpStatus.CONFLICT, 'IDEMPOTENCY_IN_PROGRESS', 'Aynı Idempotency-Key ile bir istek hâlâ işleniyor');
+    throw publicApiError(HttpStatus.CONFLICT, 'IDEMPOTENCY_IN_PROGRESS', 'apiErrors.publicApi.idempotencyInProgress');
   }
 
   private raceLost(): never {
-    throw new ConflictException({ statusCode: HttpStatus.CONFLICT, code: 'IDEMPOTENCY_IN_PROGRESS', message: 'Aynı Idempotency-Key ile bir istek hâlâ işleniyor' });
+    throw publicApiError(HttpStatus.CONFLICT, 'IDEMPOTENCY_IN_PROGRESS', 'apiErrors.publicApi.idempotencyInProgress');
   }
 }

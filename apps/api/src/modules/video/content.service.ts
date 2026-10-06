@@ -12,8 +12,9 @@ import type {
   VideoContentDTO,
   VideoContentStatsDTO,
 } from '@platform/shared';
+import { apiError } from '../../common/api-error';
 
-const INSUFFICIENT_CREDIT = 'Pakette yeterli kredi kalmamıştır';
+const INSUFFICIENT_CREDIT = apiError('apiErrors.video.packageNotEnoughCreditLeft');
 
 @Injectable()
 export class ContentService {
@@ -56,7 +57,7 @@ export class ContentService {
     const studioId = tenant.studioId;
     const existing = await this.prisma.videoContent.findFirst({ where: { id: contentId, studioId } });
     if (!existing) {
-      throw new NotFoundException('Video içeriği bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.video.videoContentNotFound'));
     }
     await this.assertServiceTypeAndTrainer(studioId, dto.serviceTypeId, dto.trainerProfileId);
     await this.assertPackages(studioId, dto.packageDefinitionIds);
@@ -88,7 +89,7 @@ export class ContentService {
     const studioId = tenant.studioId;
     const existing = await this.prisma.videoContent.findFirst({ where: { id: contentId, studioId } });
     if (!existing) {
-      throw new NotFoundException('Video içeriği bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.video.videoContentNotFound'));
     }
     const content = await this.prisma.videoContent.update({
       where: { id: contentId },
@@ -119,7 +120,7 @@ export class ContentService {
 
   async listForMember(tenant: TenantContext, query: ListVideoContentQueryInput): Promise<MemberVideoContentDTO[]> {
     if (!tenant.memberProfileId) {
-      throw new ForbiddenException('Yalnızca üyeler görüntüleyebilir');
+      throw new ForbiddenException(apiError('apiErrors.video.onlyMembersCanView'));
     }
     const memberId = tenant.memberProfileId;
     const studioId = tenant.studioId;
@@ -144,13 +145,14 @@ export class ContentService {
     return contents.map((content) => {
       const dto = this.toDTO(content);
       const view = viewByContent.get(content.id);
-      const { locked, reason } = this.access.videoLock(content, activePackageDefIds);
+      const { locked, reason, reasonKey } = this.access.videoLock(content, activePackageDefIds);
       return {
         ...dto,
         // A locked card explains why but never reveals the playable source.
         sourceUrl: locked ? null : dto.sourceUrl,
         isLocked: locked,
         lockedReason: reason,
+        lockedReasonKey: reasonKey,
         lastPositionSeconds: view?.lastPositionSeconds ?? null,
         completedAt: view?.completedAt?.toISOString() ?? null,
         isCreditCharged: !!view?.creditChargedAt,
@@ -168,7 +170,7 @@ export class ContentService {
    */
   async start(tenant: TenantContext, contentId: string, memberPackageId?: string) {
     if (!tenant.memberProfileId) {
-      throw new ForbiddenException('Yalnızca üyeler izleyebilir');
+      throw new ForbiddenException(apiError('apiErrors.video.onlyMembersCanWatch'));
     }
     const studioId = tenant.studioId;
     const memberId = tenant.memberProfileId;
@@ -178,13 +180,13 @@ export class ContentService {
       include: { serviceType: true, trainerProfile: { include: { membership: { include: { user: true } } } }, packages: true },
     });
     if (!content) {
-      throw new NotFoundException('Video içeriği bulunamadı');
+      throw new NotFoundException(apiError('apiErrors.video.videoContentNotFound'));
     }
 
     const activePackageDefIds = await this.access.activePackageDefinitionIds(studioId, memberId);
-    const { locked, reason } = this.access.videoLock(content, activePackageDefIds);
+    const { locked, reasonKey } = this.access.videoLock(content, activePackageDefIds);
     if (locked) {
-      throw new ForbiddenException(reason ?? 'Bu içeriğe erişiminiz yok');
+      throw new ForbiddenException(apiError(reasonKey ?? 'apiErrors.video.noAccessToContent'));
     }
 
     // Two concurrent first-time watchers can both race this insert; this
@@ -220,14 +222,14 @@ export class ContentService {
       }
 
       if (!memberPackageId) {
-        throw new BadRequestException('Bu içerik için bir kredi paketi seçmelisiniz');
+        throw new BadRequestException(apiError('apiErrors.video.mustChooseCreditPackageContent'));
       }
       const memberPackage = await tx.memberPackage.findFirst({ where: { id: memberPackageId, studioId } });
       if (!memberPackage || memberPackage.memberId !== memberId) {
-        throw new BadRequestException('Seçilen paket bu üyeye ait değil');
+        throw new BadRequestException(apiError('apiErrors.common.selectedPackageNotBelongMember'));
       }
       if (memberPackage.entitlementKind !== EntitlementKind.CREDIT) {
-        throw new BadRequestException('Yalnızca kredi bazlı paketler bu içerik için kullanılabilir');
+        throw new BadRequestException(apiError('apiErrors.video.onlyCreditBasedPackagesCanUsed'));
       }
       const charged = await tx.memberPackage.updateMany({
         where: { id: memberPackage.id, studioId, status: 'ACTIVE', remainingUnits: { gte: content.creditCost } },
@@ -245,14 +247,14 @@ export class ContentService {
 
   async recordProgress(tenant: TenantContext, contentId: string, dto: RecordVideoProgressInput) {
     if (!tenant.memberProfileId) {
-      throw new ForbiddenException('Yalnızca üyeler görüntüleyebilir');
+      throw new ForbiddenException(apiError('apiErrors.video.onlyMembersCanView'));
     }
     const memberId = tenant.memberProfileId;
     const studioId = tenant.studioId;
 
     const view = await this.prisma.videoView.findFirst({ where: { studioId, videoContentId: contentId, memberId } });
     if (!view) {
-      throw new NotFoundException('Önce izlemeye başlamalısınız');
+      throw new NotFoundException(apiError('apiErrors.video.mustStartWatching'));
     }
     return this.prisma.videoView.update({
       where: { id: view.id },
@@ -290,13 +292,13 @@ export class ContentService {
     if (serviceTypeId) {
       const serviceType = await this.prisma.serviceType.findFirst({ where: { id: serviceTypeId, studioId } });
       if (!serviceType) {
-        throw new BadRequestException('Seçilen hizmet türü bu işletmede bulunamadı');
+        throw new BadRequestException(apiError('apiErrors.common.selectedServiceTypeNotFoundBusiness'));
       }
     }
     if (trainerProfileId) {
       const trainer = await this.prisma.trainerProfile.findFirst({ where: { id: trainerProfileId, studioId } });
       if (!trainer) {
-        throw new BadRequestException('Seçilen eğitmen bu işletmede bulunamadı');
+        throw new BadRequestException(apiError('apiErrors.video.selectedTrainerNotFoundBusiness'));
       }
     }
   }
@@ -305,7 +307,7 @@ export class ContentService {
     if (packageDefinitionIds.length === 0) return;
     const count = await this.prisma.packageDefinition.count({ where: { id: { in: packageDefinitionIds }, studioId } });
     if (count !== packageDefinitionIds.length) {
-      throw new BadRequestException('Seçilen paketlerden biri bu işletmede bulunamadı');
+      throw new BadRequestException(apiError('apiErrors.video.selectedPackagesNotFoundBusiness'));
     }
   }
 

@@ -16,6 +16,7 @@ import type {
 } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { ErrorCaptureService } from './error-capture.service';
+import { apiError } from '../../common/api-error';
 
 const PAGE_SIZE = 25;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -208,7 +209,7 @@ export class ErrorQueryService {
 
   private async findGroup(id: string): Promise<ErrorGroup> {
     const group = UUID.test(id) ? await this.prisma.errorGroup.findUnique({ where: { id } }) : null;
-    if (!group) throw new NotFoundException('Hata grubu bulunamadı');
+    if (!group) throw new NotFoundException(apiError('apiErrors.errorReporting.errorGroupNotFound'));
     return group;
   }
 

@@ -23,6 +23,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { articleError } from './articles.errors';
 import { ArticlesFeedCache } from './articles-feed-cache.service';
 import { sitesBaseDomain } from './sites.service';
+import { apiError } from '../../common/api-error';
 
 const SITE_INCLUDE = { domains: { where: { status: 'VERIFIED' }, select: { domain: true } } } satisfies Prisma.SiteInclude;
 
@@ -63,7 +64,7 @@ export class PublicArticlesService {
       where: { slug: studioSlug, isActive: true },
       select: { id: true, slug: true, name: true, logoUrl: true, themeFamily: true, themePrimary: true, gradientPresetKey: true, site: { include: SITE_INCLUDE } },
     });
-    if (!studio?.site) throw new NotFoundException('Site not found');
+    if (!studio?.site) throw new NotFoundException(apiError('apiErrors.sites.siteNotFound'));
     const { site, ...rest } = studio;
     return { studio: rest, site };
   }
@@ -134,7 +135,7 @@ export class PublicArticlesService {
     const resolved = await this.resolve(studioSlug);
     const { site } = resolved;
     const publishedLocales = await this.publishedLocales(site.id);
-    if (!site.enabledLocales.includes(query.locale) && !publishedLocales.includes(query.locale)) throw new NotFoundException('Locale not found');
+    if (!site.enabledLocales.includes(query.locale) && !publishedLocales.includes(query.locale)) throw new NotFoundException(apiError('apiErrors.sites.localeNotFound'));
 
     let tag: PublicArticleTagDTO | null = null;
     let tagId: string | null = null;

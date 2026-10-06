@@ -31,6 +31,7 @@ import { I18nService } from '../i18n/i18n.service';
 import { exportTranslator } from '../accounting/accounting-i18n';
 import { buildAccountingWorkbook } from '../accounting/accounting-xlsx';
 import { PayoutReconcileService } from './payout-reconcile.service';
+import { codedError } from '../../common/api-error';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const CANDIDATE_WINDOW_DAYS = 45;
@@ -146,7 +147,7 @@ export class PayoutsService {
       where: { id: payoutId, studioId: tenant.studioId },
       include: { items: { orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }], include: ITEM_INCLUDE } },
     });
-    if (!payout) throw new NotFoundException({ statusCode: 404, code: PAYOUT_ERROR_CODES.notFound, message: 'Banka ödemesi bulunamadı' });
+    if (!payout) throw new NotFoundException(codedError(PAYOUT_ERROR_CODES.notFound, { statusCode: 404 }));
     const { items, ...row } = payout;
     const totals = summarizePayoutItems(
       items.map((i) => ({ type: i.type as PayoutItemTypeValue, amount: i.amount.toFixed(2), fee: i.fee.toFixed(2), net: i.net.toFixed(2) })),
@@ -188,12 +189,12 @@ export class PayoutsService {
   async match(tenant: TenantContext, actorUserId: string, payoutId: string, itemId: string, paymentId: string): Promise<PayoutDetailDTO> {
     const item = await this.findItem(tenant.studioId, payoutId, itemId);
     if (!isMatchableItemType(item.type as PayoutItemTypeValue)) {
-      throw new BadRequestException({ statusCode: 400, code: PAYOUT_ERROR_CODES.itemNotMatchable, message: 'Yalnızca tahsilat ve iade satırları bir ödemeyle eşleştirilebilir' });
+      throw new BadRequestException(codedError(PAYOUT_ERROR_CODES.itemNotMatchable, { statusCode: 400 }));
     }
     const payment = await this.prisma.payment.findFirst({ where: { id: paymentId, studioId: tenant.studioId }, select: { id: true, currency: true } });
-    if (!payment) throw new NotFoundException({ statusCode: 404, code: PAYOUT_ERROR_CODES.paymentNotFound, message: 'Ödeme bulunamadı' });
+    if (!payment) throw new NotFoundException(codedError(PAYOUT_ERROR_CODES.paymentNotFound, { statusCode: 404 }));
     if (payment.currency.toUpperCase() !== item.currency.toUpperCase()) {
-      throw new ConflictException({ statusCode: 409, code: PAYOUT_ERROR_CODES.currencyMismatch, message: 'Ödeme ve banka satırının para birimi aynı olmalı' });
+      throw new ConflictException(codedError(PAYOUT_ERROR_CODES.currencyMismatch, { statusCode: 409 }));
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -216,7 +217,7 @@ export class PayoutsService {
   async unmatch(tenant: TenantContext, actorUserId: string, payoutId: string, itemId: string): Promise<PayoutDetailDTO> {
     const item = await this.findItem(tenant.studioId, payoutId, itemId);
     if (!isMatchableItemType(item.type as PayoutItemTypeValue)) {
-      throw new BadRequestException({ statusCode: 400, code: PAYOUT_ERROR_CODES.itemNotMatchable, message: 'Yalnızca tahsilat ve iade satırları bir ödemeyle eşleştirilebilir' });
+      throw new BadRequestException(codedError(PAYOUT_ERROR_CODES.itemNotMatchable, { statusCode: 400 }));
     }
     await this.prisma.$transaction(async (tx) => {
       // UNMATCHED_MANUAL keeps later syncs from linking it again.
@@ -238,7 +239,7 @@ export class PayoutsService {
 
   private async findItem(studioId: string, payoutId: string, itemId: string) {
     const item = await this.prisma.payoutItem.findFirst({ where: { id: itemId, payoutId, studioId } });
-    if (!item) throw new NotFoundException({ statusCode: 404, code: PAYOUT_ERROR_CODES.itemNotFound, message: 'Banka ödemesi satırı bulunamadı' });
+    if (!item) throw new NotFoundException(codedError(PAYOUT_ERROR_CODES.itemNotFound, { statusCode: 404 }));
     return item;
   }
 
@@ -261,7 +262,7 @@ export class PayoutsService {
         orderBy: { occurredAt: 'asc' },
         take: PAYOUT_EXPORT_MAX_ROWS + 1,
       });
-      if (items.length > PAYOUT_EXPORT_MAX_ROWS) throw new BadRequestException({ statusCode: 400, code: PAYOUT_ERROR_CODES.tooManyRows, message: 'Seçilen dönemde çok fazla kayıt var; tarih aralığını daraltın' });
+      if (items.length > PAYOUT_EXPORT_MAX_ROWS) throw new BadRequestException(codedError(PAYOUT_ERROR_CODES.tooManyRows, { statusCode: 400 }));
       rows = buildPayoutItemJournal(
         items.map((i) => ({
           arrivalDate: i.payout.arrivalDate,
@@ -285,7 +286,7 @@ export class PayoutsService {
         orderBy: { arrivalDate: 'asc' },
         take: PAYOUT_EXPORT_MAX_ROWS + 1,
       });
-      if (payouts.length > PAYOUT_EXPORT_MAX_ROWS) throw new BadRequestException({ statusCode: 400, code: PAYOUT_ERROR_CODES.tooManyRows, message: 'Seçilen dönemde çok fazla kayıt var; tarih aralığını daraltın' });
+      if (payouts.length > PAYOUT_EXPORT_MAX_ROWS) throw new BadRequestException(codedError(PAYOUT_ERROR_CODES.tooManyRows, { statusCode: 400 }));
       rows = buildPayoutJournal(
         payouts.map((p) => ({
           arrivalDate: p.arrivalDate,

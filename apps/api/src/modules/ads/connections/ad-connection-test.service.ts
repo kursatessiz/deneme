@@ -16,6 +16,7 @@ import type { TenantContext } from '../../auth/tenant-context';
 import { AdsHttpClient } from '../ads-http-client';
 import { refreshGoogleAccessToken } from '../delivery/google-oauth';
 import { AdConnectionsService } from './ad-connections.service';
+import { apiError } from '../../../common/api-error';
 
 export interface TestConnectionResult {
   ok: boolean;
@@ -38,9 +39,9 @@ export class AdConnectionTestService {
 
   async test(tenant: TenantContext, connectionId: string): Promise<TestConnectionResult> {
     const row = await this.prisma.adConnection.findFirst({ where: { id: connectionId, studioId: tenant.studioId } });
-    if (!row) throw new NotFoundException('Reklam bağlantısı bulunamadı');
+    if (!row) throw new NotFoundException(apiError('apiErrors.ads.adConnectionNotFound'));
     const credentials = await this.connections.getDecryptedCredentials(connectionId);
-    if (!credentials) throw new NotFoundException('Reklam bağlantısı bulunamadı');
+    if (!credentials) throw new NotFoundException(apiError('apiErrors.ads.adConnectionNotFound'));
 
     const platform = row.platform as AdConnectionPlatform;
     const result = await this.testFor(platform, row.externalAccountId, credentials);

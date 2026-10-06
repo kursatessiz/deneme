@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/tenant-context';
 import { RedisService } from '../redis/redis.service';
+import { apiError } from '../../common/api-error';
 
 const WINDOW_SECONDS = 60;
 /** Test-connection and manual spend-sync are cheap but call a real third party; a tight per-membership limit is enough to stop accidental hammering. */
@@ -18,7 +19,7 @@ export class AdsRateLimitGuard implements CanActivate {
     const key = `ads-rl:${req.tenant?.membershipId ?? req.user?.id ?? 'anon'}`;
     const count = await this.increment(key);
     if (count > ADS_ACTION_MAX_PER_WINDOW) {
-      throw new HttpException('Çok fazla istek, lütfen daha sonra tekrar deneyin', HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(apiError('apiErrors.common.tooManyRequestsLater'), HttpStatus.TOO_MANY_REQUESTS);
     }
     return true;
   }

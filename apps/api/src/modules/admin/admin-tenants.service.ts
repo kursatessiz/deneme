@@ -25,6 +25,7 @@ import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 import { PlatformBillingService } from '../billing/platform-billing.service';
 import { StudioReferralsService } from '../billing/studio-referrals.service';
 import { isPlatformBillingCurrency, isStudioBillingStatus, studioBillingCurrency } from '@platform/shared';
+import { apiError } from '../../common/api-error';
 
 /** Period of a plan the super admin assigns by hand (not a trial; trials use Plan.trialDays). */
 const ASSIGNED_PERIOD_DAYS = 30;
@@ -93,7 +94,7 @@ export class AdminTenantsService {
         _count: { select: { branches: true } },
       },
     });
-    if (!studio) throw new NotFoundException('İşletme bulunamadı');
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.businessNotFound'));
 
     const [activeMemberCount, staffCount] = await Promise.all([
       this.prisma.membership.count({ where: { studioId, status: 'ACTIVE', memberProfile: { isNot: null } } }),
@@ -140,9 +141,9 @@ export class AdminTenantsService {
       this.prisma.plan.findUnique({ where: { key: dto.planKey } }),
       this.prisma.studio.findUnique({ where: { slug: dto.slug }, select: { id: true } }),
     ]);
-    if (!businessType) throw new BadRequestException('İşletme türü şablonu bulunamadı');
-    if (!plan) throw new BadRequestException('Plan bulunamadı');
-    if (slugTaken) throw new ConflictException('Bu slug zaten kullanılıyor');
+    if (!businessType) throw new BadRequestException(apiError('apiErrors.admin.businessTypeTemplateNotFound'));
+    if (!plan) throw new BadRequestException(apiError('apiErrors.common.planNotFound'));
+    if (slugTaken) throw new ConflictException(apiError('apiErrors.admin.slugAlreadyUse'));
 
     const now = new Date();
 
@@ -228,7 +229,7 @@ export class AdminTenantsService {
   /** The studio's theme-family allow-list and the family stored on it. */
   async getThemeFamilies(studioId: string): Promise<TenantThemeFamiliesDTO> {
     const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { themeFamily: true } });
-    if (!studio) throw new NotFoundException('İşletme bulunamadı');
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.businessNotFound'));
     return {
       allowed: await loadAllowedThemeFamiliesForStudio(this.prisma, studioId),
       current: isThemeFamilyKey(studio.themeFamily) ? studio.themeFamily : DEFAULT_THEME_FAMILY,
@@ -244,7 +245,7 @@ export class AdminTenantsService {
    */
   async setThemeFamilies(actorUserId: string, studioId: string, input: UpdateTenantThemeFamiliesInput): Promise<TenantThemeFamiliesDTO> {
     const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { themeFamily: true, gradientPresetKey: true } });
-    if (!studio) throw new NotFoundException('İşletme bulunamadı');
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.businessNotFound'));
     const before = await this.getThemeFamilies(studioId);
 
     await this.prisma.$transaction(async (tx) => {
@@ -281,7 +282,7 @@ export class AdminTenantsService {
 
   async setActive(actorUserId: string, studioId: string, isActive: boolean) {
     const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { id: true, isActive: true } });
-    if (!studio) throw new NotFoundException('İşletme bulunamadı');
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.businessNotFound'));
 
     const updated = await this.prisma.studio.update({ where: { id: studioId }, data: { isActive } });
     await this.prisma.auditLog.create({
@@ -302,8 +303,8 @@ export class AdminTenantsService {
       this.prisma.studio.findUnique({ where: { id: studioId }, select: { id: true } }),
       this.prisma.plan.findUnique({ where: { key: planKey } }),
     ]);
-    if (!studio) throw new NotFoundException('İşletme bulunamadı');
-    if (!plan) throw new BadRequestException('Plan bulunamadı');
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.businessNotFound'));
+    if (!plan) throw new BadRequestException(apiError('apiErrors.common.planNotFound'));
 
     const now = new Date();
     const periodEnd = new Date(now.getTime() + ASSIGNED_PERIOD_DAYS * 24 * 60 * 60 * 1000);

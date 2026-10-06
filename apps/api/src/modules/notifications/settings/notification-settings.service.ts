@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException, Injectable } from '@nestjs/comm
 import type { NotificationSettings, TopUpSmsWalletInput } from '@platform/shared';
 import { parseNotificationSettings } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
+import { apiError } from '../../../common/api-error';
 
 @Injectable()
 export class NotificationSettingsService {
@@ -36,7 +37,7 @@ export class NotificationSettingsService {
   /** Super admin manual credit top-up (or deduction with a negative amount). */
   async topUp(actorUserId: string, input: TopUpSmsWalletInput) {
     const studio = await this.prisma.studio.findUnique({ where: { id: input.studioId }, select: { id: true } });
-    if (!studio) throw new NotFoundException('İşletme bulunamadı');
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.businessNotFound'));
 
     return this.prisma.$transaction(async (tx) => {
       const wallet = await tx.smsWallet.upsert({
@@ -51,7 +52,7 @@ export class NotificationSettingsService {
         data: { balance: { increment: input.credits } },
       });
       if (changed.count === 0) {
-        throw new BadRequestException('Bakiye negatif olamaz');
+        throw new BadRequestException(apiError('apiErrors.common.balanceCannotNegative'));
       }
       const updated = await tx.smsWallet.findUniqueOrThrow({ where: { id: wallet.id } });
       const transaction = await tx.smsTransaction.create({

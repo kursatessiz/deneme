@@ -20,6 +20,7 @@ import type {
 import { PrismaService } from '../../prisma/prisma.service';
 import { pickTemplate, rowToVariant } from '../engine/template-resolver.service';
 import type { ResolvedTemplateVariant } from '../engine/template-resolver.service';
+import { apiError } from '../../../common/api-error';
 
 function toDto(v: ResolvedTemplateVariant, channel: TemplateChannel, isActive: boolean): MessageTemplateDTO {
   const variables = new Set([...messagePlaceholders(v.body), ...messagePlaceholders(v.subject ?? '')]);
@@ -134,7 +135,7 @@ export class MessageTemplatesService {
 
   async remove(studioId: string, id: string): Promise<{ deleted: true }> {
     const removed = await this.prisma.messageTemplate.deleteMany({ where: { id, studioId } });
-    if (removed.count === 0) throw new NotFoundException('Şablon bulunamadı');
+    if (removed.count === 0) throw new NotFoundException(apiError('apiErrors.common.templateNotFound'));
     return { deleted: true };
   }
 
@@ -145,7 +146,7 @@ export class MessageTemplatesService {
 
   async updateSettings(studioId: string, input: MessagingSettings): Promise<ResolvedMessagingSettings> {
     const current = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { messagingSettings: true } });
-    if (!current) throw new NotFoundException('İşletme bulunamadı');
+    if (!current) throw new NotFoundException(apiError('apiErrors.common.businessNotFound'));
     const parsed = MessagingSettingsSchema.safeParse(current.messagingSettings ?? {});
     const merged: MessagingSettings = { ...(parsed.success ? parsed.data : {}), ...input };
     await this.prisma.studio.update({ where: { id: studioId }, data: { messagingSettings: merged as Prisma.InputJsonValue } });

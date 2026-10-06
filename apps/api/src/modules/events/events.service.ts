@@ -22,6 +22,7 @@ import { assertBranchAccess, branchScope } from '../branches/branch-access';
 import { EventSeatsService } from './event-seats.service';
 import { eventError } from './events.errors';
 import { EVENT_INCLUDE, EventWithDetails, toEventDTO, toTicketDTO } from './events.mapper';
+import { apiError } from '../../common/api-error';
 
 type Tx = Prisma.TransactionClient;
 
@@ -93,10 +94,10 @@ export class EventsService {
   private async resolveBranch(tenant: TenantContext, branchId: string | null | undefined): Promise<string | null> {
     if (branchId) {
       const branch = await this.prisma.branch.findFirst({ where: { id: branchId, studioId: tenant.studioId, isActive: true } });
-      if (!branch) throw new BadRequestException({ statusCode: 400, message: 'Branch not found in this studio' });
+      if (!branch) throw new BadRequestException(apiError('apiErrors.common.branchNotFound'));
     } else if (tenant.branchIds !== null) {
       // Branch-restricted staff create events in one of their branches.
-      throw new BadRequestException({ statusCode: 400, message: 'Branch is required' });
+      throw new BadRequestException(apiError('apiErrors.common.selectBranch'));
     }
     assertBranchAccess(tenant, branchId ?? null);
     return branchId ?? null;
@@ -112,11 +113,11 @@ export class EventsService {
       const end = new Date(o.endsAt);
       if (o.resourceId) {
         const resource = await this.prisma.resource.findFirst({ where: { id: o.resourceId, studioId, isMaintenance: false } });
-        if (!resource) throw new BadRequestException({ statusCode: 400, message: 'Resource not found or under maintenance' });
+        if (!resource) throw new BadRequestException(apiError('apiErrors.common.selectedResourceNotFoundBusinessUnder'));
       }
       if (o.trainerId) {
         const trainer = await this.prisma.trainerProfile.findFirst({ where: { id: o.trainerId, studioId } });
-        if (!trainer) throw new NotFoundException({ statusCode: 404, message: 'Trainer not found' });
+        if (!trainer) throw new NotFoundException(apiError('apiErrors.common.trainerNotFound'));
       }
       const overlap = { startTime: { lt: end }, endTime: { gt: start } };
       const busyClauses = [
@@ -372,7 +373,7 @@ export class EventsService {
     }
     if (dto.creditServiceTypeId) {
       const serviceType = await tx.serviceType.findFirst({ where: { id: dto.creditServiceTypeId, studioId } });
-      if (!serviceType) throw new BadRequestException({ statusCode: 400, message: 'Service type not found in this studio' });
+      if (!serviceType) throw new BadRequestException(apiError('apiErrors.common.selectedServiceTypeNotFoundBusiness'));
     }
   }
 

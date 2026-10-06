@@ -9,6 +9,7 @@ import {
 } from '@platform/shared';
 import type { SegmentCondition, SegmentFieldKind, SegmentGroup } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
+import { apiError } from '../../../common/api-error';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -51,7 +52,7 @@ export class SegmentEvaluatorService {
     const parsed = SegmentGroupSchema.safeParse(raw);
     if (!parsed.success) {
       throw new BadRequestException({
-        message: 'Geçersiz segment kuralı',
+        ...apiError('apiErrors.growth.invalidSegmentRule'),
         errors: parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
       });
     }
@@ -61,7 +62,7 @@ export class SegmentEvaluatorService {
       .filter((f) => f in UNAVAILABLE_SEGMENT_FIELDS)
       .map((f) => ({ path: 'root', message: UNAVAILABLE_SEGMENT_FIELDS[f as keyof typeof UNAVAILABLE_SEGMENT_FIELDS] as string }));
     const all = [...issues, ...unavailable];
-    if (all.length) throw new BadRequestException({ message: 'Geçersiz segment kuralı', errors: all });
+    if (all.length) throw new BadRequestException({ ...apiError('apiErrors.growth.invalidSegmentRule'), errors: all });
     return parsed.data;
   }
 
@@ -101,7 +102,7 @@ export class SegmentEvaluatorService {
 
   private async compileCondition(rule: SegmentCondition, ctx: SegmentEvaluationContext): Promise<Where> {
     const kind = segmentFieldKind(rule.field, ctx.customFieldKinds);
-    if (!kind) throw new BadRequestException(`Bilinmeyen alan: ${rule.field}`);
+    if (!kind) throw new BadRequestException(apiError('apiErrors.growth.unknownField', { field: rule.field }));
     if (rule.field.startsWith('custom.')) return this.compileCustom(rule.field.slice('custom.'.length), kind, rule, ctx);
 
     const { now, studioId } = ctx;
@@ -175,7 +176,7 @@ export class SegmentEvaluatorService {
         return this.idsWhere(await this.aggregateIds(ctx, 'loyaltyBalance', rule));
       default: {
         const reason = UNAVAILABLE_SEGMENT_FIELDS[rule.field as keyof typeof UNAVAILABLE_SEGMENT_FIELDS];
-        throw new BadRequestException(reason ?? `Bu alan henüz desteklenmiyor: ${rule.field}`);
+        throw new BadRequestException(reason ?? apiError('apiErrors.growth.fieldNotSupportedYet', { field: rule.field }));
       }
     }
   }
@@ -199,7 +200,7 @@ export class SegmentEvaluatorService {
       case 'is_empty':
         return { NOT: anyActive };
       default:
-        throw new BadRequestException(`Geçersiz işlem: ${rule.op}`);
+        throw new BadRequestException(apiError('apiErrors.growth.invalidOperator', { op: rule.op }));
     }
   }
 
@@ -240,13 +241,13 @@ export class SegmentEvaluatorService {
           case 'between':
             return { AND: [{ customFields: { path, gte: Math.min(values[0], values[1]) } }, { customFields: { path, lte: Math.max(values[0], values[1]) } }] };
           default:
-            throw new BadRequestException(`Geçersiz işlem: ${rule.op}`);
+            throw new BadRequestException(apiError('apiErrors.growth.invalidOperator', { op: rule.op }));
         }
       }
       case 'date':
         return this.customDateIds(ctx, key, rule).then((ids) => this.idsWhere(ids));
       default:
-        throw new BadRequestException(`Bu alan türü segmentte kullanılamaz: ${kind}`);
+        throw new BadRequestException(apiError('apiErrors.growth.fieldKindNotSegmentable', { kind: kind }));
     }
   }
 
@@ -315,12 +316,12 @@ export class SegmentEvaluatorService {
   /** `value <op> rule.value`; a null value (no member profile, no birth date) never matches except is_empty. */
   private numericCondition(value: Prisma.Sql, rule: SegmentCondition, nullableMetric: boolean): Prisma.Sql {
     const values = list(rule.value).map(Number);
-    if (values.some((v) => !Number.isFinite(v))) throw new BadRequestException('Sayı bekleniyor');
+    if (values.some((v) => !Number.isFinite(v))) throw new BadRequestException(apiError('apiErrors.growth.numberExpected'));
     if (rule.op === 'between') {
       return Prisma.sql`${value} BETWEEN ${Math.min(values[0], values[1])} AND ${Math.max(values[0], values[1])}`;
     }
     const comparator = SQL_COMPARATORS[rule.op];
-    if (!comparator) throw new BadRequestException(`Geçersiz işlem: ${rule.op}`);
+    if (!comparator) throw new BadRequestException(apiError('apiErrors.growth.invalidOperator', { op: rule.op }));
     // Contacts without a member profile count as zero for counts and sums.
     const lhs = nullableMetric ? value : Prisma.sql`COALESCE(${value}, 0)`;
     return Prisma.sql`${lhs} ${Prisma.raw(comparator)} ${values[0]}`;
@@ -349,7 +350,7 @@ export class SegmentEvaluatorService {
         condition = Prisma.sql`${text} < ${iso(new Date(now.getTime() - Number(values[0]) * DAY_MS))}`;
         break;
       default:
-        throw new BadRequestException(`Geçersiz işlem: ${rule.op}`);
+        throw new BadRequestException(apiError('apiErrors.growth.invalidOperator', { op: rule.op }));
     }
     const rows = await this.prisma.$queryRaw<{ id: string }[]>`
       SELECT c."id"::text AS id FROM "contacts" c
@@ -379,7 +380,7 @@ function list(value: SegmentCondition['value']): Scalar[] {
 
 function isoDate(raw: string): string {
   const parsed = Date.parse(raw);
-  if (Number.isNaN(parsed)) throw new BadRequestException(`Geçersiz tarih: ${raw}`);
+  if (Number.isNaN(parsed)) throw new BadRequestException(apiError('apiErrors.growth.invalidDateValue', { value: raw }));
   return new Date(parsed).toISOString().slice(0, 10);
 }
 
@@ -410,7 +411,7 @@ function stringFilter(column: StringColumn, rule: SegmentCondition, normalize: (
     case 'is_not_empty':
       return { AND: [{ NOT: col(null) }, { NOT: col({ equals: '' }) }] };
     default:
-      throw new BadRequestException(`Geçersiz işlem: ${rule.op}`);
+      throw new BadRequestException(apiError('apiErrors.growth.invalidOperator', { op: rule.op }));
   }
 }
 
@@ -423,7 +424,7 @@ function dateFilter(rule: SegmentCondition, now: Date, build: (range: Prisma.Dat
   const values = list(rule.value);
   const date = (v: Scalar) => {
     const parsed = typeof v === 'number' ? v : Date.parse(String(v));
-    if (Number.isNaN(parsed)) throw new BadRequestException(`Geçersiz tarih: ${String(v)}`);
+    if (Number.isNaN(parsed)) throw new BadRequestException(apiError('apiErrors.growth.invalidDateValue', { value: String(v) }));
     return new Date(parsed);
   };
   switch (rule.op) {
@@ -438,7 +439,7 @@ function dateFilter(rule: SegmentCondition, now: Date, build: (range: Prisma.Dat
     case 'not_in_last_days':
       return build({ lt: new Date(now.getTime() - Number(values[0]) * DAY_MS) });
     default:
-      throw new BadRequestException(`Geçersiz işlem: ${rule.op}`);
+      throw new BadRequestException(apiError('apiErrors.growth.invalidOperator', { op: rule.op }));
   }
 }
 
@@ -460,7 +461,7 @@ function numberRange(rule: SegmentCondition): { range: Prisma.IntNullableFilter;
     case 'between':
       return { range: { gte: Math.min(values[0], values[1]), lte: Math.max(values[0], values[1]) }, negate: false };
     default:
-      throw new BadRequestException(`Geçersiz işlem: ${rule.op}`);
+      throw new BadRequestException(apiError('apiErrors.growth.invalidOperator', { op: rule.op }));
   }
 }
 
@@ -491,7 +492,7 @@ function relativeDaysAgo(rule: SegmentCondition, now: Date, has: (range: Prisma.
     case 'is_empty':
       return { NOT: ever };
     default:
-      throw new BadRequestException(`Geçersiz işlem: ${rule.op}`);
+      throw new BadRequestException(apiError('apiErrors.growth.invalidOperator', { op: rule.op }));
   }
 }
 

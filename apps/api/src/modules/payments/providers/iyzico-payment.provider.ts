@@ -9,6 +9,7 @@ import type {
   RefundParams,
   WebhookVerificationResult,
 } from './payment-provider.interface';
+import { apiError } from '../../../common/api-error';
 
 /**
  * iyzico adapter skeleton. Real HTTP calls are not implemented; every method
@@ -39,24 +40,24 @@ export class IyzicoPaymentProvider implements PaymentProviderAdapter {
     const secretKey = this.config.get<string>('IYZICO_SECRET_KEY');
     if (!apiKey || !secretKey) {
       throw new InternalServerErrorException(
-        'iyzico sağlayıcısı yapılandırılmamış: IYZICO_API_KEY ve IYZICO_SECRET_KEY gereklidir',
+        apiError('apiErrors.payments.iyzicoProviderNotConfiguredIyzicoApi'),
       );
     }
   }
 
   async createCheckout(_params: CreateCheckoutParams): Promise<ProviderCheckoutResult> {
     this.assertConfigured();
-    throw new InternalServerErrorException('iyzico entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.payments.iyzicoIntegrationNotImplementedYet'));
   }
 
   async chargeStoredCard(_params: ChargeStoredCardParams): Promise<ProviderChargeResult> {
     this.assertConfigured();
-    throw new InternalServerErrorException('iyzico entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.payments.iyzicoIntegrationNotImplementedYet'));
   }
 
   async refund(_params: RefundParams): Promise<ProviderChargeResult> {
     this.assertConfigured();
-    throw new InternalServerErrorException('iyzico entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.payments.iyzicoIntegrationNotImplementedYet'));
   }
 
   verifyWebhook(_headers: Record<string, string | string[] | undefined>, _rawBody: string): WebhookVerificationResult {

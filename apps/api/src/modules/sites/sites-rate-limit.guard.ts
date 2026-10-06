@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type { Request } from 'express';
 import { RedisService } from '../redis/redis.service';
+import { apiError } from '../../common/api-error';
 
 const WINDOW_SECONDS = 60;
 
@@ -29,7 +30,7 @@ abstract class SitesFixedWindowGuard implements CanActivate {
         const key = `${this.bucket}:${ip}`;
         const count = await client.incr(key);
         if (count === 1) await client.expire(key, WINDOW_SECONDS);
-        if (count > this.maxRequests) throw new HttpException('Çok fazla istek', HttpStatus.TOO_MANY_REQUESTS);
+        if (count > this.maxRequests) throw new HttpException(apiError('apiErrors.common.tooManyRequests'), HttpStatus.TOO_MANY_REQUESTS);
         return true;
       } catch (err) {
         if (err instanceof HttpException) throw err;
@@ -46,7 +47,7 @@ abstract class SitesFixedWindowGuard implements CanActivate {
       return true;
     }
     entry.count += 1;
-    if (entry.count > this.maxRequests) throw new HttpException('Çok fazla istek', HttpStatus.TOO_MANY_REQUESTS);
+    if (entry.count > this.maxRequests) throw new HttpException(apiError('apiErrors.common.tooManyRequests'), HttpStatus.TOO_MANY_REQUESTS);
     return true;
   }
 }

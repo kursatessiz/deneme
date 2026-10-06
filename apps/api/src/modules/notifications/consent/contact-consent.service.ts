@@ -19,6 +19,7 @@ import type {
 } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { IysClientAdapter } from './iys-client.adapter';
+import { apiError } from '../../../common/api-error';
 
 type ConsentRow = Pick<ContactConsent | CommunicationConsent, 'status' | 'grantedAt' | 'revokedAt' | 'updatedAt'>;
 type ContactRowFacts = Pick<ContactConsent, 'status' | 'grantedAt' | 'revokedAt' | 'updatedAt' | 'legalBasis' | 'confirmedAt' | 'confirmationRequestedAt'>;
@@ -246,7 +247,7 @@ export class ContactConsentService {
       where: { id: contactId, studioId, mergedIntoId: null },
       select: { id: true, phone: true, email: true, membership: { select: { userId: true, user: { select: { phone: true, email: true } } } } },
     });
-    if (!contact) throw new NotFoundException('Kişi bulunamadı');
+    if (!contact) throw new NotFoundException(apiError('apiErrors.common.contactNotFound'));
     const userId = contact.membership?.userId ?? null;
     const [rows, memberRows] = await Promise.all([
       this.prisma.contactConsent.findMany({ where: { studioId, contactId } }),
@@ -298,7 +299,7 @@ export class ContactConsentService {
    */
   async set(studioId: string, contactId: string, input: UpdateContactConsentInput, source = 'staff-entry'): Promise<ContactConsentDTO[]> {
     const contact = await this.prisma.contact.findFirst({ where: { id: contactId, studioId, mergedIntoId: null }, select: { id: true } });
-    if (!contact) throw new NotFoundException('Kişi bulunamadı');
+    if (!contact) throw new NotFoundException(apiError('apiErrors.common.contactNotFound'));
     await this.write(studioId, contactId, input.channel, input.granted ? 'GRANTED' : 'REVOKED', source, input.evidence ?? null, {
       legalBasis: 'CONSENT',
       confirmationRequestedAt: null,

@@ -39,6 +39,7 @@ import { StudioReferralsService } from './studio-referrals.service';
 import { PlatformEventsService } from '../webhooks/platform-events.service';
 import { toLocalizedText } from './add-ons/admin-add-ons.service';
 import type { TenantContext } from '../auth/tenant-context';
+import { apiError, codedError } from '../../common/api-error';
 
 type Tx = Prisma.TransactionClient;
 type PricedPlan = Plan & { prices: PlanPrice[] };
@@ -46,11 +47,7 @@ const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** 400 when the plan has no price in the studio's billing currency; clients translate `billing.error.PLAN_PRICE_UNAVAILABLE`. */
 export function planPriceUnavailableError(): BadRequestException {
-  return new BadRequestException({
-    statusCode: 400,
-    code: PLAN_PRICE_UNAVAILABLE_ERROR_CODE,
-    message: 'Bu plan işletmenin faturalama para biriminde sunulmuyor',
-  });
+  return new BadRequestException(codedError(PLAN_PRICE_UNAVAILABLE_ERROR_CODE, { statusCode: 400 }));
 }
 
 /**
@@ -119,7 +116,7 @@ export class PlatformBillingService implements OnModuleInit {
       this.creditBalance(studioId),
       this.hasCompletedPayment(studioId),
     ]);
-    if (!studio) throw new NotFoundException('İşletme bulunamadı');
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.businessNotFound'));
     const currency = studioBillingCurrency(studio);
     const offered = plans
       .map((plan) => toPlanDto(plan, currency))
@@ -167,21 +164,21 @@ export class PlatformBillingService implements OnModuleInit {
       this.prisma.studio.findUnique({ where: { id: studioId }, select: { id: true, billingStatus: true, isPlatform: true, countryCode: true, billingCurrency: true } }),
       this.prisma.plan.findFirst({ where: { key: dto.planKey, isActive: true }, include: { prices: true } }),
     ]);
-    if (!studio) throw new NotFoundException('İşletme bulunamadı');
-    if (studio.isPlatform) throw new BadRequestException('Platform kiracısı etkinleştirilemez');
-    if (!plan) throw new BadRequestException('Plan bulunamadı');
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.businessNotFound'));
+    if (studio.isPlatform) throw new BadRequestException(apiError('apiErrors.billing.platformTenantCannotActivated'));
+    if (!plan) throw new BadRequestException(apiError('apiErrors.common.planNotFound'));
     const currency = studioBillingCurrency(studio);
     const price = planPriceIn(plan.prices, currency);
     if (!price) throw planPriceUnavailableError();
     const status = this.statusOf(studio.billingStatus);
-    if (status === 'ACTIVE') throw new ConflictException('Hesap zaten etkin');
-    if (!canTransitionBillingStatus(status, 'ACTIVE')) throw new ConflictException('Hesap bu durumdan etkinleştirilemez');
+    if (status === 'ACTIVE') throw new ConflictException(apiError('apiErrors.billing.accountAlreadyActive'));
+    if (!canTransitionBillingStatus(status, 'ACTIVE')) throw new ConflictException(apiError('apiErrors.billing.accountCannotActivatedStatus'));
 
     const pendingExists = await this.prisma.platformBillingPayment.findFirst({
       where: { studioId, status: 'PENDING', createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) } },
       select: { id: true },
     });
-    if (pendingExists) throw new ConflictException('Bekleyen bir ödeme var; tamamlanmasını bekleyin');
+    if (pendingExists) throw new ConflictException(apiError('apiErrors.billing.pendingPaymentWaitComplete'));
 
     const periodMonths = 1;
     const listAmount = new Prisma.Decimal(price.priceMonthly).toFixed(2);
@@ -274,9 +271,9 @@ export class PlatformBillingService implements OnModuleInit {
 
   async extendTrial(actorUserId: string, studioId: string, dto: ExtendTrialInput, now = new Date()) {
     const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { id: true, billingStatus: true, trialEndsAt: true, trialStartedAt: true } });
-    if (!studio) throw new NotFoundException('İşletme bulunamadı');
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.businessNotFound'));
     const status = this.statusOf(studio.billingStatus);
-    if (status !== 'TRIALING' && status !== 'RESTRICTED') throw new ConflictException('Yalnızca deneme veya kısıtlı moddaki işletmenin denemesi uzatılabilir');
+    if (status !== 'TRIALING' && status !== 'RESTRICTED') throw new ConflictException(apiError('apiErrors.billing.onlyBusinessTrialRestrictedModeCan'));
     const base = studio.trialEndsAt && studio.trialEndsAt > now ? studio.trialEndsAt : now;
     const trialEndsAt = trialEndFrom(base, dto.days);
 
@@ -291,7 +288,7 @@ export class PlatformBillingService implements OnModuleInit {
           ...(status !== 'TRIALING' ? { billingStatusChangedAt: now } : {}),
         },
       });
-      if (moved.count === 0) throw new ConflictException('İşletmenin durumu değişti, tekrar deneyin');
+      if (moved.count === 0) throw new ConflictException(apiError('apiErrors.billing.businessStatusChanged'));
       await tx.subscription.updateMany({
         where: { studioId, status: SubscriptionStatus.TRIALING },
         data: { currentPeriodEnd: trialEndsAt },
@@ -319,16 +316,16 @@ export class PlatformBillingService implements OnModuleInit {
    */
   async forceStatus(actorUserId: string, studioId: string, dto: AdminForceBillingStatusInput, now = new Date()) {
     const recordAsPaid = dto.recordAsPaid === true;
-    if (recordAsPaid && dto.status !== 'ACTIVE') throw new BadRequestException('Ödeme kaydı yalnızca etkinleştirmede seçilebilir');
+    if (recordAsPaid && dto.status !== 'ACTIVE') throw new BadRequestException(apiError('apiErrors.billing.paymentRecordCanOnlyChosenWhen'));
     const studio = await this.prisma.studio.findUnique({
       where: { id: studioId },
       select: { id: true, billingStatus: true, isPlatform: true, countryCode: true, billingCurrency: true },
     });
-    if (!studio) throw new NotFoundException('İşletme bulunamadı');
-    if (studio.isPlatform) throw new BadRequestException('Platform kiracısının durumu değiştirilemez');
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.businessNotFound'));
+    if (studio.isPlatform) throw new BadRequestException(apiError('apiErrors.billing.platformTenantSStatusCannotChanged'));
     const from = this.statusOf(studio.billingStatus);
     if (from === dto.status) return { status: from, recordAsPaid: false };
-    if (!canTransitionBillingStatus(from, dto.status)) throw new ConflictException('Bu durum geçişine izin verilmiyor');
+    if (!canTransitionBillingStatus(from, dto.status)) throw new ConflictException(apiError('apiErrors.billing.statusTransitionNotAllowed'));
     const currency = studioBillingCurrency(studio);
 
     let planKey: string | null = null;
@@ -338,7 +335,7 @@ export class PlatformBillingService implements OnModuleInit {
         where: { id: studioId, billingStatus: from },
         data: { billingStatus: dto.status, billingStatusChangedAt: now },
       });
-      if (moved.count === 0) throw new ConflictException('İşletmenin durumu değişti, tekrar deneyin');
+      if (moved.count === 0) throw new ConflictException(apiError('apiErrors.billing.businessStatusChanged'));
       if (dto.status === 'ACTIVE') {
         await tx.studio.updateMany({ where: { id: studioId, activatedAt: null }, data: { activatedAt: now } });
         const plan = await this.planForForce(tx, studioId, dto.planKey);
@@ -372,12 +369,12 @@ export class PlatformBillingService implements OnModuleInit {
    */
   async setBillingCurrency(actorUserId: string, studioId: string, dto: AdminSetBillingCurrencyInput) {
     const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { id: true, countryCode: true, billingCurrency: true } });
-    if (!studio) throw new NotFoundException('İşletme bulunamadı');
+    if (!studio) throw new NotFoundException(apiError('apiErrors.common.businessNotFound'));
     const before = studioBillingCurrency(studio);
     const override = dto.currency;
     const after = studioBillingCurrency({ countryCode: studio.countryCode, billingCurrency: override });
     const pending = await this.prisma.platformBillingPayment.findFirst({ where: { studioId, status: 'PENDING' }, select: { id: true } });
-    if (pending && before !== after) throw new ConflictException('Bekleyen bir ödeme var; tamamlanmasını bekleyin');
+    if (pending && before !== after) throw new ConflictException(apiError('apiErrors.billing.pendingPaymentWaitComplete'));
     const hadCompletedPayment = await this.hasCompletedPayment(studioId);
     await this.prisma.$transaction(async (tx) => {
       await tx.studio.update({ where: { id: studioId }, data: { billingCurrency: override } });
@@ -535,11 +532,11 @@ export class PlatformBillingService implements OnModuleInit {
   private async planForForce(tx: Tx, studioId: string, planKey: string | undefined): Promise<PricedPlan> {
     if (planKey) {
       const plan = await tx.plan.findUnique({ where: { key: planKey }, include: { prices: true } });
-      if (!plan) throw new BadRequestException('Plan bulunamadı');
+      if (!plan) throw new BadRequestException(apiError('apiErrors.common.planNotFound'));
       return plan;
     }
     const current = await tx.subscription.findFirst({ where: { studioId }, orderBy: { createdAt: 'desc' }, include: { plan: { include: { prices: true } } } });
-    if (!current) throw new BadRequestException('Plan seçilmelidir');
+    if (!current) throw new BadRequestException(apiError('apiErrors.billing.planMustSelected'));
     return current.plan;
   }
 

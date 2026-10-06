@@ -4,6 +4,7 @@ import type { Plan, PlanPrice } from '@platform/database';
 import { PLATFORM_BILLING_CURRENCIES, isPlatformBillingCurrency } from '@platform/shared';
 import type { AdminPlanDTO, PlanLimits, PlanPriceInput, UpsertPlanInput } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { apiError } from '../../common/api-error';
 
 type PricedPlan = Plan & { prices: PlanPrice[] };
 
@@ -31,7 +32,7 @@ export class AdminPlansService {
       .filter((p) => isPlatformBillingCurrency(p.currency))
       .map((p) => ({ currency: p.currency as PlanPriceInput['currency'], priceMonthly: p.priceMonthly.toNumber() }));
     const finalPrices = input.prices ?? (single ? [...current.filter((p) => p.currency !== single.currency), single] : current);
-    if (finalPrices.length === 0) throw new BadRequestException('En az bir para biriminde fiyat girilmelidir');
+    if (finalPrices.length === 0) throw new BadRequestException(apiError('apiErrors.admin.priceRequiredLeastCurrency'));
     const mirror = PLATFORM_BILLING_CURRENCIES.map((c) => finalPrices.find((p) => p.currency === c)).find((p): p is PlanPriceInput => p !== undefined) ?? finalPrices[0];
 
     const plan = await this.prisma.$transaction(async (tx) => {
@@ -73,10 +74,10 @@ export class AdminPlansService {
 
   async setActive(actorUserId: string, key: string, isActive: boolean) {
     const plan = await this.prisma.plan.findUnique({ where: { key } });
-    if (!plan) throw new NotFoundException('Plan bulunamadı');
+    if (!plan) throw new NotFoundException(apiError('apiErrors.common.planNotFound'));
     if (!isActive) {
       const inUse = await this.prisma.subscription.count({ where: { planId: plan.id, status: { in: ['TRIALING', 'ACTIVE'] } } });
-      if (inUse > 0) throw new ConflictException('Bu planı kullanan aktif abonelikler var, önce onları taşıyın');
+      if (inUse > 0) throw new ConflictException(apiError('apiErrors.admin.activeSubscriptionsPlanMoveThem'));
     }
     await this.prisma.plan.update({ where: { id: plan.id }, data: { isActive } });
     await this.prisma.auditLog.create({

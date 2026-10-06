@@ -20,6 +20,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/tenant-context';
 import { ZodBody, ZodQuery } from '../../common/zod-body.pipe';
 import { I18nService } from './i18n.service';
+import { apiError } from '../../common/api-error';
 
 function packFilename(code: string, format: 'json' | 'csv'): string {
   const date = new Date().toISOString().slice(0, 10);
@@ -88,7 +89,7 @@ export class AdminI18nController {
 
   @Get('languages/:code/export')
   async exportLanguage(@Param('code') code: string, @Query('format') format: string | undefined, @Res() res: Response) {
-    if (!LocaleCodeSchema.safeParse(code).success) throw new BadRequestException('Geçersiz dil kodu');
+    if (!LocaleCodeSchema.safeParse(code).success) throw new BadRequestException(apiError('apiErrors.i18n.invalidLanguageCode'));
     const fmt = format === 'csv' ? 'csv' : 'json';
     const { locale, name, nativeName, messages } = await this.i18n.adminExport(code);
     const body =

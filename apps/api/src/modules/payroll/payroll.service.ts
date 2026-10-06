@@ -7,6 +7,7 @@ import type { TenantContext } from '../auth/tenant-context';
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
 import { calculateTrainerCommission } from './commission-calculator';
 import type { CommissionBookingInput, CommissionSessionInput } from './commission-calculator';
+import { apiError } from '../../common/api-error';
 
 const ATTENDANCE_RELEVANT_STATUSES = ['ATTENDED', 'NO_SHOW', 'CANCELLED_LATE'] as const;
 
@@ -190,14 +191,14 @@ export class PayrollService {
         },
       },
     });
-    if (!run) throw new NotFoundException('Bordro dönemi bulunamadı');
+    if (!run) throw new NotFoundException(apiError('apiErrors.payroll.payrollPeriodNotFound'));
     assertBranchAccess(tenant, run.branchId);
     return { ...toRunDTO(run), lines: run.lines.map(toLineDTO) };
   }
 
   /** Trainer's own lines across APPROVED/PAID runs. */
   async myLines(tenant: TenantContext): Promise<PayrollLineDTO[]> {
-    if (!tenant.trainerProfileId) throw new ForbiddenException('Bu görünüm yalnızca eğitmenler içindir');
+    if (!tenant.trainerProfileId) throw new ForbiddenException(apiError('apiErrors.payroll.viewOnlyTrainers'));
     const lines = await this.prisma.payrollLine.findMany({
       where: {
         studioId: tenant.studioId,
@@ -217,7 +218,7 @@ export class PayrollService {
   async adjustLine(tenant: TenantContext, runId: string, lineId: string, input: AdjustPayrollLineInput): Promise<PayrollLineDTO> {
     const run = await this.requireDraftRun(tenant, runId);
     const line = await this.prisma.payrollLine.findFirst({ where: { id: lineId, runId: run.id } });
-    if (!line) throw new NotFoundException('Bordro satırı bulunamadı');
+    if (!line) throw new NotFoundException(apiError('apiErrors.payroll.payrollLineNotFound'));
 
     const adjustment = new Prisma.Decimal(input.amount).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 
@@ -252,7 +253,7 @@ export class PayrollService {
         data: { status: 'APPROVED', approvedByUserId: actorUserId, approvedAt: new Date() },
       });
       if (approved.count === 0) {
-        throw new ConflictException('Bordro başka bir işlemde güncellendi, tekrar deneyin');
+        throw new ConflictException(apiError('apiErrors.payroll.payrollUpdatedAnotherOperation'));
       }
     });
     return this.getRun(tenant, run.id);
@@ -260,17 +261,17 @@ export class PayrollService {
 
   async markPaid(tenant: TenantContext, runId: string): Promise<PayrollRunDTO> {
     const run = await this.prisma.payrollRun.findFirst({ where: { id: runId, studioId: tenant.studioId } });
-    if (!run) throw new NotFoundException('Bordro dönemi bulunamadı');
+    if (!run) throw new NotFoundException(apiError('apiErrors.payroll.payrollPeriodNotFound'));
     assertBranchAccess(tenant, run.branchId);
     if (run.status !== 'APPROVED') {
-      throw new BadRequestException('Yalnızca onaylanmış bordrolar ödendi olarak işaretlenebilir');
+      throw new BadRequestException(apiError('apiErrors.payroll.onlyApprovedPayrollsCanMarkedAs'));
     }
     const paid = await this.prisma.payrollRun.updateMany({
       where: { id: run.id, studioId: tenant.studioId, status: 'APPROVED' },
       data: { status: 'PAID', paidAt: new Date() },
     });
     if (paid.count === 0) {
-      throw new ConflictException('Bordro başka bir işlemde güncellendi, tekrar deneyin');
+      throw new ConflictException(apiError('apiErrors.payroll.payrollUpdatedAnotherOperation'));
     }
     return this.getRun(tenant, run.id);
   }
@@ -296,10 +297,10 @@ export class PayrollService {
 
   private async requireDraftRun(tenant: TenantContext, runId: string) {
     const run = await this.prisma.payrollRun.findFirst({ where: { id: runId, studioId: tenant.studioId } });
-    if (!run) throw new NotFoundException('Bordro dönemi bulunamadı');
+    if (!run) throw new NotFoundException(apiError('apiErrors.payroll.payrollPeriodNotFound'));
     assertBranchAccess(tenant, run.branchId);
     if (run.status !== 'DRAFT') {
-      throw new ConflictException('Onaylanmış veya ödenmiş bordro değiştirilemez');
+      throw new ConflictException(apiError('apiErrors.payroll.approvedPaidPayrollCannotChanged'));
     }
     return run;
   }
@@ -327,7 +328,7 @@ export class PayrollService {
   private async assertStillDraft(tx: Prisma.TransactionClient, runId: string): Promise<void> {
     const current = await tx.payrollRun.findUnique({ where: { id: runId }, select: { status: true } });
     if (!current || current.status !== 'DRAFT') {
-      throw new ConflictException('Onaylanmış veya ödenmiş bordro değiştirilemez');
+      throw new ConflictException(apiError('apiErrors.payroll.approvedPaidPayrollCannotChanged'));
     }
   }
 
@@ -355,7 +356,7 @@ export class PayrollService {
       },
     });
     if (overlapping) {
-      throw new ConflictException('Bu dönemle çakışan onaylanmış bir bordro zaten var');
+      throw new ConflictException(apiError('apiErrors.payroll.approvedPayrollOverlappingPeriodAlreadyExists'));
     }
   }
 }

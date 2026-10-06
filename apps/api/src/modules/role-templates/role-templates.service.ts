@@ -4,6 +4,7 @@ import { ALL_PERMISSIONS, PLATFORM_ACCESS_ERROR_CODES, isOwnerOnlyPermission, is
 import type { AssignRoleTemplateInput, CreateRoleTemplateInput, PermissionKey, RoleTemplateDTO, StaffMembershipDTO, UpdateRoleTemplateInput } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
+import { apiError, codedError } from '../../common/api-error';
 
 /** A staff role -- the "member" template stays out of the role-management screen, it has no permissions to grant. */
 const STAFF_ROLE_FILTER = { key: { not: 'member' } };
@@ -59,12 +60,12 @@ export class RoleTemplatesService {
     const existing = await this.getOwned(tenant, roleTemplateId);
     assertNotLocked(existing);
     if (existing.isOwner) {
-      throw new BadRequestException('İşletme sahibi rolü değiştirilemez, her zaman tüm izinlere sahiptir');
+      throw new BadRequestException(apiError('apiErrors.roleTemplates.businessOwnerRoleCannotChangedAlways'));
     }
     // Every member of the studio holds the member role, so only the owner may
     // change what it grants.
     if (existing.key === 'member' && !isOwnerLike(tenant)) {
-      throw new ForbiddenException('Üye rolünü yalnızca işletme sahibi değiştirebilir');
+      throw new ForbiddenException(apiError('apiErrors.roleTemplates.onlyBusinessOwnerCanChangeMember'));
     }
     // A manager can neither grant nor strip permissions they do not hold.
     assertCanGrant(tenant, existing.permissions.map((p) => p.permissionKey));
@@ -105,12 +106,12 @@ export class RoleTemplatesService {
     // always exist. Other seeded templates (reception, trainer, ...) are only
     // starting points and may be deleted once nobody is assigned to them.
     if (existing.isOwner || existing.key === 'member') {
-      throw new BadRequestException('Bu rol silinemez');
+      throw new BadRequestException(apiError('apiErrors.roleTemplates.roleCannotDeleted'));
     }
     assertCanGrant(tenant, existing.permissions.map((p) => p.permissionKey));
     const inUse = await this.prisma.membership.count({ where: { roleTemplateId } });
     if (inUse > 0) {
-      throw new ConflictException('Bu role atanmış personel var; önce personeli başka bir role taşıyın');
+      throw new ConflictException(apiError('apiErrors.roleTemplates.staffAssignedRoleMoveThemAnother'));
     }
     await this.prisma.$transaction([
       this.prisma.roleTemplate.delete({ where: { id: roleTemplateId } }),
@@ -152,21 +153,21 @@ export class RoleTemplatesService {
       where: { id: membershipId, studioId: tenant.studioId },
       include: { roleTemplate: true, user: { select: { id: true, firstName: true, lastName: true, phone: true } } },
     });
-    if (!membership) throw new NotFoundException('Personel bulunamadı');
+    if (!membership) throw new NotFoundException(apiError('apiErrors.common.staffMemberNotFound'));
     assertNotLocked(membership.roleTemplate);
     if (membership.roleTemplate.isOwner) {
-      throw new BadRequestException('İşletme sahibinin rolü değiştirilemez');
+      throw new BadRequestException(apiError('apiErrors.roleTemplates.businessOwnerSRoleCannotChanged'));
     }
     const target = await this.prisma.roleTemplate.findFirst({ where: { id: dto.roleTemplateId, studioId: tenant.studioId } });
-    if (!target) throw new BadRequestException('Rol bulunamadı');
+    if (!target) throw new BadRequestException(apiError('apiErrors.common.roleNotFound'));
     assertNotLocked(target);
     if (target.isOwner) {
-      throw new BadRequestException('İşletme sahibi rolü atama yoluyla verilemez');
+      throw new BadRequestException(apiError('apiErrors.roleTemplates.businessOwnerRoleCannotGrantedAssignment'));
     }
     if (!isOwnerLike(tenant)) {
       // No self-promotion (or self-lockout) through role assignment.
       if (membershipId === tenant.membershipId) {
-        throw new ForbiddenException('Kendi rolünüzü değiştiremezsiniz');
+        throw new ForbiddenException(apiError('apiErrors.roleTemplates.cannotChangeOwnRole'));
       }
       // Cannot hand out, or take away, permissions the actor does not hold.
       const [targetKeys, currentKeys] = await Promise.all([
@@ -212,13 +213,13 @@ export class RoleTemplatesService {
       where: { id: roleTemplateId, studioId: tenant.studioId },
       include: { permissions: true },
     });
-    if (!role) throw new NotFoundException('Rol bulunamadı');
+    if (!role) throw new NotFoundException(apiError('apiErrors.common.roleNotFound'));
     return role;
   }
 
   private mapUnique(err: unknown): unknown {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      return new ConflictException('Bu isimde bir rol zaten var');
+      return new ConflictException(apiError('apiErrors.roleTemplates.roleNameAlreadyExists'));
     }
     return err;
   }
@@ -258,11 +259,7 @@ export function isLockedSystemRole(role: { key: string; isSystem: boolean }): bo
 
 function assertNotLocked(role: { key: string; isSystem: boolean }): void {
   if (isLockedSystemRole(role)) {
-    throw new ForbiddenException({
-      statusCode: 403,
-      code: PLATFORM_ACCESS_ERROR_CODES.systemRoleLocked,
-      message: 'Bu rol sistem tarafından yönetilir; süper admin panelindeki platform kullanıcıları ekranından değiştirilir',
-    });
+    throw new ForbiddenException(codedError(PLATFORM_ACCESS_ERROR_CODES.systemRoleLocked, { statusCode: 403 }));
   }
 }
 
@@ -297,11 +294,11 @@ function isOwnerLike(tenant: TenantContext): boolean {
 function assertCanGrant(tenant: TenantContext, keys: readonly string[]): void {
   // Owner-only keys (billing.manage) are never part of a role template.
   if (keys.some(isOwnerOnlyPermission)) {
-    throw new BadRequestException('Bu izin yalnızca işletme sahibine aittir ve bir role verilemez');
+    throw new BadRequestException(apiError('apiErrors.roleTemplates.permissionBelongsBusinessOwnerOnlyCannot'));
   }
   if (isOwnerLike(tenant)) return;
   const missing = keys.filter((k) => !tenant.permissions.has(k as PermissionKey));
   if (missing.length > 0) {
-    throw new ForbiddenException('Sahip olmadığınız izinleri veremez veya kaldıramazsınız');
+    throw new ForbiddenException(apiError('apiErrors.roleTemplates.cannotGrantRevokePermissionsNotHold'));
   }
 }

@@ -4,6 +4,7 @@ import type { PipelineStage } from '@platform/database';
 import { DEFAULT_PIPELINE_STAGES } from '@platform/shared';
 import type { CreatePipelineStageInput, PipelineStageDTO, UpdatePipelineStageInput } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
+import { apiError } from '../../../common/api-error';
 
 /**
  * Sales pipeline stages: tenant data. Every tenant has the system stages
@@ -43,7 +44,7 @@ export class PipelineService {
       await this.ensureDefaults(studioId);
       stage = await this.prisma.pipelineStage.findUnique({ where: { studioId_key: { studioId, key } } });
     }
-    if (!stage) throw new BadRequestException(`'${key}' adlı satış hattı aşaması bulunamadı`);
+    if (!stage) throw new BadRequestException(apiError('apiErrors.crm.pipelineStageKeyNotFound', { key: key }));
     return stage;
   }
 
@@ -55,7 +56,7 @@ export class PipelineService {
       return toDto(stage);
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw new ConflictException('Bu anahtarla bir aşama zaten var');
+        throw new ConflictException(apiError('apiErrors.crm.stageKeyAlreadyExists'));
       }
       throw err;
     }
@@ -64,7 +65,7 @@ export class PipelineService {
   async update(studioId: string, stageId: string, dto: UpdatePipelineStageInput): Promise<PipelineStageDTO> {
     const stage = await this.getOwn(studioId, stageId);
     if (dto.name === null && !stage.isSystem) {
-      throw new BadRequestException('Özel aşamaların bir adı olmalıdır');
+      throw new BadRequestException(apiError('apiErrors.crm.customStagesMustName'));
     }
     const updated = await this.prisma.pipelineStage.update({
       where: { id: stage.id },
@@ -78,16 +79,16 @@ export class PipelineService {
 
   async remove(studioId: string, stageId: string): Promise<{ deleted: true }> {
     const stage = await this.getOwn(studioId, stageId);
-    if (stage.isSystem) throw new BadRequestException('Sistem aşamaları silinemez');
+    if (stage.isSystem) throw new BadRequestException(apiError('apiErrors.crm.systemStagesCannotDeleted'));
     const inUse = await this.prisma.contact.count({ where: { studioId, pipelineStageId: stage.id, mergedIntoId: null } });
-    if (inUse > 0) throw new ConflictException('Bu aşamada kişiler var; önce onları başka bir aşamaya taşıyın');
+    if (inUse > 0) throw new ConflictException(apiError('apiErrors.crm.contactsStageMoveThemAnotherStage'));
     await this.prisma.pipelineStage.delete({ where: { id: stage.id } });
     return { deleted: true };
   }
 
   private async getOwn(studioId: string, stageId: string): Promise<PipelineStage> {
     const stage = await this.prisma.pipelineStage.findFirst({ where: { id: stageId, studioId } });
-    if (!stage) throw new NotFoundException('Aşama bulunamadı');
+    if (!stage) throw new NotFoundException(apiError('apiErrors.crm.stageNotFound'));
     return stage;
   }
 }

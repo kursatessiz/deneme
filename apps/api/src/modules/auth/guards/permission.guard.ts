@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import type { PermissionKey } from '@platform/shared';
 import { PERMISSIONS_KEY, SELF_SERVICE_KEY } from '../decorators/require-permission.decorator';
 import type { AuthenticatedRequest } from '../tenant-context';
+import { apiError } from '../../../common/api-error';
 
 /**
  * Deny by default: a studio-scoped handler must declare either
@@ -19,17 +20,17 @@ export class PermissionGuard implements CanActivate {
     const selfService = this.reflector.getAllAndOverride<boolean | undefined>(SELF_SERVICE_KEY, targets);
 
     const tenant = context.switchToHttp().getRequest<AuthenticatedRequest>().tenant;
-    if (!tenant) throw new ForbiddenException('İşletme bağlamı çözümlenemedi');
+    if (!tenant) throw new ForbiddenException(apiError('apiErrors.auth.businessContextCouldNotResolved'));
 
     if (required && required.length > 0) {
       const missing = required.filter((key) => !tenant.permissions.has(key));
-      if (missing.length > 0) throw new ForbiddenException('Bu işlem için yetkiniz yok');
+      if (missing.length > 0) throw new ForbiddenException(apiError('apiErrors.auth.notPermissionAction'));
       return true;
     }
     if (selfService) {
       // Any active membership; the handler must still restrict data to the caller.
       return true;
     }
-    throw new ForbiddenException('Bu işlem için yetki tanımlanmamış');
+    throw new ForbiddenException(apiError('apiErrors.auth.noPermissionDefinedAction'));
   }
 }

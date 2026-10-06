@@ -28,6 +28,7 @@ import type { LifecycleEvent } from '../lifecycle';
 import { toCsv } from '../../../common/csv';
 import { GrowthEventsService } from '../hooks/growth-events.service';
 import { PlatformEventsService } from '../../webhooks/platform-events.service';
+import { apiError } from '../../../common/api-error';
 
 type Db = PrismaService | Prisma.TransactionClient;
 
@@ -288,7 +289,7 @@ export class ContactsService {
         conversions: { orderBy: { occurredAt: 'desc' }, take: 100 },
       },
     });
-    if (!contact) throw new NotFoundException('Kişi bulunamadı');
+    if (!contact) throw new NotFoundException(apiError('apiErrors.common.contactNotFound'));
     assertBranchAccess(tenant, contact.branchId);
     return {
       ...toContactDto(contact, canSeeMemberContact(tenant)),
@@ -342,10 +343,10 @@ export class ContactsService {
     if (dto.ownerMembershipId) await this.assertStaffMembership(studioId, dto.ownerMembershipId);
     const customFields = dto.customFields ? await this.validateCustomFields(studioId, dto.customFields, {}) : {};
     if (dto.phone && (await this.prisma.contact.findFirst({ where: { studioId, phone: dto.phone, mergedIntoId: null } }))) {
-      throw new ConflictException('Bu telefon numarasıyla bir kişi zaten var');
+      throw new ConflictException(apiError('apiErrors.crm.contactPhoneNumberAlreadyExists'));
     }
     if (dto.email && (await this.emailTaken(studioId, dto.email, this.prisma))) {
-      throw new ConflictException('Bu e-posta adresiyle bir kişi zaten var');
+      throw new ConflictException(apiError('apiErrors.crm.contactEmailAddressAlreadyExists'));
     }
     const { contact } = await this.resolveOrCreate(studioId, {
       firstName: dto.firstName,
@@ -416,7 +417,7 @@ export class ContactsService {
         await this.prisma.contact.update({ where: { id: contact.id }, data: { pipelineStageId: null } });
       } else {
         const target = await this.pipeline.getByKey(studioId, dto.pipelineStageKey);
-        if (target.kind === 'LOST' && !dto.lostReason) throw new BadRequestException('Kayıp nedeni giriniz');
+        if (target.kind === 'LOST' && !dto.lostReason) throw new BadRequestException(apiError('apiErrors.crm.enterLossReason'));
         if (target.id !== contact.pipelineStageId) {
           await this.moveToStage(contact, target.key, { lostReason: dto.lostReason, actorMembershipId: tenant.membershipId });
         }
@@ -480,7 +481,7 @@ export class ContactsService {
     const studioId = tenant.studioId;
     const [survivor, merged] = await Promise.all([this.getOwn(tenant, dto.survivorId), this.getOwn(tenant, dto.mergedId)]);
     if (survivor.membershipId && merged.membershipId) {
-      throw new ConflictException('İki kişinin de üyelik hesabı var; bu kişiler birleştirilemez');
+      throw new ConflictException(apiError('apiErrors.crm.bothContactsMembershipAccountsTheyCannot'));
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -636,7 +637,7 @@ export class ContactsService {
 
   async getOwn(tenant: TenantContext, contactId: string): Promise<Contact> {
     const contact = await this.prisma.contact.findFirst({ where: { id: contactId, studioId: tenant.studioId, mergedIntoId: null } });
-    if (!contact) throw new NotFoundException('Kişi bulunamadı');
+    if (!contact) throw new NotFoundException(apiError('apiErrors.common.contactNotFound'));
     assertBranchAccess(tenant, contact.branchId);
     return contact;
   }
@@ -647,7 +648,7 @@ export class ContactsService {
       include: { roleTemplate: true },
     });
     if (!membership || membership.roleTemplate.key === 'member') {
-      throw new BadRequestException('Sorumlu personel bu işletmede aktif bir personel üyeliği olmalıdır');
+      throw new BadRequestException(apiError('apiErrors.crm.responsibleStaffMemberMustActiveStaff'));
     }
   }
 
@@ -664,10 +665,10 @@ export class ContactsService {
     const next: ContactCustomFields = { ...current };
     for (const key of keys) {
       const def = byKey.get(key);
-      if (!def) throw new BadRequestException(`'${key}' adlı özel alan tanımlı değil`);
+      if (!def) throw new BadRequestException(apiError('apiErrors.crm.customFieldUndefined', { key: key }));
       const value = input[key];
       const error = validateCustomFieldValue(def, value);
-      if (error) throw new BadRequestException(`${key}: ${error}`);
+      if (error) throw new BadRequestException(apiError('apiErrors.crm.customFieldInvalid', { key: key, message: error }));
       if (value === null) delete next[key];
       else next[key] = value;
     }
@@ -785,7 +786,7 @@ export function toContactDto(c: ContactWithRelations, showMemberContact = true):
 
 function uniqueConflict(err: unknown): unknown {
   if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-    return new ConflictException('Bu telefon numarası veya e-posta ile bir kişi zaten var');
+    return new ConflictException(apiError('apiErrors.crm.contactPhoneNumberEmailAlreadyExists'));
   }
   return err;
 }

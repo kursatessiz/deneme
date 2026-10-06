@@ -1,4 +1,4 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, UnprocessableEntityException } from '@nestjs/common';
 import type { Contact } from '@platform/database';
 import {
   PUBLIC_API_SOURCE_CHANNEL,
@@ -26,11 +26,13 @@ import { ContactsService, dedupeTags } from '../crm/contacts/contacts.service';
 import { GrowthEventsService } from '../crm/hooks/growth-events.service';
 import { ContactConsentService } from '../notifications/consent/contact-consent.service';
 import { ConsentConfirmationService } from '../notifications/consent/consent-confirmation.service';
+import { apiError, apiErrorWithCode } from '../../common/api-error';
+import type { ApiErrorKey, ApiErrorParams } from '@platform/shared';
 
 const MAX_TAGS_PER_CONTACT = 50;
 
-function apiError(status: HttpStatus, code: PublicApiErrorCode, message: string): HttpException {
-  return new HttpException({ statusCode: status, code, message }, status);
+function publicApiError(status: HttpStatus, code: PublicApiErrorCode, key: ApiErrorKey, params?: ApiErrorParams): HttpException {
+  return new HttpException(apiErrorWithCode(code, key, params, { statusCode: status }), status);
 }
 
 /**
@@ -57,7 +59,7 @@ export class PublicContactsService {
   async upsert(studioId: string, apiKeyId: string, input: PublicUpsertContactInput): Promise<PublicContactUpsertResultDTO> {
     const studio = await this.prisma.studio.findUniqueOrThrow({ where: { id: studioId }, select: { countryCode: true } });
     const phone = input.phone ? normalizePhone(input.phone, studio.countryCode) : null;
-    if (input.phone && !phone) throw new BadRequestException('Geçersiz telefon numarası');
+    if (input.phone && !phone) throw new BadRequestException(apiError('apiErrors.publicApi.invalidPhoneNumber'));
     const email = input.email ? input.email.toLowerCase() : null;
     // Reject bad custom fields before anything is written.
     if (input.customFields) await this.contacts.validateCustomFields(studioId, input.customFields, {});
@@ -105,7 +107,7 @@ export class PublicContactsService {
   async addTags(studioId: string, apiKeyId: string, contactId: string, input: PublicAddTagsInput): Promise<PublicContactDTO> {
     const contact = await this.findContact(studioId, contactId);
     const tags = dedupeTags([...contact.tags, ...input.tags]);
-    if (tags.length > MAX_TAGS_PER_CONTACT) throw new UnprocessableEntityException(`Bir kişide en fazla ${MAX_TAGS_PER_CONTACT} etiket olabilir`);
+    if (tags.length > MAX_TAGS_PER_CONTACT) throw new UnprocessableEntityException(apiError('apiErrors.publicApi.tooManyTags', { max: MAX_TAGS_PER_CONTACT }));
     const updated = await this.prisma.contact.update({ where: { id: contact.id }, data: { tags } });
     await this.emitTagEvents(studioId, contact, tags);
     await this.audit(studioId, apiKeyId, 'public_api.contact.tags_add', contact.id, { added: tags.filter((t) => !contact.tags.includes(t)) });
@@ -126,18 +128,18 @@ export class PublicContactsService {
       for (const channel of channels) await this.consents.revoke(studioId, contact.id, channel, 'public-api');
     } else if (input.legalBasis === 'EXISTING_CUSTOMER') {
       // Derived at send time from the customer relationship; there is nothing to record.
-      throw apiError(HttpStatus.UNPROCESSABLE_ENTITY, 'CONSENT_BASIS_NOT_ALLOWED', 'EXISTING_CUSTOMER dayanağı gönderim anında türetilir ve kaydedilemez');
+      throw publicApiError(HttpStatus.UNPROCESSABLE_ENTITY, 'CONSENT_BASIS_NOT_ALLOWED', 'apiErrors.publicApi.existingCustomerBasisNotRecordable');
     } else if (input.legalBasis === 'TR_MERCHANT_EXEMPTION') {
       const policy = await this.consents.policyFor(studioId);
       const region = complianceRegionOf(countryCode);
       if (!policy?.trMerchantExemptionEnabled || !contact.isBusiness || !REGION_CONSENT_RULES[region].merchantExemption) {
-        throw apiError(HttpStatus.CONFLICT, 'CONSENT_BASIS_NOT_ALLOWED', 'Tacir muafiyeti bu kişi için uygulanamaz (ayar kapalı, kişi işletme değil veya bölge uygun değil)');
+        throw publicApiError(HttpStatus.CONFLICT, 'CONSENT_BASIS_NOT_ALLOWED', 'apiErrors.publicApi.merchantExemptionNotApplicable');
       }
       await this.consents.applyMerchantExemption(studioId, contact.id);
     } else {
       for (const channel of channels) {
         const hasAddress = channel === 'EMAIL' ? Boolean(contact.email) : Boolean(contact.phone);
-        if (!hasAddress) throw apiError(HttpStatus.UNPROCESSABLE_ENTITY, 'CONSENT_CHANNEL_ADDRESS_MISSING', `Kişinin ${channel} kanalı için adresi yok`);
+        if (!hasAddress) throw publicApiError(HttpStatus.UNPROCESSABLE_ENTITY, 'CONSENT_CHANNEL_ADDRESS_MISSING', 'apiErrors.publicApi.contactNoChannelAddress', { channel });
       }
       const result = await this.confirmations.afterFormConsent(studioId, contact.id, {
         channels,
@@ -171,7 +173,7 @@ export class PublicContactsService {
 
   private async findContact(studioId: string, contactId: string): Promise<Contact> {
     const contact = await this.prisma.contact.findFirst({ where: { id: contactId, studioId, mergedIntoId: null } });
-    if (!contact) throw apiError(HttpStatus.NOT_FOUND, 'CONTACT_NOT_FOUND', 'Kişi bulunamadı');
+    if (!contact) throw publicApiError(HttpStatus.NOT_FOUND, 'CONTACT_NOT_FOUND', 'apiErrors.common.contactNotFound');
     return contact;
   }
 

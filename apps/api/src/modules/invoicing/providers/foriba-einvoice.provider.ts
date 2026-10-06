@@ -8,6 +8,7 @@ import type {
   GetPdfResult,
   IssueInvoiceParams,
 } from './einvoice-provider.interface';
+import { apiError } from '../../../common/api-error';
 
 /**
  * Foriba/Sovos e-Arsiv/e-Fatura adapter skeleton. Real HTTP calls are not
@@ -32,28 +33,28 @@ export class ForibaEInvoiceProvider implements EInvoiceProviderAdapter {
     const password = this.config.get<string>('FORIBA_PASSWORD');
     if (!username || !password) {
       throw new InternalServerErrorException(
-        'Foriba/Sovos e-fatura sağlayıcısı yapılandırılmamış: FORIBA_USERNAME ve FORIBA_PASSWORD gereklidir',
+        apiError('apiErrors.invoicing.foribaSovosEInvoiceProviderNot'),
       );
     }
   }
 
   async issue(_params: IssueInvoiceParams): Promise<EInvoiceIssueResult> {
     this.assertConfigured();
-    throw new InternalServerErrorException('Foriba/Sovos entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.invoicing.foribaSovosIntegrationNotImplementedYet'));
   }
 
   async cancel(_params: CancelInvoiceParams): Promise<EInvoiceCancelResult> {
     this.assertConfigured();
-    throw new InternalServerErrorException('Foriba/Sovos entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.invoicing.foribaSovosIntegrationNotImplementedYet'));
   }
 
   async getStatus(): Promise<{ status: string }> {
     this.assertConfigured();
-    throw new InternalServerErrorException('Foriba/Sovos entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.invoicing.foribaSovosIntegrationNotImplementedYet'));
   }
 
   async getPdf(): Promise<GetPdfResult> {
     this.assertConfigured();
-    throw new InternalServerErrorException('Foriba/Sovos entegrasyonu henüz uygulanmadı');
+    throw new InternalServerErrorException(apiError('apiErrors.invoicing.foribaSovosIntegrationNotImplementedYet'));
   }
 }

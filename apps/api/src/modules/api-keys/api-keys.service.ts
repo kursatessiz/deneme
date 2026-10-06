@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { generateApiKey } from './api-key.util';
 import type { CreateApiKeyInput } from '@platform/shared';
 import type { TenantContext } from '../auth/tenant-context';
+import { apiError } from '../../common/api-error';
 
 @Injectable()
 export class ApiKeysService {
@@ -45,8 +46,8 @@ export class ApiKeysService {
 
   async revoke(tenant: TenantContext, userId: string, id: string) {
     const key = await this.prisma.apiKey.findFirst({ where: { id, studioId: tenant.studioId } });
-    if (!key) throw new NotFoundException('API anahtarı bulunamadı');
-    if (key.revokedAt) throw new BadRequestException('Bu anahtar zaten iptal edilmiş');
+    if (!key) throw new NotFoundException(apiError('apiErrors.apiKeys.apiKeyNotFound'));
+    if (key.revokedAt) throw new BadRequestException(apiError('apiErrors.apiKeys.keyAlreadyRevoked'));
     const updated = await this.prisma.apiKey.update({ where: { id }, data: { revokedAt: new Date() } });
     await this.prisma.auditLog.create({
       data: { studioId: tenant.studioId, userId, action: 'api_keys.revoke', entityType: 'ApiKey', entityId: id, metadata: {} },
