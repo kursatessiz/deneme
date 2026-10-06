@@ -1,3 +1,4 @@
+import type { ApiErrorKey } from './api-errors';
 import type { MembershipBillingSummary } from './billing';
 import {
   BookingStatus,
@@ -720,7 +721,9 @@ export interface PromoRedemptionDTO {
 /** Preview of what a code would discount, without redeeming it. */
 export interface PromoPreviewDTO {
   valid: boolean;
+  /** Why the code does not apply (Turkish base text); `reasonKey` is its apiErrors key for translation. */
   reason?: string;
+  reasonKey?: ApiErrorKey;
   basePrice: string;
   discountAmount: string;
   finalAmount: string;

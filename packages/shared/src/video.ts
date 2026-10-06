@@ -1,3 +1,4 @@
+import type { ApiErrorKey } from './api-errors';
 import { z } from 'zod';
 import { VideoContentProvider, VideoContentVisibility } from './enums';
 import { HttpsUrlSchema } from './validators';
@@ -118,6 +119,8 @@ export interface MemberVideoContentDTO extends VideoContentDTO {
   isLocked: boolean;
   /** Turkish explanation of why it is locked (null when unlocked). */
   lockedReason: string | null;
+  /** apiErrors key of `lockedReason`, so clients can show it in the viewer's language. */
+  lockedReasonKey: ApiErrorKey | null;
   lastPositionSeconds: number | null;
   completedAt: string | null;
   isCreditCharged: boolean;
