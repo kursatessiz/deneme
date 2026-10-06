@@ -17,6 +17,7 @@ import { Select } from '@/components/ui/Select';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
 import { Card } from '@/components/ui/Card';
 import { AnchorButton } from '@/components/ui/LinkButton';
+import { useToast } from '@/components/ui';
 
 type InvoiceRow = InvoiceDTO;
 
@@ -29,6 +30,7 @@ const STATUS_TONE: Record<string, 'success' | 'warning' | 'danger' | 'neutral'> 
 
 export function InvoicesTab() {
   const t = useT();
+  const toast = useToast();
   const formatMoney = useFormatMoney();
   const locale = useLocale();
   const { activeStudioId } = useDashboardSession();
@@ -65,7 +67,7 @@ export function InvoicesTab() {
       await bffFetch(`invoices/${id}/retry`, { method: 'POST', studioId: activeStudioId });
       setReloadKey((k) => k + 1);
     } catch (err) {
-      window.alert(err instanceof BffError ? err.message : t('finance.invoices.errors.retryFailed'));
+      toast.error(err instanceof BffError ? err.message : t('finance.invoices.errors.retryFailed'));
     } finally {
       setRetryingId(null);
     }

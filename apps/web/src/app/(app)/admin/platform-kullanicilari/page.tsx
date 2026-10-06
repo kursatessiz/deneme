@@ -16,6 +16,7 @@ import { InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader,
 import { FieldGroup } from '@/components/ui/FieldGroup';
 import { Select } from '@/components/ui/Select';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
+import { useConfirm } from '@/components/ui';
 
 type Channel = 'SHOWN' | 'SMS' | 'WHATSAPP';
 
@@ -35,6 +36,7 @@ const STATUS_TONE = { INVITED: 'info', ACTIVE: 'success', PASSIVE: 'neutral' } a
  */
 export default function PlatformUsersPage() {
   const t = useT();
+  const { confirm } = useConfirm();
   const locale = useLocale();
   const [members, setMembers] = useState<PlatformMemberDTO[] | null>(null);
   const [roles, setRoles] = useState<PlatformRoleTemplateDTO[]>([]);
@@ -198,8 +200,11 @@ export default function PlatformUsersPage() {
                           <SecondaryButton
                             danger
                             onClick={() =>
-                              window.confirm(t('adminPlatformUsers.confirm.deactivate', { name: m.fullName })) &&
-                              run(() => bffFetch(`admin/platform-users/${m.userId}/deactivate`, { method: 'POST' }))
+                              void confirm({ message: t('adminPlatformUsers.confirm.deactivate', { name: m.fullName }), danger: true }).then(
+                                (ok) => {
+                                  if (ok) void run(() => bffFetch(`admin/platform-users/${m.userId}/deactivate`, { method: 'POST' }));
+                                },
+                              )
                             }
                           >
                             {t('adminPlatformUsers.action.deactivate')}
@@ -208,8 +213,11 @@ export default function PlatformUsersPage() {
                         {m.mfaEnabled && (
                           <SecondaryButton
                             onClick={() =>
-                              window.confirm(t('adminPlatformUsers.confirm.resetMfa', { name: m.fullName })) &&
-                              run(() => bffFetch(`admin/platform-users/${m.userId}/mfa/reset`, { method: 'POST' }))
+                              void confirm({ message: t('adminPlatformUsers.confirm.resetMfa', { name: m.fullName }), danger: true }).then(
+                                (ok) => {
+                                  if (ok) void run(() => bffFetch(`admin/platform-users/${m.userId}/mfa/reset`, { method: 'POST' }));
+                                },
+                              )
                             }
                           >
                             {t('adminPlatformUsers.action.resetMfa')}

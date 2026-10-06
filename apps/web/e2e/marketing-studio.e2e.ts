@@ -101,14 +101,14 @@ test('brand kit, AI drafts with a brand check, and the content calendar', async 
   await expect(cell11.getByRole('button', { name: new RegExp(itemTitle) })).toBeVisible();
 
   await cell11.getByRole('button', { name: new RegExp(itemTitle) }).click();
-  page.once('dialog', (dialog) => void dialog.accept());
   await main.getByRole('button', { name: 'Öğeyi sil' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Onayla', exact: true }).click();
   await expect(main.getByRole('button', { name: new RegExp(itemTitle) })).toHaveCount(0);
 
   // Cleanup: the product fact of this run.
   await page.goto('/pazarlama/marka');
-  page.once('dialog', (dialog) => void dialog.accept());
   await main.getByRole('row', { name: new RegExp(factKey) }).getByRole('button', { name: 'Kaldır' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Onayla', exact: true }).click();
   await expect(main.getByRole('cell', { name: factKey, exact: true })).toHaveCount(0);
   await bff(page, 'DELETE', 'admin/ai/settings/key');
 });

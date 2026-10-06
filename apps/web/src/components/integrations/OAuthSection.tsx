@@ -23,6 +23,7 @@ import { useT } from '@/components/i18n/I18nProvider';
 import { Badge } from '@/components/common/Badge';
 import { SelectField } from '@/components/marketing/fields';
 import { InlineMessage, PrimaryButton, SecondaryButton, Section, TextField } from '@/components/settings/ui';
+import { useConfirm } from '@/components/ui';
 
 type Run = (action: () => Promise<unknown>) => Promise<void>;
 type FmtDate = (iso: string | null) => string;
@@ -220,6 +221,7 @@ function OAuthClientsSection({ clients, providers, run, fmtDate }: { clients: OA
 
 function ClientForm({ client, redirectUri, run, fmtDate }: { client: OAuthClientSettingsDTO; redirectUri: string; run: Run; fmtDate: FmtDate }) {
   const t = useT();
+  const { confirm } = useConfirm();
   const def = OAUTH_PROVIDER_DEFINITIONS[client.provider];
   const [clientId, setClientId] = useState('');
   const [secret, setSecret] = useState('');
@@ -292,7 +294,7 @@ function ClientForm({ client, redirectUri, run, fmtDate }: { client: OAuthClient
             {t('integrationsOAuth.clients.save')}
           </PrimaryButton>
           {client.clientIdPreview && (
-            <SecondaryButton danger onClick={() => window.confirm(t('integrations.confirmDelete')) && run(() => bffFetch(path, { method: 'DELETE' }))}>
+            <SecondaryButton danger onClick={() => void confirm({ message: t('integrations.confirmDelete'), danger: true }).then((ok) => { if (ok) void run(() => bffFetch(path, { method: 'DELETE' })); })}>
               {t('integrationsOAuth.clients.remove')}
             </SecondaryButton>
           )}

@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
 import { Card } from '@/components/ui/Card';
+import { useToast } from '@/components/ui';
 
 type PromoCodeRow = PromoCodeDTO;
 type GiftCardRow = GiftCardDTO;
@@ -84,6 +85,7 @@ function NewPromoCodeDialog({ studioId, onClose, onDone }: { studioId: string; o
 
 function PromoCodesSection() {
   const t = useT();
+  const toast = useToast();
   const formatMoney = useFormatMoney();
   const { activeStudioId } = useDashboardSession();
   const [showNew, setShowNew] = useState(false);
@@ -97,7 +99,7 @@ function PromoCodesSection() {
       await bffFetch(`promotions/promo-codes/${row.id}`, { method: 'PUT', studioId: activeStudioId, body: { isActive: !row.isActive } });
       setReloadKey((k) => k + 1);
     } catch (err) {
-      window.alert(err instanceof BffError ? err.message : t('finance.promotions.errors.updateFailed'));
+      toast.error(err instanceof BffError ? err.message : t('finance.promotions.errors.updateFailed'));
     }
   }
 

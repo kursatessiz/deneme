@@ -12,6 +12,7 @@ import { useSession } from '../../../../src/lib/session';
 import { borderWidth, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../../src/theme';
 import { Text } from '../../../../src/components/Text';
 import { TextInput } from '../../../../src/components/TextInput';
+import { showNotice } from '../../../../src/lib/notice';
 
 const SCORE_SIZE = 56; // >= 44pt touch target
 
@@ -60,7 +61,7 @@ export default function RateSessionScreen() {
     try {
       await Linking.openURL(url);
     } catch {
-      Alert.alert(t('mRating.linkOpenFailedTitle'), t('mRating.linkOpenFailedBody'));
+      showNotice(t, t('mRating.linkOpenFailedTitle'), t('mRating.linkOpenFailedBody'));
     }
   };
 

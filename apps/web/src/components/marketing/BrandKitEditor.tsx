@@ -18,6 +18,7 @@ import { InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader 
 import { marketingErrorText } from '@/lib/marketing/errors';
 import { AreaField, CheckField, InputField, LinkButton, SelectField } from './fields';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui';
+import { useConfirm } from '@/components/ui';
 
 const LINK_KEYS = ['website', 'linkedin', 'instagram', 'facebook', 'x', 'youtube'] as const;
 
@@ -161,6 +162,7 @@ const emptyFact = (locales: string[]): FactForm => ({
  */
 export function BrandKitEditor() {
   const t = useT();
+  const { confirm } = useConfirm();
   const uiLocale = useLocale();
   const [view, setView] = useState<BrandKitViewDTO | null>(null);
   const [form, setForm] = useState<KitForm | null>(null);
@@ -241,7 +243,7 @@ export function BrandKitEditor() {
   }
 
   async function removeFact(id: string) {
-    if (!window.confirm(t('brandKit.facts.confirmDelete'))) return;
+    if (!(await confirm({ message: t('brandKit.facts.confirmDelete'), danger: true }))) return;
     try {
       await bffFetch(`platform/marketing/brand-kit/facts/${id}`, { method: 'DELETE' });
       load();

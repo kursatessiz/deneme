@@ -32,6 +32,7 @@ import { LeadAdsSection } from './LeadAdsSection';
 import { SmsSenderSection } from './SmsSenderSection';
 import { ConnectionAuthBadges, OAuthSection, useOAuthStart } from './OAuthSection';
 import { Tr, Td } from '@/components/ui';
+import { useConfirm } from '@/components/ui';
 
 const STATUS_TONE: Record<DnsRecordStatus, 'neutral' | 'success' | 'warning' | 'danger'> = {
   PENDING: 'neutral',
@@ -61,6 +62,7 @@ const CHANNEL_LABEL: Record<string, MessageKey> = {
  */
 export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationEntryPoint; adsSettingsHref: string }) {
   const t = useT();
+  const { confirm } = useConfirm();
   const locale = useLocale();
   const [data, setData] = useState<IntegrationHubDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -155,7 +157,7 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
                       {t('integrationsOAuth.reconnect')}
                     </SecondaryButton>
                   )}
-                  <SecondaryButton danger onClick={() => window.confirm(t('integrations.confirmDelete')) && run(() => call(`ads/${a.id}`, 'DELETE'))}>
+                  <SecondaryButton danger onClick={() => void confirm({ message: t('integrations.confirmDelete'), danger: true }).then((ok) => { if (ok) void run(() => call(`ads/${a.id}`, 'DELETE')); })}>
                     {t('integrations.delete')}
                   </SecondaryButton>
                 </Td>
@@ -215,7 +217,7 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
                     </SecondaryButton>
                   )}
                   <SecondaryButton onClick={() => setRotateId(rotateId === c.id ? null : c.id)}>{t('integrations.social.rotate')}</SecondaryButton>
-                  <SecondaryButton danger onClick={() => window.confirm(t('integrations.confirmDelete')) && run(() => call(`social/${c.id}`, 'DELETE'))}>
+                  <SecondaryButton danger onClick={() => void confirm({ message: t('integrations.confirmDelete'), danger: true }).then((ok) => { if (ok) void run(() => call(`social/${c.id}`, 'DELETE')); })}>
                     {t('integrations.delete')}
                   </SecondaryButton>
                 </Td>
@@ -315,7 +317,7 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
                 : undefined
             }
             provisioned={provisioned?.id === d.id ? provisioned.provider : null}
-            onDelete={() => window.confirm(t('integrations.confirmDelete')) && run(() => call(`email-domains/${d.id}`, 'DELETE'))}
+            onDelete={() => void confirm({ message: t('integrations.confirmDelete'), danger: true }).then((ok) => { if (ok) void run(() => call(`email-domains/${d.id}`, 'DELETE')); })}
           />
         ))}
         <form
@@ -427,7 +429,7 @@ export function IntegrationHub({ entry, adsSettingsHref }: { entry: IntegrationE
                   <Toggle label="" checked={w.isActive} onChange={(v) => run(() => call(`webhooks/${w.id}`, 'PATCH', { isActive: v }))} />
                 </Td>
                 <Td className="text-right">
-                  <SecondaryButton danger onClick={() => window.confirm(t('integrations.confirmDelete')) && run(() => call(`webhooks/${w.id}`, 'DELETE'))}>
+                  <SecondaryButton danger onClick={() => void confirm({ message: t('integrations.confirmDelete'), danger: true }).then((ok) => { if (ok) void run(() => call(`webhooks/${w.id}`, 'DELETE')); })}>
                     {t('integrations.delete')}
                   </SecondaryButton>
                 </Td>
