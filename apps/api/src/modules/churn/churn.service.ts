@@ -338,8 +338,14 @@ export class ChurnService {
     return rows.map((r) => this.toSummary(tenant, r));
   }
 
-  async summary(tenant: TenantContext): Promise<ChurnSummaryDTO> {
-    const homeBranchWhere = this.resolveHomeBranchWhere(tenant, undefined);
+  /**
+   * Risk level counts of the members the caller may see. `branchId` narrows
+   * them to members whose home branch is that branch, the same definition
+   * the member list (findAll) and the other branch filters use; the caller's
+   * own branch restriction still applies (assertBranchAccess).
+   */
+  async summary(tenant: TenantContext, branchId?: string): Promise<ChurnSummaryDTO> {
+    const homeBranchWhere = this.resolveHomeBranchWhere(tenant, branchId);
     const visibleMembers = await this.prisma.memberProfile.findMany({
       where: { studioId: tenant.studioId, membership: { status: 'ACTIVE' }, ...homeBranchWhere },
       select: { id: true },

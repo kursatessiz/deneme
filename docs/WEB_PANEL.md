@@ -300,9 +300,11 @@ gerekir; işletme sahibi her kartı görür.
 
 Ciro iadeler düşülmüş net tutardır (gelir raporunun "net" satırı) ve her
 zaman işletmenin para birimiyle gösterilir. Büyüme hızı (katılan - ayrılan) /
-dönem başındaki üye sayısıdır (`memberGrowthRate`). Riskli üyeler kartı şube
-filtresini uygulamaz (churn özeti zaten personelin şube kapsamına göre
-hesaplanır).
+dönem başındaki üye sayısıdır (`memberGrowthRate`). Riskli üyeler kartı da
+seçili şubeye göre süzülür: `ChurnService.summary(tenant, branchId)` yalnızca
+ana şubesi (`homeBranchId`) o şube olan aktif üyeleri sayar (üye listesi ve
+diğer şube süzgeçleriyle aynı tanım); şube verilmezse personelin şube
+kapsamındaki tüm üyeler sayılır ve çağıranın şube kısıtı her durumda geçerlidir.
 
 **Varsayılan pano** tek bir sıralı listeden (`DASHBOARD_DEFAULT_ORDER`)
 üyeliğin görebildiği kartlarla kurulur: sahip için hızlı işlemler, ciro,
@@ -347,10 +349,20 @@ bugünkü seanslar, program, şubeler ve haftalık takvim.
 - Kartın menüsünde dönem seçimi (dönemi olan kartlarda her zaman), düzenleme
   modunda ayrıca "Yukarı taşı", "Aşağı taşı" ve "Kartı kaldır" (onaylı) vardır.
 - Ekran genişliği 1280 px ve üstünde 12 sütun; 768-1279 px arasında 6 sütun
-  (genişlikler yarıya iner, kartlar okuma sırasıyla yerleşir); 768 px altında
-  tek sütun (kartlar okuma sırasıyla alt alta). Dar ekranlar yalnızca
-  türetilmiş görünümdür, saklanan düzen her zaman 12 sütunludur; burada
-  sürükleme ve boyutlandırma kapalıdır, sıra menüden veya klavyeden değişir.
+  (tablet düzeni); 768 px altında tek sütun (kartlar okuma sırasıyla alt alta,
+  tam genişlik). Tablet düzeninde boyutlandırma yoktur; her kart saklanan
+  12 sütunluk genişliğinden türetilen 2, 4 veya 6 sütun kaplar
+  (`tabletLayout`, `packages/shared/src/dashboard/engine.ts`): genişlik 4 ve
+  altı 2, 8 ve altı 4, daha fazlası 6 olur ve kartın kendi alt sınırının
+  (katalog `minW`: 3 ve altı 2, 4 ise 4, 6 ise 6 sütun; yani göstergeler ve
+  listeler 2, grafikler ve tablolar en az 4, haftalık takvim ve hızlı
+  işlemler 6) altına inmez. Yükseklik saklanan değerdir, kartın sınırlarına
+  kırpılır. Kartlar saklanan okuma sırasıyla ilk boş yuvaya yerleşir; böylece
+  sonraki daha dar bir kart öncekinin yanındaki boşluğu doldurur ve
+  sığabilecek bir kart için delik kalmaz. Dar ekranlar yalnızca türetilmiş
+  görünümdür, saklanan düzen her zaman 12 sütunludur; burada sürükleme ve
+  boyutlandırma (tutamaçlar dahil) kapalıdır, sıra menüden veya klavyeden
+  değişir.
 
 ### Klavye ve ekran okuyucu
 

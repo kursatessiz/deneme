@@ -123,7 +123,7 @@ export class DashboardDataService {
       case 'renewalRate':
         return this.renewalRate(tenant, ctx, p);
       case 'churnRisk': {
-        const summary = await this.churn.summary(tenant);
+        const summary = await this.churn.summary(tenant, ctx.branchId);
         return { kind: 'churnRisk', counts: summary.counts, computedAt: summary.computedAt };
       }
       case 'newLeads':

@@ -6,7 +6,7 @@ import type { GestureResponderEvent, PanResponderGestureState } from 'react-nati
 import { Card } from '../components/Card';
 import { Text } from '../components/Text';
 import { LONG_PRESS_MOVE_SLOP, LONG_PRESS_MS, dropOutcome, isOverTrash } from '../lib/dashboardBoard';
-import type { Rect } from '../lib/dashboardBoard';
+import type { Rect, TabletFrame } from '../lib/dashboardBoard';
 import { spacing, typography, useTheme, useThemeFonts } from '../theme';
 
 /** Scale of a lifted card. */
@@ -33,6 +33,8 @@ export interface DraggableCardProps {
   onCancel: (id: string) => void;
   /** Released over the trash target, or the screen reader's remove action. */
   onRemove: (id: string) => void;
+  /** Absolute frame on the tablet board; omitted on phones, where the card is full width and as tall as its content. */
+  frame?: TabletFrame;
   children: ReactNode;
 }
 
@@ -43,7 +45,7 @@ export interface DraggableCardProps {
  * responder is not given up until release. Only React Native's own
  * PanResponder and Animated are used.
  */
-export function DraggableCard({ id, title, caption, trashRect, hint, removeLabel, liftedAnnouncement, onLift, onHover, onCancel, onRemove, children }: DraggableCardProps) {
+export function DraggableCard({ id, title, caption, trashRect, hint, removeLabel, liftedAnnouncement, onLift, onHover, onCancel, onRemove, frame, children }: DraggableCardProps) {
   const { theme } = useTheme();
   const fonts = useThemeFonts();
   const c = theme.colors;
@@ -147,13 +149,14 @@ export function DraggableCard({ id, title, caption, trashRect, hint, removeLabel
       {...responder.panHandlers}
       style={[
         styles.wrap,
+        frame && { position: 'absolute', left: frame.left, top: frame.top, width: frame.width, height: frame.height, marginBottom: 0 },
         lifted && styles.lifted,
         lifted && { shadowColor: c.textPrimary },
         { opacity, transform: [...pan.getTranslateTransform(), { scale }] },
       ]}
     >
       <Card
-        style={lifted ? { borderColor: c.primary } : undefined}
+        style={[frame ? styles.fill : null, lifted ? { borderColor: c.primary } : null]}
         header={
           <View
             accessible
@@ -188,6 +191,7 @@ const styles = StyleSheet.create({
     shadowRadius: spacing[3],
     shadowOffset: { width: 0, height: spacing[1] },
   },
+  fill: { flex: 1 },
   title: { fontSize: typography.size.sm },
   caption: { fontSize: typography.size.xs },
 });

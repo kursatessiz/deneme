@@ -308,6 +308,31 @@ describe('Churn risk (e2e)', () => {
       expect(high.count).toBeGreaterThanOrEqual(1);
     });
 
+    it('the dashboard churnRisk card follows the branch filter (home branch of the member)', async () => {
+      const card = async (branchId?: string) => {
+        const res = await request(server)
+          .post(`/studios/${ZEN}/dashboard/data`)
+          .set('Authorization', `Bearer ${ownerToken}`)
+          .set('x-studio-id', ZEN)
+          .send({ ...(branchId ? { branchId } : {}), widgets: [{ id: '0e2e0000-0000-4000-8000-0000000000c1', widget: 'churnRisk' }] });
+        expect(res.status).toBe(200);
+        const result = res.body.results[0];
+        expect(result.status).toBe('ok');
+        const counts = Object.fromEntries(result.data.counts.map((c: { level: string; count: number }) => [c.level, c.count]));
+        return counts as Record<string, number>;
+      };
+      const all = await card();
+      const inB = await card(branchB);
+      const inA = await card(branchA);
+      // Branch B holds only memberHigh; branch A holds the other four fixture members.
+      expect(inB).toEqual({ LOW: 0, MEDIUM: 0, HIGH: 1 });
+      expect(inA.HIGH).toBe(0);
+      expect(inA.MEDIUM).toBeGreaterThanOrEqual(1);
+      expect(inA.LOW + inA.MEDIUM).toBe(4);
+      // The unfiltered studio count is larger than any single new branch.
+      expect(all.HIGH + all.MEDIUM + all.LOW).toBeGreaterThan(inA.HIGH + inA.MEDIUM + inA.LOW);
+    });
+
     it('CSV export has a BOM, semicolons and Turkish headers', async () => {
       const res = await as(ownerToken).get(`/churn/studio/${ZEN}/members?format=csv&level=HIGH`);
       expect(res.status).toBe(200);

@@ -489,6 +489,15 @@ Genel bakış panosu (`docs/WEB_PANEL.md`, "Genel bakış kartları") 12 sütunl
 72 px satırlı bir ızgaradır. Her kartın en küçük ve en büyük boyutu
 `DASHBOARD_WIDGETS` içinde tanımlıdır ve hem web hem API bu sınırlara kırpar.
 
+**Tablet ve telefon.** 768-1279 px (ve mobilde tablet genişliği) 6 sütunludur
+ve boyutlandırma yoktur: kartlar saklanan 12 sütunluk genişliklerinden
+türetilen 2, 4 veya 6 sütun kaplar (`tabletLayout`: 4 ve altı 2, 8 ve altı 4,
+fazlası 6; kartın kendi alt sınırının altına inmez, yani göstergeler ve
+listeler 2, grafikler ve tablolar en az 4, haftalık takvim ve hızlı işlemler
+6). Yükseklik saklanan değerdir ve kartın sınırlarına kırpılır; kartlar
+okuma sırasıyla ilk boş yuvaya yoğun yerleşir, delik bırakılmaz. Telefonda
+tek sütun, tam genişlik.
+
 **Boyut kuralı.** En küçük boyut, kartın içeriğinin kilit bilgisini kesmeden
 okunabildiği en küçük kutudur; en büyük boyut, içeriğin artık yalnızca boş
 alan kazanacağı noktadır. Kart türlerine göre:
