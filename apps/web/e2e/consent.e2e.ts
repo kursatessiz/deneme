@@ -28,6 +28,17 @@ test.describe('consent banner', () => {
     const banner = page.getByTestId('consent-banner');
     await expect(banner).toBeVisible();
     await expect(banner).toHaveAttribute('data-consent-mode', 'opt_in');
+    // A full-width band pinned to the bottom of the window, also after scrolling.
+    for (const scrollY of [0, 100000]) {
+      await page.evaluate((y) => window.scrollTo(0, y), scrollY);
+      const rect = await banner.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        return { left: r.left, width: r.width, bottom: r.bottom, viewWidth: document.documentElement.clientWidth, viewHeight: window.innerHeight };
+      });
+      expect(Math.round(rect.left)).toBe(0);
+      expect(Math.round(rect.width)).toBe(rect.viewWidth);
+      expect(Math.round(rect.bottom)).toBe(rect.viewHeight);
+    }
     expect(await cookie(page, 'pw_vid')).toBeUndefined();
     expect(await cookie(page, 'pw_sid')).toBeUndefined();
     expect(sent).toHaveLength(0);

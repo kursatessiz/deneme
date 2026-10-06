@@ -107,7 +107,7 @@ Bölge sırasıyla şuradan çözülür: `CF-IPCountry` / `X-Country-Code` başl
 | Türkiye | KVKK aydınlatma metni, kabul ve ret (ve tercih seçimi); izinden önce hiçbir şey yazılmaz ve gönderilmez |
 | ABD ve diğerleri | Bilgilendirme bandı; takip hemen başlar. Global Privacy Control sinyali reklam iznini her durumda kapatır; bant reklam çerezlerini kapatma seçeneği sunar |
 
-Reklam izni analiz izni olmadan verilemez. GPC, kaydedilmiş bir tercihten bile önce gelir. Tüm metinler `consent.*` i18n anahtarlarıdır (tr + en). Bant, varsayılan kiracı temasının tasarım token'larıyla çizilir.
+Reklam izni analiz izni olmadan verilemez. GPC, kaydedilmiş bir tercihten bile önce gelir. Tüm metinler `consent.*` i18n anahtarlarıdır (tr + en). Bant, varsayılan kiracı temasının tasarım token'larıyla çizilir. Pencerenin altına sabitlenmiş, tam genişlikte bir alt banttır; ziyaretçi bir seçim yapana kadar sayfa kaydırılsa da yerinde kalır. Sayfa, bandın yüksekliği kadar alt boşluk bırakır, böylece sayfanın sonundaki düğme ve bağlantılar bandın altında kalmaz. Geniş ekranda metin solda, düğmeler sağdadır; dar ekranda alt alta dizilir.
 
 ## 7. Yaşam döngüsü ve iş kancaları
 

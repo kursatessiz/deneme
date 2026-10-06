@@ -226,6 +226,14 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Cookie consent: a band pinned to the bottom of the window until the visitor decides. */
+  .ui-consent-band {
+    background: var(--pui-bg);
+    color: var(--pui-text);
+    border-top: var(--pui-border-width) solid var(--pui-border);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
   .ui-tabs {
     display: flex;
     gap: var(--pui-space);
