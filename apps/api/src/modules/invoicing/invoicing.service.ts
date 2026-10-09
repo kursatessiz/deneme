@@ -13,7 +13,7 @@ import type {
   InvoiceSettingsInput,
   ListInvoicesQuery,
 } from '@platform/shared';
-import { BASE_MESSAGES, BUNDLED_MESSAGES, EARSIV_GENERIC_CONSUMER_TCKN, createTranslator } from '@platform/shared';
+import { BASE_MESSAGES, BUNDLED_MESSAGES, EARSIV_GENERIC_CONSUMER_TCKN, createTranslator, zonedDateKey } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
@@ -25,6 +25,15 @@ import { serverT } from '../../common/server-i18n';
 type Tx = Prisma.TransactionClient;
 
 /** VAT-inclusive price split: net = total / (1 + rate), rounded half-up to 2 decimals; vat = total - net. */
+/**
+ * Calendar year of the invoice number series: the year it is right now in the
+ * studio's own time zone, not the server's (the clock must not move an
+ * invoice into the next year hours before the studio's New Year).
+ */
+export function invoiceYear(now: Date, timeZone: string): number {
+  return Number(zonedDateKey(now, timeZone).slice(0, 4));
+}
+
 export function splitVat(total: Prisma.Decimal | number, vatRatePercent: Prisma.Decimal | number) {
   const totalD = new Prisma.Decimal(total);
   const rate = new Prisma.Decimal(vatRatePercent).dividedBy(100);
@@ -129,7 +138,7 @@ export class InvoicingService {
         memberPackage: { include: { packageDefinition: true } },
         member: { include: { membership: { include: { user: true } } } },
         contact: { select: { firstName: true, lastName: true } },
-        studio: { select: { defaultLocale: true } },
+        studio: { select: { defaultLocale: true, timezone: true } },
       },
     });
     if (!payment) throw new NotFoundException(apiError('apiErrors.common.paymentNotFound'));
@@ -154,7 +163,7 @@ export class InvoicingService {
 
     if (settings.eInvoiceMode === EInvoiceMode.EFATURA && !buyer.vkn) {
       const reason = serverT(payment.studio.defaultLocale)('apiTexts.invoicing.vknRequired');
-      invoice = await this.persistDraftOrFail(invoice, studioId, payment, settings, buyer, reason);
+      invoice = await this.persistDraftOrFail(invoice, studioId, payment, settings, buyer, reason, payment.studio.timezone);
       return invoice;
     }
 
@@ -165,7 +174,7 @@ export class InvoicingService {
     ];
 
     if (!invoice) {
-      const year = new Date().getFullYear();
+      const year = invoiceYear(new Date(), payment.studio.timezone);
       try {
         invoice = await this.prisma.$transaction(async (tx) => {
           const number = await this.nextNumber(tx, studioId, settings.seriesPrefix, year);
@@ -257,10 +266,11 @@ export class InvoicingService {
     settings: { seriesPrefix: string; defaultVatRate: Prisma.Decimal; provider: EInvoiceProvider },
     buyer: InvoiceBuyer,
     reason: string,
+    timeZone: string,
   ): Promise<Invoice> {
     if (existing) return this.markFailed(existing.id, reason);
     const { net, vat } = splitVat(payment.amount, settings.defaultVatRate);
-    const year = new Date().getFullYear();
+    const year = invoiceYear(new Date(), timeZone);
     return this.prisma.$transaction(async (tx) => {
       const number = await this.nextNumber(tx, studioId, settings.seriesPrefix, year);
       return tx.invoice.create({
