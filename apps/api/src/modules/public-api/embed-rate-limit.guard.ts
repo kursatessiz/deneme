@@ -3,6 +3,7 @@ import type { Request } from 'express';
 import { RedisService } from '../redis/redis.service';
 import { incrementWithTtl } from '../redis/increment-with-ttl';
 import { apiError } from '../../common/api-error';
+import { isInternalServerRequest } from '../../common/internal-request';
 
 const WINDOW_SECONDS = 60;
 const MAX_REQUESTS = 30;
@@ -21,6 +22,8 @@ export class EmbedRateLimitGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<Request>();
     const ip = req.ip ?? 'unknown';
+    // Server renders of the web container (no X-Forwarded-For, private peer) are not one visitor; never count them.
+    if (isInternalServerRequest(req)) return true;
 
     const client = this.redis.getClient();
     if (client) {

@@ -8,6 +8,7 @@ import { incrementWithTtl } from '../redis/increment-with-ttl';
 import { readVisitorId } from '../crm/tracking/tracking-utils';
 import { EventRegistrationsService } from './event-registrations.service';
 import { apiError } from '../../common/api-error';
+import { isInternalServerRequest } from '../../common/internal-request';
 
 const WINDOW_SECONDS = 60;
 /** Reads are cheap listings; writes create contacts and hold seats. */
@@ -28,6 +29,8 @@ export class EventsPublicRateLimitGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<Request>();
+    // Server renders of the web container (no X-Forwarded-For, private peer) are not one visitor; never count them.
+    if (isInternalServerRequest(req)) return true;
     const write = req.method !== 'GET' && req.method !== 'HEAD';
     const limit = write ? MAX_WRITES : MAX_READS;
     const key = `events-public-rl:${write ? 'w' : 'r'}:${req.ip ?? 'unknown'}`;
