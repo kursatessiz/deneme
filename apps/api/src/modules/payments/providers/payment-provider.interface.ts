@@ -42,7 +42,10 @@ export interface WebhookVerificationResult {
   valid: boolean;
   providerReference?: string;
   eventType?: 'CHECKOUT_COMPLETED' | 'CHARGE_SUCCEEDED' | 'CHARGE_FAILED' | 'REFUND_COMPLETED';
-  amount?: number;
+  /** Decimal amount in `currency` (string keeps zero- and three-decimal currencies exact). */
+  amount?: number | string;
+  /** ISO 4217 code (upper case) the amount is expressed in. */
+  currency?: string;
   failureCode?: string;
 }
 

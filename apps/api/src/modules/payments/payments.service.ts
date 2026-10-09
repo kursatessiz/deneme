@@ -812,8 +812,9 @@ export class PaymentsService {
 
     // A verified event for a different amount than we asked for never activates anything.
     if (
-      verification.amount !== undefined &&
-      !new Prisma.Decimal(verification.amount).toDecimalPlaces(2).equals(new Prisma.Decimal(payment.amount))
+      (verification.amount !== undefined &&
+        !new Prisma.Decimal(verification.amount).toDecimalPlaces(2).equals(new Prisma.Decimal(payment.amount))) ||
+      (verification.currency !== undefined && verification.currency.toUpperCase() !== payment.currency.toUpperCase())
     ) {
       this.logger.warn(`Webhook amount mismatch for payment ${payment.id}`);
       return { handled: false, reason: 'AMOUNT_MISMATCH' };

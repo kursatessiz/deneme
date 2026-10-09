@@ -319,12 +319,19 @@ export class StripePaymentProvider implements PaymentProviderAdapter {
           valid: true,
           eventType: 'CHECKOUT_COMPLETED',
           providerReference: session.id,
-          amount: session.amount_total ? session.amount_total / 100 : undefined,
+          amount: session.amount_total ? stripeMinorToDecimal(session.amount_total, session.currency ?? '') : undefined,
+          currency: session.currency ? session.currency.toUpperCase() : undefined,
         };
       }
       case 'payment_intent.succeeded': {
         const intent = event.data.object as Stripe.PaymentIntent;
-        return { valid: true, eventType: 'CHARGE_SUCCEEDED', providerReference: intent.id, amount: intent.amount / 100 };
+        return {
+          valid: true,
+          eventType: 'CHARGE_SUCCEEDED',
+          providerReference: intent.id,
+          amount: stripeMinorToDecimal(intent.amount, intent.currency),
+          currency: intent.currency.toUpperCase(),
+        };
       }
       case 'payment_intent.payment_failed': {
         const intent = event.data.object as Stripe.PaymentIntent;

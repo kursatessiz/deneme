@@ -171,3 +171,53 @@ describe('PaymentsService - refunds', () => {
     expect(refund).not.toHaveBeenCalled();
   });
 });
+
+describe('PaymentsService - webhook amount and currency', () => {
+  let service: PaymentsService;
+  let prisma: any;
+  let verification: Record<string, unknown>;
+
+  beforeEach(() => {
+    prisma = {
+      payment: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'payment-1',
+          studioId: 'studio-1',
+          provider: PaymentProvider.STRIPE,
+          providerReference: 'pi_1',
+          paymentStatus: PaymentStatus.PENDING,
+          amount: '1500.00',
+          currency: 'JPY',
+          metadata: null,
+        }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    const providers = { byName: jest.fn().mockReturnValue({ name: PaymentProvider.STRIPE, verifyWebhook: () => verification }) };
+    service = new PaymentsService(
+      prisma as unknown as PrismaService,
+      { notifyUser: jest.fn() } as unknown as NotificationsService,
+      providers as unknown as PaymentProviderRegistry,
+      { getSettings: jest.fn(), issueForPayment: jest.fn() } as unknown as InvoicingService,
+      {} as unknown as PromotionsService,
+      { emit: jest.fn() } as unknown as WebhooksService,
+    );
+    jest.spyOn(service as any, 'maybeAutoIssueInvoice').mockResolvedValue(undefined);
+  });
+
+  it('completes a JPY payment when the webhook amount and currency match', async () => {
+    verification = { valid: true, providerReference: 'pi_1', eventType: 'CHARGE_SUCCEEDED', amount: '1500', currency: 'JPY' };
+    await expect(service.handleWebhook('STRIPE', {}, '{}')).resolves.toEqual({ handled: true });
+  });
+
+  it('rejects a webhook whose currency differs from the payment currency', async () => {
+    verification = { valid: true, providerReference: 'pi_1', eventType: 'CHARGE_SUCCEEDED', amount: '1500', currency: 'EUR' };
+    await expect(service.handleWebhook('STRIPE', {}, '{}')).resolves.toEqual({ handled: false, reason: 'AMOUNT_MISMATCH' });
+    expect(prisma.payment.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects a webhook with a different amount', async () => {
+    verification = { valid: true, providerReference: 'pi_1', eventType: 'CHARGE_SUCCEEDED', amount: '15.00', currency: 'JPY' };
+    await expect(service.handleWebhook('STRIPE', {}, '{}')).resolves.toEqual({ handled: false, reason: 'AMOUNT_MISMATCH' });
+  });
+});
