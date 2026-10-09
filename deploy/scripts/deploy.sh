@@ -15,6 +15,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/lib.sh"
 load_env
 
+# A dropped SSH session (CI job cancelled, runner disconnect) sends SIGHUP and
+# closes the output pipe; a half-finished migration or `up` must still run to
+# the smoke test and the automatic rollback.
+trap '' HUP PIPE
+
 TAG="${1:?usage: deploy.sh <tag>}"
 if ! [[ "${TAG}" =~ ^[A-Za-z0-9._-]{1,128}$ ]]; then
   log "Invalid tag: ${TAG}"
@@ -65,7 +70,7 @@ if bash "${SCRIPT_DIR}/healthcheck.sh"; then
   [ -n "${PREVIOUS}" ] && echo "${PREVIOUS}" > "${RELEASE_DIR}/previous"
   echo "${TAG}" > "${RELEASE_DIR}/current"
   echo "$(date -u +%FT%TZ) ${TAG}" >> "${RELEASE_DIR}/history"
-  docker image prune -f --filter "until=168h" >/dev/null || true
+  prune_release_images || true
   log "Release ${TAG} is live"
   exit 0
 fi
