@@ -111,4 +111,11 @@ describe('apiRequest token refresh', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(clearTokensMock).not.toHaveBeenCalled();
   });
+
+  it('keeps the code and params of an API error', async () => {
+    respondWith(400, { code: 'apiErrors.schedules.minRepeatIntervalNotElapsed', message: 'x', params: { count: 2, date: '2030-01-01T10:00:00.000Z' } });
+    const error = (await apiRequest('/schedules/book', { method: 'POST' }).catch((e: unknown) => e)) as ApiError;
+    expect(error.code).toBe('apiErrors.schedules.minRepeatIntervalNotElapsed');
+    expect(error.params).toEqual({ count: 2, date: '2030-01-01T10:00:00.000Z' });
+  });
 });

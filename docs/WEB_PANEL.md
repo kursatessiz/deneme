@@ -216,6 +216,20 @@ vardır; çıkış butonu menünün dışında, her zaman görünür kalır.
   üyenin aynı hizmette `CONFIRMED`/`ATTENDED` bir rezervasyonu seans başlangıcının
   her iki yanında N günden yakınsa rezervasyon reddedilir (bekleme listesinden
   terfi de aynı kuralı geçer; terfi edemeyen kayıt gerekçesiyle `EXPIRED` olur).
+  `NO_SHOW` rezervasyonlar kurala **sayılmaz**; ancak aralıkta gelinmeyen bir seans varsa rezervasyon
+  başarılı olur ve yanıt `notices: [{ code: 'apiTexts.schedules.noShowInWindowNotice', message, params: { date } }]`
+  taşır (metin `Accept-Language` diliyle; boşsa `notices: []`). İstemci bunu engelleyici olmayan bir bilgi
+  olarak gösterir.
+- **Personel aşımı**: kural reddettiğinde `400` yanıtı `code: 'apiErrors.schedules.minRepeatIntervalNotElapsed'`
+  ve `params: { count, date }` taşır (`date`, çakışan seansın ISO başlangıcı). `bookings.manage` sahibi personel
+  `POST /schedules/book` gövdesine `overrideRepeatInterval: true` ekleyerek rezervasyonu yine de yapabilir;
+  bu durumda `AuditLog` satırı `booking.repeat_interval_override` yazılır (`entityId` yeni rezervasyon;
+  `metadata`: `serviceTypeId`, `memberId`, `scheduleId`, `conflictingBookingId`, `conflictingSessionStart`,
+  `minRepeatIntervalDays`). Üye (`POST /schedules/book/self`) bayrağı gönderirse `403`
+  (`apiErrors.schedules.repeatOverrideNotAllowed`) alır; bekleme listesi terfisi (sistem) kuralı aşamaz.
+  Not: web panelinde henüz personel rezervasyon ekranı ve hizmet türü formu yoktur; onay penceresi
+  (`useConfirm`) ve form yardım metni bu ekranlar eklenirken `mWalkIn.repeatOverride.*` ile aynı
+  anlamda eklenmelidir. Mobil personel akışı `docs/MOBILE_APP.md` içinde anlatılır.
 
 ## Finans, hakediş, raporlar, adaylar, riskli üyeler (W2.4)
 

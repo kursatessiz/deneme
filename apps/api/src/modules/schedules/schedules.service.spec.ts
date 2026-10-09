@@ -5,7 +5,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { GamificationService } from '../gamification/gamification.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { VideoMeetingService } from '../video/providers/video-meeting.service';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { TenantContext } from '../auth/tenant-context';
 
 describe('SchedulesService', () => {
@@ -280,7 +280,7 @@ describe('SchedulesService', () => {
         serviceType: { ...base.serviceType, minRepeatIntervalDays: 2 },
       });
       mockPrisma.memberProfile.findFirst.mockResolvedValueOnce({ id: 'member-1', studioId: STUDIO_ID });
-      mockPrisma.booking.findFirst.mockResolvedValueOnce({ id: 'other-booking' });
+      mockPrisma.booking.findFirst.mockResolvedValueOnce({ id: 'other-booking', schedule: { startTime: new Date('2030-01-01T10:00:00.000Z') } });
 
       await expect(service.bookSession(tenant, dto)).rejects.toThrow(BadRequestException);
       expect(mockPrisma.booking.findFirst).toHaveBeenCalledWith(
@@ -293,6 +293,42 @@ describe('SchedulesService', () => {
         }),
       );
       expect(mockPrisma.sessionSchedule.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('carries the code and the conflicting session date on the repeat interval error', async () => {
+      mockPrisma.sessionSchedule.findFirst.mockResolvedValueOnce({
+        ...base,
+        startTime: new Date(Date.now() + 48 * HOUR),
+        endTime: new Date(Date.now() + 49 * HOUR),
+        serviceType: { ...base.serviceType, minRepeatIntervalDays: 2 },
+      });
+      mockPrisma.memberProfile.findFirst.mockResolvedValueOnce({ id: 'member-1', studioId: STUDIO_ID });
+      mockPrisma.booking.findFirst.mockResolvedValueOnce({ id: 'other-booking', schedule: { startTime: new Date('2030-01-01T10:00:00.000Z') } });
+
+      const error = (await service.bookSession(tenant, dto, 'user-1').catch((e: unknown) => e)) as BadRequestException;
+      expect(error.getResponse()).toMatchObject({
+        code: 'apiErrors.schedules.minRepeatIntervalNotElapsed',
+        params: { count: 2, date: '2030-01-01T10:00:00.000Z' },
+      });
+    });
+
+    it('refuses a member that asks to override the repeat interval', async () => {
+      await expect(service.bookSessionSelf(selfTenant, { ...dto, overrideRepeatInterval: true })).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.sessionSchedule.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('ignores the override for the system actor and still rejects', async () => {
+      mockPrisma.sessionSchedule.findFirst.mockResolvedValueOnce({
+        ...base,
+        startTime: new Date(Date.now() + 48 * HOUR),
+        endTime: new Date(Date.now() + 49 * HOUR),
+        serviceType: { ...base.serviceType, minRepeatIntervalDays: 2 },
+      });
+      mockPrisma.memberProfile.findFirst.mockResolvedValueOnce({ id: 'member-1', studioId: STUDIO_ID });
+      mockPrisma.booking.findFirst.mockResolvedValueOnce({ id: 'other-booking', schedule: { startTime: new Date('2030-01-01T10:00:00.000Z') } });
+      await expect(
+        (service as unknown as { book: (s: string, d: unknown, a: string) => Promise<unknown> }).book(STUDIO_ID, { ...dto, overrideRepeatInterval: true }, 'system'),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

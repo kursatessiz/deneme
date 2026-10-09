@@ -93,8 +93,12 @@ export class SchedulesController {
 
   @Post('book')
   @RequirePermission('bookings.manage')
-  async bookSession(@Tenant() tenant: TenantContext, @ZodBody(BookSessionSchema) body: BookSessionInput) {
-    return this.schedulesService.bookSession(tenant, body);
+  async bookSession(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodBody(BookSessionSchema) body: BookSessionInput,
+  ) {
+    return this.schedulesService.bookSession(tenant, body, user.id);
   }
 
   @Post('book/self')

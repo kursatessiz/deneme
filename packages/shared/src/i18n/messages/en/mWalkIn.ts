@@ -9,4 +9,10 @@ export const enMWalkIn: Record<keyof typeof trMWalkIn, string> = {
   'mWalkIn.add': 'Add',
   'mWalkIn.errors.sessionsLoadFailed': 'Sessions could not be loaded.',
   'mWalkIn.errors.bookingFailed': 'Booking could not be made.',
+  'mWalkIn.noticeTitle': 'Notice',
+  'mWalkIn.repeatOverride.title': 'Minimum days rule',
+  'mWalkIn.repeatOverride.body.one': 'This booking breaks the minimum {count} day rule for this member (last session: {date}). Book anyway?',
+  'mWalkIn.repeatOverride.body.other': 'This booking breaks the minimum {count} days rule for this member (last session: {date}). Book anyway?',
+  'mWalkIn.repeatOverride.confirm': 'Add anyway',
+  'mWalkIn.repeatOverride.cancel': 'Cancel',
 };

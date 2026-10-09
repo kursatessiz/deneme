@@ -528,6 +528,7 @@ export const trApiErrors = {
   'apiErrors.schedules.sessionAlreadyEnded': 'Sona ermiş bir seansa rezervasyon yapılamaz',
   'apiErrors.schedules.minRepeatIntervalNotElapsed.one': 'Bu hizmet için bir önceki seansınızdan en az {count} gün sonra yeniden rezervasyon yapabilirsiniz.',
   'apiErrors.schedules.minRepeatIntervalNotElapsed.other': 'Bu hizmet için bir önceki seansınızdan en az {count} gün sonra yeniden rezervasyon yapabilirsiniz.',
+  'apiErrors.schedules.repeatOverrideNotAllowed': 'Asgari tekrar aralığı kuralını yalnızca personel aşabilir.',
   'apiErrors.schedules.capacityBelowBookings': 'Kapasite mevcut rezervasyon sayısının ({count}) altına düşürülemez',
   'apiErrors.schedules.dateRangeCanMost31Days': 'Tarih aralığı en fazla 31 gün olabilir',
   'apiErrors.schedules.endTimeMustAfterStartTime': 'Bitiş saati başlangıç saatinden sonra olmalıdır',

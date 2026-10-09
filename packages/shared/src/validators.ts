@@ -235,6 +235,12 @@ export const BookSessionSchema = z.object({
   memberPackageId: z.string().uuid().optional(),
   /** Specific units picked by the member, e.g. "reformer 3". */
   resourceIds: z.array(z.string().uuid()).max(5).default([]),
+  /**
+   * Staff only: book even though the service's minimum repeat interval is not
+   * met (audited as booking.repeat_interval_override). The member
+   * self-service endpoint answers 403 when this is true.
+   */
+  overrideRepeatInterval: z.boolean().optional(),
 });
 export type BookSessionInput = z.infer<typeof BookSessionSchema>;
 

@@ -1,15 +1,18 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { BookSessionSchema, firstIssueMessage } from '@platform/shared';
+import type { BookingNoticeDTO } from '@platform/shared';
 
 import { PermissionGate } from '../../../../src/components/PermissionGate';
 import { PrimaryButton } from '../../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../../src/components/ScreenContainer';
-import { useLocale, useT } from '../../../../src/i18n';
+import { formatDate, useLocale, useT } from '../../../../src/i18n';
 import { ApiError, apiRequest } from '../../../../src/lib/api';
+import { repeatIntervalConflict } from '../../../../src/lib/bookingOverride';
 import { weekRange } from '../../../../src/lib/dateRange';
+import { showNotice } from '../../../../src/lib/notice';
 import { trainerName, type ScheduleRow } from '../../../../src/lib/scheduleTypes';
 import { useSession } from '../../../../src/lib/session';
 import { borderWidth, palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../../src/theme';
@@ -57,21 +60,40 @@ function WalkInContent() {
     load();
   }, [load]);
 
-  const book = async (scheduleId: string) => {
+  const book = async (scheduleId: string, overrideRepeatInterval = false) => {
     if (!studioId) return;
     setBusyId(scheduleId);
     setError(undefined);
-    const parsed = BookSessionSchema.safeParse({ studioId, scheduleId, memberId, resourceIds: [] });
+    const parsed = BookSessionSchema.safeParse({
+      studioId,
+      scheduleId,
+      memberId,
+      resourceIds: [],
+      ...(overrideRepeatInterval ? { overrideRepeatInterval: true } : {}),
+    });
     if (!parsed.success) {
       setError(firstIssueMessage(parsed.error, t) ?? t('mWalkIn.errors.bookingFailed'));
       setBusyId(null);
       return;
     }
     try {
-      await apiRequest('/schedules/book', { method: 'POST', studioId, body: parsed.data });
+      const created = await apiRequest<{ notices?: BookingNoticeDTO[] }>('/schedules/book', { method: 'POST', studioId, body: parsed.data });
       setDone(scheduleId);
+      // Non-blocking information from the API (e.g. a no-show inside the repeat window).
+      for (const notice of created.notices ?? []) {
+        showNotice(t, t('mWalkIn.noticeTitle'), notice.message);
+      }
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : t('mWalkIn.errors.bookingFailed'));
+      const conflict = overrideRepeatInterval ? null : repeatIntervalConflict(e);
+      if (conflict) {
+        const date = formatDate(conflict.date, locale);
+        Alert.alert(t('mWalkIn.repeatOverride.title'), t('mWalkIn.repeatOverride.body', { count: conflict.count, date }), [
+          { text: t('mWalkIn.repeatOverride.cancel'), style: 'cancel' },
+          { text: t('mWalkIn.repeatOverride.confirm'), onPress: () => void book(scheduleId, true) },
+        ]);
+      } else {
+        setError(e instanceof ApiError ? e.message : t('mWalkIn.errors.bookingFailed'));
+      }
     } finally {
       setBusyId(null);
     }

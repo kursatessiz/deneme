@@ -37,6 +37,7 @@ export const trApiTexts = {
 
   // Booking cancellation result (shown to the person who cancelled)
   'apiTexts.cancel.cancelled': 'Rezervasyon iptal edildi.',
+  'apiTexts.schedules.noShowInWindowNotice': 'Bu üyenin bu hizmette {date} tarihli gelmediği (no-show) bir seansı var; en az gün kuralında sayılmadı.',
   'apiTexts.cancel.cancelledRefunded': 'Rezervasyon iptal edildi, seans hakkı paketinize iade edildi.',
   'apiTexts.cancel.lateNoPenaltyRefunded': 'Geç iptal cezası uygulanmadı, seans hakkı paketinize iade edildi.',
   'apiTexts.cancel.lateCharged.hours': 'Seansa {hours} saatten az kaldığı için {penalty} birim geç iptal olarak düşüldü.',
