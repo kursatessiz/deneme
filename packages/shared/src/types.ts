@@ -176,6 +176,24 @@ export interface ServiceTypeDTO {
   healthActivityType: HealthActivityType;
   requiredResourceTypes: { resourceTypeId: string; quantity: number }[];
   isActive: boolean;
+  prerequisiteFormId?: string | null;
+  cancellationPolicyId?: string | null;
+  commissionRuleId?: string | null;
+  /** Trainers holding a qualification for this service (catalog list only). */
+  qualifiedTrainers?: { trainerProfileId: string }[];
+}
+
+/** Lookup rows for the service type form (GET catalog/commission-rules/studio/:id, no payout values). */
+export interface CommissionRuleOptionDTO {
+  id: string;
+  name: string;
+  type: string;
+}
+
+/** Lookup rows for the service type form (GET catalog/measurement-forms/studio/:id). */
+export interface MeasurementFormOptionDTO {
+  id: string;
+  name: string;
 }
 
 export interface PackageDefinitionDTO {

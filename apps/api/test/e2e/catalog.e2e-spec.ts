@@ -190,6 +190,31 @@ describe('Catalog e2e', () => {
       createdServiceTypeIds.push(res.body.id);
     });
 
+    it('lists commission rule and measurement form options without payout values', async () => {
+      const rules = await request(server)
+        .get(`/catalog/commission-rules/studio/${ZEN}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .set('x-studio-id', ZEN);
+      expect(rules.status).toBe(200);
+      for (const rule of rules.body as Record<string, unknown>[]) {
+        expect(Object.keys(rule).sort()).toEqual(['id', 'name', 'type']);
+      }
+      const forms = await request(server)
+        .get(`/catalog/measurement-forms/studio/${ZEN}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .set('x-studio-id', ZEN);
+      expect(forms.status).toBe(200);
+      expect(Array.isArray(forms.body)).toBe(true);
+    });
+
+    it('rejects the lookup lists for a member without catalog.view', async () => {
+      const res = await request(server)
+        .get(`/catalog/commission-rules/studio/${ZEN}`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .set('x-studio-id', ZEN);
+      expect(res.status).toBe(403);
+    });
+
     it('deactivates the service type', async () => {
       const id = createdServiceTypeIds[0];
       const res = await request(server)

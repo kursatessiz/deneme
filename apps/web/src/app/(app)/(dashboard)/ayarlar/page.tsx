@@ -10,6 +10,7 @@ import {
   Globe,
   KeyRound,
   Layers,
+  ListChecks,
   Megaphone,
   MessageSquareText,
   Palette,
@@ -65,6 +66,14 @@ const CARDS: SettingsCard[] = [
     descriptionKey: 'settings.hub.business.description',
     icon: Layers,
     permissions: ['studio.settings.view', 'studio.settings.manage', 'notifications.manage', 'catalog.manage'],
+  },
+  {
+    key: 'hizmet-turleri',
+    href: '/ayarlar/hizmet-turleri',
+    titleKey: 'serviceTypes.hub.title',
+    descriptionKey: 'serviceTypes.hub.description',
+    icon: ListChecks,
+    permissions: ['catalog.view', 'catalog.manage'],
   },
   {
     key: 'mesaj-sablonlari',

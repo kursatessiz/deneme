@@ -117,6 +117,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
       'roles.manage',
       'staff.manage',
       'branches.manage',
+      'catalog.view',
+      'catalog.manage',
       'notifications.manage',
       'integrations.manage',
       'integrations.partners.manage',
