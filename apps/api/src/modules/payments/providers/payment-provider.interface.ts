@@ -11,6 +11,8 @@ export interface CreateCheckoutParams {
   description: string;
   /** Our own idempotency key; the adapter must echo it back or derive its providerReference from it. */
   reference: string;
+  /** Optional provider-side idempotency key for adapters that support one (Stripe). */
+  idempotencyKey?: string;
 }
 
 export interface ChargeStoredCardParams {

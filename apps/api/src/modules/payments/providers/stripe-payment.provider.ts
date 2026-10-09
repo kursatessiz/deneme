@@ -116,24 +116,27 @@ export class StripePaymentProvider implements PaymentProviderAdapter {
     const successUrl = this.config.get<string>('STRIPE_CHECKOUT_SUCCESS_URL') ?? 'https://example.com/checkout/success';
     const cancelUrl = this.config.get<string>('STRIPE_CHECKOUT_CANCEL_URL') ?? 'https://example.com/checkout/cancel';
 
-    const session = await this.stripe.checkout.sessions.create({
-      mode: 'payment',
-      client_reference_id: params.reference,
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: params.currency.toLowerCase(),
-            unit_amount: toMinorUnits(params.amount, params.currency),
-            product_data: { name: params.description },
+    const session = await this.stripe.checkout.sessions.create(
+      {
+        mode: 'payment',
+        client_reference_id: params.reference,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: params.currency.toLowerCase(),
+              unit_amount: toMinorUnits(params.amount, params.currency),
+              product_data: { name: params.description },
+            },
           },
-        },
-      ],
-      metadata: { studioId: params.studioId, memberId: params.memberId, reference: params.reference },
-    });
+        ],
+        metadata: { studioId: params.studioId, memberId: params.memberId, reference: params.reference },
+      },
+      params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : undefined,
+    );
 
     return { providerReference: session.id, status: 'PENDING', checkoutUrl: session.url ?? undefined };
   }
