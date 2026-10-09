@@ -1,3 +1,4 @@
+import { cashInOf } from '../payments/cash-in';
 import { Injectable } from '@nestjs/common';
 import { BENCHMARK_MIN_GROUP_SIZE } from '@platform/shared';
 import type { BenchmarkBucket } from '@platform/shared';
@@ -75,7 +76,7 @@ export class AdminBenchmarkService {
         this.prisma.payment.aggregate({
           // Revenue per member: guest and walk-in payments carry no member.
           where: { studioId, memberId: { not: null }, paymentStatus: 'COMPLETED', paidAt: { gte: since } },
-          _sum: { amount: true },
+          _sum: { amount: true, giftCardAmount: true },
         }),
         this.prisma.membership.count({ where: { studioId, status: 'ACTIVE', memberProfile: { isNot: null } } }),
         this.prisma.memberSubscription.count({ where: { studioId, status: 'ACTIVE' } }),
@@ -86,7 +87,7 @@ export class AdminBenchmarkService {
     const booked = scheduleAgg._sum.bookedCount ?? 0;
     const occupancyRate = capacity > 0 ? Math.min(1, booked / capacity) : 0;
     const cancellationRate = bookingTotal > 0 ? bookingCancelled / bookingTotal : 0;
-    const revenuePerMember = activeMemberCount > 0 ? Number(revenue._sum?.amount ?? 0) / activeMemberCount : 0;
+    const revenuePerMember = activeMemberCount > 0 ? cashInOf(revenue._sum ?? {}).toNumber() / activeMemberCount : 0;
     const renewalDenominator = subsActive + subsCancelled;
     const renewalRate = renewalDenominator > 0 ? subsActive / renewalDenominator : 0;
 

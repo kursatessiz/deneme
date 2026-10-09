@@ -1,7 +1,9 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
-import { SCHEDULER_QUEUE } from './jobs.constants';
+import { SCHEDULER_JOB_NAME, SCHEDULER_QUEUE } from './jobs.constants';
+import { MembersService } from '../members/members.service';
+import { ErrorCaptureService } from '../error-reporting/error-capture.service';
 import { GrowthHeartbeatService, GrowthHeartbeatResult } from '../growth/growth-heartbeat.service';
 import { DunningService, DunningOutcome } from '../payments/dunning.service';
 import { ConsentService } from '../notifications/consent/consent.service';
@@ -35,6 +37,8 @@ export interface SchedulerRunResult {
   dunning: DunningOutcome[];
   consentSync: { synced: number; failed: number };
   churn: { studiosProcessed: number; membersScored: number };
+  /** Frozen packages whose freeze period ended and that returned to ACTIVE. */
+  packageFreezes: { released: number };
   ratingPrompts: { prompted: number };
   referrals: { evaluated: number };
   webhooks: DispatchOutcome;
@@ -80,6 +84,8 @@ export class JobsService {
   private readonly logger = new Logger(JobsService.name);
   /** Set at the end of every heartbeat run; read by the admin system health endpoint. */
   private lastRunAt: Date | null = null;
+  /** Names of the steps that threw in the current run; reported in the heartbeat log line. */
+  private failedSteps: string[] = [];
 
   getLastRunAt(): Date | null {
     return this.lastRunAt;
@@ -111,6 +117,8 @@ export class JobsService {
     private readonly socialPublishing: SocialPublishingService,
     private readonly oauthRefresh: OAuthRefreshService,
     private readonly emailDomains: EmailDomainService,
+    private readonly members: MembersService,
+    @Optional() private readonly errors?: ErrorCaptureService,
     @Optional() @InjectQueue(SCHEDULER_QUEUE) private readonly queue?: Queue,
   ) {}
 
@@ -121,37 +129,130 @@ export class JobsService {
     return (counts.waiting ?? 0) + (counts.delayed ?? 0);
   }
 
+  /**
+   * Runs one heartbeat step in isolation: a throw is logged and captured
+   * (ErrorCaptureService, source `job`) and the step yields its empty
+   * fallback, so one broken subsystem cannot stop the steps after it.
+   */
+  private async step<T>(name: string, fn: () => Promise<T>, fallback: T): Promise<T> {
+    try {
+      return await fn();
+    } catch (err) {
+      this.failedSteps.push(name);
+      this.logger.error(`Scheduler step "${name}" failed: ${err instanceof Error ? err.message : String(err)}`);
+      this.errors?.capture({ source: 'job', error: err, route: `job ${SCHEDULER_QUEUE}/${SCHEDULER_JOB_NAME}/${name}` });
+      return fallback;
+    }
+  }
+
   async runAll(now = new Date()): Promise<SchedulerRunResult> {
-    const growth = await this.growth.run(now);
-    const dunning = await this.dunning.runDueRenewals(now);
-    const consentSync = await this.consent.syncPendingConsents();
-    const churn = await this.churn.recomputeStale(now);
-    const ratingPrompts = await this.ratingPrompts.promptRecentAttendees(now);
-    const referrals = await this.referrals.recomputeOpen();
-    const webhooks = await this.webhookDispatcher.dispatchDue(now);
-    const partnerSyncResult = await this.partnerSync.runSync(now);
-    const joinReminders = await this.joinReminders.sendDueReminders(now);
-    const smsProviderBalance = await this.smsProviderBalance.checkIfDue(now);
-    const crmLifecycle = await this.crm.sweepLapsed(now);
+    this.failedSteps = [];
+    const growth = await this.step('growth', () => this.growth.run(now), {
+      legacyMigrated: 0,
+      segmentsRefreshed: 0,
+      segmentEntries: 0,
+      journeysScanned: 0,
+      journeysEnrolled: 0,
+      journeySteps: 0,
+      journeysCompleted: 0,
+      campaigns: { campaigns: 0, sent: 0, skipped: 0, failed: 0 },
+      approvalsExpired: 0,
+      marketingGuards: {
+        fuse: { checked: false, tripped: [], pausedCampaigns: 0, alertsSent: 0 },
+        adSpendAlerts: 0,
+        adCapPaused: 0,
+        adCapPauseFailed: 0,
+      },
+      contactConsentSync: { synced: 0, failed: 0 },
+    });
+    const dunning = await this.step('dunning', () => this.dunning.runDueRenewals(now), []);
+    const consentSync = await this.step('consentSync', () => this.consent.syncPendingConsents(), { synced: 0, failed: 0 });
+    const churn = await this.step('churn', () => this.churn.recomputeStale(now), { studiosProcessed: 0, membersScored: 0 });
+    const packageFreezes = await this.step('packageFreezes', () => this.members.releaseElapsedFreezes(now), { released: 0 });
+    const ratingPrompts = await this.step('ratingPrompts', () => this.ratingPrompts.promptRecentAttendees(now), { prompted: 0 });
+    const referrals = await this.step('referrals', () => this.referrals.recomputeOpen(), { evaluated: 0 });
+    const webhooks = await this.step('webhooks', () => this.webhookDispatcher.dispatchDue(now), {
+      attempted: 0,
+      succeeded: 0,
+      failed: 0,
+      abandoned: 0,
+    });
+    const partnerSyncResult = await this.step('partnerSync', () => this.partnerSync.runSync(now), {
+      releasedAllocations: 0,
+      availabilityPushed: 0,
+      availabilityFailed: 0,
+      reconciledCheckIns: 0,
+    });
+    const joinReminders = await this.step('joinReminders', () => this.joinReminders.sendDueReminders(now), { reminded: 0 });
+    const smsProviderBalance = await this.step('smsProviderBalance', () => this.smsProviderBalance.checkIfDue(now), {
+      provider: 'MOCK',
+      status: 'error',
+      credits: null,
+      threshold: 0,
+      checkedAt: now.toISOString(),
+    });
+    const crmLifecycle = await this.step('crmLifecycle', () => this.crm.sweepLapsed(now), { lapsed: 0 });
     // M4a: before the steps that call ad and social APIs, so they use a fresh token.
-    const oauthRefresh = await this.oauthRefresh.processDue(now);
-    const conversionDelivery = await this.conversionDelivery.dispatchDue(now);
-    const adSpendSync = await this.adSpendSync.syncAllDueIfStale(now);
+    const oauthRefresh = await this.step('oauthRefresh', () => this.oauthRefresh.processDue(now), {
+      refreshed: 0,
+      retrying: 0,
+      reauthRequired: 0,
+      statesPurged: 0,
+    });
+    const conversionDelivery = await this.step('conversionDelivery', () => this.conversionDelivery.dispatchDue(now), {
+      attempted: 0,
+      sent: 0,
+      skipped: 0,
+      retrying: 0,
+      failed: 0,
+    });
+    const adSpendSync = await this.step<SpendSyncOutcome | null>('adSpendSync', () => this.adSpendSync.syncAllDueIfStale(now), null);
     // M3d: after the spend sync, so the week's ad spend is in when the summary is written.
-    const marketingInsights = await this.marketingInsights.runWeekly(now);
-    const leadAds = await this.leadAds.processDue(now);
-    const loyalty = await this.loyalty.run(now);
-    const events = await this.events.run(now);
-    const billing = await this.billing.run(now);
-    const payouts = await this.payouts.run(now);
-    const socialPublishing = await this.socialPublishing.processDue(now);
+    const marketingInsights = await this.step<WeeklyRunResult>('marketingInsights', () => this.marketingInsights.runWeekly(now), {
+      generated: false,
+      skipped: null,
+    });
+    const leadAds = await this.step('leadAds', () => this.leadAds.processDue(now), { processed: 0, retrying: 0, failed: 0 });
+    const loyalty = await this.step('loyalty', () => this.loyalty.run(now), {
+      birthdayPoints: 0,
+      expiredMembers: 0,
+      expiredPoints: 0,
+      expiryNotices: 0,
+    });
+    const events = await this.step('events', () => this.events.run(now), { holdsReleased: 0, promoted: 0, reminders: 0, completed: 0 });
+    const billing = await this.step('billing', () => this.billing.run(now), {
+      restricted: 0,
+      reminders: 0,
+      addOns: { reminders: 0, expired: 0, renewed: 0, failed: 0 },
+    });
+    const payouts = await this.step('payouts', () => this.payouts.run(now), { synced: 0, payouts: 0, failed: 0 });
+    const socialPublishing = await this.step('socialPublishing', () => this.socialPublishing.processDue(now), {
+      published: 0,
+      retrying: 0,
+      deferred: 0,
+      failed: 0,
+      skipped: 0,
+      interrupted: 0,
+    });
     // M5: after the OAuth refresh; reads the SES identity status (or DNS) of the platform's sender domains.
-    const emailDomains = await this.emailDomains.processDue(now);
-    const errorReporting = await this.errorReporting.run(now);
+    const emailDomains = await this.step('emailDomains', () => this.emailDomains.processDue(now), { checked: 0, failed: 0 });
+    const errorReporting = await this.step('errorReporting', () => this.errorReporting.run(now), {
+      purged: 0,
+      sourcemapsPurged: 0,
+      digestSent: false,
+      bucketsPurged: 0,
+      spikeAlerts: 0,
+      sinkRetries: 0,
+      sinkRetriesSucceeded: 0,
+    });
     // Only starts the daily backup in the background; the run itself does not block the heartbeat.
-    const backups = await this.backups.run(now);
+    const backups = await this.step<BackupsHeartbeatResult>('backups', () => this.backups.run(now), {
+      scheduled: { started: false, runId: null, reason: 'NOT_DUE' },
+      status: 'error',
+      staleAlertSent: false,
+    });
     // Last: AI translation batches may take a while; the other steps are time-sensitive.
-    const aiTranslation = await this.aiTranslation.processPending(now);
+    const aiTranslation = await this.step('aiTranslation', () => this.aiTranslation.processPending(now), { jobs: 0, paused: 0 });
 
     this.logger.log(
       `Scheduler heartbeat at ${now.toISOString()}: growth ${growth.journeySteps} journey step(s)/${growth.journeysEnrolled} enrolled, ` +
@@ -168,12 +269,14 @@ export class JobsService {
         `loyalty ${loyalty.birthdayPoints} birthday point(s)/${loyalty.expiredPoints} expired/${loyalty.expiryNotices} notice(s), ` +
         `events ${events.holdsReleased} hold(s) released/${events.promoted} promoted/${events.reminders} reminder(s)/${events.completed} completed, ` +
         `billing ${billing.restricted} trial(s) restricted/${billing.reminders} reminder(s)/add-ons ${billing.addOns.expired} expired/${billing.addOns.renewed} renewed/${billing.addOns.failed} failed, ` +
-        `payouts ${payouts.synced} synced/${payouts.payouts} payout(s)/${payouts.failed} failed`,
+        `payouts ${payouts.synced} synced/${payouts.payouts} payout(s)/${payouts.failed} failed, ` +
         `errors ${errorReporting.purged} event(s) purged/digest ${errorReporting.digestSent ? 'sent' : 'not due'}, ` +
         `backups ${backups.scheduled.reason.toLowerCase()}/status ${backups.status}${backups.staleAlertSent ? '/alert sent' : ''}, ` +
         `social ${socialPublishing.published} published/${socialPublishing.retrying} retrying/${socialPublishing.deferred} deferred/${socialPublishing.failed} failed, ` +
         `oauth ${oauthRefresh.refreshed} refreshed/${oauthRefresh.retrying} retrying/${oauthRefresh.reauthRequired} reauth required, ` +
-        `email domains ${emailDomains.checked} checked/${emailDomains.failed} failed`,
+        `email domains ${emailDomains.checked} checked/${emailDomains.failed} failed, ` +
+        `package freezes ${packageFreezes.released} released, ` +
+        `failed steps ${this.failedSteps.length ? this.failedSteps.join(',') : 'none'}`,
     );
 
     this.lastRunAt = now;
@@ -183,6 +286,7 @@ export class JobsService {
       dunning,
       consentSync,
       churn,
+      packageFreezes,
       ratingPrompts,
       referrals,
       webhooks,

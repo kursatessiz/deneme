@@ -32,3 +32,31 @@ describe('StripePaymentProvider without credentials', () => {
     ).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 });
+
+describe('StripePaymentProvider webhook amounts', () => {
+  const secret = 'whsec_test_secret';
+  const provider = new StripePaymentProvider(configWith({ STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_WEBHOOK_SECRET: secret }));
+
+  // Signature checking is Stripe's own code; the fake client only parses the body.
+  Reflect.set(provider, 'client', { webhooks: { constructEvent: (body: string) => JSON.parse(body) } });
+
+  function verify(type: string, object: Record<string, unknown>) {
+    const payload = JSON.stringify({ id: 'evt_1', object: 'event', type, data: { object } });
+    return provider.verifyWebhook({ 'stripe-signature': 'sig' }, payload);
+  }
+
+  it('reads a zero-decimal currency (JPY) amount without dividing by 100', () => {
+    const result = verify('payment_intent.succeeded', { id: 'pi_1', object: 'payment_intent', amount: 1500, currency: 'jpy' });
+    expect(result).toMatchObject({ valid: true, eventType: 'CHARGE_SUCCEEDED', amount: '1500', currency: 'JPY' });
+  });
+
+  it('reads a two-decimal currency (EUR) amount from minor units', () => {
+    const result = verify('payment_intent.succeeded', { id: 'pi_2', object: 'payment_intent', amount: 1550, currency: 'eur' });
+    expect(result).toMatchObject({ amount: '15.50', currency: 'EUR' });
+  });
+
+  it('applies the same conversion to completed checkout sessions', () => {
+    const result = verify('checkout.session.completed', { id: 'cs_1', object: 'checkout.session', amount_total: 2000, currency: 'jpy' });
+    expect(result).toMatchObject({ eventType: 'CHECKOUT_COMPLETED', amount: '2000', currency: 'JPY' });
+  });
+});

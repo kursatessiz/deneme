@@ -149,7 +149,7 @@ export class JourneyEngineService implements OnModuleInit {
       // A migrated journey keeps the old rule's reach; a new journey starts at activation.
       const floor = journey.legacyRuleId || !journey.activatedAt || journey.activatedAt < lookback ? lookback : journey.activatedAt;
       try {
-        const candidates = await this.scanners.scan(journey.studioId, trigger, now, floor);
+        const candidates = await this.scanners.scan(journey.studioId, trigger, now, floor, journey.id);
         scanned += candidates.length;
         for (const c of candidates) {
           const outcome = await this.enroll(journey, c.contactId, { ref: c.ref, occurredAt: c.occurredAt, variables: c.variables, legacy: c.legacy }, now);

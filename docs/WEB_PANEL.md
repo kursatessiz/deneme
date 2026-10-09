@@ -187,6 +187,36 @@ vardır; çıkış butonu menünün dışında, her zaman görünür kalır.
   (`packages.sell`, açık dondurma kaydını kapatır, `endDate`'i kullanılmayan
   dondurma süresi kadar kısaltır).
 
+### Paket dondurma, seans programı ve rezervasyon kuralları (düzeltmeler)
+
+- **Dondurma**: yalnızca `ACTIVE` paket dondurulabilir (`FROZEN`, `EXPIRED`,
+  `DEPLETED` reddedilir). Geçiş koşullu `updateMany` ile yapılır, çift
+  gönderim `endDate`'i iki kez uzatmaz. `freezeDaysAllowed` paketin ömrü
+  boyunca kümülatiftir: önceki dondurmalar (erken kaldırılanlar fiili
+  süreleriyle) `packageFreezeHistory` üzerinden toplanır. `frozenUntil`
+  geçen paketleri 15 dakikalık kalp atışı (`MembersService.releaseElapsedFreezes`)
+  `ACTIVE` durumuna ve `frozenUntil = null` değerine döndürür; `endDate`
+  dondurma başlarken zaten uzatılmıştır.
+- **Haftalık tekrar**: tekrarlanan seanslar şube (yoksa işletme) saat diliminde
+  aynı yerel saatte kurulur; yaz/kış saati değişiminde saat kaymaz
+  (`addZonedDays`, `packages/shared`).
+- **Çakışma kontrolü**: seans oluşturma, taşıma ve eğitmen ikamesi işletme
+  başına `pg_advisory_xact_lock` altında, çakışma kontrolü işlemin içinde
+  yapılır; eşzamanlı iki oluşturma aynı eğitmeni/odayı çift rezerve edemez
+  (biri `409` alır). Şema değişikliği yoktur.
+- **Seans taşıma**: `PATCH /schedules/:id` ile zaman değişince seansın
+  rezervasyonlarındaki yer/ekipman tutmaları (`BookingResource`) aynı
+  işlemde yeni saate taşınır; dışlama kısıtı ihlali `409` döner. Kapasite
+  artırılırsa bekleme listesi hemen doldurulur.
+- **Rezervasyon zamanı**: üye kendi rezervasyonunu başlamış bir seansa
+  yapamaz; personel (resepsiyon, `bookings.manage`) devam eden bir seansa
+  walk-in rezervasyon yapabilir ama bitmiş seansa yapamaz (geçmiş yoklama
+  düzeltmesi rezervasyon değil `attendance.manage` ile yapılır).
+- **Asgari tekrar aralığı**: hizmetin `minRepeatIntervalDays` değeri varsa
+  üyenin aynı hizmette `CONFIRMED`/`ATTENDED` bir rezervasyonu seans başlangıcının
+  her iki yanında N günden yakınsa rezervasyon reddedilir (bekleme listesinden
+  terfi de aynı kuralı geçer; terfi edemeyen kayıt gerekçesiyle `EXPIRED` olur).
+
 ## Finans, hakediş, raporlar, adaylar, riskli üyeler (W2.4)
 
 - `/finans` -- sekmeli tek sayfa (`components/finance/*Tab.tsx`): Ödemeler

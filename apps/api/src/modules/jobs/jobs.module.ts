@@ -23,6 +23,7 @@ import { SCHEDULER_INTERVAL_MS, SCHEDULER_JOB_NAME, SCHEDULER_QUEUE } from './jo
 import { BillingModule } from '../billing/billing.module';
 import { PayoutsModule } from '../payouts/payouts.module';
 import { BackupsModule } from '../backups/backups.module';
+import { MembersModule } from '../members/members.module';
 
 /**
  * BullMQ is wired up only when REDIS_URL is a real process environment
@@ -56,6 +57,7 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
     BillingModule,
     PayoutsModule,
     BackupsModule,
+    MembersModule,
     ...(redisConfigured
       ? [
           BullModule.forRoot({ connection: { url: process.env.REDIS_URL } }),
@@ -82,7 +84,13 @@ export class JobsModule implements OnModuleInit {
     await this.queue.add(
       SCHEDULER_JOB_NAME,
       {},
-      { repeat: { every: SCHEDULER_INTERVAL_MS }, jobId: SCHEDULER_JOB_NAME },
+      {
+        repeat: { every: SCHEDULER_INTERVAL_MS },
+        jobId: SCHEDULER_JOB_NAME,
+        // Keep Redis small: finished runs are dropped, a few failures stay for inspection.
+        removeOnComplete: true,
+        removeOnFail: { count: 20 },
+      },
     );
     this.logger.log(`Scheduler queue registered: ${SCHEDULER_JOB_NAME} every ${SCHEDULER_INTERVAL_MS / 60000} minutes.`);
   }

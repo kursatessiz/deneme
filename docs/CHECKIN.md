@@ -97,6 +97,12 @@ Her `nonce`, `DynamicQrNonceStore` üzerinden bir kez "claim" edilebilir:
   `REDIS_URL` üretimde zaten zorunlu olduğu için bu, tek-replikalı yerel
   geliştirme ve testler için kabul edilebilir bir ödünleşimdir).
 
+Nonce, rezervasyon gerçekten check-in edilmeden hemen önce "claim" edilir.
+Birden çok aday bulunduğunda dönen belirsiz yanıt (`resolved: false`) nonce'u
+tüketmez; resepsiyon aynı token ile `scheduleId` göndererek seçimi tamamlar
+ve o çağrıda claim edilir. Başarılı bir check-in'den sonra aynı token tekrar
+kullanılamaz.
+
 Bir nonce ikinci kez görüldüğünde `409 Conflict` döner ("Bu QR kodu zaten
 kullanıldı, üye ekranı yenilesin").
 

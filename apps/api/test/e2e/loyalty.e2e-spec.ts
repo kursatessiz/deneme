@@ -284,9 +284,23 @@ describe('Loyalty G3a (e2e)', () => {
         data: { studioId: ZEN, referrerMemberId: referrer.memberId, referredUserId: referred.userId, referredPhone: referred.phone, status: 'PENDING' },
       });
       const referrals = app.get(ReferralsService);
+
+      // Without an active, unexpired package there is nothing to credit: the referral stays
+      // QUALIFIED (retried by the sweep) and earns no points yet.
+      await referrals.recompute(ZEN, [referral.id]);
+      const waiting = await prisma.referral.findUniqueOrThrow({ where: { id: referral.id } });
+      const rewardUnits = (await prisma.studio.findUniqueOrThrow({ where: { id: ZEN }, select: { referralRewardUnits: true } })).referralRewardUnits;
+      expect(rewardUnits).toBeGreaterThan(0);
+      expect(waiting.status).toBe('QUALIFIED');
+      expect(await rowsOf(referrer, 'EARN_REFERRAL')).toHaveLength(0);
+
+      const { memberPackageId } = await sell(referrer, 0);
+      const before = await prisma.memberPackage.findUniqueOrThrow({ where: { id: memberPackageId } });
       await referrals.recompute(ZEN, [referral.id]);
       await referrals.recompute(ZEN, [referral.id]);
       expect((await prisma.referral.findUniqueOrThrow({ where: { id: referral.id } })).status).toBe('REWARDED');
+      const after = await prisma.memberPackage.findUniqueOrThrow({ where: { id: memberPackageId } });
+      expect(after.remainingUnits).toBe((before.remainingUnits ?? 0) + rewardUnits);
       const rows = await rowsOf(referrer, 'EARN_REFERRAL');
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({ delta: 100, sourceId: referral.id });
@@ -385,6 +399,32 @@ describe('Loyalty G3a (e2e)', () => {
       expect(none.status).toBe(409);
       expect(none.body.code).toBe('LOYALTY_NO_ACTIVE_PACKAGE');
       expect(await balanceOf(b)).toBe(300);
+
+      // An expired package must not receive the credit either.
+      const expired = await prisma.memberPackage.create({
+        data: {
+          studioId: ZEN,
+          memberId: b.memberId,
+          packageDefinitionId: packageDefId,
+          entitlementKind: 'SESSION_COUNT',
+          totalUnits: 5,
+          usedUnits: 0,
+          remainingUnits: 5,
+          status: 'ACTIVE',
+          startDate: new Date(Date.now() - 60 * DAY),
+          endDate: new Date(Date.now() - DAY),
+        },
+      });
+      try {
+        const onExpired = await as(ownerToken, ZEN).post(`${base()}/members/${b.memberId}/redeem`).send({ rewardId: creditRewardId });
+        expect(onExpired.status).toBe(409);
+        expect(onExpired.body.code).toBe('LOYALTY_NO_ACTIVE_PACKAGE');
+        expect(await balanceOf(b)).toBe(300);
+        const untouched = await prisma.memberPackage.findUniqueOrThrow({ where: { id: expired.id } });
+        expect(untouched.remainingUnits).toBe(5);
+      } finally {
+        await prisma.memberPackage.delete({ where: { id: expired.id } });
+      }
 
       const { memberPackageId } = await sell(b, 0);
       const before = await prisma.memberPackage.findUniqueOrThrow({ where: { id: memberPackageId } });

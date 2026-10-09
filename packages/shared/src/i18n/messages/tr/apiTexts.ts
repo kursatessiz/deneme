@@ -98,6 +98,7 @@ export const trApiTexts = {
   'apiTexts.send.frequencyCap': 'Sıklık sınırı aşıldı (kişi başına ticari mesaj)',
   'apiTexts.send.failed': '{channel} gönderimi başarısız',
   'apiTexts.send.insufficientSmsCredit': 'Stüdyo SMS kredisi yetersiz',
+  'apiTexts.send.smsNotConfigured': 'SMS sağlayıcısı yapılandırılmamış, mesaj gönderilmedi',
   'apiTexts.send.trackingNotConfigured': 'Takip anahtarı (MESSAGING_TRACKING_SECRET) yapılandırılmamış',
   'apiTexts.send.studioAddressMissing': 'İşletme adresi tanımlı değil (ticari e-posta için zorunlu)',
   'apiTexts.send.noEmailSubject': 'E-posta konusu yok',
