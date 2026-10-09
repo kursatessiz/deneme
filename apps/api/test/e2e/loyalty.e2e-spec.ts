@@ -284,9 +284,23 @@ describe('Loyalty G3a (e2e)', () => {
         data: { studioId: ZEN, referrerMemberId: referrer.memberId, referredUserId: referred.userId, referredPhone: referred.phone, status: 'PENDING' },
       });
       const referrals = app.get(ReferralsService);
+
+      // Without an active, unexpired package there is nothing to credit: the referral stays
+      // QUALIFIED (retried by the sweep) and earns no points yet.
+      await referrals.recompute(ZEN, [referral.id]);
+      const waiting = await prisma.referral.findUniqueOrThrow({ where: { id: referral.id } });
+      const rewardUnits = (await prisma.studio.findUniqueOrThrow({ where: { id: ZEN }, select: { referralRewardUnits: true } })).referralRewardUnits;
+      expect(rewardUnits).toBeGreaterThan(0);
+      expect(waiting.status).toBe('QUALIFIED');
+      expect(await rowsOf(referrer, 'EARN_REFERRAL')).toHaveLength(0);
+
+      const { memberPackageId } = await sell(referrer, 0);
+      const before = await prisma.memberPackage.findUniqueOrThrow({ where: { id: memberPackageId } });
       await referrals.recompute(ZEN, [referral.id]);
       await referrals.recompute(ZEN, [referral.id]);
       expect((await prisma.referral.findUniqueOrThrow({ where: { id: referral.id } })).status).toBe('REWARDED');
+      const after = await prisma.memberPackage.findUniqueOrThrow({ where: { id: memberPackageId } });
+      expect(after.remainingUnits).toBe((before.remainingUnits ?? 0) + rewardUnits);
       const rows = await rowsOf(referrer, 'EARN_REFERRAL');
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({ delta: 100, sourceId: referral.id });
