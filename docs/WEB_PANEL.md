@@ -227,9 +227,28 @@ vardır; çıkış butonu menünün dışında, her zaman görünür kalır.
   `metadata`: `serviceTypeId`, `memberId`, `scheduleId`, `conflictingBookingId`, `conflictingSessionStart`,
   `minRepeatIntervalDays`). Üye (`POST /schedules/book/self`) bayrağı gönderirse `403`
   (`apiErrors.schedules.repeatOverrideNotAllowed`) alır; bekleme listesi terfisi (sistem) kuralı aşamaz.
-  Not: web panelinde henüz personel rezervasyon ekranı ve hizmet türü formu yoktur; onay penceresi
-  (`useConfirm`) ve form yardım metni bu ekranlar eklenirken `mWalkIn.repeatOverride.*` ile aynı
-  anlamda eklenmelidir. Mobil personel akışı `docs/MOBILE_APP.md` içinde anlatılır.
+  **Web personel rezervasyonu**: `bookings.manage` sahibi personel iki yerden üye adına rezervasyon yapar;
+  ikisi de aynı `StaffBookingForm` bileşenini (`components/calendar/StaffBookingForm.tsx`) kullanır ve
+  `POST /schedules/book` çağırır.
+  - Takvim, seans paneli: "Üye ekle" (bitmemiş, iptal edilmemiş seans). Üye, üyeler sayfasındaki
+    `GET /members/studio/:id?search=` ucuyla aranır; üyenin paketlerinden seansın hizmetini kapsayan,
+    süresi dolmamış ve hakkı kalan olanlar listelenir (`GET /catalog/package-definitions/...` kapsamı;
+    `catalog.view` yoksa tüm kullanılabilir paketler sunulur ve API karar verir). Paket seçilmezse hak
+    düşülmez (`memberPackageId` gönderilmez). Seansın yer/ekipman seçimi `GET /schedules/:id/spots` ile
+    gelir (dolu ve bakımdaki yerler seçilemez); hizmet seçilebilir yer istiyorsa seçmeden gönderilirse API
+    hatayı döner ve satır içinde gösterilir.
+  - Üye kartı: "Rezervasyon yap" (`MemberBookingDialog`). Önümüzdeki 14 günde boş kontenjanı olan
+    seanslar listelenir; üyenin paketlerinin kapsadığı hizmetlere göre süzme kutusu vardır. Seçilen seans
+    için aynı form, üye sabit olarak açılır.
+  - Asgari tekrar aralığı: API `minRepeatIntervalNotElapsed` dönerse `useConfirm` ile tehlike tonlu onay
+    penceresi açılır (kural günü ve çakışan seans tarihi etkin dilde `Intl` ile yazılır); onaylanırsa istek
+    `overrideRepeatInterval: true` ile yinelenir (denetim kaydı API'de yazılır), vazgeçilirse rezervasyon
+    yapılmaz. `BffError` artık API'nin `params` alanını taşır.
+  - Yanıttaki `notices` (örn. aralıkta gelinmeyen seans) engelleyici olmayan bilgi bildirimi olarak gösterilir.
+  - Seans doluysa (`apiErrors.schedules.sessionFull`) hata gösterilir ve "Bekleme listesine ekle"
+    (`POST /schedules/waitlist`, `bookings.manage`) sunulur.
+  - Hizmet türü formu (katalog ayarları) bu işin kapsamı dışındadır. Mobil personel akışı `docs/MOBILE_APP.md`
+    içinde anlatılır. Testler: `apps/web/e2e/staff-booking.e2e.ts`, `staff-booking.spec.ts`.
 
 ## Finans, hakediş, raporlar, adaylar, riskli üyeler (W2.4)
 

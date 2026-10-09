@@ -78,6 +78,7 @@ import { trMScreens } from './tr/mScreens';
 import { trMSession } from './tr/mSession';
 import { trMVideoContent } from './tr/mVideoContent';
 import { trMWalkIn } from './tr/mWalkIn';
+import { trStaffBooking } from './tr/staffBooking';
 import { trMWidgets } from './tr/mWidgets';
 import { trNav } from './tr/nav';
 import { trPackages } from './tr/packages';
@@ -185,6 +186,7 @@ import { enMScreens } from './en/mScreens';
 import { enMSession } from './en/mSession';
 import { enMVideoContent } from './en/mVideoContent';
 import { enMWalkIn } from './en/mWalkIn';
+import { enStaffBooking } from './en/staffBooking';
 import { enMWidgets } from './en/mWidgets';
 import { enNav } from './en/nav';
 import { enPackages } from './en/packages';
@@ -348,6 +350,7 @@ export const TR_NAMESPACES = [
   trThemeDesign,
   trMVideoContent,
   trMWalkIn,
+  trStaffBooking,
   trMWidgets,
   trNav,
   trPackages,
@@ -479,6 +482,7 @@ export const EN_NAMESPACES = [
   enThemeDesign,
   enMVideoContent,
   enMWalkIn,
+  enStaffBooking,
   enMWidgets,
   enNav,
   enPackages,
