@@ -67,6 +67,7 @@ export const enApiErrors: Record<keyof typeof trApiErrors, string> = {
   'apiErrors.apiKeys.apiKeyNotFound': 'API key not found',
   'apiErrors.apiKeys.apiKeyRevoked': 'This API key has been revoked',
   'apiErrors.apiKeys.authorizationBearerApiKeyRequired': 'Authorization: Bearer <api key> is required',
+  'apiErrors.apiKeys.businessSuspended': "This API key's business is suspended",
   'apiErrors.apiKeys.invalidApiKey': 'Invalid API key',
   'apiErrors.apiKeys.invalidApiKeyFormat': 'Invalid API key format',
   'apiErrors.apiKeys.keyAlreadyRevoked': 'This key has already been revoked',

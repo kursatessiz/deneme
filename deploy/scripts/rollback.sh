@@ -18,7 +18,9 @@ fi
 
 log "Rolling back to ${TARGET}"
 use_release "${TARGET}"
-compose pull api web
+if ! compose pull api web; then
+  log "Registry unreachable; rolling back with the images already on this host"
+fi
 compose up -d --no-deps --wait --wait-timeout 120 api web || true
 
 if bash "${SCRIPT_DIR}/healthcheck.sh"; then

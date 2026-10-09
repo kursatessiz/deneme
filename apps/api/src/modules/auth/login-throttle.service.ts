@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { RedisService } from '../redis/redis.service';
+import { incrementWithTtl } from '../redis/increment-with-ttl';
 import { apiError } from '../../common/api-error';
 
 /** Failed attempts allowed per account identifier (phone or email) per window. */
@@ -77,8 +78,7 @@ export class LoginThrottleService {
     if (client) {
       try {
         if (client.status === 'wait') await client.connect();
-        const count = await client.incr(key);
-        if (count === 1) await client.expire(key, LOGIN_FAILURE_WINDOW_SECONDS);
+        const count = await incrementWithTtl(client, key, LOGIN_FAILURE_WINDOW_SECONDS);
         return;
       } catch {
         // Fall through to memory.

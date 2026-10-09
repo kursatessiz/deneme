@@ -23,15 +23,22 @@ BFF proxy kullanır:
 - Erişim ve yenileme jetonları yalnızca httpOnly çerezlerdedir
   (`pw_access`, `pw_refresh`; bkz. `apps/web/src/lib/bff/cookies.ts`).
   Tarayıcı JS'i bu jetonları hiçbir zaman görmez. `auth/login`,
-  `auth/otp/verify` ve `auth/pin/login` yanıtlarındaki `accessToken`/
-  `refreshToken` alanları BFF tarafından çerezlere yazılır ve yanıt
-  gövdesinden çıkarılır.
+  `auth/otp/verify`, `auth/pin/login` ve `PUT auth/pin` (PIN değişikliği
+  eski yenileme jetonunu iptal edip yeni bir çift döner) yanıtlarındaki
+  `accessToken`/`refreshToken` alanları BFF tarafından çerezlere yazılır ve
+  yanıt gövdesinden çıkarılır.
 - Aktif işletme (`pw_studio`) ve aktif şube (`pw_branch`) seçimleri sır
   değildir; düz (httpOnly olmayan) çerezlerdir, böylece istemci tarafı da
   okuyup `x-studio-id` başlığını gönderebilir.
 - 401 alan bir istek, `pw_refresh` çerezi varsa BFF içinde bir kez
-  `/auth/refresh` ile yenilenir ve orijinal istek yeni jetonla tekrarlanır;
-  yenileme de başarısız olursa oturum çerezleri temizlenir.
+  `/auth/refresh` ile yenilenir ve orijinal istek yeni jetonla tekrarlanır.
+  Oturum çerezleri yalnızca yenileme ucu 401/403 döndüğünde temizlenir; 429,
+  5xx veya API'ye ulaşılamaması durumunda çerezler korunur ve tarayıcı 429
+  ya da 503 alır (`common.error.sessionRefreshUnavailable`). Korunan bir
+  sayfaya erişim jetonu olmadan gelindiğinde middleware de aynı kuralı
+  uygular: yenileme reddedilirse giriş sayfasına yönlendirir ve yenileme
+  çerezini siler, geçici bir hatada çerezlere dokunmadan 503/429 döner
+  (`apps/web/src/lib/bff/refresh.ts`).
 - CSRF: her GET/HEAD/OPTIONS dışı çağrı, aynı origin'den gelen `Origin`
   başlığı ve özel `x-requested-with: platform-web` başlığı ister
   (`apps/web/src/lib/bff/csrf.ts`). Bu ikisi eksikse istek 403 ile reddedilir.
@@ -452,6 +459,10 @@ sadece bildirim kanalları bölümünü gösterir).
   atama; hepsi `roles.manage` + `studioId` kapsamı + audit log ile. İşletme
   sahibi rolü salt okunur ve her zaman tüm izinlere sahiptir (CLAUDE.md kural
   5); `member` anahtarı `MembersService` içinde sabit arandığından silinemez.
+  Sahip veya süper admin olmayan biri, kendisinde olmayan bir izni taşıyan
+  bir rolü ne atayabilir ne de o role davet oluşturabilir (`POST /invites`
+  rol atamasıyla aynı `assertCanGrant`/`assertNotLocked` kontrolünden geçer,
+  aksi halde `403`).
 - `ayarlar/gorunum/` -- işletme teması (`studio.settings.view`/`manage`):
   logo ve birincil renk (renk seçici + #RRGGBB alanı); `lib/settings/theme-preview.ts`
   `resolveTheme()`'i doğrudan kullanarak kaydedilmeden önce üye kartı, paket

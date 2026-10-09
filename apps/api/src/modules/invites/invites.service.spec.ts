@@ -18,6 +18,7 @@ describe('InvitesService', () => {
 
   const mockPrisma = {
     roleTemplate: { findUnique: jest.fn() },
+    roleTemplatePermission: { findMany: jest.fn(async () => []) },
     studio: { findUnique: jest.fn().mockResolvedValue({ isPlatform: false }) },
     membership: { findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn(), create: jest.fn() },
     inviteToken: { updateMany: jest.fn(), create: jest.fn(), findUnique: jest.fn() },

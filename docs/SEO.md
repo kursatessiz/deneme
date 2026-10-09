@@ -100,7 +100,7 @@ Kök (`/`) bir sayfa değil, dil müzakereli bir `302` yönlendirmesidir (`app/r
 - `next.config.ts` `headers()`: `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(self), geolocation=(), microphone=()` ve üretimde `/_next/static` için `Cache-Control: public, max-age=31536000, immutable`. Caddy web alan adında aynı başlıkları kendisi de yazar (Caddy değeri geçerli olur); kiracı siteleri bloğunda `Permissions-Policy` olmadığı için bu başlık orada Next.js'ten gelir.
 - `Strict-Transport-Security` Next.js'te yazılmaz: Caddy her site bloğunda ayarlar (`deploy/caddy/Caddyfile`, `env_production_*` ve `env_preprod_*`). Çift başlık oluşmaması için burada tekrar edilmez.
 - CSP mantığına dokunulmadı (`middleware.ts`).
-- `next/image` kullanılmadı: logo adresleri keyfi https ana makinelerindedir (`remotePatterns` `**`) ve optimizasyon sunucuda (6 GB) keyfi adresleri indirip yeniden boyutlandırmak anlamına gelir. Bunun yerine ham `<img>` etiketlerine `width`/`height` ve `decoding="async"` eklendi. Sayfa motoru blokları görsel render etmiyor.
+- `next/image` kullanılmadı: logo adresleri keyfi https ana makinelerindedir ve optimizasyon sunucuda (6 GB) keyfi adresleri indirip yeniden boyutlandırmak anlamına gelir; bu yüzden `/_next/image` ucu da kapalıdır (`images.unoptimized: true`, açık görsel proxy'si olmasın diye). Bunun yerine ham `<img>` etiketlerine `width`/`height` ve `decoding="async"` eklendi. Sayfa motoru blokları görsel render etmiyor.
 - Inter 400 için `<link rel="preload">` eklenmedi: font dosyası yalnızca CSS üzerinden içe alınıyor ve JS'ten içe aktarmak için ek webpack kuralı gerekir; kazanç bu maliyete değmedi.
 
 ## 8. Search Console ile doğrulama

@@ -257,7 +257,7 @@ export function isLockedSystemRole(role: { key: string; isSystem: boolean }): bo
   return role.isSystem && isPlatformSystemRoleKey(role.key);
 }
 
-function assertNotLocked(role: { key: string; isSystem: boolean }): void {
+export function assertNotLocked(role: { key: string; isSystem: boolean }): void {
   if (isLockedSystemRole(role)) {
     throw new ForbiddenException(codedError(PLATFORM_ACCESS_ERROR_CODES.systemRoleLocked, { statusCode: 403 }));
   }
@@ -291,7 +291,7 @@ function isOwnerLike(tenant: TenantContext): boolean {
   return tenant.isOwner || tenant.isSuperAdmin;
 }
 
-function assertCanGrant(tenant: TenantContext, keys: readonly string[]): void {
+export function assertCanGrant(tenant: TenantContext, keys: readonly string[]): void {
   // Owner-only keys (billing.manage) are never part of a role template.
   if (keys.some(isOwnerOnlyPermission)) {
     throw new BadRequestException(apiError('apiErrors.roleTemplates.permissionBelongsBusinessOwnerOnlyCannot'));

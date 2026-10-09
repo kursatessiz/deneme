@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { LoginInput, MembershipDTO, SessionUserDTO, normalizePhone, resolvePermissions } from '@platform/shared';
 import { OtpPurpose } from '@platform/database';
 import { PrismaService } from '../prisma/prisma.service';
@@ -24,6 +25,22 @@ const INVALID_CREDENTIALS = apiError('apiErrors.auth.incorrectEmailPhonePassword
 // Compared against when the user does not exist, so response time does not
 // reveal which phone numbers are registered.
 const DUMMY_HASH = bcrypt.hashSync('timing-equalizer', 10);
+
+/**
+ * SHA-256 hex of the whole refresh token. bcrypt only reads the first 72
+ * bytes, which are identical across one user's JWTs, so it cannot tell a
+ * rotated token from the current one.
+ */
+export function hashRefreshToken(token: string): string {
+  return createHash('sha256').update(token, 'utf8').digest('hex');
+}
+
+/** Constant-time comparison of a presented refresh token with the stored hash. */
+export function refreshTokenMatches(token: string, storedHash: string): boolean {
+  const presented = Buffer.from(hashRefreshToken(token), 'utf8');
+  const stored = Buffer.from(storedHash, 'utf8');
+  return presented.length === stored.length && timingSafeEqual(presented, stored);
+}
 
 @Injectable()
 export class AuthService {
@@ -112,11 +129,16 @@ export class AuthService {
     return { ...tokens, user: await this.sessionUser(user.id) };
   }
 
+  /**
+   * Changing the PIN revokes the stored refresh token (any other session
+   * signs in again) and hands the caller a fresh pair for its own session.
+   */
   async setPin(userId: string, pin: string) {
     await this.prisma.user.update({
       where: { id: userId },
-      data: { pinHash: await bcrypt.hash(pin, 10), failedPinAttempts: 0, pinLockedUntil: null },
+      data: { pinHash: await bcrypt.hash(pin, 10), failedPinAttempts: 0, pinLockedUntil: null, refreshTokenHash: null },
     });
+    return this.issueTokens(userId);
   }
 
   async login(dto: LoginInput, ip: string | null = null) {
@@ -161,8 +183,7 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: claims.sub } });
     if (!user || !user.isActive || !user.refreshTokenHash) throw new UnauthorizedException(apiError('apiErrors.auth.invalidSession'));
 
-    const isTokenMatch = await bcrypt.compare(incomingRefreshToken, user.refreshTokenHash);
-    if (!isTokenMatch) throw new UnauthorizedException(apiError('apiErrors.auth.invalidRefreshToken'));
+    if (!refreshTokenMatches(incomingRefreshToken, user.refreshTokenHash)) throw new UnauthorizedException(apiError('apiErrors.auth.invalidRefreshToken'));
 
     // Rotate: the presented refresh token cannot be used again. A session that
     // passed the TOTP step keeps it, unless 2FA was reset or re-enrolled since.
@@ -270,12 +291,13 @@ export class AuthService {
     });
     const isPlatformAccount = Boolean(account?.isSuperAdmin || account?.platformMembership?.status === 'ACTIVE');
     const refreshToken = this.jwtService.sign(
-      { sub: userId, typ: 'refresh', ...mfa },
+      // jti makes every refresh token unique, even two issued in the same second.
+      { sub: userId, typ: 'refresh', jti: randomUUID(), ...mfa },
       { expiresIn: isPlatformAccount ? PLATFORM_REFRESH_TTL : '30d' },
     );
     await this.prisma.user.update({
       where: { id: userId },
-      data: { refreshTokenHash: await bcrypt.hash(refreshToken, 10) },
+      data: { refreshTokenHash: hashRefreshToken(refreshToken) },
     });
     return { accessToken, refreshToken };
   }

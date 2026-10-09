@@ -35,7 +35,10 @@ export class ApiKeyGuard implements CanActivate {
     // Prefix is indexed and unique; the secret is verified in-process with a
     // constant-time comparison so no timing signal distinguishes a wrong
     // secret for a real prefix from a wrong prefix.
-    const apiKey = await this.prisma.apiKey.findUnique({ where: { prefix: parsed.prefix } });
+    const apiKey = await this.prisma.apiKey.findUnique({
+      where: { prefix: parsed.prefix },
+      include: { studio: { select: { isActive: true } } },
+    });
     if (!apiKey || !verifySecret(parsed.secret, parsed.prefix, apiKey.secretHash)) {
       throw new UnauthorizedException(apiError('apiErrors.apiKeys.invalidApiKey'));
     }
@@ -44,6 +47,11 @@ export class ApiKeyGuard implements CanActivate {
     }
     if (apiKey.expiresAt && apiKey.expiresAt.getTime() <= Date.now()) {
       throw new UnauthorizedException(apiError('apiErrors.apiKeys.apiKeyExpired'));
+    }
+
+    // A suspended studio's keys stop working with it (same as its staff sessions in StudioTenantGuard).
+    if (!apiKey.studio.isActive) {
+      throw new ForbiddenException(apiError('apiErrors.apiKeys.businessSuspended'));
     }
 
     const requiredScopes = this.reflector.getAllAndOverride<string[]>(REQUIRE_SCOPE_KEY, [

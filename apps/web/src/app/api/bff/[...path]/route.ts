@@ -13,7 +13,8 @@ import {
   expiredCookieOptions,
   refreshTokenCookieOptions,
 } from '@/lib/bff/cookies';
-import { isLogoutPath, isSessionUpgradePath, isTokenIssuingPath } from '@/lib/bff/auth-paths';
+import { isLogoutPath, isSessionUpgradePath, isTokenIssuingRequest } from '@/lib/bff/auth-paths';
+import { exchangeRefreshToken, type TokenPair } from '@/lib/bff/refresh';
 import { translateApiError } from '@/lib/bff/translate-error';
 import { PW_LOCALE_COOKIE } from '@/lib/i18n/constants';
 import { ERROR_CODE_HEADER, REQUEST_ID_HEADER } from '@platform/shared';
@@ -27,11 +28,6 @@ import { reportServerError, requestIdFrom } from '@/lib/errors/server';
  */
 
 const LOCALE_TAG = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
-
-interface TokenPair {
-  accessToken: string;
-  refreshToken: string;
-}
 
 async function forward(
   req: NextRequest,
@@ -70,18 +66,6 @@ async function forward(
     // the first, for as long as the server process lives.
     cache: 'no-store',
   });
-}
-
-async function refreshAccessToken(refreshToken: string): Promise<TokenPair | null> {
-  const res = await fetch(`${apiInternalBaseUrl()}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
-  });
-  if (!res.ok) return null;
-  const data = (await res.json()) as Partial<TokenPair>;
-  if (!data.accessToken || !data.refreshToken) return null;
-  return { accessToken: data.accessToken, refreshToken: data.refreshToken };
 }
 
 function setSessionCookies(res: NextResponse, tokens: TokenPair) {
@@ -138,9 +122,9 @@ async function handle(req: NextRequest, context: { params: Promise<{ path: strin
   // Read the body once: a refresh-and-retry must replay the same bytes.
   const requestBody = ['GET', 'HEAD'].includes(req.method) ? undefined : await req.arrayBuffer();
 
-  // auth/login, auth/otp/verify, auth/pin/login: the body carries tokens
-  // that must become cookies and never reach the browser as JSON.
-  if (isTokenIssuingPath(apiPath) && req.method === 'POST') {
+  // auth/login, auth/otp/verify, auth/pin/login, PUT auth/pin: the body
+  // carries tokens that must become cookies and never reach the browser as JSON.
+  if (isTokenIssuingRequest(req.method, apiPath)) {
     const apiRes = await forward(req, apiPath, isSessionUpgradePath(apiPath) ? accessToken : null, requestBody, requestId);
     if (!apiRes.ok) return (await toNextResponse(apiRes, [], req)).res as NextResponse;
     // Read the tokens from the API's own JSON, then send the browser the
@@ -169,12 +153,16 @@ async function handle(req: NextRequest, context: { params: Promise<{ path: strin
   }
 
   if (apiRes.status === 401 && refreshToken) {
-    const refreshed = await refreshAccessToken(refreshToken);
-    if (refreshed) {
-      apiRes = await forward(req, apiPath, refreshed.accessToken, requestBody, requestId);
+    const refreshed = await exchangeRefreshToken(apiInternalBaseUrl(), refreshToken);
+    if (refreshed.kind === 'renewed') {
+      apiRes = await forward(req, apiPath, refreshed.tokens.accessToken, requestBody, requestId);
       const { res } = await toNextResponse(apiRes);
-      setSessionCookies(res, refreshed);
+      setSessionCookies(res, refreshed.tokens);
       return res;
+    }
+    if (refreshed.kind === 'unavailable') {
+      // A rate limit, 5xx or unreachable API: the session may still be valid, so the cookies stay.
+      return NextResponse.json({ message: t('common.error.sessionRefreshUnavailable') }, { status: refreshed.status });
     }
     const { res } = await toNextResponse(apiRes);
     clearSessionCookies(res);

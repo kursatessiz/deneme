@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../../auth/tenant-context';
 import { RedisService } from '../../redis/redis.service';
+import { incrementWithTtl } from '../../redis/increment-with-ttl';
 import { codedError } from '../../../common/api-error';
 
 const WINDOW_SECONDS = 60;
@@ -32,8 +33,7 @@ export class MarketingAiRateLimitGuard implements CanActivate {
     if (client) {
       try {
         if (client.status === 'wait') await client.connect();
-        const count = await client.incr(key);
-        if (count === 1) await client.expire(key, WINDOW_SECONDS);
+        const count = await incrementWithTtl(client, key, WINDOW_SECONDS);
         return count;
       } catch {
         // Redis unreachable mid-request: fall through to the in-memory bucket.

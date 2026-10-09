@@ -48,11 +48,9 @@ const nextConfig: NextConfig = {
         : []),
     ];
   },
-  images: {
-    remotePatterns: [
-      { protocol: 'https', hostname: '**' },
-    ],
-  },
+  // No page uses next/image (images are plain <img> tags), so the /_next/image optimizer stays off: with
+  // a wildcard remote pattern it would fetch and serve any https image for anyone (an open image proxy).
+  images: { unoptimized: true },
 };
 
 export default nextConfig;

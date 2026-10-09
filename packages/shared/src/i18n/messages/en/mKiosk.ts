@@ -5,6 +5,7 @@ export const enMKiosk: Record<keyof typeof trMKiosk, string> = {
   'mKiosk.checkInFailed': 'Check-in failed.',
   'mKiosk.invalidPhone': 'Enter a valid phone number',
   'mKiosk.exitFailed': 'Sign-out failed',
+  'mKiosk.exitNotAllowed': 'Only staff who can manage the kiosk can exit kiosk mode.',
   'mKiosk.title': 'Kiosk mode',
   'mKiosk.pairingHint': 'Enter the pairing code shown on the admin screen.',
   'mKiosk.pairingCodeLabel': 'Pairing code',
