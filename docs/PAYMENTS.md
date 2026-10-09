@@ -59,6 +59,14 @@ Zod, `PAYMENT_PROVIDER` seçilen sağlayıcının kimlik bilgileri eksikse süre
 1. Personel `POST /payments/sell` ile `paymentMethod: BANK_TRANSFER` ve bir `bankReference` (dekont no) gönderir. `PENDING` bir `Payment` oluşur; paket henüz aktive edilmez.
 2. Para hesaba geçtiğinde, `finance.manage` iznine sahip personel `POST /payments/bank-transfer/confirm` çağırır. Bu, ödemeyi `COMPLETED` yapar ve `MemberPackage`'ı aktive eder (veya mevcut paketi uzatır). Koşullu güncelleme (`updateMany` + `PENDING` şartı) aynı ödemenin iki kez onaylanmasını engeller.
 
+### Satış (`POST /payments/sell`): ödeme yöntemi, para birimi, idempotency
+
+- **Yöntem ve sağlayıcı eşlemesi tek yerdedir** (`apps/api/src/modules/payments/provider-method.ts`): `ONLINE_IYZICO`, `ONLINE_PAYTR` ve `ONLINE_STRIPE` kendi sağlayıcılarının checkout'una gider (Stripe dahil); `PENDING` dönen checkout bekleyen ödeme olarak kaydedilir, para alınmadan hiçbir zaman `COMPLETED` yazılmaz. Nakit, kartlı POS ve havale dışında, hiçbir sağlayıcı koluna bağlanmayan bir yöntem `400` ile reddedilir. Üye self-servis checkout'u (`memberCheckout`) varsayılan sağlayıcıya göre doğru yöntemi yazar (Stripe için `ONLINE_STRIPE`).
+- **Para birimi işletmeninkidir.** `currency` işletmenin para biriminden farklıysa `400` döner; ödeme, checkout ve hediye kartı işletmenin para biriminde yazılır (`POST /promotions/gift-cards` dahil).
+- **Kart çekildikten sonra satış işlemi başarısız olursa** (örn. veritabanı hatası) çekim sağlayıcıdan iade edilir (`reason: sale_failed`) ve özgün hata yeniden fırlatılır; iade de yapılamazsa sağlayıcı referansını taşıyan `FAILED` bir `Payment` kaydı bırakılır (`metadata.refundRequired = true`) ve personel elle iade eder.
+- **Çift gönderim:** istemci isteğe bağlı `idempotencyKey` (8-100 karakter) gönderebilir. Anahtar sağlayıcı referansında (`sell_<anahtar>`) ve idempotency anahtarında kullanılır; aynı anahtarla tamamlanmış bir satış varsa o satış tekrar döndürülür, ikinci kez çekim yapılmaz (anahtar `Payment.metadata.idempotencyKey` içinde tutulur). Anahtar gönderilmezse sunucu istek başına rastgele bir referans üretir; mevcut istemciler değişmeden çalışır.
+- **Webhook doğrulaması:** Stripe tutarı para biriminin kendi ondalık basamağıyla çevrilir (`stripeMinorToDecimal`; JPY gibi sıfır ondalıklı birimlerde 100'e bölünmez) ve webhook'taki para birimi ödemeninkiyle karşılaştırılır; tutar veya para birimi uyuşmazsa olay işlenmez (`AMOUNT_MISMATCH`).
+
 ### Abonelik ve taksit
 
 - `POST /payments/subscriptions`, bir üyenin saklı kartına bağlı bir abonelik oluşturur; `installmentCount` (1-12) her yenileme tahsilatına uygulanır.
@@ -72,6 +80,8 @@ Zod, `PAYMENT_PROVIDER` seçilen sağlayıcının kimlik bilgileri eksikse süre
 2. Tahsilat başarılıysa: dönem ileri alınır, yeni bir `MemberPackage` oluşturulur, `Payment` (`COMPLETED`) ve `PaymentAttempt` (`SUCCEEDED`) kaydedilir.
 3. Tahsilat başarısızsa: bir `PaymentAttempt` (`FAILED`) kaydedilir ve ilk başarısızlıktan itibaren **1., 3. ve 7. günlerde** tekrar denenir (`DUNNING_RETRY_OFFSETS_DAYS`). 7. gündeki deneme de başarısız olursa abonelik `CANCELLED` olur ve üyeye `PACKAGE` kategorisinde bildirim gönderilir (`NotificationsService.notifyUser`, en iyi çaba/best-effort).
 4. `cancelAtPeriodEnd = true` olan bir abonelik, dönemi bittiğinde tahsilat denemeden `CANCELLED` olur.
+
+**Çifte tahsilat koruması.** Kart çekilmeden önce abonelik satırı koşullu bir `updateMany` ile (`nextChargeAt` hâlâ okunan değer ise) sahiplenilir ve `nextChargeAt` 15 dakika ileri alınır (`DUNNING_CLAIM_LEASE_MS`); eşzamanlı ikinci çalıştırma (cron, süper admin tetiği, ikinci işçi) satırı artık vadesi gelmiş görmez veya yarışı kaybeder (`count = 0`) ve atlar. Tahsilat referansı sabittir: `dunning_<abonelikId>_<orijinal nextChargeAt>`; aynı değer sağlayıcıya idempotency anahtarı olarak gider (Stripe `idempotencyKey`), bu yüzden aynı vade için yapılan yeniden deneme asla ikinci bir çekim üretmez. Sağlayıcı çağrısı istisna fırlatırsa kira serbest bırakılır (`nextChargeAt` eski değerine döner) ve bir sonraki çalıştırma aynı anahtarla yeniden dener. Sonuç (başarı veya başarısızlık) kira değerine koşullu güncellemeyle yazılır.
 
 ### Zamanlama notu
 
@@ -134,6 +144,7 @@ Bu bölüm `apps/api/src/modules/promotions` altındaki modülü ve `PaymentsSer
 - Kod üretimi: karışıklığa yol açabilecek karakterler (0/O, 1/I/L) hariç tutulan bir alfabeden, kriptografik olarak rastgele 16 karakter (`apps/api/src/modules/promotions/gift-card-code.ts`).
 - Personel `POST /promotions/gift-cards` (`promotions.manage`) ile kart satar; bu bir `Payment` kaydı oluşturur (nakit/kart/havale, satın alan üyeye bağlı).
 - Üye (veya personel adına) paket satın alırken `giftCardCode` (ve opsiyonel `giftCardAmount`) gönderir; kartın bakiyesi `gift_cards.balance` üzerinde koşullu `updateMany` (`balance >= amount`) ile atomik olarak düşülür — eşzamanlı iki harcamadan yalnızca biri başarılı olur. Kalan tutar normal ödeme yöntemiyle (nakit, kart, online) tahsil edilir.
+- **Gelir sayımı:** hediye kartı satışı kasaya giren paradır (bir kez sayılır). Kartla ödenen paket satışının `Payment.amount` değeri kartla karşılanan kısmı da içerir; bu yüzden gelir, dashboard, şube özeti, benchmark ve muhasebe toplamlarında bu ödemeden yalnızca `amount - gift_card_amount` (kasaya giren kısım) sayılır; iade toplamında karta geri yatan kısım (`gift_card_refunded`) düşülür. Böylece aynı para iki kez gelir görünmez (`apps/api/src/modules/payments/cash-in.ts`).
 - Bir ödemenin hediye kartıyla karşılanan kısmı iade edildiğinde, iade tutarına orantılı pay karta geri yatırılır (`Payment.giftCardRefunded` ile takip edilir, çift iadeye karşı korumalıdır).
 - Üye self-servis bakiye sorgusu: `GET /promotions/gift-cards/check?code=...` — kod, sabit zamanlı (constant-time) bir karşılaştırma yerine sha256 özetinin indeksli eşitlik sorgusuyla bulunur; dakikada aşırı deneme Redis tabanlı bir hız sınırlayıcıyla (`GiftCardRateLimitGuard`) engellenir.
 - `GET /promotions/gift-cards/mine` — üyenin satın aldığı kartların listesi (mobil "Hediye kartlarım").

@@ -11,6 +11,8 @@ export interface CreateCheckoutParams {
   description: string;
   /** Our own idempotency key; the adapter must echo it back or derive its providerReference from it. */
   reference: string;
+  /** Optional provider-side idempotency key for adapters that support one (Stripe). */
+  idempotencyKey?: string;
 }
 
 export interface ChargeStoredCardParams {
@@ -22,6 +24,11 @@ export interface ChargeStoredCardParams {
   installmentCount: number;
   description: string;
   reference: string;
+  /**
+   * Optional provider-side idempotency key. Adapters that support it (Stripe)
+   * pass it through so repeating the same call cannot charge twice.
+   */
+  idempotencyKey?: string;
 }
 
 export interface RefundParams {
@@ -37,7 +44,10 @@ export interface WebhookVerificationResult {
   valid: boolean;
   providerReference?: string;
   eventType?: 'CHECKOUT_COMPLETED' | 'CHARGE_SUCCEEDED' | 'CHARGE_FAILED' | 'REFUND_COMPLETED';
-  amount?: number;
+  /** Decimal amount in `currency` (string keeps zero- and three-decimal currencies exact). */
+  amount?: number | string;
+  /** ISO 4217 code (upper case) the amount is expressed in. */
+  currency?: string;
   failureCode?: string;
 }
 

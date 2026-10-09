@@ -47,7 +47,7 @@ function contactRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function setup(opts: { consent?: boolean; suppressed?: boolean; counts?: [number, number]; whatsappFails?: boolean; prior?: unknown } = {}) {
+function setup(opts: { consent?: boolean; suppressed?: boolean; counts?: [number, number]; whatsappFails?: boolean; prior?: unknown; smsConfigured?: boolean; nodeEnv?: string } = {}) {
   let seq = 0;
   const logs: Record<string, unknown>[] = [];
   const prisma = {
@@ -78,7 +78,7 @@ function setup(opts: { consent?: boolean; suppressed?: boolean; counts?: [number
     smsTransaction: { create: jest.fn() },
     messageLink: { create: jest.fn() },
   };
-  const smsAdapter = { key: 'NETGSM', isConfigured: () => true, send: jest.fn(async (_req: Record<string, unknown>) => ({ success: true, providerMessageId: 'sms-1' })) };
+  const smsAdapter = { key: 'NETGSM', isConfigured: () => opts.smsConfigured ?? true, send: jest.fn(async (_req: Record<string, unknown>) => ({ success: true, providerMessageId: 'sms-1' })) };
   const whatsapp = {
     key: 'WHATSAPP_CLOUD',
     isConfigured: () => true,
@@ -98,7 +98,7 @@ function setup(opts: { consent?: boolean; suppressed?: boolean; counts?: [number
     applyMerchantExemption: jest.fn(async () => 0),
   };
   const optOut = { isSuppressed: jest.fn(async () => opts.suppressed ?? false) };
-  const config = { get: jest.fn((key: string, fallback?: string) => ({ JWT_SECRET: 'x'.repeat(40), NODE_ENV: 'test' })[key] ?? fallback) };
+  const config = { get: jest.fn((key: string, fallback?: string) => ({ JWT_SECRET: 'x'.repeat(40), NODE_ENV: opts.nodeEnv ?? 'test' })[key] ?? fallback) };
   const service = new MessagingService(
     prisma as unknown as PrismaService,
     config as unknown as ConfigService,
@@ -241,5 +241,39 @@ describe('MessagingService.send', () => {
     const result = await service.send({ studioId: 'studio-1', recipient: { contactId: 'contact-1' }, channel: 'SMS', templateKey: 'BOOKING_REMINDER' });
     expect(result).toMatchObject({ success: false, reasonCode: 'RENDER_ERROR' });
     expect(smsAdapter.send).not.toHaveBeenCalled();
+  });
+
+  describe('SMS billing', () => {
+    const smsInput = { studioId: 'studio-1', recipient: { contactId: 'contact-1' }, channel: 'SMS' as const, templateKey: 'BOOKING_REMINDER', variables: { serviceName: 'Reformer', startTime: '10:00' } };
+
+    it('spends one credit and writes a USAGE ledger row when a configured provider sends', async () => {
+      at('2026-06-15T09:00:00.000Z');
+      const { service, prisma } = setup({ smsConfigured: true });
+      const result = await service.send(smsInput);
+      expect(result).toMatchObject({ success: true, channel: 'SMS' });
+      expect(prisma.smsWallet.updateMany).toHaveBeenCalledTimes(1);
+      expect(prisma.smsTransaction.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ type: 'USAGE', amount: -1 }) }));
+    });
+
+    it('does not reserve or deduct credit when the SMS provider is not configured (simulated send outside production)', async () => {
+      at('2026-06-15T09:00:00.000Z');
+      const { service, prisma, smsAdapter } = setup({ smsConfigured: false, nodeEnv: 'test' });
+      const result = await service.send(smsInput);
+      expect(result).toMatchObject({ success: true, channel: 'SMS' });
+      expect(smsAdapter.send).toHaveBeenCalledTimes(1);
+      expect(prisma.smsWallet.findUnique).not.toHaveBeenCalled();
+      expect(prisma.smsWallet.updateMany).not.toHaveBeenCalled();
+      expect(prisma.smsTransaction.create).not.toHaveBeenCalled();
+    });
+
+    it('fails with NOT_CONFIGURED in production when no SMS provider is configured, without billing or sending', async () => {
+      at('2026-06-15T09:00:00.000Z');
+      const { service, prisma, smsAdapter } = setup({ smsConfigured: false, nodeEnv: 'production' });
+      const result = await service.send(smsInput);
+      expect(result).toMatchObject({ success: false, reasonCode: 'NOT_CONFIGURED' });
+      expect(smsAdapter.send).not.toHaveBeenCalled();
+      expect(prisma.smsWallet.updateMany).not.toHaveBeenCalled();
+      expect(prisma.smsTransaction.create).not.toHaveBeenCalled();
+    });
   });
 });
