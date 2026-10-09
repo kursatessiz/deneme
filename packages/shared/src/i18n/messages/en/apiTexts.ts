@@ -86,6 +86,7 @@ export const enApiTexts: Record<keyof typeof trApiTexts, string> = {
   'apiTexts.send.frequencyCap': 'Frequency cap exceeded (commercial messages per person)',
   'apiTexts.send.failed': '{channel} delivery failed',
   'apiTexts.send.insufficientSmsCredit': 'The studio SMS credit is insufficient',
+  'apiTexts.send.smsNotConfigured': 'The SMS provider is not configured, so the message was not sent',
   'apiTexts.send.trackingNotConfigured': 'The tracking key (MESSAGING_TRACKING_SECRET) is not configured',
   'apiTexts.send.studioAddressMissing': 'The business address is not set (required for commercial email)',
   'apiTexts.send.noEmailSubject': 'The email has no subject',
