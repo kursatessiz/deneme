@@ -150,16 +150,19 @@ export class StripePaymentProvider implements PaymentProviderAdapter {
     }
 
     try {
-      const intent = await this.stripe.paymentIntents.create({
-        amount: toMinorUnits(params.amount, params.currency),
-        currency: params.currency.toLowerCase(),
-        customer: customerId,
-        payment_method: paymentMethodId,
-        off_session: true,
-        confirm: true,
-        description: params.description,
-        metadata: { studioId: params.studioId, memberId: params.memberId, reference: params.reference },
-      });
+      const intent = await this.stripe.paymentIntents.create(
+        {
+          amount: toMinorUnits(params.amount, params.currency),
+          currency: params.currency.toLowerCase(),
+          customer: customerId,
+          payment_method: paymentMethodId,
+          off_session: true,
+          confirm: true,
+          description: params.description,
+          metadata: { studioId: params.studioId, memberId: params.memberId, reference: params.reference },
+        },
+        params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : undefined,
+      );
       if (intent.status === 'succeeded') {
         return { success: true, providerReference: intent.id };
       }

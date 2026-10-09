@@ -22,6 +22,11 @@ export interface ChargeStoredCardParams {
   installmentCount: number;
   description: string;
   reference: string;
+  /**
+   * Optional provider-side idempotency key. Adapters that support it (Stripe)
+   * pass it through so repeating the same call cannot charge twice.
+   */
+  idempotencyKey?: string;
 }
 
 export interface RefundParams {
