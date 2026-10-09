@@ -225,6 +225,18 @@ describe('Public API and webhooks (e2e)', () => {
       await pub(expiredKey).get('/v1/public/branches').expect(401);
     });
 
+    it('rejects a key of a suspended studio with 403, and accepts it again once reactivated', async () => {
+      await prisma.studio.update({ where: { id: ZEN }, data: { isActive: false } });
+      try {
+        const res = await pub(readOnlyKey).get('/v1/public/branches');
+        expect(res.status).toBe(403);
+        expect(res.body.code).toBe('apiErrors.apiKeys.businessSuspended');
+      } finally {
+        await prisma.studio.update({ where: { id: ZEN }, data: { isActive: true } });
+      }
+      await pub(readOnlyKey).get('/v1/public/branches').expect(200);
+    });
+
     it('lists branches and service types for the key`s own studio', async () => {
       const branches = await pub(fullKey).get('/v1/public/branches').expect(200);
       expect(Array.isArray(branches.body)).toBe(true);
