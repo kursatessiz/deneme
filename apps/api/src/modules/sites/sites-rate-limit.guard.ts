@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type { Request } from 'express';
 import { RedisService } from '../redis/redis.service';
+import { incrementWithTtl } from '../redis/increment-with-ttl';
 import { apiError } from '../../common/api-error';
 
 const WINDOW_SECONDS = 60;
@@ -28,8 +29,7 @@ abstract class SitesFixedWindowGuard implements CanActivate {
       try {
         if (client.status === 'wait') await client.connect();
         const key = `${this.bucket}:${ip}`;
-        const count = await client.incr(key);
-        if (count === 1) await client.expire(key, WINDOW_SECONDS);
+        const count = await incrementWithTtl(client, key, WINDOW_SECONDS);
         if (count > this.maxRequests) throw new HttpException(apiError('apiErrors.common.tooManyRequests'), HttpStatus.TOO_MANY_REQUESTS);
         return true;
       } catch (err) {

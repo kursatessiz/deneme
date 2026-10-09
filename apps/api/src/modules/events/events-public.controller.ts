@@ -4,6 +4,7 @@ import { PublicEventRegisterSchema } from '@platform/shared';
 import type { PublicEventRegisterInput } from '@platform/shared';
 import { ZodBody } from '../../common/zod-body.pipe';
 import { RedisService } from '../redis/redis.service';
+import { incrementWithTtl } from '../redis/increment-with-ttl';
 import { readVisitorId } from '../crm/tracking/tracking-utils';
 import { EventRegistrationsService } from './event-registrations.service';
 import { apiError } from '../../common/api-error';
@@ -35,8 +36,7 @@ export class EventsPublicRateLimitGuard implements CanActivate {
     if (client) {
       try {
         if (client.status === 'wait') await client.connect();
-        const count = await client.incr(key);
-        if (count === 1) await client.expire(key, WINDOW_SECONDS);
+        const count = await incrementWithTtl(client, key, WINDOW_SECONDS);
         if (count > limit) throw new HttpException(apiError('apiErrors.common.tooManyRequests'), HttpStatus.TOO_MANY_REQUESTS);
         return true;
       } catch (err) {

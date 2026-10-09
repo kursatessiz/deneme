@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/tenant-context';
 import { RedisService } from '../redis/redis.service';
+import { incrementWithTtl } from '../redis/increment-with-ttl';
 import { apiError } from '../../common/api-error';
 
 const WINDOW_SECONDS = 300;
@@ -25,8 +26,7 @@ export class GiftCardRateLimitGuard implements CanActivate {
 
     try {
       if (client.status === 'wait') await client.connect();
-      const count = await client.incr(key);
-      if (count === 1) await client.expire(key, WINDOW_SECONDS);
+      const count = await incrementWithTtl(client, key, WINDOW_SECONDS);
       if (count > MAX_REQUESTS) {
         throw new HttpException(apiError('apiErrors.common.tooManyAttemptsShortly'), HttpStatus.TOO_MANY_REQUESTS);
       }
