@@ -386,6 +386,32 @@ describe('Loyalty G3a (e2e)', () => {
       expect(none.body.code).toBe('LOYALTY_NO_ACTIVE_PACKAGE');
       expect(await balanceOf(b)).toBe(300);
 
+      // An expired package must not receive the credit either.
+      const expired = await prisma.memberPackage.create({
+        data: {
+          studioId: ZEN,
+          memberId: b.memberId,
+          packageDefinitionId: packageDefId,
+          entitlementKind: 'SESSION_COUNT',
+          totalUnits: 5,
+          usedUnits: 0,
+          remainingUnits: 5,
+          status: 'ACTIVE',
+          startDate: new Date(Date.now() - 60 * DAY),
+          endDate: new Date(Date.now() - DAY),
+        },
+      });
+      try {
+        const onExpired = await as(ownerToken, ZEN).post(`${base()}/members/${b.memberId}/redeem`).send({ rewardId: creditRewardId });
+        expect(onExpired.status).toBe(409);
+        expect(onExpired.body.code).toBe('LOYALTY_NO_ACTIVE_PACKAGE');
+        expect(await balanceOf(b)).toBe(300);
+        const untouched = await prisma.memberPackage.findUniqueOrThrow({ where: { id: expired.id } });
+        expect(untouched.remainingUnits).toBe(5);
+      } finally {
+        await prisma.memberPackage.delete({ where: { id: expired.id } });
+      }
+
       const { memberPackageId } = await sell(b, 0);
       const before = await prisma.memberPackage.findUniqueOrThrow({ where: { id: memberPackageId } });
       const ok = await as(receptionToken, ZEN).post(`${base()}/members/${b.memberId}/redeem`).send({ rewardId: creditRewardId });
