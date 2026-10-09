@@ -269,7 +269,7 @@ Bilinçli olarak ertelenmiş geliştirme ve özellikler ("şimdi yapılmayacak")
 - [ ] İşletme planları için otomatik yenileme motoru (ACTIVE -> PAST_DUE -> RESTRICTED): şu an elle yönetiliyor. `docs/DENEME_VE_ETKINLESTIRME.md` bölüm 7
 - [ ] iyzico ve PayTR sağlayıcılarının tamamlanması: şu an iskelet, webhook doğrulaması her zaman geçersiz döner; Türkiye'de canlı tahsilat yapılamaz. `apps/api/src/modules/payments/providers/iyzico-payment.provider.ts`, `paytr-payment.provider.ts`
 - [ ] Partner webhook imzasının ham gövde üzerinden doğrulanması: ilk gerçek partner bağlanmadan önce yapılmalı. `apps/api/src/modules/partners/partners-webhook.controller.ts`, `docs/PARTNERS.md`
-- [ ] PIN kilidinin telefon + IP bazında ayrılması: başkasının PIN girişini kilitleme (hesap kilitleme saldırısı) riski. `apps/api/src/modules/auth/login-throttle.service.ts`
+- [ ] PIN kilidinin telefon + IP bazında ayrılması: başkasının PIN girişini kilitleme (hesap kilitleme saldırısı) riski. `apps/api/src/modules/auth/auth.service.ts` (`pinLockedUntil`)
 - [ ] e-Arşiv faturada hediye kartıyla ödenen kısmın KDV zamanlaması muhasebeciyle netleştirilmeli (hediye kartı satışında mı, kullanımında mı). `docs/INVOICING.md`
 - [ ] SMS sağlayıcısı yapılandırılmadan üretimde OTP ve davet SMS'i gönderilmez; giriş ve onboarding çalışmaz. Süper admin sağlayıcı ayarı ve `docs/MESAJLASMA.md`
 
