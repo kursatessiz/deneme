@@ -14,15 +14,19 @@ const KEY_LENGTH = 32;
  * it in production whenever any partner connection could exist, and leaves
  * it optional in dev/test so the mock provider works without it - encrypt()
  * then stores plaintext instead of failing, which is fine because storing a
- * mock's dummy webhook secret carries no real risk.
+ * mock's dummy webhook secret carries no real risk. In production encrypt()
+ * refuses to run without a key, so no caller can store a real secret in
+ * plaintext (the services' own friendlier checks run first where they exist).
  *
  * Encoded form: base64(iv(12) + authTag(16) + ciphertext).
  */
 @Injectable()
 export class CredentialCipher {
   private readonly key: Buffer | null;
+  private readonly isProduction: boolean;
 
   constructor(config: ConfigService) {
+    this.isProduction = config.get<string>('NODE_ENV') === 'production';
     const raw = config.get<string>('INTEGRATION_ENCRYPTION_KEY');
     if (!raw) {
       this.key = null;
@@ -41,6 +45,9 @@ export class CredentialCipher {
 
   encrypt(plaintext: string): string {
     if (!this.key) {
+      if (this.isProduction) {
+        throw new InternalServerErrorException('INTEGRATION_ENCRYPTION_KEY is required to store credentials in production');
+      }
       // Dev/test fallback: no key configured, store as a clearly-marked
       // plaintext envelope so decrypt() can round-trip it symmetrically.
       return `plain:${Buffer.from(plaintext, 'utf8').toString('base64')}`;

@@ -4,9 +4,11 @@ import { PublicEventRegisterSchema } from '@platform/shared';
 import type { PublicEventRegisterInput } from '@platform/shared';
 import { ZodBody } from '../../common/zod-body.pipe';
 import { RedisService } from '../redis/redis.service';
+import { incrementWithTtl } from '../redis/increment-with-ttl';
 import { readVisitorId } from '../crm/tracking/tracking-utils';
 import { EventRegistrationsService } from './event-registrations.service';
 import { apiError } from '../../common/api-error';
+import { isInternalServerRequest } from '../../common/internal-request';
 
 const WINDOW_SECONDS = 60;
 /** Reads are cheap listings; writes create contacts and hold seats. */
@@ -27,6 +29,8 @@ export class EventsPublicRateLimitGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<Request>();
+    // Server renders of the web container (no X-Forwarded-For, private peer) are not one visitor; never count them.
+    if (isInternalServerRequest(req)) return true;
     const write = req.method !== 'GET' && req.method !== 'HEAD';
     const limit = write ? MAX_WRITES : MAX_READS;
     const key = `events-public-rl:${write ? 'w' : 'r'}:${req.ip ?? 'unknown'}`;
@@ -35,8 +39,7 @@ export class EventsPublicRateLimitGuard implements CanActivate {
     if (client) {
       try {
         if (client.status === 'wait') await client.connect();
-        const count = await client.incr(key);
-        if (count === 1) await client.expire(key, WINDOW_SECONDS);
+        const count = await incrementWithTtl(client, key, WINDOW_SECONDS);
         if (count > limit) throw new HttpException(apiError('apiErrors.common.tooManyRequests'), HttpStatus.TOO_MANY_REQUESTS);
         return true;
       } catch (err) {

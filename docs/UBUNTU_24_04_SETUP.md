@@ -1,7 +1,7 @@
 # Ubuntu 24.04 Üretim Kurulumu
 
-Bu rehber, platformu çalıştırmak için bir üretim (production) sunucusunun (6 GB RAM / 4 vCPU / 60
-GB SSD) kurulumunu ve ilk deploy'un yapılmasını kapsar. Uygulama image'ları her zaman CI'da build
+Bu rehber, platformu çalıştırmak için bir üretim (production) sunucusunun (6-8 GB RAM / 4 vCPU / 60
+GB SSD; 6 GB ve 8 GB ikisi de uygundur) kurulumunu ve ilk deploy'un yapılmasını kapsar. Uygulama image'ları her zaman CI'da build
 edilir; sunucu yalnızca önceden build edilmiş image'ları çeker.
 
 ## 1. Kaynak bütçesi
@@ -18,7 +18,7 @@ Bu limitler `deploy/docker-compose.prod.yml` içinde zorunlu kılınır. `server
 yapılandırılan 4 GB'lık bir swapfile, kısa süreli spike'ları (ani yükselmeleri) emer.
 
 Build'ler sunucuda asla çalıştırılmaz: bir `next build` veya TypeScript derlemesi, canlı bir
-veritabanının yanında 6 GB'lık bir host'un kaldırabileceğinin çok üzerinde RAM kullanımına yol
+veritabanının yanında 6-8 GB'lık bir host'un kaldırabileceğinin çok üzerinde RAM kullanımına yol
 açabilir. Tüm image'lar GitHub Actions runner'larında build edilir ve burada yalnızca çekilir
 (bkz. `docs/CICD_GUIDE.md`).
 
@@ -43,7 +43,7 @@ istek/saniye değerleri gerçek sunucudakinden biraz düşüktür.
 | Seans listesi | ~75 | 1,3 sn |
 | Web `/dashboard` | ~820 | 121 ms |
 
-Sonuç: 6 GB RAM / 4 vCPU fazlasıyla yeterli; toplam kullanım ~250 MB. Darboğaz, ağır liste uç
+Sonuç: 6-8 GB RAM / 4 vCPU fazlasıyla yeterli; toplam kullanım ~250 MB. Darboğaz, ağır liste uç
 noktalarında API'nin tek CPU çekirdeğidir (Node tek iş parçacıklı). Liste uç noktalarına sayfalama
 ve alan seçimi (backlog 2.1) kapasiteyi birkaç kat artırır; gerekirse aynı sunucuda ikinci bir API
 kopyası çalıştırılabilir. İlk aşama için 4 GB / 2 vCPU da yeterli olur.

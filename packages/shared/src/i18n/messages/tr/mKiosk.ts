@@ -4,6 +4,7 @@ export const trMKiosk = {
   'mKiosk.checkInFailed': 'Check-in yapılamadı.',
   'mKiosk.invalidPhone': 'Geçerli bir telefon numarası giriniz',
   'mKiosk.exitFailed': 'Çıkış yapılamadı',
+  'mKiosk.exitNotAllowed': 'Kiosk modundan yalnızca kiosku yönetme yetkisi olan personel çıkabilir.',
   'mKiosk.title': 'Kiosk modu',
   'mKiosk.pairingHint': 'Yönetici ekranından aldığınız eşleştirme kodunu girin.',
   'mKiosk.pairingCodeLabel': 'Eşleştirme kodu',

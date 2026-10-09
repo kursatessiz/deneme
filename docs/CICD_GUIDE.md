@@ -210,6 +210,20 @@ branches and tags: Selected branches -> `main`**. `preprod` için onay gerekmez.
 7. Başarı durumunda release'i kaydeder: `/opt/app/releases/current`, `previous` ve sadece
    ekleme yapılan (append-only) bir `history` dosyası.
 8. Başarısızlık durumunda otomatik olarak `rollback.sh`'ı çalıştırıp önceki release'e döner.
+   Registry'ye ulaşılamıyorsa rollback `pull` adımını loglayıp atlar ve sunucuda zaten bulunan
+   yerel image'larla devam eder.
+9. Başarıdan sonra eski image'ları temizler (`prune_release_images`, `lib.sh`): `api` ve `web`
+   için en yeni 3 tag, `current` ve `previous` release'in tag'leri korunur, gerisi silinir
+   (çalışan bir konteynerin kullandığı image'ı docker zaten silmez). Yalnızca `docker image
+   prune -a` kullanılmaz; çünkü önceki release'in çalışan konteyneri olmadığı için 7 günden eskiyse
+   silinir ve rollback registry'ye bağımlı kalırdı. Korunacak sayı `KEEP_RELEASE_IMAGES` ile
+   değiştirilebilir.
+
+`deploy.sh`, `HUP` ve `PIPE` sinyallerini yok sayar: CI işi iptal edilir veya runner'ın SSH
+bağlantısı kopar ise deploy, migration veya `up` adımının ortasında ölmez; smoke test ve
+gerekirse otomatik rollback ile sonlanır ve `releases/` durumu tutarlı kalır. Bağlantı kopunca
+workflow adımı sonucu görmez; durumu `/opt/app/deploy.log` ve `releases/current` üzerinden
+kontrol edin.
 
 Veritabanı migration'ları yalnızca ileri yönlüdür (expand/contract). Bir rollback bir migration'ı
 asla geri almaz - şema değişiklikleri en az bir deploy döngüsü boyunca önceki release ile geriye

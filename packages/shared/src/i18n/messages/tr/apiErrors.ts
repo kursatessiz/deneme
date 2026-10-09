@@ -70,6 +70,7 @@ export const trApiErrors = {
   'apiErrors.apiKeys.apiKeyNotFound': 'API anahtarı bulunamadı',
   'apiErrors.apiKeys.apiKeyRevoked': 'Bu API anahtarı iptal edilmiştir',
   'apiErrors.apiKeys.authorizationBearerApiKeyRequired': 'Authorization: Bearer <api key> gereklidir',
+  'apiErrors.apiKeys.businessSuspended': 'Bu API anahtarının işletmesi askıya alınmıştır',
   'apiErrors.apiKeys.invalidApiKey': 'Geçersiz API anahtarı',
   'apiErrors.apiKeys.invalidApiKeyFormat': 'Geçersiz API anahtarı biçimi',
   'apiErrors.apiKeys.keyAlreadyRevoked': 'Bu anahtar zaten iptal edilmiş',

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Platform - Ubuntu 24.04 server bootstrap (preprod or production)
-# Target: 6 GB RAM / 4 vCPU / 60 GB SSD
+# Target: 6-8 GB RAM / 4 vCPU / 60 GB SSD (both sizes are fine)
 #
 # Usage (as root, or with sudo from your own admin account):
 #   sudo DEPLOY_SSH_PUBKEY="ssh-ed25519 AAAA... ci-deploy" TIMEZONE=UTC \
@@ -53,7 +53,7 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update && apt-get upgrade -y
 apt-get install -y curl wget git ufw fail2ban ca-certificates gnupg lsb-release htop jq
 
-# 2. 4 GB swap (vital for 6 GB RAM stability)
+# 2. 4 GB swap (vital for 6-8 GB RAM stability)
 if [ ! -f /swapfile ]; then
   echo "Creating 4GB swap file..."
   fallocate -l 4G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=4096
