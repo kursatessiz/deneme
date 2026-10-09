@@ -36,23 +36,52 @@ hiçbir zaman okumaz.
 
 ## Yüzde bazlı kural: seans geliri (açık soru çözümü)
 
-HANDOVER.md'de "yüzde bazlı hakediş için seans fiyat kaynağı tanımlanmalı"
-açık sorusu şöyle çözülmüştür: gelir kaynağı, rezervasyonun **kullandığı üye
-paketinin fiyatıdır**, seansın kendi bir fiyatı yoktur (seans türlerinin
-fiyatı yoktur, yalnızca paketlerin fiyatı vardır).
+Gelir kaynağı, rezervasyonun **kullandığı üye paketi için fiilen ödenen
+tutardır**; paketin liste fiyatı değildir. Seansın kendi bir fiyatı yoktur
+(seans türlerinin fiyatı yoktur, yalnızca paketlerin fiyatı vardır). Böylece
+indirimli satılan, hediye kartıyla ödenen, ücretsiz verilen veya iade edilen
+bir paket eğitmen primini şişirmez (sahip kararı).
+
+**Ödenen tutar** (`netPaidForPackage`, `commission-calculator.ts`): üye
+paketine bağlı (`Payment.memberPackageId`) ödemelerin toplamı olarak, her
+ödeme için `amount - refundedAmount`:
+
+- Yalnızca `COMPLETED` ve `REFUNDED` ödemeler sayılır; `PENDING` (henüz
+  gelmemiş para) ve `FAILED` sayılmaz. Kısmen iade edilmiş ödeme kalan tutarıyla,
+  tamamen iade edilmiş ödeme 0 ile girer.
+- Hediye kartıyla ödenen kısım ödenmiş sayılır: `Payment.amount` indirimden
+  sonraki toplam tutardır ve hediye kartı payını (`giftCardAmount`) içerir.
+- Promosyon kodu indirimi zaten `Payment.amount` içinde düşülmüştür (liste
+  fiyatı değil, indirimli tutar sayılır).
+- Birden fazla ödemesi olan pakette (taksit, ek tahsilat) tutarlar toplanır.
+- Hiç ödemesi olmayan paket (`assignPackage` ile ücretsiz verilen, bonus veya
+  referans kredisi, deneme paketi) 0 değerindedir ve yüzde bazlı prim üretmez
+  (sabit seans başı ve aylık maaş kuralları etkilenmez).
+- Para birimi ödemenin kendisindedir; bir paketin ödemeleri tek para
+  biriminde olmalıdır.
 
 Yüzde kuralı uygulanan bir seansta, dahil edilen her rezervasyon için:
 
 ```
-birim fiyat = paket fiyatı / paketin toplam birimi        (SESSION_COUNT, CREDIT)
-birim fiyat = paket fiyatı / geçerlilik gün sayısı         (TIME_UNLIMITED, 1 gün = 1 birim)
-rezervasyon geliri = birim fiyat x tüketilen birim
+birim değer = ödenen tutar / paketin toplam birimi          (SESSION_COUNT, CREDIT)
+birim değer = ödenen tutar / geçerlilik gün sayısı           (TIME_UNLIMITED, 1 gün = 1 birim)
+rezervasyon geliri = birim değer x tüketilen birim
 seans geliri = rezervasyonların toplamı
 hakediş = seans geliri x (value / 100)
 ```
 
+**Promosyon bonus birimleri:** veri modeli bonus birimleri ayrı tutmaz
+(`MemberPackage.totalUnits` ödenen ve bonus birimlerin toplamıdır), bu yüzden
+bölen toplam birimdir. Bu kural, paketin tüm birimleri tüketildiğinde prim
+tabanının toplamının tam olarak ödenen tutara eşit olmasını sağlar; bonus
+birimler ekstra gelir gibi sayılmaz.
+
+**Onaylı bordrolar değişmez:** yeni kural yalnızca bordro taslağı
+(`DRAFT`) oluşturulurken veya yeniden hesaplanırken uygulanır. `APPROVED` ve
+`PAID` dönemler kaydedilmiş satırlarını korur ve yeniden hesaplanmaz.
+
 `TIME_UNLIMITED` paketlerin birim sayısı yoktur (sınırsız giriş); bu yüzden
-fiyat, paketin geçerlilik süresine (gün) bölünüp bir günlük değer birim
+ödenen tutar, paketin geçerlilik süresine (gün) bölünüp bir günlük değer birim
 olarak kullanılır. Bu bir yaklaşıklamadır ve stüdyonun onayına açıktır;
 farklı bir kural gerekiyorsa (örn. üyenin ayda ortalama katıldığı seans
 sayısına bölmek) `unitPrice` hesaplaması `commission-calculator.ts`

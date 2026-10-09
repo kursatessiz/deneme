@@ -12,7 +12,8 @@ import { AppModule } from '../../src/app.module';
  * Formula under test (see docs/PAYROLL.md):
  * - PER_SESSION_FIXED: rule.value per session taught, any attendee count.
  * - PERCENTAGE: sum over ATTENDED/NO_SHOW/CANCELLED_LATE(penalty>0) bookings
- *   of (package price / package totalUnits) * units consumed * value%.
+ *   of (amount actually paid for the member package / its totalUnits) * units
+ *   consumed * value%. A free assignment (no payment) earns 0.
  * - ServiceType.commissionRuleId overrides TrainerProfile.commissionRuleId.
  * - The teaching trainer (SessionSchedule.trainerId) earns the session, a
  *   substituted-out trainer (originalTrainerId) earns nothing.
@@ -50,6 +51,7 @@ describe('Payroll (e2e)', () => {
 
   const scheduleIds: string[] = [];
   const memberPackageIds: string[] = [];
+  const paymentIds: string[] = [];
   const bookingIds: string[] = [];
   const runIds: string[] = [];
 
@@ -82,7 +84,8 @@ describe('Payroll (e2e)', () => {
     return s.id;
   };
 
-  const makeMemberPackage = async (memberId: string) => {
+  // paidAmount: what the member actually paid (Payment.amount); null = no payment (assigned free).
+  const makeMemberPackage = async (memberId: string, paidAmount: number | null = 10000) => {
     const p = await prisma.memberPackage.create({
       data: {
         studioId: ZEN,
@@ -96,6 +99,12 @@ describe('Payroll (e2e)', () => {
       },
     });
     memberPackageIds.push(p.id);
+    if (paidAmount !== null) {
+      const pay = await prisma.payment.create({
+        data: { studioId: ZEN, memberId, memberPackageId: p.id, amount: paidAmount, currency: 'EUR', paymentMethod: 'CASH', paymentStatus: 'COMPLETED' },
+      });
+      paymentIds.push(pay.id);
+    }
     return p.id;
   };
 
@@ -172,14 +181,14 @@ describe('Payroll (e2e)', () => {
     const pkg1 = await makeMemberPackage(m1);
     const pkg2 = await makeMemberPackage(m2);
     const pkg3 = await makeMemberPackage(m3);
-    const pkg4 = await makeMemberPackage(m4);
-    // unit price = 10000/10 = 1000; 50% => 500 per unit consumed.
+    const pkg4 = await makeMemberPackage(m4, 8000); // discounted sale: list price 10000, paid 8000
+    // unit value = amount paid / units: 10000/10 = 1000 (50% => 500 per unit); pkg4 was paid 8000 => 800 (400).
     await makeBooking({ scheduleId: s1, memberId: m1, status: 'ATTENDED', unitsCharged: 1, memberPackageId: pkg1 }); // +500
     await makeBooking({ scheduleId: s1, memberId: m2, status: 'CANCELLED_LATE', unitsCharged: 1, penaltyUnits: 1, memberPackageId: pkg2 }); // +500 (kept penalty)
     await makeBooking({ scheduleId: s1, memberId: m3, status: 'CANCELLED_LATE', unitsCharged: 1, penaltyUnits: 0, memberPackageId: pkg3 }); // +0 (fully refunded)
-    await makeBooking({ scheduleId: s1, memberId: m4, status: 'NO_SHOW', unitsCharged: 1, memberPackageId: pkg4 }); // +500
+    await makeBooking({ scheduleId: s1, memberId: m4, status: 'NO_SHOW', unitsCharged: 1, memberPackageId: pkg4 }); // +400 (paid 8000)
     await makeBooking({ scheduleId: s1, memberId: m5, status: 'ATTENDED', unitsCharged: 1, memberPackageId: null }); // +0 (no package)
-    // S1 total: 1500, attendees: 2 (m1 ATTENDED, m5 ATTENDED)
+    // S1 total: 1400, attendees: 2 (m1 ATTENDED, m5 ATTENDED)
 
     // -- Session S2: fallback service (no own rule) -> trainer's PER_SESSION_FIXED 350, main branch --
     const s2 = await makeSchedule({ start: new Date('2025-02-10T09:00:00.000Z'), branchId: mainBranch, serviceTypeId: fallbackServiceTypeId, trainerId: trainer1Id });
@@ -194,9 +203,9 @@ describe('Payroll (e2e)', () => {
       trainerId: trainer1Id,
       originalTrainerId: trainer2Id,
     });
-    const pkg5 = await makeMemberPackage(m1);
-    await makeBooking({ scheduleId: s3, memberId: m1, status: 'ATTENDED', unitsCharged: 1, memberPackageId: pkg5 }); // +500
-    // S3 total: 500, attendees: 1
+    const pkg5 = await makeMemberPackage(m1, null); // assigned free: earns no percentage commission
+    await makeBooking({ scheduleId: s3, memberId: m1, status: 'ATTENDED', unitsCharged: 1, memberPackageId: pkg5 }); // +0 (free)
+    // S3 total: 0, attendees: 1
 
     // -- Session S4: same trainer, second branch: excluded from a mainBranch-only run --
     const s4 = await makeSchedule({ start: new Date('2025-02-15T09:00:00.000Z'), branchId: secondBranch, serviceTypeId: percentServiceTypeId, trainerId: trainer1Id });
@@ -212,6 +221,7 @@ describe('Payroll (e2e)', () => {
     await prisma.payrollRun.deleteMany({ where: { id: { in: runIds } } });
     await prisma.booking.deleteMany({ where: { id: { in: bookingIds } } });
     await prisma.sessionSchedule.deleteMany({ where: { id: { in: scheduleIds } } });
+    await prisma.payment.deleteMany({ where: { id: { in: paymentIds } } });
     await prisma.memberPackage.deleteMany({ where: { id: { in: memberPackageIds } } });
     await prisma.packageDefinition.deleteMany({ where: { id: packageDefId } });
     await prisma.serviceType.deleteMany({ where: { id: { in: [percentServiceTypeId, fallbackServiceTypeId] } } });
@@ -231,15 +241,15 @@ describe('Payroll (e2e)', () => {
       runId = res.body.id;
       runIds.push(runId);
       expect(res.body.status).toBe('DRAFT');
-      expect(res.body.totalGross).toBe('2350.00');
-      expect(res.body.totalNet).toBe('2350.00');
+      expect(res.body.totalGross).toBe('1750.00');
+      expect(res.body.totalNet).toBe('1750.00');
 
       const line = res.body.lines.find((l: any) => l.trainerProfileId === trainer1Id);
       expect(line).toBeTruthy();
       expect(line.sessions).toBe(3);
       expect(line.attendees).toBe(4);
-      expect(line.grossAmount).toBe('2350.00');
-      expect(line.netAmount).toBe('2350.00');
+      expect(line.grossAmount).toBe('1750.00');
+      expect(line.netAmount).toBe('1750.00');
 
       // The out-of-period and other-branch sessions never appear.
       const scheduleIdsInLine = line.lines.map((d: any) => d.scheduleId);
@@ -256,7 +266,7 @@ describe('Payroll (e2e)', () => {
         .send({ periodStart: FEB_START.toISOString(), periodEnd: FEB_END.toISOString() });
       expect(res.status).toBe(201);
       runIds.push(res.body.id);
-      expect(res.body.totalGross).toBe('2850.00');
+      expect(res.body.totalGross).toBe('2250.00');
     });
 
     it('an adjustment requires a note and is applied to net, not gross', async () => {
@@ -267,12 +277,12 @@ describe('Payroll (e2e)', () => {
 
       const res = await as(ownerToken).patch(`/payroll/studio/${ZEN}/runs/${runId}/lines/${line.id}/adjust`).send({ amount: 100.5, note: 'Yol masrafi iadesi' });
       expect(res.status).toBe(200);
-      expect(res.body.grossAmount).toBe('2350.00');
+      expect(res.body.grossAmount).toBe('1750.00');
       expect(res.body.adjustments).toBe('100.50');
-      expect(res.body.netAmount).toBe('2450.50');
+      expect(res.body.netAmount).toBe('1850.50');
 
       const run = await as(ownerToken).get(`/payroll/studio/${ZEN}/runs/${runId}`);
-      expect(run.body.totalNet).toBe('2450.50');
+      expect(run.body.totalNet).toBe('1850.50');
     });
 
     it('regenerating the same draft run replaces lines and resets adjustments (idempotent)', async () => {
@@ -284,9 +294,9 @@ describe('Payroll (e2e)', () => {
 
       const line = res.body.lines.find((l: any) => l.trainerProfileId === trainer1Id);
       expect(line.adjustments).toBe('0.00');
-      expect(line.grossAmount).toBe('2350.00');
-      expect(line.netAmount).toBe('2350.00');
-      expect(res.body.totalNet).toBe('2350.00');
+      expect(line.grossAmount).toBe('1750.00');
+      expect(line.netAmount).toBe('1750.00');
+      expect(res.body.totalNet).toBe('1750.00');
     });
 
     it('CSV export uses a UTF-8 BOM, semicolons and Turkish headers', async () => {
@@ -297,7 +307,7 @@ describe('Payroll (e2e)', () => {
       expect(text.charCodeAt(0)).toBe(0xfeff);
       const firstLine = text.replace(/^﻿/, '').split('\r\n')[0];
       expect(firstLine).toBe('Eğitmen;Seans;Katılımcı;Brüt;Düzeltme;Net');
-      expect(text).toContain('2350.00');
+      expect(text).toContain('1750.00');
     });
 
     it('permission denials: trainer cannot generate, list, or adjust', async () => {
@@ -392,7 +402,7 @@ describe('Payroll (e2e)', () => {
       const line = res.body.find((l: any) => l.runId === runId);
       expect(line).toBeTruthy();
       expect(line.trainerProfileId).toBe(trainer1Id);
-      expect(line.netAmount).toBe('2350.00');
+      expect(line.netAmount).toBe('1750.00');
     });
 
     it('a member (no trainer profile) is refused the trainer self-service view', async () => {
