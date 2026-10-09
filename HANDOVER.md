@@ -126,6 +126,7 @@ Dependabot npm major sürümlerini önermez; bunlar kod değişikliği gerektire
 - 5.3 e-Arşiv fatura (sonraki faz)
 
 ### 6. Canlıya alma
+- Yayın öncesi kontrol listesi: bkz. bölüm 6e
 - 6.1 `deploy/scripts/server-init.sh` ile sunucu kurulumu, ilk dağıtım, yedek doğrulama
 - 6.2 Gerçek Netgsm/İleti Merkezi ve WhatsApp Cloud API hesapları ile test
 
@@ -255,6 +256,22 @@ Kalan küçük işler (her biri ayrı PR):
 - Blog ve blok formu için görsel seçici (görsel adresi şimdilik elle girilir; yükleme ve kütüphane).
 
 Diğer açık SEO işleri `docs/SEO.md` bölüm 18'dedir (GA4, kiracıya özel simge, özel alan adına kalıcı yönlendirme, zamanlanmış yayın).
+
+### 6e. Yayın öncesi kontrol listesi
+
+Bilinçli olarak ertelenmiş geliştirme ve özellikler ("şimdi yapılmayacak"); yayından önce her madde gözden geçirilip yapılır veya kabul edilmiş risk olarak işaretlenir. Alan adı yayını için ayrı liste: `docs/SEO.md` bölüm 17.
+
+- [ ] Webhook gönderim kuyruğunun kapasitesi: şu an 15 dakikada 50 gönderim ve her gönderim ayrı kuyruk işi değil; yoğun kiracıda teslimat gecikir. `apps/api/src/modules/webhooks/webhook-dispatcher.service.ts`
+- [ ] Özel alan adlı işletme siteleri için host çözümleme önbelleği: her istek API'ye gidiyor, API yükü ve gecikme artar. `apps/web/src/middleware.ts`
+- [ ] Takvim sorgusuna tarih aralığı ve satır sınırı: sınırsız sorgu büyük kiracıda yavaşlar. `apps/api/src/modules/schedules/schedules.service.ts` `getSchedules`
+- [ ] Kullanılmayan 24 dışa aktarımın (export) temizlenmesi (yaklaşık 100-150 satır): ölü kod bakım yükü getirir.
+- [ ] Mobil davet bağlantısı: `/j/<token>` evrensel bağlantı ve uygulama içi rota yok, üye onboarding akışı bağlantıdan açılamaz. `CLAUDE.md` onboarding akışı
+- [ ] İşletme planları için otomatik yenileme motoru (ACTIVE -> PAST_DUE -> RESTRICTED): şu an elle yönetiliyor. `docs/DENEME_VE_ETKINLESTIRME.md` bölüm 7
+- [ ] iyzico ve PayTR sağlayıcılarının tamamlanması: şu an iskelet, webhook doğrulaması her zaman geçersiz döner; Türkiye'de canlı tahsilat yapılamaz. `apps/api/src/modules/payments/providers/iyzico-payment.provider.ts`, `paytr-payment.provider.ts`
+- [ ] Partner webhook imzasının ham gövde üzerinden doğrulanması: ilk gerçek partner bağlanmadan önce yapılmalı. `apps/api/src/modules/partners/partners-webhook.controller.ts`, `docs/PARTNERS.md`
+- [ ] PIN kilidinin telefon + IP bazında ayrılması: başkasının PIN girişini kilitleme (hesap kilitleme saldırısı) riski. `apps/api/src/modules/auth/login-throttle.service.ts`
+- [ ] e-Arşiv faturada hediye kartıyla ödenen kısmın KDV zamanlaması muhasebeciyle netleştirilmeli (hediye kartı satışında mı, kullanımında mı). `docs/INVOICING.md`
+- [ ] SMS sağlayıcısı yapılandırılmadan üretimde OTP ve davet SMS'i gönderilmez; giriş ve onboarding çalışmaz. Süper admin sağlayıcı ayarı ve `docs/MESAJLASMA.md`
 
 ## 7. Sahibin sağlayacağı girdiler ve kararlar
 
