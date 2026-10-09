@@ -64,6 +64,10 @@ Bir üyenin `BillingProfile`'ı yoksa (veya bireysel profilinde TCKN girilmemiş
 
 Fatura numarası `seri_kodu + yıl + 6 haneli sıra` biçimindedir (örn. `A2026000001`). Sıra, stüdyo+seri+yıl başına `invoice_counters` tablosunda atomik olarak (Prisma `upsert` ile, fatura oluşturmayla aynı transaction içinde) artırılır; bu yüzden iki eşzamanlı fatura kesimi asla aynı numarayı alamaz.
 
+Numaradaki yıl, sunucu saatine değil işletmenin saat dilimine göredir (`invoiceYear`): işletmenin yılbaşını geçtiği ama UTC'nin geçmediği saatlerde kesilen fatura yeni yılın serisine girer.
+
+**Hediye kartı notu (karar gerektirir, davranış değiştirilmedi):** hediye kartıyla ödenen bir paket satışında fatura `Payment.amount` (kartla karşılanan kısım dahil) üzerinden kesilir; hediye kartı satışının kendisi için fatura kesilmez. Raporlar ve muhasebe dışa aktarımı ise kasaya giren parayı bir kez saymak için kartla karşılanan kısmı satış satırından düşer (hediye kartı satışı kendi satırıdır). Hediye kartının KDV'sinin satış anında mı (tek amaçlı kupon) yoksa kullanım anında mı (çok amaçlı) doğduğu mali müşavir/mevzuat kararıdır; fatura ile muhasebe dışa aktarımı arasındaki bu fark, karar verilene kadar bilinen bir uyumsuzluktur.
+
 ## KDV hesaplama (fiyattan geriye bölme)
 
 Üye her zaman KDV dahil bir fiyat öder (`Payment.amount`). Fatura, bu tutarı geriye doğru böler:

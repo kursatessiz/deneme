@@ -54,6 +54,7 @@ Uygulama: `apps/api/src/modules/reports`. Paylaşılan tipler ve doğrulayıcıl
   göre toplam; paketsiz ödemeler `packageDefinitionId: null`,
   `packageDefinitionName: "Paketsiz"` altında toplanır.
 - `total`: aralıktaki tüm tamamlanmış ödemelerin toplamı.
+- **Hediye kartı:** hediye kartı satışı (kasaya giren para) bir kez sayılır. Kartla karşılanan kısım olan bir ödemede yalnızca `amount - gift_card_amount` toplanır (`total`, `byPeriod`, `byMethod`, `byPackage`); `refundTotal` karta geri yatan kısmı (`gift_card_refunded`) içermez. Aynı kural üyeler raporundaki `revenue`/`arpu`, panel gelir kartı, şube özeti, benchmark ve muhasebe dışa aktarımı için de geçerlidir.
 
 ## 3. Üyeler (`GET /reports/studio/:studioId/members`)
 

@@ -7,6 +7,7 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -31,10 +32,22 @@ import { maskLeaderboardName } from '@platform/shared';
 import { Prisma, PaymentMethod, PaymentProvider, PaymentStatus, PackageDefinition } from '@platform/database';
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
 import { PaymentWebhookRouter } from './payment-webhook-router';
+import { onlineCheckoutMethod, providerForOnlineMethod } from './provider-method';
 import { apiError, codedError } from '../../common/api-error';
 import { serverT, studioLocale } from '../../common/server-i18n';
 
 type Tx = Prisma.TransactionClient;
+
+/** Money already captured at a provider whose sale transaction has not committed yet. */
+interface CapturedCharge {
+  studioId: string;
+  memberId: string;
+  provider: PaymentProvider;
+  paymentMethod: PaymentMethod;
+  providerReference: string;
+  amount: number;
+  currency: string;
+}
 
 @Injectable()
 export class PaymentsService {
@@ -134,7 +147,31 @@ export class PaymentsService {
       throw new BadRequestException(apiError('apiErrors.common.selectBranch'));
     }
 
+    // The business currency is the only currency a sale can be taken in.
+    const studio = await this.prisma.studio.findUniqueOrThrow({ where: { id: studioId }, select: { currency: true } });
+    if (dto.currency.toUpperCase() !== studio.currency.toUpperCase()) {
+      throw new BadRequestException(apiError('apiErrors.payments.currencyMustMatchStudio', { currency: studio.currency }));
+    }
+    const currency = studio.currency;
+
+    const onlineProvider = providerForOnlineMethod(dto.paymentMethod);
+    if (
+      dto.paymentMethod !== PaymentMethod.CASH &&
+      dto.paymentMethod !== PaymentMethod.CREDIT_CARD_POS &&
+      dto.paymentMethod !== PaymentMethod.BANK_TRANSFER &&
+      !onlineProvider
+    ) {
+      throw new BadRequestException(apiError('apiErrors.payments.paymentMethodNotSupportedForSale'));
+    }
+
     const hasPromoOrGiftCard = Boolean(dto.promoCode || dto.giftCardCode);
+
+    // A resubmitted attempt returns the sale it already completed instead of charging again.
+    if (dto.idempotencyKey) {
+      const replay = await this.findCompletedSaleByKey(studioId, dto.idempotencyKey);
+      if (replay) return replay;
+    }
+    const saleReference = dto.idempotencyKey ? `sell_${dto.idempotencyKey}` : `sell_${dto.memberId}_${pkgDef.id}_${randomUUID()}`;
 
     if (dto.paymentMethod === PaymentMethod.BANK_TRANSFER) {
       if (!dto.bankReference) {
@@ -152,12 +189,12 @@ export class PaymentsService {
           memberId: dto.memberId,
           branchId,
           amount: dto.paidAmount,
-          currency: dto.currency,
+          currency,
           paymentMethod: dto.paymentMethod,
           paymentStatus: PaymentStatus.PENDING,
           providerReference: dto.bankReference,
           notes: dto.notes,
-          metadata: { packageDefinitionId: pkgDef.id, startDate: dto.startDate ?? null },
+          metadata: { packageDefinitionId: pkgDef.id, startDate: dto.startDate ?? null, ...(dto.idempotencyKey ? { idempotencyKey: dto.idempotencyKey } : {}) },
         },
       });
       return { payment, memberPackage: null, pending: true };
@@ -173,21 +210,25 @@ export class PaymentsService {
       : null;
     const methodAmount = pricing ? pricing.methodAmount.toNumber() : dto.paidAmount;
 
-    if (dto.paymentMethod === PaymentMethod.ONLINE_IYZICO || dto.paymentMethod === PaymentMethod.ONLINE_PAYTR) {
-      const provider = dto.paymentMethod === PaymentMethod.ONLINE_IYZICO ? PaymentProvider.IYZICO : PaymentProvider.PAYTR;
+    if (onlineProvider) {
+      const provider = onlineProvider;
       // Checkout and charge descriptions are written in the business language.
       const saleText = serverT(await studioLocale(this.prisma, studioId));
       const checkout = await this.providers.get(provider).createCheckout({
         studioId,
         memberId: dto.memberId,
         amount: methodAmount,
-        currency: dto.currency,
+        currency,
         installmentCount: dto.installmentCount,
         description: saleText('apiTexts.payments.packageSale', { name: pkgDef.name }),
-        reference: `sell_${dto.memberId}_${pkgDef.id}_${Date.now()}`,
+        reference: saleReference,
+        idempotencyKey: saleReference,
       });
       if (checkout.status === 'COMPLETED') {
-        const { payment, memberPackage } = await this.completeSale(studioId, dto, pkgDef, branchId, provider, checkout.providerReference, userId);
+        const { payment, memberPackage } = await this.completeSaleOrRefund(
+          { studioId, memberId: dto.memberId, provider, paymentMethod: dto.paymentMethod, providerReference: checkout.providerReference, amount: methodAmount, currency },
+          () => this.completeSale(studioId, { ...dto, currency }, pkgDef, branchId, provider, checkout.providerReference, userId),
+        );
         await this.maybeAutoIssueInvoice(studioId, payment.id);
         return { payment, memberPackage, pending: false };
       }
@@ -200,13 +241,13 @@ export class PaymentsService {
           memberId: dto.memberId,
           branchId,
           amount: dto.paidAmount,
-          currency: dto.currency,
+          currency,
           paymentMethod: dto.paymentMethod,
           paymentStatus: PaymentStatus.PENDING,
           provider,
           providerReference: checkout.providerReference,
           notes: dto.notes,
-          metadata: { packageDefinitionId: pkgDef.id, startDate: dto.startDate ?? null },
+          metadata: { packageDefinitionId: pkgDef.id, startDate: dto.startDate ?? null, ...(dto.idempotencyKey ? { idempotencyKey: dto.idempotencyKey } : {}) },
         },
       });
       return { payment, memberPackage: null, pending: true, checkoutUrl: checkout.checkoutUrl };
@@ -224,10 +265,11 @@ export class PaymentsService {
         memberId: dto.memberId,
         cardToken: dto.card.providerCardToken,
         amount: methodAmount,
-        currency: dto.currency,
+        currency,
         installmentCount: dto.installmentCount,
         description: serverT(await studioLocale(this.prisma, studioId))('apiTexts.payments.packageSale', { name: pkgDef.name }),
-        reference: `sell_${dto.memberId}_${pkgDef.id}_${Date.now()}`,
+        reference: saleReference,
+        idempotencyKey: saleReference,
       });
       if (!charge.success) {
         throw new BadRequestException(charge.failureMessage ?? apiError('apiErrors.payments.cardDeclined'));
@@ -235,9 +277,86 @@ export class PaymentsService {
       providerRef = charge.providerReference;
     }
 
-    const { payment, memberPackage } = await this.completeSale(studioId, dto, pkgDef, branchId, provider, providerRef, userId);
+    const completeCashOrCard = () => this.completeSale(studioId, { ...dto, currency }, pkgDef, branchId, provider, providerRef, userId);
+    const { payment, memberPackage } =
+      provider && providerRef
+        ? await this.completeSaleOrRefund(
+            { studioId, memberId: dto.memberId, provider, paymentMethod: dto.paymentMethod, providerReference: providerRef, amount: methodAmount, currency },
+            completeCashOrCard,
+          )
+        : await completeCashOrCard();
     await this.maybeAutoIssueInvoice(studioId, payment.id);
     return { payment, memberPackage, pending: false };
+  }
+
+  /** A completed sale carrying this client key, shaped like a fresh sale result; null when there is none. */
+  private async findCompletedSaleByKey(studioId: string, idempotencyKey: string) {
+    const payment = await this.prisma.payment.findFirst({
+      where: {
+        studioId,
+        paymentStatus: { in: [PaymentStatus.COMPLETED, PaymentStatus.PENDING] },
+        metadata: { path: ['idempotencyKey'], equals: idempotencyKey },
+      },
+    });
+    if (!payment) return null;
+    const memberPackage = payment.memberPackageId
+      ? await this.prisma.memberPackage.findFirst({ where: { id: payment.memberPackageId, studioId } })
+      : null;
+    return { payment, memberPackage, pending: payment.paymentStatus === PaymentStatus.PENDING };
+  }
+
+  /**
+   * Runs the sale transaction after money was captured at a provider. If the
+   * transaction fails the charge must not stay without a sale: refund it, or
+   * when the refund is impossible record a FAILED payment holding the provider
+   * reference so staff can reconcile it by hand. The original error is rethrown.
+   */
+  private async completeSaleOrRefund<T>(charged: CapturedCharge, run: () => Promise<T>): Promise<T> {
+    try {
+      return await run();
+    } catch (err) {
+      await this.compensateCapturedCharge(charged, err);
+      throw err;
+    }
+  }
+
+  private async compensateCapturedCharge(charged: CapturedCharge, cause: unknown): Promise<void> {
+    if (!(charged.amount > 0)) return;
+    let refunded = false;
+    try {
+      const result = await this.providers.get(charged.provider).refund({
+        studioId: charged.studioId,
+        providerReference: charged.providerReference,
+        amount: charged.amount,
+        currency: charged.currency,
+        reason: 'sale_failed',
+      });
+      refunded = result.success;
+    } catch (refundErr) {
+      this.logger.error(`Refund of captured charge ${charged.providerReference} threw: ${(refundErr as Error).message}`);
+    }
+    if (refunded) {
+      this.logger.warn(`Sale failed after charge ${charged.providerReference}; the charge was refunded (${(cause as Error).message})`);
+      return;
+    }
+    try {
+      await this.prisma.payment.create({
+        data: {
+          studioId: charged.studioId,
+          memberId: charged.memberId,
+          amount: charged.amount,
+          currency: charged.currency,
+          paymentMethod: charged.paymentMethod,
+          paymentStatus: PaymentStatus.FAILED,
+          provider: charged.provider,
+          providerReference: charged.providerReference,
+          metadata: { saleFailedAfterCharge: true, refundRequired: true },
+        },
+      });
+    } catch (recordErr) {
+      this.logger.error(`Could not record the unrefunded charge ${charged.providerReference}: ${(recordErr as Error).message}`);
+    }
+    this.logger.error(`Sale failed after charge ${charged.providerReference} and the refund did not succeed; manual refund required`);
   }
 
   /** Member self-service checkout: always an online mock/real checkout, package activates once completed. */
@@ -279,7 +398,7 @@ export class PaymentsService {
       memberId: dto.memberId,
       packageDefinitionId: pkgDef.id,
       branchId: member.homeBranchId ?? undefined,
-      paymentMethod: (this.providers.default.name === PaymentProvider.PAYTR ? 'ONLINE_PAYTR' : 'ONLINE_IYZICO') as SellPackageInput['paymentMethod'],
+      paymentMethod: onlineCheckoutMethod(this.providers.default.name) as SellPackageInput['paymentMethod'],
       paidAmount: Number(pkgDef.price),
       currency: studio.currency,
       installmentCount: dto.installmentCount,
@@ -289,14 +408,26 @@ export class PaymentsService {
     };
 
     if (checkout.status === 'COMPLETED') {
-      const { payment, memberPackage } = await this.completeSale(
-        studioId,
-        sellDto,
-        pkgDef,
-        member.homeBranchId ?? null,
-        this.providers.default.name,
-        checkout.providerReference,
-        userId,
+      const { payment, memberPackage } = await this.completeSaleOrRefund(
+        {
+          studioId,
+          memberId: dto.memberId,
+          provider: this.providers.default.name,
+          paymentMethod: sellDto.paymentMethod,
+          providerReference: checkout.providerReference,
+          amount: methodAmount,
+          currency: studio.currency,
+        },
+        () =>
+          this.completeSale(
+            studioId,
+            sellDto,
+            pkgDef,
+            member.homeBranchId ?? null,
+            this.providers.default.name,
+            checkout.providerReference,
+            userId,
+          ),
       );
       await this.maybeAutoIssueInvoice(studioId, payment.id);
       return { payment, memberPackage, pending: false, checkoutUrl: checkout.checkoutUrl };
@@ -447,6 +578,7 @@ export class PaymentsService {
           discountAmount,
           giftCardId,
           giftCardAmount,
+          metadata: dto.idempotencyKey ? { idempotencyKey: dto.idempotencyKey } : undefined,
         },
       });
 
@@ -645,7 +777,7 @@ export class PaymentsService {
         action: 'payments.refund',
         entityType: 'Payment',
         entityId: payment.id,
-        metadata: { amount: requested.toFixed(2), reason: dto.reason ?? null, fullyRefunded },
+        metadata: { amount: requested.toFixed(2), giftCardCredit: giftCardCredit.toFixed(2), reason: dto.reason ?? null, fullyRefunded },
       },
     });
 
@@ -812,8 +944,9 @@ export class PaymentsService {
 
     // A verified event for a different amount than we asked for never activates anything.
     if (
-      verification.amount !== undefined &&
-      !new Prisma.Decimal(verification.amount).toDecimalPlaces(2).equals(new Prisma.Decimal(payment.amount))
+      (verification.amount !== undefined &&
+        !new Prisma.Decimal(verification.amount).toDecimalPlaces(2).equals(new Prisma.Decimal(payment.amount))) ||
+      (verification.currency !== undefined && verification.currency.toUpperCase() !== payment.currency.toUpperCase())
     ) {
       this.logger.warn(`Webhook amount mismatch for payment ${payment.id}`);
       return { handled: false, reason: 'AMOUNT_MISMATCH' };

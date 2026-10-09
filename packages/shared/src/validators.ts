@@ -547,6 +547,12 @@ export const SellPackageSchema = z.object({
   giftCardCode: z.string().trim().min(8).max(40).optional(),
   /** Amount to draw from the gift card; omitted means as much as covers the sale, up to its balance. */
   giftCardAmount: z.number().positive().optional(),
+  /**
+   * Optional client-generated key for one sale attempt. Resubmitting the same
+   * key (double click, retry after a timeout) never charges twice: it is the
+   * provider idempotency key and a completed sale with it is returned as is.
+   */
+  idempotencyKey: z.string().trim().min(8).max(100).optional(),
 });
 export type SellPackageInput = z.infer<typeof SellPackageSchema>;
 

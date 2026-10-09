@@ -408,6 +408,8 @@ export const trApiErrors = {
   'apiErrors.payments.canOnlyCancelOwnSubscription': 'Yalnızca kendi aboneliğinizi iptal edebilirsiniz',
   'apiErrors.payments.canOnlyMakePurchasesYourself': 'Yalnızca kendi adınıza satın alma yapabilirsiniz',
   'apiErrors.payments.cancelledSubscriptionCannotPaused': 'İptal edilmiş abonelik durdurulamaz',
+  'apiErrors.payments.currencyMustMatchStudio': 'Para birimi işletmenin para birimiyle aynı olmalıdır ({currency})',
+  'apiErrors.payments.paymentMethodNotSupportedForSale': 'Bu ödeme yöntemi paket satışında desteklenmiyor',
   'apiErrors.payments.cardDeclined': 'Kart reddedildi',
   'apiErrors.payments.invalidWebhookSignature': 'Geçersiz webhook imzası',
   'apiErrors.payments.iyzicoIntegrationNotImplementedYet': 'iyzico entegrasyonu henüz uygulanmadı',

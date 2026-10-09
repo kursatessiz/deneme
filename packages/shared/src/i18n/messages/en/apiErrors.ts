@@ -405,6 +405,8 @@ export const enApiErrors: Record<keyof typeof trApiErrors, string> = {
   'apiErrors.payments.canOnlyCancelOwnSubscription': 'You can only cancel your own subscription',
   'apiErrors.payments.canOnlyMakePurchasesYourself': 'You can only make purchases for yourself',
   'apiErrors.payments.cancelledSubscriptionCannotPaused': 'A cancelled subscription cannot be paused',
+  'apiErrors.payments.currencyMustMatchStudio': 'The currency must match the business currency ({currency})',
+  'apiErrors.payments.paymentMethodNotSupportedForSale': 'This payment method is not supported for package sales',
   'apiErrors.payments.cardDeclined': 'The card was declined',
   'apiErrors.payments.invalidWebhookSignature': 'Invalid webhook signature',
   'apiErrors.payments.iyzicoIntegrationNotImplementedYet': 'The iyzico integration is not implemented yet',
