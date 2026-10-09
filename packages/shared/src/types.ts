@@ -1,4 +1,5 @@
 import type { ApiErrorKey } from './api-errors';
+import type { ApiTextKey } from './api-texts';
 import type { MembershipBillingSummary } from './billing';
 import {
   BookingStatus,
@@ -248,6 +249,14 @@ export interface SessionScheduleSummaryDTO {
   /** W19: ONLINE/HYBRID sessions can be joined once the join window opens; the link itself is never listed here. */
   deliveryMode: 'IN_PERSON' | 'ONLINE' | 'HYBRID';
   onlineCapacity?: number | null;
+}
+
+/** Non-blocking information returned with a successful booking (e.g. a no-show inside the repeat window). */
+export interface BookingNoticeDTO {
+  /** apiTexts key; `message` is that text in the request language. */
+  code: ApiTextKey;
+  message: string;
+  params?: Record<string, string | number>;
 }
 
 export interface BookingDTO {

@@ -33,14 +33,14 @@ import type {
 } from '@platform/shared';
 import { addZonedDays, isWithinJoinWindow } from '@platform/shared';
 import { Prisma, SessionDeliveryMode } from '@platform/database';
-import type { CancellationPolicy, MemberPackage } from '@platform/database';
+import type { Booking, BookingStatus, CancellationPolicy, MemberPackage } from '@platform/database';
 import { evaluateCancellation, evaluateNoShow, FALLBACK_POLICY, PolicyTerms } from './cancellation-policy';
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
 import { deriveSpotStatus, SpotOccupant } from './spots';
 import { sortByClosestStart } from '../checkin/checkin-window';
-import type { ApiErrorKey, ApiTextKey, ScheduleSpotsDTO, SpotGroupDTO } from '@platform/shared';
+import type { ApiErrorKey, ApiTextKey, BookingNoticeDTO, ScheduleSpotsDTO, SpotGroupDTO } from '@platform/shared';
 import { apiError, hasApiErrorCode } from '../../common/api-error';
-import { errorMessageIn, requestT, serverT, studioLocale } from '../../common/server-i18n';
+import { errorMessageIn, requestLocale, requestT, serverT, studioLocale } from '../../common/server-i18n';
 import type { ServerT } from '../../common/server-i18n';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -384,19 +384,24 @@ export class SchedulesService {
     return updated;
   }
 
-  async bookSession(tenant: TenantContext, dto: BookSessionInput) {
+  /**
+   * Staff booking. `actorUserId` is the staff user, recorded when the booking
+   * overrides the minimum repeat interval (`dto.overrideRepeatInterval`).
+   * The response is the booking plus informational `notices`.
+   */
+  async bookSession(tenant: TenantContext, dto: BookSessionInput, actorUserId: string | null = null) {
     await this.assertScheduleBranch(tenant, dto.scheduleId);
-    const booking = await this.book(tenant.studioId, dto);
+    const { booking, notices } = await this.book(tenant.studioId, dto, 'staff', actorUserId);
     await this.emitBookingCreated(tenant.studioId, booking);
-    return booking;
+    return { ...booking, notices };
   }
 
   /** Members booking for themselves; enforces dto.memberId matches the caller's own profile. */
   async bookSessionSelf(tenant: TenantContext, dto: BookSessionInput) {
     this.assertSelf(tenant, dto.memberId, 'apiErrors.schedules.canOnlyBookYourself');
-    const booking = await this.book(tenant.studioId, dto, 'self');
+    const { booking, notices } = await this.book(tenant.studioId, dto, 'self');
     await this.emitBookingCreated(tenant.studioId, booking);
-    return booking;
+    return { ...booking, notices };
   }
 
   private async emitBookingCreated(studioId: string, booking: { id: string; scheduleId: string; memberId: string }): Promise<void> {
@@ -585,7 +590,16 @@ export class SchedulesService {
    * has started, staff (`staff`, reception walk-ins) cannot book one that has
    * ended, and the waitlist promotion (`system`) is bounded by its own check.
    */
-  private async book(studioId: string, dto: BookSessionInput, actor: 'self' | 'staff' | 'system' = 'staff') {
+  private async book(
+    studioId: string,
+    dto: BookSessionInput,
+    actor: 'self' | 'staff' | 'system' = 'staff',
+    actorUserId: string | null = null,
+  ): Promise<{ booking: Booking; notices: BookingNoticeDTO[] }> {
+    // Only staff may waive the repeat interval; a member asking for it is refused outright.
+    if (actor === 'self' && dto.overrideRepeatInterval) {
+      throw new ForbiddenException(apiError('apiErrors.schedules.repeatOverrideNotAllowed'));
+    }
     const schedule = await this.prisma.sessionSchedule.findFirst({
       where: { id: dto.scheduleId, studioId },
       include: { serviceType: { include: { requiredResourceTypes: { include: { resourceType: true } } } } },
@@ -618,26 +632,58 @@ export class SchedulesService {
     }
 
     // ServiceType.minRepeatIntervalDays: no second live booking of the same
-    // service within that many days of this session (either side).
+    // service within that many days of this session (either side). NO_SHOW
+    // bookings do not count; they only produce an informational notice.
+    // Staff may waive the rule with dto.overrideRepeatInterval (audited below).
+    const notices: BookingNoticeDTO[] = [];
+    let overriddenBooking: { id: string; startTime: Date } | null = null;
     const minDays = schedule.serviceType.minRepeatIntervalDays;
     if (minDays && minDays > 0) {
       const windowMs = minDays * DAY_MS;
-      const tooClose = await this.prisma.booking.findFirst({
-        where: {
-          studioId,
-          memberId: dto.memberId,
-          scheduleId: { not: dto.scheduleId },
-          status: { in: ['CONFIRMED', 'ATTENDED'] },
-          schedule: {
-            serviceTypeId: schedule.serviceTypeId,
-            isCancelled: false,
-            startTime: { gt: new Date(schedule.startTime.getTime() - windowMs), lt: new Date(schedule.startTime.getTime() + windowMs) },
-          },
+      const inWindow = (status: BookingStatus[]) => ({
+        studioId,
+        memberId: dto.memberId,
+        scheduleId: { not: dto.scheduleId },
+        status: { in: status },
+        schedule: {
+          serviceTypeId: schedule.serviceTypeId,
+          isCancelled: false,
+          startTime: { gt: new Date(schedule.startTime.getTime() - windowMs), lt: new Date(schedule.startTime.getTime() + windowMs) },
         },
-        select: { id: true },
+      });
+      const tooClose = await this.prisma.booking.findFirst({
+        where: inWindow(['CONFIRMED', 'ATTENDED']),
+        orderBy: { schedule: { startTime: 'desc' } },
+        select: { id: true, schedule: { select: { startTime: true } } },
       });
       if (tooClose) {
-        throw new BadRequestException(apiError('apiErrors.schedules.minRepeatIntervalNotElapsed', { count: minDays }));
+        if (actor === 'staff' && dto.overrideRepeatInterval) {
+          overriddenBooking = { id: tooClose.id, startTime: tooClose.schedule.startTime };
+        } else {
+          throw new BadRequestException(
+            apiError('apiErrors.schedules.minRepeatIntervalNotElapsed', {
+              count: minDays,
+              // ISO instant of the conflicting session; clients format it in their own language.
+              date: tooClose.schedule.startTime.toISOString(),
+            }),
+          );
+        }
+      }
+      if (actor !== 'system') {
+        const noShow = await this.prisma.booking.findFirst({
+          where: inWindow(['NO_SHOW']),
+          orderBy: { schedule: { startTime: 'desc' } },
+          select: { schedule: { select: { startTime: true } } },
+        });
+        if (noShow) {
+          const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { timezone: true } });
+          const date = new Intl.DateTimeFormat(requestLocale(), { dateStyle: 'medium', timeZone: studio?.timezone ?? 'UTC' }).format(noShow.schedule.startTime);
+          notices.push({
+            code: 'apiTexts.schedules.noShowInWindowNotice',
+            message: requestT()('apiTexts.schedules.noShowInWindowNotice', { date }),
+            params: { date },
+          });
+        }
       }
     }
 
@@ -648,7 +694,7 @@ export class SchedulesService {
       schedule.serviceTypeId,
     );
 
-    return this.prisma.$transaction(async (tx) => {
+    const booking = await this.prisma.$transaction(async (tx) => {
       if (memberPackage && memberPackage.entitlementKind !== 'TIME_UNLIMITED' && unitCost > 0) {
         // Atomic conditional decrement: concurrent bookings on the same package
         // cannot spend the same units twice.
@@ -715,6 +761,28 @@ export class SchedulesService {
 
       return booking;
     });
+
+    if (overriddenBooking) {
+      await this.prisma.auditLog.create({
+        data: {
+          studioId,
+          userId: actorUserId,
+          action: 'booking.repeat_interval_override',
+          entityType: 'Booking',
+          entityId: booking.id,
+          metadata: {
+            serviceTypeId: schedule.serviceTypeId,
+            memberId: dto.memberId,
+            scheduleId: dto.scheduleId,
+            conflictingBookingId: overriddenBooking.id,
+            conflictingSessionStart: overriddenBooking.startTime.toISOString(),
+            minRepeatIntervalDays: minDays,
+          },
+        },
+      });
+    }
+
+    return { booking, notices };
   }
 
   /**

@@ -117,7 +117,12 @@ bileşeniyle hızlı giriş/gelmedi. Kısayollar: W17'nin mevcut "Üye QR tarama
 - `isPartnerGuest` etiketi.
 - W21 `MemberHealthTrendCard` (`members.health.view` arkasında, üyenin kendi paylaşım tercihine bağlı).
 - "Seansa ekle (walk-in)" (`bookings.manage`, önümüzdeki 7 gün boş kontenjanlı seanslar, `POST
-  /schedules/book`) ve "Paket sat" (`packages.sell`, `POST /payments/sell`).
+  /schedules/book`) ve "Paket sat" (`packages.sell`, `POST /payments/sell`). Walk-in, hizmetin asgari tekrar
+  aralığı kuralı reddettiğinde (`apiErrors.schedules.minRepeatIntervalNotElapsed`, `params.count/date`) çeviri
+  yapılmış bir `Alert` ile "Yine de ekle / Vazgeç" sorar; onayda isteği `overrideRepeatInterval: true` ile
+  tekrarlar (API `booking.repeat_interval_override` denetim kaydı yazar). Yanıttaki `notices` (örn. aralıkta
+  gelinmeyen seans) `showNotice` ile bilgi olarak gösterilir; üyenin kendi rezervasyonunda (`seans/[scheduleId]`)
+  aynı bilgi satır içi uyarı olarak görünür. Üye bu bayrağı gönderemez (`403`).
 
 Yeni üye davet etme (`hesabim/uyeler/yeni`, `members.manage`): ad/telefon, `POST /invites`, ekranda QR
 gösterimi -- mevcut onboarding akışıyla aynı (`InviteToken` -> `/j/<token>` -> OTP -> PIN -> onay).

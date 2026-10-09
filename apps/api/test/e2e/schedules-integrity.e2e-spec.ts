@@ -29,6 +29,7 @@ describe('Scheduling integrity (e2e)', () => {
   let memberB: string;
   const scheduleIds: string[] = [];
   const serviceTypeIds: string[] = [];
+  const auditEntityIds: string[] = [];
   let base = Date.UTC(2032, 2, 1, 10, 0, 0);
 
   const api = (method: 'get' | 'post' | 'patch', url: string, body?: unknown) =>
@@ -78,6 +79,7 @@ describe('Scheduling integrity (e2e)', () => {
   });
 
   afterAll(async () => {
+    await prisma.auditLog.deleteMany({ where: { action: 'booking.repeat_interval_override', entityId: { in: auditEntityIds } } });
     await prisma.waitlist.deleteMany({ where: { scheduleId: { in: scheduleIds } } });
     await prisma.booking.deleteMany({ where: { scheduleId: { in: scheduleIds } } });
     await prisma.sessionSchedule.deleteMany({ where: { id: { in: scheduleIds } } });
@@ -152,5 +154,81 @@ describe('Scheduling integrity (e2e)', () => {
     expect((await bookOn(day3.id)).status).toBe(201);
     // Day 1 is within two days of both day 0 and day 3.
     expect((await bookOn(day1.id)).status).toBe(400);
+  });
+
+  describe('minimum repeat interval: staff override and no-show notice', () => {
+    let service: { id: string };
+    let t0: Date;
+    const bookOn = (id: string, extra: Record<string, unknown> = {}, member = memberA) =>
+      api('post', '/schedules/book', { studioId: ZEN, scheduleId: id, memberId: member, resourceIds: [], ...extra });
+
+    beforeAll(async () => {
+      service = await prisma.serviceType.create({
+        data: { studioId: ZEN, name: 'E2E repeat override', durationMin: 60, capacity: 5, minRepeatIntervalDays: 2 },
+      });
+      serviceTypeIds.push(service.id);
+      t0 = nextSlot().start;
+    });
+
+    it('staff without the override flag gets 400 with the rule code and the conflicting session date', async () => {
+      const first = await makeSchedule({ start: t0, serviceTypeId: service.id });
+      const close = await makeSchedule({ start: new Date(t0.getTime() + DAY), serviceTypeId: service.id });
+      expect((await bookOn(first.id)).status).toBe(201);
+      const res = await bookOn(close.id);
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('apiErrors.schedules.minRepeatIntervalNotElapsed');
+      expect(res.body.params).toMatchObject({ count: 2, date: first.startTime.toISOString() });
+    });
+
+    it('staff with overrideRepeatInterval books anyway and an audit row is written', async () => {
+      const first = await makeSchedule({ start: new Date(t0.getTime() + 10 * DAY), serviceTypeId: service.id });
+      const close = await makeSchedule({ start: new Date(t0.getTime() + 11 * DAY), serviceTypeId: service.id });
+      const firstBooking = await bookOn(first.id, {}, memberB);
+      expect(firstBooking.status).toBe(201);
+      const res = await bookOn(close.id, { overrideRepeatInterval: true }, memberB);
+      expect(res.status).toBe(201);
+      auditEntityIds.push(res.body.id);
+      const audit = await prisma.auditLog.findFirstOrThrow({ where: { studioId: ZEN, action: 'booking.repeat_interval_override', entityId: res.body.id } });
+      expect(audit.userId).toBeTruthy();
+      expect(audit.metadata).toMatchObject({
+        serviceTypeId: service.id,
+        memberId: memberB,
+        scheduleId: close.id,
+        conflictingBookingId: firstBooking.body.id,
+      });
+    });
+
+    it('a member cannot override the rule: 403 even when the rule would not fire', async () => {
+      const login = await request(server).post('/auth/login').send({ emailOrPhone: '+905321000016', password: DEMO_PASSWORD });
+      const memberToken = login.body.accessToken as string;
+      const self = await prisma.memberProfile.findFirstOrThrow({ where: { studioId: ZEN, membership: { user: { phone: '+905321000016' } } } });
+      const sched = await makeSchedule({ start: new Date(t0.getTime() + 20 * DAY), serviceTypeId: service.id });
+      const res = await request(server)
+        .post('/schedules/book/self')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .set('x-studio-id', ZEN)
+        .send({ studioId: ZEN, scheduleId: sched.id, memberId: self.id, resourceIds: [], overrideRepeatInterval: true });
+      expect(res.status).toBe(403);
+      expect(res.body.code).toBe('apiErrors.schedules.repeatOverrideNotAllowed');
+      expect(await prisma.booking.count({ where: { scheduleId: sched.id } })).toBe(0);
+    });
+
+    it('a NO_SHOW inside the window does not block, and the response carries a notice', async () => {
+      const missed = await makeSchedule({ start: new Date(t0.getTime() + 30 * DAY), serviceTypeId: service.id });
+      const next = await makeSchedule({ start: new Date(t0.getTime() + 31 * DAY), serviceTypeId: service.id });
+      await prisma.booking.create({ data: { studioId: ZEN, scheduleId: missed.id, memberId: memberA, status: 'NO_SHOW' } });
+      const res = await bookOn(next.id, {}, memberA);
+      expect(res.status).toBe(201);
+      expect(res.body.notices).toHaveLength(1);
+      expect(res.body.notices[0]).toMatchObject({ code: 'apiTexts.schedules.noShowInWindowNotice' });
+      expect(res.body.notices[0].message).toContain(String(res.body.notices[0].params.date));
+    });
+
+    it('a booking with nothing to report has an empty notices list', async () => {
+      const lone = await makeSchedule({ start: new Date(t0.getTime() + 40 * DAY), serviceTypeId: service.id });
+      const res = await bookOn(lone.id, {}, memberB);
+      expect(res.status).toBe(201);
+      expect(res.body.notices).toEqual([]);
+    });
   });
 });

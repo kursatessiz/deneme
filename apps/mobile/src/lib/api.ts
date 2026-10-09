@@ -26,13 +26,16 @@ export class ApiError extends Error {
   readonly fieldErrors?: ApiFieldError[];
   /** Stable error code from the API body (e.g. "LOYALTY_INSUFFICIENT_BALANCE"), when it sends one. */
   readonly code?: string;
+  /** Interpolation params of the error (e.g. the conflicting session date), when the API sends them. */
+  readonly params?: Record<string, string | number>;
 
-  constructor(status: number, message: string, fieldErrors?: ApiFieldError[], code?: string) {
+  constructor(status: number, message: string, fieldErrors?: ApiFieldError[], code?: string, params?: Record<string, string | number>) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.fieldErrors = fieldErrors;
     this.code = code;
+    this.params = params;
   }
 }
 
@@ -155,7 +158,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }
 
   if (!response.ok) {
-    const errorBody = payload as { message?: string; errors?: ApiFieldError[]; code?: unknown } | null;
+    const errorBody = payload as { message?: string; errors?: ApiFieldError[]; code?: unknown; params?: unknown } | null;
     const code = typeof errorBody?.code === 'string' ? errorBody.code : undefined;
     // A body with a translatable code (an apiErrors key, BILLING_RESTRICTED, ...) is shown in the app's language.
     const t = await resolveOfflineTranslate();
@@ -163,7 +166,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     const raw = translated?.message;
     const message = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw.join(', ') : t('mApiErrors.unexpectedError');
     const fieldErrors = (translated?.errors ?? errorBody?.errors) as ApiFieldError[] | undefined;
-    throw new ApiError(response.status, message, fieldErrors, code);
+    const params = errorBody?.params && typeof errorBody.params === 'object' ? (errorBody.params as Record<string, string | number>) : undefined;
+    throw new ApiError(response.status, message, fieldErrors, code, params);
   }
 
   return payload as T;

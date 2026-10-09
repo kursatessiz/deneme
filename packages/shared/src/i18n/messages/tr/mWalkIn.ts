@@ -8,4 +8,10 @@ export const trMWalkIn = {
   'mWalkIn.add': 'Ekle',
   'mWalkIn.errors.sessionsLoadFailed': 'Seanslar yüklenemedi.',
   'mWalkIn.errors.bookingFailed': 'Rezervasyon yapılamadı.',
+  'mWalkIn.noticeTitle': 'Bilgi',
+  'mWalkIn.repeatOverride.title': 'Asgari gün kuralı',
+  'mWalkIn.repeatOverride.body.one': 'Bu üye için en az {count} gün kuralı ihlal ediliyor (son seans: {date}). Yine de rezervasyon yapılsın mı?',
+  'mWalkIn.repeatOverride.body.other': 'Bu üye için en az {count} gün kuralı ihlal ediliyor (son seans: {date}). Yine de rezervasyon yapılsın mı?',
+  'mWalkIn.repeatOverride.confirm': 'Yine de ekle',
+  'mWalkIn.repeatOverride.cancel': 'Vazgeç',
 } as const satisfies Record<string, string>;

@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { isWithinJoinWindow, onColor } from '@platform/shared';
-import type { JoinSessionResultDTO, MemberPackageDTO, ScheduleSpotsDTO, SpotDTO, SpotGroupDTO, SpotStatus } from '@platform/shared';
+import type { BookingNoticeDTO, JoinSessionResultDTO, MemberPackageDTO, ScheduleSpotsDTO, SpotDTO, SpotGroupDTO, SpotStatus } from '@platform/shared';
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
@@ -267,7 +267,7 @@ export default function SeansDetailScreen() {
     setError(undefined);
     setNotice(undefined);
     try {
-      await apiRequest(`/schedules/book/self`, {
+      const created = await apiRequest<{ notices?: BookingNoticeDTO[] }>(`/schedules/book/self`, {
         method: 'POST',
         studioId,
         body: {
@@ -279,6 +279,8 @@ export default function SeansDetailScreen() {
         },
       });
       setBooked(true);
+      // Non-blocking information from the API (e.g. a no-show inside the repeat window).
+      setNotice(created.notices?.[0]?.message);
       await refreshUser();
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {

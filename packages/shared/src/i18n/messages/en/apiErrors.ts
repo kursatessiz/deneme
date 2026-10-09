@@ -525,6 +525,7 @@ export const enApiErrors: Record<keyof typeof trApiErrors, string> = {
   'apiErrors.schedules.sessionAlreadyEnded': 'You cannot book a session that has already ended',
   'apiErrors.schedules.minRepeatIntervalNotElapsed.one': 'This service can be booked again at least {count} day after your other session.',
   'apiErrors.schedules.minRepeatIntervalNotElapsed.other': 'This service can be booked again at least {count} days after your other session.',
+  'apiErrors.schedules.repeatOverrideNotAllowed': 'Only staff can override the minimum repeat interval.',
   'apiErrors.schedules.capacityBelowBookings': 'Capacity cannot go below the current number of bookings ({count})',
   'apiErrors.schedules.dateRangeCanMost31Days': 'The date range can be at most 31 days',
   'apiErrors.schedules.endTimeMustAfterStartTime': 'The end time must be after the start time',

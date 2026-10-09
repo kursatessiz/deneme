@@ -30,6 +30,7 @@ export const enApiTexts: Record<keyof typeof trApiTexts, string> = {
   'apiTexts.notify.dunningFailed.body': 'The automatic renewal payment for {package} could not be collected and will be retried.',
 
   'apiTexts.cancel.cancelled': 'The booking was cancelled.',
+  'apiTexts.schedules.noShowInWindowNotice': 'This member has a no-show session for this service on {date}; it was not counted in the minimum days rule.',
   'apiTexts.cancel.cancelledRefunded': 'The booking was cancelled and the session entitlement was returned to your package.',
   'apiTexts.cancel.lateNoPenaltyRefunded': 'No late cancellation penalty was applied and the session entitlement was returned to your package.',
   'apiTexts.cancel.lateCharged.hours': 'Because the session is less than {hours} hours away, {penalty} unit(s) were deducted as a late cancellation.',
