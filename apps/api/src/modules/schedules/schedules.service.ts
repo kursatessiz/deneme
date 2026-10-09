@@ -31,7 +31,7 @@ import type {
   UpdateSessionMeetingInput,
   JoinSessionResultDTO,
 } from '@platform/shared';
-import { isWithinJoinWindow } from '@platform/shared';
+import { addZonedDays, isWithinJoinWindow } from '@platform/shared';
 import { Prisma, SessionDeliveryMode } from '@platform/database';
 import type { CancellationPolicy, MemberPackage } from '@platform/database';
 import { evaluateCancellation, evaluateNoShow, FALLBACK_POLICY, PolicyTerms } from './cancellation-policy';
@@ -43,7 +43,7 @@ import { apiError, hasApiErrorCode } from '../../common/api-error';
 import { errorMessageIn, requestT, serverT, studioLocale } from '../../common/server-i18n';
 import type { ServerT } from '../../common/server-i18n';
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const CAPACITY_FULL = apiError('apiErrors.schedules.sessionFull');
 /** Upper bound on entries tried per freed seat, so a long list of unusable entries cannot stall a request. */
 const MAX_PROMOTION_ATTEMPTS = 20;
@@ -211,16 +211,15 @@ export class SchedulesService {
     const capacity = dto.capacity ?? serviceType.capacity;
     const recurCount = dto.isRecurring ? (dto.recurringWeeks ?? 1) : 1;
 
+    // Weekly occurrences keep the same local wall time in the branch/studio zone,
+    // so a daylight saving change does not shift a class by an hour.
+    const timeZone = recurCount > 1 ? await this.scheduleTimeZone(studioId, branchId) : 'UTC';
     const slots: { start: Date; end: Date }[] = [];
     for (let i = 0; i < recurCount; i++) {
       slots.push({
-        start: new Date(start.getTime() + i * WEEK_MS),
-        end: new Date(end.getTime() + i * WEEK_MS),
+        start: addZonedDays(start, i * 7, timeZone),
+        end: addZonedDays(end, i * 7, timeZone),
       });
-    }
-
-    for (const slot of slots) {
-      await this.assertNoConflict(studioId, slot.start, slot.end, dto.trainerId, dto.resourceId);
     }
 
     // ONLINE/HYBRID sessions get a meeting link up front. Recurring
@@ -230,8 +229,14 @@ export class SchedulesService {
         ? null
         : this.videoMeeting.createLink(dto.meetingProvider!, { scheduleId: '', studioId, manualUrl: dto.manualMeetingUrl });
 
-    const created = await this.prisma.$transaction((tx) =>
-      Promise.all(
+    const created = await this.prisma.$transaction(async (tx) => {
+      // Serialises schedule writes of the studio so the conflict check below
+      // cannot interleave with a concurrent create (double-booked trainer or room).
+      await this.lockScheduling(tx, studioId);
+      for (const slot of slots) {
+        await this.assertNoConflict(studioId, slot.start, slot.end, dto.trainerId, dto.resourceId, undefined, tx);
+      }
+      return Promise.all(
         slots.map((slot) =>
           tx.sessionSchedule.create({
             data: {
@@ -252,8 +257,8 @@ export class SchedulesService {
             include: { resource: true, trainer: { include: { membership: { include: { user: true } } } } },
           }),
         ),
-      ),
-    );
+      );
+    });
 
     return created.length === 1 ? created[0] : created;
   }
@@ -305,35 +310,61 @@ export class SchedulesService {
       if (!trainer) throw new NotFoundException(apiError('apiErrors.common.trainerNotFound'));
     }
 
-    await this.assertNoConflict(studioId, start, end, trainerId ?? undefined, resourceId ?? undefined, scheduleId);
-
-    const activeBookings = await this.prisma.booking.findMany({
-      where: { scheduleId, studioId, status: { in: ['CONFIRMED', 'ATTENDED'] } },
-      select: { memberId: true },
-    });
     const timeChanged = start.getTime() !== schedule.startTime.getTime() || end.getTime() !== schedule.endTime.getTime();
-    // A session people already booked cannot move into the past.
-    if (timeChanged && activeBookings.length > 0 && start <= new Date()) {
-      throw new BadRequestException(apiError('apiErrors.schedules.sessionBookingsCannotMovedPastTime'));
-    }
-    // Capacity never drops below the seats already taken.
-    if (dto.capacity !== undefined && dto.capacity < activeBookings.length) {
-      throw new BadRequestException(apiError('apiErrors.schedules.capacityBelowBookings', { count: activeBookings.length }));
-    }
 
-    const updated = await this.prisma.sessionSchedule.update({
-      where: { id: scheduleId },
-      data: {
-        branchId,
-        resourceId,
-        trainerId,
-        title: dto.title ?? schedule.title,
-        startTime: start,
-        endTime: end,
-        capacity: dto.capacity ?? schedule.capacity,
-      },
-      include: { resource: true, trainer: { include: { membership: { include: { user: true } } } } },
+    const { updated, activeBookings } = await this.prisma.$transaction(async (tx) => {
+      await this.lockScheduling(tx, studioId);
+      await this.assertNoConflict(studioId, start, end, trainerId ?? undefined, resourceId ?? undefined, scheduleId, tx);
+
+      const active = await tx.booking.findMany({
+        where: { scheduleId, studioId, status: { in: ['CONFIRMED', 'ATTENDED'] } },
+        select: { memberId: true },
+      });
+      // A session people already booked cannot move into the past.
+      if (timeChanged && active.length > 0 && start <= new Date()) {
+        throw new BadRequestException(apiError('apiErrors.schedules.sessionBookingsCannotMovedPastTime'));
+      }
+      // Capacity never drops below the seats already taken.
+      if (dto.capacity !== undefined && dto.capacity < active.length) {
+        throw new BadRequestException(apiError('apiErrors.schedules.capacityBelowBookings', { count: active.length }));
+      }
+
+      const row = await tx.sessionSchedule.update({
+        where: { id: scheduleId },
+        data: {
+          branchId,
+          resourceId,
+          trainerId,
+          title: dto.title ?? schedule.title,
+          startTime: start,
+          endTime: end,
+          capacity: dto.capacity ?? schedule.capacity,
+        },
+        include: { resource: true, trainer: { include: { membership: { include: { user: true } } } } },
+      });
+
+      // The spot/equipment holds follow the session, otherwise they would keep
+      // blocking (and guarding) the old time slot.
+      if (timeChanged) {
+        try {
+          await tx.bookingResource.updateMany({
+            where: { studioId, booking: { scheduleId } },
+            data: { startTime: start, endTime: end },
+          });
+        } catch (err) {
+          if (this.isExclusionViolation(err)) {
+            throw new ConflictException(apiError('apiErrors.schedules.selectedEquipmentTakenTime'));
+          }
+          throw err;
+        }
+      }
+      return { updated: row, activeBookings: active };
     });
+
+    // More seats than before: fill them from the waitlist (best effort).
+    if (dto.capacity !== undefined && dto.capacity > schedule.capacity) {
+      await this.promoteFromWaitlistSafe(studioId, scheduleId);
+    }
 
     // Tell booked members the new time (best effort, never undoes the move).
     if (timeChanged && activeBookings.length > 0) {
@@ -363,7 +394,7 @@ export class SchedulesService {
   /** Members booking for themselves; enforces dto.memberId matches the caller's own profile. */
   async bookSessionSelf(tenant: TenantContext, dto: BookSessionInput) {
     this.assertSelf(tenant, dto.memberId, 'apiErrors.schedules.canOnlyBookYourself');
-    const booking = await this.book(tenant.studioId, dto);
+    const booking = await this.book(tenant.studioId, dto, 'self');
     await this.emitBookingCreated(tenant.studioId, booking);
     return booking;
   }
@@ -549,7 +580,12 @@ export class SchedulesService {
     });
   }
 
-  private async book(studioId: string, dto: BookSessionInput) {
+  /**
+   * `actor` decides the time rule: a member (`self`) cannot book a session that
+   * has started, staff (`staff`, reception walk-ins) cannot book one that has
+   * ended, and the waitlist promotion (`system`) is bounded by its own check.
+   */
+  private async book(studioId: string, dto: BookSessionInput, actor: 'self' | 'staff' | 'system' = 'staff') {
     const schedule = await this.prisma.sessionSchedule.findFirst({
       where: { id: dto.scheduleId, studioId },
       include: { serviceType: { include: { requiredResourceTypes: { include: { resourceType: true } } } } },
@@ -559,6 +595,14 @@ export class SchedulesService {
     }
     if (schedule.isCancelled) {
       throw new BadRequestException(apiError('apiErrors.schedules.sessionCancelled'));
+    }
+
+    const nowForBooking = new Date();
+    if (actor === 'self' && schedule.startTime <= nowForBooking) {
+      throw new BadRequestException(apiError('apiErrors.schedules.sessionAlreadyStarted'));
+    }
+    if (actor === 'staff' && schedule.endTime <= nowForBooking) {
+      throw new BadRequestException(apiError('apiErrors.schedules.sessionAlreadyEnded'));
     }
 
     const requiresSelectableSpot = (schedule.serviceType.requiredResourceTypes ?? []).some(
@@ -571,6 +615,30 @@ export class SchedulesService {
     const member = await this.prisma.memberProfile.findFirst({ where: { id: dto.memberId, studioId } });
     if (!member) {
       throw new NotFoundException(apiError('apiErrors.common.memberNotFound'));
+    }
+
+    // ServiceType.minRepeatIntervalDays: no second live booking of the same
+    // service within that many days of this session (either side).
+    const minDays = schedule.serviceType.minRepeatIntervalDays;
+    if (minDays && minDays > 0) {
+      const windowMs = minDays * DAY_MS;
+      const tooClose = await this.prisma.booking.findFirst({
+        where: {
+          studioId,
+          memberId: dto.memberId,
+          scheduleId: { not: dto.scheduleId },
+          status: { in: ['CONFIRMED', 'ATTENDED'] },
+          schedule: {
+            serviceTypeId: schedule.serviceTypeId,
+            isCancelled: false,
+            startTime: { gt: new Date(schedule.startTime.getTime() - windowMs), lt: new Date(schedule.startTime.getTime() + windowMs) },
+          },
+        },
+        select: { id: true },
+      });
+      if (tooClose) {
+        throw new BadRequestException(apiError('apiErrors.schedules.minRepeatIntervalNotElapsed', { count: minDays }));
+      }
     }
 
     const { memberPackage, unitCost } = await this.resolvePackage(
@@ -1277,7 +1345,7 @@ export class SchedulesService {
           memberId: next.memberId,
           memberPackageId: next.memberPackageId ?? undefined,
           resourceIds: [],
-        });
+        }, 'system');
         // book() already marked the entry PROMOTED inside its transaction.
         promoted++;
         await this.notifyMember(studioId, next.memberId, 'WAITLIST', {
@@ -1449,17 +1517,20 @@ export class SchedulesService {
     if (serviceType?.requiresQualification && !trainer.qualifications.some((q) => q.serviceTypeId === serviceType.id)) {
       throw new BadRequestException(apiError('apiErrors.schedules.trainerNotQualifiedService'));
     }
-    await this.assertNoConflict(studioId, schedule.startTime, schedule.endTime, dto.trainerId, undefined, schedule.id);
 
     // The first substitution remembers who was planned; switching back clears it.
     const plannedTrainerId = schedule.originalTrainerId ?? schedule.trainerId;
-    const updated = await this.prisma.sessionSchedule.update({
-      where: { id: schedule.id },
-      data: {
-        trainerId: dto.trainerId,
-        originalTrainerId: plannedTrainerId === dto.trainerId ? null : plannedTrainerId,
-      },
-      include: { trainer: { include: { membership: { include: { user: true } } } } },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await this.lockScheduling(tx, studioId);
+      await this.assertNoConflict(studioId, schedule.startTime, schedule.endTime, dto.trainerId, undefined, schedule.id, tx);
+      return tx.sessionSchedule.update({
+        where: { id: schedule.id },
+        data: {
+          trainerId: dto.trainerId,
+          originalTrainerId: plannedTrainerId === dto.trainerId ? null : plannedTrainerId,
+        },
+        include: { trainer: { include: { membership: { include: { user: true } } } } },
+      });
     });
 
     const trainerUser = updated.trainer?.membership.user;
@@ -1562,6 +1633,25 @@ export class SchedulesService {
     }
   }
 
+  /**
+   * Transaction-scoped advisory lock per studio: creates, moves and trainer
+   * substitutions take it before their conflict check, so two of them cannot
+   * both pass the check and then both write (no schema change needed).
+   */
+  private async lockScheduling(tx: Tx, studioId: string): Promise<void> {
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${'schedule-conflict:' + studioId}))`);
+  }
+
+  /** IANA zone of a session: its branch's zone, else the studio's. */
+  private async scheduleTimeZone(studioId: string, branchId: string | null): Promise<string> {
+    if (branchId) {
+      const branch = await this.prisma.branch.findFirst({ where: { id: branchId, studioId }, select: { timezone: true } });
+      if (branch?.timezone) return branch.timezone;
+    }
+    const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { timezone: true } });
+    return studio?.timezone ?? 'UTC';
+  }
+
   private async assertNoConflict(
     studioId: string,
     start: Date,
@@ -1569,6 +1659,7 @@ export class SchedulesService {
     trainerId?: string,
     resourceId?: string,
     excludeScheduleId?: string,
+    db: Prisma.TransactionClient | PrismaService = this.prisma,
   ) {
     const overlap = {
       startTime: { lt: end },
@@ -1577,7 +1668,7 @@ export class SchedulesService {
     };
 
     if (trainerId) {
-      const trainerConflict = await this.prisma.sessionSchedule.findFirst({
+      const trainerConflict = await db.sessionSchedule.findFirst({
         where: { studioId, trainerId, isCancelled: false, ...overlap },
       });
       if (trainerConflict) {
@@ -1586,7 +1677,7 @@ export class SchedulesService {
     }
 
     if (resourceId) {
-      const resourceConflict = await this.prisma.sessionSchedule.findFirst({
+      const resourceConflict = await db.sessionSchedule.findFirst({
         where: { studioId, resourceId, isCancelled: false, ...overlap },
       });
       if (resourceConflict) {

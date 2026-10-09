@@ -34,6 +34,12 @@ describe('SchedulesService', () => {
     trainerProfile: {
       findFirst: jest.fn(),
     },
+    studio: {
+      findUnique: jest.fn(),
+    },
+    branch: {
+      findFirst: jest.fn(),
+    },
     sessionSchedule: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
@@ -56,6 +62,7 @@ describe('SchedulesService', () => {
       findFirst: jest.fn(),
       findFirstOrThrow: jest.fn(),
       findUniqueOrThrow: jest.fn(),
+      findMany: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
@@ -72,6 +79,7 @@ describe('SchedulesService', () => {
     cancellationPolicy: {
       findFirst: jest.fn(),
     },
+    $executeRaw: jest.fn(),
     $transaction: jest.fn((callback) => callback(mockPrisma)),
   };
 
@@ -176,9 +184,9 @@ describe('SchedulesService', () => {
       capacity: 5,
       bookedCount: 0,
       isCancelled: false,
-      startTime: new Date(),
-      endTime: new Date(),
-      serviceType: { id: 'service-1' },
+      startTime: new Date(Date.now() + 60 * 60 * 1000),
+      endTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+      serviceType: { id: 'service-1', requiredResourceTypes: [], minRepeatIntervalDays: null },
     };
 
     it('should reject a package that belongs to another member', async () => {
@@ -227,6 +235,64 @@ describe('SchedulesService', () => {
           resourceIds: [],
         }),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('bookSession time and repeat rules', () => {
+    const HOUR = 60 * 60 * 1000;
+    const base = {
+      id: 'schedule-1',
+      studioId: STUDIO_ID,
+      serviceTypeId: 'service-1',
+      capacity: 5,
+      bookedCount: 0,
+      isCancelled: false,
+      serviceType: { id: 'service-1', requiredResourceTypes: [], minRepeatIntervalDays: null as number | null },
+    };
+    const dto = { studioId: STUDIO_ID, scheduleId: 'schedule-1', memberId: 'member-1', resourceIds: [] };
+    const selfTenant: TenantContext = { ...tenant, memberProfileId: 'member-1', permissions: new Set<never>() };
+
+    it('rejects a member booking a session that has already started', async () => {
+      mockPrisma.sessionSchedule.findFirst.mockResolvedValueOnce({
+        ...base,
+        startTime: new Date(Date.now() - HOUR),
+        endTime: new Date(Date.now() + HOUR),
+      });
+      await expect(service.bookSessionSelf(selfTenant, dto)).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.booking.create).not.toHaveBeenCalled();
+    });
+
+    it('lets staff book a session in progress but not one that has ended', async () => {
+      mockPrisma.sessionSchedule.findFirst.mockResolvedValueOnce({
+        ...base,
+        startTime: new Date(Date.now() - 3 * HOUR),
+        endTime: new Date(Date.now() - HOUR),
+      });
+      await expect(service.bookSession(tenant, dto)).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.memberProfile.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('rejects a booking inside the service minimum repeat interval', async () => {
+      mockPrisma.sessionSchedule.findFirst.mockResolvedValueOnce({
+        ...base,
+        startTime: new Date(Date.now() + 48 * HOUR),
+        endTime: new Date(Date.now() + 49 * HOUR),
+        serviceType: { ...base.serviceType, minRepeatIntervalDays: 2 },
+      });
+      mockPrisma.memberProfile.findFirst.mockResolvedValueOnce({ id: 'member-1', studioId: STUDIO_ID });
+      mockPrisma.booking.findFirst.mockResolvedValueOnce({ id: 'other-booking' });
+
+      await expect(service.bookSession(tenant, dto)).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.booking.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            memberId: 'member-1',
+            status: { in: ['CONFIRMED', 'ATTENDED'] },
+            schedule: expect.objectContaining({ serviceTypeId: 'service-1' }),
+          }),
+        }),
+      );
+      expect(mockPrisma.sessionSchedule.updateMany).not.toHaveBeenCalled();
     });
   });
 
@@ -365,6 +431,105 @@ describe('SchedulesService', () => {
     it('should throw NotFoundException when the booking does not belong to the studio', async () => {
       mockPrisma.booking.findFirst.mockResolvedValueOnce(null);
       await expect(service.checkIn(tenant, 'booking-x')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('weekly recurrence', () => {
+    it('keeps the local wall time across the Berlin DST change on 2026-10-25', async () => {
+      mockPrisma.serviceType.findFirst.mockResolvedValueOnce({ id: 'service-1', studioId: STUDIO_ID, capacity: 5, requiresQualification: false, isActive: true });
+      mockPrisma.studio.findUnique.mockResolvedValueOnce({ timezone: 'Europe/Berlin' });
+      mockPrisma.sessionSchedule.findFirst.mockResolvedValue(null);
+      mockPrisma.sessionSchedule.create.mockImplementation(async ({ data }) => data);
+      // Saturday 2026-10-24 18:00 CEST, then four weekly occurrences.
+      await service.createSchedule(tenant, {
+        studioId: STUDIO_ID,
+        serviceTypeId: 'service-1',
+        title: 'Weekly',
+        startTime: '2026-10-24T16:00:00.000Z',
+        endTime: '2026-10-24T17:00:00.000Z',
+        isRecurring: true,
+        recurringWeeks: 2,
+        deliveryMode: 'IN_PERSON',
+      } as never);
+      const starts = mockPrisma.sessionSchedule.create.mock.calls.map((c) => (c[0].data.startTime as Date).toISOString());
+      const ends = mockPrisma.sessionSchedule.create.mock.calls.map((c) => (c[0].data.endTime as Date).toISOString());
+      // 2026-10-31 18:00 CET is 17:00 UTC.
+      expect(starts).toEqual(['2026-10-24T16:00:00.000Z', '2026-10-31T17:00:00.000Z']);
+      expect(ends).toEqual(['2026-10-24T17:00:00.000Z', '2026-10-31T18:00:00.000Z']);
+    });
+  });
+
+  describe('updateSchedule', () => {
+    const existing = {
+      id: 'schedule-1',
+      studioId: STUDIO_ID,
+      branchId: null,
+      resourceId: null,
+      trainerId: null,
+      title: 'Class',
+      isCancelled: false,
+      capacity: 2,
+      startTime: new Date(Date.now() + 24 * 3600_000),
+      endTime: new Date(Date.now() + 25 * 3600_000),
+    };
+
+    it('moves the spot holds of the session together with the session', async () => {
+      mockPrisma.sessionSchedule.findFirst.mockResolvedValueOnce(existing);
+      mockPrisma.booking.findMany.mockResolvedValueOnce([]);
+      mockPrisma.sessionSchedule.update.mockResolvedValueOnce({ ...existing });
+      const start = new Date(Date.now() + 48 * 3600_000);
+      const end = new Date(Date.now() + 49 * 3600_000);
+
+      await service.updateSchedule(tenant, 'schedule-1', { startTime: start.toISOString(), endTime: end.toISOString() } as never);
+
+      expect(mockPrisma.bookingResource.updateMany).toHaveBeenCalledWith({
+        where: { studioId: STUDIO_ID, booking: { scheduleId: 'schedule-1' } },
+        data: { startTime: start, endTime: end },
+      });
+    });
+
+    it('turns a hold exclusion violation into a 409', async () => {
+      mockPrisma.sessionSchedule.findFirst.mockResolvedValueOnce(existing);
+      mockPrisma.booking.findMany.mockResolvedValueOnce([]);
+      mockPrisma.sessionSchedule.update.mockResolvedValueOnce({ ...existing });
+      mockPrisma.bookingResource.updateMany.mockRejectedValueOnce(Object.assign(new Error('23P01 exclusion'), { code: 'P2010' }));
+      const start = new Date(Date.now() + 48 * 3600_000);
+
+      await expect(
+        service.updateSchedule(tenant, 'schedule-1', { startTime: start.toISOString(), endTime: new Date(start.getTime() + 3600_000).toISOString() } as never),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('promotes from the waitlist after a capacity increase, not after other edits', async () => {
+      const promote = jest.spyOn(service, 'promoteFromWaitlist').mockResolvedValue(1);
+      mockPrisma.sessionSchedule.findFirst.mockResolvedValue(existing);
+      mockPrisma.booking.findMany.mockResolvedValue([]);
+      mockPrisma.sessionSchedule.update.mockResolvedValue({ ...existing });
+
+      await service.updateSchedule(tenant, 'schedule-1', { capacity: 5 } as never);
+      expect(promote).toHaveBeenCalledWith(STUDIO_ID, 'schedule-1');
+
+      promote.mockClear();
+      await service.updateSchedule(tenant, 'schedule-1', { title: 'Renamed' } as never);
+      expect(promote).not.toHaveBeenCalled();
+    });
+
+    it('takes the studio scheduling lock before checking conflicts', async () => {
+      const order: string[] = [];
+      mockPrisma.sessionSchedule.findFirst.mockImplementation(async (args: { where: { id?: unknown; trainerId?: unknown } }) => {
+        if (args.where.trainerId) order.push('conflict-check');
+        return args.where.trainerId ? null : existing;
+      });
+      mockPrisma.$executeRaw.mockImplementation(async () => {
+        order.push('lock');
+        return 1;
+      });
+      mockPrisma.trainerProfile.findFirst.mockResolvedValueOnce({ id: 'trainer-1' });
+      mockPrisma.booking.findMany.mockResolvedValueOnce([]);
+      mockPrisma.sessionSchedule.update.mockResolvedValueOnce({ ...existing });
+
+      await service.updateSchedule(tenant, 'schedule-1', { trainerId: 'trainer-1' } as never);
+      expect(order).toEqual(['lock', 'conflict-check']);
     });
   });
 });
