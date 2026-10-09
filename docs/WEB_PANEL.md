@@ -486,7 +486,7 @@ için kart çıkarma, doğrulama ve düzeltme, gerçek ciro ve üye sayısı),
 
 ## Ayarlar (2.3)
 
-`apps/web/src/app/(app)/(dashboard)/ayarlar/` altında sekiz sayfa; hepsi
+`apps/web/src/app/(app)/(dashboard)/ayarlar/` altında birden çok sayfa; hepsi
 `PageGuard` ile korunur ve içindeki her aksiyon (buton, form bölümü)
 `useDashboardSession()`'dan okuduğu izinlere göre gizlenir. Nav'da tek bir
 "Ayarlar" girişi vardır (`lib/nav.ts`), görünürlüğü sekiz sayfanın izinlerinin
@@ -516,6 +516,26 @@ sadece bildirim kanalları bölümünü gösterir).
   arayüzden kalktı.
 - `ayarlar/subeler/` -- şube CRUD, personelin şube erişimi, son 30 gün şube
   özeti (`branches.manage` / `reports.view`).
+- `ayarlar/hizmet-turleri/` -- **Hizmet türleri** (`catalog.view` ile görüntüleme,
+  `catalog.manage` ile düzenleme): liste (ad, süre, kapasite, gerekli ekipman,
+  aktif/pasif) ve bir diyalogda oluşturma/düzenleme formu. Form, API'nin kabul
+  ettiği her alanı içerir: ad, açıklama, süre, kapasite, **en az tekrar aralığı
+  (gün)**, ön koşul formu, iptal politikası, komisyon kuralı, sağlık uygulaması
+  etkinlik türü, izin verilen hak türleri, gerekli kaynak türleri (adetle),
+  nitelik zorunluluğu ve nitelikli eğitmenler (`schedule.view` varsa). Doğrulama
+  `CreateServiceTypeSchema` / `UpdateServiceTypeSchema` ile yapılır
+  (`lib/settings/service-type-form.ts`); kural mesajları `validation.*`
+  anahtarlarından çevrilir. Pasifleştirme `useConfirm` ile onaylanır; sonuçlar
+  `useToast` ile bildirilir. "En az tekrar aralığı" alanının yardım metni:
+  üye aynı hizmetten iki seans arasında en az bu kadar gün bırakmalıdır;
+  gelinmeyen (no-show) seanslar kurala sayılmaz; personel rezervasyon sırasında
+  kuralı onayla aşabilir. Seçim listeleri mevcut uç noktalardan gelir; komisyon
+  kuralı ve ölçüm formu için `catalog.view` izinli iki salt okunur arama ucu
+  eklendi (`GET catalog/commission-rules/studio/:id`, yalnızca id/ad/tür döner,
+  hakediş tutarı dönmez; `GET catalog/measurement-forms/studio/:id`). Bu ekranda
+  para değeri yoktur; iptal politikası ücretleri birim sayısıdır. Test:
+  `apps/web/e2e/service-types.e2e.ts`. Ayarlar kartlarına ve nav'ın Ayarlar
+  girişinin izin birleşimine (`catalog.view`, `catalog.manage`) eklendi.
 - `ayarlar/isletme/` -- yalnızca uç noktası var olan ayarlar bölüm bölüm:
   **bölge ve para birimi** (aşağıya bakın), iptal politikası
   (`catalog.manage`), check-in penceresi
