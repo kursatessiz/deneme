@@ -32,6 +32,7 @@ export const trCommon = {
   'common.error.invalidRequest': 'Geçersiz istek',
   'common.error.requestTooLarge': 'İstek gövdesi çok büyük',
   'common.error.upstreamUnreachable': 'Sunucuya ulaşılamadı',
+  'common.error.sessionRefreshUnavailable': 'Oturum şu anda yenilenemedi. Lütfen biraz sonra tekrar deneyin.',
   'common.error.errorReportFailed': 'Hata kaydı iletilemedi',
   'common.error.feedbackFailed': 'Not iletilemedi',
   'common.error.requestFailed': 'İstek başarısız oldu ({status})',

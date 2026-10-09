@@ -33,6 +33,7 @@ export const enCommon: Record<keyof typeof trCommon, string> = {
   'common.error.invalidRequest': 'Invalid request',
   'common.error.requestTooLarge': 'The request body is too large',
   'common.error.upstreamUnreachable': 'The server could not be reached',
+  'common.error.sessionRefreshUnavailable': 'Your session could not be renewed right now. Please try again shortly.',
   'common.error.errorReportFailed': 'The error report could not be sent',
   'common.error.feedbackFailed': 'The note could not be sent',
   'common.error.requestFailed': 'The request failed ({status})',
