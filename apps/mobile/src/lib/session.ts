@@ -4,7 +4,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { MembershipStatus } from '@platform/shared';
 import type { MembershipDTO, SessionUserDTO } from '@platform/shared';
 
-import { apiRequest } from './api';
+import { ApiError, apiRequest } from './api';
 import { clearTokens, getAccessToken, setTokens } from './tokenStore';
 import { registerPushDevice, unregisterPushDevice } from './push';
 import { clearWidgetsForSignedOutState, refreshWidgets, updateWidgetBrand } from '../widgets';
@@ -69,8 +69,9 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactEle
       try {
         const me = await apiRequest<SessionUserDTO>('/auth/me');
         if (!cancelled) applyUser(me);
-      } catch {
-        await clearTokens();
+      } catch (error) {
+        // Only a rejected session ends it; offline or a server error at launch keeps the tokens for the next try.
+        if (error instanceof ApiError && (error.status === 401 || error.status === 403)) await clearTokens();
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -118,7 +119,9 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactEle
   );
 
   const setPin = useCallback(async (pin: string) => {
-    await apiRequest<void>('/auth/pin', { method: 'PUT', body: { pin } });
+    // The PIN change revokes the previous refresh token; keep the fresh pair.
+    const tokens = await apiRequest<{ accessToken: string; refreshToken: string } | undefined>('/auth/pin', { method: 'PUT', body: { pin } });
+    if (tokens?.accessToken && tokens.refreshToken) await setTokens(tokens.accessToken, tokens.refreshToken);
     await registerPushDevice();
     refreshWidgets();
   }, []);
