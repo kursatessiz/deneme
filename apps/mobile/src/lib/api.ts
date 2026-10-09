@@ -52,28 +52,41 @@ interface TokenPair {
   refreshToken: string;
 }
 
-let inFlightRefresh: Promise<boolean> | null = null;
+/**
+ * `rejected`: the API answered 401/403, the session is gone. `unavailable`:
+ * a rate limit, 5xx or network error; the tokens are kept so a transient
+ * outage never signs the user out.
+ */
+export type RefreshResult = { kind: 'renewed' } | { kind: 'rejected' } | { kind: 'unavailable'; status: number };
 
-async function performRefresh(): Promise<boolean> {
+let inFlightRefresh: Promise<RefreshResult> | null = null;
+
+async function performRefresh(): Promise<RefreshResult> {
   const refreshToken = await getRefreshToken();
-  if (!refreshToken) return false;
+  if (!refreshToken) return { kind: 'rejected' };
+  let response: Response;
   try {
-    const response = await fetch(`${resolveApiUrl()}/auth/refresh`, {
+    response = await fetch(`${resolveApiUrl()}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken }),
     });
-    if (!response.ok) return false;
+  } catch {
+    return { kind: 'unavailable', status: 0 };
+  }
+  if (response.status === 401 || response.status === 403) return { kind: 'rejected' };
+  if (!response.ok) return { kind: 'unavailable', status: response.status };
+  try {
     const data = (await response.json()) as TokenPair;
     await setTokens(data.accessToken, data.refreshToken);
-    return true;
+    return { kind: 'renewed' };
   } catch {
-    return false;
+    return { kind: 'unavailable', status: response.status };
   }
 }
 
 /** Single-flight refresh: concurrent 401s share one refresh call. */
-function refreshOnce(): Promise<boolean> {
+function refreshOnce(): Promise<RefreshResult> {
   if (!inFlightRefresh) {
     inFlightRefresh = performRefresh().finally(() => {
       inFlightRefresh = null;
@@ -109,11 +122,16 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   if (response.status === 401 && auth && !isRetry) {
     const refreshed = await refreshOnce();
-    if (refreshed) {
+    if (refreshed.kind === 'renewed') {
       return apiRequest<T>(path, { ...options, isRetry: true });
     }
-    await clearTokens();
     const t = await resolveOfflineTranslate();
+    if (refreshed.kind === 'unavailable') {
+      // The session may still be valid: keep the tokens and report the outage.
+      if (refreshed.status === 429) throw new ApiError(429, t('mApiErrors.tooManyAttempts'));
+      throw new ApiError(refreshed.status, t('mApiErrors.networkUnreachable'));
+    }
+    await clearTokens();
     throw new ApiError(401, t('mApiErrors.sessionExpired'));
   }
 

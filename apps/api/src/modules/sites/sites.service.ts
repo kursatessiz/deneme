@@ -81,7 +81,20 @@ export class SitesService {
     if (!isValidDomain(domain)) throw new BadRequestException(apiError('apiErrors.sites.invalidDomain'));
     const site = await this.getSiteOrThrow(studioId);
     const existing = await this.prisma.siteDomain.findUnique({ where: { domain } });
-    if (existing) throw new ConflictException(apiError('apiErrors.sites.domainAlreadyUse'));
+    if (existing) {
+      // Only a verified domain (DNS control proven) or this site's own row blocks a claim. An unverified
+      // row of another site is no proof of ownership, so it moves to the new claimant with a fresh token
+      // and verification starts over; whoever controls the DNS verifies it.
+      if (existing.siteId === site.id || existing.status === 'VERIFIED') {
+        throw new ConflictException(apiError('apiErrors.sites.domainAlreadyUse'));
+      }
+      const moved = await this.prisma.siteDomain.updateMany({
+        where: { id: existing.id, status: { not: 'VERIFIED' } },
+        data: { siteId: site.id, status: 'PENDING', verifiedAt: null, verificationToken: randomBytes(20).toString('hex') },
+      });
+      if (moved.count !== 1) throw new ConflictException(apiError('apiErrors.sites.domainAlreadyUse'));
+      return toDomainDto(await this.prisma.siteDomain.findUniqueOrThrow({ where: { id: existing.id } }));
+    }
     const created = await this.prisma.siteDomain.create({
       data: { siteId: site.id, domain, verificationToken: randomBytes(20).toString('hex') },
     });

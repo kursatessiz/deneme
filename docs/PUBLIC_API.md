@@ -39,7 +39,10 @@ Kimlik doğrulama: `Authorization: Bearer pk_live_...`. JWT veya
 bağlamı olur (ayrı bir `ApiKeyGuard`, `JwtAuthGuard`/`StudioTenantGuard`'dan
 tamamen bağımsız). Her uç nokta bir veya birden çok yetki alanı ister; eksik
 yetki alanı `403 Forbidden` (anahtarın kendisi geçerliyse), geçersiz/iptal/
-süresi dolmuş anahtar `401 Unauthorized` döner.
+süresi dolmuş anahtar `401 Unauthorized` döner. İşletmesi askıya alınmış
+(`isActive = false`) bir anahtar `403 Forbidden`
+(`apiErrors.apiKeys.businessSuspended`) alır; işletme yeniden etkinleştirilince
+anahtar yeniden çalışır.
 
 Anahtar başına hız sınırı: dakikada 120 istek (Redis varsa paylaşılan
 sayaç, yoksa tek örnek bellek içi sayaç), aşımda `429 Too Many Requests`.
@@ -311,7 +314,11 @@ iki yola ayrılır:
 
 Widget'ın kendi okuma uç noktaları -- `/public/studios/:slug/embed/config`,
 `.../branches`, `.../service-types`, `.../schedules` -- kimliksiz ve IP
-başına dakikada 30 istekle sınırlıdır, ama **hiçbir yazma işlemi
+başına dakikada 30 istekle sınırlıdır (web uygulamasının sunucu tarafı
+render'ları sayılmaz: Caddy her dış isteğe `X-Forwarded-For` ekler, bu başlığı
+taşımayan ve özel ağdan, yani web container'ından gelen istekler ziyaretçi
+değildir; herkese açık etkinlik uçları için de aynı kural geçerlidir,
+`apps/api/src/common/internal-request.ts`), ama **hiçbir yazma işlemi
 içermez** ve hiçbir zaman üye, katılımcı veya rezervasyon verisi döndürmez
 (bkz. `PublicApiService.listSchedules` içindeki alan listesi ve
 `apps/api/test/e2e/public-api.e2e-spec.ts` "embed widget" bloğu). `/v1/public/*`'ın

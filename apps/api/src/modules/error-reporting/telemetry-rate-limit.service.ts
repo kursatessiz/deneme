@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { RedisService } from '../redis/redis.service';
+import { incrementWithTtl } from '../redis/increment-with-ttl';
 
 /** Ingest requests allowed per client IP per window. */
 export const TELEMETRY_MAX_PER_IP = 60;
@@ -46,8 +47,7 @@ export class TelemetryRateLimiter {
     if (client) {
       try {
         if (client.status === 'wait') await client.connect();
-        const count = await client.incr(key);
-        if (count === 1) await client.expire(key, TELEMETRY_WINDOW_SECONDS);
+        const count = await incrementWithTtl(client, key, TELEMETRY_WINDOW_SECONDS);
         return count;
       } catch {
         // Redis unreachable: fall back to the in-memory window.

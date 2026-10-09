@@ -138,7 +138,7 @@ Herkese açık, kimliksiz uçlar (`apps/api/src/modules/sites/public-sites.contr
 
 ## 7. Özel alan adları
 
-Akış: kiracı alan adını ekler (`POST .../domains`) -> API bir `verificationToken` üretir ve beklenen DNS kayıtlarını döner (`expectedDnsRecords`, `packages/shared/src/sites/domain.ts`: TXT doğrulama kaydı + CNAME hedefi platformun alan adı) -> kiracı DNS'te bu kayıtları ekler -> `POST .../domains/:domainId/verify` DNS'i sorgular (`DnsVerificationService`, gerçek `dns.resolveTxt`/`resolveCname`) ve durumu `VERIFIED`/`FAILED` yapar.
+Akış: kiracı alan adını ekler (`POST .../domains`) -> API bir `verificationToken` üretir ve beklenen DNS kayıtlarını döner (`expectedDnsRecords`, `packages/shared/src/sites/domain.ts`: TXT doğrulama kaydı + CNAME hedefi platformun alan adı) -> kiracı DNS'te bu kayıtları ekler -> `POST .../domains/:domainId/verify` DNS'i sorgular (`DnsVerificationService`, gerçek `dns.resolveTxt`/`resolveCname`) ve durumu `VERIFIED`/`FAILED` yapar. Bir alan adını yalnızca doğrulanmış (`VERIFIED`) bir kayıt veya sitenin kendi kaydı engeller (`409`); başka bir sitenin doğrulanmamış kaydı sahiplik kanıtı olmadığı için yeni talep edene taşınır, yeni bir `verificationToken` üretilir ve doğrulama baştan başlar (DNS'i kim yönetiyorsa o doğrular).
 
 `deploy/caddy/Caddyfile`, `on_demand_tls` ile `ask http://api:4000/public/domains/ask` çağıran genel bir ayar ve `WEB_DOMAIN`/`API_DOMAIN` ile eşleşmeyen her host için `web:3000`'e yönlenen bir `:443` yakalayıcı (catch-all) bloğu içerir; böylece hem `<slug>.{$SITES_DOMAIN}` alt alan adları hem de doğrulanmış özel alan adları ilk istekte otomatik sertifika alır. `SITES_DOMAIN` ortam değişkeni ayarlanmazsa `WEB_DOMAIN`'e düşer.
 

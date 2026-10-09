@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { DYNAMIC_PAGE_SEGMENT, EMBED_ORIGIN_PATTERN, LocaleCodeSchema, NOINDEX_ROBOTS_VALUE, STUDIO_SLUG_PATTERN, isNonIndexablePath } from '@platform/shared';
 import { PAGE_LOCALE_HEADER } from '@/lib/i18n/constants';
-import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE, accessTokenCookieOptions, refreshTokenCookieOptions } from '@/lib/bff/cookies';
+import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE, accessTokenCookieOptions, expiredCookieOptions, refreshTokenCookieOptions } from '@/lib/bff/cookies';
+import { exchangeRefreshToken } from '@/lib/bff/refresh';
+import { requestTranslator } from '@/lib/bff/request-translator';
 import { dashboardCsp, generateNonce } from '@/lib/security/csp';
 import { isProtectedPath } from '@/lib/security/protected-paths';
 import { tenantRewritePath } from '@/lib/sites/tenant-path';
@@ -73,24 +75,6 @@ async function tenantSiteRewrite(request: NextRequest): Promise<NextResponse | n
   const url = request.nextUrl.clone();
   url.pathname = tenantRewritePath(studioSlug, await pageEnginePath(request, studioSlug));
   return NextResponse.rewrite(url, { request: { headers: requestHeadersWithPageLocale(request) } });
-}
-
-/** Exchanges the refresh cookie for a new token pair; null when the session is gone. */
-async function refreshSession(refreshToken: string): Promise<{ accessToken: string; refreshToken: string } | null> {
-  try {
-    const res = await fetch(`${API_INTERNAL_BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-      signal: AbortSignal.timeout(3000),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { accessToken?: unknown; refreshToken?: unknown };
-    if (typeof data.accessToken !== 'string' || typeof data.refreshToken !== 'string') return null;
-    return { accessToken: data.accessToken, refreshToken: data.refreshToken };
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -221,7 +205,17 @@ async function route(request: NextRequest): Promise<NextResponse> {
     // The access cookie expires with the token (1h); a valid refresh cookie
     // silently renews the session instead of sending the user to /giris.
     const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
-    const renewed = refreshToken ? await refreshSession(refreshToken) : null;
+    const outcome = refreshToken ? await exchangeRefreshToken(API_INTERNAL_BASE_URL, refreshToken, { timeoutMs: 3000 }) : null;
+    if (outcome?.kind === 'unavailable') {
+      // A rate limit, 5xx or unreachable API says nothing about the session: keep the cookies and ask for a retry.
+      const unavailable = new NextResponse(requestTranslator(request)('common.error.sessionRefreshUnavailable'), {
+        status: outcome.status,
+        headers: { 'content-type': 'text/plain; charset=utf-8', 'retry-after': '5', 'cache-control': 'no-store' },
+      });
+      unavailable.headers.set('Content-Security-Policy', dashboardCsp(generateNonce(), process.env.NODE_ENV === 'development'));
+      return unavailable;
+    }
+    const renewed = outcome?.kind === 'renewed' ? outcome.tokens : null;
     if (renewed) {
       // Make the new access token visible to this request's server components too.
       request.cookies.set(ACCESS_TOKEN_COOKIE, renewed.accessToken);
@@ -237,6 +231,10 @@ async function route(request: NextRequest): Promise<NextResponse> {
     loginUrl.searchParams.set('sonra', request.nextUrl.pathname);
     const redirectResponse = NextResponse.redirect(loginUrl);
     redirectResponse.headers.set('Content-Security-Policy', dashboardCsp(generateNonce(), process.env.NODE_ENV === 'development'));
+    if (outcome?.kind === 'rejected') {
+      // Only the API's own 401/403 ends the session.
+      redirectResponse.cookies.set(REFRESH_TOKEN_COOKIE, '', expiredCookieOptions(process.env.NODE_ENV));
+    }
     return redirectResponse;
   }
 

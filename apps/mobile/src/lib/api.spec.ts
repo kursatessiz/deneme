@@ -1,10 +1,13 @@
 jest.mock('expo-constants', () => ({ __esModule: true, default: { expoConfig: { extra: { apiUrl: 'http://api.test' } } } }));
 jest.mock('expo-localization', () => ({ getLocales: () => [{ languageTag: 'tr-TR' }] }));
+const tokenState: { refresh: string | null } = { refresh: null };
+const clearTokensMock = jest.fn(async () => undefined);
+const setTokensMock = jest.fn(async () => undefined);
 jest.mock('./tokenStore', () => ({
-  getAccessToken: async () => null,
-  getRefreshToken: async () => null,
-  setTokens: async () => undefined,
-  clearTokens: async () => undefined,
+  getAccessToken: async () => 'access-1',
+  getRefreshToken: async () => tokenState.refresh,
+  setTokens: (...args: unknown[]) => setTokensMock(...(args as [])),
+  clearTokens: () => clearTokensMock(),
 }));
 jest.mock('../i18n/storage', () => ({ getStoredLocaleChoice: async () => null }));
 
@@ -56,5 +59,56 @@ describe('apiRequest', () => {
     respondWith(400, { message: 'plain text' });
     const error = await apiRequest('/x', { auth: false }).catch((e: unknown) => e);
     expect((error as ApiError).message).toBe('plain text');
+  });
+});
+
+/** First call answers 401 (expired access token); the refresh call answers `refreshStatus` (or throws when null). */
+function expiredThenRefresh(refreshStatus: number | null, refreshBody: unknown = {}): jest.Mock {
+  const fetchMock = jest.fn(async (url: string) => {
+    if (url.endsWith('/auth/refresh')) {
+      if (refreshStatus === null) throw new TypeError('Network request failed');
+      return { status: refreshStatus, ok: refreshStatus < 400, json: async () => refreshBody, text: async () => JSON.stringify(refreshBody) };
+    }
+    return { status: 401, ok: false, text: async () => JSON.stringify({ message: 'expired' }) };
+  });
+  (globalThis as unknown as { fetch: unknown }).fetch = fetchMock;
+  return fetchMock;
+}
+
+describe('apiRequest token refresh', () => {
+  beforeEach(() => {
+    tokenState.refresh = 'refresh-1';
+    clearTokensMock.mockClear();
+    setTokensMock.mockClear();
+  });
+
+  it.each([401, 403])('signs out when the refresh endpoint answers %i', async (status) => {
+    expiredThenRefresh(status);
+    const error = await apiRequest('/me').catch((e: unknown) => e);
+    expect((error as ApiError).status).toBe(401);
+    expect(clearTokensMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([429, 500, 503])('keeps the tokens when the refresh endpoint answers %i', async (status) => {
+    expiredThenRefresh(status);
+    const error = await apiRequest('/me').catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(status);
+    expect(clearTokensMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps the tokens when the refresh call cannot reach the API', async () => {
+    expiredThenRefresh(null);
+    const error = await apiRequest('/me').catch((e: unknown) => e);
+    expect((error as ApiError).status).toBe(0);
+    expect(clearTokensMock).not.toHaveBeenCalled();
+  });
+
+  it('stores the renewed pair and retries once on success', async () => {
+    const fetchMock = expiredThenRefresh(200, { accessToken: 'a2', refreshToken: 'r2' });
+    await apiRequest('/me').catch(() => undefined);
+    expect(setTokensMock).toHaveBeenCalledWith('a2', 'r2');
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(clearTokensMock).not.toHaveBeenCalled();
   });
 });
