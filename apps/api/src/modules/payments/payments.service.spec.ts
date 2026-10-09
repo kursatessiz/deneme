@@ -336,6 +336,14 @@ describe('PaymentsService - sellPackage', () => {
       expect(providerAdapter.chargeStoredCard).not.toHaveBeenCalled();
     });
 
+    it('stores the key on a pending bank transfer so a resubmission returns it', async () => {
+      const transfer = { ...baseDto, paymentMethod: PaymentMethod.BANK_TRANSFER, bankReference: 'REF123', card: undefined, idempotencyKey: 'attempt-0002' } as unknown as SellPackageInput;
+      await service.sellPackage(tenant, transfer);
+      expect(prisma.payment.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ metadata: expect.objectContaining({ idempotencyKey: 'attempt-0002' }) }) }),
+      );
+    });
+
     it('generates a per-request fallback reference when the client sends no key', async () => {
       prisma.$transaction.mockRejectedValue(new Error('stop here'));
       await expect(service.sellPackage(tenant, baseDto)).rejects.toThrow();

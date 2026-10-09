@@ -194,7 +194,7 @@ export class PaymentsService {
           paymentStatus: PaymentStatus.PENDING,
           providerReference: dto.bankReference,
           notes: dto.notes,
-          metadata: { packageDefinitionId: pkgDef.id, startDate: dto.startDate ?? null },
+          metadata: { packageDefinitionId: pkgDef.id, startDate: dto.startDate ?? null, ...(dto.idempotencyKey ? { idempotencyKey: dto.idempotencyKey } : {}) },
         },
       });
       return { payment, memberPackage: null, pending: true };
@@ -247,7 +247,7 @@ export class PaymentsService {
           provider,
           providerReference: checkout.providerReference,
           notes: dto.notes,
-          metadata: { packageDefinitionId: pkgDef.id, startDate: dto.startDate ?? null },
+          metadata: { packageDefinitionId: pkgDef.id, startDate: dto.startDate ?? null, ...(dto.idempotencyKey ? { idempotencyKey: dto.idempotencyKey } : {}) },
         },
       });
       return { payment, memberPackage: null, pending: true, checkoutUrl: checkout.checkoutUrl };
