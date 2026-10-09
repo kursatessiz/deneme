@@ -1,3 +1,4 @@
+import { cashInOf } from '../payments/cash-in';
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BILLING_CURRENCY_LOCKED_ERROR_CODE, DashboardMetricsDTO, StudioRegion, studioBillingCurrency } from '@platform/shared';
@@ -181,10 +182,10 @@ export class StudiosService {
         paymentStatus: 'COMPLETED',
         paidAt: { gte: startOfMonth },
       },
-      select: { amount: true },
+      select: { amount: true, giftCardAmount: true },
     });
 
-    const monthlyRevenue = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const monthlyRevenue = payments.reduce((sum, p) => sum + cashInOf(p).toNumber(), 0);
 
     // 5. Occupancy rate (today's booked seats vs capacity)
     const totalCapacity = todaySchedules.reduce((acc, s) => acc + s.capacity, 0);

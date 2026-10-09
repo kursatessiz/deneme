@@ -777,7 +777,7 @@ export class PaymentsService {
         action: 'payments.refund',
         entityType: 'Payment',
         entityId: payment.id,
-        metadata: { amount: requested.toFixed(2), reason: dto.reason ?? null, fullyRefunded },
+        metadata: { amount: requested.toFixed(2), giftCardCredit: giftCardCredit.toFixed(2), reason: dto.reason ?? null, fullyRefunded },
       },
     });
 

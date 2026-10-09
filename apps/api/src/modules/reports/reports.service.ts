@@ -1,3 +1,4 @@
+import { cashInOf } from '../payments/cash-in';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@platform/database';
 import type {
@@ -232,7 +233,7 @@ export class ReportsService {
       this.prisma.$queryRaw<RevenuePeriodRow[]>(Prisma.sql`
         SELECT
           date_trunc(${bucket}, p.paid_at AT TIME ZONE 'UTC' AT TIME ZONE ${tz}) AS period,
-          SUM(p.amount) AS amount,
+          SUM(p.amount - p.gift_card_amount) AS amount,
           COUNT(*)::bigint AS payment_count
         FROM payments p
         WHERE p.studio_id = ${tenant.studioId}::uuid
@@ -250,14 +251,14 @@ export class ReportsService {
           paidAt: { gte: range.from, lt: range.to },
           ...(branchId ? { branchId } : tenant.branchIds ? { OR: [{ branchId: { in: [...tenant.branchIds] } }, { branchId: null }] } : {}),
         },
-        _sum: { amount: true },
+        _sum: { amount: true, giftCardAmount: true },
         _count: { _all: true },
       }),
       this.prisma.$queryRaw<RevenuePackageRow[]>(Prisma.sql`
         SELECT
           pd.id AS package_definition_id,
           pd.name AS package_definition_name,
-          SUM(p.amount) AS amount,
+          SUM(p.amount - p.gift_card_amount) AS amount,
           COUNT(*)::bigint AS payment_count
         FROM payments p
         LEFT JOIN member_packages mp ON mp.id = p.member_package_id
@@ -276,10 +277,10 @@ export class ReportsService {
           paidAt: { gte: range.from, lt: range.to },
           ...(branchId ? { branchId } : tenant.branchIds ? { OR: [{ branchId: { in: [...tenant.branchIds] } }, { branchId: null }] } : {}),
         },
-        _sum: { amount: true },
+        _sum: { amount: true, giftCardAmount: true },
       }),
       this.prisma.$queryRaw<{ refund_total: Prisma.Decimal | null }[]>(Prisma.sql`
-        SELECT SUM(p.refunded_amount) AS refund_total
+        SELECT SUM(p.refunded_amount - p.gift_card_refunded) AS refund_total
         FROM payments p
         WHERE p.studio_id = ${tenant.studioId}::uuid
           AND p.payment_status IN ('COMPLETED', 'REFUNDED')
@@ -295,7 +296,7 @@ export class ReportsService {
 
     const byMethod: RevenueMethodRowDTO[] = methodRows.map((r) => ({
       paymentMethod: r.paymentMethod,
-      amount: decimalOrZero(r._sum.amount).toFixed(2),
+      amount: cashInOf(r._sum).toFixed(2),
       paymentCount: r._count._all,
     }));
 
@@ -310,12 +311,12 @@ export class ReportsService {
       from: range.from.toISOString(),
       to: range.to.toISOString(),
       granularity,
-      total: decimalOrZero(totalRow._sum.amount).toFixed(2),
+      total: cashInOf(totalRow._sum).toFixed(2),
       byPeriod,
       byMethod,
       byPackage,
       refundTotal: decimalOrZero(refundRow[0]?.refund_total ?? null).toFixed(2),
-      netTotal: decimalOrZero(totalRow._sum.amount).minus(decimalOrZero(refundRow[0]?.refund_total ?? null)).toFixed(2),
+      netTotal: cashInOf(totalRow._sum).minus(decimalOrZero(refundRow[0]?.refund_total ?? null)).toFixed(2),
     };
   }
 
@@ -357,12 +358,12 @@ export class ReportsService {
               ? { OR: [{ branchId: { in: [...tenant.branchIds] } }, { branchId: null }] }
               : {}),
         },
-        _sum: { amount: true },
+        _sum: { amount: true, giftCardAmount: true },
       }),
       this.lastPackageEndings(tenant, range, branchId),
     ]);
 
-    const revenue = decimalOrZero(revenueRow._sum.amount);
+    const revenue = cashInOf(revenueRow._sum);
     const arpu = activeMembers === 0 ? ZERO : revenue.div(activeMembers);
 
     return {
