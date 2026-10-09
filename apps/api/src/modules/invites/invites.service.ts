@@ -23,6 +23,7 @@ import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 import { PLATFORM_ACCESS_ERROR_CODES, isPlatformSystemRoleKey, isWriteRestricted } from '@platform/shared';
 import { PlatformAccessService } from '../platform-access/platform-access.service';
 import { billingRestrictedError } from '../auth/guards/billing-write.guard';
+import { assertCanGrant, assertNotLocked } from '../role-templates/role-templates.service';
 import { apiError, codedError } from '../../common/api-error';
 import { pickBundledLocale, requestedLocale, requestT, serverT } from '../../common/server-i18n';
 
@@ -79,6 +80,11 @@ export class InvitesService {
       where: { studioId_key: { studioId: tenant.studioId, key: dto.roleKey } },
     });
     if (!role || role.isOwner) throw new BadRequestException(apiError('apiErrors.common.roleNotFound'));
+    assertNotLocked(role);
+    // Same boundary as role assignment: a non-owner cannot invite into a
+    // role holding permissions the inviter does not hold.
+    const roleKeys = await this.prisma.roleTemplatePermission.findMany({ where: { roleTemplateId: role.id }, select: { permissionKey: true } });
+    assertCanGrant(tenant, roleKeys.map((k) => k.permissionKey));
 
     const existing = await this.prisma.membership.findFirst({
       where: { studioId: tenant.studioId, status: 'ACTIVE', user: { phone: dto.phone } },
