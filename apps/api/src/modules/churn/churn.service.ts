@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { Prisma } from '@platform/database';
 import type {
   ChurnListQuery,
@@ -12,6 +12,7 @@ import type {
 } from '@platform/shared';
 import { CHURN_RISK_LEVELS, parseChurnWeights } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { ErrorCaptureService } from '../error-reporting/error-capture.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { assertBranchAccess } from '../branches/branch-access';
 import { scoreMemberChurnRisk, type ChurnMemberSignals } from './churn-scoring';
@@ -48,7 +49,12 @@ interface FailedPaymentRow {
 
 @Injectable()
 export class ChurnService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(ChurnService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly errors?: ErrorCaptureService,
+  ) {}
 
   // ---------------------------------------------------------------------------
   // Computation
@@ -231,9 +237,15 @@ export class ChurnService {
     for (const studio of studios) {
       const last = latestByStudio.get(studio.id);
       if (last && last > cutoff) continue;
-      const result = await this.recomputeStudio(studio.id, now);
-      studiosProcessed += 1;
-      membersScored += result.membersScored;
+      // One failing studio must not stop the rest from being scored.
+      try {
+        const result = await this.recomputeStudio(studio.id, now);
+        studiosProcessed += 1;
+        membersScored += result.membersScored;
+      } catch (err) {
+        this.logger.error(`Churn recompute failed for studio ${studio.id}: ${err instanceof Error ? err.message : String(err)}`);
+        this.errors?.capture({ source: 'job', error: err, studioId: studio.id, route: 'job churn/recomputeStale' });
+      }
     }
     return { studiosProcessed, membersScored };
   }

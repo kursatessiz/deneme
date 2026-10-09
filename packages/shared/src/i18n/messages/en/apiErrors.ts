@@ -356,6 +356,7 @@ export const enApiErrors: Record<keyof typeof trApiErrors, string> = {
   'apiErrors.members.noMemberProfileBusiness': 'You have no member profile in this business',
   'apiErrors.members.packageNotFound': 'Package not found',
   'apiErrors.members.packageNotFrozen': 'This package is not frozen',
+  'apiErrors.members.packageNotFreezable': 'This package cannot be frozen in its current state',
 
   // messaging
   'apiErrors.messaging.24HourWhatsappCustomerServiceWindow': 'The 24-hour WhatsApp customer service window has closed: only an approved template can be sent',

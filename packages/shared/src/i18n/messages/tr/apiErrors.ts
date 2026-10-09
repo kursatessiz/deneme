@@ -359,6 +359,7 @@ export const trApiErrors = {
   'apiErrors.members.noMemberProfileBusiness': 'Bu işletmede üye profiliniz yok',
   'apiErrors.members.packageNotFound': 'Paket bulunamadı',
   'apiErrors.members.packageNotFrozen': 'Bu paket dondurulmuş durumda değil',
+  'apiErrors.members.packageNotFreezable': 'Bu paket mevcut durumunda dondurulamaz',
 
   // messaging
   'apiErrors.messaging.24HourWhatsappCustomerServiceWindow': 'WhatsApp 24 saatlik müşteri hizmetleri penceresi kapandı: yalnızca onaylı bir şablon gönderilebilir',
