@@ -431,6 +431,13 @@ export class PromotionsService {
     const branchId = dto.branchId ?? member.homeBranchId ?? null;
     if (branchId) assertBranchAccess(tenant, branchId);
 
+    // Gift card value and its sale payment are always in the business currency.
+    const studio = await this.prisma.studio.findUniqueOrThrow({ where: { id: tenant.studioId }, select: { currency: true } });
+    if (dto.currency.toUpperCase() !== studio.currency.toUpperCase()) {
+      throw new BadRequestException(apiError('apiErrors.payments.currencyMustMatchStudio', { currency: studio.currency }));
+    }
+    const currency = studio.currency;
+
     const amount = new Prisma.Decimal(dto.initialAmount).toDecimalPlaces(2);
     const code = generateGiftCardCode();
     const codeHash = hashGiftCardCode(code);
@@ -444,7 +451,7 @@ export class PromotionsService {
           last4,
           initialAmount: amount,
           balance: amount,
-          currency: dto.currency,
+          currency,
           purchaserUserId: member.membership.userId,
           recipientName: dto.recipientName,
           recipientPhone: dto.recipientPhone,
@@ -458,7 +465,7 @@ export class PromotionsService {
           memberId: dto.memberId,
           branchId,
           amount,
-          currency: dto.currency,
+          currency,
           paymentMethod: dto.paymentMethod,
           paymentStatus: 'COMPLETED',
           notes: serverT(await studioLocale(this.prisma, tenant.studioId))('apiTexts.payments.giftCardSale', { last4: giftCard.last4 }),
