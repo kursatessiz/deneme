@@ -42,7 +42,7 @@ current_release() {
 # (default 3), the current release and the previous release are kept and the
 # rest are removed. Images still used by a container are refused by docker rm.
 prune_release_images() {
-  local keep="${1:-${KEEP_RELEASE_IMAGES:-3}}" name ref tag count current previous
+  local keep="${KEEP_RELEASE_IMAGES:-3}" name ref tag count current previous
   current="$(current_release)"
   previous="$(cat "${RELEASE_DIR}/previous" 2>/dev/null || true)"
   for name in api web; do
