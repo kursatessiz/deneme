@@ -127,6 +127,12 @@ seferlik), `pairingCodeExpiresAt` (10 dakika), `pairedAt`, `lastSeenAt`,
    `POST /studios/:studioId/kiosk-devices/:id/revoke` ile iptal edilir.
 5. Her kiosk eşleştirmesi, iptali ve check-in'i `AuditLog`'a yazılır
    (`kiosk.device.pair`, `kiosk.device.revoke`, `kiosk.check-in`).
+6. Kiosk modundan çıkış (mobil, `app/kiosk-mode.tsx`) telefon + PIN ile giriş
+   ister ve yalnızca kiosk'un işletmesinde aktif üyeliği ve kiosk yönetme yetkisi
+   (`studio.settings.manage`, personel menüsündeki kiosk girişiyle aynı kural,
+   `src/lib/kioskExit.ts`) olan kişiyi kabul eder. Başka bir PIN (örneğin bir
+   üyenin) kiosk'u kapatmaz: verilen jetonlar saklanmaz ve iptal edilir, kiosk
+   çalışmaya devam eder ve çevrilmiş bir hata (`mKiosk.exitNotAllowed`) görünür.
 
 ### Telefonun son 4 hanesi + PIN yedek girişi: kapsam dışı bırakıldı
 
