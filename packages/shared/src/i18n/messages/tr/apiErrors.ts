@@ -360,6 +360,7 @@ export const trApiErrors = {
   'apiErrors.members.noMemberProfileBusiness': 'Bu işletmede üye profiliniz yok',
   'apiErrors.members.packageNotFound': 'Paket bulunamadı',
   'apiErrors.members.packageNotFrozen': 'Bu paket dondurulmuş durumda değil',
+  'apiErrors.members.packageNotFreezable': 'Bu paket mevcut durumunda dondurulamaz',
 
   // messaging
   'apiErrors.messaging.24HourWhatsappCustomerServiceWindow': 'WhatsApp 24 saatlik müşteri hizmetleri penceresi kapandı: yalnızca onaylı bir şablon gönderilebilir',
@@ -523,6 +524,10 @@ export const trApiErrors = {
   'apiErrors.schedules.canOnlyRemoveOwnWaitlistEntry': 'Yalnızca kendi bekleme listesi kaydınızı silebilirsiniz',
   'apiErrors.schedules.cancelledSessionCannotUpdated': 'İptal edilmiş bir seans güncellenemez',
   'apiErrors.schedules.cannotJoinWaitlistSessionStarted': 'Başlamış bir seansın bekleme listesine girilemez',
+  'apiErrors.schedules.sessionAlreadyStarted': 'Başlamış bir seansa rezervasyon yapılamaz',
+  'apiErrors.schedules.sessionAlreadyEnded': 'Sona ermiş bir seansa rezervasyon yapılamaz',
+  'apiErrors.schedules.minRepeatIntervalNotElapsed.one': 'Bu hizmet için bir önceki seansınızdan en az {count} gün sonra yeniden rezervasyon yapabilirsiniz.',
+  'apiErrors.schedules.minRepeatIntervalNotElapsed.other': 'Bu hizmet için bir önceki seansınızdan en az {count} gün sonra yeniden rezervasyon yapabilirsiniz.',
   'apiErrors.schedules.capacityBelowBookings': 'Kapasite mevcut rezervasyon sayısının ({count}) altına düşürülemez',
   'apiErrors.schedules.dateRangeCanMost31Days': 'Tarih aralığı en fazla 31 gün olabilir',
   'apiErrors.schedules.endTimeMustAfterStartTime': 'Bitiş saati başlangıç saatinden sonra olmalıdır',

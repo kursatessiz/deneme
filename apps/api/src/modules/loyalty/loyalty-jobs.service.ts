@@ -76,11 +76,23 @@ export class LoyaltyJobsService {
     let sent = 0;
     for (const settings of studios) {
       const until = new Date(now.getTime() + settings.expiryNoticeDays * DAY_MS);
-      const accounts = await this.prisma.loyaltyAccount.findMany({
-        where: { studioId: settings.studioId, balance: { gt: 0 }, nextExpiryAt: { gt: now, lte: until } },
-        select: { id: true, membershipId: true, nextExpiryAt: true, expiryNoticeFor: true },
-        take: BATCH,
-      });
+      // Accounts already notified for their current expiry date are excluded in the
+      // query (a column-to-column comparison Prisma cannot express), so the batch is
+      // not filled with accounts that need no notice.
+      const pending = await this.prisma.$queryRaw<{ id: string }[]>`
+        SELECT "id"::text AS id FROM "loyalty_accounts"
+        WHERE "studio_id" = ${settings.studioId}::uuid AND "balance" > 0
+          AND "next_expiry_at" > ${now} AND "next_expiry_at" <= ${until}
+          AND ("expiry_notice_for" IS NULL OR "expiry_notice_for" <> "next_expiry_at")
+        ORDER BY "next_expiry_at" ASC, "id" ASC
+        LIMIT ${BATCH}`;
+      const accounts = pending.length
+        ? await this.prisma.loyaltyAccount.findMany({
+            where: { studioId: settings.studioId, id: { in: pending.map((r) => r.id) } },
+            select: { id: true, membershipId: true, nextExpiryAt: true, expiryNoticeFor: true },
+            orderBy: [{ nextExpiryAt: 'asc' }, { id: 'asc' }],
+          })
+        : [];
       for (const account of accounts) {
         if (!account.nextExpiryAt) continue;
         if (account.expiryNoticeFor && account.expiryNoticeFor.getTime() === account.nextExpiryAt.getTime()) continue;

@@ -299,17 +299,41 @@ export class MembersService {
       throw new NotFoundException(apiError('apiErrors.members.packageNotFound'));
     }
 
-    if (dto.days > memberPackage.packageDefinition.freezeDaysAllowed) {
-      throw new BadRequestException(
-        apiError('apiErrors.members.freezeDaysExceeded', { count: memberPackage.packageDefinition.freezeDaysAllowed }),
-      );
+    // Only a running package can be frozen (not FROZEN, EXPIRED, DEPLETED or CANCELLED).
+    if (memberPackage.status !== 'ACTIVE') {
+      throw new BadRequestException(apiError('apiErrors.members.packageNotFreezable'));
+    }
+
+    // The allowance is cumulative over the package's life: earlier freezes
+    // (shortened by an early unfreeze) count against it.
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const history = await this.prisma.packageFreezeHistory.findMany({
+      where: { memberPackageId: packageId },
+      select: { freezeStartDate: true, freezeEndDate: true },
+    });
+    const usedDays = history.reduce(
+      (sum, row) => sum + Math.max(0, Math.ceil((row.freezeEndDate.getTime() - row.freezeStartDate.getTime()) / DAY_MS)),
+      0,
+    );
+    const remainingDays = Math.max(0, memberPackage.packageDefinition.freezeDaysAllowed - usedDays);
+    if (dto.days > remainingDays) {
+      throw new BadRequestException(apiError('apiErrors.members.freezeDaysExceeded', { count: remainingDays }));
     }
 
     const now = new Date();
-    const freezeUntil = new Date(now.getTime() + dto.days * 24 * 60 * 60 * 1000);
-    const newEndDate = new Date(memberPackage.endDate.getTime() + dto.days * 24 * 60 * 60 * 1000);
+    const freezeUntil = new Date(now.getTime() + dto.days * DAY_MS);
+    const newEndDate = new Date(memberPackage.endDate.getTime() + dto.days * DAY_MS);
 
     return this.prisma.$transaction(async (tx) => {
+      // Conditional on still being ACTIVE with the endDate we read: a double
+      // submit cannot extend the package twice.
+      const flipped = await tx.memberPackage.updateMany({
+        where: { id: packageId, studioId, status: 'ACTIVE', endDate: memberPackage.endDate },
+        data: { status: 'FROZEN', frozenUntil: freezeUntil, endDate: newEndDate },
+      });
+      if (flipped.count === 0) {
+        throw new BadRequestException(apiError('apiErrors.members.packageNotFreezable'));
+      }
       await tx.packageFreezeHistory.create({
         data: {
           memberPackageId: packageId,
@@ -318,16 +342,21 @@ export class MembersService {
           reason: dto.reason,
         },
       });
-
-      return tx.memberPackage.update({
-        where: { id: packageId },
-        data: {
-          status: 'FROZEN',
-          frozenUntil: freezeUntil,
-          endDate: newEndDate,
-        },
-      });
+      return tx.memberPackage.findUniqueOrThrow({ where: { id: packageId } });
     });
+  }
+
+  /**
+   * Heartbeat step: a freeze whose frozenUntil has passed returns to ACTIVE
+   * (book() only accepts ACTIVE packages). endDate was already extended when
+   * the freeze started, so only status and frozenUntil change.
+   */
+  async releaseElapsedFreezes(now: Date = new Date()): Promise<{ released: number }> {
+    const result = await this.prisma.memberPackage.updateMany({
+      where: { status: 'FROZEN', frozenUntil: { lte: now } },
+      data: { status: 'ACTIVE', frozenUntil: null },
+    });
+    return { released: result.count };
   }
 
   /**

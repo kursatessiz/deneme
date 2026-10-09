@@ -346,7 +346,13 @@ describe('API e2e', () => {
       scheduleB = b.id;
       createdScheduleIds.push(scheduleA, scheduleB);
 
-      const members = await prisma.memberProfile.findMany({ where: { studioId: ZEN }, take: 2 });
+      // Members with no other EMS booking, so the service's minimum repeat
+      // interval cannot answer before the equipment conflict this block tests.
+      const members = await prisma.memberProfile.findMany({
+        where: { studioId: ZEN, bookings: { none: { schedule: { serviceTypeId: emsServiceTypeId } } } },
+        orderBy: { id: 'asc' },
+        take: 2,
+      });
       if (members.length < 2) throw new Error('seed data missing at least two members for Zen');
       member1 = members[0].id;
       member2 = members[1].id;

@@ -67,6 +67,23 @@ export function zonedMidnight(year: number, month: number, day: number, timeZone
   return new Date(instant);
 }
 
+/**
+ * The instant `days` calendar days after `date` at the same local wall time in the zone
+ * (negative moves back). Across a DST change the UTC distance is 23 or 25 hours per day,
+ * but the local time stays; a wall time that does not exist that day lands just after the gap.
+ */
+export function addZonedDays(date: Date, days: number, timeZone: string): Date {
+  const zone = safeZone(timeZone);
+  const p = partsInZone(date, zone);
+  const millis = date.getUTCMilliseconds();
+  const guess = Date.UTC(p.year, p.month - 1, p.day + days, p.hour, p.minute, p.second, millis);
+  const first = zoneOffsetMs(new Date(guess), zone);
+  let instant = guess - first;
+  const second = zoneOffsetMs(new Date(instant), zone);
+  if (second !== first) instant = guess - second;
+  return new Date(instant);
+}
+
 /** Calendar day of `date` in the zone, as `YYYY-MM-DD`. */
 export function zonedDateKey(date: Date, timeZone: string): string {
   const p = partsInZone(date, safeZone(timeZone));

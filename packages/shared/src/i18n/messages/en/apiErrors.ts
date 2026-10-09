@@ -357,6 +357,7 @@ export const enApiErrors: Record<keyof typeof trApiErrors, string> = {
   'apiErrors.members.noMemberProfileBusiness': 'You have no member profile in this business',
   'apiErrors.members.packageNotFound': 'Package not found',
   'apiErrors.members.packageNotFrozen': 'This package is not frozen',
+  'apiErrors.members.packageNotFreezable': 'This package cannot be frozen in its current state',
 
   // messaging
   'apiErrors.messaging.24HourWhatsappCustomerServiceWindow': 'The 24-hour WhatsApp customer service window has closed: only an approved template can be sent',
@@ -520,6 +521,10 @@ export const enApiErrors: Record<keyof typeof trApiErrors, string> = {
   'apiErrors.schedules.canOnlyRemoveOwnWaitlistEntry': 'You can only remove your own waitlist entry',
   'apiErrors.schedules.cancelledSessionCannotUpdated': 'A cancelled session cannot be updated',
   'apiErrors.schedules.cannotJoinWaitlistSessionStarted': 'You cannot join the waitlist of a session that has started',
+  'apiErrors.schedules.sessionAlreadyStarted': 'You cannot book a session that has already started',
+  'apiErrors.schedules.sessionAlreadyEnded': 'You cannot book a session that has already ended',
+  'apiErrors.schedules.minRepeatIntervalNotElapsed.one': 'This service can be booked again at least {count} day after your other session.',
+  'apiErrors.schedules.minRepeatIntervalNotElapsed.other': 'This service can be booked again at least {count} days after your other session.',
   'apiErrors.schedules.capacityBelowBookings': 'Capacity cannot go below the current number of bookings ({count})',
   'apiErrors.schedules.dateRangeCanMost31Days': 'The date range can be at most 31 days',
   'apiErrors.schedules.endTimeMustAfterStartTime': 'The end time must be after the start time',

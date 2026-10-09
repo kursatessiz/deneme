@@ -384,13 +384,14 @@ export class CampaignsService {
         approvedAudience = await this.approvals.verifyForSend(campaign, now);
         if (!approvedAudience) return totals;
       }
-      // Only one worker moves SCHEDULED -> SENDING and takes the audience snapshot.
-      const claimed = await this.prisma.campaign.updateMany({ where: { id, status: 'SCHEDULED' }, data: { status: 'SENDING', startedAt: now } });
-      if (claimed.count === 1) {
-        const contactIds = approvedAudience ?? (await this.segments.memberIds(campaign.studioId, campaign.segmentId, now));
-        await this.materialise(campaign, contactIds, now);
-        await this.prisma.campaign.update({ where: { id }, data: { audienceCount: contactIds.length } });
-      }
+      // The audience is written BEFORE the status flips: a crash in between leaves a
+      // SCHEDULED campaign that the next run snapshots again (createMany skips the
+      // existing rows), never a SENDING one with no recipients that would complete as SENT.
+      const contactIds = approvedAudience ?? (await this.segments.memberIds(campaign.studioId, campaign.segmentId, now));
+      await this.materialise(campaign, contactIds, now);
+      await this.prisma.campaign.updateMany({ where: { id, status: 'SCHEDULED' }, data: { audienceCount: contactIds.length } });
+      // Only one worker moves SCHEDULED -> SENDING.
+      await this.prisma.campaign.updateMany({ where: { id, status: 'SCHEDULED' }, data: { status: 'SENDING', startedAt: now } });
       campaign = await this.prisma.campaign.findUnique({ where: { id } });
       if (!campaign) return totals;
     }
