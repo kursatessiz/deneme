@@ -31,14 +31,14 @@ import type {
   UpdateSessionMeetingInput,
   JoinSessionResultDTO,
 } from '@platform/shared';
-import { addZonedDays, isWithinJoinWindow } from '@platform/shared';
+import { addZonedDays, isWithinJoinWindow, selectUsablePackage } from '@platform/shared';
 import { Prisma, SessionDeliveryMode } from '@platform/database';
 import type { Booking, BookingStatus, CancellationPolicy, MemberPackage } from '@platform/database';
 import { evaluateCancellation, evaluateNoShow, FALLBACK_POLICY, PolicyTerms } from './cancellation-policy';
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
 import { deriveSpotStatus, SpotOccupant } from './spots';
 import { sortByClosestStart } from '../checkin/checkin-window';
-import type { ApiErrorKey, ApiTextKey, BookingNoticeDTO, ScheduleSpotsDTO, SpotGroupDTO } from '@platform/shared';
+import type { ApiErrorKey, ApiTextKey, BookingChargedPackageDTO, BookingNoticeDTO, ScheduleSpotsDTO, SpotGroupDTO } from '@platform/shared';
 import { apiError, hasApiErrorCode } from '../../common/api-error';
 import { errorMessageIn, requestLocale, requestT, serverT, studioLocale } from '../../common/server-i18n';
 import type { ServerT } from '../../common/server-i18n';
@@ -389,19 +389,24 @@ export class SchedulesService {
    * overrides the minimum repeat interval (`dto.overrideRepeatInterval`).
    * The response is the booking plus informational `notices`.
    */
-  async bookSession(tenant: TenantContext, dto: BookSessionInput, actorUserId: string | null = null) {
+  async bookSession(
+    tenant: TenantContext,
+    dto: BookSessionInput,
+    actorUserId: string | null = null,
+    options: { freeOfCharge?: boolean } = {},
+  ) {
     await this.assertScheduleBranch(tenant, dto.scheduleId);
-    const { booking, notices } = await this.book(tenant.studioId, dto, 'staff', actorUserId);
+    const { booking, notices, chargedPackage } = await this.book(tenant.studioId, dto, 'staff', actorUserId, options.freeOfCharge === true);
     await this.emitBookingCreated(tenant.studioId, booking);
-    return { ...booking, notices };
+    return { ...booking, notices, chargedPackage };
   }
 
   /** Members booking for themselves; enforces dto.memberId matches the caller's own profile. */
   async bookSessionSelf(tenant: TenantContext, dto: BookSessionInput) {
     this.assertSelf(tenant, dto.memberId, 'apiErrors.schedules.canOnlyBookYourself');
-    const { booking, notices } = await this.book(tenant.studioId, dto, 'self');
+    const { booking, notices, chargedPackage } = await this.book(tenant.studioId, dto, 'self');
     await this.emitBookingCreated(tenant.studioId, booking);
-    return { ...booking, notices };
+    return { ...booking, notices, chargedPackage };
   }
 
   private async emitBookingCreated(studioId: string, booking: { id: string; scheduleId: string; memberId: string }): Promise<void> {
@@ -589,17 +594,29 @@ export class SchedulesService {
    * `actor` decides the time rule: a member (`self`) cannot book a session that
    * has started, staff (`staff`, reception walk-ins) cannot book one that has
    * ended, and the waitlist promotion (`system`) is bounded by its own check.
+   *
+   * Package rule: the booking is charged to `dto.memberPackageId`, or, when none
+   * is given, to the member's soonest-expiring usable package (no usable package
+   * is a 400). Only staff may opt out with `dto.chargePackage === false`
+   * (audited as booking.no_charge); `freeOfCharge` is the internal opt-out for
+   * flows that legitimately book without a package (CRM trial session).
    */
   private async book(
     studioId: string,
     dto: BookSessionInput,
     actor: 'self' | 'staff' | 'system' = 'staff',
     actorUserId: string | null = null,
-  ): Promise<{ booking: Booking; notices: BookingNoticeDTO[] }> {
+    freeOfCharge = false,
+  ): Promise<{ booking: Booking; notices: BookingNoticeDTO[]; chargedPackage: BookingChargedPackageDTO | null }> {
     // Only staff may waive the repeat interval; a member asking for it is refused outright.
     if (actor === 'self' && dto.overrideRepeatInterval) {
       throw new ForbiddenException(apiError('apiErrors.schedules.repeatOverrideNotAllowed'));
     }
+    // Only staff may book without charging a package.
+    if (dto.chargePackage === false && actor !== 'staff') {
+      throw new ForbiddenException(apiError('apiErrors.schedules.noChargeNotAllowed'));
+    }
+    const skipCharge = freeOfCharge || dto.chargePackage === false;
     const schedule = await this.prisma.sessionSchedule.findFirst({
       where: { id: dto.scheduleId, studioId },
       include: { serviceType: { include: { requiredResourceTypes: { include: { resourceType: true } } } } },
@@ -687,12 +704,12 @@ export class SchedulesService {
       }
     }
 
-    const { memberPackage, unitCost } = await this.resolvePackage(
-      studioId,
-      dto.memberId,
-      dto.memberPackageId,
-      schedule.serviceTypeId,
-    );
+    const { memberPackage, unitCost } = skipCharge
+      ? { memberPackage: null, unitCost: 0 }
+      : dto.memberPackageId || schedule.serviceType.allowedEntitlementKinds.length === 0
+        ? await this.resolvePackage(studioId, dto.memberId, dto.memberPackageId, schedule.serviceTypeId)
+        : await this.autoSelectPackage(studioId, dto.memberId, schedule.serviceTypeId, schedule.serviceType.allowedEntitlementKinds);
+    const chargedPackageId = memberPackage?.id;
 
     const booking = await this.prisma.$transaction(async (tx) => {
       if (memberPackage && memberPackage.entitlementKind !== 'TIME_UNLIMITED' && unitCost > 0) {
@@ -721,7 +738,7 @@ export class SchedulesService {
 
       let booking;
       try {
-        booking = await this.upsertBooking(tx, studioId, dto.scheduleId, dto.memberId, dto.memberPackageId, unitCost);
+        booking = await this.upsertBooking(tx, studioId, dto.scheduleId, dto.memberId, chargedPackageId, unitCost);
       } catch (err) {
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
           throw new ConflictException(apiError('apiErrors.schedules.memberAlreadyBookedIntoSession'));
@@ -782,7 +799,62 @@ export class SchedulesService {
       });
     }
 
-    return { booking, notices };
+    if (dto.chargePackage === false) {
+      await this.prisma.auditLog.create({
+        data: {
+          studioId,
+          userId: actorUserId,
+          action: 'booking.no_charge',
+          entityType: 'Booking',
+          entityId: booking.id,
+          metadata: { serviceTypeId: schedule.serviceTypeId, memberId: dto.memberId, scheduleId: dto.scheduleId },
+        },
+      });
+    }
+
+    let chargedPackage: BookingChargedPackageDTO | null = null;
+    if (chargedPackageId) {
+      const used = await this.prisma.memberPackage.findFirst({
+        where: { id: chargedPackageId, studioId },
+        include: { packageDefinition: { select: { name: true } } },
+      });
+      if (used) {
+        chargedPackage = {
+          memberPackageId: used.id,
+          packageName: used.packageDefinition.name,
+          entitlementKind: used.entitlementKind,
+          unitsCharged: booking.unitsCharged,
+          remainingUnits: used.remainingUnits,
+        };
+      }
+    }
+    return { booking, notices, chargedPackage };
+  }
+
+  /**
+   * Picks the package a booking without `memberPackageId` is charged to: the
+   * member's usable package that expires soonest (see selectUsablePackage).
+   */
+  private async autoSelectPackage(
+    studioId: string,
+    memberId: string,
+    serviceTypeId: string,
+    allowedKinds: MemberPackage['entitlementKind'][],
+  ): Promise<{ memberPackage: MemberPackage; unitCost: number }> {
+    const now = new Date();
+    const packages = await this.prisma.memberPackage.findMany({
+      where: { studioId, memberId, status: 'ACTIVE', endDate: { gt: now } },
+      include: { packageDefinition: { include: { services: { where: { serviceTypeId } } } } },
+    });
+    const candidates = packages.map((p) => ({
+      ...p,
+      unitCost: p.packageDefinition.services[0]?.unitCost ?? null,
+    }));
+    const picked = selectUsablePackage(candidates, allowedKinds, now);
+    if (!picked || picked.unitCost === null) {
+      throw new BadRequestException(apiError('apiErrors.schedules.noUsablePackage'));
+    }
+    return { memberPackage: picked, unitCost: picked.unitCost };
   }
 
   /**

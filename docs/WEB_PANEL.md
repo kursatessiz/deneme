@@ -227,14 +227,32 @@ vardır; çıkış butonu menünün dışında, her zaman görünür kalır.
   `metadata`: `serviceTypeId`, `memberId`, `scheduleId`, `conflictingBookingId`, `conflictingSessionStart`,
   `minRepeatIntervalDays`). Üye (`POST /schedules/book/self`) bayrağı gönderirse `403`
   (`apiErrors.schedules.repeatOverrideNotAllowed`) alır; bekleme listesi terfisi (sistem) kuralı aşamaz.
+  **Paket kuralı (tek sunucu kuralı)**: hizmetin `allowedEntitlementKinds` listesi doluysa ve istekte
+  `memberPackageId` yoksa API üyenin paketini kendisi seçer: `ACTIVE`, `endDate > şimdi`, dondurulmamış
+  (`frozenUntil` geçmiş veya boş), hizmeti kapsayan, izinli hak türünde ve yeterli birimli/kredili paket
+  (`CREDIT` türünde hizmetin kredi maliyeti, `TIME_UNLIMITED` için birim gerekmez). Önce süresi en yakın
+  dolan, eşitlikte en eski paket seçilir (`selectUsablePackage`, `packages/shared/src/package-selection.ts`).
+  Kullanılabilir paket yoksa `400 apiErrors.schedules.noUsablePackage`. Yalnızca personel (`bookings.manage`)
+  `chargePackage: false` ile hak düşmeden rezervasyon yapabilir (`AuditLog` `booking.no_charge`); üye
+  (`/schedules/book/self`) bu bayrağı gönderirse `403` (`apiErrors.schedules.noChargeNotAllowed`).
+  Yanıttaki `chargedPackage` (`memberPackageId`, `packageName`, `unitsCharged`, `remainingUnits`) hangi
+  paketin kullanıldığını gösterir; iptal iadesi rezervasyondaki `memberPackageId` üzerinden aynı pakete
+  yapılır. Paket aranmayan akışlar: CRM deneme seansı (`leads-compat`, yeni kişinin paketi yoktur),
+  ortak (partner) rezervasyonları ve misafirler (`unitsCharged: 0`), etkinlik biletleri (kendi kredi
+  mantığı). Bekleme listesi terfisi kayıtlı paketi, yoksa otomatik seçimi kullanır; kullanılabilir paket
+  yoksa kayıt `EXPIRED` olur.
   **Web personel rezervasyonu**: `bookings.manage` sahibi personel iki yerden üye adına rezervasyon yapar;
   ikisi de aynı `StaffBookingForm` bileşenini (`components/calendar/StaffBookingForm.tsx`) kullanır ve
   `POST /schedules/book` çağırır.
   - Takvim, seans paneli: "Üye ekle" (bitmemiş, iptal edilmemiş seans). Üye, üyeler sayfasındaki
     `GET /members/studio/:id?search=` ucuyla aranır; üyenin paketlerinden seansın hizmetini kapsayan,
     süresi dolmamış ve hakkı kalan olanlar listelenir (`GET /catalog/package-definitions/...` kapsamı;
-    `catalog.view` yoksa tüm kullanılabilir paketler sunulur ve API karar verir). Paket seçilmezse hak
-    düşülmez (`memberPackageId` gönderilmez). Seansın yer/ekipman seçimi `GET /schedules/:id/spots` ile
+    `catalog.view` yoksa tüm kullanılabilir paketler sunulur ve API karar verir). Seçenekler: "Otomatik"
+    (varsayılan; `memberPackageId` gönderilmez, API üyenin kullanılabilir paketlerinden süresi en yakın
+    dolanı seçip hakkı düşer), tek tek paketler (seçilen `memberPackageId` gönderilir) ve "Paket kullanma
+    (hak düşülmez)" (`chargePackage: false` gönderilir). Kullanılabilir paket yoksa API `400
+    apiErrors.schedules.noUsablePackage` döner ve satır içinde gösterilir; personel hak düşmeden devam
+    etmek için "Paket kullanma" seçer. Seansın yer/ekipman seçimi `GET /schedules/:id/spots` ile
     gelir (dolu ve bakımdaki yerler seçilemez); hizmet seçilebilir yer istiyorsa seçmeden gönderilirse API
     hatayı döner ve satır içinde gösterilir.
   - Üye kartı: "Rezervasyon yap" (`MemberBookingDialog`). Önümüzdeki 14 günde boş kontenjanı olan

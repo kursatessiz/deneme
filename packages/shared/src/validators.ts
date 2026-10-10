@@ -241,6 +241,13 @@ export const BookSessionSchema = z.object({
    * self-service endpoint answers 403 when this is true.
    */
   overrideRepeatInterval: z.boolean().optional(),
+  /**
+   * Staff only: `false` books without charging any package (audited as
+   * booking.no_charge). When omitted the API charges the given memberPackageId
+   * or, without one, the member's soonest-expiring usable package. The member
+   * self-service endpoint answers 403 when this is false.
+   */
+  chargePackage: z.boolean().optional(),
 });
 export type BookSessionInput = z.infer<typeof BookSessionSchema>;
 

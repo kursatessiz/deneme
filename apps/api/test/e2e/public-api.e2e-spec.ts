@@ -278,6 +278,8 @@ describe('Public API and webhooks (e2e)', () => {
       const created = await pub(fullKey).post('/v1/public/bookings').send({ scheduleId, memberPhone: MEMBER_PHONE });
       expect(created.status).toBe(201);
       expect(created.body.status).toBe('CONFIRMED');
+      // Without memberPackageId the API charges the member's soonest-expiring usable package.
+      expect(created.body.chargedPackage?.memberPackageId).toBeTruthy();
       bookingIds.push(created.body.id);
 
       const listMasked = await pub(readOnlyKey).get(`/v1/public/bookings?scheduleId=${scheduleId}`).expect(200);
@@ -342,7 +344,7 @@ describe('Public API and webhooks (e2e)', () => {
       });
       const booking = await staff(ownerToken, ZEN)
         .post('/schedules/book')
-        .send({ studioId: ZEN, scheduleId, memberId: memberProfile.id, resourceIds: [] });
+        .send({ studioId: ZEN, scheduleId, memberId: memberProfile.id, resourceIds: [], chargePackage: false });
       expect(booking.status).toBe(201);
       bookingIds.push(booking.body.id);
 

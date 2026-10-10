@@ -14,4 +14,13 @@ export const trMWalkIn = {
   'mWalkIn.repeatOverride.body.other': 'Bu üye için en az {count} gün kuralı ihlal ediliyor (son seans: {date}). Yine de rezervasyon yapılsın mı?',
   'mWalkIn.repeatOverride.confirm': 'Yine de ekle',
   'mWalkIn.repeatOverride.cancel': 'Vazgeç',
+  'mWalkIn.package.label': 'Kullanılacak paket',
+  'mWalkIn.package.auto': 'Otomatik (en yakın süresi dolan)',
+  'mWalkIn.package.none': 'Paket kullanma (hak düşülmez)',
+  'mWalkIn.package.units': '{name} ({remaining} hak kaldı)',
+  'mWalkIn.package.unlimited': '{name} (sınırsız)',
+  'mWalkIn.package.noUsableHint': 'Üyenin kullanılabilir paketi yok. Hak düşmeden eklemek için "Paket kullanma" seçin.',
+  'mWalkIn.chargedWithRemaining': 'Kullanılan paket: {name} (kalan: {remaining})',
+  'mWalkIn.charged': 'Kullanılan paket: {name}',
+  'mWalkIn.notCharged': 'Paket kullanılmadı, hak düşülmedi.',
 } as const satisfies Record<string, string>;

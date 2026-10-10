@@ -1,4 +1,4 @@
-import { bookableSessions, buildBookBody, isSessionFull, repeatIntervalConflict, usablePackages } from './staff-booking';
+import { bookableSessions, buildBookBody, isSessionFull, NO_CHARGE_PACKAGE, repeatIntervalConflict, usablePackages } from './staff-booking';
 import type { MemberPackageRow } from '@/lib/members/types';
 
 const ID = '11111111-1111-4111-8111-111111111111';
@@ -79,6 +79,14 @@ describe('buildBookBody', () => {
     expect(
       buildBookBody({ studioId: ID, scheduleId: ID, memberId: ID, memberPackageId: 'pk', resourceIds: ['r1', ''], overrideRepeatInterval: true }),
     ).toEqual({ studioId: ID, scheduleId: ID, memberId: ID, resourceIds: ['r1'], memberPackageId: 'pk', overrideRepeatInterval: true });
+  });
+});
+
+describe('buildBookBody without charging', () => {
+  it('sends chargePackage:false and no package id for the no-charge option', () => {
+    expect(
+      buildBookBody({ studioId: ID, scheduleId: ID, memberId: ID, memberPackageId: NO_CHARGE_PACKAGE, resourceIds: [], overrideRepeatInterval: false }),
+    ).toEqual({ studioId: ID, scheduleId: ID, memberId: ID, resourceIds: [], chargePackage: false });
   });
 });
 

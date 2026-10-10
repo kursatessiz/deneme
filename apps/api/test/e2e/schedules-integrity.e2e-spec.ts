@@ -29,6 +29,7 @@ describe('Scheduling integrity (e2e)', () => {
   let memberB: string;
   const scheduleIds: string[] = [];
   const serviceTypeIds: string[] = [];
+  const packageDefinitionIds: string[] = [];
   const auditEntityIds: string[] = [];
   let base = Date.UTC(2032, 2, 1, 10, 0, 0);
 
@@ -83,6 +84,8 @@ describe('Scheduling integrity (e2e)', () => {
     await prisma.waitlist.deleteMany({ where: { scheduleId: { in: scheduleIds } } });
     await prisma.booking.deleteMany({ where: { scheduleId: { in: scheduleIds } } });
     await prisma.sessionSchedule.deleteMany({ where: { id: { in: scheduleIds } } });
+    await prisma.memberPackage.deleteMany({ where: { packageDefinitionId: { in: packageDefinitionIds } } });
+    await prisma.packageDefinition.deleteMany({ where: { id: { in: packageDefinitionIds } } });
     await prisma.serviceType.deleteMany({ where: { id: { in: serviceTypeIds } } });
     await prisma.$disconnect();
     await app.close();
@@ -98,7 +101,7 @@ describe('Scheduling integrity (e2e)', () => {
 
   it('moving a session moves its spot holds, freeing the old time', async () => {
     const first = await makeSchedule();
-    const booked = await api('post', '/schedules/book', { studioId: ZEN, scheduleId: first.id, memberId: memberA, resourceIds: [resourceId] });
+    const booked = await api('post', '/schedules/book', { studioId: ZEN, scheduleId: first.id, memberId: memberA, resourceIds: [resourceId], chargePackage: false });
     expect(booked.status).toBe(201);
 
     const moved = nextSlot();
@@ -110,7 +113,7 @@ describe('Scheduling integrity (e2e)', () => {
 
     // The old slot is free for the same spot again.
     const other = await makeSchedule({ start: first.startTime, end: first.endTime });
-    const again = await api('post', '/schedules/book', { studioId: ZEN, scheduleId: other.id, memberId: memberB, resourceIds: [resourceId] });
+    const again = await api('post', '/schedules/book', { studioId: ZEN, scheduleId: other.id, memberId: memberB, resourceIds: [resourceId], chargePackage: false });
     expect(again.status).toBe(201);
 
     // Moving the second session onto the first one's new slot collides with the held spot.
@@ -120,7 +123,31 @@ describe('Scheduling integrity (e2e)', () => {
 
   it('a capacity increase promotes the waitlist', async () => {
     const full = await makeSchedule({ capacity: 1 });
-    expect((await api('post', '/schedules/book', { studioId: ZEN, scheduleId: full.id, memberId: memberA, resourceIds: [] })).status).toBe(201);
+    expect((await api('post', '/schedules/book', { studioId: ZEN, scheduleId: full.id, memberId: memberA, resourceIds: [], chargePackage: false })).status).toBe(201);
+    // The promotion books the waiting member system-side, which charges a package like any booking: give them one.
+    const definition = await prisma.packageDefinition.create({
+      data: {
+        studioId: ZEN,
+        name: `E2E integrity ${Date.now().toString(36)}`,
+        entitlementKind: 'SESSION_COUNT',
+        totalUnits: 1,
+        validityDays: 30,
+        price: 0,
+        services: { create: { serviceTypeId, unitCost: 1 } },
+      },
+    });
+    packageDefinitionIds.push(definition.id);
+    await prisma.memberPackage.create({
+      data: {
+        studioId: ZEN,
+        memberId: memberB,
+        packageDefinitionId: definition.id,
+        entitlementKind: 'SESSION_COUNT',
+        totalUnits: 1,
+        remainingUnits: 1,
+        endDate: new Date(Date.now() + 30 * DAY),
+      },
+    });
     await prisma.waitlist.create({ data: { studioId: ZEN, scheduleId: full.id, memberId: memberB, position: 1, status: 'WAITING' } });
 
     const patch = await api('patch', `/schedules/${full.id}`, { capacity: 2 });

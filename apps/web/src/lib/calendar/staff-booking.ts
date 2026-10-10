@@ -64,10 +64,14 @@ export function usablePackages(
   });
 }
 
+/** Package select value for "do not use a package": the body then carries chargePackage:false. */
+export const NO_CHARGE_PACKAGE = '__no_charge__';
+
 export interface StaffBookingDraft {
   studioId: string;
   scheduleId: string;
   memberId: string;
+  /** A member package id, '' (the API picks the soonest-expiring usable one) or NO_CHARGE_PACKAGE. */
   memberPackageId: string;
   /** One chosen spot per group; empty strings (no choice) are dropped. */
   resourceIds: string[];
@@ -81,7 +85,11 @@ export function buildBookBody(draft: StaffBookingDraft): BookSessionInput {
     scheduleId: draft.scheduleId,
     memberId: draft.memberId,
     resourceIds: draft.resourceIds.filter((id) => id !== ''),
-    ...(draft.memberPackageId ? { memberPackageId: draft.memberPackageId } : {}),
+    ...(draft.memberPackageId === NO_CHARGE_PACKAGE
+      ? { chargePackage: false }
+      : draft.memberPackageId
+        ? { memberPackageId: draft.memberPackageId }
+        : {}),
     ...(draft.overrideRepeatInterval ? { overrideRepeatInterval: true } : {}),
   };
 }

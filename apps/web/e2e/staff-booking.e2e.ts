@@ -72,7 +72,7 @@ async function bookViaApi(page: Page, ctx: Ctx, scheduleId: string, memberId: st
   const spots = await api<{ groups: { spots: { id: string; status: string }[] }[] }>(page, ctx, 'GET', `schedules/${scheduleId}/spots`);
   const free = spots.groups.flatMap((g) => g.spots).find((s) => s.status === 'AVAILABLE');
   expect(free, 'a free EMS device').toBeTruthy();
-  await api(page, ctx, 'POST', 'schedules/book', { studioId: ctx.studioId, scheduleId, memberId, resourceIds: [free!.id] });
+  await api(page, ctx, 'POST', 'schedules/book', { studioId: ctx.studioId, scheduleId, memberId, resourceIds: [free!.id], chargePackage: false });
 }
 
 function mondayOf(date: Date): number {
@@ -95,13 +95,18 @@ async function openSessionPanel(page: Page, session: { title: string; start: Dat
   return panel;
 }
 
-/** Searches the member in the booking dialog and picks the first free EMS device. */
-async function pickMemberAndSpot(page: Page, member: { lastName: string; fullName: string }) {
+/**
+ * Searches the member in the booking dialog and picks the first free EMS device. The seeded EMS service is
+ * not covered by any seeded package, so by default the staff chooses "do not use a package" explicitly
+ * (the API otherwise refuses a booking without a usable package).
+ */
+async function pickMemberAndSpot(page: Page, member: { lastName: string; fullName: string }, noCharge = true) {
   const dialog = page.getByRole('dialog', { name: 'Seansa üye ekle' });
   await dialog.getByPlaceholder('Ad, soyad veya telefon ara...').fill(member.lastName);
   await dialog.getByRole('button', { name: new RegExp(member.lastName) }).click();
   await expect(dialog.getByText(`Seçilen üye: ${member.fullName}`)).toBeVisible();
   await dialog.getByRole('combobox', { name: /Yer: / }).selectOption({ index: 1 });
+  if (noCharge) await dialog.getByRole('combobox', { name: 'Paket' }).selectOption({ label: 'Paket kullanma (hak düşülmez)' });
   return dialog;
 }
 
@@ -122,6 +127,24 @@ test('owner adds a member to a session from the calendar panel', async ({ page }
   await expect(panel.getByText('1/1')).toBeVisible();
 });
 
+test('a booking without a usable package is refused unless the staff picks the no-charge option', async ({ page }) => {
+  const ctx = await setup(page);
+  const member = await createMember(page, ctx, 'NoPkg');
+  const session = await createEmsSession(page, ctx, 3 + Math.floor(Math.random() * 6), 9 + Math.floor(Math.random() * 8));
+
+  const panel = await openSessionPanel(page, session);
+  await panel.getByRole('button', { name: 'Üye ekle' }).click();
+  const dialog = await pickMemberAndSpot(page, member, false);
+  await dialog.getByRole('button', { name: 'Rezervasyonu yap' }).click();
+  await expect(dialog.getByRole('alert')).toContainText('kullanılabilir paketi yok');
+  await expect(panel.getByRole('link', { name: member.fullName })).toHaveCount(0);
+
+  await dialog.getByRole('combobox', { name: 'Paket' }).selectOption({ label: 'Paket kullanma (hak düşülmez)' });
+  await dialog.getByRole('button', { name: 'Rezervasyonu yap' }).click();
+  await expect(page.getByText('Rezervasyon oluşturuldu.')).toBeVisible();
+  await expect(panel.getByRole('link', { name: member.fullName })).toBeVisible();
+});
+
 test('owner books a session from the member card', async ({ page }) => {
   const ctx = await setup(page);
   const member = await createMember(page, ctx, 'Card');
@@ -137,6 +160,7 @@ test('owner books a session from the member card', async ({ page }) => {
   await dialog.getByRole('button', { name: `Seç: ${session.title}` }).click();
   await expect(dialog.getByText(`Seçilen üye: ${member.fullName}`)).toBeVisible();
   await dialog.getByRole('combobox', { name: /Yer: / }).selectOption({ index: 1 });
+  await dialog.getByRole('combobox', { name: 'Paket' }).selectOption({ label: 'Paket kullanma (hak düşülmez)' });
   await dialog.getByRole('button', { name: 'Rezervasyonu yap' }).click();
 
   await expect(page.getByText('Rezervasyon oluşturuldu.')).toBeVisible();

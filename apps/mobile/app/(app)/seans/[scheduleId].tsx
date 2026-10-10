@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { isWithinJoinWindow, onColor } from '@platform/shared';
-import type { BookingNoticeDTO, JoinSessionResultDTO, MemberPackageDTO, ScheduleSpotsDTO, SpotDTO, SpotGroupDTO, SpotStatus } from '@platform/shared';
+import type { BookingChargedPackageDTO, BookingNoticeDTO, JoinSessionResultDTO, MemberPackageDTO, ScheduleSpotsDTO, SpotDTO, SpotGroupDTO, SpotStatus } from '@platform/shared';
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
@@ -204,6 +204,7 @@ export default function SeansDetailScreen() {
   const [notice, setNotice] = useState<string | undefined>();
   const [isBooking, setIsBooking] = useState(false);
   const [booked, setBooked] = useState(false);
+  const [chargedPackage, setChargedPackage] = useState<BookingChargedPackageDTO | null>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | undefined>();
 
@@ -259,7 +260,6 @@ export default function SeansDetailScreen() {
 
   const hasSpots = (spotsData?.groups.length ?? 0) > 0;
   const needsSpotSelection = hasSpots && !selectedSpotId;
-  const chosenPackage = packages?.[0] ?? null;
 
   const handleBook = async () => {
     if (!studioId || !memberId || !scheduleId) return;
@@ -267,18 +267,19 @@ export default function SeansDetailScreen() {
     setError(undefined);
     setNotice(undefined);
     try {
-      const created = await apiRequest<{ notices?: BookingNoticeDTO[] }>(`/schedules/book/self`, {
+      const created = await apiRequest<{ notices?: BookingNoticeDTO[]; chargedPackage?: BookingChargedPackageDTO | null }>(`/schedules/book/self`, {
         method: 'POST',
         studioId,
         body: {
           studioId,
           scheduleId,
           memberId,
-          memberPackageId: chosenPackage?.id,
           resourceIds: selectedSpotId ? [selectedSpotId] : [],
         },
       });
       setBooked(true);
+      // The API picks the package (soonest-expiring usable one); show which one was charged.
+      setChargedPackage(created.chargedPackage ?? null);
       // Non-blocking information from the API (e.g. a no-show inside the repeat window).
       setNotice(created.notices?.[0]?.message);
       await refreshUser();
@@ -336,11 +337,16 @@ export default function SeansDetailScreen() {
         </View>
       ) : null}
 
-      {chosenPackage ? (
+      {chargedPackage ? (
         <Text style={[styles.packageInfo, fonts.body, { color: colors.textSecondary }]}>
-          {t('mSessionBooking.packageToUse', { name: chosenPackage.packageDefinitionName })}
+          {chargedPackage.remainingUnits === null
+            ? t('mSessionBooking.packageUsed', { name: chargedPackage.packageName })
+            : t('mSessionBooking.packageUsedWithRemaining', {
+                name: chargedPackage.packageName,
+                remaining: chargedPackage.remainingUnits,
+              })}
         </Text>
-      ) : packages && packages.length === 0 ? (
+      ) : !booked && packages && packages.length === 0 ? (
         <Text style={[styles.packageInfo, fonts.body, { color: palette.warning }]}>{t('mSessionBooking.noActivePackage')}</Text>
       ) : null}
 

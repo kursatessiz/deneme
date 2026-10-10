@@ -123,6 +123,12 @@ bileşeniyle hızlı giriş/gelmedi. Kısayollar: W17'nin mevcut "Üye QR tarama
   tekrarlar (API `booking.repeat_interval_override` denetim kaydı yazar). Yanıttaki `notices` (örn. aralıkta
   gelinmeyen seans) `showNotice` ile bilgi olarak gösterilir; üyenin kendi rezervasyonunda (`seans/[scheduleId]`)
   aynı bilgi satır içi uyarı olarak görünür. Üye bu bayrağı gönderemez (`403`).
+  Walk-in paket seçici: "Otomatik (en yakın süresi dolan)" varsayılandır (`memberPackageId` gönderilmez, API
+  paketi seçer ve hakkı düşer), üyenin kullanılabilir paketleri tek tek seçilebilir, "Paket kullanma (hak
+  düşülmez)" `chargePackage: false` gönderir (API `booking.no_charge` denetim kaydı yazar). Kullanılabilir paket
+  yoksa API `apiErrors.schedules.noUsablePackage` döner. Rezervasyon sonrası ekranda yanıttaki `chargedPackage`
+  (paket adı ve kalan hak) gösterilir. Üyenin kendi rezervasyonunda (`seans/[scheduleId]`) istemci paket
+  göndermez; sunucu seçer ve kullanılan paket rezervasyondan sonra gösterilir.
 
 Yeni üye davet etme (`hesabim/uyeler/yeni`, `members.manage`): ad/telefon, `POST /invites`, ekranda QR
 gösterimi -- mevcut onboarding akışıyla aynı (`InviteToken` -> `/j/<token>` -> OTP -> PIN -> onay).
