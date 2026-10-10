@@ -292,7 +292,7 @@ describe('API e2e', () => {
       const res = await request(server)
         .post('/schedules/book')
         .set('Authorization', `Bearer ${ownerToken}`)
-        .send({ studioId: ZEN, scheduleId: bookedScheduleId, memberId });
+        .send({ studioId: ZEN, scheduleId: bookedScheduleId, memberId, chargePackage: false });
       expect(res.status).toBe(409);
     });
   });
@@ -366,7 +366,7 @@ describe('API e2e', () => {
       const res = await request(server)
         .post('/schedules/book')
         .set('Authorization', `Bearer ${ownerToken}`)
-        .send({ studioId: ZEN, scheduleId: scheduleA, memberId: member1, resourceIds: [emsResourceId] });
+        .send({ studioId: ZEN, scheduleId: scheduleA, memberId: member1, resourceIds: [emsResourceId], chargePackage: false });
       expect([200, 201]).toContain(res.status);
       createdBookingIds.push(res.body.id);
     });
@@ -375,7 +375,7 @@ describe('API e2e', () => {
       const res = await request(server)
         .post('/schedules/book')
         .set('Authorization', `Bearer ${ownerToken}`)
-        .send({ studioId: ZEN, scheduleId: scheduleB, memberId: member2, resourceIds: [emsResourceId] });
+        .send({ studioId: ZEN, scheduleId: scheduleB, memberId: member2, resourceIds: [emsResourceId], chargePackage: false });
       expect(res.status).toBe(409);
     });
 

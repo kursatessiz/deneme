@@ -17,6 +17,7 @@ import { useToast } from '@/components/ui/ToastHost';
 import {
   buildBookBody,
   isSessionFull,
+  NO_CHARGE_PACKAGE,
   repeatIntervalConflict,
   usablePackages,
   type PackageDefinitionCoverage,
@@ -122,7 +123,8 @@ export function StaffBookingForm({
 
   useEffect(() => {
     if (packageTouched.current) return;
-    setPackageId(packages[0]?.id ?? '');
+    // '' lets the API pick the soonest-expiring usable package.
+    setPackageId('');
   }, [packages]);
 
   function packageLabel(pkg: (typeof packages)[number]): string {
@@ -185,7 +187,7 @@ export function StaffBookingForm({
       await bffFetch('schedules/waitlist', {
         method: 'POST',
         studioId,
-        body: { studioId, scheduleId, memberId: member.id, ...(packageId ? { memberPackageId: packageId } : {}) },
+        body: { studioId, scheduleId, memberId: member.id, ...(packageId && packageId !== NO_CHARGE_PACKAGE ? { memberPackageId: packageId } : {}) },
       });
       toast.show(t('staffBooking.waitlistJoined'), 'success');
       onBooked();
@@ -264,12 +266,13 @@ export function StaffBookingForm({
                 setPackageId(e.target.value);
               }}
             >
-              <option value="">{t('staffBooking.packageNone')}</option>
+              <option value="">{t('staffBooking.packageAuto')}</option>
               {packages.map((pkg) => (
                 <option key={pkg.id} value={pkg.id}>
                   {packageLabel(pkg)}
                 </option>
               ))}
+              <option value={NO_CHARGE_PACKAGE}>{t('staffBooking.packageNone')}</option>
             </Select>
           </FieldGroup>
 

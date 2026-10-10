@@ -3,9 +3,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { BookSessionSchema, firstIssueMessage } from '@platform/shared';
-import type { BookingNoticeDTO } from '@platform/shared';
+import type { BookingChargedPackageDTO, BookingNoticeDTO } from '@platform/shared';
 
 import { PermissionGate } from '../../../../src/components/PermissionGate';
+import { Chip } from '../../../../src/components/Chip';
 import { PrimaryButton } from '../../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../../src/components/ScreenContainer';
 import { formatDate, useLocale, useT } from '../../../../src/i18n';
@@ -27,6 +28,28 @@ function formatDayTime(startTime: string, endTime: string, locale: string): stri
   return `${day}, ${startHour}-${endHour}`;
 }
 
+/** Package select values: '' lets the API pick, NO_CHARGE sends chargePackage:false. */
+const AUTO_PACKAGE = '';
+const NO_CHARGE_PACKAGE = '__no_charge__';
+
+interface MemberPackageOption {
+  id: string;
+  name: string;
+  entitlementKind: string;
+  remainingUnits: number | null;
+}
+
+interface MemberDetailPackages {
+  packages: {
+    id: string;
+    status: string;
+    endDate: string;
+    entitlementKind: string;
+    remainingUnits?: number | null;
+    packageDefinition?: { name: string } | null;
+  }[];
+}
+
 function WalkInContent() {
   const router = useRouter();
   const colors = useThemeColors();
@@ -41,6 +64,9 @@ function WalkInContent() {
   const [error, setError] = useState<string | undefined>();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const [packages, setPackages] = useState<MemberPackageOption[] | null>(null);
+  const [packageChoice, setPackageChoice] = useState(AUTO_PACKAGE);
+  const [charged, setCharged] = useState<BookingChargedPackageDTO | null>(null);
 
   const load = useCallback(async () => {
     if (!studioId) return;
@@ -60,6 +86,33 @@ function WalkInContent() {
     load();
   }, [load]);
 
+  // The member's usable packages for the picker. Without members.view the picker offers only
+  // "automatic" and "no package", and the API still decides.
+  useEffect(() => {
+    if (!studioId || !memberId) return;
+    apiRequest<MemberDetailPackages>(`/members/${memberId}/studio/${studioId}`, { studioId })
+      .then((detail) => {
+        const now = Date.now();
+        setPackages(
+          detail.packages
+            .filter(
+              (p) =>
+                p.status === 'ACTIVE' &&
+                new Date(p.endDate).getTime() > now &&
+                (p.entitlementKind === 'TIME_UNLIMITED' || (p.remainingUnits ?? 0) > 0),
+            )
+            .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime())
+            .map((p) => ({
+              id: p.id,
+              name: p.packageDefinition?.name ?? '',
+              entitlementKind: p.entitlementKind,
+              remainingUnits: p.remainingUnits ?? null,
+            })),
+        );
+      })
+      .catch(() => setPackages(null));
+  }, [studioId, memberId]);
+
   const book = async (scheduleId: string, overrideRepeatInterval = false) => {
     if (!studioId) return;
     setBusyId(scheduleId);
@@ -69,6 +122,11 @@ function WalkInContent() {
       scheduleId,
       memberId,
       resourceIds: [],
+      ...(packageChoice === NO_CHARGE_PACKAGE
+        ? { chargePackage: false }
+        : packageChoice !== AUTO_PACKAGE
+          ? { memberPackageId: packageChoice }
+          : {}),
       ...(overrideRepeatInterval ? { overrideRepeatInterval: true } : {}),
     });
     if (!parsed.success) {
@@ -77,8 +135,9 @@ function WalkInContent() {
       return;
     }
     try {
-      const created = await apiRequest<{ notices?: BookingNoticeDTO[] }>('/schedules/book', { method: 'POST', studioId, body: parsed.data });
+      const created = await apiRequest<{ notices?: BookingNoticeDTO[]; chargedPackage?: BookingChargedPackageDTO | null }>('/schedules/book', { method: 'POST', studioId, body: parsed.data });
       setDone(scheduleId);
+      setCharged(created.chargedPackage ?? null);
       // Non-blocking information from the API (e.g. a no-show inside the repeat window).
       for (const notice of created.notices ?? []) {
         showNotice(t, t('mWalkIn.noticeTitle'), notice.message);
@@ -103,6 +162,13 @@ function WalkInContent() {
     return (
       <ScreenContainer>
         <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mWalkIn.bookingCreated')}</Text>
+        <Text style={[styles.lead, fonts.body, { color: colors.textSecondary }]}>
+          {charged
+            ? charged.remainingUnits === null
+              ? t('mWalkIn.charged', { name: charged.packageName })
+              : t('mWalkIn.chargedWithRemaining', { name: charged.packageName, remaining: charged.remainingUnits })
+            : t('mWalkIn.notCharged')}
+        </Text>
         <PrimaryButton label={t('mWalkIn.backToMemberCard')} onPress={() => router.back()} />
       </ScreenContainer>
     );
@@ -112,6 +178,26 @@ function WalkInContent() {
     <ScreenContainer>
       <Text style={[styles.title, { color: colors.textPrimary }]}>{t('mWalkIn.title')}</Text>
       <Text style={[styles.lead, fonts.body, { color: colors.textSecondary }]}>{t('mWalkIn.lead')}</Text>
+      <Text style={[styles.rowTitle, fonts.bodyStrong, { color: colors.textPrimary }]}>{t('mWalkIn.package.label')}</Text>
+      <View style={styles.chips}>
+        <Chip label={t('mWalkIn.package.auto')} selected={packageChoice === AUTO_PACKAGE} onPress={() => setPackageChoice(AUTO_PACKAGE)} />
+        {packages?.map((pkg) => (
+          <Chip
+            key={pkg.id}
+            label={
+              pkg.entitlementKind === 'TIME_UNLIMITED'
+                ? t('mWalkIn.package.unlimited', { name: pkg.name })
+                : t('mWalkIn.package.units', { name: pkg.name, remaining: pkg.remainingUnits ?? 0 })
+            }
+            selected={packageChoice === pkg.id}
+            onPress={() => setPackageChoice(pkg.id)}
+          />
+        ))}
+        <Chip label={t('mWalkIn.package.none')} selected={packageChoice === NO_CHARGE_PACKAGE} onPress={() => setPackageChoice(NO_CHARGE_PACKAGE)} />
+      </View>
+      {packages?.length === 0 ? (
+        <Text style={[styles.rowMeta, fonts.body, { color: palette.warning }]}>{t('mWalkIn.package.noUsableHint')}</Text>
+      ) : null}
       {!schedules && !error ? <ActivityIndicator /> : null}
       {error ? <Text style={[styles.error, { color: palette.danger }]}>{error}</Text> : null}
       {schedules?.length === 0 ? (
@@ -169,6 +255,7 @@ const styles = StyleSheet.create({
   rowTitle: { fontSize: typography.size.md },
   rowMeta: { fontSize: typography.size.sm },
   bookButton: { minHeight: 40, paddingHorizontal: spacing[3], justifyContent: 'center', borderRadius: radii.sm, borderWidth: borderWidth },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginVertical: spacing[2] },
   empty: { fontSize: typography.size.sm },
   error: { fontSize: typography.size.sm, marginBottom: spacing[3] },
 });

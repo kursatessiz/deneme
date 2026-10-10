@@ -15,4 +15,13 @@ export const enMWalkIn: Record<keyof typeof trMWalkIn, string> = {
   'mWalkIn.repeatOverride.body.other': 'This booking breaks the minimum {count} days rule for this member (last session: {date}). Book anyway?',
   'mWalkIn.repeatOverride.confirm': 'Add anyway',
   'mWalkIn.repeatOverride.cancel': 'Cancel',
+  'mWalkIn.package.label': 'Package to use',
+  'mWalkIn.package.auto': 'Automatic (expiring soonest)',
+  'mWalkIn.package.none': 'Do not use a package (no units charged)',
+  'mWalkIn.package.units': '{name} ({remaining} left)',
+  'mWalkIn.package.unlimited': '{name} (unlimited)',
+  'mWalkIn.package.noUsableHint': 'The member has no usable package. Choose "Do not use a package" to add without charging.',
+  'mWalkIn.chargedWithRemaining': 'Package used: {name} ({remaining} left)',
+  'mWalkIn.charged': 'Package used: {name}',
+  'mWalkIn.notCharged': 'No package used, no units charged.',
 };

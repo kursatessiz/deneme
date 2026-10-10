@@ -270,6 +270,17 @@ export interface SessionScheduleSummaryDTO {
 }
 
 /** Non-blocking information returned with a successful booking (e.g. a no-show inside the repeat window). */
+/** The package a booking was charged to, as the book endpoints return it (null when nothing was charged). */
+export interface BookingChargedPackageDTO {
+  memberPackageId: string;
+  packageName: string;
+  entitlementKind: `${EntitlementKind}`;
+  /** Units or credits this booking burned (0 for an unlimited package). */
+  unitsCharged: number;
+  /** Units or credits left after the booking; null for an unlimited package. */
+  remainingUnits: number | null;
+}
+
 export interface BookingNoticeDTO {
   /** apiTexts key; `message` is that text in the request language. */
   code: ApiTextKey;

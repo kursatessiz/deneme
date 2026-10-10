@@ -66,7 +66,11 @@ sayaç, yoksa tek örnek bellek içi sayaç), aşımda `429 Too Many Requests`.
 Rezervasyon kuralları (kapasite, hak/kredi düşümü, iptal politikası) mevcut
 `SchedulesService.bookSession()` / `cancelBooking()` üzerinden **aynen**
 uygulanır; herkese açık API bu servisleri yeniden çağırır, kuralları tekrar
-yazmaz.
+yazmaz. `POST /v1/public/bookings` gövdesinde `memberPackageId` yoksa API üyenin
+kullanılabilir paketlerinden süresi en yakın dolanı seçip hakkı düşer; kullanılabilir paket yoksa
+`400 apiErrors.schedules.noUsablePackage` döner (hak düşmeden rezervasyon yalnızca panel/mobil personel
+akışında `chargePackage: false` ile yapılır, herkese açık API bu bayrağı kabul etmez). Yanıt,
+kullanılan paketi `chargedPackage` alanında taşır.
 
 ### 2.1 Gelen eylemler: kişi, etiket, izin (M4c, `crm.write`)
 
