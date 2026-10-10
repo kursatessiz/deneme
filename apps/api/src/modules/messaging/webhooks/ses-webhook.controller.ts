@@ -18,7 +18,8 @@ interface SesEvent {
  * Amazon SES delivery events through an SNS topic (bounce, complaint,
  * delivery, reject). Every message's SNS signature is verified before it is
  * trusted; SubscriptionConfirmation is confirmed only for an AWS SNS URL.
- * SES_SNS_TOPIC_ARNS (comma separated), when set, limits the accepted topics.
+ * SES_SNS_TOPIC_ARNS (comma separated) is required: only messages from these
+ * topics are accepted, and an empty list rejects every message.
  */
 @Controller('messaging/webhook/ses')
 export class SesWebhookController {
@@ -42,7 +43,9 @@ export class SesWebhookController {
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean);
-    if (allowed.length > 0 && !allowed.includes(envelope.TopicArn)) throw new ForbiddenException();
+    // Fail closed: an empty allowlist rejects everything, so a validly signed message from
+    // any other AWS account's topic is never trusted.
+    if (allowed.length === 0 || !allowed.includes(envelope.TopicArn)) throw new ForbiddenException();
     if (!(await this.verifier.verify(envelope))) {
       this.logger.warn('Rejected SNS message: signature did not verify');
       throw new ForbiddenException();
@@ -74,6 +77,7 @@ export class SesWebhookController {
         const permanent = event.bounce?.bounceType === 'Permanent';
         await this.delivery.apply({
           providerMessageId: messageId,
+          channel: 'EMAIL',
           kind: 'BOUNCED',
           permanent,
           detail: `${event.bounce?.bounceType ?? ''}/${event.bounce?.bounceSubType ?? ''}`,
@@ -85,6 +89,7 @@ export class SesWebhookController {
       case 'Complaint':
         await this.delivery.apply({
           providerMessageId: messageId,
+          channel: 'EMAIL',
           kind: 'COMPLAINED',
           detail: event.complaint?.complaintFeedbackType ?? null,
           occurredAt: event.complaint?.timestamp ? new Date(event.complaint.timestamp) : undefined,
@@ -93,13 +98,15 @@ export class SesWebhookController {
       case 'Delivery':
         await this.delivery.apply({
           providerMessageId: messageId,
+          channel: 'EMAIL',
           kind: 'DELIVERED',
           occurredAt: event.delivery?.timestamp ? new Date(event.delivery.timestamp) : undefined,
         });
         break;
       case 'Reject':
       case 'Rendering Failure':
-        await this.delivery.apply({ providerMessageId: messageId, kind: 'FAILED', errorMessage: `SES ${type}` });
+        await this.delivery.apply({ providerMessageId: messageId,
+          channel: 'EMAIL', kind: 'FAILED', errorMessage: `SES ${type}` });
         break;
       default:
         break;

@@ -91,7 +91,7 @@ Belirteçler (`apps/api/src/modules/messaging/tracking/tracking-tokens.ts`): `ba
 
 | Sağlayıcı | Uç nokta | Doğrulama |
 |---|---|---|
-| Amazon SES (SNS üzerinden) | `POST /messaging/webhook/ses` | SNS imzası (SignatureVersion 1: SHA1, 2: SHA256), sertifika yalnızca `https://sns.<bölge>.amazonaws.com(.cn)` üzerinden `.pem`, yetkisiz/port/yönlendirme yok; isteğe bağlı konu (topic) ARN listesi; abonelik onayı yalnızca AWS SNS adresine |
+| Amazon SES (SNS üzerinden) | `POST /messaging/webhook/ses` | SNS imzası (SignatureVersion 1: SHA1, 2: SHA256), sertifika yalnızca `https://sns.<bölge>.amazonaws.com(.cn)` üzerinden `.pem`, yetkisiz/port/yönlendirme yok; zorunlu konu (topic) ARN listesi (`SES_SNS_TOPIC_ARNS`, boşsa hepsi reddedilir); abonelik onayı yalnızca AWS SNS adresine |
 | Twilio | `POST /notifications/webhook/twilio/status`, `POST /notifications/webhook/twilio/inbound` | `X-Twilio-Signature` (mevcut) |
 | WhatsApp Cloud | `GET/POST /messaging/webhook/whatsapp` | GET el sıkışması `WHATSAPP_WEBHOOK_VERIFY_TOKEN`; POST ham gövde üzerinde `X-Hub-Signature-256` (`WHATSAPP_APP_SECRET`) |
 | Netgsm, İleti Merkezi | `/messaging/webhook/sms-dlr/netgsm?token=...`, `/messaging/webhook/sms-dlr/iletimerkezi?token=...` | İmza desteklemedikleri için adreste paylaşılan gizli anahtar (`SMS_DLR_WEBHOOK_TOKEN`, sabit zamanlı karşılaştırma) |
@@ -170,7 +170,7 @@ Prisma'nın ifade edemediği iki kısmi benzersiz index migration SQL'indedir: k
 | `SES_REGION`, `SES_FROM_ADDRESS` | SES bölgesi ve doğrulanmış gönderen adresi. AWS kimlik bilgileri SDK'nın varsayılan zincirinden (ortam değişkeni veya sunucu rolü) gelir, kodda yoktur |
 | `SES_FROM_NAME` | İşletmesiz platform e-postalarının gönderen adı |
 | `SES_CONFIGURATION_SET` | Bounce/complaint/delivery olaylarını SNS'e yayınlayan yapılandırma seti |
-| `SES_SNS_TOPIC_ARNS` | Kabul edilen SNS konu ARN'leri (virgülle); boşsa imzası doğrulanan her konu |
+| `SES_SNS_TOPIC_ARNS` | Kabul edilen SNS konu ARN'leri (virgülle). SES olaylarının işlenmesi için zorunludur: boşsa webhook her mesajı 403 ile reddeder (imzası doğrulanan başka bir AWS hesabının konusu da kabul edilmez) |
 | `MESSAGING_TRACKING_SECRET` | Açılma/tıklama/abonelikten çıkma belirteçlerinin HMAC anahtarı (en az 32 karakter); üretimde ticari e-posta için zorunlu |
 | `WHATSAPP_APP_SECRET`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | Meta webhook imzası ve el sıkışma belirteci |
 | `SMS_DLR_WEBHOOK_TOKEN` | Netgsm / İleti Merkezi teslim raporu adresindeki paylaşılan anahtar |
