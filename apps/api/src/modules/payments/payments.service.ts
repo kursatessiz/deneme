@@ -873,6 +873,7 @@ export class PaymentsService {
   async cancelSubscription(tenant: TenantContext, subscriptionId: string, dto: CancelSubscriptionInput, requireMemberId?: string) {
     const sub = await this.prisma.memberSubscription.findFirst({ where: { id: subscriptionId, studioId: tenant.studioId } });
     if (!sub) throw new NotFoundException(apiError('apiErrors.payments.subscriptionNotFound'));
+    if (!requireMemberId) await this.assertSubscriptionMemberBranch(tenant, sub.memberId);
     if (requireMemberId && sub.memberId !== requireMemberId) {
       throw new ForbiddenException(apiError('apiErrors.payments.canOnlyCancelOwnSubscription'));
     }
@@ -885,9 +886,20 @@ export class PaymentsService {
     });
   }
 
+  /** Branch-restricted staff may only act on subscriptions of members in their branches (or studio-wide members). */
+  private async assertSubscriptionMemberBranch(tenant: TenantContext, memberId: string): Promise<void> {
+    if (tenant.branchIds === null) return;
+    const member = await this.prisma.memberProfile.findFirst({
+      where: { id: memberId, studioId: tenant.studioId },
+      select: { homeBranchId: true },
+    });
+    assertBranchAccess(tenant, member?.homeBranchId);
+  }
+
   async pauseSubscription(tenant: TenantContext, subscriptionId: string, _dto: PauseSubscriptionInput) {
     const sub = await this.prisma.memberSubscription.findFirst({ where: { id: subscriptionId, studioId: tenant.studioId } });
     if (!sub) throw new NotFoundException(apiError('apiErrors.payments.subscriptionNotFound'));
+    await this.assertSubscriptionMemberBranch(tenant, sub.memberId);
     if (sub.status === 'CANCELLED') throw new BadRequestException(apiError('apiErrors.payments.cancelledSubscriptionCannotPaused'));
     return this.prisma.memberSubscription.update({ where: { id: sub.id }, data: { status: 'PAUSED' } });
   }
@@ -895,6 +907,7 @@ export class PaymentsService {
   async resumeSubscription(tenant: TenantContext, subscriptionId: string) {
     const sub = await this.prisma.memberSubscription.findFirst({ where: { id: subscriptionId, studioId: tenant.studioId } });
     if (!sub) throw new NotFoundException(apiError('apiErrors.payments.subscriptionNotFound'));
+    await this.assertSubscriptionMemberBranch(tenant, sub.memberId);
     if (sub.status !== 'PAUSED') throw new BadRequestException(apiError('apiErrors.payments.onlyPausedSubscriptionsCanResumed'));
     const now = new Date();
     return this.prisma.memberSubscription.update({
