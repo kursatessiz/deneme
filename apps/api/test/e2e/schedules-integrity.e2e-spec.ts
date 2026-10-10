@@ -178,7 +178,8 @@ describe('Scheduling integrity (e2e)', () => {
     const day0 = await makeSchedule({ start: t0, serviceTypeId: service.id });
     const day1 = await makeSchedule({ start: new Date(t0.getTime() + DAY), serviceTypeId: service.id });
     const day3 = await makeSchedule({ start: new Date(t0.getTime() + 3 * DAY), serviceTypeId: service.id });
-    const bookOn = (id: string) => api('post', '/schedules/book', { studioId: ZEN, scheduleId: id, memberId: memberA, resourceIds: [] });
+    // These services have no package: the test is about the repeat rule, so staff book without charging.
+    const bookOn = (id: string) => api('post', '/schedules/book', { studioId: ZEN, scheduleId: id, memberId: memberA, resourceIds: [], chargePackage: false });
 
     expect((await bookOn(day0.id)).status).toBe(201);
     expect((await bookOn(day1.id)).status).toBe(400);
@@ -191,7 +192,7 @@ describe('Scheduling integrity (e2e)', () => {
     let service: { id: string };
     let t0: Date;
     const bookOn = (id: string, extra: Record<string, unknown> = {}, member = memberA) =>
-      api('post', '/schedules/book', { studioId: ZEN, scheduleId: id, memberId: member, resourceIds: [], ...extra });
+      api('post', '/schedules/book', { studioId: ZEN, scheduleId: id, memberId: member, resourceIds: [], chargePackage: false, ...extra });
 
     beforeAll(async () => {
       service = await prisma.serviceType.create({
