@@ -28,6 +28,8 @@ describe('Schedules: automatic package selection (e2e)', () => {
   let policyId: string;
   let sessionDefId: string;
   let creditDefId: string;
+  let emptyKindsServiceId: string;
+  let emptyKindsDefId: string;
   let selfMemberId: string;
   let members: string[];
 
@@ -44,12 +46,12 @@ describe('Schedules: automatic package selection (e2e)', () => {
     post: (url: string) => request(server).post(url).set('Authorization', `Bearer ${token}`).set('x-studio-id', ZEN),
   });
 
-  const makeSchedule = async () => {
+  const makeSchedule = async (forService: string = serviceTypeId) => {
     const start = new Date(Date.now() + 72 * HOUR);
     const s = await prisma.sessionSchedule.create({
       data: {
         studioId: ZEN,
-        serviceTypeId,
+        serviceTypeId: forService,
         title: 'E2E otomatik paket',
         startTime: start,
         endTime: new Date(start.getTime() + HOUR),
@@ -142,6 +144,26 @@ describe('Schedules: automatic package selection (e2e)', () => {
       })
     ).id;
 
+    // A service whose allowedEntitlementKinds is empty (template apply or legacy data): empty means any kind.
+    emptyKindsServiceId = (
+      await prisma.serviceType.create({
+        data: { studioId: ZEN, name: `E2E empty kinds ${suffix}`, durationMin: 60, capacity: 3, cancellationPolicyId: policyId },
+      })
+    ).id;
+    emptyKindsDefId = (
+      await prisma.packageDefinition.create({
+        data: {
+          studioId: ZEN,
+          name: `E2E empty kinds def ${suffix}`,
+          entitlementKind: 'SESSION_COUNT',
+          totalUnits: 5,
+          validityDays: 30,
+          price: 0,
+          services: { create: { serviceTypeId: emptyKindsServiceId, unitCost: 1 } },
+        },
+      })
+    ).id;
+
     selfMemberId = (
       await prisma.memberProfile.findFirstOrThrow({ where: { studioId: ZEN, membership: { user: { phone: '+905321000016' } } } })
     ).id;
@@ -157,8 +179,8 @@ describe('Schedules: automatic package selection (e2e)', () => {
     await prisma.auditLog.deleteMany({ where: { OR: [{ entityId: { in: scheduleIds } }, { action: 'booking.no_charge', metadata: { path: ['serviceTypeId'], equals: serviceTypeId } }] } });
     await prisma.sessionSchedule.deleteMany({ where: { id: { in: scheduleIds } } });
     await prisma.memberPackage.deleteMany({ where: { id: { in: packageIds } } });
-    await prisma.packageDefinition.deleteMany({ where: { id: { in: [sessionDefId, creditDefId] } } });
-    await prisma.serviceType.deleteMany({ where: { id: serviceTypeId } });
+    await prisma.packageDefinition.deleteMany({ where: { id: { in: [sessionDefId, creditDefId, emptyKindsDefId] } } });
+    await prisma.serviceType.deleteMany({ where: { id: { in: [serviceTypeId, emptyKindsServiceId] } } });
     await prisma.cancellationPolicy.deleteMany({ where: { id: policyId } });
     await prisma.$disconnect();
     await app.close();
@@ -244,5 +266,31 @@ describe('Schedules: automatic package selection (e2e)', () => {
       .send({ studioId: ZEN, scheduleId: schedule, memberId: selfMemberId, chargePackage: false });
     expect(res.status).toBe(403);
     expect(await prisma.booking.count({ where: { scheduleId: schedule } })).toBe(0);
+  });
+
+  it('a service with no allowed entitlement kinds still requires a package: refused without one, charged with one', async () => {
+    const schedule = await makeSchedule(emptyKindsServiceId);
+    const refused = await as(memberToken).post('/schedules/book/self').send({ studioId: ZEN, scheduleId: schedule, memberId: selfMemberId });
+    expect(refused.status).toBe(400);
+    expect(refused.body.code).toBe('apiErrors.schedules.noUsablePackage');
+    expect(await prisma.booking.count({ where: { scheduleId: schedule } })).toBe(0);
+
+    const pkg = await prisma.memberPackage.create({
+      data: {
+        studioId: ZEN,
+        memberId: selfMemberId,
+        packageDefinitionId: emptyKindsDefId,
+        entitlementKind: 'SESSION_COUNT',
+        totalUnits: 2,
+        remainingUnits: 2,
+        status: 'ACTIVE',
+        endDate: new Date(Date.now() + 30 * DAY),
+      },
+    });
+    packageIds.push(pkg.id);
+    const ok = await as(memberToken).post('/schedules/book/self').send({ studioId: ZEN, scheduleId: schedule, memberId: selfMemberId });
+    expect(ok.status).toBe(201);
+    expect(ok.body.chargedPackage.memberPackageId).toBe(pkg.id);
+    expect(await remaining(pkg.id)).toBe(1);
   });
 });

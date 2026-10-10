@@ -706,7 +706,7 @@ export class SchedulesService {
 
     const { memberPackage, unitCost } = skipCharge
       ? { memberPackage: null, unitCost: 0 }
-      : dto.memberPackageId || schedule.serviceType.allowedEntitlementKinds.length === 0
+      : dto.memberPackageId
         ? await this.resolvePackage(studioId, dto.memberId, dto.memberPackageId, schedule.serviceTypeId)
         : await this.autoSelectPackage(studioId, dto.memberId, schedule.serviceTypeId, schedule.serviceType.allowedEntitlementKinds);
     const chargedPackageId = memberPackage?.id;
@@ -834,6 +834,7 @@ export class SchedulesService {
   /**
    * Picks the package a booking without `memberPackageId` is charged to: the
    * member's usable package that expires soonest (see selectUsablePackage).
+   * An empty `allowedKinds` list means every entitlement kind is allowed.
    */
   private async autoSelectPackage(
     studioId: string,
@@ -894,12 +895,9 @@ export class SchedulesService {
   private async resolvePackage(
     studioId: string,
     memberId: string,
-    memberPackageId: string | undefined,
+    memberPackageId: string,
     serviceTypeId: string,
-  ): Promise<{ memberPackage: MemberPackage | null; unitCost: number }> {
-    if (!memberPackageId) {
-      return { memberPackage: null, unitCost: 0 };
-    }
+  ): Promise<{ memberPackage: MemberPackage; unitCost: number }> {
     const memberPackage = await this.prisma.memberPackage.findFirst({
       where: { id: memberPackageId, studioId },
     });
@@ -1372,7 +1370,9 @@ export class SchedulesService {
     }
     // Validates ownership, status and coverage now so the member learns about
     // a problem at join time, not when a seat opens.
-    await this.resolvePackage(studioId, dto.memberId, dto.memberPackageId, schedule.serviceTypeId);
+    if (dto.memberPackageId) {
+      await this.resolvePackage(studioId, dto.memberId, dto.memberPackageId, schedule.serviceTypeId);
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const last = await tx.waitlist.aggregate({
