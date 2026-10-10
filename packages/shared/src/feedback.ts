@@ -41,8 +41,9 @@ export type ListRatingsQueryInput = z.infer<typeof ListRatingsQuerySchema>;
 
 export interface SessionRatingDTO {
   id: string;
-  bookingId: string;
-  memberId: string;
+  /** Null, like memberId and memberName, to a trainer's own view when isAnonymousToTrainer is true. */
+  bookingId: string | null;
+  memberId: string | null;
   /** Null to a trainer's own view when isAnonymousToTrainer is true. */
   memberName: string | null;
   trainerProfileId: string;

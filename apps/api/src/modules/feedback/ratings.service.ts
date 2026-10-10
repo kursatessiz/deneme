@@ -282,8 +282,9 @@ export class RatingsService {
   private toDto(row: RatingRow, options: { revealMember: boolean }): SessionRatingDTO {
     return {
       id: row.id,
-      bookingId: row.bookingId,
-      memberId: row.memberId,
+      // Nothing that identifies or links to the author when the rating is anonymous to the trainer.
+      bookingId: options.revealMember ? row.bookingId : null,
+      memberId: options.revealMember ? row.memberId : null,
       memberName: options.revealMember ? `${row.member.membership.user.firstName} ${row.member.membership.user.lastName}` : null,
       trainerProfileId: row.trainerProfileId,
       trainerName: `${row.trainerProfile.membership.user.firstName} ${row.trainerProfile.membership.user.lastName}`,
