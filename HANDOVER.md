@@ -272,6 +272,7 @@ Bilinçli olarak ertelenmiş geliştirme ve özellikler ("şimdi yapılmayacak")
 - [ ] PIN kilidinin telefon + IP bazında ayrılması: başkasının PIN girişini kilitleme (hesap kilitleme saldırısı) riski. `apps/api/src/modules/auth/auth.service.ts` (`pinLockedUntil`)
 - [ ] e-Arşiv faturada hediye kartıyla ödenen kısmın KDV zamanlaması muhasebeciyle netleştirilmeli (hediye kartı satışında mı, kullanımında mı). `docs/INVOICING.md`
 - [ ] SMS sağlayıcısı yapılandırılmadan üretimde OTP ve davet SMS'i gönderilmez; giriş ve onboarding çalışmaz. Süper admin sağlayıcı ayarı ve `docs/MESAJLASMA.md`
+- [ ] Üretimde `SES_SNS_TOPIC_ARNS` ortam değişkeni (SES olay konusunun ARN'si, virgülle birden fazla olabilir) mutlaka ayarlanmalı: boşsa SES webhook'u her mesajı 403 ile reddeder, bounce ve şikâyet olayları işlenmez, bastırma listesi güncellenmez. `docs/MESAJLASMA.md` bölüm 10, `deploy/docker-compose.prod.yml`
 
 ## 7. Sahibin sağlayacağı girdiler ve kararlar
 
