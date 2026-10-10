@@ -105,8 +105,7 @@ export class SesWebhookController {
         break;
       case 'Reject':
       case 'Rendering Failure':
-        await this.delivery.apply({ providerMessageId: messageId,
-          channel: 'EMAIL', kind: 'FAILED', errorMessage: `SES ${type}` });
+        await this.delivery.apply({ providerMessageId: messageId, channel: 'EMAIL', kind: 'FAILED', errorMessage: `SES ${type}` });
         break;
       default:
         break;
