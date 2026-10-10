@@ -113,6 +113,21 @@ describe('InvitesService', () => {
       expect(mockPrisma.inviteToken.create).not.toHaveBeenCalled();
     });
 
+    it('a branch-restricted actor cannot create a staff invite, but can still invite a member', async () => {
+      const restricted = { ...tenantWith(['members.manage', 'staff.manage']), branchIds: new Set(['branch-a']) } as TenantContext;
+      await expect(service.create(restricted, creator, { ...baseDto, roleKey: 'trainer' } as any)).rejects.toMatchObject({
+        response: { code: 'apiErrors.branches.actionOnlyUsersAccessAllBranches' },
+      });
+      expect(mockPrisma.roleTemplate.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.inviteToken.create).not.toHaveBeenCalled();
+
+      mockPrisma.roleTemplate.findUnique.mockResolvedValueOnce({ id: 'role-member', isOwner: false, isLocked: false });
+      mockPrisma.membership.findFirst.mockResolvedValueOnce(null);
+      mockPrisma.inviteToken.create.mockResolvedValueOnce({ id: 'inv-1', expiresAt: new Date() });
+      await service.create(restricted, creator, baseDto as any);
+      expect(mockPrisma.inviteToken.create).toHaveBeenCalled();
+    });
+
     it('trainer invite without staff.manage -> 403', async () => {
       const tenant = tenantWith(['members.manage']); // has members.manage but not staff.manage
       await expect(

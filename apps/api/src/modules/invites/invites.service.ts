@@ -24,6 +24,7 @@ import { PLATFORM_ACCESS_ERROR_CODES, isPlatformSystemRoleKey, isWriteRestricted
 import { PlatformAccessService } from '../platform-access/platform-access.service';
 import { billingRestrictedError } from '../auth/guards/billing-write.guard';
 import { assertCanGrant, assertNotLocked } from '../role-templates/role-templates.service';
+import { assertUnrestricted } from '../branches/branch-access';
 import { apiError, codedError } from '../../common/api-error';
 import { pickBundledLocale, requestedLocale, requestT, serverT } from '../../common/server-i18n';
 
@@ -63,6 +64,9 @@ export class InvitesService {
     if (!tenant.permissions.has(required)) {
       throw new ForbiddenException(apiError('apiErrors.invites.notPermissionCreateInvitationRole'));
     }
+    // A branch-restricted actor must not mint a staff account: a new staff
+    // membership has no branch rows, which means access to every branch.
+    if (dto.roleKey !== 'member') assertUnrestricted(tenant);
     // Restricted mode (G5c-1): staff invites stay available (staff.manage is
     // on the allow-list), new members do not.
     if (dto.roleKey === 'member' && !tenant.isSuperAdmin && isWriteRestricted(tenant.billingStatus)) {

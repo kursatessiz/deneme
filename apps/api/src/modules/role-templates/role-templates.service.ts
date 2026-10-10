@@ -5,6 +5,7 @@ import type { AssignRoleTemplateInput, CreateRoleTemplateInput, PermissionKey, R
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { apiError, codedError } from '../../common/api-error';
+import { assertUnrestricted } from '../branches/branch-access';
 
 /** A staff role -- the "member" template stays out of the role-management screen, it has no permissions to grant. */
 const STAFF_ROLE_FILTER = { key: { not: 'member' } };
@@ -149,6 +150,9 @@ export class RoleTemplatesService {
   }
 
   async assignRole(tenant: TenantContext, actorUserId: string, membershipId: string, dto: AssignRoleTemplateInput): Promise<StaffMembershipDTO> {
+    // A branch-restricted actor must not widen anyone's branch access: a re-roled
+    // membership without branch rows is unrestricted.
+    assertUnrestricted(tenant);
     const membership = await this.prisma.membership.findFirst({
       where: { id: membershipId, studioId: tenant.studioId },
       include: { roleTemplate: true, user: { select: { id: true, firstName: true, lastName: true, phone: true } } },
