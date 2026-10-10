@@ -125,12 +125,16 @@ describe('Scheduling integrity (e2e)', () => {
     const full = await makeSchedule({ capacity: 1 });
     expect((await api('post', '/schedules/book', { studioId: ZEN, scheduleId: full.id, memberId: memberA, resourceIds: [], chargePackage: false })).status).toBe(201);
     // The promotion books the waiting member system-side, which charges a package like any booking: give them one.
+    // Use a kind the service accepts (the seeded resource-free service may allow only TIME_UNLIMITED).
+    const service = await prisma.serviceType.findUniqueOrThrow({ where: { id: serviceTypeId }, select: { allowedEntitlementKinds: true } });
+    const kind = service.allowedEntitlementKinds.includes('SESSION_COUNT') ? 'SESSION_COUNT' : service.allowedEntitlementKinds[0];
+    const units = kind === 'TIME_UNLIMITED' ? null : 1;
     const definition = await prisma.packageDefinition.create({
       data: {
         studioId: ZEN,
         name: `E2E integrity ${Date.now().toString(36)}`,
-        entitlementKind: 'SESSION_COUNT',
-        totalUnits: 1,
+        entitlementKind: kind,
+        totalUnits: units,
         validityDays: 30,
         price: 0,
         services: { create: { serviceTypeId, unitCost: 1 } },
@@ -142,9 +146,9 @@ describe('Scheduling integrity (e2e)', () => {
         studioId: ZEN,
         memberId: memberB,
         packageDefinitionId: definition.id,
-        entitlementKind: 'SESSION_COUNT',
-        totalUnits: 1,
-        remainingUnits: 1,
+        entitlementKind: kind,
+        totalUnits: units,
+        remainingUnits: units,
         endDate: new Date(Date.now() + 30 * DAY),
       },
     });
