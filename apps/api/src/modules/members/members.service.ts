@@ -4,7 +4,7 @@ import { WebhooksService } from '../webhooks/webhooks.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { CreateMemberInput, AssignPackageToMemberInput, FreezePackageInput, UnfreezePackageInput } from '@platform/shared';
 import type { MemberDetailDTO, SetHomeBranchInput } from '@platform/shared';
-import { assertBranchAccess } from '../branches/branch-access';
+import { assertBranchAccess, branchScope } from '../branches/branch-access';
 import { ReferralsService } from '../feedback/referrals.service';
 import { PlanLimitsService } from '../admin/plan-limits.service';
 import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
@@ -26,6 +26,10 @@ export class MembersService {
       where: {
         studioId: tenant.studioId,
         ...(homeBranchId ? { homeBranchId } : {}),
+        // Branch-restricted staff see members of their branches and studio-wide members only.
+        ...(tenant.branchIds !== null && !homeBranchId
+          ? { OR: [{ homeBranchId: { in: [...tenant.branchIds] } }, { homeBranchId: null }] }
+          : {}),
         ...(search
           ? {
               membership: {
@@ -58,6 +62,7 @@ export class MembersService {
   async setHomeBranch(tenant: TenantContext, memberId: string, dto: SetHomeBranchInput) {
     const member = await this.prisma.memberProfile.findFirst({ where: { id: memberId, studioId: tenant.studioId } });
     if (!member) throw new NotFoundException(apiError('apiErrors.common.memberNotFound'));
+    assertBranchAccess(tenant, member.homeBranchId);
     if (dto.branchId) {
       const branch = await this.prisma.branch.findFirst({
         where: { id: dto.branchId, studioId: tenant.studioId, isActive: true },
@@ -128,13 +133,14 @@ export class MembersService {
           orderBy: { createdAt: 'desc' },
           take: 20,
         },
-        payments: { orderBy: { paidAt: 'desc' } },
+        payments: { where: branchScope(tenant), orderBy: { paidAt: 'desc' } },
       },
     });
 
     if (!member) {
       throw new NotFoundException(apiError('apiErrors.common.memberNotFound'));
     }
+    assertBranchAccess(tenant, member.homeBranchId);
 
     return this.toDetail(member, tenant);
   }
@@ -248,6 +254,7 @@ export class MembersService {
     if (!member) {
       throw new NotFoundException(apiError('apiErrors.common.memberNotFound'));
     }
+    assertBranchAccess(tenant, member.homeBranchId);
 
     const startDate = dto.startDate ? new Date(dto.startDate) : new Date();
     const endDate = new Date(startDate.getTime() + pkgDef.validityDays * 24 * 60 * 60 * 1000);
@@ -298,6 +305,7 @@ export class MembersService {
     if (!memberPackage) {
       throw new NotFoundException(apiError('apiErrors.members.packageNotFound'));
     }
+    await this.assertPackageMemberBranch(tenant, memberPackage.memberId);
 
     // Only a running package can be frozen (not FROZEN, EXPIRED, DEPLETED or CANCELLED).
     if (memberPackage.status !== 'ACTIVE') {
@@ -370,6 +378,7 @@ export class MembersService {
     if (!memberPackage) {
       throw new NotFoundException(apiError('apiErrors.members.packageNotFound'));
     }
+    await this.assertPackageMemberBranch(tenant, memberPackage.memberId);
     if (memberPackage.status !== 'FROZEN') {
       throw new BadRequestException(apiError('apiErrors.members.packageNotFrozen'));
     }
@@ -398,6 +407,16 @@ export class MembersService {
       }
       return tx.memberPackage.findUniqueOrThrow({ where: { id: packageId } });
     });
+  }
+
+  /** Branch-restricted staff may only act on packages of members in their branches (or studio-wide members). */
+  private async assertPackageMemberBranch(tenant: TenantContext, memberId: string): Promise<void> {
+    if (tenant.branchIds === null) return;
+    const member = await this.prisma.memberProfile.findFirst({
+      where: { id: memberId, studioId: tenant.studioId },
+      select: { homeBranchId: true },
+    });
+    assertBranchAccess(tenant, member?.homeBranchId);
   }
 
   /** Shapes a member profile row into a response, masking contact/health fields by permission. */

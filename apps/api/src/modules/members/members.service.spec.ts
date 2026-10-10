@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ReferralsService } from '../feedback/referrals.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { PlanLimitsService } from '../admin/plan-limits.service';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { TenantContext } from '../auth/tenant-context';
 
 describe('MembersService', () => {
@@ -54,6 +54,9 @@ describe('MembersService', () => {
     },
     payment: {
       create: jest.fn(),
+    },
+    studio: {
+      findUniqueOrThrow: jest.fn(),
     },
     packageFreezeHistory: {
       create: jest.fn(),
@@ -233,6 +236,57 @@ describe('MembersService', () => {
         where: { status: 'FROZEN', frozenUntil: { lte: now } },
         data: { status: 'ACTIVE', frozenUntil: null },
       });
+    });
+  });
+
+  describe('branch-restricted staff', () => {
+    const restricted: TenantContext = { ...tenant, isOwner: false, branchIds: new Set(['branch-a']) };
+
+    it('findAll adds a home-branch predicate (allowed set or studio-wide)', async () => {
+      mockPrisma.memberProfile.findMany.mockResolvedValueOnce([]);
+      await service.findAll(restricted);
+      const where = mockPrisma.memberProfile.findMany.mock.calls[0][0].where;
+      expect(where.OR).toEqual([{ homeBranchId: { in: ['branch-a'] } }, { homeBranchId: null }]);
+    });
+
+    it('findAll adds no predicate for unrestricted staff', async () => {
+      mockPrisma.memberProfile.findMany.mockResolvedValueOnce([]);
+      await service.findAll(tenant);
+      expect(mockPrisma.memberProfile.findMany.mock.calls[0][0].where.OR).toBeUndefined();
+    });
+
+    it('findById refuses a member of another branch and scopes included payments', async () => {
+      mockPrisma.memberProfile.findFirst.mockResolvedValueOnce({ id: 'm-b', studioId: STUDIO_ID, homeBranchId: 'branch-b', membership: { user: {} } });
+      await expect(service.findById('m-b', restricted)).rejects.toThrow(ForbiddenException);
+      const include = mockPrisma.memberProfile.findFirst.mock.calls[0][0].include;
+      expect(include.payments.where).toEqual({ OR: [{ branchId: { in: ['branch-a'] } }, { branchId: null }] });
+    });
+
+    it('findById allows a studio-wide member', async () => {
+      mockPrisma.memberProfile.findFirst.mockResolvedValueOnce({ id: 'm-n', studioId: STUDIO_ID, homeBranchId: null, membership: { user: {} } });
+      await expect(service.findById('m-n', restricted)).resolves.toBeDefined();
+    });
+
+    it('setHomeBranch and assignPackage refuse a member of another branch', async () => {
+      mockPrisma.memberProfile.findFirst.mockResolvedValue({ id: 'm-b', studioId: STUDIO_ID, homeBranchId: 'branch-b' });
+      await expect(service.setHomeBranch(restricted, 'm-b', { branchId: null } as any)).rejects.toThrow(ForbiddenException);
+      mockPrisma.packageDefinition.findFirst.mockResolvedValue({ id: 'def-1', validityDays: 30 });
+      mockPrisma.studio.findUniqueOrThrow.mockResolvedValue({ currency: 'EUR' });
+      await expect(service.assignPackage(restricted, { memberId: 'm-b', packageDefinitionId: 'def-1', paidAmount: 1 } as any)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(mockPrisma.memberPackage.create).not.toHaveBeenCalled();
+      mockPrisma.memberProfile.findFirst.mockReset();
+    });
+
+    it('freeze and unfreeze refuse a package of a member in another branch', async () => {
+      mockPrisma.memberPackage.findFirst.mockResolvedValue({ id: 'pkg-b', memberId: 'm-b', status: 'ACTIVE', packageDefinition: {} });
+      mockPrisma.memberProfile.findFirst.mockResolvedValue({ homeBranchId: 'branch-b' });
+      await expect(service.freezePackage('pkg-b', restricted, { days: 1 } as any)).rejects.toThrow(ForbiddenException);
+      await expect(service.unfreezePackage('pkg-b', restricted, {} as any)).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.memberPackage.updateMany).not.toHaveBeenCalled();
+      mockPrisma.memberPackage.findFirst.mockReset();
+      mockPrisma.memberProfile.findFirst.mockReset();
     });
   });
 });

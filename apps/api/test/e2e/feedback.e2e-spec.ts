@@ -192,9 +192,11 @@ describe('Feedback: ratings, review redirect, referrals (e2e)', () => {
 
       const summary = await as(trainerToken).get(`/ratings/studio/${ZEN}/me/received`);
       expect(summary.status).toBe(200);
-      const mine = summary.body.items.find((i: any) => i.bookingId === bookingId);
+      const mine = summary.body.items.find((i: any) => i.comment === 'Anonim test' && i.id === rateRes.body.rating.id);
       expect(mine).toBeTruthy();
       expect(mine.memberName).toBeNull();
+      expect(mine.memberId).toBeNull();
+      expect(mine.bookingId).toBeNull();
     });
 
     it('notifies the studio owner on a low score (<=2)', async () => {

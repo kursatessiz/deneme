@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -420,5 +420,49 @@ describe('PaymentsService - sellPackage', () => {
       await service.sellPackage(tenant, transfer);
       expect(prisma.payment.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ currency: 'TRY' }) }));
     });
+  });
+});
+
+describe('PaymentsService - subscription actions for branch-restricted staff', () => {
+  const restricted: TenantContext = {
+    studioId: 'studio-1',
+    membershipId: 'membership-1',
+    isOwner: false,
+    isSuperAdmin: false,
+    permissions: new Set(['finance.manage']),
+    memberProfileId: null,
+    trainerProfileId: null,
+    branchIds: new Set(['branch-a']),
+  };
+  const sub = { id: 'sub-1', studioId: 'studio-1', memberId: 'member-b', status: 'ACTIVE', nextChargeAt: new Date() };
+
+  function build(homeBranchId: string | null) {
+    const prisma = {
+      memberSubscription: { findFirst: jest.fn().mockResolvedValue(sub), update: jest.fn() },
+      memberProfile: { findFirst: jest.fn().mockResolvedValue({ homeBranchId }) },
+    };
+    const service = new PaymentsService(
+      prisma as unknown as PrismaService,
+      {} as unknown as NotificationsService,
+      {} as unknown as PaymentProviderRegistry,
+      {} as unknown as InvoicingService,
+      {} as unknown as PromotionsService,
+      { emit: jest.fn() } as unknown as WebhooksService,
+    );
+    return { prisma, service };
+  }
+
+  it('pause, resume and cancel refuse a subscription of a member in another branch', async () => {
+    const { prisma, service } = build('branch-b');
+    await expect(service.pauseSubscription(restricted, 'sub-1', {} as never)).rejects.toThrow(ForbiddenException);
+    await expect(service.resumeSubscription(restricted, 'sub-1')).rejects.toThrow(ForbiddenException);
+    await expect(service.cancelSubscription(restricted, 'sub-1', { atPeriodEnd: false } as never)).rejects.toThrow(ForbiddenException);
+    expect(prisma.memberSubscription.update).not.toHaveBeenCalled();
+  });
+
+  it('allows a subscription of a studio-wide member', async () => {
+    const { prisma, service } = build(null);
+    await service.pauseSubscription(restricted, 'sub-1', {} as never);
+    expect(prisma.memberSubscription.update).toHaveBeenCalled();
   });
 });
