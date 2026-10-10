@@ -17,9 +17,10 @@ type Bucket = 'id' | 'ip';
 export type LoginThrottleKind = 'password' | 'pin' | 'mfa';
 
 /**
- * Brute-force protection for password and PIN login. Only failed attempts
- * are counted, so normal sign-ins never consume the budget; a successful
- * login clears the identifier's counter. Counters live in Redis when
+ * Brute-force protection for password, PIN and MFA verification. An attempt is
+ * reserved before the credential is evaluated; a successful check clears the
+ * identifier's counter and refunds the IP's, so normal sign-ins never consume
+ * the budget. Counters live in Redis when
  * configured, otherwise in a single-instance in-memory fixed window (the
  * same fallback as LeadsPublicRateLimitGuard).
  *
@@ -34,23 +35,26 @@ export class LoginThrottleService {
 
   constructor(private readonly redis: RedisService) {}
 
-  /** Throws 429 when either the identifier or the IP is over its failure budget. */
-  async assertAllowed(kind: LoginThrottleKind, identifier: string, ip: string | null): Promise<void> {
+  /**
+   * Reserves one attempt before the credential is evaluated and throws 429 when
+   * that attempt exceeds the identifier or IP budget. The counters are
+   * incremented first (atomically in Redis, synchronously in memory) so a
+   * parallel burst cannot evaluate more guesses than the cap. A successful
+   * credential check calls recordSuccess, which gives the attempt back.
+   */
+  async reserveAttempt(kind: LoginThrottleKind, identifier: string, ip: string | null): Promise<void> {
     const [byId, byIp] = await Promise.all([
-      this.read(this.key(kind, 'id', identifier)),
-      ip ? this.read(this.key(kind, 'ip', ip)) : Promise.resolve(0),
+      this.increment(this.key(kind, 'id', identifier)),
+      ip ? this.increment(this.key(kind, 'ip', ip)) : Promise.resolve(0),
     ]);
-    if (byId >= LOGIN_MAX_FAILURES_PER_IDENTIFIER || byIp >= LOGIN_MAX_FAILURES_PER_IP) {
+    if (byId > LOGIN_MAX_FAILURES_PER_IDENTIFIER || byIp > LOGIN_MAX_FAILURES_PER_IP) {
       throw new HttpException(TOO_MANY, HttpStatus.TOO_MANY_REQUESTS);
     }
   }
 
-  async recordFailure(kind: LoginThrottleKind, identifier: string, ip: string | null): Promise<void> {
-    await Promise.all([this.increment(this.key(kind, 'id', identifier)), ip ? this.increment(this.key(kind, 'ip', ip)) : Promise.resolve()]);
-  }
-
-  async recordSuccess(kind: LoginThrottleKind, identifier: string): Promise<void> {
-    await this.clear(this.key(kind, 'id', identifier));
+  /** Clears the identifier's counter and refunds the IP's reserved attempt. */
+  async recordSuccess(kind: LoginThrottleKind, identifier: string, ip: string | null): Promise<void> {
+    await Promise.all([this.clear(this.key(kind, 'id', identifier)), ip ? this.refund(this.key(kind, 'ip', ip)) : Promise.resolve()]);
   }
 
   private key(kind: LoginThrottleKind, bucket: Bucket, value: string): string {
@@ -58,36 +62,42 @@ export class LoginThrottleService {
     return `login-fail:${kind}:${bucket}:${digest}`;
   }
 
-  private async read(key: string): Promise<number> {
+  /**
+   * Increments the counter and returns the new value. With no Redis client the
+   * in-memory branch runs before any await, so concurrent callers are counted
+   * one by one in call order.
+   */
+  private async increment(key: string): Promise<number> {
     const client = this.redis.getClient();
     if (client) {
       try {
         if (client.status === 'wait') await client.connect();
-        const value = await client.get(key);
-        return value ? Number(value) : 0;
-      } catch {
-        // Redis unreachable: fall back to the in-memory window below.
-      }
-    }
-    const entry = this.memory.get(key);
-    return entry && entry.resetAt > Date.now() ? entry.count : 0;
-  }
-
-  private async increment(key: string): Promise<void> {
-    const client = this.redis.getClient();
-    if (client) {
-      try {
-        if (client.status === 'wait') await client.connect();
-        const count = await incrementWithTtl(client, key, LOGIN_FAILURE_WINDOW_SECONDS);
-        return;
+        return await incrementWithTtl(client, key, LOGIN_FAILURE_WINDOW_SECONDS);
       } catch {
         // Fall through to memory.
       }
     }
     const now = Date.now();
     const entry = this.memory.get(key);
-    if (!entry || entry.resetAt <= now) this.memory.set(key, { count: 1, resetAt: now + LOGIN_FAILURE_WINDOW_SECONDS * 1000 });
-    else entry.count += 1;
+    if (!entry || entry.resetAt <= now) {
+      this.memory.set(key, { count: 1, resetAt: now + LOGIN_FAILURE_WINDOW_SECONDS * 1000 });
+      return 1;
+    }
+    entry.count += 1;
+    return entry.count;
+  }
+
+  private async refund(key: string): Promise<void> {
+    const entry = this.memory.get(key);
+    if (entry && entry.count > 0) entry.count -= 1;
+    const client = this.redis.getClient();
+    if (!client) return;
+    try {
+      if (client.status === 'wait') await client.connect();
+      if ((await client.decr(key)) <= 0) await client.del(key);
+    } catch {
+      // Best effort: the key expires on its own.
+    }
   }
 
   private async clear(key: string): Promise<void> {

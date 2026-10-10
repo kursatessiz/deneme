@@ -84,13 +84,12 @@ export class AuthService {
   }
 
   async pinLogin(phone: string, pin: string, ip: string | null = null) {
-    await this.throttle.assertAllowed('pin', phone, ip);
+    await this.throttle.reserveAttempt('pin', phone, ip);
     const user = await this.prisma.user.findUnique({ where: { phone } });
     const now = new Date();
 
     if (!user || !user.pinHash || !user.isActive) {
       await bcrypt.compare(pin, DUMMY_HASH);
-      await this.throttle.recordFailure('pin', phone, ip);
       throw new UnauthorizedException(INVALID_PIN);
     }
 
@@ -119,12 +118,11 @@ export class AuthService {
           data: { failedPinAttempts: 0, pinLockedUntil: new Date(now.getTime() + PIN_LOCK_MS) },
         });
       }
-      await this.throttle.recordFailure('pin', phone, ip);
       throw new UnauthorizedException(INVALID_PIN);
     }
 
     await this.prisma.user.update({ where: { id: user.id }, data: { failedPinAttempts: 0, pinLockedUntil: null } });
-    await this.throttle.recordSuccess('pin', phone);
+    await this.throttle.recordSuccess('pin', phone, ip);
     const tokens = await this.issueTokens(user.id);
     return { ...tokens, user: await this.sessionUser(user.id) };
   }
@@ -146,7 +144,7 @@ export class AuthService {
     const email = dto.emailOrPhone.includes('@') ? dto.emailOrPhone.trim().toLowerCase() : null;
     // Throttle on the canonical form so "0532..." and "+90532..." share one budget.
     const identifier = phone ?? email ?? dto.emailOrPhone;
-    await this.throttle.assertAllowed('password', identifier, ip);
+    await this.throttle.reserveAttempt('password', identifier, ip);
 
     const user =
       phone || email
@@ -157,10 +155,9 @@ export class AuthService {
 
     const passwordOk = await bcrypt.compare(dto.password, user?.passwordHash ?? DUMMY_HASH);
     if (!user || !user.passwordHash || !passwordOk) {
-      await this.throttle.recordFailure('password', identifier, ip);
       throw new UnauthorizedException(INVALID_CREDENTIALS);
     }
-    await this.throttle.recordSuccess('password', identifier);
+    await this.throttle.recordSuccess('password', identifier, ip);
     if (!user.isActive) {
       throw new UnauthorizedException(apiError('apiErrors.auth.accountSuspended'));
     }
