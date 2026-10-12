@@ -66,6 +66,7 @@ export const trApiErrors = {
   'apiErrors.ai.translationJobNotFound': 'Çeviri işi bulunamadı.',
 
   // apiKeys
+  'apiErrors.apiKeys.scopeBeyondOwnPermissions': 'Kendi yetkinizi aşan bir kapsam için API anahtarı oluşturamazsınız',
   'apiErrors.apiKeys.apiKeyExpired': 'Bu API anahtarının süresi dolmuştur',
   'apiErrors.apiKeys.apiKeyNotFound': 'API anahtarı bulunamadı',
   'apiErrors.apiKeys.apiKeyRevoked': 'Bu API anahtarı iptal edilmiştir',
