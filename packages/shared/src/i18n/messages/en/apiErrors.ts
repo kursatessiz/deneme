@@ -63,6 +63,7 @@ export const enApiErrors: Record<keyof typeof trApiErrors, string> = {
   'apiErrors.ai.translationJobNotFound': 'Translation job not found.',
 
   // apiKeys
+  'apiErrors.apiKeys.scopeBeyondOwnPermissions': 'You cannot create an API key with a scope beyond your own permissions',
   'apiErrors.apiKeys.apiKeyExpired': 'This API key has expired',
   'apiErrors.apiKeys.apiKeyNotFound': 'API key not found',
   'apiErrors.apiKeys.apiKeyRevoked': 'This API key has been revoked',
@@ -472,6 +473,7 @@ export const enApiErrors: Record<keyof typeof trApiErrors, string> = {
   'apiErrors.promotions.alreadyUsedCode': 'You have already used this code',
   'apiErrors.promotions.amountBelowCodeMinimum': 'The amount is below the minimum for this code',
   'apiErrors.promotions.cardAlreadyCancelled': 'The card has already been cancelled',
+  'apiErrors.promotions.cannotRefundCancelledCard': 'A cancelled gift card cannot receive a refund',
   'apiErrors.promotions.cardBalanceJustChanged': 'The card balance just changed, try again',
   'apiErrors.promotions.cardStatusJustChanged': 'The card status just changed, try again',
   'apiErrors.promotions.codeAlreadyUseBusiness': 'This code is already in use in this business',

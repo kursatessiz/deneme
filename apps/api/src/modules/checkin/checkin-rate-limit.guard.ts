@@ -3,6 +3,7 @@ import type { AuthenticatedRequest } from '../auth/tenant-context';
 import { RedisService } from '../redis/redis.service';
 import { incrementWithTtl } from '../redis/increment-with-ttl';
 import { apiError } from '../../common/api-error';
+import { clientIpKey, pruneExpiredCounters } from '../../common/rate-limit';
 
 const WINDOW_SECONDS = 60;
 const MAX_REQUESTS = 12;
@@ -53,7 +54,7 @@ export class KioskPairRateLimitGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<{ ip?: string }>();
-    const ip = req.ip ?? 'unknown';
+    const ip = clientIpKey(req.ip);
 
     const client = this.redis.getClient();
     if (client) {
@@ -77,6 +78,7 @@ export class KioskPairRateLimitGuard implements CanActivate {
     const entry = this.memoryCounters.get(ip);
     if (!entry || entry.resetAt <= now) {
       this.memoryCounters.set(ip, { count: 1, resetAt: now + WINDOW_SECONDS * 1000 });
+      pruneExpiredCounters(this.memoryCounters, now);
       return true;
     }
     entry.count += 1;

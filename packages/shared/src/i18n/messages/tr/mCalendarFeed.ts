@@ -12,5 +12,6 @@ export const trMCalendarFeed = {
   'mCalendarFeed.regenerateHint': 'Yeniden oluşturmak (döndürmek) önceki bağlantıyı geçersiz kılar.',
   'mCalendarFeed.refreshUrl': 'Bağlantıyı yenile',
   'mCalendarFeed.errors.createFailed': 'Takvim aboneliği oluşturulamadı.',
+  'mCalendarFeed.errors.openFailed': 'Takvim uygulaması açılamadı.',
   'mCalendarFeed.errors.revokeFailed': 'Abonelik iptal edilemedi.',
 } as const satisfies Record<string, string>;

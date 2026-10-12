@@ -1,6 +1,7 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { generateApiKey } from './api-key.util';
+import { apiKeyScopesBeyondPermissions } from '@platform/shared';
 import type { CreateApiKeyInput } from '@platform/shared';
 import type { TenantContext } from '../auth/tenant-context';
 import { apiError } from '../../common/api-error';
@@ -10,6 +11,10 @@ export class ApiKeysService {
   constructor(private prisma: PrismaService) {}
 
   async create(tenant: TenantContext, userId: string, dto: CreateApiKeyInput) {
+    // Owners and super admins may grant any scope; everyone else only what their own role covers.
+    if (!tenant.isOwner && !tenant.isSuperAdmin && apiKeyScopesBeyondPermissions(dto.scopes, tenant.permissions).length > 0) {
+      throw new ForbiddenException(apiError('apiErrors.apiKeys.scopeBeyondOwnPermissions'));
+    }
     const generated = generateApiKey();
     const apiKey = await this.prisma.apiKey.create({
       data: {

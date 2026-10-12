@@ -339,6 +339,18 @@ describe('Check-in kiosk and QR (e2e)', () => {
       expect(res.status).toBe(401);
     });
 
+    it('denies a kiosk whose studio is suspended and works again once it is active', async () => {
+      await prisma.studio.update({ where: { id: ZEN }, data: { isActive: false } });
+      try {
+        const res = await request(server).get('/kiosk/sessions/today').set('Authorization', `Bearer ${kioskToken}`);
+        expect(res.status).toBe(401);
+      } finally {
+        await prisma.studio.update({ where: { id: ZEN }, data: { isActive: true } });
+      }
+      const again = await request(server).get('/kiosk/sessions/today').set('Authorization', `Bearer ${kioskToken}`);
+      expect(again.status).toBe(200);
+    });
+
     it('denies a revoked kiosk immediately', async () => {
       await asZen(ownerToken).post(`/studios/${ZEN}/kiosk-devices/${deviceId}/revoke`).send({}).expect(201);
       const res = await request(server).get('/kiosk/sessions/today').set('Authorization', `Bearer ${kioskToken}`);

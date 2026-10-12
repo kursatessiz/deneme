@@ -36,8 +36,9 @@ export class KioskAuthGuard implements CanActivate {
     }
     if (claims.typ !== 'kiosk' || !claims.sub) throw new UnauthorizedException(INVALID);
 
-    const device = await this.prisma.kioskDevice.findUnique({ where: { id: claims.sub } });
-    if (!device || device.revokedAt || device.studioId !== claims.studioId || device.branchId !== claims.branchId) {
+    const device = await this.prisma.kioskDevice.findUnique({ where: { id: claims.sub }, include: { studio: { select: { isActive: true } } } });
+    // A suspended studio's kiosks stop working with it (same rule as ApiKeyGuard).
+    if (!device || !device.studio.isActive || device.revokedAt || device.studioId !== claims.studioId || device.branchId !== claims.branchId) {
       throw new UnauthorizedException(INVALID);
     }
 

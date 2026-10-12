@@ -1,4 +1,4 @@
-import { exchangeRefreshToken } from './refresh';
+import { cookiesToClearOnRejectedRefresh, exchangeRefreshToken } from './refresh';
 
 function fakeFetch(answer: Response | Error): typeof fetch {
   return (async () => {
@@ -33,5 +33,11 @@ describe('exchangeRefreshToken', () => {
   it('keeps the session when the API is unreachable', async () => {
     const outcome = await exchangeRefreshToken('http://api', 'r1', { fetchImpl: fakeFetch(new TypeError('fetch failed')) });
     expect(outcome).toEqual({ kind: 'unavailable', status: 503 });
+  });
+});
+
+describe('cookiesToClearOnRejectedRefresh', () => {
+  it('clears nothing, so a loser of a parallel refresh cannot wipe the winner\'s fresh cookies', () => {
+    expect(cookiesToClearOnRejectedRefresh()).toEqual([]);
   });
 });

@@ -66,6 +66,7 @@ export const trApiErrors = {
   'apiErrors.ai.translationJobNotFound': 'Çeviri işi bulunamadı.',
 
   // apiKeys
+  'apiErrors.apiKeys.scopeBeyondOwnPermissions': 'Kendi yetkinizi aşan bir kapsam için API anahtarı oluşturamazsınız',
   'apiErrors.apiKeys.apiKeyExpired': 'Bu API anahtarının süresi dolmuştur',
   'apiErrors.apiKeys.apiKeyNotFound': 'API anahtarı bulunamadı',
   'apiErrors.apiKeys.apiKeyRevoked': 'Bu API anahtarı iptal edilmiştir',
@@ -475,6 +476,7 @@ export const trApiErrors = {
   'apiErrors.promotions.alreadyUsedCode': 'Bu kodu daha önce kullandınız',
   'apiErrors.promotions.amountBelowCodeMinimum': 'Tutar bu kod için minimum tutarın altında',
   'apiErrors.promotions.cardAlreadyCancelled': 'Kart zaten iptal edilmiş',
+  'apiErrors.promotions.cannotRefundCancelledCard': 'İptal edilmiş hediye kartına iade yapılamaz',
   'apiErrors.promotions.cardBalanceJustChanged': 'Kart bakiyesi az önce değişti, tekrar deneyin',
   'apiErrors.promotions.cardStatusJustChanged': 'Kart durumu az önce değişti, tekrar deneyin',
   'apiErrors.promotions.codeAlreadyUseBusiness': 'Bu kod bu işletmede zaten kullanımda',

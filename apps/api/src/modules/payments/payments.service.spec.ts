@@ -54,6 +54,8 @@ describe('PaymentsService - refunds', () => {
       studio: { findUnique: jest.fn().mockResolvedValue({ defaultLocale: 'tr' }) },
       sale: { count: jest.fn().mockResolvedValue(0) },
       eventRegistration: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      memberPackage: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      $transaction: jest.fn(async (fn: (tx: unknown) => unknown) => fn({})),
     };
     providers = { get: jest.fn().mockReturnValue({ refund }) };
     service = new PaymentsService(
@@ -61,7 +63,7 @@ describe('PaymentsService - refunds', () => {
       { notifyUser: jest.fn() } as unknown as NotificationsService,
       providers as unknown as PaymentProviderRegistry,
       { cancelForRefund: jest.fn(), getSettings: jest.fn(), issueForPayment: jest.fn() } as unknown as InvoicingService,
-      {} as unknown as PromotionsService,
+      { cancelGiftCardOfRefundedSale: jest.fn().mockResolvedValue(null) } as unknown as PromotionsService,
       { emit: jest.fn() } as unknown as WebhooksService,
     );
   });
@@ -86,7 +88,7 @@ describe('PaymentsService - refunds', () => {
       { notifyUser: jest.fn() } as unknown as NotificationsService,
       providers as unknown as PaymentProviderRegistry,
       { cancelForRefund: jest.fn(), getSettings: jest.fn(), issueForPayment: jest.fn() } as unknown as InvoicingService,
-      {} as unknown as PromotionsService,
+      { cancelGiftCardOfRefundedSale: jest.fn().mockResolvedValue(null) } as unknown as PromotionsService,
       webhooks as unknown as WebhooksService,
     );
     const guest = { ...basePayment, memberId: null, contactId: 'contact-1', providerReference: null, provider: null };

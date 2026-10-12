@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { DYNAMIC_PAGE_SEGMENT, EMBED_ORIGIN_PATTERN, LocaleCodeSchema, NOINDEX_ROBOTS_VALUE, STUDIO_SLUG_PATTERN, isNonIndexablePath } from '@platform/shared';
 import { PAGE_LOCALE_HEADER } from '@/lib/i18n/constants';
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE, accessTokenCookieOptions, expiredCookieOptions, refreshTokenCookieOptions } from '@/lib/bff/cookies';
-import { exchangeRefreshToken } from '@/lib/bff/refresh';
+import { cookiesToClearOnRejectedRefresh, exchangeRefreshToken } from '@/lib/bff/refresh';
 import { requestTranslator } from '@/lib/bff/request-translator';
 import { dashboardCsp, generateNonce } from '@/lib/security/csp';
 import { isProtectedPath } from '@/lib/security/protected-paths';
@@ -232,8 +232,8 @@ async function route(request: NextRequest): Promise<NextResponse> {
     const redirectResponse = NextResponse.redirect(loginUrl);
     redirectResponse.headers.set('Content-Security-Policy', dashboardCsp(generateNonce(), process.env.NODE_ENV === 'development'));
     if (outcome?.kind === 'rejected') {
-      // Only the API's own 401/403 ends the session.
-      redirectResponse.cookies.set(REFRESH_TOKEN_COOKIE, '', expiredCookieOptions(process.env.NODE_ENV));
+      // Only the API's own 401/403 ends the session; cookies a concurrent request just renewed are never wiped.
+      for (const name of cookiesToClearOnRejectedRefresh()) redirectResponse.cookies.set(name, '', expiredCookieOptions(process.env.NODE_ENV));
     }
     return redirectResponse;
   }

@@ -27,6 +27,7 @@ import type {
   PauseSubscriptionInput,
   RefundPaymentInput,
   SellPackageInput,
+  StoredCardDTO,
 } from '@platform/shared';
 import { maskLeaderboardName } from '@platform/shared';
 import { Prisma, PaymentMethod, PaymentProvider, PaymentStatus, PackageDefinition } from '@platform/database';
@@ -37,6 +38,29 @@ import { apiError, codedError } from '../../common/api-error';
 import { serverT, studioLocale } from '../../common/server-i18n';
 
 type Tx = Prisma.TransactionClient;
+
+/** A stored card as the member sees it: never the provider token. */
+function toStoredCardDTO(card: {
+  id: string;
+  memberId: string;
+  provider: PaymentProvider;
+  last4: string;
+  brand: string;
+  expMonth: number;
+  expYear: number;
+  isDefault: boolean;
+}): StoredCardDTO {
+  return {
+    id: card.id,
+    memberId: card.memberId,
+    provider: card.provider as unknown as StoredCardDTO['provider'],
+    last4: card.last4,
+    brand: card.brand,
+    expMonth: card.expMonth,
+    expYear: card.expYear,
+    isDefault: card.isDefault,
+  };
+}
 
 /** Money already captured at a provider whose sale transaction has not committed yet. */
 interface CapturedCharge {
@@ -713,6 +737,14 @@ export class PaymentsService {
       if (giftCardCredit.gt(requested)) giftCardCredit = requested;
     }
     const newGiftCardRefunded = giftCardAlreadyRefunded.plus(giftCardCredit);
+    // Checked before anything is reserved or sent to the provider: a cancelled card
+    // cannot take the credit back, and the refund must not be left half done.
+    if (giftCardCredit.gt(0) && payment.giftCardId) {
+      const card = await this.prisma.giftCard.findFirst({ where: { id: payment.giftCardId, studioId }, select: { status: true } });
+      if (card?.status === 'CANCELLED') {
+        throw new ConflictException(apiError('apiErrors.promotions.cannotRefundCancelledCard'));
+      }
+    }
 
     // Reserve first: the conditional update on the snapshot means only one of
     // two concurrent refunds proceeds, so the provider is never asked to
@@ -770,6 +802,14 @@ export class PaymentsService {
     // G3c-1: an event ticket's registration mirrors what its payment has refunded.
     await this.prisma.eventRegistration.updateMany({ where: { studioId, paymentId: payment.id }, data: { refundedAmount: newRefunded } });
 
+    // A full refund takes back what the payment bought: the package it created
+    // (bookings already made stay as they are) and the gift card it issued.
+    // Partial refunds never touch either.
+    if (fullyRefunded) {
+      await this.revertPurchaseAfterFullRefund(studioId, actorUserId, payment.id, payment.memberPackageId);
+      await this.crm?.onPaymentFullyRefunded(studioId, payment.id);
+    }
+
     await this.prisma.auditLog.create({
       data: {
         studioId,
@@ -804,13 +844,39 @@ export class PaymentsService {
     return this.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
   }
 
+  /**
+   * Ends the MemberPackage and cancels the gift card that a fully refunded
+   * payment bought. The package takes the terminal EXPIRED status with its
+   * end date set to now (there is no separate cancelled status); existing
+   * bookings are left intact. Each step writes its own audit row.
+   */
+  private async revertPurchaseAfterFullRefund(studioId: string, actorUserId: string, paymentId: string, memberPackageId: string | null) {
+    if (memberPackageId) {
+      const ended = await this.prisma.memberPackage.updateMany({
+        where: { id: memberPackageId, studioId, status: { in: ['ACTIVE', 'FROZEN'] } },
+        data: { status: 'EXPIRED', endDate: new Date(), frozenUntil: null },
+      });
+      if (ended.count > 0) {
+        await this.prisma.auditLog.create({
+          data: { studioId, userId: actorUserId, action: 'payments.refund.package_cancelled', entityType: 'MemberPackage', entityId: memberPackageId, metadata: { paymentId } },
+        });
+      }
+    }
+    const giftCardId = await this.prisma.$transaction((tx) => this.promotions.cancelGiftCardOfRefundedSale(tx, studioId, paymentId, actorUserId));
+    if (giftCardId) {
+      await this.prisma.auditLog.create({
+        data: { studioId, userId: actorUserId, action: 'payments.refund.gift_card_cancelled', entityType: 'GiftCard', entityId: giftCardId, metadata: { paymentId } },
+      });
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Stored cards
   // ---------------------------------------------------------------------------
 
   async addStoredCardSelf(tenant: TenantContext, dto: CardTokenInput) {
     if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.common.actionOnlyMembers'));
-    return this.prisma.storedCard.create({
+    const card = await this.prisma.storedCard.create({
       data: {
         studioId: tenant.studioId,
         memberId: tenant.memberProfileId,
@@ -822,14 +888,16 @@ export class PaymentsService {
         expYear: dto.expYear,
       },
     });
+    return toStoredCardDTO(card);
   }
 
   async listMyStoredCards(tenant: TenantContext) {
     if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.common.actionOnlyMembers'));
-    return this.prisma.storedCard.findMany({
+    const cards = await this.prisma.storedCard.findMany({
       where: { studioId: tenant.studioId, memberId: tenant.memberProfileId },
       orderBy: { createdAt: 'desc' },
     });
+    return cards.map(toStoredCardDTO);
   }
 
   // ---------------------------------------------------------------------------

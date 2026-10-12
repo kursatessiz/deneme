@@ -17,6 +17,8 @@ import { pickBundledLocale, requestedLocale, requestT, serverT } from '../../com
 export const PIN_MAX_FAILURES = 5;
 /** Refresh token lifetime of super admins and platform members (tenant users keep 30 days). */
 export const PLATFORM_REFRESH_TTL = '7d';
+/** A refresh token replaced less than this long ago may still arrive from a parallel request of the same client. */
+export const REFRESH_GRACE_MS = 60 * 1000;
 export const PIN_LOCK_MS = 15 * 60 * 1000;
 const INVALID_CODE = apiError('apiErrors.invites.codeInvalidExpired');
 const INVALID_PIN = apiError('apiErrors.auth.incorrectPhoneNumberPin');
@@ -134,7 +136,7 @@ export class AuthService {
   async setPin(userId: string, pin: string) {
     await this.prisma.user.update({
       where: { id: userId },
-      data: { pinHash: await bcrypt.hash(pin, 10), failedPinAttempts: 0, pinLockedUntil: null, refreshTokenHash: null },
+      data: { pinHash: await bcrypt.hash(pin, 10), failedPinAttempts: 0, pinLockedUntil: null, refreshTokenHash: null, prevRefreshTokenHash: null, refreshRotatedAt: null, sessionEpoch: { increment: 1 } },
     });
     return this.issueTokens(userId);
   }
@@ -169,7 +171,7 @@ export class AuthService {
   async refreshToken(incomingRefreshToken: string) {
     if (!incomingRefreshToken) throw new UnauthorizedException(apiError('apiErrors.auth.invalidSession'));
 
-    let claims: { sub?: string; typ?: string };
+    let claims: { sub?: string; typ?: string; ep?: number };
     try {
       claims = this.jwtService.verify(incomingRefreshToken);
     } catch {
@@ -180,17 +182,34 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: claims.sub } });
     if (!user || !user.isActive || !user.refreshTokenHash) throw new UnauthorizedException(apiError('apiErrors.auth.invalidSession'));
 
-    if (!refreshTokenMatches(incomingRefreshToken, user.refreshTokenHash)) throw new UnauthorizedException(apiError('apiErrors.auth.invalidRefreshToken'));
+    // A token from before the last revocation is simply stale.
+    if ((typeof claims.ep === 'number' ? claims.ep : 0) !== user.sessionEpoch) throw new UnauthorizedException(apiError('apiErrors.auth.invalidSession'));
+
+    if (!refreshTokenMatches(incomingRefreshToken, user.refreshTokenHash)) {
+      // The token the last rotation replaced, presented within the grace window, is a parallel
+      // refresh of the same client that lost the race: refuse this call, keep the winner's session.
+      const rotatedAgo = user.refreshRotatedAt ? Date.now() - user.refreshRotatedAt.getTime() : Infinity;
+      if (user.prevRefreshTokenHash && rotatedAgo <= REFRESH_GRACE_MS && refreshTokenMatches(incomingRefreshToken, user.prevRefreshTokenHash)) {
+        throw new UnauthorizedException(apiError('apiErrors.auth.invalidRefreshToken'));
+      }
+      // Validly signed but matching neither: a stale copy is in someone's hands, so every session
+      // of the user is revoked (epoch bump, stored hashes cleared).
+      await this.prisma.user.updateMany({
+        where: { id: user.id, sessionEpoch: user.sessionEpoch },
+        data: { sessionEpoch: { increment: 1 }, refreshTokenHash: null, prevRefreshTokenHash: null, refreshRotatedAt: null },
+      });
+      throw new UnauthorizedException(apiError('apiErrors.auth.invalidRefreshToken'));
+    }
 
     // Rotate: the presented refresh token cannot be used again. A session that
     // passed the TOTP step keeps it, unless 2FA was reset or re-enrolled since.
     const mfa = (claims as { mfa?: unknown }).mfa;
     const keepMfa = user.mfaEnabledAt !== null && mfa === user.mfaEnabledAt.getTime();
-    return this.issueTokens(user.id, keepMfa ? user.mfaEnabledAt : null);
+    return this.issueTokens(user.id, keepMfa ? user.mfaEnabledAt : null, user.refreshTokenHash);
   }
 
   async logout(userId: string) {
-    await this.prisma.user.update({ where: { id: userId }, data: { refreshTokenHash: null } });
+    await this.prisma.user.update({ where: { id: userId }, data: { refreshTokenHash: null, prevRefreshTokenHash: null, refreshRotatedAt: null, sessionEpoch: { increment: 1 } } });
   }
 
   /** The user plus every active or invited membership with resolved permissions. */
@@ -278,24 +297,35 @@ export class AuthService {
    * `mfaEnabledAt`: set only right after the TOTP step (MfaService); binds the
    * `mfa` claim to the current enrolment so a reset invalidates it.
    */
-  async issueTokens(userId: string, mfaEnabledAt: Date | null = null) {
+  async issueTokens(userId: string, mfaEnabledAt: Date | null = null, rotatedFromHash: string | null = null) {
     const mfa = mfaEnabledAt ? { mfa: mfaEnabledAt.getTime() } : {};
-    const accessToken = this.jwtService.sign({ sub: userId, typ: 'access', ...mfa }, { expiresIn: '1h' });
     // Platform-level accounts get a shorter refresh window (docs/PAZARLAMA_MODULU.md 6.3).
     const account = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { isSuperAdmin: true, platformMembership: { select: { status: true } } },
+      select: { isSuperAdmin: true, sessionEpoch: true, platformMembership: { select: { status: true } } },
     });
+    const ep = { ep: account?.sessionEpoch ?? 0 };
+    const accessToken = this.jwtService.sign({ sub: userId, typ: 'access', ...ep, ...mfa }, { expiresIn: '1h' });
     const isPlatformAccount = Boolean(account?.isSuperAdmin || account?.platformMembership?.status === 'ACTIVE');
     const refreshToken = this.jwtService.sign(
       // jti makes every refresh token unique, even two issued in the same second.
-      { sub: userId, typ: 'refresh', jti: randomUUID(), ...mfa },
+      { sub: userId, typ: 'refresh', jti: randomUUID(), ...ep, ...mfa },
       { expiresIn: isPlatformAccount ? PLATFORM_REFRESH_TTL : '30d' },
     );
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { refreshTokenHash: hashRefreshToken(refreshToken) },
-    });
+    if (rotatedFromHash) {
+      // Rotation: only the request that still holds the current token may replace it, so two
+      // parallel refreshes cannot both succeed. The replaced hash is kept for the grace window.
+      const swapped = await this.prisma.user.updateMany({
+        where: { id: userId, refreshTokenHash: rotatedFromHash },
+        data: { refreshTokenHash: hashRefreshToken(refreshToken), prevRefreshTokenHash: rotatedFromHash, refreshRotatedAt: new Date() },
+      });
+      if (swapped.count === 0) throw new UnauthorizedException(apiError('apiErrors.auth.invalidRefreshToken'));
+    } else {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { refreshTokenHash: hashRefreshToken(refreshToken), prevRefreshTokenHash: null, refreshRotatedAt: null },
+      });
+    }
     return { accessToken, refreshToken };
   }
 }

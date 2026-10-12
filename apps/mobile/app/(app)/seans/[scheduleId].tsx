@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { isWithinJoinWindow, onColor } from '@platform/shared';
 import type { BookingChargedPackageDTO, BookingNoticeDTO, JoinSessionResultDTO, MemberPackageDTO, ScheduleSpotsDTO, SpotDTO, SpotGroupDTO, SpotStatus } from '@platform/shared';
@@ -13,6 +13,7 @@ import { useSession } from '../../../src/lib/session';
 import { borderWidth, palette, radii, spacing, TOUCH_TARGET, typography, useTheme, useThemeColors, useThemeFonts } from '../../../src/theme';
 import type { Translate } from '@platform/shared';
 import { Text } from '../../../src/components/Text';
+import { openExternalUrl } from '../../../src/lib/externalLink';
 
 const SPOT_SIZE = 48;
 const SPOT_GAP = spacing[2];
@@ -224,7 +225,7 @@ export default function SeansDetailScreen() {
         method: 'POST',
         studioId,
       });
-      await Linking.openURL(result.joinUrl);
+      await openExternalUrl(result.joinUrl);
     } catch (e) {
       setJoinError(e instanceof ApiError ? e.message : t('mSessionBooking.errors.joinLinkFailed'));
     } finally {

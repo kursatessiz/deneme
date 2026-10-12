@@ -4,6 +4,7 @@ import { RedisService } from '../redis/redis.service';
 import { incrementWithTtl } from '../redis/increment-with-ttl';
 import { CommunityPostsService } from './community-posts.service';
 import { apiError } from '../../common/api-error';
+import { clientIpKey, pruneExpiredCounters } from '../../common/rate-limit';
 
 const WINDOW_SECONDS = 60;
 const MAX_READS = 60;
@@ -21,7 +22,7 @@ export class CommunityPublicRateLimitGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<Request>();
-    const key = `community-public-rl:${req.ip ?? 'unknown'}`;
+    const key = `community-public-rl:${clientIpKey(req.ip)}`;
 
     const client = this.redis.getClient();
     if (client) {
@@ -40,6 +41,7 @@ export class CommunityPublicRateLimitGuard implements CanActivate {
     const entry = this.memoryCounters.get(key);
     if (!entry || entry.resetAt <= now) {
       this.memoryCounters.set(key, { count: 1, resetAt: now + WINDOW_SECONDS * 1000 });
+      pruneExpiredCounters(this.memoryCounters, now);
       return true;
     }
     entry.count += 1;

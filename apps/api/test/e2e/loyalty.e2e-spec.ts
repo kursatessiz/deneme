@@ -275,6 +275,32 @@ describe('Loyalty G3a (e2e)', () => {
       expect(account.lifetimeEarned).toBe(sum);
     });
 
+    it('claws back purchase points on a full refund, clamped to the available balance, and leaves a partial refund alone', async () => {
+      const a = await makeMember('refund', 8, ZEN);
+      const sold = await sell(a, 275);
+      expect((await rowsOf(a, 'EARN_PURCHASE'))[0]).toMatchObject({ delta: 10 });
+      const half = await as(ownerToken, ZEN).post(`/payments/${sold.paymentId}/refund`).send({ amount: 100, reason: 'e2e partial' });
+      expect(half.status).toBe(201);
+      expect(await rowsOf(a, 'REFUND_REVERSAL')).toHaveLength(0);
+      expect(await balanceOf(a)).toBe(10);
+
+      // Spend part of the points first so only 4 remain to claw back.
+      await app.get(LoyaltyLedgerService).post({
+        studioId: ZEN,
+        membershipId: a.membershipId,
+        delta: -6,
+        reason: 'REDEEM',
+        sourceType: 'redemption',
+        sourceId: `e2e-refund-${a.membershipId}`,
+      });
+      const full = await as(ownerToken, ZEN).post(`/payments/${sold.paymentId}/refund`).send({ reason: 'e2e full' });
+      expect(full.status).toBe(201);
+      const reversal = await rowsOf(a, 'REFUND_REVERSAL');
+      expect(reversal).toHaveLength(1);
+      expect(reversal[0]).toMatchObject({ delta: -4, sourceType: 'payment', sourceId: sold.paymentId });
+      expect(await balanceOf(a)).toBe(0);
+    });
+
     it('credits the referrer once when the referral is rewarded, next to the package units', async () => {
       const referrer = await makeMember('referrer', 2, ZEN);
       const referred = await makeMember('referred', 3, ZEN);
