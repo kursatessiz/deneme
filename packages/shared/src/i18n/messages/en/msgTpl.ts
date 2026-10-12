@@ -28,6 +28,10 @@ export const enMsgTpl = {
   'msgTpl.INBOX_HELP_REPLY.text': '{studioName}: Messages sent to this number reach our team. Reply STOP to stop marketing messages.',
   'msgTpl.INBOX_OPT_OUT_CONFIRM.subject': 'You have unsubscribed',
   'msgTpl.INBOX_OPT_OUT_CONFIRM.text': '{studioName}: You have been removed from our marketing list. Booking and account messages will continue.',
+  'msgTpl.ERASURE_REQUEST_APPROVED.subject': 'Your erasure request was approved',
+  'msgTpl.ERASURE_REQUEST_APPROVED.text': 'Hi {firstName}, your request to erase your personal data at {studioName} was approved. Your data will be anonymized shortly.',
+  'msgTpl.ERASURE_REQUEST_REJECTED.subject': 'Your erasure request was rejected',
+  'msgTpl.ERASURE_REQUEST_REJECTED.text': 'Hi {firstName}, your request to erase your personal data at {studioName} was rejected. Contact the business for details.',
   'msgTpl.LOYALTY_POINTS_EXPIRING.subject': 'Your points are expiring',
   'msgTpl.LOYALTY_POINTS_EXPIRING.text': 'Hi {firstName}, {points} of your {studioName} loyalty points expire on {expiryDate}. Use them on a reward before they expire.',
 

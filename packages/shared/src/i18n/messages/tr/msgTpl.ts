@@ -32,6 +32,10 @@ export const trMsgTpl = {
   'msgTpl.INBOX_HELP_REPLY.text': '{studioName}: Bu numaraya yazdığınız mesajlar ekibimize ulaşır. Ticari mesajları durdurmak için DUR yazabilirsiniz.',
   'msgTpl.INBOX_OPT_OUT_CONFIRM.subject': 'Abonelikten çıktınız',
   'msgTpl.INBOX_OPT_OUT_CONFIRM.text': '{studioName}: Ticari mesaj listemizden çıkarıldınız. Rezervasyon ve hesap bildirimleri devam eder.',
+  'msgTpl.ERASURE_REQUEST_APPROVED.subject': 'Silme talebiniz onaylandı',
+  'msgTpl.ERASURE_REQUEST_APPROVED.text': 'Merhaba {firstName}, {studioName} işletmesindeki kişisel verilerinizin silinmesi talebiniz onaylandı. Verileriniz kısa süre içinde anonimleştirilecek.',
+  'msgTpl.ERASURE_REQUEST_REJECTED.subject': 'Silme talebiniz reddedildi',
+  'msgTpl.ERASURE_REQUEST_REJECTED.text': 'Merhaba {firstName}, {studioName} işletmesindeki kişisel verilerinizin silinmesi talebiniz reddedildi. Ayrıntı için işletmeyle iletişime geçebilirsiniz.',
   'msgTpl.LOYALTY_POINTS_EXPIRING.subject': 'Puanlarınızın süresi doluyor',
   'msgTpl.LOYALTY_POINTS_EXPIRING.text': 'Merhaba {firstName}, {studioName} sadakat programındaki {points} puanınızın son kullanım tarihi {expiryDate}. Süresi dolmadan bir ödül için kullanabilirsiniz.',
 
