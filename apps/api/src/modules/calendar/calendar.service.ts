@@ -51,8 +51,9 @@ export class CalendarService {
   /** Resolves a raw token from the public feed URL to a user id, or null when unknown. */
   async resolveUserId(rawToken: string): Promise<string | null> {
     const tokenHash = hashToken(rawToken);
-    const row = await this.prisma.calendarFeedToken.findUnique({ where: { tokenHash }, select: { id: true, userId: true } });
-    if (!row) return null;
+    const row = await this.prisma.calendarFeedToken.findUnique({ where: { tokenHash }, select: { id: true, userId: true, user: { select: { isActive: true } } } });
+    // A deactivated account's feed stops serving, like its sessions.
+    if (!row || !row.user.isActive) return null;
     // Best-effort; a failure here must never block serving the calendar.
     this.prisma.calendarFeedToken.update({ where: { id: row.id }, data: { lastUsedAt: new Date() } }).catch(() => undefined);
     return row.userId;

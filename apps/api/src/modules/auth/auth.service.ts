@@ -134,7 +134,7 @@ export class AuthService {
   async setPin(userId: string, pin: string) {
     await this.prisma.user.update({
       where: { id: userId },
-      data: { pinHash: await bcrypt.hash(pin, 10), failedPinAttempts: 0, pinLockedUntil: null, refreshTokenHash: null },
+      data: { pinHash: await bcrypt.hash(pin, 10), failedPinAttempts: 0, pinLockedUntil: null, refreshTokenHash: null, sessionEpoch: { increment: 1 } },
     });
     return this.issueTokens(userId);
   }
@@ -169,7 +169,7 @@ export class AuthService {
   async refreshToken(incomingRefreshToken: string) {
     if (!incomingRefreshToken) throw new UnauthorizedException(apiError('apiErrors.auth.invalidSession'));
 
-    let claims: { sub?: string; typ?: string };
+    let claims: { sub?: string; typ?: string; ep?: number };
     try {
       claims = this.jwtService.verify(incomingRefreshToken);
     } catch {
@@ -180,7 +180,18 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: claims.sub } });
     if (!user || !user.isActive || !user.refreshTokenHash) throw new UnauthorizedException(apiError('apiErrors.auth.invalidSession'));
 
-    if (!refreshTokenMatches(incomingRefreshToken, user.refreshTokenHash)) throw new UnauthorizedException(apiError('apiErrors.auth.invalidRefreshToken'));
+    // A token from before the last revocation is simply stale.
+    if ((typeof claims.ep === 'number' ? claims.ep : 0) !== user.sessionEpoch) throw new UnauthorizedException(apiError('apiErrors.auth.invalidSession'));
+
+    if (!refreshTokenMatches(incomingRefreshToken, user.refreshTokenHash)) {
+      // Validly signed but already rotated out: either the client or a thief holds a
+      // stale copy, so every session of the user is revoked (epoch bump, stored hash cleared).
+      await this.prisma.user.updateMany({
+        where: { id: user.id, sessionEpoch: user.sessionEpoch },
+        data: { sessionEpoch: { increment: 1 }, refreshTokenHash: null },
+      });
+      throw new UnauthorizedException(apiError('apiErrors.auth.invalidRefreshToken'));
+    }
 
     // Rotate: the presented refresh token cannot be used again. A session that
     // passed the TOTP step keeps it, unless 2FA was reset or re-enrolled since.
@@ -190,7 +201,7 @@ export class AuthService {
   }
 
   async logout(userId: string) {
-    await this.prisma.user.update({ where: { id: userId }, data: { refreshTokenHash: null } });
+    await this.prisma.user.update({ where: { id: userId }, data: { refreshTokenHash: null, sessionEpoch: { increment: 1 } } });
   }
 
   /** The user plus every active or invited membership with resolved permissions. */
@@ -280,16 +291,17 @@ export class AuthService {
    */
   async issueTokens(userId: string, mfaEnabledAt: Date | null = null) {
     const mfa = mfaEnabledAt ? { mfa: mfaEnabledAt.getTime() } : {};
-    const accessToken = this.jwtService.sign({ sub: userId, typ: 'access', ...mfa }, { expiresIn: '1h' });
     // Platform-level accounts get a shorter refresh window (docs/PAZARLAMA_MODULU.md 6.3).
     const account = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { isSuperAdmin: true, platformMembership: { select: { status: true } } },
+      select: { isSuperAdmin: true, sessionEpoch: true, platformMembership: { select: { status: true } } },
     });
+    const ep = { ep: account?.sessionEpoch ?? 0 };
+    const accessToken = this.jwtService.sign({ sub: userId, typ: 'access', ...ep, ...mfa }, { expiresIn: '1h' });
     const isPlatformAccount = Boolean(account?.isSuperAdmin || account?.platformMembership?.status === 'ACTIVE');
     const refreshToken = this.jwtService.sign(
       // jti makes every refresh token unique, even two issued in the same second.
-      { sub: userId, typ: 'refresh', jti: randomUUID(), ...mfa },
+      { sub: userId, typ: 'refresh', jti: randomUUID(), ...ep, ...mfa },
       { expiresIn: isPlatformAccount ? PLATFORM_REFRESH_TTL : '30d' },
     );
     await this.prisma.user.update({

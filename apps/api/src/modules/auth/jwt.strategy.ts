@@ -14,6 +14,8 @@ export interface AccessTokenClaims {
    * mfaEnabledAt in epoch ms, so a 2FA reset or re-enrolment invalidates it.
    */
   mfa?: number;
+  /** Session epoch of the user when issued; a missing claim (older token) counts as 0. */
+  ep?: number;
 }
 
 @Injectable()
@@ -30,17 +32,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub?: string; typ?: string; mfa?: unknown }): Promise<AuthUser> {
+  async validate(payload: { sub?: string; typ?: string; mfa?: unknown; ep?: unknown }): Promise<AuthUser> {
     if (payload.typ !== 'access' || !payload.sub) {
       throw new UnauthorizedException(apiError('apiErrors.auth.invalidSessionKey'));
     }
 
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, phone: true, firstName: true, lastName: true, isSuperAdmin: true, isActive: true, mfaEnabledAt: true },
+      select: { id: true, phone: true, firstName: true, lastName: true, isSuperAdmin: true, isActive: true, mfaEnabledAt: true, sessionEpoch: true },
     });
     if (!user || !user.isActive) {
       throw new UnauthorizedException(apiError('apiErrors.auth.userNotFoundAccountDisabled'));
+    }
+    // Logout, PIN change or reset, deactivation and refresh reuse bump the epoch and end older tokens.
+    if ((typeof payload.ep === 'number' ? payload.ep : 0) !== user.sessionEpoch) {
+      throw new UnauthorizedException(apiError('apiErrors.auth.invalidSessionKey'));
     }
 
     return {
