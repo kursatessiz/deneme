@@ -48,9 +48,32 @@ describe('Auth refresh rotation (e2e)', () => {
     const second = rotated.body.refreshToken as string;
     expect(second).not.toBe(first);
 
+    // The replaced token arriving right after rotation is a benign parallel refresh: refused, session kept.
     expect((await refresh(first)).status).toBe(401);
-    // Presenting a rotated-out token is treated as theft: every session of the user is revoked.
-    expect((await refresh(second)).status).toBe(401);
+    expect((await refresh(second)).status).toBe(200);
+  });
+
+  it('two parallel refreshes with the same token: one wins and its session stays valid', async () => {
+    const login = await pinLogin();
+    const token = login.body.refreshToken as string;
+    const results = await Promise.all([refresh(token), refresh(token)]);
+    const winners = results.filter((r) => r.status === 200);
+    expect(winners).toHaveLength(1);
+    expect(results.filter((r) => r.status === 401)).toHaveLength(1);
+    const won = winners[0].body as { accessToken: string; refreshToken: string };
+    expect((await me(won.accessToken)).status).toBe(200);
+    expect((await refresh(won.refreshToken)).status).toBe(200);
+  });
+
+  it('a replaced token reused after the grace window revokes every session', async () => {
+    const login = await pinLogin();
+    const old = login.body.refreshToken as string;
+    const rotated = await refresh(old);
+    expect(rotated.status).toBe(200);
+    await prisma.user.update({ where: { phone }, data: { refreshRotatedAt: new Date(Date.now() - 2 * 60 * 1000) } });
+    expect((await refresh(old)).status).toBe(401);
+    expect((await me(rotated.body.accessToken)).status).toBe(401);
+    expect((await refresh(rotated.body.refreshToken)).status).toBe(401);
   });
 
   const me = (accessToken: string) => request(server).get('/auth/me').set('Authorization', `Bearer ${accessToken}`);
@@ -87,6 +110,7 @@ describe('Auth refresh rotation (e2e)', () => {
     const rotated = await refresh(login.body.refreshToken);
     expect(rotated.status).toBe(200);
     expect((await me(rotated.body.accessToken)).status).toBe(200);
+    await prisma.user.update({ where: { phone }, data: { refreshRotatedAt: new Date(Date.now() - 2 * 60 * 1000) } });
     expect((await refresh(login.body.refreshToken)).status).toBe(401);
     expect((await me(rotated.body.accessToken)).status).toBe(401);
     expect((await refresh(rotated.body.refreshToken)).status).toBe(401);

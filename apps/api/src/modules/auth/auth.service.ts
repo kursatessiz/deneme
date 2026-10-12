@@ -17,6 +17,8 @@ import { pickBundledLocale, requestedLocale, requestT, serverT } from '../../com
 export const PIN_MAX_FAILURES = 5;
 /** Refresh token lifetime of super admins and platform members (tenant users keep 30 days). */
 export const PLATFORM_REFRESH_TTL = '7d';
+/** A refresh token replaced less than this long ago may still arrive from a parallel request of the same client. */
+export const REFRESH_GRACE_MS = 60 * 1000;
 export const PIN_LOCK_MS = 15 * 60 * 1000;
 const INVALID_CODE = apiError('apiErrors.invites.codeInvalidExpired');
 const INVALID_PIN = apiError('apiErrors.auth.incorrectPhoneNumberPin');
@@ -134,7 +136,7 @@ export class AuthService {
   async setPin(userId: string, pin: string) {
     await this.prisma.user.update({
       where: { id: userId },
-      data: { pinHash: await bcrypt.hash(pin, 10), failedPinAttempts: 0, pinLockedUntil: null, refreshTokenHash: null, sessionEpoch: { increment: 1 } },
+      data: { pinHash: await bcrypt.hash(pin, 10), failedPinAttempts: 0, pinLockedUntil: null, refreshTokenHash: null, prevRefreshTokenHash: null, refreshRotatedAt: null, sessionEpoch: { increment: 1 } },
     });
     return this.issueTokens(userId);
   }
@@ -184,11 +186,17 @@ export class AuthService {
     if ((typeof claims.ep === 'number' ? claims.ep : 0) !== user.sessionEpoch) throw new UnauthorizedException(apiError('apiErrors.auth.invalidSession'));
 
     if (!refreshTokenMatches(incomingRefreshToken, user.refreshTokenHash)) {
-      // Validly signed but already rotated out: either the client or a thief holds a
-      // stale copy, so every session of the user is revoked (epoch bump, stored hash cleared).
+      // The token the last rotation replaced, presented within the grace window, is a parallel
+      // refresh of the same client that lost the race: refuse this call, keep the winner's session.
+      const rotatedAgo = user.refreshRotatedAt ? Date.now() - user.refreshRotatedAt.getTime() : Infinity;
+      if (user.prevRefreshTokenHash && rotatedAgo <= REFRESH_GRACE_MS && refreshTokenMatches(incomingRefreshToken, user.prevRefreshTokenHash)) {
+        throw new UnauthorizedException(apiError('apiErrors.auth.invalidRefreshToken'));
+      }
+      // Validly signed but matching neither: a stale copy is in someone's hands, so every session
+      // of the user is revoked (epoch bump, stored hashes cleared).
       await this.prisma.user.updateMany({
         where: { id: user.id, sessionEpoch: user.sessionEpoch },
-        data: { sessionEpoch: { increment: 1 }, refreshTokenHash: null },
+        data: { sessionEpoch: { increment: 1 }, refreshTokenHash: null, prevRefreshTokenHash: null, refreshRotatedAt: null },
       });
       throw new UnauthorizedException(apiError('apiErrors.auth.invalidRefreshToken'));
     }
@@ -197,11 +205,11 @@ export class AuthService {
     // passed the TOTP step keeps it, unless 2FA was reset or re-enrolled since.
     const mfa = (claims as { mfa?: unknown }).mfa;
     const keepMfa = user.mfaEnabledAt !== null && mfa === user.mfaEnabledAt.getTime();
-    return this.issueTokens(user.id, keepMfa ? user.mfaEnabledAt : null);
+    return this.issueTokens(user.id, keepMfa ? user.mfaEnabledAt : null, user.refreshTokenHash);
   }
 
   async logout(userId: string) {
-    await this.prisma.user.update({ where: { id: userId }, data: { refreshTokenHash: null, sessionEpoch: { increment: 1 } } });
+    await this.prisma.user.update({ where: { id: userId }, data: { refreshTokenHash: null, prevRefreshTokenHash: null, refreshRotatedAt: null, sessionEpoch: { increment: 1 } } });
   }
 
   /** The user plus every active or invited membership with resolved permissions. */
@@ -289,7 +297,7 @@ export class AuthService {
    * `mfaEnabledAt`: set only right after the TOTP step (MfaService); binds the
    * `mfa` claim to the current enrolment so a reset invalidates it.
    */
-  async issueTokens(userId: string, mfaEnabledAt: Date | null = null) {
+  async issueTokens(userId: string, mfaEnabledAt: Date | null = null, rotatedFromHash: string | null = null) {
     const mfa = mfaEnabledAt ? { mfa: mfaEnabledAt.getTime() } : {};
     // Platform-level accounts get a shorter refresh window (docs/PAZARLAMA_MODULU.md 6.3).
     const account = await this.prisma.user.findUnique({
@@ -304,10 +312,20 @@ export class AuthService {
       { sub: userId, typ: 'refresh', jti: randomUUID(), ...ep, ...mfa },
       { expiresIn: isPlatformAccount ? PLATFORM_REFRESH_TTL : '30d' },
     );
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { refreshTokenHash: hashRefreshToken(refreshToken) },
-    });
+    if (rotatedFromHash) {
+      // Rotation: only the request that still holds the current token may replace it, so two
+      // parallel refreshes cannot both succeed. The replaced hash is kept for the grace window.
+      const swapped = await this.prisma.user.updateMany({
+        where: { id: userId, refreshTokenHash: rotatedFromHash },
+        data: { refreshTokenHash: hashRefreshToken(refreshToken), prevRefreshTokenHash: rotatedFromHash, refreshRotatedAt: new Date() },
+      });
+      if (swapped.count === 0) throw new UnauthorizedException(apiError('apiErrors.auth.invalidRefreshToken'));
+    } else {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { refreshTokenHash: hashRefreshToken(refreshToken), prevRefreshTokenHash: null, refreshRotatedAt: null },
+      });
+    }
     return { accessToken, refreshToken };
   }
 }

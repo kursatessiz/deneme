@@ -14,7 +14,7 @@ import {
   refreshTokenCookieOptions,
 } from '@/lib/bff/cookies';
 import { isLogoutPath, isSessionUpgradePath, isTokenIssuingRequest } from '@/lib/bff/auth-paths';
-import { exchangeRefreshToken, type TokenPair } from '@/lib/bff/refresh';
+import { cookiesToClearOnRejectedRefresh, exchangeRefreshToken, type TokenPair } from '@/lib/bff/refresh';
 import { translateApiError } from '@/lib/bff/translate-error';
 import { PW_LOCALE_COOKIE } from '@/lib/i18n/constants';
 import { ERROR_CODE_HEADER, REQUEST_ID_HEADER } from '@platform/shared';
@@ -164,8 +164,9 @@ async function handle(req: NextRequest, context: { params: Promise<{ path: strin
       // A rate limit, 5xx or unreachable API: the session may still be valid, so the cookies stay.
       return NextResponse.json({ message: t('common.error.sessionRefreshUnavailable') }, { status: refreshed.status });
     }
-    const { res } = await toNextResponse(apiRes);
-    clearSessionCookies(res);
+    // Rejected: answer the original 401 and leave the cookies alone (see cookiesToClearOnRejectedRefresh).
+    const { res } = await toNextResponse(apiRes, [], req);
+    for (const name of cookiesToClearOnRejectedRefresh()) res.cookies.set(name, '', expiredCookieOptions(process.env.NODE_ENV));
     return res;
   }
 

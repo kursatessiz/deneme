@@ -16,6 +16,17 @@ export function unavailableStatus(status: number): number {
   return status === 429 ? 429 : 503;
 }
 
+/**
+ * Cookies to clear when the API rejects a refresh. None: parallel requests of
+ * one browser present the same refresh cookie, and the loser of that race is
+ * rejected while the winner's response is setting fresh cookies; clearing here
+ * could wipe them. A really dead session is left to the next sign-in, which
+ * overwrites both cookies, so the caller just answers 401 (or redirects).
+ */
+export function cookiesToClearOnRejectedRefresh(): readonly string[] {
+  return [];
+}
+
 export async function exchangeRefreshToken(
   apiBaseUrl: string,
   refreshToken: string,

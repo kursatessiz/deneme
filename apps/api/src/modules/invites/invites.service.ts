@@ -251,7 +251,7 @@ export class InvitesService {
       const user = await tx.user.upsert({
         where: { phone: invite.phone },
         create: { phone: invite.phone, firstName, lastName, pinHash, phoneVerifiedAt: now },
-        update: { phoneVerifiedAt: now, ...(pinHash ? { pinHash, failedPinAttempts: 0, pinLockedUntil: null, refreshTokenHash: null, sessionEpoch: { increment: 1 } } : {}) },
+        update: { phoneVerifiedAt: now, ...(pinHash ? { pinHash, failedPinAttempts: 0, pinLockedUntil: null, refreshTokenHash: null, prevRefreshTokenHash: null, refreshRotatedAt: null, sessionEpoch: { increment: 1 } } : {}) },
       });
 
       if (isPlatformInvite) {
