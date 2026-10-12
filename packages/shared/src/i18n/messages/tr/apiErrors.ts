@@ -470,6 +470,7 @@ export const trApiErrors = {
   'apiErrors.promotions.alreadyUsedCode': 'Bu kodu daha önce kullandınız',
   'apiErrors.promotions.amountBelowCodeMinimum': 'Tutar bu kod için minimum tutarın altında',
   'apiErrors.promotions.cardAlreadyCancelled': 'Kart zaten iptal edilmiş',
+  'apiErrors.promotions.cannotRefundCancelledCard': 'İptal edilmiş hediye kartına iade yapılamaz',
   'apiErrors.promotions.cardBalanceJustChanged': 'Kart bakiyesi az önce değişti, tekrar deneyin',
   'apiErrors.promotions.cardStatusJustChanged': 'Kart durumu az önce değişti, tekrar deneyin',
   'apiErrors.promotions.codeAlreadyUseBusiness': 'Bu kod bu işletmede zaten kullanımda',

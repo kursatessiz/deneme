@@ -180,6 +180,38 @@ export class LoyaltyEarnService {
   }
 
   /**
+   * A payment was fully refunded: takes back the points it earned. The
+   * reversal is clamped to the balance the member still has (points already
+   * spent are not clawed back below zero) and is keyed by the payment, so a
+   * retry never reverses twice.
+   */
+  async onPaymentRefunded(studioId: string, paymentId: string): Promise<number> {
+    return this.safely(`payment refund ${paymentId}`, async () => {
+      return this.prisma.$transaction(async (tx) => {
+        const earned = await tx.loyaltyLedger.findUnique({
+          where: { studioId_sourceType_sourceId_reason: { studioId, sourceType: 'payment', sourceId: paymentId, reason: 'EARN_PURCHASE' } },
+        });
+        if (!earned || earned.delta <= 0) return 0;
+        const [account] = await tx.$queryRaw<{ balance: number }[]>`
+          SELECT "balance" FROM "loyalty_accounts"
+          WHERE "membership_id" = ${earned.membershipId}::uuid AND "studio_id" = ${studioId}::uuid
+          FOR UPDATE`;
+        const take = Math.min(earned.delta, Math.max(account?.balance ?? 0, 0));
+        if (take <= 0) return 0;
+        const result = await this.ledger.postTx(tx, {
+          studioId,
+          membershipId: earned.membershipId,
+          delta: -take,
+          reason: 'REFUND_REVERSAL',
+          sourceType: 'payment',
+          sourceId: paymentId,
+        });
+        return result.duplicate ? 0 : take;
+      });
+    });
+  }
+
+  /**
    * The referral module moved a referral to REWARDED (inside its own
    * transaction, exactly once). REFERRAL rules credit the referrer; the
    * package-unit reward of W15 is separate and stays a tenant setting.

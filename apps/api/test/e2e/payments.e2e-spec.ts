@@ -295,6 +295,20 @@ describe('Payments (e2e)', () => {
       expect(third.body.paymentStatus).toBe('REFUNDED');
     });
 
+    it('a full refund ends the purchased package and keeps its bookings; a partial refund leaves it active', async () => {
+      const memberPackageId = memberPackageIds[memberPackageIds.length - 1];
+      await as(ownerToken).post(`/payments/${paymentId}/refund`, { amount: 100, reason: 'e2e kismi' });
+      expect((await prisma.memberPackage.findUniqueOrThrow({ where: { id: memberPackageId } })).status).toBe('ACTIVE');
+
+      const full = await as(ownerToken).post(`/payments/${paymentId}/refund`, { reason: 'e2e tam iade' });
+      expect(full.status).toBe(201);
+      const pkg = await prisma.memberPackage.findUniqueOrThrow({ where: { id: memberPackageId } });
+      expect(pkg.status).toBe('EXPIRED');
+      expect(pkg.endDate.getTime()).toBeLessThanOrEqual(Date.now());
+      const log = await prisma.auditLog.findFirst({ where: { studioId: ZEN, action: 'payments.refund.package_cancelled', entityId: memberPackageId } });
+      expect(log).not.toBeNull();
+    });
+
     it('a trainer cannot refund (needs finance.manage)', async () => {
       const res = await as(trainerToken).post(`/payments/${paymentId}/refund`, { amount: 100, reason: 'e2e' });
       expect(res.status).toBe(403);

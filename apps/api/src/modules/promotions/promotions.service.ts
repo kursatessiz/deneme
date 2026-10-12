@@ -607,9 +607,40 @@ export class PromotionsService {
     });
   }
 
+  /**
+   * Full refund of the sale that issued a gift card: cancels the card and
+   * writes off what is left on it. Returns the card id, or null when the
+   * payment did not issue a card or the card was already cancelled.
+   */
+  async cancelGiftCardOfRefundedSale(tx: Tx, studioId: string, paymentId: string, actorUserId: string): Promise<string | null> {
+    const issued = await tx.giftCardTransaction.findFirst({
+      where: { studioId, paymentId, type: GiftCardTransactionType.ISSUE },
+      select: { giftCardId: true },
+    });
+    if (!issued) return null;
+    const card = await tx.giftCard.findFirst({ where: { id: issued.giftCardId, studioId } });
+    if (!card || card.status === GiftCardStatus.CANCELLED) return null;
+    const moved = await tx.giftCard.updateMany({
+      where: { id: card.id, studioId, status: { not: GiftCardStatus.CANCELLED } },
+      data: { status: GiftCardStatus.CANCELLED, balance: new Prisma.Decimal(0) },
+    });
+    if (moved.count === 0) return null;
+    if (card.balance.gt(0)) {
+      await tx.giftCardTransaction.create({
+        data: { giftCardId: card.id, studioId, type: GiftCardTransactionType.ADJUST, amount: card.balance.negated(), paymentId, actorUserId },
+      });
+    }
+    return card.id;
+  }
+
   /** Credits an amount back to a gift card on refund of the payment that used it. */
   async refundToGiftCard(tx: Tx, studioId: string, giftCardId: string, amount: Prisma.Decimal, paymentId: string, actorUserId: string) {
     if (amount.lte(0)) return;
+    // A cancelled card stays cancelled: a refund must never bring it back to life.
+    const card = await tx.giftCard.findFirst({ where: { id: giftCardId, studioId }, select: { status: true } });
+    if (!card || card.status === GiftCardStatus.CANCELLED) {
+      throw new ConflictException(apiError('apiErrors.promotions.cannotRefundCancelledCard'));
+    }
     await tx.giftCard.update({
       where: { id: giftCardId },
       data: { balance: { increment: amount }, status: GiftCardStatus.ACTIVE },
