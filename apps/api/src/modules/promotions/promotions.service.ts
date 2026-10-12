@@ -14,6 +14,7 @@ import type {
   AdjustGiftCardInput,
   ApiErrorKey,
   CreatePromoCodeInput,
+  GiftCardDTO,
   IssueGiftCardInput,
   UpdatePromoCodeInput,
 } from '@platform/shared';
@@ -487,10 +488,28 @@ export class PromotionsService {
 
   /** Member self-service: the gift cards this member purchased (never someone else's). */
   async listMyGiftCards(tenant: TenantContext, actorUserId: string) {
-    return this.prisma.giftCard.findMany({
+    const cards = await this.prisma.giftCard.findMany({
       where: { studioId: tenant.studioId, purchaserUserId: actorUserId },
       orderBy: { createdAt: 'desc' },
     });
+    // Never the whole row: the code hash stays on the server.
+    return cards.map(
+      (card): GiftCardDTO => ({
+        id: card.id,
+        studioId: card.studioId,
+        last4: card.last4,
+        initialAmount: card.initialAmount.toString(),
+        balance: card.balance.toString(),
+        currency: card.currency,
+        purchaserUserId: card.purchaserUserId,
+        recipientName: card.recipientName,
+        recipientPhone: card.recipientPhone,
+        message: card.message,
+        expiresAt: card.expiresAt ? card.expiresAt.toISOString() : null,
+        status: card.status as unknown as GiftCardDTO['status'],
+        createdAt: card.createdAt.toISOString(),
+      }),
+    );
   }
 
   async getGiftCard(tenant: TenantContext, giftCardId: string) {

@@ -27,6 +27,7 @@ import type {
   PauseSubscriptionInput,
   RefundPaymentInput,
   SellPackageInput,
+  StoredCardDTO,
 } from '@platform/shared';
 import { maskLeaderboardName } from '@platform/shared';
 import { Prisma, PaymentMethod, PaymentProvider, PaymentStatus, PackageDefinition } from '@platform/database';
@@ -37,6 +38,29 @@ import { apiError, codedError } from '../../common/api-error';
 import { serverT, studioLocale } from '../../common/server-i18n';
 
 type Tx = Prisma.TransactionClient;
+
+/** A stored card as the member sees it: never the provider token. */
+function toStoredCardDTO(card: {
+  id: string;
+  memberId: string;
+  provider: PaymentProvider;
+  last4: string;
+  brand: string;
+  expMonth: number;
+  expYear: number;
+  isDefault: boolean;
+}): StoredCardDTO {
+  return {
+    id: card.id,
+    memberId: card.memberId,
+    provider: card.provider as unknown as StoredCardDTO['provider'],
+    last4: card.last4,
+    brand: card.brand,
+    expMonth: card.expMonth,
+    expYear: card.expYear,
+    isDefault: card.isDefault,
+  };
+}
 
 /** Money already captured at a provider whose sale transaction has not committed yet. */
 interface CapturedCharge {
@@ -852,7 +876,7 @@ export class PaymentsService {
 
   async addStoredCardSelf(tenant: TenantContext, dto: CardTokenInput) {
     if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.common.actionOnlyMembers'));
-    return this.prisma.storedCard.create({
+    const card = await this.prisma.storedCard.create({
       data: {
         studioId: tenant.studioId,
         memberId: tenant.memberProfileId,
@@ -864,14 +888,16 @@ export class PaymentsService {
         expYear: dto.expYear,
       },
     });
+    return toStoredCardDTO(card);
   }
 
   async listMyStoredCards(tenant: TenantContext) {
     if (!tenant.memberProfileId) throw new ForbiddenException(apiError('apiErrors.common.actionOnlyMembers'));
-    return this.prisma.storedCard.findMany({
+    const cards = await this.prisma.storedCard.findMany({
       where: { studioId: tenant.studioId, memberId: tenant.memberProfileId },
       orderBy: { createdAt: 'desc' },
     });
+    return cards.map(toStoredCardDTO);
   }
 
   // ---------------------------------------------------------------------------

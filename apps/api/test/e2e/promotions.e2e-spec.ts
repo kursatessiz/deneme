@@ -682,6 +682,29 @@ describe('Promotions (e2e)', () => {
       expect(payment.paymentStatus).toBe('COMPLETED');
     });
 
+    it('lists the purchaser own gift cards without the code hash', async () => {
+      const purchaser = await createMember('gift-purchaser-10');
+      const issue = await as(ownerToken).post('/promotions/gift-cards', {
+        studioId: ZEN,
+        memberId: purchaser.memberId,
+        initialAmount: 75,
+        currency: 'TRY',
+        paymentMethod: 'CASH',
+      });
+      createdGiftCardIds.push(issue.body.id);
+      createdPaymentIds.push(issue.body.payment.id);
+
+      const mine = await as(purchaser.token).get('/promotions/gift-cards/mine');
+      expect(mine.status).toBe(200);
+      const row = mine.body.find((c: { id: string }) => c.id === issue.body.id);
+      expect(row).toMatchObject({ id: issue.body.id, last4: issue.body.last4, currency: 'TRY', status: 'ACTIVE' });
+      expect(row.balance).toBe('75');
+      for (const card of mine.body) {
+        expect(card).not.toHaveProperty('codeHash');
+        expect(card).not.toHaveProperty('updatedAt');
+      }
+    });
+
     it('audits a manual cancel', async () => {
       const purchaser = await createMember('gift-purchaser-6');
       const issue = await as(ownerToken).post('/promotions/gift-cards', {

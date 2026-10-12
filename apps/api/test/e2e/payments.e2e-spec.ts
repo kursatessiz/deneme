@@ -423,6 +423,30 @@ describe('Payments (e2e)', () => {
     });
   });
 
+  describe('stored card privacy', () => {
+    it('never returns the provider card token to the member', async () => {
+      const created = await as(memberToken).post('/payments/cards/self', {
+        providerCardToken: 'card_tok_secret_7777',
+        last4: '7777',
+        brand: 'VISA',
+        expMonth: 11,
+        expYear: 2032,
+      });
+      expect(created.status).toBe(201);
+      storedCardIds.push(created.body.id);
+      expect(JSON.stringify(created.body)).not.toContain('card_tok_secret_7777');
+      expect(created.body).not.toHaveProperty('providerCardToken');
+      expect(created.body).toMatchObject({ last4: '7777', brand: 'VISA', expMonth: 11, expYear: 2032 });
+
+      const list = await as(memberToken).get('/payments/cards/self');
+      expect(list.status).toBe(200);
+      const row = list.body.find((c: { id: string }) => c.id === created.body.id);
+      expect(row).toBeDefined();
+      expect(JSON.stringify(list.body)).not.toContain('card_tok_secret_7777');
+      for (const card of list.body) expect(card).not.toHaveProperty('providerCardToken');
+    });
+  });
+
   describe('subscriptions', () => {
     it('a member adds a stored card, staff creates a subscription, and the member cancels it at period end', async () => {
       const card = await as(memberToken).post('/payments/cards/self', {
