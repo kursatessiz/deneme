@@ -21,8 +21,6 @@ describe('API key scope escalation (e2e)', () => {
   let ZEN: string;
   let ownerToken: string;
   let staffToken: string;
-  let roleId: string;
-  let userId: string;
   const createdKeyIds: string[] = [];
 
   const login = async (phone: string) => {
@@ -33,6 +31,18 @@ describe('API key scope escalation (e2e)', () => {
   const createKey = (token: string, scopes: string[]) =>
     request(server).post('/integrations/api-keys').set('Authorization', `Bearer ${token}`).set('x-studio-id', ZEN).send({ name: 'E2E scope key', scopes });
 
+  /** Removes the throwaway staff user, its keys and its role (also what an aborted earlier run left behind). */
+  const cleanup = async () => {
+    const users = await prisma.user.findMany({ where: { phone: STAFF_PHONE }, select: { id: true } });
+    const userIds = users.map((u) => u.id);
+    const keys = await prisma.apiKey.findMany({ where: { createdByUserId: { in: userIds } }, select: { id: true } });
+    const keyIds = [...keys.map((k) => k.id), ...createdKeyIds];
+    await prisma.auditLog.deleteMany({ where: { studioId: ZEN, entityId: { in: keyIds } } });
+    await prisma.apiKey.deleteMany({ where: { id: { in: keyIds } } });
+    await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    await prisma.roleTemplate.deleteMany({ where: { studioId: ZEN, key: 'e2e-apikey-staff' } });
+  };
+
   beforeAll(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
@@ -40,6 +50,7 @@ describe('API key scope escalation (e2e)', () => {
     server = app.getHttpServer();
     prisma = new PrismaClient();
     ZEN = (await prisma.studio.findUniqueOrThrow({ where: { slug: 'zen-reformer-pilates' } })).id;
+    await cleanup();
 
     const role = await prisma.roleTemplate.create({
       data: {
@@ -49,22 +60,17 @@ describe('API key scope escalation (e2e)', () => {
         permissions: { create: [{ permissionKey: 'integrations.manage' }, { permissionKey: 'schedule.view' }] },
       },
     });
-    roleId = role.id;
     const user = await prisma.user.create({
       data: { phone: STAFF_PHONE, firstName: 'Key', lastName: 'Staff', passwordHash: await bcrypt.hash(DEMO_PASSWORD, 4), phoneVerifiedAt: new Date() },
     });
-    userId = user.id;
-    await prisma.membership.create({ data: { userId, studioId: ZEN, roleTemplateId: roleId, status: 'ACTIVE', joinedAt: new Date() } });
+    await prisma.membership.create({ data: { userId: user.id, studioId: ZEN, roleTemplateId: role.id, status: 'ACTIVE', joinedAt: new Date() } });
 
     ownerToken = await login(OWNER_PHONE);
     staffToken = await login(STAFF_PHONE);
   });
 
   afterAll(async () => {
-    await prisma.apiKey.deleteMany({ where: { id: { in: createdKeyIds } } });
-    await prisma.auditLog.deleteMany({ where: { studioId: ZEN, entityId: { in: createdKeyIds } } });
-    await prisma.user.deleteMany({ where: { id: userId } });
-    await prisma.roleTemplate.deleteMany({ where: { id: roleId } });
+    await cleanup();
     await prisma.$disconnect();
     await app.close();
   });

@@ -86,11 +86,17 @@ describe('CalendarService', () => {
       expect(await service.resolveUserId('deadbeef'.repeat(8))).toBeNull();
     });
 
+    it('does not resolve the token of an inactive user', async () => {
+      mockPrisma.calendarFeedToken.findUnique.mockResolvedValueOnce({ id: 'row-2', userId: 'user-2', user: { isActive: false } });
+      expect(await service.resolveUserId('b'.repeat(64))).toBeNull();
+      expect(mockPrisma.calendarFeedToken.update).not.toHaveBeenCalled();
+    });
+
     it('resolves a known token by its hash and touches lastUsedAt', async () => {
       const rawToken = 'a'.repeat(64);
       const tokenHash = createHash('sha256').update(rawToken).digest('hex');
       mockPrisma.calendarFeedToken.findUnique.mockImplementation(async ({ where }: { where: { tokenHash: string } }) =>
-        where.tokenHash === tokenHash ? { id: 'row-1', userId: 'user-1' } : null,
+        where.tokenHash === tokenHash ? { id: 'row-1', userId: 'user-1', user: { isActive: true } } : null,
       );
       mockPrisma.calendarFeedToken.update.mockResolvedValueOnce({});
 
