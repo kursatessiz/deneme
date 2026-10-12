@@ -105,6 +105,7 @@ export const enLoyalty: Record<keyof typeof trLoyalty, string> = {
   'loyalty.reason.JOURNEY_AWARD': 'Journey',
   'loyalty.reason.REDEEM': 'Reward redeemed',
   'loyalty.reason.EXPIRED': 'Expired',
+  'loyalty.reason.REFUND_REVERSAL': 'Reversed after a refund',
 
   'loyalty.error.LOYALTY_DISABLED': 'The loyalty program is off.',
   'loyalty.error.LOYALTY_INSUFFICIENT_BALANCE': 'Not enough points.',

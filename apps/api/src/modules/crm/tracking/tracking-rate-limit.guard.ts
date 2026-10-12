@@ -3,6 +3,7 @@ import type { Request } from 'express';
 import { RedisService } from '../../redis/redis.service';
 import { incrementWithTtl } from '../../redis/increment-with-ttl';
 import { apiError } from '../../../common/api-error';
+import { clientIpKey } from '../../../common/rate-limit';
 
 const WINDOW_SECONDS = 60;
 /** Per client IP: a busy office or mobile carrier NAT shares one address. */
@@ -27,7 +28,7 @@ export class TrackingRateLimitGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<Request>();
-    const keys: [string, number][] = [[`track-rl:ip:${req.ip ?? 'unknown'}`, TRACKING_MAX_PER_IP]];
+    const keys: [string, number][] = [[`track-rl:ip:${clientIpKey(req.ip)}`, TRACKING_MAX_PER_IP]];
     const visitorId = (req.body as { visitorId?: unknown } | undefined)?.visitorId;
     if (typeof visitorId === 'string' && UUID.test(visitorId)) {
       keys.push([`track-rl:vid:${visitorId.toLowerCase()}`, TRACKING_MAX_PER_VISITOR]);

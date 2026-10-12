@@ -857,6 +857,14 @@ model User {
   isSuperAdmin      Boolean               @default(false) @map("is_super_admin")
   avatarUrl         String?               @map("avatar_url") @db.Text
   refreshTokenHash  String?               @map("refresh_token_hash") @db.VarChar(255)
+  /// Session epoch: embedded in access and refresh tokens and compared on every
+  /// request. Bumped on logout, PIN change or reset, deactivation and refresh
+  /// token reuse, which kills every token issued before.
+  sessionEpoch      Int                   @default(0) @map("session_epoch")
+  /// Hash of the refresh token the last rotation replaced and when it happened: a
+  /// token reused within the grace window is a benign parallel refresh, not theft.
+  prevRefreshTokenHash String?            @map("prev_refresh_token_hash") @db.VarChar(255)
+  refreshRotatedAt     DateTime?          @map("refresh_rotated_at")
   failedPinAttempts Int                   @default(0) @map("failed_pin_attempts")
   pinLockedUntil    DateTime?             @map("pin_locked_until")
   /// Appearance override; null follows the tenant's theme family.

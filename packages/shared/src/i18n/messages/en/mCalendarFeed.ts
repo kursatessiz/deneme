@@ -13,5 +13,6 @@ export const enMCalendarFeed: Record<keyof typeof trMCalendarFeed, string> = {
   'mCalendarFeed.regenerateHint': 'Regenerating (rotating) invalidates the previous link.',
   'mCalendarFeed.refreshUrl': 'Refresh link',
   'mCalendarFeed.errors.createFailed': 'Calendar subscription could not be created.',
+  'mCalendarFeed.errors.openFailed': 'The calendar app could not be opened.',
   'mCalendarFeed.errors.revokeFailed': 'Subscription could not be cancelled.',
 };

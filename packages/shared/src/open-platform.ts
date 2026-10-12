@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { CONTACT_CONSENT_CHANNELS, ContactCustomFieldsSchema, normalizeTag } from './crm';
 import { CountryCodeSchema } from './growth/regions';
 import { CONSENT_LEGAL_BASES } from './marketing/consent';
+import type { PermissionKey } from './permissions';
 
 /**
  * The open platform (W18): API keys for the public REST API and outbound
@@ -29,6 +30,25 @@ export const ALL_API_KEY_SCOPES = Object.keys(API_KEY_SCOPES) as ApiKeyScope[];
 
 export function isApiKeyScope(value: string): value is ApiKeyScope {
   return Object.prototype.hasOwnProperty.call(API_KEY_SCOPES, value);
+}
+
+/**
+ * Staff permissions that equal each API key scope. A key acts without a user
+ * session, so whoever creates it may only grant scopes whose permissions they
+ * hold themselves (owners and super admins hold all of them).
+ */
+export const API_KEY_SCOPE_PERMISSIONS: Record<ApiKeyScope, readonly PermissionKey[]> = {
+  'schedules.read': ['schedule.view'],
+  'bookings.read': ['bookings.view'],
+  'bookings.write': ['bookings.manage'],
+  'members.read': ['members.view', 'members.contact.view'],
+  'webhooks.manage': ['integrations.manage'],
+  'crm.write': ['crm.manage'],
+};
+
+/** The requested scopes the holder of `permissions` may not grant. */
+export function apiKeyScopesBeyondPermissions(scopes: readonly ApiKeyScope[], permissions: ReadonlySet<string>): ApiKeyScope[] {
+  return scopes.filter((scope) => !API_KEY_SCOPE_PERMISSIONS[scope].every((key) => permissions.has(key)));
 }
 
 export const ApiKeyScopeSchema = z.enum(ALL_API_KEY_SCOPES as [ApiKeyScope, ...ApiKeyScope[]]);

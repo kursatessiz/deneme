@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { COMMUNITY_COMMENT_MAX } from '@platform/shared';
 import type { CommunityCommentDTO, CommunityFeedItemDTO, CommunityLikeResultDTO } from '@platform/shared';
@@ -11,6 +11,7 @@ import { useSession } from '../../../src/lib/session';
 import { borderWidth, palette, radii, spacing, TOUCH_TARGET, typography, useTheme, useThemeFonts } from '../../../src/theme';
 import { Text } from '../../../src/components/Text';
 import { TextInput } from '../../../src/components/TextInput';
+import { openExternalUrl } from '../../../src/lib/externalLink';
 
 const PAGE_SIZE = 20;
 
@@ -123,9 +124,9 @@ export default function ToplulukScreen() {
   };
 
   const openLink = async (url: string | null) => {
-    if (!url || !url.startsWith('https://')) return;
+    if (!url) return;
     try {
-      await Linking.openURL(url);
+      await openExternalUrl(url);
     } catch {
       setError(t('mCommunity.actionFailed'));
     }

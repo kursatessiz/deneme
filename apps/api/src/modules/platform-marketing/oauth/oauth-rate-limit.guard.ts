@@ -4,6 +4,7 @@ import type { AuthenticatedRequest } from '../../auth/tenant-context';
 import { RedisService } from '../../redis/redis.service';
 import { incrementWithTtl } from '../../redis/increment-with-ttl';
 import { codedError } from '../../../common/api-error';
+import { clientIpKey, pruneExpiredCounters } from '../../../common/rate-limit';
 
 const WINDOW_SECONDS = 60;
 /** OAuth starts per user per minute (M4a). */
@@ -47,6 +48,7 @@ abstract class FixedWindowGuard implements CanActivate {
     const entry = this.memoryCounters.get(key);
     if (!entry || entry.resetAt <= now) {
       this.memoryCounters.set(key, { count: 1, resetAt: now + WINDOW_SECONDS * 1000 });
+      pruneExpiredCounters(this.memoryCounters, now);
       return 1;
     }
     entry.count += 1;
@@ -78,6 +80,6 @@ export class OAuthCallbackRateLimitGuard extends FixedWindowGuard {
   }
 
   protected keyOf(context: ExecutionContext): string {
-    return `oauth-callback-rl:${context.switchToHttp().getRequest<Request>().ip ?? 'unknown'}`;
+    return `oauth-callback-rl:${clientIpKey(context.switchToHttp().getRequest<Request>().ip)}`;
   }
 }

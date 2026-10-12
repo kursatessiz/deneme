@@ -3,6 +3,7 @@ import { createHash } from 'crypto';
 import { RedisService } from '../redis/redis.service';
 import { incrementWithTtl } from '../redis/increment-with-ttl';
 import { apiError } from '../../common/api-error';
+import { clientIpKey, pruneExpiredCounters } from '../../common/rate-limit';
 
 /** Failed attempts allowed per account identifier (phone or email) per window. */
 export const LOGIN_MAX_FAILURES_PER_IDENTIFIER = 10;
@@ -45,7 +46,7 @@ export class LoginThrottleService {
   async reserveAttempt(kind: LoginThrottleKind, identifier: string, ip: string | null): Promise<void> {
     const [byId, byIp] = await Promise.all([
       this.increment(this.key(kind, 'id', identifier)),
-      ip ? this.increment(this.key(kind, 'ip', ip)) : Promise.resolve(0),
+      ip ? this.increment(this.key(kind, 'ip', clientIpKey(ip))) : Promise.resolve(0),
     ]);
     if (byId > LOGIN_MAX_FAILURES_PER_IDENTIFIER || byIp > LOGIN_MAX_FAILURES_PER_IP) {
       throw new HttpException(TOO_MANY, HttpStatus.TOO_MANY_REQUESTS);
@@ -54,7 +55,7 @@ export class LoginThrottleService {
 
   /** Clears the identifier's counter and refunds the IP's reserved attempt. */
   async recordSuccess(kind: LoginThrottleKind, identifier: string, ip: string | null): Promise<void> {
-    await Promise.all([this.clear(this.key(kind, 'id', identifier)), ip ? this.refund(this.key(kind, 'ip', ip)) : Promise.resolve()]);
+    await Promise.all([this.clear(this.key(kind, 'id', identifier)), ip ? this.refund(this.key(kind, 'ip', clientIpKey(ip))) : Promise.resolve()]);
   }
 
   private key(kind: LoginThrottleKind, bucket: Bucket, value: string): string {
@@ -81,6 +82,7 @@ export class LoginThrottleService {
     const entry = this.memory.get(key);
     if (!entry || entry.resetAt <= now) {
       this.memory.set(key, { count: 1, resetAt: now + LOGIN_FAILURE_WINDOW_SECONDS * 1000 });
+      pruneExpiredCounters(this.memory, now);
       return 1;
     }
     entry.count += 1;

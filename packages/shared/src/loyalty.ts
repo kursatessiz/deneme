@@ -28,6 +28,7 @@ export const LOYALTY_REASONS = [
   'JOURNEY_AWARD',
   'REDEEM',
   'EXPIRED',
+  'REFUND_REVERSAL',
 ] as const;
 export type LoyaltyReason = (typeof LOYALTY_REASONS)[number];
 

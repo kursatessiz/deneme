@@ -8,6 +8,7 @@ import { ErrorCaptureService } from './error-capture.service';
 import { ErrorFeedbackService } from './error-feedback.service';
 import { TELEMETRY_MAX_PER_IP, TELEMETRY_MAX_PER_SESSION, TelemetryRateLimiter } from './telemetry-rate-limit.service';
 import { apiError } from '../../common/api-error';
+import { clientIpKey } from '../../common/rate-limit';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -47,7 +48,7 @@ export class TelemetryController {
     const caller = await this.resolveCaller(req);
     const firstSessionId = this.sessionIdOf(body);
     const sessionKey = caller.userId ? `u:${caller.userId}` : firstSessionId ? `s:${firstSessionId}` : null;
-    const ipOk = await this.limiter.consume('ip', req.ip ?? 'unknown', TELEMETRY_MAX_PER_IP);
+    const ipOk = await this.limiter.consume('ip', clientIpKey(req.ip), TELEMETRY_MAX_PER_IP);
     const sessionOk = sessionKey ? await this.limiter.consume('session', sessionKey, TELEMETRY_MAX_PER_SESSION) : true;
     if (!ipOk || !sessionOk) throw new HttpException(apiError('apiErrors.common.tooManyRequests'), HttpStatus.TOO_MANY_REQUESTS);
 
@@ -99,7 +100,7 @@ export class TelemetryController {
     const bodySession = (body as { sessionId?: unknown } | null)?.sessionId;
     const sessionId = typeof bodySession === 'string' && bodySession.length <= 64 ? bodySession : null;
     const sessionKey = caller.userId ? `u:${caller.userId}` : sessionId ? `s:${sessionId}` : null;
-    const ipOk = await this.limiter.consume('ip', req.ip ?? 'unknown', TELEMETRY_MAX_PER_IP);
+    const ipOk = await this.limiter.consume('ip', clientIpKey(req.ip), TELEMETRY_MAX_PER_IP);
     const sessionOk = sessionKey ? await this.limiter.consume('session', sessionKey, TELEMETRY_MAX_PER_SESSION) : true;
     if (!ipOk || !sessionOk) throw new HttpException(apiError('apiErrors.common.tooManyRequests'), HttpStatus.TOO_MANY_REQUESTS);
 

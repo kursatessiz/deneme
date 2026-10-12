@@ -48,8 +48,83 @@ describe('Auth refresh rotation (e2e)', () => {
     const second = rotated.body.refreshToken as string;
     expect(second).not.toBe(first);
 
+    // The replaced token arriving right after rotation is a benign parallel refresh: refused, session kept.
     expect((await refresh(first)).status).toBe(401);
     expect((await refresh(second)).status).toBe(200);
+  });
+
+  it('two parallel refreshes with the same token: one wins and its session stays valid', async () => {
+    const login = await pinLogin();
+    const token = login.body.refreshToken as string;
+    const results = await Promise.all([refresh(token), refresh(token)]);
+    const winners = results.filter((r) => r.status === 200);
+    expect(winners).toHaveLength(1);
+    expect(results.filter((r) => r.status === 401)).toHaveLength(1);
+    const won = winners[0].body as { accessToken: string; refreshToken: string };
+    expect((await me(won.accessToken)).status).toBe(200);
+    expect((await refresh(won.refreshToken)).status).toBe(200);
+  });
+
+  it('a replaced token reused after the grace window revokes every session', async () => {
+    const login = await pinLogin();
+    const old = login.body.refreshToken as string;
+    const rotated = await refresh(old);
+    expect(rotated.status).toBe(200);
+    await prisma.user.update({ where: { phone }, data: { refreshRotatedAt: new Date(Date.now() - 2 * 60 * 1000) } });
+    expect((await refresh(old)).status).toBe(401);
+    expect((await me(rotated.body.accessToken)).status).toBe(401);
+    expect((await refresh(rotated.body.refreshToken)).status).toBe(401);
+  });
+
+  const me = (accessToken: string) => request(server).get('/auth/me').set('Authorization', `Bearer ${accessToken}`);
+
+  it('an access token stops working after logout', async () => {
+    const login = await pinLogin();
+    const token = login.body.accessToken as string;
+    expect((await me(token)).status).toBe(200);
+    const out = await request(server).post('/auth/logout').set('Authorization', `Bearer ${token}`);
+    expect(out.status).toBeLessThan(300);
+    expect((await me(token)).status).toBe(401);
+  });
+
+  it('changing the PIN kills the access tokens of other sessions but not the fresh pair', async () => {
+    const other = await pinLogin();
+    const mine = await pinLogin();
+    const changed = await request(server).put('/auth/pin').set('Authorization', `Bearer ${mine.body.accessToken}`).send({ pin: PIN });
+    expect(changed.status).toBe(200);
+    expect((await me(other.body.accessToken)).status).toBe(401);
+    expect((await me(mine.body.accessToken)).status).toBe(401);
+    expect((await me(changed.body.accessToken)).status).toBe(200);
+  });
+
+  it('bumping the session epoch (PIN reset, deactivation) revokes existing access tokens', async () => {
+    const login = await pinLogin();
+    expect((await me(login.body.accessToken)).status).toBe(200);
+    // The invite PIN reset and platform deactivation apply this same data change.
+    await prisma.user.update({ where: { phone }, data: { sessionEpoch: { increment: 1 }, refreshTokenHash: null } });
+    expect((await me(login.body.accessToken)).status).toBe(401);
+  });
+
+  it('reusing a rotated refresh token revokes the access tokens too', async () => {
+    const login = await pinLogin();
+    const rotated = await refresh(login.body.refreshToken);
+    expect(rotated.status).toBe(200);
+    expect((await me(rotated.body.accessToken)).status).toBe(200);
+    await prisma.user.update({ where: { phone }, data: { refreshRotatedAt: new Date(Date.now() - 2 * 60 * 1000) } });
+    expect((await refresh(login.body.refreshToken)).status).toBe(401);
+    expect((await me(rotated.body.accessToken)).status).toBe(401);
+    expect((await refresh(rotated.body.refreshToken)).status).toBe(401);
+  });
+
+  it('a deactivated user cannot use an access token or refresh', async () => {
+    const login = await pinLogin();
+    await prisma.user.update({ where: { phone }, data: { isActive: false } });
+    try {
+      expect((await me(login.body.accessToken)).status).toBe(401);
+      expect((await refresh(login.body.refreshToken)).status).toBe(401);
+    } finally {
+      await prisma.user.update({ where: { phone }, data: { isActive: true } });
+    }
   });
 
   it('stores a SHA-256 hex digest, not a bcrypt hash', async () => {

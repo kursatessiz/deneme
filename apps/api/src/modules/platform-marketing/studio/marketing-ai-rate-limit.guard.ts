@@ -3,6 +3,7 @@ import type { AuthenticatedRequest } from '../../auth/tenant-context';
 import { RedisService } from '../../redis/redis.service';
 import { incrementWithTtl } from '../../redis/increment-with-ttl';
 import { codedError } from '../../../common/api-error';
+import { pruneExpiredCounters } from '../../../common/rate-limit';
 
 const WINDOW_SECONDS = 60;
 /** Model calls per user per minute (docs/PAZARLAMA_MODULU.md 6.2). */
@@ -43,6 +44,7 @@ export class MarketingAiRateLimitGuard implements CanActivate {
     const entry = this.memoryCounters.get(key);
     if (!entry || entry.resetAt <= now) {
       this.memoryCounters.set(key, { count: 1, resetAt: now + WINDOW_SECONDS * 1000 });
+      pruneExpiredCounters(this.memoryCounters, now);
       return 1;
     }
     entry.count += 1;
