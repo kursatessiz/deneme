@@ -265,7 +265,7 @@ Bilinçli olarak ertelenmiş geliştirme ve özellikler ("şimdi yapılmayacak")
 - [ ] Özel alan adlı işletme siteleri için host çözümleme önbelleği: her istek API'ye gidiyor, API yükü ve gecikme artar. `apps/web/src/middleware.ts`
 - [ ] Takvim sorgusuna tarih aralığı ve satır sınırı: sınırsız sorgu büyük kiracıda yavaşlar. `apps/api/src/modules/schedules/schedules.service.ts` `getSchedules`
 - [ ] Kullanılmayan 24 dışa aktarımın (export) temizlenmesi (yaklaşık 100-150 satır): ölü kod bakım yükü getirir.
-- [ ] Mobil davet bağlantısı: `/j/<token>` evrensel bağlantı ve uygulama içi rota yok, üye onboarding akışı bağlantıdan açılamaz. `CLAUDE.md` onboarding akışı
+- [x] Mobil davet bağlantısı: `/j/<token>` evrensel bağlantı ve uygulama içi rota (`apps/mobile/app/j/[token].tsx`) yapıldı; yalnızca sahibin değişkenleri girip yeni mağaza derlemesi alması kaldı (aşağıdaki altyapı listesi, `docs/MOBILE_APP.md` "Evrensel bağlantılar").
 - [ ] İşletme planları için otomatik yenileme motoru (ACTIVE -> PAST_DUE -> RESTRICTED): şu an elle yönetiliyor. `docs/DENEME_VE_ETKINLESTIRME.md` bölüm 7
 - [ ] iyzico ve PayTR sağlayıcılarının tamamlanması: şu an iskelet, webhook doğrulaması her zaman geçersiz döner; Türkiye'de canlı tahsilat yapılamaz. `apps/api/src/modules/payments/providers/iyzico-payment.provider.ts`, `paytr-payment.provider.ts`
 - [ ] Partner webhook imzasının ham gövde üzerinden doğrulanması: ilk gerçek partner bağlanmadan önce yapılmalı. `apps/api/src/modules/partners/partners-webhook.controller.ts`, `docs/PARTNERS.md`
@@ -287,6 +287,7 @@ Altyapı (`docs/CICD_GUIDE.md` 3 ve 5b, `docs/UBUNTU_24_04_SETUP.md`)
 - Üretim ve ön üretim sunucuları, DNS, GHCR erişimi, yedek nesne depolama kovası.
 - GitHub Environments sırları ve değişkenleri (`SSH_*`, `DATABASE_URL`, `JWT_SECRET`, `INTEGRATION_ENCRYPTION_KEY`, `PUBLIC_API_URL`, `SOURCEMAP_UPLOAD_TOKEN` ve dokümandaki tam liste); `CLAUDE_AGENTS_ENABLED` ve Anthropic anahtarı (ajan workflow'ları için).
 - Mobil: Apple ve Google geliştirici hesapları, bundle kimliği, EAS sırrı ve mobil kaynak haritası yüklemesinin CI otomasyonu.
+- Mobil evrensel bağlantılar: `MOBILE_IOS_APP_IDS` (TEAMID.bundle.id), `MOBILE_ANDROID_PACKAGE` ve `MOBILE_ANDROID_SHA256_CERT_FINGERPRINTS` (`/opt/app/.env`, `web` konteyneri) ile EAS ortamında `EXPO_PUBLIC_WEB_DOMAIN`; ardından yeni mağaza derlemesi (`docs/MOBILE_APP.md`).
 
 Sağlayıcı hesapları ve başvurular
 - Ödeme: Stripe, iyzico, PayTR (sandbox ve canlı anahtarlar); e-fatura entegratörü seçimi ve kimlik bilgileri.

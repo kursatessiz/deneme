@@ -127,6 +127,12 @@ export class SchedulesController {
     return this.schedulesService.getSpots(tenant, scheduleId);
   }
 
+  @Get(':scheduleId/self-status')
+  @SelfService()
+  async getSelfStatus(@Param('scheduleId', ParseUUIDPipe) scheduleId: string, @Tenant() tenant: TenantContext) {
+    return this.schedulesService.getSelfStatus(tenant, scheduleId);
+  }
+
   @Post('bookings/:bookingId/spot')
   @RequirePermission('bookings.manage')
   async changeSpot(

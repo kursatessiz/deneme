@@ -28,6 +28,7 @@ function formatBookingTime(booking: UpcomingBookingDTO, locale: string): string 
 }
 
 function UpcomingBookingCard({ booking }: { booking: UpcomingBookingDTO }) {
+  const router = useRouter();
   const { theme } = useTheme();
   const fonts = useThemeFonts();
   const { locale } = useLocale();
@@ -66,6 +67,25 @@ function UpcomingBookingCard({ booking }: { booking: UpcomingBookingDTO }) {
         label={status === 'saved' ? t('mHome.addedToCalendar') : status === 'saving' ? t('mHome.addingToCalendar') : t('mHome.addToCalendar')}
         onPress={handleAddToCalendar}
         disabled={status === 'saving' || status === 'saved'}
+        style={styles.calendarButton}
+      />
+      <Button
+        compact
+        variant="outline"
+        label={t('mHome.manageBooking')}
+        onPress={() =>
+          router.push({
+            pathname: '/(app)/seans/[scheduleId]',
+            params: {
+              scheduleId: booking.scheduleId,
+              studioId: booking.studioId,
+              serviceTypeName: booking.serviceName,
+              trainerName: booking.trainerName ?? '',
+              startTime: booking.startTime,
+              endTime: booking.endTime,
+            },
+          })
+        }
         style={styles.calendarButton}
       />
       {errorMessage ? <Text style={[styles.errorText, { color: theme.roles.error }]}>{errorMessage}</Text> : null}

@@ -223,6 +223,14 @@ describe('Schedules: policy, waitlist, substitution (e2e)', () => {
       expect(res.status).toBe(403);
     });
 
+    it('self-status shows the member their waitlist place and a full session', async () => {
+      const res = await as(memberToken).get(`/schedules/${scheduleId}/self-status`);
+      expect(res.status).toBe(200);
+      expect(res.body.isFull).toBe(true);
+      expect(res.body.booking).toBeNull();
+      expect(res.body.waitlist).toMatchObject({ waitlistId: waitSelfId, placeInLine: 2, status: 'WAITING' });
+    });
+
     it('staff sees the waitlist in order', async () => {
       const res = await as(ownerToken).get(`/schedules/waitlist/${scheduleId}`);
       expect(res.status).toBe(200);
@@ -416,6 +424,41 @@ describe('Schedules: policy, waitlist, substitution (e2e)', () => {
       await makeSchedule(substitutionAt + 0.5, 1, trainers[1]);
       const res = await as(ownerToken).post(`/schedules/${scheduleId}/substitute`).send({ trainerId: trainers[1] });
       expect(res.status).toBe(409);
+    });
+  });
+  describe('self-status cancellation preview', () => {
+    it('previews a free cancellation outside the window and a penalty inside it', async () => {
+      const early = await makeSchedule(72, 2);
+      const late = await makeSchedule(4, 2);
+      const pkg = await makePackage(selfMemberId, 6);
+      expect((await book(selfMemberId, early, pkg)).status).toBe(201);
+      expect((await book(selfMemberId, late, pkg)).status).toBe(201);
+
+      const a = await as(memberToken).get(`/schedules/${early}/self-status`);
+      expect(a.status).toBe(200);
+      expect(a.body.waitlist).toBeNull();
+      expect(a.body.booking.cancellation).toEqual({ isLate: false, refundUnits: 2, penaltyUnits: 0, freeCancelHours: 12 });
+
+      const b = await as(memberToken).get(`/schedules/${late}/self-status`);
+      expect(b.body.booking.cancellation).toEqual({ isLate: true, refundUnits: 1, penaltyUnits: 1, freeCancelHours: 12 });
+
+      // The preview matches what the self-service cancel then does.
+      const done = await as(memberToken).post('/schedules/cancel/self').send({ bookingId: b.body.booking.bookingId, cancelledBy: 'MEMBER' });
+      expect(done.status).toBe(201);
+      expect(done.body.isLateCancellation).toBe(true);
+      expect(done.body.penaltyUnits).toBe(1);
+
+      const after = await as(memberToken).get(`/schedules/${late}/self-status`);
+      expect(after.body.booking).toBeNull();
+    });
+
+    it('another member sees no booking of the first member', async () => {
+      const s = await makeSchedule(72, 2);
+      const pkg = await makePackage(selfMemberId, 2);
+      expect((await book(selfMemberId, s, pkg)).status).toBe(201);
+      const res = await as(ownerToken).get(`/schedules/${s}/self-status`);
+      expect(res.status).toBe(200);
+      expect(res.body.booking).toBeNull();
     });
   });
 });
