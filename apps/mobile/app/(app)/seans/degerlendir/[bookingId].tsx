@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import type { RateBookingResultDTO } from '@platform/shared';
 
@@ -13,6 +13,7 @@ import { borderWidth, palette, radii, spacing, typography, useTheme, useThemeFon
 import { Text } from '../../../../src/components/Text';
 import { TextInput } from '../../../../src/components/TextInput';
 import { showNotice } from '../../../../src/lib/notice';
+import { openExternalUrl } from '../../../../src/lib/externalLink';
 
 const SCORE_SIZE = 56; // >= 44pt touch target
 
@@ -59,7 +60,7 @@ export default function RateSessionScreen() {
 
   const openGoogleReview = async (url: string) => {
     try {
-      await Linking.openURL(url);
+      await openExternalUrl(url);
     } catch {
       showNotice(t, t('mRating.linkOpenFailedTitle'), t('mRating.linkOpenFailedBody'));
     }

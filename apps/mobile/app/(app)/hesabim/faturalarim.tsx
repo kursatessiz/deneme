@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import type { InvoiceDTO } from '@platform/shared';
 
@@ -11,6 +11,7 @@ import { useSession } from '../../../src/lib/session';
 import { borderWidth, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
 import type { Translate } from '@platform/shared';
 import { Text } from '../../../src/components/Text';
+import { openExternalUrl } from '../../../src/lib/externalLink';
 
 function invoiceStatusLabels(t: Translate): Record<string, string> {
   return {
@@ -70,7 +71,7 @@ export default function FaturalarimScreen() {
       // still be inspected from the web panel's authenticated download
       // endpoint.
       if (invoice.pdfUrl) {
-        await Linking.openURL(invoice.pdfUrl);
+        await openExternalUrl(invoice.pdfUrl);
       } else {
         setError(t('mInvoices.errors.noViewLinkYet'));
       }

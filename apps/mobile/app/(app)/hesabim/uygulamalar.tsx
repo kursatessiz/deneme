@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { localizedText } from '@platform/shared';
 import type { StudioAddOnDTO, StudioAddOnListDTO } from '@platform/shared';
@@ -12,6 +12,7 @@ import { ApiError, apiRequest } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { borderWidth, palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
 import { Text } from '../../../src/components/Text';
+import { openExternalUrl } from '../../../src/lib/externalLink';
 
 /**
  * Read-only list of the studio's add-ons (G5c-2): the ones that are active or
@@ -48,9 +49,9 @@ export default function UygulamalarScreen() {
   const visible: StudioAddOnDTO[] = (list?.items ?? []).filter((i) => i.hasAccess && (i.state === 'TRIALING' || i.state === 'ACTIVE' || i.state === 'CANCELLED'));
 
   const openWeb = async () => {
-    if (!list || !list.manageUrl.startsWith('https://')) return;
+    if (!list) return;
     try {
-      await Linking.openURL(list.manageUrl);
+      await openExternalUrl(list.manageUrl);
     } catch {
       setLoadError(t('mAddOns.loadFailed'));
     }

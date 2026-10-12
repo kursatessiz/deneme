@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 import { evaluateEventRefund } from '@platform/shared';
 import type { EventDTO, EventRegisterResultDTO, EventRegistrationDTO, EventTicketTypeDTO, MyEventRegistrationDTO } from '@platform/shared';
@@ -13,6 +13,7 @@ import { useSession } from '../../../src/lib/session';
 import { borderWidth, palette, radii, spacing, typography, useTheme, useThemeFonts } from '../../../src/theme';
 import { Text } from '../../../src/components/Text';
 import { showNotice } from '../../../src/lib/notice';
+import { openExternalUrl } from '../../../src/lib/externalLink';
 
 /** One event for a member (G3c-1): sessions, tickets and registering, and the member's own registration with pay and cancel. */
 export default function EtkinlikScreen() {
@@ -50,7 +51,7 @@ export default function EtkinlikScreen() {
   }, [load]);
 
   const openPaymentLink = async (reg: EventRegistrationDTO) => {
-    if (reg.paymentLink) await Linking.openURL(reg.paymentLink);
+    if (reg.paymentLink) await openExternalUrl(reg.paymentLink);
   };
 
   const register = async (ticket: EventTicketTypeDTO, useCredits: boolean) => {

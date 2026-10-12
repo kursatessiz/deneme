@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import type { MemberPackageDTO, MemberVideoContentDTO } from '@platform/shared';
 
@@ -10,6 +10,7 @@ import { useSession } from '../../../src/lib/session';
 import { borderWidth, palette, radii, spacing, typography, useThemeColors, useThemeFonts } from '../../../src/theme';
 import type { Translate } from '@platform/shared';
 import { Text } from '../../../src/components/Text';
+import { openExternalUrl } from '../../../src/lib/externalLink';
 
 function formatDuration(seconds: number, t: Translate): string {
   const minutes = Math.round(seconds / 60);
@@ -87,7 +88,7 @@ export default function VideolarScreen() {
         body: { memberPackageId },
       });
       if (result.content.sourceUrl) {
-        await Linking.openURL(result.content.sourceUrl);
+        await openExternalUrl(result.content.sourceUrl);
       }
       await load();
     } catch (e) {
