@@ -274,6 +274,15 @@ Bilinçli olarak ertelenmiş geliştirme ve özellikler ("şimdi yapılmayacak")
 - [ ] SMS sağlayıcısı yapılandırılmadan üretimde OTP ve davet SMS'i gönderilmez; giriş ve onboarding çalışmaz. Süper admin sağlayıcı ayarı ve `docs/MESAJLASMA.md`
 - [ ] Üretimde `SES_SNS_TOPIC_ARNS` ortam değişkeni (SES olay konusunun ARN'si, virgülle birden fazla olabilir) mutlaka ayarlanmalı: boşsa SES webhook'u her mesajı 403 ile reddeder, bounce ve şikâyet olayları işlenmez, bastırma listesi güncellenmez. `docs/MESAJLASMA.md` bölüm 10, `deploy/docker-compose.prod.yml`
 
+### 6f. KVKK/GDPR kişisel veri silme (anonimleştirme)
+
+Yapıldı (migration `20261104000000_data_erasure`: `memberships.erased_at` ve `data_erasure_requests` tablosu, sahip rollerine `members.erase`; yalnızca genişletme). Sahip kararları: kişisel veri anonimleştirilir, `Payment`, fatura, rezervasyon ve muhasebe satırları yasal saklama için kalır ama kişiyi tanımlamaz; üye mobilde ister (Hesabım > Gizlilik), `members.erase` izinli personel web panelinde onaylar veya reddeder (üye kartı ve `/members/silme-talepleri`), onaylananı zamanlayıcı kalp atışının `erasure` adımı işler, 30 gün işlem görmeyen talep otomatik işlenir; işletme üye kartından doğrudan da başlatabilir. Silme stüdyo başınadır: başka üyeliği olan kişide silinen üyelik anonim bir `User` satırına taşınır, gerçek hesap ve diğer üyelikler değişmez; başka üyeliği kalmayan kişide global `User` yerinde anonimleştirilir ve girişi kapanır.
+
+- Ayrıntı ve tablo/alan dökümü (neyin silindiği, neyin bilerek korunduğu): `docs/KVKK_SILME.md`.
+- Kod: `apps/api/src/modules/erasure` (`ErasureAnonymizerService`, `ErasureRequestsService`, `ErasureJobsService`, iki denetleyici); web `components/erasure/ErasurePanel.tsx` ve `members/silme-talepleri`; mobil `hesabim/gizlilik.tsx`; ortak sözleşme `packages/shared/src/erasure.ts`.
+- Üyeye karar bildirimi (`ERASURE_REQUEST_APPROVED`, `ERASURE_REQUEST_REJECTED`) mesajlaşma motorundan gider; tamamlanma bildirimi yoktur (iletişim bilgisi o anda silinir).
+- Sahibin karar vermesi gerekenler: (1) fatura `buyer_snapshot` anonimleştirmesi vergi mevzuatıyla uyumlu mu (hukuki görüş), (2) `message_suppressions` adreslerinin korunması, (3) ödeme sağlayıcıda kart jetonunun silinmesi bu sürümde yok, (4) yedeklerden geri yüklemede silinmiş üyeliklerin yeniden anonimleştirilmesi.
+
 ## 7. Sahibin sağlayacağı girdiler ve kararlar
 
 Kod tarafında bekleyen iş kalmadı; aşağıdakiler sahibin hesabını, kararını veya sırrını gerektirir. Sır ve anahtarlar repoya değil, GitHub Environments'a veya süper admin paneline girilir.

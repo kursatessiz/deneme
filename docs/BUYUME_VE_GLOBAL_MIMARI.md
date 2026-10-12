@@ -57,7 +57,7 @@ Tek bir `ProviderRegistry` deseni: her yetenek için bir arayüz, ülkeye göre 
 ### 2.3 Uyum (compliance) paketleri
 `compliance` modülü, alıcının ülkesine göre kuralları uygular:
 - **TR:** KVKK aydınlatma ve açık rıza, İYS kaydı ve sorgusu, ticari ileti saatleri.
-- **AB/EEA ve Birleşik Krallık:** GDPR açık rıza (önceden işaretli kutu yok), çerez izni ve Google Consent Mode v2, veri dışa aktarma ve silme talepleri.
+- **AB/EEA ve Birleşik Krallık:** GDPR açık rıza (önceden işaretli kutu yok), çerez izni ve Google Consent Mode v2, veri dışa aktarma ve silme talepleri (silme: üyenin talebi, işletmenin onayı ve 30 günlük otomatik işleme, bkz. `docs/KVKK_SILME.md`).
 - **ABD:** TCPA (SMS için açık yazılı onay, STOP/HELP anahtar kelimeleri, alıcının yerel saatine göre gönderim penceresi), CAN-SPAM (fiziksel adres, tek tıkla abonelikten çıkma).
 - **Diğer:** en katı ortak kural (açık rıza + abonelikten çıkma + sessiz saatler).
 
