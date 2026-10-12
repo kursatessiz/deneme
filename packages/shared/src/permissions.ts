@@ -25,6 +25,8 @@ export const PERMISSIONS = {
   // member card (W21); the member's shareWithStudio toggle must be on too.
   'members.health.view': 'Üye sağlık notlarını ve sağlık verisi eğilimlerini görme',
   'members.manage': 'Üye ekleme, düzenleme, davet gönderme',
+  // KVKK/GDPR erasure (docs/KVKK_SILME.md): approve or reject a member's request and start erasure from the member card.
+  'members.erase': 'Üye kişisel verilerinin silinme (anonimleştirme) taleplerini onaylama, reddetme ve doğrudan başlatma',
 
   'catalog.view': 'Hizmet, kaynak ve iptal politikası kataloğunu görüntüleme',
   'catalog.manage': 'Hizmet, kaynak, paket ve iptal politikalarını yönetme',
@@ -153,7 +155,7 @@ export function isPermissionKey(value: string): value is PermissionKey {
 export const PERMISSION_AREAS = {
   'Genel bakış': ['dashboard.view'],
   'İşletme ve roller': ['studio.settings.view', 'studio.settings.manage', 'roles.manage', 'staff.manage', 'branches.manage', 'errors.view'],
-  Üyeler: ['members.view', 'members.contact.view', 'members.health.view', 'members.manage'],
+  Üyeler: ['members.view', 'members.contact.view', 'members.health.view', 'members.manage', 'members.erase'],
   Katalog: ['catalog.view', 'catalog.manage'],
   Takvim: ['schedule.view', 'schedule.manage'],
   Rezervasyon: ['bookings.view', 'bookings.manage', 'attendance.manage'],

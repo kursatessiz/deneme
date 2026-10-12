@@ -86,6 +86,28 @@ export class ConsentService {
     );
   }
 
+  /**
+   * KVKK/GDPR erasure (docs/KVKK_SILME.md): revokes every GRANTED channel of
+   * the user in the studio and pushes it to the registry (Iys) while the real
+   * phone number is still on the account, because the anonymizer replaces it
+   * right after. Best effort: a registry outage is logged and never blocks
+   * the erasure. Returns the number of channels revoked.
+   */
+  async revokeAllForErasure(studioId: string, userId: string): Promise<number> {
+    const rows = await this.prisma.communicationConsent.findMany({ where: { studioId, userId, status: 'GRANTED' }, select: { channel: true } });
+    const now = new Date();
+    for (const row of rows) {
+      await this.prisma.communicationConsent.update({
+        where: { studioId_userId_channel: { studioId, userId, channel: row.channel } },
+        data: { status: 'REVOKED', revokedAt: now, iysSyncedAt: null },
+      });
+      await this.syncOne(studioId, userId, row.channel).catch((err: Error) =>
+        this.logger.warn(`Consent revocation sync failed during erasure for ${studioId}/${userId}/${row.channel}: ${err.message}`),
+      );
+    }
+    return rows.length;
+  }
+
   /** Staff view: every member's consent state for the studio (for export/audit). */
   async listForStudio(studioId: string) {
     const rows = await this.prisma.communicationConsent.findMany({

@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
+import { hasAnyPermission } from '@/lib/nav';
+import { LinkButton } from '@/components/ui/LinkButton';
 import { useT } from '@/components/i18n/I18nProvider';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { useBff } from '@/lib/session/use-bff';
@@ -34,7 +36,8 @@ interface BranchRow {
 
 function MembersList() {
   const t = useT();
-  const { activeStudioId } = useDashboardSession();
+  const { activeStudioId, permissions, isOwner } = useDashboardSession();
+  const canErase = hasAnyPermission(['members.erase'], permissions, isOwner);
   const [search, setSearch] = useState('');
   const [homeBranchId, setHomeBranchId] = useState('');
   const [members, setMembers] = useState<MemberRow[] | null>(null);
@@ -62,7 +65,17 @@ function MembersList() {
 
   return (
     <div className="grid gap-6">
-      <PageHeader title={t('members.title')} description={t('members.subtitle')} />
+      <PageHeader
+        title={t('members.title')}
+        description={t('members.subtitle')}
+        actions={
+          canErase ? (
+            <LinkButton href="/members/silme-talepleri" variant="outline" tone="surface" size="sm">
+              {t('erasure.card.requestsLink')}
+            </LinkButton>
+          ) : undefined
+        }
+      />
 
       <div className="flex flex-wrap gap-2">
         <InputGroup className="flex-1 min-w-[220px]">

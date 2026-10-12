@@ -172,6 +172,7 @@ vardır; çıkış butonu menünün dışında, her zaman görünür kalır.
   W17 oyunlaştırma özeti (`GET /gamification/studio/:id/achievements`
   listesinden üyeye göre filtrelenir). `/members` listesine arama
   (`?search=`) ve ana şube filtresi eklendi, satırlar üye kartına bağlanır.
+- KVKK/GDPR silme (`docs/KVKK_SILME.md`): üye kartında "Kişisel veriler" bölümü (`components/erasure/ErasurePanel.tsx`, yalnızca `members.erase`): açık talebi onayla/reddet, yoksa "Kişisel verileri sil" (`useConfirm` onayı, `POST /studios/:id/members/:memberId/erasure`); silinmiş üyede "Verileri silindi" rozeti, paket satışı ve rezervasyon düğmeleri gizlenir. `/members/silme-talepleri` bekleyen talepler listesi (durum süzgeci, onayla, gerekçeli reddet); `/members` başlığında "Silme talepleri" bağlantısı.
 - Paket satışı: üye kartından `PackageSaleDialog.tsx`,
   `POST /payments/sell` ile fiyat, promosyon kodu, hediye kartı,
   nakit/kart/havale ödeme yöntemini gönderir; satış tamamlanınca W8'in
