@@ -265,7 +265,7 @@ describe('KVKK erasure (e2e)', () => {
     expect(Number(payment.amount)).toBe(100);
     expect(payment.currency).toBe('EUR');
     expect(payment.notes).toBeNull();
-    expect(payment.invoice?.buyerSnapshot).toEqual({ kind: 'INDIVIDUAL' });
+    expect(payment.invoice?.buyerSnapshot).toEqual(expect.objectContaining({ tckn: '12345678901' }));
     const booking = await prisma.booking.findUniqueOrThrow({ where: { id: m.bookingId } });
     expect(booking.status).toBe('ATTENDED');
     expect(booking.cancellationReason).toBeNull();

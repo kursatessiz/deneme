@@ -46,8 +46,6 @@ function build(scenario: Scenario) {
         return 0;
       case 'notificationLog.findMany':
         return [{ id: 'log-1' }];
-      case 'invoice.findMany':
-        return [{ id: 'invoice-1', buyerSnapshot: { kind: 'INDIVIDUAL', fullName: 'Ada Lovelace', tckn: '12345678901' } }];
       default:
         return method === 'updateMany' || method === 'deleteMany' ? { count: 1 } : undefined;
     }
@@ -143,7 +141,8 @@ describe('ErasureAnonymizerService', () => {
     expect(of('communityPost', 'updateMany')[0].args.data).toEqual({ authorMembershipId: null });
     expect(of('communityComment', 'updateMany')[0].args.data).toEqual({ authorMembershipId: null });
     expect(of('sessionRating', 'updateMany')[0].args.data).toEqual({ comment: null });
-    expect(of('invoice', 'update')[0].args.data).toEqual({ buyerSnapshot: { kind: 'INDIVIDUAL' } });
+    // Invoice buyer data stays (tax retention): the invoice is neither read nor rewritten.
+    expect(of('invoice')).toHaveLength(0);
     expect(of('auditLog', 'create')[0].args).toEqual(expect.objectContaining({ data: expect.objectContaining({ action: 'erasure.executed', entityId: MEMBERSHIP }) }));
   });
 

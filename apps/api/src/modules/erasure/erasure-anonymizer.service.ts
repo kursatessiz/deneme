@@ -263,12 +263,7 @@ export class ErasureAnonymizerService {
       OR: [{ memberId: memberProfileId }, ...(contactIds.length ? [{ contactId: { in: contactIds } }] : [])],
     };
     mark('paymentNotes', (await tx.payment.updateMany({ where: { ...payerFilter, notes: { not: null } }, data: { notes: null } })).count);
-    const invoices = await tx.invoice.findMany({ where: { studioId, payment: payerFilter }, select: { id: true, buyerSnapshot: true } });
-    for (const invoice of invoices) {
-      const snapshot = invoice.buyerSnapshot as { kind?: string } | null;
-      await tx.invoice.update({ where: { id: invoice.id }, data: { buyerSnapshot: { kind: snapshot?.kind === 'COMPANY' ? 'COMPANY' : 'INDIVIDUAL' } } });
-    }
-    mark('invoiceBuyerSnapshots', invoices.length);
+    // invoices.buyer_snapshot is kept as is: invoice buyer data is under tax retention (VUK), a legal exception to erasure.
     const saleFilter: Prisma.SaleWhereInput = {
       studioId,
       OR: [{ memberId: memberProfileId }, ...(contactIds.length ? [{ contactId: { in: contactIds } }] : [])],

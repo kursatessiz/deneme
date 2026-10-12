@@ -10,7 +10,7 @@ Bu doküman, bir üyenin bir işletmedeki kişisel verilerinin silinmesi talebin
 
 ## 2. İzin
 
-`members.erase` (alan: Üyeler). Sahip her izne sahiptir; bir rol şablonuna ayrıca eklenebilir. Varsayılan resepsiyon ve eğitmen rollerinde yoktur. Migration `20261104000000_data_erasure`, mevcut sahip rollerine satırı ekler.
+`members.erase` (alan: Üyeler). Sahip her izne sahiptir; bir rol şablonuna ayrıca eklenebilir. Varsayılan resepsiyon ve eğitmen rollerinde yoktur. Migration `20261104000100_data_erasure`, mevcut sahip rollerine satırı ekler.
 
 | Uç nokta | İzin |
 |---|---|
@@ -57,7 +57,6 @@ Yalnızca düz üyeler silinir. İşletme sahibi, izni olan (personel) roller, e
 | `loyalty_ledger.note` | boşaltılır (puan satırları kalır) |
 | `member_subscriptions` | `CANCELLED` yapılır (tahsilat durur); `stored_cards` silinir (sağlayıcı kart jetonu) |
 | `billing_profiles` | silinir (ad, TCKN, VKN, adres, e-posta) |
-| `invoices.buyer_snapshot` | yalnızca `kind` kalır (ad, TCKN, VKN, vergi dairesi, adres, e-posta silinir) |
 | `payments.notes`, `sales.customer_name`, `sales.note`, `event_registrations.notes` ve `cancellation_reason`, `bookings.cancellation_reason`, `session_ratings.comment` | boşaltılır |
 | `gift_cards` (alıcı adı, telefonu, mesaj, `purchaser_user_id`) | boşaltılır |
 | `partner_guests` | telefon, harici misafir kimliği boşalır, ad `***` |
@@ -79,7 +78,7 @@ Yalnızca düz üyeler silinir. İşletme sahibi, izni olan (personel) roller, e
 
 ### Bilerek korunanlar
 
-- `payments` (tutar, para birimi, yöntem, durum, tarih, sağlayıcı referansı), `invoices` (numara, tutarlar, durum, satırlar), `sales` ve `sale_lines`, `event_registrations` (tutarlar ve durum), `bookings` (durum, birim, zaman; yalnızca serbest metin neden silinir), `member_packages`, `package_transfers`, `loyalty_ledger` puan satırları, `sms_transactions`: yasal saklama ve muhasebe. Bağlı oldukları üyelik artık anonimdir.
+- `payments` (tutar, para birimi, yöntem, durum, tarih, sağlayıcı referansı), `invoices` (numara, tutarlar, durum, satırlar ve `buyer_snapshot` alıcı bilgisi: VUK vergi saklama yükümlülüğü silmeye yasal istisnadır; saklama süresi dolduktan sonra anonimleştirme bu işin kapsamı dışındadır), `sales` ve `sale_lines`, `event_registrations` (tutarlar ve durum), `bookings` (durum, birim, zaman; yalnızca serbest metin neden silinir), `member_packages`, `package_transfers`, `loyalty_ledger` puan satırları, `sms_transactions`: yasal saklama ve muhasebe. Bağlı oldukları üyelik artık anonimdir.
 - `notification_logs` satırlarının kendisi (tür, kanal, durum, zaman damgaları) ve `message_tracking_events`: teslimat istatistiği ve SMS kredi mutabakatı.
 - `message_suppressions`: abonelikten çıkma/bastırma listesi. Kişinin ticari ileti almama tercihi, adres bilindiği sürece korunabilir; bu nedenle adres (telefon veya e-posta) bu listede kalır. Yasal gerekçe (itiraza saygı, İYS) için hukuki görüşle teyit edilmelidir.
 - `consents` satırları (belge sürümü ve kabul zamanı): rıza kanıtı; kimlik bilgileri (`ip`, `device`) silinir.
@@ -98,7 +97,7 @@ Yalnızca düz üyeler silinir. İşletme sahibi, izni olan (personel) roller, e
 
 - Diğer işletmelerin görünümü etkilenmez; kullanıcı düzeyindeki veriler (push cihazı, takvim jetonu) başka üyeliği olan kişide korunur.
 - Üçüncü taraflara (ödeme sağlayıcı kart jetonu, İYS, reklam platformlarına gönderilmiş dönüşümler) gönderilmiş veri bu akışla geri alınmaz; kart jetonunun sağlayıcıda silinmesi bu sürümde yapılmaz, yalnızca yerel referans silinir.
-- Fatura `buyer_snapshot` anonimleştirmesi sahip kararıdır; vergi mevzuatı alıcı bilgisi için ayrıca saklama gerektirebilir, hukuki görüşle teyit edilmelidir.
+- Fatura `buyer_snapshot` alıcı bilgisi yasal saklama (VUK) için olduğu gibi korunur; saklama süresi sonunda anonimleştirilmesi bu işin kapsamı dışındadır.
 - Geçmiş sürümlerde başka alanlara yazılmış serbest metindeki (ör. denetim kaydı metaverisi dışındaki) kişisel veriler tarama kapsamında değildir.
 
 ## 8. Testler
