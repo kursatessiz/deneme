@@ -24,6 +24,7 @@ import { BillingModule } from '../billing/billing.module';
 import { PayoutsModule } from '../payouts/payouts.module';
 import { BackupsModule } from '../backups/backups.module';
 import { MembersModule } from '../members/members.module';
+import { ErasureModule } from '../erasure/erasure.module';
 
 /**
  * BullMQ is wired up only when REDIS_URL is a real process environment
@@ -58,6 +59,7 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
     PayoutsModule,
     BackupsModule,
     MembersModule,
+    ErasureModule,
     ...(redisConfigured
       ? [
           BullModule.forRoot({ connection: { url: process.env.REDIS_URL } }),
