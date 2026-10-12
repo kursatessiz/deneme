@@ -9,6 +9,7 @@ import { readVisitorId } from '../crm/tracking/tracking-utils';
 import { EventRegistrationsService } from './event-registrations.service';
 import { apiError } from '../../common/api-error';
 import { isInternalServerRequest } from '../../common/internal-request';
+import { clientIpKey, pruneExpiredCounters } from '../../common/rate-limit';
 
 const WINDOW_SECONDS = 60;
 /** Reads are cheap listings; writes create contacts and hold seats. */
@@ -33,7 +34,7 @@ export class EventsPublicRateLimitGuard implements CanActivate {
     if (isInternalServerRequest(req)) return true;
     const write = req.method !== 'GET' && req.method !== 'HEAD';
     const limit = write ? MAX_WRITES : MAX_READS;
-    const key = `events-public-rl:${write ? 'w' : 'r'}:${req.ip ?? 'unknown'}`;
+    const key = `events-public-rl:${write ? 'w' : 'r'}:${clientIpKey(req.ip)}`;
 
     const client = this.redis.getClient();
     if (client) {
@@ -52,6 +53,7 @@ export class EventsPublicRateLimitGuard implements CanActivate {
     const entry = this.memoryCounters.get(key);
     if (!entry || entry.resetAt <= now) {
       this.memoryCounters.set(key, { count: 1, resetAt: now + WINDOW_SECONDS * 1000 });
+      pruneExpiredCounters(this.memoryCounters, now);
       return true;
     }
     entry.count += 1;

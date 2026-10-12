@@ -3,6 +3,7 @@ import type { Request } from 'express';
 import { RedisService } from '../redis/redis.service';
 import { incrementWithTtl } from '../redis/increment-with-ttl';
 import { apiError } from '../../common/api-error';
+import { clientIpKey, pruneExpiredCounters } from '../../common/rate-limit';
 
 const WINDOW_SECONDS = 60;
 // Generous: these are cacheable reads served to every visitor's browser/app
@@ -23,7 +24,7 @@ export class I18nPublicRateLimitGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<Request>();
-    const ip = req.ip ?? 'unknown';
+    const ip = clientIpKey(req.ip);
 
     const client = this.redis.getClient();
     if (client) {
@@ -48,6 +49,7 @@ export class I18nPublicRateLimitGuard implements CanActivate {
     const entry = this.memoryCounters.get(ip);
     if (!entry || entry.resetAt <= now) {
       this.memoryCounters.set(ip, { count: 1, resetAt: now + WINDOW_SECONDS * 1000 });
+      pruneExpiredCounters(this.memoryCounters, now);
       return true;
     }
     entry.count += 1;
