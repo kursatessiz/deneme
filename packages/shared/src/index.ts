@@ -38,6 +38,7 @@ export * from './funnels';
 export * from './payouts';
 export * from './billing';
 export * from './add-on-errors';
+export * from './erasure';
 export * from './add-ons';
 export * from './error-reporting';
 export * from './error-alerts';

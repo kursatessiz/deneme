@@ -30,9 +30,11 @@ export class MembersService {
         ...(tenant.branchIds !== null && !homeBranchId
           ? { OR: [{ homeBranchId: { in: [...tenant.branchIds] } }, { homeBranchId: null }] }
           : {}),
-        ...(search
-          ? {
-              membership: {
+        // Members whose personal data was erased (KVKK/GDPR) drop out of the list; their card stays reachable by id.
+        membership: {
+          erasedAt: null,
+          ...(search
+            ? {
                 user: {
                   OR: [
                     { firstName: { contains: search, mode: 'insensitive' } },
@@ -40,9 +42,9 @@ export class MembersService {
                     { phone: { contains: search } },
                   ],
                 },
-              },
-            }
-          : {}),
+              }
+            : {}),
+        },
       },
       include: {
         membership: { include: { user: true } },
@@ -432,6 +434,7 @@ export class MembersService {
       familyGroupId: member.familyGroupId ?? null,
       notes: member.notes ?? null,
       isPartnerGuest: member.membership?.isPartnerGuest ?? false,
+      erasedAt: member.membership?.erasedAt ? new Date(member.membership.erasedAt).toISOString() : null,
       packages: member.packages,
       bookings: member.bookings,
       payments: member.payments,

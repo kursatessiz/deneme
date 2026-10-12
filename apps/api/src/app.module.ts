@@ -58,6 +58,7 @@ import { validateEnv } from './config/env';
 import { BillingModule } from './modules/billing/billing.module';
 import { ErrorReportingModule } from './modules/error-reporting/error-reporting.module';
 import { CommunityModule } from './modules/community/community.module';
+import { ErasureModule } from './modules/erasure/erasure.module';
 import { PlatformUsersModule } from './modules/platform-access/platform-users.module';
 import { PlatformMarketingModule } from './modules/platform-marketing/platform-marketing.module';
 
@@ -124,6 +125,7 @@ import { PlatformMarketingModule } from './modules/platform-marketing/platform-m
     PayoutsModule,
     BillingModule,
     CommunityModule,
+    ErasureModule,
     PlatformUsersModule,
     PlatformMarketingModule,
   ],

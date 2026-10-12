@@ -20,6 +20,7 @@ import { Table, Tbody, Td, Tr } from '@/components/ui/Table';
 import { PackageSaleDialog } from '@/components/members/PackageSaleDialog';
 import { MemberBookingDialog } from '@/components/members/MemberBookingDialog';
 import { LoyaltyPanel } from '@/components/loyalty/LoyaltyPanel';
+import { ErasurePanel } from '@/components/erasure/ErasurePanel';
 import { hasAnyPermission } from '@/lib/nav';
 import { bookingStatusLabel, packageStatusLabel, type MemberDetail } from '@/lib/members/types';
 
@@ -120,7 +121,7 @@ function MemberCard() {
   const activePackages = member.packages.filter((p) => p.status === 'ACTIVE' || p.status === 'FROZEN');
   const otherPackages = member.packages.filter((p) => p.status !== 'ACTIVE' && p.status !== 'FROZEN');
 
-  const fullName = `${member.firstName} ${member.lastName}`;
+  const fullName = member.erasedAt ? t('erasure.erasedMember') : `${member.firstName} ${member.lastName}`;
 
   return (
     <div className="grid gap-6">
@@ -141,17 +142,22 @@ function MemberCard() {
                     <h2 className="ui-title">{fullName}</h2>
                     <div className="flex flex-wrap gap-1.5">
                       {member.isPartnerGuest && <Badge tone="info">{t('members.partnerGuest')}</Badge>}
+                      {member.erasedAt && <Badge tone="neutral">{t('erasure.erasedBadge')}</Badge>}
                       {churn && <Badge tone={RISK_TONE[churn.level]}>{riskLabel(churn.level)}</Badge>}
                     </div>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <PermissionButton required={['bookings.manage']} variant="secondary" onClick={() => setShowBook(true)} style={{ backgroundColor: 'var(--pui-bg)' }}>
-                    {t('staffBooking.bookForMember')}
-                  </PermissionButton>
-                  <PermissionButton required={['packages.sell']} variant="secondary" mode="disable" onClick={() => setShowSell(true)} style={{ backgroundColor: 'var(--pui-bg)' }}>
-                    {t('members.card.sellPackage')}
-                  </PermissionButton>
+                  {!member.erasedAt && (
+                    <>
+                      <PermissionButton required={['bookings.manage']} variant="secondary" onClick={() => setShowBook(true)} style={{ backgroundColor: 'var(--pui-bg)' }}>
+                        {t('staffBooking.bookForMember')}
+                      </PermissionButton>
+                      <PermissionButton required={['packages.sell']} variant="secondary" mode="disable" onClick={() => setShowSell(true)} style={{ backgroundColor: 'var(--pui-bg)' }}>
+                        {t('members.card.sellPackage')}
+                      </PermissionButton>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -316,6 +322,8 @@ function MemberCard() {
 
         <div className="grid gap-4">
           <LoyaltyPanel memberId={memberId} />
+
+          <ErasurePanel studioId={activeStudioId} memberId={memberId} erasedAt={member.erasedAt} onChanged={load} />
 
           {(member.bookingsCount ?? 0) >= 0 && (
             <StatTile

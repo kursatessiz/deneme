@@ -168,6 +168,7 @@ bileşeniyle hızlı giriş/gelmedi. Kısayollar: W17'nin mevcut "Üye QR tarama
 - Rezervasyon geçmişi, notlar.
 - W12 risk rozeti ve ilk üç neden (`GET /churn/studio/:studioId/members/:memberId`).
 - `isPartnerGuest` etiketi.
+- KVKK/GDPR: üye Hesabım > Gizlilik (`app/(app)/hesabim/gizlilik.tsx`, yalnızca üye profili olana) ekranından "Verilerimin silinmesini talep et" der; talep durumu ve ret gerekçesi görünür (`GET/POST /me/erasure`, `docs/KVKK_SILME.md`).
 - W21 `MemberHealthTrendCard` (`members.health.view` arkasında, üyenin kendi paylaşım tercihine bağlı).
 - "Seansa ekle (walk-in)" (`bookings.manage`, önümüzdeki 7 gün boş kontenjanlı seanslar, `POST
   /schedules/book`) ve "Paket sat" (`packages.sell`, `POST /payments/sell`). Walk-in, hizmetin asgari tekrar

@@ -3,6 +3,8 @@ import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import { SCHEDULER_JOB_NAME, SCHEDULER_QUEUE } from './jobs.constants';
 import { MembersService } from '../members/members.service';
+import { ErasureJobsService } from '../erasure/erasure-jobs.service';
+import type { ErasureHeartbeatResult } from '@platform/shared';
 import { ErrorCaptureService } from '../error-reporting/error-capture.service';
 import { GrowthHeartbeatService, GrowthHeartbeatResult } from '../growth/growth-heartbeat.service';
 import { DunningService, DunningOutcome } from '../payments/dunning.service';
@@ -39,6 +41,8 @@ export interface SchedulerRunResult {
   churn: { studiosProcessed: number; membersScored: number };
   /** Frozen packages whose freeze period ended and that returned to ACTIVE. */
   packageFreezes: { released: number };
+  /** KVKK/GDPR: approved erasure requests and the ones past their 30 day deadline executed (docs/KVKK_SILME.md). */
+  erasure: ErasureHeartbeatResult;
   ratingPrompts: { prompted: number };
   referrals: { evaluated: number };
   webhooks: DispatchOutcome;
@@ -118,6 +122,7 @@ export class JobsService {
     private readonly oauthRefresh: OAuthRefreshService,
     private readonly emailDomains: EmailDomainService,
     private readonly members: MembersService,
+    private readonly erasure: ErasureJobsService,
     @Optional() private readonly errors?: ErrorCaptureService,
     @Optional() @InjectQueue(SCHEDULER_QUEUE) private readonly queue?: Queue,
   ) {}
@@ -169,6 +174,7 @@ export class JobsService {
     const consentSync = await this.step('consentSync', () => this.consent.syncPendingConsents(), { synced: 0, failed: 0 });
     const churn = await this.step('churn', () => this.churn.recomputeStale(now), { studiosProcessed: 0, membersScored: 0 });
     const packageFreezes = await this.step('packageFreezes', () => this.members.releaseElapsedFreezes(now), { released: 0 });
+    const erasure = await this.step('erasure', () => this.erasure.run(now), { executed: 0, autoProcessed: 0, failed: 0 });
     const ratingPrompts = await this.step('ratingPrompts', () => this.ratingPrompts.promptRecentAttendees(now), { prompted: 0 });
     const referrals = await this.step('referrals', () => this.referrals.recomputeOpen(), { evaluated: 0 });
     const webhooks = await this.step('webhooks', () => this.webhookDispatcher.dispatchDue(now), {
@@ -276,6 +282,7 @@ export class JobsService {
         `oauth ${oauthRefresh.refreshed} refreshed/${oauthRefresh.retrying} retrying/${oauthRefresh.reauthRequired} reauth required, ` +
         `email domains ${emailDomains.checked} checked/${emailDomains.failed} failed, ` +
         `package freezes ${packageFreezes.released} released, ` +
+        `erasure ${erasure.executed} executed/${erasure.autoProcessed} auto/${erasure.failed} failed, ` +
         `failed steps ${this.failedSteps.length ? this.failedSteps.join(',') : 'none'}`,
     );
 
@@ -287,6 +294,7 @@ export class JobsService {
       consentSync,
       churn,
       packageFreezes,
+      erasure,
       ratingPrompts,
       referrals,
       webhooks,

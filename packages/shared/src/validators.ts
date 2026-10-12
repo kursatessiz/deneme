@@ -82,6 +82,8 @@ export interface MemberDetailDTO {
   familyGroupId: string | null;
   notes: string | null;
   isPartnerGuest: boolean;
+  /** Set once the member's personal data was erased (KVKK/GDPR, docs/KVKK_SILME.md); names then read as the placeholder. */
+  erasedAt: string | null;
   packages: unknown[];
   bookings: unknown[];
   payments: unknown[];
