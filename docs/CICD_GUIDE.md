@@ -158,6 +158,7 @@ Tüm değişkenler `.env.example` içinde Zod şemalarıyla (`apps/api/src/confi
 | `IMAGE_REPO`, `GIT_REMOTE`, `WEB_DOMAIN`, `API_DOMAIN`, `ACME_EMAIL`, `POSTGRES_*`, `REDIS_PASSWORD`, `JWT_SECRET` | sahip (`/opt/app/.env`) | zorunlu |
 | `SITES_DOMAIN` | sahip, opsiyonel | işletme siteleri `<slug>.<SITES_DOMAIN>`; boşsa `WEB_DOMAIN` |
 | `REVALIDATE_SECRET` | sahip, opsiyonel | en az 16 karakter; `api` ve `web` konteynerlerine geçer; boşsa önbellek temizleme kapalı |
+| `MOBILE_IOS_APP_IDS`, `MOBILE_ANDROID_PACKAGE`, `MOBILE_ANDROID_SHA256_CERT_FINGERPRINTS` | sahip, opsiyonel | mobil uygulamanın `/j/<token>` davet bağlantılarını açması (evrensel bağlantılar); `web` konteynerine geçer; boşsa `/.well-known/apple-app-site-association` ve `assetlinks.json` 404 döner (`docs/MOBILE_APP.md`) |
 | `SITE_ENV` | sahip | `production` veya `preprod` (Caddy) |
 | `WEB_INTERNAL_URL` | compose | `http://web:3000`; API'nin `POST /api/revalidate` çağrısı için |
 | `API_INTERNAL_URL` | compose | `http://api:4000`; web sunucusunun API adresi |

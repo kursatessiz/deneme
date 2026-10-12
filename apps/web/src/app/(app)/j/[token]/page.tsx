@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import type { SessionUserDTO } from '@platform/shared';
+import type { InvitePreviewDTO, SessionUserDTO } from '@platform/shared';
 import { bffFetch, BffError } from '@/lib/session/client';
 import { postLoginPath } from '@/lib/session/post-login';
 import { useT } from '@/components/i18n/I18nProvider';
@@ -10,16 +10,6 @@ import { AdminTheme } from '@/components/admin/AdminTheme';
 import { ErrorState, LoadingState } from '@/components/common/DataState';
 import { Checkbox } from '@/components/ui';
 import { InlineMessage, PrimaryButton, SecondaryButton, Section, SettingsHeader, TextField } from '@/components/settings/ui';
-
-interface InvitePreview {
-  studio: { name: string; logoUrl: string | null };
-  fullName: string;
-  phoneMasked: string;
-  roleName: string;
-  isPlatformInvite?: boolean;
-  expiresAt: string;
-  documents: { id: string; type: string; title: string; version: number; body: string }[];
-}
 
 /**
  * Web landing of the universal invite link `/j/<token>` (CLAUDE.md
@@ -32,7 +22,7 @@ export default function JoinInvitePage() {
   const t = useT();
   const router = useRouter();
   const { token } = useParams<{ token: string }>();
-  const [invite, setInvite] = useState<InvitePreview | null>(null);
+  const [invite, setInvite] = useState<InvitePreviewDTO | null>(null);
   const [invalid, setInvalid] = useState(false);
   const [codeSent, setCodeSent] = useState<string | null>(null);
   const [code, setCode] = useState('');
@@ -42,7 +32,7 @@ export default function JoinInvitePage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    bffFetch<InvitePreview>(`invites/${encodeURIComponent(token)}`)
+    bffFetch<InvitePreviewDTO>(`invites/${encodeURIComponent(token)}`)
       .then(setInvite)
       .catch(() => setInvalid(true));
   }, [token]);

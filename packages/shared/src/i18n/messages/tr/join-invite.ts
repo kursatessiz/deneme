@@ -15,4 +15,5 @@ export const trJoinInvite = {
   'joinInvite.submit': 'Daveti kabul et',
   'joinInvite.submitting': 'Gönderiliyor...',
   'joinInvite.failed': 'Davet kabul edilemedi.',
+  'joinInvite.goToLogin': 'Girişe git',
 } as const satisfies Record<string, string>;
