@@ -17,6 +17,7 @@ import { PartnerSyncService, PartnerSyncOutcome } from '../partners/partner-sync
 import { JoinReminderService } from '../video/join-reminder.service';
 import { SmsProviderBalanceService, SmsProviderBalanceResult } from '../notifications/sms-provider-balance.service';
 import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
+import { TrackingRetentionService, type TrackingRetentionResult } from '../crm/tracking/tracking-retention.service';
 import { ConversionDeliveryDispatcherService, DispatchOutcome as ConversionDispatchOutcome } from '../ads/delivery/conversion-delivery-dispatcher.service';
 import { AdSpendSyncService, SpendSyncOutcome } from '../ads/spend-sync/ad-spend-sync.service';
 import { LeadAdsService, DueResult as LeadAdsResult } from '../lead-ads/lead-ads.service';
@@ -43,6 +44,8 @@ export interface SchedulerRunResult {
   packageFreezes: { released: number };
   /** KVKK/GDPR: approved erasure requests and the ones past their 30 day deadline executed (docs/KVKK_SILME.md). */
   erasure: ErasureHeartbeatResult;
+  /** Daily purge of touchpoints and anonymous visitors older than TOUCHPOINT_RETENTION_MONTHS (docs/CRM_VE_ATIF.md). */
+  trackingRetention: TrackingRetentionResult;
   ratingPrompts: { prompted: number };
   referrals: { evaluated: number };
   webhooks: DispatchOutcome;
@@ -123,6 +126,7 @@ export class JobsService {
     private readonly emailDomains: EmailDomainService,
     private readonly members: MembersService,
     private readonly erasure: ErasureJobsService,
+    private readonly trackingRetention: TrackingRetentionService,
     @Optional() private readonly errors?: ErrorCaptureService,
     @Optional() @InjectQueue(SCHEDULER_QUEUE) private readonly queue?: Queue,
   ) {}
@@ -175,6 +179,11 @@ export class JobsService {
     const churn = await this.step('churn', () => this.churn.recomputeStale(now), { studiosProcessed: 0, membersScored: 0 });
     const packageFreezes = await this.step('packageFreezes', () => this.members.releaseElapsedFreezes(now), { released: 0 });
     const erasure = await this.step('erasure', () => this.erasure.run(now), { executed: 0, autoProcessed: 0, failed: 0 });
+    const trackingRetention = await this.step('trackingRetention', () => this.trackingRetention.run(now), {
+      touchpointsDeleted: 0,
+      visitorsDeleted: 0,
+      ran: false,
+    });
     const ratingPrompts = await this.step('ratingPrompts', () => this.ratingPrompts.promptRecentAttendees(now), { prompted: 0 });
     const referrals = await this.step('referrals', () => this.referrals.recomputeOpen(), { evaluated: 0 });
     const webhooks = await this.step('webhooks', () => this.webhookDispatcher.dispatchDue(now), {
@@ -283,6 +292,7 @@ export class JobsService {
         `email domains ${emailDomains.checked} checked/${emailDomains.failed} failed, ` +
         `package freezes ${packageFreezes.released} released, ` +
         `erasure ${erasure.executed} executed/${erasure.autoProcessed} auto/${erasure.failed} failed, ` +
+        `tracking retention ${trackingRetention.touchpointsDeleted} touchpoint(s)/${trackingRetention.visitorsDeleted} visitor(s) purged, ` +
         `failed steps ${this.failedSteps.length ? this.failedSteps.join(',') : 'none'}`,
     );
 
@@ -295,6 +305,7 @@ export class JobsService {
       churn,
       packageFreezes,
       erasure,
+      trackingRetention,
       ratingPrompts,
       referrals,
       webhooks,
