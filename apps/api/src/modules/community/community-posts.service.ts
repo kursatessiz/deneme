@@ -44,6 +44,7 @@ function feedInclude(access: CommunityAccess) {
         durationSeconds: true,
         thumbnailUrl: true,
         sourceUrl: true,
+        creditCost: true,
         visibility: true,
         isPublished: true,
         packages: { select: { packageDefinitionId: true } },
@@ -223,7 +224,7 @@ export class CommunityPostsService {
       skip: (query.page - 1) * query.pageSize,
       take: query.pageSize,
     });
-    return this.toFeedDTOs(access, rows);
+    return this.toFeedDTOs(access, rows, tenant.memberProfileId);
   }
 
   async getForFeed(tenant: TenantContext, postId: string): Promise<CommunityFeedItemDTO> {
@@ -234,7 +235,7 @@ export class CommunityPostsService {
     });
     // Same 404 for "does not exist" and "not in your tier", so posts cannot be probed.
     if (!row) throw communityError('COMMUNITY_POST_NOT_FOUND');
-    return (await this.toFeedDTOs(access, [row]))[0];
+    return (await this.toFeedDTOs(access, [row], tenant.memberProfileId))[0];
   }
 
   // ---------------------------------------------------------------------------
@@ -289,7 +290,9 @@ export class CommunityPostsService {
   private async toFeedDTOs(
     access: CommunityAccess,
     rows: Prisma.CommunityPostGetPayload<{ include: ReturnType<typeof feedInclude> }>[],
+    memberId: string | null,
   ): Promise<CommunityFeedItemDTO[]> {
+    const chargedVideoIds = await this.chargedCreditVideoIds(access, rows, memberId);
     const commentCounts = await this.commentCounts(access.studioId, rows.map((r) => r.id), VISIBLE_COMMENT);
     return rows.map((row) => {
       const video = row.videoContent;
@@ -297,13 +300,17 @@ export class CommunityPostsService {
       if (video) {
         // An unpublished library item is treated as locked; otherwise the W19 rules decide.
         const locked = !video.isPublished || this.access.videoLock(video, access.activePackageDefinitionIds).locked;
+        // Credit-priced videos expose their source only after this member was charged
+        // (VideoView.creditChargedAt, set by the library start call); staff who see everything are unchanged.
+        const needsCharge = !access.seesEverything && !!video.creditCost && video.creditCost > 0 && !chargedVideoIds.has(video.id);
         videoDto = {
           id: video.id,
           title: video.title,
           durationSeconds: video.durationSeconds,
           thumbnailUrl: video.thumbnailUrl,
           isLocked: locked,
-          sourceUrl: locked ? null : video.sourceUrl,
+          sourceUrl: locked || needsCharge ? null : video.sourceUrl,
+          requiresCreditStart: !locked && needsCharge,
         };
       }
       return {
@@ -323,6 +330,22 @@ export class CommunityPostsService {
         publishedAt: (row.publishedAt ?? row.createdAt).toISOString(),
       };
     });
+  }
+
+  /** Credit-priced videos in the rows that this member already paid for. */
+  private async chargedCreditVideoIds(
+    access: CommunityAccess,
+    rows: Prisma.CommunityPostGetPayload<{ include: ReturnType<typeof feedInclude> }>[],
+    memberId: string | null,
+  ): Promise<Set<string>> {
+    if (access.seesEverything || !memberId) return new Set();
+    const ids = [...new Set(rows.flatMap((r) => (r.videoContent?.creditCost ? [r.videoContent.id] : [])))];
+    if (ids.length === 0) return new Set();
+    const views = await this.prisma.videoView.findMany({
+      where: { studioId: access.studioId, memberId, videoContentId: { in: ids }, creditChargedAt: { not: null } },
+      select: { videoContentId: true },
+    });
+    return new Set(views.map((v) => v.videoContentId));
   }
 
   private async toStaffDTOs(studioId: string, rows: StaffRow[]): Promise<CommunityPostDTO[]> {

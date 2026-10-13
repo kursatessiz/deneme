@@ -24,6 +24,7 @@ export const enMCommunity: Record<keyof typeof trMCommunity, string> = {
   'mCommunity.deleteComment': 'Delete comment',
   'mCommunity.openVideo': 'Open video',
   'mCommunity.videoLocked': 'This video is not included in your package.',
+  'mCommunity.videoCreditRequired': 'This video costs credits. Start it from the video library.',
   'mCommunity.openAttachment': 'Open file',
   'mCommunity.actionFailed': 'The action could not be completed.',
   'mCommunity.loadMore': 'Show more',

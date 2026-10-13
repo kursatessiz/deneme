@@ -194,6 +194,60 @@ describe('CommunityPostsService', () => {
     expect(where.studioId).toBe(STUDIO);
     expect(where.status).toBe('PUBLISHED');
   });
+
+  describe('feed credit-priced video source', () => {
+    function creditRow(creditCost: number | null) {
+      return {
+        ...staffRow({ status: 'PUBLISHED', type: 'VIDEO', publishedAt: new Date('2026-09-02T10:00:00Z') }),
+        videoContent: {
+          id: 'v-1',
+          title: 'Video',
+          durationSeconds: 60,
+          thumbnailUrl: null,
+          sourceUrl: 'https://video.example.com/x',
+          creditCost,
+          visibility: VideoContentVisibility.ALL_MEMBERS,
+          isPublished: true,
+          packages: [],
+        },
+        reactions: [],
+      };
+    }
+    beforeEach(() => {
+      prisma.videoView = { findMany: jest.fn().mockResolvedValue([]) };
+    });
+
+    it('hides the source of credit-priced video the member has not been charged for', async () => {
+      prisma.communityPost.findMany.mockResolvedValue([creditRow(5)]);
+      const [item] = await service.feed(tenant(), { page: 1, pageSize: 20 });
+      expect(item.video).toMatchObject({ isLocked: false, sourceUrl: null, requiresCreditStart: true });
+      expect(prisma.videoView.findMany.mock.calls[0][0].where).toMatchObject({
+        studioId: STUDIO,
+        memberId: 'member-1',
+        creditChargedAt: { not: null },
+      });
+    });
+
+    it('returns the source once the member was charged', async () => {
+      prisma.communityPost.findMany.mockResolvedValue([creditRow(5)]);
+      prisma.videoView.findMany.mockResolvedValue([{ videoContentId: 'v-1' }]);
+      const [item] = await service.feed(tenant(), { page: 1, pageSize: 20 });
+      expect(item.video).toMatchObject({ isLocked: false, sourceUrl: 'https://video.example.com/x', requiresCreditStart: false });
+    });
+
+    it('returns the source of free video without a view lookup', async () => {
+      prisma.communityPost.findMany.mockResolvedValue([creditRow(null)]);
+      const [item] = await service.feed(tenant(), { page: 1, pageSize: 20 });
+      expect(item.video).toMatchObject({ sourceUrl: 'https://video.example.com/x', requiresCreditStart: false });
+      expect(prisma.videoView.findMany).not.toHaveBeenCalled();
+    });
+
+    it('leaves the staff preview unchanged', async () => {
+      prisma.communityPost.findMany.mockResolvedValue([creditRow(5)]);
+      const [item] = await service.feed(tenant(['community.view'], { memberProfileId: null }), { page: 1, pageSize: 20 });
+      expect(item.video).toMatchObject({ sourceUrl: 'https://video.example.com/x', requiresCreditStart: false });
+    });
+  });
 });
 
 describe('CommunityInteractionsService', () => {
