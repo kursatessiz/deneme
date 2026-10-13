@@ -5256,6 +5256,8 @@ model PayoutConnection {
   studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
 
   @@unique([studioId, provider])
+  // Partial UNIQUE index (provider, provider_account_id) WHERE provider_account_id IS NOT NULL
+  // lives in migration 20261105000000_payout_account_unique (Prisma cannot express it).
   @@map("payout_connections")
 }
 

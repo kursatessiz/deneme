@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Res } from '@nestjs/common';
+import { BadRequestException, Controller, ForbiddenException, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { ListPayoutsQuerySchema, MatchPayoutItemSchema, PAYOUT_ERROR_CODES, PAYOUT_PROVIDERS, PayoutExportQuerySchema, UpdatePayoutConnectionSchema } from '@platform/shared';
 import type { ListPayoutsQuery, MatchPayoutItemInput, PayoutExportQuery, PayoutProvider, UpdatePayoutConnectionInput } from '@platform/shared';
@@ -9,12 +9,15 @@ import { ZodBody, ZodQuery } from '../../common/zod-body.pipe';
 import { XLSX_CONTENT_TYPE } from '../accounting/accounting-xlsx';
 import { PayoutsService } from './payouts.service';
 import { PayoutSyncService } from './payout-sync.service';
-import { codedError } from '../../common/api-error';
+import { apiError, codedError } from '../../common/api-error';
+import { assertUnrestricted } from '../branches/branch-access';
 
 /**
  * Bank payouts and reconciliation (G5d-2, docs/BANKA_ODEMELERI.md). Reading,
  * exporting and the item list need `payouts.view`; sync, manual matching and
- * the provider account setting need `payouts.manage`. The studio always
+ * the provider account setting need `payouts.manage`. Branch-restricted staff
+ * are refused on every route (payments are studio-wide), and only the owner
+ * may change the provider account. The studio always
  * comes from the tenant guard; writes go through BillingWriteGuard (part of
  * @StudioScoped()), so restricted mode refuses them.
  */
@@ -29,32 +32,39 @@ export class PayoutsController {
   @Get()
   @RequirePermission('payouts.view')
   list(@Tenant() tenant: TenantContext, @ZodQuery(ListPayoutsQuerySchema) query: ListPayoutsQuery) {
+    assertUnrestricted(tenant);
     return this.payouts.list(tenant, query);
   }
 
   @Get('connections')
   @RequirePermission('payouts.view')
   async connections(@Tenant() tenant: TenantContext) {
+    assertUnrestricted(tenant);
     return { items: await this.sync.connections(tenant.studioId) };
   }
 
   @Patch('connections/:provider')
   @RequirePermission('payouts.manage')
-  setAccount(@Tenant() tenant: TenantContext, @Param('provider') provider: string, @ZodBody(UpdatePayoutConnectionSchema) body: UpdatePayoutConnectionInput) {
+  setAccount(@Tenant() tenant: TenantContext, @CurrentUser() user: AuthUser, @Param('provider') provider: string, @ZodBody(UpdatePayoutConnectionSchema) body: UpdatePayoutConnectionInput) {
+    assertUnrestricted(tenant);
+    // The connected account decides whose money is read; only the studio owner may change it.
+    if (!tenant.isOwner) throw new ForbiddenException(apiError('apiErrors.payouts.onlyOwnerCanChangeAccount'));
     if (!(PAYOUT_PROVIDERS as readonly string[]).includes(provider)) throw new BadRequestException(codedError(PAYOUT_ERROR_CODES.unknownProvider, { statusCode: 400 }));
-    return this.sync.setAccount(tenant.studioId, provider as PayoutProvider, body.providerAccountId);
+    return this.sync.setAccount(tenant.studioId, provider as PayoutProvider, body.providerAccountId, user.id);
   }
 
   @Post('sync')
   @HttpCode(200)
   @RequirePermission('payouts.manage')
   async syncNow(@Tenant() tenant: TenantContext) {
+    assertUnrestricted(tenant);
     return { results: await this.sync.syncStudio(tenant.studioId) };
   }
 
   @Get('export')
   @RequirePermission('payouts.view')
   async export(@Tenant() tenant: TenantContext, @CurrentUser() user: AuthUser, @ZodQuery(PayoutExportQuerySchema) query: PayoutExportQuery, @Res() res: Response) {
+    assertUnrestricted(tenant);
     const result = await this.payouts.export(tenant, user.id, query);
     res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
     res.setHeader('Cache-Control', 'no-store');
@@ -69,12 +79,14 @@ export class PayoutsController {
   @Get(':id')
   @RequirePermission('payouts.view')
   detail(@Tenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
+    assertUnrestricted(tenant);
     return this.payouts.detail(tenant, id);
   }
 
   @Get(':id/items/:itemId/candidates')
   @RequirePermission('payouts.manage')
   async candidates(@Tenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Param('itemId', ParseUUIDPipe) itemId: string) {
+    assertUnrestricted(tenant);
     return { items: await this.payouts.candidates(tenant, id, itemId) };
   }
 
@@ -88,12 +100,14 @@ export class PayoutsController {
     @Param('itemId', ParseUUIDPipe) itemId: string,
     @ZodBody(MatchPayoutItemSchema) body: MatchPayoutItemInput,
   ) {
+    assertUnrestricted(tenant);
     return this.payouts.match(tenant, user.id, id, itemId, body.paymentId);
   }
 
   @Delete(':id/items/:itemId/match')
   @RequirePermission('payouts.manage')
   unmatch(@Tenant() tenant: TenantContext, @CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Param('itemId', ParseUUIDPipe) itemId: string) {
+    assertUnrestricted(tenant);
     return this.payouts.unmatch(tenant, user.id, id, itemId);
   }
 }
