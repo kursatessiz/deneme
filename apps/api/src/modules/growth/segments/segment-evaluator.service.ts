@@ -24,6 +24,8 @@ export interface SegmentEvaluationContext {
   now: Date;
   /** Tenant custom field key -> kind (ContactFieldDefinition). */
   customFieldKinds: Record<string, SegmentFieldKind>;
+  /** When set, the aggregate queries filter to this single contact before aggregating (single-contact matches). */
+  contactId?: string;
 }
 
 /**
@@ -67,8 +69,8 @@ export class SegmentEvaluatorService {
   }
 
   /** The full contact filter for a rule set: studio, unmerged, and the compiled rules. */
-  async where(studioId: string, rules: SegmentGroup, now = new Date()): Promise<Where> {
-    const ctx: SegmentEvaluationContext = { studioId, now, customFieldKinds: await this.customFieldKinds(studioId) };
+  async where(studioId: string, rules: SegmentGroup, now = new Date(), contactId?: string): Promise<Where> {
+    const ctx: SegmentEvaluationContext = { studioId, now, customFieldKinds: await this.customFieldKinds(studioId), contactId };
     return { studioId, mergedIntoId: null, AND: [await this.compileGroup(rules, ctx)] };
   }
 
@@ -84,7 +86,8 @@ export class SegmentEvaluatorService {
 
   /** Whether one contact of this studio matches (journey branches, goals and trigger filters). */
   async matches(studioId: string, contactId: string, rules: SegmentGroup, now = new Date()): Promise<boolean> {
-    const where = await this.where(studioId, rules, now);
+    // The contact id is also passed down so aggregate queries do not scan every contact of the studio.
+    const where = await this.where(studioId, rules, now, contactId);
     return (await this.prisma.contact.count({ where: { AND: [where, { id: contactId }] } })) > 0;
   }
 
@@ -255,6 +258,11 @@ export class SegmentEvaluatorService {
   // Parameterised aggregate queries (studio scoped, contact ids out)
   // ---------------------------------------------------------------------------
 
+  /** Restricts an aggregate query to one contact (applied before aggregation); empty for studio-wide evaluation. */
+  private contactFilter(ctx: SegmentEvaluationContext): Prisma.Sql {
+    return ctx.contactId ? Prisma.sql`AND c."id" = ${ctx.contactId}::uuid` : Prisma.empty;
+  }
+
   private idsWhere(ids: string[]): Where {
     return { id: { in: ids } };
   }
@@ -309,7 +317,7 @@ export class SegmentEvaluatorService {
       SELECT c."id"::text AS id
       FROM "contacts" c
       LEFT JOIN "member_profiles" mp ON mp."membership_id" = c."membership_id"
-      WHERE c."studio_id" = ${studioId}::uuid AND c."merged_into_id" IS NULL AND ${condition}`;
+      WHERE c."studio_id" = ${studioId}::uuid AND c."merged_into_id" IS NULL ${this.contactFilter(ctx)} AND ${condition}`;
     return rows.map((r) => r.id);
   }
 
@@ -355,6 +363,7 @@ export class SegmentEvaluatorService {
     const rows = await this.prisma.$queryRaw<{ id: string }[]>`
       SELECT c."id"::text AS id FROM "contacts" c
       WHERE c."studio_id" = ${studioId}::uuid AND c."merged_into_id" IS NULL
+        ${this.contactFilter(ctx)}
         AND ${text} ~ '^\\d{4}-\\d{2}-\\d{2}$' AND ${condition}`;
     return rows.map((r) => r.id);
   }

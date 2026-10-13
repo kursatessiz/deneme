@@ -60,6 +60,24 @@ describe('SegmentEvaluatorService', () => {
     expect(sql.values).toContain(STUDIO);
   });
 
+  it('scopes aggregate SQL to one contact when matches() evaluates a single contact', async () => {
+    const { service, prisma } = build();
+    const CONTACT = '0c0c0c0c-0000-4000-8000-000000000009';
+    const rules = { combinator: 'and' as const, rules: [{ field: 'activity.attendedTotal', op: 'gte', value: 3 }] };
+    const sqlOf = () => {
+      const [strings, ...values] = prisma.$queryRaw.mock.calls[0] as unknown as [TemplateStringsArray, ...unknown[]];
+      return Prisma.sql(strings, ...values);
+    };
+    await service.where(STUDIO, rules, NOW);
+    expect(sqlOf().values).not.toContain(CONTACT);
+    expect(sqlOf().sql).not.toContain('c."id" =');
+    prisma.$queryRaw.mockClear();
+    (prisma as unknown as { contact: unknown }).contact = { count: jest.fn(async () => 1) };
+    expect(await service.matches(STUDIO, CONTACT, rules, NOW)).toBe(true);
+    expect(sqlOf().values).toContain(CONTACT);
+    expect(sqlOf().sql).toContain('c."id" =');
+  });
+
   it('uses JSON path filters for custom fields', async () => {
     const { service } = build({ goal: 'string', visits: 'number' });
     const where = await service.where(

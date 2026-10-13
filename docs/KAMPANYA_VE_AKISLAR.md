@@ -106,6 +106,8 @@ Her çalışan adım `JourneyStepRun` tablosuna bir kez yazılır (kayıt + adı
 
 `journeyTemplates()` (shared): eski altı kural türü (seans hatırlatması, paket bitişi, geri kazanma, doğum günü, ilk seans sonrası takip, gelmeyene takip) ve yeni aday takibi (görev -> 2 gün bekle -> hâlâ adaysa ikinci görev; deneme veya üyelikte hedefe ulaşır). Şablondan oluşturulan akış taslaktır; geri kazanma şablonu işletmeye kendi dinamik kitle segmentini de oluşturur. Yeni işletmelerin seed'i bu şablonlardan akış oluşturur (yalnızca seans hatırlatması çalışır durumda, eski varsayılanla aynı).
 
+Performans notu: tek kişi için değerlendirme (`SegmentEvaluatorService.matches()`, akış hedefi/dalı) toplulaştırma sorgularını (katılım, harcama, doğum günü, sadakat bakiyesi, özel tarih) kişi kimliğiyle toplulaştırmadan önce süzer; stüdyonun tüm kişileri taranmaz. `JourneyEngineService.processDue` tek vuruşta en fazla 20 saniye çalışır; kalan kayıtlar sonraki vuruşa kalır.
+
 ## 6. Eski otomasyonların taşınması
 
 Sahibin isteği doğrultusunda otomasyon modülü yamanmadı, yeniden yazıldı:
