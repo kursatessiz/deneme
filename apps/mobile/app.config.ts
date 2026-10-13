@@ -1,5 +1,7 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
+import { parseWebDomain, universalLinkSettings } from './src/lib/universalLinks';
+
 /**
  * Build variants on top of app.json. eas.json sets APP_VARIANT per build
  * profile; local `expo start` leaves it unset and gets app.json unchanged.
@@ -11,6 +13,9 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
  *   --name EXPO_PUBLIC_API_URL ...`, docs/CICD_GUIDE.md "Preprod ortamı").
  *   A preprod or production EAS build without an https value fails here
  *   instead of shipping an app that talks to localhost.
+ * - Universal links: EXPO_PUBLIC_WEB_DOMAIN (the deployment's WEB_DOMAIN) adds the iOS associated
+ *   domain and the verified Android intent filter for https://<domain>/j/* (docs/MOBILE_APP.md).
+ *   Unset keeps the custom scheme only.
  */
 
 type Variant = 'preprod' | 'production';
@@ -30,7 +35,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const variant = variantOf(process.env.APP_VARIANT);
   const name = config.name ?? 'Platform';
   const slug = config.slug ?? 'platform-app';
-  if (!variant) return { ...config, name, slug };
+  const links = universalLinkSettings(parseWebDomain(process.env.EXPO_PUBLIC_WEB_DOMAIN));
+  const withLinks = (base: ExpoConfig): ExpoConfig => ({
+    ...base,
+    ios: { ...base.ios, ...(links.iosAssociatedDomains.length > 0 ? { associatedDomains: links.iosAssociatedDomains } : {}) },
+    android: { ...base.android, ...(links.androidIntentFilters.length > 0 ? { intentFilters: links.androidIntentFilters } : {}) },
+  });
+  if (!variant) return withLinks({ ...config, name, slug });
 
   const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? '';
   if (process.env.EAS_BUILD === 'true' && !/^https:\/\/[^/\s]+/.test(apiUrl)) {
@@ -38,7 +49,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   }
 
   const { nameSuffix, idSuffix } = VARIANTS[variant];
-  return {
+  return withLinks({
     ...config,
     name: `${name}${nameSuffix}`,
     slug,
@@ -46,5 +57,5 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     extra: { ...config.extra, appVariant: variant },
     ios: { ...config.ios, bundleIdentifier: config.ios?.bundleIdentifier ? `${config.ios.bundleIdentifier}${idSuffix}` : undefined },
     android: { ...config.android, package: config.android?.package ? `${config.android.package}${idSuffix}` : undefined },
-  };
+  });
 };

@@ -116,9 +116,9 @@ export class PlatformAccessService {
     if (pm.platformStudioMembershipId) {
       await tx.membership.updateMany({ where: { id: pm.platformStudioMembershipId }, data: { status: 'PASSIVE' } });
     }
-    // Existing access tokens die on the guards' PlatformMembership check;
-    // the refresh token is dropped so the session cannot be renewed.
-    await tx.user.update({ where: { id: userId }, data: { refreshTokenHash: null } });
+    // The refresh token is dropped so the session cannot be renewed and the
+    // session epoch is bumped so every issued access token dies immediately.
+    await tx.user.update({ where: { id: userId }, data: { refreshTokenHash: null, prevRefreshTokenHash: null, refreshRotatedAt: null, sessionEpoch: { increment: 1 } } });
   }
 
   /** Moves the member to another platform role; an ACTIVE member's platform tenant membership follows in the same transaction. */

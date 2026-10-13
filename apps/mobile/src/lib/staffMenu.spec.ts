@@ -111,6 +111,13 @@ describe('buildHesabimMenu', () => {
     }
   });
 
+  it('members get the privacy screen to request erasure of their data; staff without a member profile do not', () => {
+    const member = buildHesabimMenu({ permissions: [], isMember: true, isTrainer: false });
+    expect(member.find((m) => m.key === 'privacy')?.route).toBe('/(app)/hesabim/gizlilik');
+    const staff = buildHesabimMenu({ permissions: ['members.view', 'members.erase'], isMember: false, isTrainer: false });
+    expect(staff.map((m) => m.key)).not.toContain('privacy');
+  });
+
   it('shows the read-only add-ons screen only with billing.manage', () => {
     const owner = buildHesabimMenu({ permissions: ['billing.manage'], isMember: false, isTrainer: false });
     expect(owner.map((m) => m.key)).toContain('add-ons');

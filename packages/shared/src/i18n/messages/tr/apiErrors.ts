@@ -355,6 +355,11 @@ export const trApiErrors = {
   'apiErrors.memberHealth.writingWorkoutsHealthNotEnabled': 'Sağlığa antrenman yazma özelliği açık değil',
 
   // members
+  'apiErrors.erasure.alreadyErased': 'Bu üyenin kişisel verileri zaten silinmiş',
+  'apiErrors.erasure.alreadyOpen': 'Bu üye için açık bir silme talebi zaten var',
+  'apiErrors.erasure.notDecidable': 'Bu talep artık onaylanamaz veya reddedilemez',
+  'apiErrors.erasure.requestNotFound': 'Silme talebi bulunamadı',
+  'apiErrors.erasure.staffNotErasable': 'İşletme sahibi, personel ve platform yöneticisi hesaplarının verileri bu akışla silinemez',
   'apiErrors.members.freezeDaysExceeded.one': 'Bu paket en fazla {count} gün dondurulabilir.',
   'apiErrors.members.freezeDaysExceeded.other': 'Bu paket en fazla {count} gün dondurulabilir.',
   'apiErrors.members.membershipPhoneNumberAlreadyExistsBusiness': 'Bu telefon numarasına sahip bir üyelik bu işletmede zaten mevcut',
@@ -432,6 +437,10 @@ export const trApiErrors = {
   'apiErrors.payments.stripeNotConfiguredPaymentsCannotAccepted': 'Stripe yapılandırılmamış; ödeme alınamıyor.',
   'apiErrors.payments.stripeNotConfiguredStripeSecretKey': 'Stripe yapılandırılmamış: STRIPE_SECRET_KEY gereklidir',
   'apiErrors.payments.subscriptionNotFound': 'Abonelik bulunamadı',
+
+  // payouts
+  'apiErrors.payouts.accountAlreadyConnected': 'Bu ödeme sağlayıcı hesabı başka bir işletmeye bağlı',
+  'apiErrors.payouts.onlyOwnerCanChangeAccount': 'Ödeme sağlayıcı hesabını yalnızca işletme sahibi değiştirebilir',
 
   // payroll
   'apiErrors.payroll.approvedPaidPayrollCannotChanged': 'Onaylanmış veya ödenmiş bordro değiştirilemez',

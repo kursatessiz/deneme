@@ -25,6 +25,8 @@ export const PERMISSIONS = {
   // member card (W21); the member's shareWithStudio toggle must be on too.
   'members.health.view': 'Üye sağlık notlarını ve sağlık verisi eğilimlerini görme',
   'members.manage': 'Üye ekleme, düzenleme, davet gönderme',
+  // KVKK/GDPR erasure (docs/KVKK_SILME.md): approve or reject a member's request and start erasure from the member card.
+  'members.erase': 'Üye kişisel verilerinin silinme (anonimleştirme) taleplerini onaylama, reddetme ve doğrudan başlatma',
 
   'catalog.view': 'Hizmet, kaynak ve iptal politikası kataloğunu görüntüleme',
   'catalog.manage': 'Hizmet, kaynak, paket ve iptal politikalarını yönetme',
@@ -46,6 +48,8 @@ export const PERMISSIONS = {
   'finance.manage': 'Ödeme ve gider kaydetme',
   'commissions.view.own': 'Kendi hakedişini görüntüleme',
   'commissions.view.all': 'Tüm hakedişleri görüntüleme',
+  // Payroll (with commissions.view.all on the run endpoints) and payouts need an
+  // unrestricted (all-branch) membership; branch-restricted staff get 403.
   'payroll.manage': 'Hakediş bordrosu oluşturma, düzeltme, onaylama ve ödenmiş işaretleme',
 
   'notifications.manage': 'Bildirim şablonları ve SMS kredisi',
@@ -120,6 +124,8 @@ export const PERMISSIONS = {
   // G5d-2: bank payouts and reconciliation. Owner only by default: they carry
   // the studio's provider settlements. Viewing, exporting and reading the
   // items is `payouts.view`; sync, manual match and account settings are `payouts.manage`.
+  // Both require an unrestricted (all-branch) membership; the provider account
+  // may only be changed by the studio owner.
   'payouts.view': 'Banka ödemelerini (sağlayıcı hakedişleri) ve mutabakat durumunu görüntüleme, dışa aktarma',
   'payouts.manage': 'Banka ödemelerini eşitleme, tahsilatlarla elle eşleştirme ve sağlayıcı hesabı ayarı',
   // G5c-1: the platform subscription itself (activation, plan choice, the
@@ -153,7 +159,7 @@ export function isPermissionKey(value: string): value is PermissionKey {
 export const PERMISSION_AREAS = {
   'Genel bakış': ['dashboard.view'],
   'İşletme ve roller': ['studio.settings.view', 'studio.settings.manage', 'roles.manage', 'staff.manage', 'branches.manage', 'errors.view'],
-  Üyeler: ['members.view', 'members.contact.view', 'members.health.view', 'members.manage'],
+  Üyeler: ['members.view', 'members.contact.view', 'members.health.view', 'members.manage', 'members.erase'],
   Katalog: ['catalog.view', 'catalog.manage'],
   Takvim: ['schedule.view', 'schedule.manage'],
   Rezervasyon: ['bookings.view', 'bookings.manage', 'attendance.manage'],

@@ -164,6 +164,44 @@ export interface ScheduleSpotsDTO {
   groups: SpotGroupDTO[];
 }
 
+/** Public preview of an invite (GET /invites/:token), shown by the web and mobile `/j/<token>` landings. */
+export interface InvitePreviewDTO {
+  studio: { name: string; logoUrl: string | null };
+  fullName: string;
+  phoneMasked: string;
+  roleName: string;
+  isPlatformInvite?: boolean;
+  expiresAt: string;
+  documents: { id: string; type: string; title: string; version: number; body: string }[];
+}
+
+/**
+ * The signed-in member's own standing in one session (GET /schedules/:scheduleId/self-status):
+ * their live booking with a dry-run of the cancellation policy, and their waitlist entry.
+ */
+export interface ScheduleSelfStatusDTO {
+  scheduleId: string;
+  /** The session has no free seat left. */
+  isFull: boolean;
+  booking: {
+    bookingId: string;
+    unitsCharged: number;
+    /** What cancelling right now would do under the business's cancellation policy. */
+    cancellation: {
+      isLate: boolean;
+      refundUnits: number;
+      penaltyUnits: number;
+      freeCancelHours: number;
+    };
+  } | null;
+  waitlist: {
+    waitlistId: string;
+    /** 1 is next in line. */
+    placeInLine: number;
+    status: 'WAITING' | 'OFFERED';
+  } | null;
+}
+
 export interface ServiceTypeDTO {
   id: string;
   name: string;

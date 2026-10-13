@@ -352,6 +352,11 @@ export const enApiErrors: Record<keyof typeof trApiErrors, string> = {
   'apiErrors.memberHealth.writingWorkoutsHealthNotEnabled': 'Writing workouts to health is not enabled',
 
   // members
+  'apiErrors.erasure.alreadyErased': 'This member\'s personal data has already been erased',
+  'apiErrors.erasure.alreadyOpen': 'There is already an open erasure request for this member',
+  'apiErrors.erasure.notDecidable': 'This request can no longer be approved or rejected',
+  'apiErrors.erasure.requestNotFound': 'Erasure request not found',
+  'apiErrors.erasure.staffNotErasable': 'Owner, staff and platform administrator accounts cannot be erased with this flow',
   'apiErrors.members.freezeDaysExceeded.one': 'This package can be frozen for at most {count} day.',
   'apiErrors.members.freezeDaysExceeded.other': 'This package can be frozen for at most {count} days.',
   'apiErrors.members.membershipPhoneNumberAlreadyExistsBusiness': 'A membership with this phone number already exists in this business',
@@ -429,6 +434,10 @@ export const enApiErrors: Record<keyof typeof trApiErrors, string> = {
   'apiErrors.payments.stripeNotConfiguredPaymentsCannotAccepted': 'Stripe is not configured; payments cannot be accepted.',
   'apiErrors.payments.stripeNotConfiguredStripeSecretKey': 'Stripe is not configured: STRIPE_SECRET_KEY is required',
   'apiErrors.payments.subscriptionNotFound': 'Subscription not found',
+
+  // payouts
+  'apiErrors.payouts.accountAlreadyConnected': 'This payout provider account is already connected to another business',
+  'apiErrors.payouts.onlyOwnerCanChangeAccount': 'Only the business owner can change the payout provider account',
 
   // payroll
   'apiErrors.payroll.approvedPaidPayrollCannotChanged': 'An approved or paid payroll cannot be changed',

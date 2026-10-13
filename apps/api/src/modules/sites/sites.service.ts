@@ -120,7 +120,7 @@ export class SitesService {
     const ok = await this.dns.verify(domain.domain, domain.verificationToken, platformCnameTarget());
     const updated = await this.prisma.siteDomain.update({
       where: { id: domainId },
-      data: { status: ok ? 'VERIFIED' : 'FAILED', verifiedAt: ok ? new Date() : null },
+      data: { status: ok ? 'VERIFIED' : 'FAILED', verifiedAt: ok ? new Date() : null, lastCheckedAt: new Date(), consecutiveFailures: 0 },
     });
     // A verified domain becomes the canonical origin of every cached page.
     void this.siteCache.purgeStudio(studioId);

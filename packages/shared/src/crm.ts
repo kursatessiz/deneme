@@ -33,6 +33,13 @@ export const CONTACT_ACTIVITY_TYPES = [
 export type ContactActivityType = (typeof CONTACT_ACTIVITY_TYPES)[number];
 
 /** Activity types staff may log by hand. */
+/**
+ * Retention of raw tracking rows (owner decision): touchpoints and anonymous
+ * visitors older than this are deleted by the daily heartbeat step. The
+ * attribution summary stored on the contact is kept.
+ */
+export const TOUCHPOINT_RETENTION_MONTHS = 13;
+
 export const MANUAL_CONTACT_ACTIVITY_TYPES = ['NOTE', 'CALL', 'MESSAGE'] as const;
 
 /** Custom field kinds: the scalar subset of SEGMENT_FIELD_KINDS. */

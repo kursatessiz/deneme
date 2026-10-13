@@ -232,6 +232,8 @@ export class InvitesService {
     }
 
     const existingUser = await this.prisma.user.findUnique({ where: { phone: invite.phone } });
+    // A globally deactivated account cannot be re-activated or granted a membership through an invite.
+    if (existingUser?.isActive === false) throw new ForbiddenException(apiError('apiErrors.auth.userNotFoundAccountDisabled'));
     if (!existingUser?.pinHash && !dto.pin) {
       throw new BadRequestException(apiError('apiErrors.invites.setPinSignApp'));
     }
@@ -247,6 +249,10 @@ export class InvitesService {
         data: { usedAt: now },
       });
       if (claimed.count !== 1) throw new GoneException(INVALID_INVITE);
+
+      // Re-check inside the transaction: the account may have been deactivated since the read above.
+      const inactive = await tx.user.findFirst({ where: { phone: invite.phone, isActive: false }, select: { id: true } });
+      if (inactive) throw new ForbiddenException(apiError('apiErrors.auth.userNotFoundAccountDisabled'));
 
       const user = await tx.user.upsert({
         where: { phone: invite.phone },

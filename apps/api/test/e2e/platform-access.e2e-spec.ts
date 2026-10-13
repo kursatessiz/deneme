@@ -393,24 +393,35 @@ describe('Platform access (M1) e2e', () => {
   });
 
   describe('revocation, reactivation and 2FA reset', () => {
-    it('deactivation takes effect on the very next request and kills the refresh token', async () => {
+    const pinLoginWithRecoveryCode = async (code: string): Promise<string> => {
+      const pin = await request(server).post('/auth/pin/login').send({ phone: inviteePhone, pin: '481357' });
+      expect(pin.status).toBe(200);
+      const verified = await as(pin.body.accessToken as string).post('/auth/mfa/verify').send({ recoveryCode: code });
+      expect(verified.status).toBe(200);
+      return verified.body.accessToken as string;
+    };
+
+    it('deactivation takes effect on the very next request, kills the refresh token and bumps the session epoch', async () => {
+      const before = await prisma.user.findUniqueOrThrow({ where: { id: marketingUserId }, select: { sessionEpoch: true } });
       const res = await as(superAdminToken).post(`/admin/platform-users/${marketingUserId}/deactivate`);
       expect(res.status).toBe(200);
       expect(res.body.status).toBe('PASSIVE');
 
-      expect((await as(tokenMfa).get(`/crm/studios/${PLATFORM}/contacts`)).status).toBe(403);
-      expect((await as(tokenMfa).get('/platform/integrations')).status).toBe(403);
-      expect((await as(tokenMfa).get('/platform/context')).status).toBe(403);
+      expect((await prisma.user.findUniqueOrThrow({ where: { id: marketingUserId }, select: { sessionEpoch: true } })).sessionEpoch).toBe(before.sessionEpoch + 1);
+      expect((await as(tokenMfa).get(`/crm/studios/${PLATFORM}/contacts`)).status).toBe(401);
+      expect((await as(tokenMfa).get('/platform/integrations')).status).toBe(401);
+      expect((await as(tokenMfa).get('/platform/context')).status).toBe(401);
       expect((await request(server).post('/auth/refresh').send({ refreshToken: marketingRefresh })).status).toBe(401);
-      const me = await as(tokenMfa).get('/auth/me');
-      expect(me.body.platformAccess).toBeNull();
+      expect((await as(tokenMfa).get('/auth/me')).status).toBe(401);
       expect(await prisma.auditLog.count({ where: { action: 'platform_user.deactivated', entityId: marketingUserId, userId: superAdminId } })).toBe(1);
     });
 
-    it('reactivation restores access; a role change is audit logged', async () => {
+    it('reactivation restores access on a new session; a role change is audit logged', async () => {
       const res = await as(superAdminToken).post(`/admin/platform-users/${marketingUserId}/reactivate`);
       expect(res.status).toBe(200);
       expect(res.body.status).toBe('ACTIVE');
+      expect((await as(tokenMfa).get(`/crm/studios/${PLATFORM}/contacts`)).status).toBe(401);
+      tokenMfa = await pinLoginWithRecoveryCode(recoveryCodes[1]);
       expect((await as(tokenMfa).get(`/crm/studios/${PLATFORM}/contacts`)).status).toBe(200);
 
       const role = await as(superAdminToken).put(`/admin/platform-users/${marketingUserId}/role`).send({ roleTemplateId: res.body.roleTemplateId });
@@ -418,11 +429,16 @@ describe('Platform access (M1) e2e', () => {
       expect(await prisma.auditLog.count({ where: { action: { in: ['platform_user.reactivated', 'platform_user.role_changed'] }, entityId: marketingUserId } })).toBe(2);
     });
 
-    it('a super admin 2FA reset invalidates the TOTP session and sends the member back to enrolment', async () => {
+    it('a super admin 2FA reset ends the session, bumps the epoch and sends the member back to enrolment', async () => {
+      const before = await prisma.user.findUniqueOrThrow({ where: { id: marketingUserId }, select: { sessionEpoch: true } });
       const res = await as(superAdminToken).post(`/admin/platform-users/${marketingUserId}/mfa/reset`);
       expect(res.status).toBe(200);
       expect(res.body.mfaEnabled).toBe(false);
-      const after = await as(tokenMfa).get(`/crm/studios/${PLATFORM}/contacts`);
+      expect((await prisma.user.findUniqueOrThrow({ where: { id: marketingUserId }, select: { sessionEpoch: true } })).sessionEpoch).toBe(before.sessionEpoch + 1);
+      expect((await as(tokenMfa).get(`/crm/studios/${PLATFORM}/contacts`)).status).toBe(401);
+      const pin = await request(server).post('/auth/pin/login').send({ phone: inviteePhone, pin: '481357' });
+      expect(pin.status).toBe(200);
+      const after = await as(pin.body.accessToken as string).get(`/crm/studios/${PLATFORM}/contacts`);
       expect(after.status).toBe(403);
       expect(after.body.code).toBe('MFA_ENROLLMENT_REQUIRED');
       expect(await prisma.userMfaRecoveryCode.count({ where: { userId: marketingUserId } })).toBe(0);

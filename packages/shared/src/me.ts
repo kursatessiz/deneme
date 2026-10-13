@@ -11,6 +11,7 @@ import { vmsg } from './validation-key';
 
 export interface UpcomingBookingDTO {
   bookingId: string;
+  scheduleId: string;
   studioId: string;
   studioName: string;
   branchName?: string | null;

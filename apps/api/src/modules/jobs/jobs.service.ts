@@ -3,6 +3,8 @@ import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import { SCHEDULER_JOB_NAME, SCHEDULER_QUEUE } from './jobs.constants';
 import { MembersService } from '../members/members.service';
+import { ErasureJobsService } from '../erasure/erasure-jobs.service';
+import type { ErasureHeartbeatResult } from '@platform/shared';
 import { ErrorCaptureService } from '../error-reporting/error-capture.service';
 import { GrowthHeartbeatService, GrowthHeartbeatResult } from '../growth/growth-heartbeat.service';
 import { DunningService, DunningOutcome } from '../payments/dunning.service';
@@ -15,6 +17,8 @@ import { PartnerSyncService, PartnerSyncOutcome } from '../partners/partner-sync
 import { JoinReminderService } from '../video/join-reminder.service';
 import { SmsProviderBalanceService, SmsProviderBalanceResult } from '../notifications/sms-provider-balance.service';
 import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
+import { DomainRecheckService, type DomainRecheckResult } from '../sites/domain-recheck.service';
+import { TrackingRetentionService, type TrackingRetentionResult } from '../crm/tracking/tracking-retention.service';
 import { ConversionDeliveryDispatcherService, DispatchOutcome as ConversionDispatchOutcome } from '../ads/delivery/conversion-delivery-dispatcher.service';
 import { AdSpendSyncService, SpendSyncOutcome } from '../ads/spend-sync/ad-spend-sync.service';
 import { LeadAdsService, DueResult as LeadAdsResult } from '../lead-ads/lead-ads.service';
@@ -39,6 +43,12 @@ export interface SchedulerRunResult {
   churn: { studiosProcessed: number; membersScored: number };
   /** Frozen packages whose freeze period ended and that returned to ACTIVE. */
   packageFreezes: { released: number };
+  /** KVKK/GDPR: approved erasure requests and the ones past their 30 day deadline executed (docs/KVKK_SILME.md). */
+  erasure: ErasureHeartbeatResult;
+  /** Daily purge of touchpoints and anonymous visitors older than TOUCHPOINT_RETENTION_MONTHS (docs/CRM_VE_ATIF.md). */
+  trackingRetention: TrackingRetentionResult;
+  /** Daily DNS re-check of VERIFIED custom domains; repeated failures deactivate the domain (docs/SAYFA_MOTORU.md). */
+  domainRecheck: DomainRecheckResult;
   ratingPrompts: { prompted: number };
   referrals: { evaluated: number };
   webhooks: DispatchOutcome;
@@ -118,6 +128,9 @@ export class JobsService {
     private readonly oauthRefresh: OAuthRefreshService,
     private readonly emailDomains: EmailDomainService,
     private readonly members: MembersService,
+    private readonly erasure: ErasureJobsService,
+    private readonly trackingRetention: TrackingRetentionService,
+    private readonly domainRecheck: DomainRecheckService,
     @Optional() private readonly errors?: ErrorCaptureService,
     @Optional() @InjectQueue(SCHEDULER_QUEUE) private readonly queue?: Queue,
   ) {}
@@ -169,6 +182,13 @@ export class JobsService {
     const consentSync = await this.step('consentSync', () => this.consent.syncPendingConsents(), { synced: 0, failed: 0 });
     const churn = await this.step('churn', () => this.churn.recomputeStale(now), { studiosProcessed: 0, membersScored: 0 });
     const packageFreezes = await this.step('packageFreezes', () => this.members.releaseElapsedFreezes(now), { released: 0 });
+    const erasure = await this.step('erasure', () => this.erasure.run(now), { executed: 0, autoProcessed: 0, failed: 0 });
+    const trackingRetention = await this.step('trackingRetention', () => this.trackingRetention.run(now), {
+      touchpointsDeleted: 0,
+      visitorsDeleted: 0,
+      ran: false,
+    });
+    const domainRecheck = await this.step('domainRecheck', () => this.domainRecheck.run(now), { checked: 0, failed: 0, deactivated: 0 });
     const ratingPrompts = await this.step('ratingPrompts', () => this.ratingPrompts.promptRecentAttendees(now), { prompted: 0 });
     const referrals = await this.step('referrals', () => this.referrals.recomputeOpen(), { evaluated: 0 });
     const webhooks = await this.step('webhooks', () => this.webhookDispatcher.dispatchDue(now), {
@@ -276,6 +296,9 @@ export class JobsService {
         `oauth ${oauthRefresh.refreshed} refreshed/${oauthRefresh.retrying} retrying/${oauthRefresh.reauthRequired} reauth required, ` +
         `email domains ${emailDomains.checked} checked/${emailDomains.failed} failed, ` +
         `package freezes ${packageFreezes.released} released, ` +
+        `erasure ${erasure.executed} executed/${erasure.autoProcessed} auto/${erasure.failed} failed, ` +
+        `tracking retention ${trackingRetention.touchpointsDeleted} touchpoint(s)/${trackingRetention.visitorsDeleted} visitor(s) purged, ` +
+        `domain recheck ${domainRecheck.checked} checked/${domainRecheck.failed} failed/${domainRecheck.deactivated} deactivated, ` +
         `failed steps ${this.failedSteps.length ? this.failedSteps.join(',') : 'none'}`,
     );
 
@@ -287,6 +310,9 @@ export class JobsService {
       consentSync,
       churn,
       packageFreezes,
+      erasure,
+      trackingRetention,
+      domainRecheck,
       ratingPrompts,
       referrals,
       webhooks,

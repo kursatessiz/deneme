@@ -779,6 +779,7 @@ model Studio {
   articles              Article[]
   articleTags           ArticleTag[]
   dashboardLayouts      DashboardLayout[]
+  dataErasureRequests   DataErasureRequest[]
 
   @@map("studios")
 }
@@ -923,6 +924,10 @@ model Membership {
   roleTemplateId String           @map("role_template_id") @db.Uuid
   status         MembershipStatus @default(INVITED)
   joinedAt       DateTime?        @map("joined_at")
+  /// KVKK/GDPR erasure (docs/KVKK_SILME.md): set once the personal data of this
+  /// membership was anonymized. The row stays (financial and booking history
+  /// point at it), status is PASSIVE and the studio can no longer use it.
+  erasedAt       DateTime?        @map("erased_at")
   /// True only for a membership auto-created by a partner (aggregator)
   /// webhook guest who has never onboarded into the app themselves. Such
   /// guests must be excluded from automation targeting, bulk/marketing
@@ -960,6 +965,7 @@ model Membership {
   communityComments         CommunityComment[]    @relation("CommunityCommentAuthor")
   communityReactions        CommunityReaction[]
   dashboardLayout           DashboardLayout?
+  dataErasureRequests       DataErasureRequest[]
 
   @@unique([userId, studioId])
   @@index([studioId, status])
@@ -1018,6 +1024,45 @@ model DashboardLayout {
   @@unique([membershipId])
   @@index([studioId])
   @@map("dashboard_layouts")
+}
+
+/// KVKK/GDPR erasure request for one studio membership (docs/KVKK_SILME.md).
+/// status: PENDING (member asked, waiting for staff), APPROVED (staff agreed,
+/// the heartbeat executes it), REJECTED, COMPLETED. A PENDING request nobody
+/// handled by `dueAt` (30 days) is executed automatically. A partial unique
+/// index in SQL allows one open (PENDING or APPROVED) request per membership.
+/// `decisionNote` is a staff reason and must never hold personal data.
+model DataErasureRequest {
+  id                String    @id @default(uuid()) @db.Uuid
+  studioId          String    @map("studio_id") @db.Uuid
+  membershipId      String    @map("membership_id") @db.Uuid
+  /// MEMBER (asked in the app) or STUDIO (started from the member card).
+  source            String    @db.VarChar(10)
+  status            String    @default("PENDING") @db.VarChar(12)
+  requestedByUserId String?   @map("requested_by_user_id") @db.Uuid
+  requestedAt       DateTime  @default(now()) @map("requested_at")
+  /// requestedAt + 30 days: the automatic processing deadline.
+  dueAt             DateTime  @map("due_at")
+  decidedAt         DateTime? @map("decided_at")
+  decidedByUserId   String?   @map("decided_by_user_id") @db.Uuid
+  decisionNote      String?   @map("decision_note") @db.VarChar(500)
+  /// True when the 30 day deadline, not a person, triggered the execution.
+  autoProcessed     Boolean   @default(false) @map("auto_processed")
+  executedAt        DateTime? @map("executed_at")
+  attempts          Int       @default(0)
+  lastError         String?   @map("last_error") @db.VarChar(300)
+  /// Per table counts of what the anonymizer changed (never personal data).
+  summary           Json?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  studio     Studio     @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@index([studioId, status, requestedAt])
+  @@index([status, dueAt])
+  @@index([membershipId])
+  @@map("data_erasure_requests")
 }
 
 /// QR / link onboarding. Only a hash of the token is stored.
@@ -4107,6 +4152,10 @@ model SiteDomain {
   status            DomainVerificationStatus  @default(PENDING)
   verificationToken String                    @map("verification_token") @db.VarChar(64)
   verifiedAt        DateTime?                 @map("verified_at")
+  /// Daily re-verification of a VERIFIED domain (docs/SAYFA_MOTORU.md section 7).
+  lastCheckedAt       DateTime?               @map("last_checked_at")
+  lastFailureAt       DateTime?               @map("last_failure_at")
+  consecutiveFailures Int                     @default(0) @map("consecutive_failures")
   createdAt         DateTime                  @default(now()) @map("created_at")
   updatedAt         DateTime                  @updatedAt @map("updated_at")
 
@@ -5211,6 +5260,8 @@ model PayoutConnection {
   studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
 
   @@unique([studioId, provider])
+  // Partial UNIQUE index (provider, provider_account_id) WHERE provider_account_id IS NOT NULL
+  // lives in migration 20261105000000_payout_account_unique (Prisma cannot express it).
   @@map("payout_connections")
 }
 

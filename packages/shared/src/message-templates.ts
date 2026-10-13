@@ -73,6 +73,12 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplateDefinition[] = [
     whatsappName: 'loyalty_points_expiring',
   },
   /**
+   * KVKK/GDPR erasure (docs/KVKK_SILME.md): the decision on the member's own
+   * request, about their own data and never an offer, so TRANSACTIONAL.
+   */
+  { key: 'ERASURE_REQUEST_APPROVED', purpose: 'TRANSACTIONAL', variables: ['firstName', 'studioName'], whatsappName: 'erasure_request_approved' },
+  { key: 'ERASURE_REQUEST_REJECTED', purpose: 'TRANSACTIONAL', variables: ['firstName', 'studioName'], whatsappName: 'erasure_request_rejected' },
+  /**
    * G3c-1 events (docs/ETKINLIKLER.md): about the person's own registration,
    * never an offer, so all are TRANSACTIONAL.
    */

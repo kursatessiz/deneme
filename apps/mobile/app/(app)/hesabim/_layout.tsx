@@ -31,6 +31,7 @@ export default function HesabimLayout() {
       <Stack.Screen name="uygulamalar" options={{ title: t('mAddOns.title') }} />
       <Stack.Screen name="partner-platformlar" options={{ title: t('mAccount.menu.partners') }} />
       <Stack.Screen name="saglik" options={{ title: t('mAccount.menu.health') }} />
+      <Stack.Screen name="gizlilik" options={{ title: t('mErasure.title') }} />
       <Stack.Screen name="saglik-ozet" options={{ title: t('mScreens.healthSummary') }} />
       <Stack.Screen name="video-icerikleri" options={{ title: t('mAccount.menu.videoContent') }} />
       <Stack.Screen name="mesajlar" options={{ title: t('mMessaging.chat.title') }} />

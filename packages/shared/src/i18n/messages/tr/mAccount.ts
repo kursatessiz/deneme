@@ -17,6 +17,7 @@ export const trMAccount = {
   'mAccount.menu.eventCheckIn': 'Etkinlik girişi',
   'mAccount.menu.referFriend': 'Arkadaşını getir',
   'mAccount.menu.health': 'Sağlık entegrasyonu',
+  'mAccount.menu.privacy': 'Gizlilik ve veri silme',
   'mAccount.menu.myCommission': 'Hakedişim',
   'mAccount.menu.payroll': 'Bordro',
   'mAccount.menu.myInvoices': 'Faturalarım',

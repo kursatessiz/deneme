@@ -38,7 +38,7 @@ import { evaluateCancellation, evaluateNoShow, FALLBACK_POLICY, PolicyTerms } fr
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
 import { deriveSpotStatus, SpotOccupant } from './spots';
 import { sortByClosestStart } from '../checkin/checkin-window';
-import type { ApiErrorKey, ApiTextKey, BookingChargedPackageDTO, BookingNoticeDTO, ScheduleSpotsDTO, SpotGroupDTO } from '@platform/shared';
+import type { ApiErrorKey, ApiTextKey, BookingChargedPackageDTO, BookingNoticeDTO, ScheduleSelfStatusDTO, ScheduleSpotsDTO, SpotGroupDTO } from '@platform/shared';
 import { apiError, hasApiErrorCode } from '../../common/api-error';
 import { errorMessageIn, requestLocale, requestT, serverT, studioLocale } from '../../common/server-i18n';
 import type { ServerT } from '../../common/server-i18n';
@@ -428,6 +428,60 @@ export class SchedulesService {
    * resources. Available to members and staff alike; who took a spot is
    * hidden from members and revealed to staff only with bookings.view.
    */
+  /** The member's own booking (with a dry run of the cancellation policy) and waitlist entry for one session. */
+  async getSelfStatus(tenant: TenantContext, scheduleId: string): Promise<ScheduleSelfStatusDTO> {
+    const studioId = tenant.studioId;
+    const schedule = await this.prisma.sessionSchedule.findFirst({
+      where: { id: scheduleId, studioId },
+      include: { serviceType: { include: { cancellationPolicy: true } } },
+    });
+    if (!schedule) {
+      throw new NotFoundException(apiError('apiErrors.schedules.sessionNotFound'));
+    }
+    assertBranchAccess(tenant, schedule.branchId);
+    const isFull = schedule.bookedCount >= schedule.capacity;
+    const memberId = tenant.memberProfileId;
+    if (!memberId) return { scheduleId, isFull, booking: null, waitlist: null };
+
+    const [booking, entry] = await Promise.all([
+      this.prisma.booking.findFirst({
+        where: { studioId, scheduleId, memberId, status: 'CONFIRMED' },
+        include: { memberPackage: true },
+      }),
+      this.prisma.waitlist.findFirst({ where: { studioId, scheduleId, memberId, status: { in: ['WAITING', 'OFFERED'] } } }),
+    ]);
+
+    let bookingDto: ScheduleSelfStatusDTO['booking'] = null;
+    if (booking) {
+      const policy = await this.resolvePolicy(studioId, schedule.serviceType.cancellationPolicy);
+      const outcome = evaluateCancellation({
+        policy,
+        sessionStart: schedule.startTime,
+        now: new Date(),
+        unitsCharged: booking.unitsCharged,
+        entitlementKind: booking.memberPackage?.entitlementKind ?? null,
+        waivePenalty: false,
+      });
+      bookingDto = {
+        bookingId: booking.id,
+        unitsCharged: booking.unitsCharged,
+        cancellation: {
+          isLate: outcome.isLate,
+          refundUnits: outcome.refundUnits,
+          penaltyUnits: outcome.penaltyUnits,
+          freeCancelHours: policy.freeCancelHours,
+        },
+      };
+    }
+
+    let waitlistDto: ScheduleSelfStatusDTO['waitlist'] = null;
+    if (entry) {
+      const ahead = await this.prisma.waitlist.count({ where: { studioId, scheduleId, status: 'WAITING', position: { lt: entry.position } } });
+      waitlistDto = { waitlistId: entry.id, placeInLine: ahead + 1, status: entry.status === 'OFFERED' ? 'OFFERED' : 'WAITING' };
+    }
+    return { scheduleId, isFull, booking: bookingDto, waitlist: waitlistDto };
+  }
+
   async getSpots(tenant: TenantContext, scheduleId: string): Promise<ScheduleSpotsDTO> {
     const studioId = tenant.studioId;
     const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: scheduleId, studioId } });

@@ -121,6 +121,36 @@ describe('daily cap arithmetic with deferral', () => {
     expect(uncapped.blockedBy('EMAIL')).toBeNull();
     expect(uncapped.remaining).toEqual({ email: null, sms: null });
   });
+
+  it('reserves room atomically: a parallel burst never holds more than the room left', async () => {
+    const tracker = new DailyCapTracker(3, null);
+    const held = await Promise.all(Array.from({ length: 10 }, async () => tracker.reserve('EMAIL')));
+    expect(held.filter((r) => r !== null)).toHaveLength(3);
+    expect(tracker.blockedBy('EMAIL')).toBe('EMAIL');
+    expect(tracker.remaining.email).toBe(0);
+  });
+
+  it('settle gives the hold back on failure and books the sent channel on success', () => {
+    const tracker = new DailyCapTracker(2, 2);
+    const failed = tracker.reserve('EMAIL');
+    expect(failed).toEqual({ email: true, sms: false });
+    tracker.settle(failed!, null);
+    expect(tracker.remaining).toEqual({ email: 2, sms: 2 });
+
+    const open = tracker.reserve(null);
+    expect(open).toEqual({ email: true, sms: true });
+    expect(tracker.remaining).toEqual({ email: 1, sms: 1 });
+    tracker.settle(open!, 'SMS');
+    expect(tracker.remaining).toEqual({ email: 2, sms: 1 });
+  });
+
+  it('does not reserve when a capped channel is full, and never for an uncapped channel', () => {
+    const tracker = new DailyCapTracker(0, 5);
+    expect(tracker.reserve('EMAIL')).toBeNull();
+    expect(tracker.reserve(null)).toBeNull();
+    expect(tracker.remaining).toEqual({ email: 0, sms: 5 });
+    expect(new DailyCapTracker(null, null).reserve('EMAIL')).toEqual({ email: false, sms: false });
+  });
 });
 
 describe('warm-up plan lookup', () => {

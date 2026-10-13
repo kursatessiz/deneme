@@ -425,13 +425,19 @@ export class CampaignsService {
       });
       if (!pending.length) break;
       for (const recipient of pending) {
-        capBlocked = caps?.blockedBy(campaign.channel) ?? null;
-        if (capBlocked) break;
-        const sent = await this.sendOne(campaign, recipient, now, variants);
-        if (sent) {
-          totals[sent.outcome] += 1;
-          if (sent.outcome === 'sent') caps?.consume(sent.channel);
+        // Check and hold the cap room in one synchronous step, release it when nothing was sent.
+        const held = caps ? caps.reserve(campaign.channel) : null;
+        if (caps && !held) {
+          capBlocked = caps.blockedBy(campaign.channel);
+          break;
         }
+        let sent: { outcome: 'sent' | 'skipped' | 'failed'; channel: string | null } | null = null;
+        try {
+          sent = await this.sendOne(campaign, recipient, now, variants);
+        } finally {
+          if (caps && held) caps.settle(held, sent?.outcome === 'sent' ? sent.channel : null);
+        }
+        if (sent) totals[sent.outcome] += 1;
       }
     }
     if (capBlocked) await this.deferForCap(campaign, capBlocked, abActive, now);

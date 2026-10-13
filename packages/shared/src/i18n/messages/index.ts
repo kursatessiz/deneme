@@ -105,6 +105,8 @@ import { trMMarketingApprovals } from './tr/mMarketingApprovals';
 import { trErrors } from './tr/errors';
 import { trAdminErrors } from './tr/admin-errors';
 import { trCommunity } from './tr/community';
+import { trErasure } from './tr/erasure';
+import { trMErasure } from './tr/mErasure';
 import { trMCommunity } from './tr/mCommunity';
 import { enApiErrors } from './en/apiErrors';
 import { enValidation } from './en/validation';
@@ -213,6 +215,8 @@ import { enMMarketingApprovals } from './en/mMarketingApprovals';
 import { enErrors } from './en/errors';
 import { enAdminErrors } from './en/admin-errors';
 import { enCommunity } from './en/community';
+import { enErasure } from './en/erasure';
+import { enMErasure } from './en/mErasure';
 import { enMCommunity } from './en/mCommunity';
 import { trTwoFactor } from './tr/two-factor';
 import { enTwoFactor } from './en/two-factor';
@@ -377,6 +381,8 @@ export const TR_NAMESPACES = [
   trErrors,
   trAdminErrors,
   trCommunity,
+  trErasure,
+  trMErasure,
   trMCommunity,
   trTwoFactor,
   trAdminPlatformUsers,
@@ -509,6 +515,8 @@ export const EN_NAMESPACES = [
   enErrors,
   enAdminErrors,
   enCommunity,
+  enErasure,
+  enMErasure,
   enMCommunity,
   enTwoFactor,
   enAdminPlatformUsers,

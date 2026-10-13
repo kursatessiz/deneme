@@ -97,6 +97,17 @@ Herkese açık bir `identify` ucu **yoktur**: tanımlama yalnızca sunucu taraf�
 
 **Tanımlama ve atıf**: bir form, deneme, davet kabulü veya kayıt bir kişi oluşturduğunda ya da bulduğunda, istek ziyaretçi kimliğini taşıyorsa ziyaretçi kişiye bağlanır, ziyaretçinin kişisiz temas noktaları kişiye eklenir ve kişinin özeti yenilenir: ilk temas = kişinin en eski temas noktası, son temas = atıf penceresi (`DEFAULT_ATTRIBUTION_WINDOW_DAYS`, 30 gün) içindeki en yeni temas noktası. Pencere içinde temas yoksa son temas kolonları değişmez. Tanınmış bir ziyaretçinin sonraki ziyaretleri de kişinin son temasını günceller.
 
+### Saklama süresi (13 ay)
+
+Ham takip verisi 13 ay saklanır (sahip kararı; `TOUCHPOINT_RETENTION_MONTHS` sabiti `packages/shared/src/crm.ts` içindedir, ortam değişkeni yoktur). Kalp atışının `trackingRetention` adımı (`TrackingRetentionService`, günde bir kez) şunları siler:
+
+- `occurred_at` değeri 13 aydan eski olan `touchpoints` satırları.
+- Son görülme (`last_seen_at`) zamanı 13 aydan eski olan ve bir kişiye bağlı olmayan (`contact_id` boş) `visitors` satırları. Kişiye bağlı ziyaretçi satırı silinmez; eski temas noktaları yine de silinir.
+
+`touchpoints` tablosuna işaret eden tüm yabancı anahtarlar `ON DELETE SET NULL` olduğundan (`contacts.first_touchpoint_id`, `contacts.last_touchpoint_id`, `conversion_events.attributed_touchpoint_id`, `studio_referrals.touchpoint_id`) hiçbir kayıt silinmez, yalnızca referans boşalır. Kişi üzerindeki atıf özeti (ilk/son kaynak, ortam, kampanya, reklam kimlikleri) kişi satırına kopyalı olduğu için olduğu gibi kalır; temas noktası kalmadığında özet yenilemesi mevcut değerleri değiştirmez.
+
+Silme, her ifadede en fazla 5000 satır olacak şekilde (`RETENTION_BATCH_SIZE`) ve tablo başına çalıştırma başına en fazla 20 ifadeyle (`RETENTION_MAX_BATCHES`) yapılır; büyük birikim sonraki kalp atışlarında erir. Birikim tamamen bittiğinde adım 23 saat boyunca tekrar çalışmaz (süreç yeniden başlarsa bir kez daha çalışır, zararsızdır).
+
 ## 6. Çerez izni bandı
 
 Bölge sırasıyla şuradan çözülür: `CF-IPCountry` / `X-Country-Code` başlığı, `Accept-Language` içindeki bölge alt etiketi (`tr-TR` -> TR), hiçbiri yoksa **en katı davranış (AB)**.

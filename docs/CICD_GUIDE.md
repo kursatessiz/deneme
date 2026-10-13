@@ -158,6 +158,7 @@ Tüm değişkenler `.env.example` içinde Zod şemalarıyla (`apps/api/src/confi
 | `IMAGE_REPO`, `GIT_REMOTE`, `WEB_DOMAIN`, `API_DOMAIN`, `ACME_EMAIL`, `POSTGRES_*`, `REDIS_PASSWORD`, `JWT_SECRET` | sahip (`/opt/app/.env`) | zorunlu |
 | `SITES_DOMAIN` | sahip, opsiyonel | işletme siteleri `<slug>.<SITES_DOMAIN>`; boşsa `WEB_DOMAIN` |
 | `REVALIDATE_SECRET` | sahip, opsiyonel | en az 16 karakter; `api` ve `web` konteynerlerine geçer; boşsa önbellek temizleme kapalı |
+| `MOBILE_IOS_APP_IDS`, `MOBILE_ANDROID_PACKAGE`, `MOBILE_ANDROID_SHA256_CERT_FINGERPRINTS` | sahip, opsiyonel | mobil uygulamanın `/j/<token>` davet bağlantılarını açması (evrensel bağlantılar); `web` konteynerine geçer; boşsa `/.well-known/apple-app-site-association` ve `assetlinks.json` 404 döner (`docs/MOBILE_APP.md`) |
 | `SITE_ENV` | sahip | `production` veya `preprod` (Caddy) |
 | `WEB_INTERNAL_URL` | compose | `http://web:3000`; API'nin `POST /api/revalidate` çağrısı için |
 | `API_INTERNAL_URL` | compose | `http://api:4000`; web sunucusunun API adresi |
@@ -468,7 +469,9 @@ Apple kimlikleriyle değiştirilmelidir.
   CodeQL. Pull request'lerde, `main`'e push'larda ve haftalık olarak çalışır.
 - **`security.yml`**: pull request'lerde dependency review (high severity'de başarısız olur,
   GPL/AGPL/SSPL gibi copyleft lisansları reddeder), TruffleHog secret scanning ve `zizmor`
-  GitHub Actions workflow denetimi.
+  GitHub Actions workflow denetimi. Tek istisna TruffleHog Action'ının kendisidir (AGPL-3.0):
+  yalnızca CI içinde tarayıcı olarak çalışır, imajlara girmez ve dağıtılmaz, bu yüzden
+  lisansı ürüne yükümlülük getirmez (sahip kararı). Diğer her bağımlılık için yasak sürer.
 - **`scorecard.yml`**: OpenSSF Scorecard, `main`'e push'larda ve haftalık olarak yayınlanır.
 
 Tüm üçüncü taraf action'lar, değişken (floating) tag'lere değil commit SHA'larına sabitlenmiştir.

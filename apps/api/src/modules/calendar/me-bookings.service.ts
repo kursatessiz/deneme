@@ -135,6 +135,7 @@ function toUpcomingBookingDTO(booking: BookingWithScheduleAndResources): Upcomin
   const trainerUser = booking.schedule.trainer?.membership?.user;
   return {
     bookingId: booking.id,
+    scheduleId: booking.scheduleId,
     studioId: booking.studioId,
     studioName: booking.studio.name,
     branchName: booking.schedule.branch?.name ?? null,
