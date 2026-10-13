@@ -177,7 +177,7 @@ export class PlatformUsersService {
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: userId },
-        data: { totpSecretEncrypted: null, mfaEnabledAt: null, totpLastUsedStep: null, refreshTokenHash: null },
+        data: { totpSecretEncrypted: null, mfaEnabledAt: null, totpLastUsedStep: null, refreshTokenHash: null, prevRefreshTokenHash: null, refreshRotatedAt: null, sessionEpoch: { increment: 1 } },
       });
       await tx.userMfaRecoveryCode.deleteMany({ where: { userId } });
       await this.audit(tx, actorUserId, 'platform_user.mfa_reset', userId, {});
