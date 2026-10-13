@@ -255,6 +255,17 @@ describe('MessagingService.send', () => {
       expect(prisma.smsTransaction.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ type: 'USAGE', amount: -1 }) }));
     });
 
+    it('refunds the reserved credit when the provider throws, without a ledger row', async () => {
+      at('2026-06-15T09:00:00.000Z');
+      const { service, prisma, smsAdapter } = setup({ smsConfigured: true });
+      smsAdapter.send.mockRejectedValueOnce(new Error('network down'));
+      await service.send(smsInput).catch(() => undefined);
+      expect(smsAdapter.send).toHaveBeenCalledTimes(1);
+      const calls = (prisma.smsWallet.updateMany.mock.calls as unknown as [{ data: { balance: Record<string, number> } }][]).map((c) => c[0].data.balance);
+      expect(calls).toEqual([{ decrement: 1 }, { increment: 1 }]);
+      expect(prisma.smsTransaction.create).not.toHaveBeenCalled();
+    });
+
     it('does not reserve or deduct credit when the SMS provider is not configured (simulated send outside production)', async () => {
       at('2026-06-15T09:00:00.000Z');
       const { service, prisma, smsAdapter } = setup({ smsConfigured: false, nodeEnv: 'test' });

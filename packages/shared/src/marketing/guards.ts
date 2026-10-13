@@ -264,6 +264,12 @@ export const MARKETING_GUARD_TEMPLATE_KEYS = {
   adCapExceeded: 'MARKETING_AD_CAP_EXCEEDED',
 } as const;
 
+/** Room held by `DailyCapTracker.reserve` for one in-flight send. */
+export interface CapReservation {
+  email: boolean;
+  sms: boolean;
+}
+
 /**
  * Room left under the day's caps while a campaign sends. `null` means no cap.
  * A campaign on a channel with no room stops (its rest is deferred to the
@@ -287,6 +293,30 @@ export class DailyCapTracker {
   consume(channel: string | null): void {
     if (channel === 'EMAIL' && this.emailRoom !== null) this.emailRoom -= 1;
     if (channel === 'SMS' && this.smsRoom !== null) this.smsRoom -= 1;
+  }
+
+  /**
+   * Atomically checks and holds one unit of room before a send starts (check and
+   * decrement happen in one synchronous step, so parallel callers can never hold
+   * more than the room left). A campaign without a fixed channel holds one unit on
+   * every capped channel because it may send on either. Returns null when blocked
+   * (nothing is held; `blockedBy` names the channel). Settle the reservation with
+   * `settle` once the send has finished, whatever its outcome.
+   */
+  reserve(channel: string | null): CapReservation | null {
+    if (this.blockedBy(channel) !== null) return null;
+    const holdEmail = (channel === 'EMAIL' || channel === null) && this.emailRoom !== null;
+    const holdSms = (channel === 'SMS' || channel === null) && this.smsRoom !== null;
+    if (holdEmail) this.emailRoom = (this.emailRoom as number) - 1;
+    if (holdSms) this.smsRoom = (this.smsRoom as number) - 1;
+    return { email: holdEmail, sms: holdSms };
+  }
+
+  /** Gives the held room back and books the channel that actually sent (null when nothing was sent). */
+  settle(reservation: CapReservation, sentChannel: string | null): void {
+    if (reservation.email && this.emailRoom !== null) this.emailRoom += 1;
+    if (reservation.sms && this.smsRoom !== null) this.smsRoom += 1;
+    if (sentChannel !== null) this.consume(sentChannel);
   }
 
   get remaining(): { email: number | null; sms: number | null } {

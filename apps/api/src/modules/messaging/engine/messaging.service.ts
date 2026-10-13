@@ -394,12 +394,21 @@ export class MessagingService {
           // Local development only: show the real text so codes can be used.
           this.logger.warn(`[MOCK SMS] ${msg.address}: ${msg.text}`);
         }
-        const result = await adapter.send({
-          phone: msg.address,
-          body: msg.text,
-          params: stringParams(msg.variables),
-          senderName: ctx.settings.smsSenderName,
-        });
+        let result: ChannelSendResult;
+        try {
+          result = await adapter.send({
+            phone: msg.address,
+            body: msg.text,
+            params: stringParams(msg.variables),
+            senderName: ctx.settings.smsSenderName,
+          });
+        } catch (err) {
+          // The provider threw: nothing was delivered, so the reserved credit goes back (rule 8).
+          if (reservation && input.studioId) {
+            await this.prisma.smsWallet.updateMany({ where: { studioId: input.studioId }, data: { balance: { increment: 1 } } });
+          }
+          throw err;
+        }
         if (reservation && input.studioId) {
           if (result.success) {
             await this.prisma.smsTransaction.create({
