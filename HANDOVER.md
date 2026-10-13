@@ -35,6 +35,8 @@ Ortak çekirdek: Seans + kapasiteli Kaynak + Hak (seans/süre/kredi) + Eğitmen 
 - Tasarım: ürünün tek görsel dili Perfect UI kitidir (T1, `docs/TASARIM.md`); tasarım token'ları `packages/shared/src/design` altında; gradyan yalnızca üye kartı ve paket kartında; jenerik "AI dashboard" görünümünden kaçınılır. Yetkili referanslar `docs/design-refs/` altında (`perfectui-overview.png`).
 - Bordro ve banka ödemeleri (payroll.*, payouts.*) yalnızca şube kısıtı olmayan üyeliğe açıktır; Stripe bağlı hesap kimliği sağlayıcı başına tek işletmeye bağlanır ve yalnızca sahip değiştirebilir (denetim kaydı ile). Bkz. `docs/BANKA_ODEMELERI.md`, `docs/PAYROLL.md`.
 - Build sunucuda değil CI'da; sunucu (Ubuntu 24.04, 6 GB / 4 vCPU / 60 GB) yalnızca image çeker.
+- Ticari gönderimler PASSIVE üyeliklere gitmeye devam eder (geri kazanma kampanyaları); izin ve abonelikten çıkma kontrolleri her ticari gönderimde uygulanır.
+- Touchpoint ve ziyaretçi kayıtları 13 ay saklanır (`TOUCHPOINT_RETENTION_MONTHS`); süresi dolanlar günlük kalp atışı adımıyla silinir, kişi üzerindeki atıf özeti kalır (`docs/CRM_VE_ATIF.md`).
 
 ## 4. Mevcut kod durumu (30 Eylül 2026)
 
