@@ -25,6 +25,14 @@ describe('SiteCacheService', () => {
     expect(JSON.parse(init.body as string)).toEqual({ tags: ['site:zen'] });
   });
 
+  it('purges the host lookup and the site pages of a deactivated custom domain', async () => {
+    const fn = jest.fn(async () => new Response('{}', { status: 200 }));
+    global.fetch = fn as unknown as typeof fetch;
+    await make({ WEB_INTERNAL_URL: 'http://web:3000', REVALIDATE_SECRET: 'a'.repeat(20) }).purgeDomain('studio.example.com', 'studio-id');
+    const [, init] = fn.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ tags: ['site-host:studio.example.com', 'site:zen'] });
+  });
+
   it('does nothing without a configured web url and secret', async () => {
     const fn = jest.fn();
     global.fetch = fn as unknown as typeof fetch;

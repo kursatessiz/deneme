@@ -7,6 +7,7 @@ import { ConversionOutboxService } from './conversions/conversion-outbox.service
 import { AdConnectionResolver, PrismaAdConnectionResolver } from './conversions/ad-connection.resolver';
 import { CrmHooksService } from './hooks/crm-hooks.service';
 import { GrowthEventsService } from './hooks/growth-events.service';
+import { TrackingRetentionService } from './tracking/tracking-retention.service';
 import { LoyaltyCoreModule } from '../loyalty/loyalty-core.module';
 import { PlatformEventsModule } from '../webhooks/platform-events.module';
 
@@ -27,6 +28,7 @@ import { PlatformEventsModule } from '../webhooks/platform-events.module';
     { provide: AdConnectionResolver, useClass: PrismaAdConnectionResolver },
     CrmHooksService,
     GrowthEventsService,
+    TrackingRetentionService,
   ],
   exports: [
     ContactsService,
@@ -36,6 +38,7 @@ import { PlatformEventsModule } from '../webhooks/platform-events.module';
     ConversionOutboxService,
     CrmHooksService,
     GrowthEventsService,
+    TrackingRetentionService,
   ],
 })
 export class CrmCoreModule {}

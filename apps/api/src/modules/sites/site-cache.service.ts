@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { siteCacheTag } from '@platform/shared';
+import { siteCacheTag, siteHostCacheTag } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 
 const REQUEST_TIMEOUT_MS = 3000;
@@ -33,6 +33,20 @@ export class SiteCacheService {
   }
 
   async purgeSlug(slug: string): Promise<void> {
+    await this.purgeTags([siteCacheTag(slug)], slug);
+  }
+
+  /** A custom domain went away: drops its host lookup (host -> site) and every cached page of the studio's site. */
+  async purgeDomain(domain: string, studioId: string): Promise<void> {
+    try {
+      const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { slug: true } });
+      await this.purgeTags([siteHostCacheTag(domain), ...(studio ? [siteCacheTag(studio.slug)] : [])], domain);
+    } catch (err) {
+      this.logger.warn(`Site cache purge failed for domain ${domain}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  private async purgeTags(tags: string[], label: string): Promise<void> {
     const baseUrl = this.config.get<string>('WEB_INTERNAL_URL');
     const secret = this.config.get<string>('REVALIDATE_SECRET');
     if (!baseUrl || !secret) return;
@@ -40,12 +54,12 @@ export class SiteCacheService {
       const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/api/revalidate`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-revalidate-secret': secret },
-        body: JSON.stringify({ tags: [siteCacheTag(slug)] }),
+        body: JSON.stringify({ tags }),
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
-      if (!res.ok) this.logger.warn(`Site cache purge for ${slug} answered ${res.status}`);
+      if (!res.ok) this.logger.warn(`Site cache purge for ${label} answered ${res.status}`);
     } catch (err) {
-      this.logger.warn(`Site cache purge for ${slug} failed: ${err instanceof Error ? err.message : String(err)}`);
+      this.logger.warn(`Site cache purge for ${label} failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 }

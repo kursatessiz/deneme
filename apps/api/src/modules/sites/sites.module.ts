@@ -6,6 +6,7 @@ import { PagesService } from './pages.service';
 import { CompanyInfoService } from './company-info.service';
 import { PublicSitesService } from './public-sites.service';
 import { DnsVerificationService } from './dns.service';
+import { DomainRecheckService } from './domain-recheck.service';
 import { SitesTenantController } from './sites-tenant.controller';
 import { CompanyInfoController } from './company-info.controller';
 import { PublicSitesController } from './public-sites.controller';
@@ -37,6 +38,7 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
     CompanyInfoService,
     PublicSitesService,
     DnsVerificationService,
+    DomainRecheckService,
     SitesPublicRateLimitGuard,
     SitesFeedRateLimitGuard,
     ArticlesService,
@@ -51,6 +53,6 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
     IndexNowService,
     ...(redisConfigured ? [IndexNowProcessor] : []),
   ],
-  exports: [SitesService, PagesService, PublicSitesService, SiteCacheService, IndexNowService],
+  exports: [SitesService, PagesService, PublicSitesService, SiteCacheService, IndexNowService, DomainRecheckService],
 })
 export class SitesModule {}

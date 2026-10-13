@@ -29,3 +29,10 @@ const DOMAIN_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])
 export function isValidDomain(domain: string): boolean {
   return DOMAIN_RE.test(domain.trim().toLowerCase()) && domain.length <= 190;
 }
+
+/**
+ * A VERIFIED custom domain is re-checked daily; after this many consecutive
+ * failed daily checks it is set back to FAILED and stops being served
+ * (docs/SAYFA_MOTORU.md section 7). The tenant restores it with the normal verify action.
+ */
+export const DOMAIN_RECHECK_FAILURE_LIMIT = 3;
