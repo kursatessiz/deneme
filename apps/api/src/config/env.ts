@@ -103,7 +103,7 @@ export const EnvSchema = z
     SES_FROM_NAME: z.string().min(1).max(80).optional(),
     /** SES configuration set that publishes bounce/complaint/delivery events to SNS. */
     SES_CONFIGURATION_SET: z.string().min(1).optional(),
-    /** Comma-separated SNS topic ARNs accepted by the SES webhook; empty accepts any verified topic. */
+    /** Comma-separated SNS topic ARNs accepted by the SES webhook. Required for SES event processing: when empty the webhook rejects every message (403). */
     SES_SNS_TOPIC_ARNS: z.string().optional(),
     /** HMAC key for open/click/unsubscribe tokens. Required for commercial email in production. */
     MESSAGING_TRACKING_SECRET: z.string().min(32, 'MESSAGING_TRACKING_SECRET must be at least 32 characters').optional(),

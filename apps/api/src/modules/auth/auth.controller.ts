@@ -41,11 +41,12 @@ export class AuthController {
     return this.authService.pinLogin(body.phone, body.pin, req.ip ?? null);
   }
 
+  /** Returns a fresh token pair: the PIN change revokes the previous refresh token. */
   @Put('pin')
-  @HttpCode(204)
+  @HttpCode(200)
   @UseGuards(JwtAuthGuard)
   async setPin(@CurrentUser() user: AuthUser, @ZodBody(SetPinSchema) body: ReturnType<typeof SetPinSchema.parse>) {
-    await this.authService.setPin(user.id, body.pin);
+    return this.authService.setPin(user.id, body.pin);
   }
 
   // Not behind JwtAuthGuard: the access token is usually expired by the time

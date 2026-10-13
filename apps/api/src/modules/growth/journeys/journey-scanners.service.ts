@@ -9,6 +9,8 @@ const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 /** Candidates fetched per journey per heartbeat. */
 export const SCAN_LIMIT = 500;
+/** Most recent enrollment references of a journey excluded from a scan. */
+const ENROLLED_REF_LIMIT = 5000;
 
 /** One contact a time-based trigger found. */
 export interface ScannedCandidate {
@@ -75,39 +77,61 @@ export class JourneyScannersService {
     trigger: Extract<JourneyTrigger, { kind: 'event' }> & { event: ScannedJourneyTrigger },
     now: Date,
     floor: Date,
+    journeyId?: string,
   ): Promise<ScannedCandidate[]> {
     const studio = await this.prisma.studio.findUniqueOrThrow({ where: { id: studioId }, select: { timezone: true, defaultLocale: true } });
+    // Already-enrolled candidates are excluded inside each query, so the SCAN_LIMIT
+    // window is spent on candidates that can still enroll (newest ones included).
+    const enrolled = await this.enrolledRefs(journeyId);
     switch (trigger.event) {
       case 'booking_upcoming':
-        return this.bookingUpcoming(studioId, studio, trigger.leadMinutes ?? 120, now);
+        return this.bookingUpcoming(studioId, studio, trigger.leadMinutes ?? 120, now, enrolled);
       case 'package_expiring':
-        return this.packageExpiring(studioId, studio, trigger.daysBefore, trigger.remainingUnitsAtMost, now);
+        return this.packageExpiring(studioId, studio, trigger.daysBefore, trigger.remainingUnitsAtMost, now, enrolled);
       case 'package_expired':
-        return this.packageExpired(studioId, studio, now, floor);
+        return this.packageExpired(studioId, studio, now, floor, enrolled);
       case 'birthday':
-        return this.birthday(studioId, studio, trigger.daysBefore ?? 0, now);
+        return this.birthday(studioId, studio, trigger.daysBefore ?? 0, now, journeyId);
       case 'no_show':
-        return this.noShows(studioId, studio, now, floor);
+        return this.noShows(studioId, studio, now, floor, enrolled);
       case 'session_attended':
-        return this.attended(studioId, studio, now, floor);
+        return this.attended(studioId, studio, now, floor, enrolled);
       case 'first_session_attended':
-        return this.firstAttended(studioId, studio, now, floor);
+        return this.firstAttended(studioId, studio, now, floor, journeyId);
       case 'churn_risk_high':
-        return this.churnHigh(studioId, now, floor);
+        return this.churnHigh(studioId, now, floor, journeyId);
     }
   }
 
   // ---------------------------------------------------------------------------
 
-  private async bookingUpcoming(studioId: string, studio: StudioInfo, leadMinutes: number, now: Date): Promise<ScannedCandidate[]> {
+  /**
+   * Trigger references this journey already enrolled (most recent first, bounded).
+   * Scanners whose reference is the row id (booking or package id) exclude them with
+   * `id notIn`; a stale entry beyond the bound is still caught by the enrollment's
+   * unique index, it only costs a slot.
+   */
+  private async enrolledRefs(journeyId: string | undefined): Promise<string[]> {
+    if (!journeyId) return [];
+    const rows = await this.prisma.journeyEnrollment.findMany({
+      where: { journeyId },
+      select: { triggerRef: true },
+      orderBy: { enteredAt: 'desc' },
+      take: ENROLLED_REF_LIMIT,
+    });
+    return rows.map((r) => r.triggerRef);
+  }
+
+  private async bookingUpcoming(studioId: string, studio: StudioInfo, leadMinutes: number, now: Date, enrolled: string[]): Promise<ScannedCandidate[]> {
     const bookings = await this.prisma.booking.findMany({
       where: {
         studioId,
         status: 'CONFIRMED',
+        id: { notIn: enrolled },
         schedule: { startTime: { gt: now, lte: new Date(now.getTime() + leadMinutes * 60_000) }, isCancelled: false },
       },
       select: { id: true, member: { select: memberSelect }, schedule: { select: { startTime: true, title: true, serviceType: { select: { name: true } } } } },
-      orderBy: { schedule: { startTime: 'asc' } },
+      orderBy: [{ schedule: { startTime: 'asc' } }, { id: 'asc' }],
       take: SCAN_LIMIT,
     });
     return this.toCandidates(studioId, bookings, (b, locale) => ({
@@ -124,14 +148,16 @@ export class JourneyScannersService {
     daysBefore: number | undefined,
     unitsAtMost: number | undefined,
     now: Date,
+    enrolled: string[],
   ): Promise<ScannedCandidate[]> {
     const or: Prisma.MemberPackageWhereInput[] = [];
     if (daysBefore !== undefined) or.push({ endDate: { gte: now, lte: new Date(now.getTime() + daysBefore * DAY_MS) } });
     if (unitsAtMost !== undefined) or.push({ remainingUnits: { not: null, lte: unitsAtMost } });
     if (!or.length) return [];
     const packages = await this.prisma.memberPackage.findMany({
-      where: { studioId, status: 'ACTIVE', OR: or, member: { membership: { status: 'ACTIVE', isPartnerGuest: false } } },
+      where: { studioId, status: 'ACTIVE', id: { notIn: enrolled }, OR: or, member: { membership: { status: 'ACTIVE', isPartnerGuest: false } } },
       select: { id: true, endDate: true, remainingUnits: true, packageDefinition: { select: { name: true } }, member: { select: memberSelect } },
+      orderBy: [{ endDate: 'asc' }, { id: 'asc' }],
       take: SCAN_LIMIT,
     });
     return this.toCandidates(studioId, packages, (p, locale) => ({
@@ -146,15 +172,17 @@ export class JourneyScannersService {
     }), studio);
   }
 
-  private async packageExpired(studioId: string, studio: StudioInfo, now: Date, floor: Date): Promise<ScannedCandidate[]> {
+  private async packageExpired(studioId: string, studio: StudioInfo, now: Date, floor: Date, enrolled: string[]): Promise<ScannedCandidate[]> {
     const packages = await this.prisma.memberPackage.findMany({
       where: {
         studioId,
+        id: { notIn: enrolled },
         status: { in: ['ACTIVE', 'EXPIRED'] },
         endDate: { gte: floor, lte: now },
         member: { membership: { status: 'ACTIVE', isPartnerGuest: false } },
       },
       select: { id: true, endDate: true, packageDefinition: { select: { name: true } }, member: { select: memberSelect } },
+      orderBy: [{ endDate: 'desc' }, { id: 'asc' }],
       take: SCAN_LIMIT,
     });
     return this.toCandidates(studioId, packages, (p, locale) => ({
@@ -165,8 +193,10 @@ export class JourneyScannersService {
     }), studio);
   }
 
-  private async birthday(studioId: string, studio: StudioInfo, daysBefore: number, now: Date): Promise<ScannedCandidate[]> {
+  private async birthday(studioId: string, studio: StudioInfo, daysBefore: number, now: Date, journeyId: string | undefined): Promise<ScannedCandidate[]> {
     const target = localMonthDay(new Date(now.getTime() + daysBefore * DAY_MS), studio.timezone);
+    const year = localMonthDay(now, studio.timezone).year;
+    const ref = `birthday:${year}`;
     const rows = await this.prisma.$queryRaw<{ id: string }[]>`
       SELECT mp."id"::text AS id
       FROM "member_profiles" mp
@@ -176,25 +206,31 @@ export class JourneyScannersService {
         AND date_part('month', mp."birth_date") = ${target.month}
         AND date_part('day', mp."birth_date") = ${target.day}
         AND m."status" = 'ACTIVE' AND m."is_partner_guest" = false
+        AND NOT EXISTS (
+          SELECT 1 FROM "journey_enrollments" je
+          JOIN "contacts" c ON c."id" = je."contact_id"
+          WHERE ${journeyId ?? null}::uuid IS NOT NULL AND je."journey_id" = ${journeyId ?? null}::uuid
+            AND je."trigger_ref" = ${ref} AND c."membership_id" = m."id")
+      ORDER BY mp."id" DESC
       LIMIT ${SCAN_LIMIT}`;
     if (!rows.length) return [];
     const profiles = await this.prisma.memberProfile.findMany({
       where: { id: { in: rows.map((r) => r.id) }, studioId },
       select: memberSelect,
     });
-    const year = localMonthDay(now, studio.timezone).year;
     return this.toCandidates(studioId, profiles.map((p) => ({ member: p })), (p) => ({
-      ref: `birthday:${year}`,
+      ref,
       occurredAt: now,
       variables: {},
       targetRef: `${p.member.id}:${year}`,
     }), studio);
   }
 
-  private async noShows(studioId: string, studio: StudioInfo, now: Date, floor: Date): Promise<ScannedCandidate[]> {
+  private async noShows(studioId: string, studio: StudioInfo, now: Date, floor: Date, enrolled: string[]): Promise<ScannedCandidate[]> {
     const bookings = await this.prisma.booking.findMany({
-      where: { studioId, status: 'NO_SHOW', schedule: { startTime: { gte: floor, lte: now } } },
+      where: { studioId, status: 'NO_SHOW', id: { notIn: enrolled }, schedule: { startTime: { gte: floor, lte: now } } },
       select: { id: true, member: { select: memberSelect }, schedule: { select: { startTime: true, title: true, serviceType: { select: { name: true } } } } },
+      orderBy: [{ schedule: { startTime: 'desc' } }, { id: 'asc' }],
       take: SCAN_LIMIT,
     });
     return this.toCandidates(studioId, bookings, (b, locale) => ({
@@ -205,10 +241,11 @@ export class JourneyScannersService {
     }), studio);
   }
 
-  private async attended(studioId: string, studio: StudioInfo, now: Date, floor: Date): Promise<ScannedCandidate[]> {
+  private async attended(studioId: string, studio: StudioInfo, now: Date, floor: Date, enrolled: string[]): Promise<ScannedCandidate[]> {
     const bookings = await this.prisma.booking.findMany({
-      where: { studioId, status: 'ATTENDED', checkInAt: { gte: floor, lte: now } },
+      where: { studioId, status: 'ATTENDED', id: { notIn: enrolled }, checkInAt: { gte: floor, lte: now } },
       select: { id: true, checkInAt: true, member: { select: memberSelect }, schedule: { select: { title: true, serviceType: { select: { name: true } } } } },
+      orderBy: [{ checkInAt: 'desc' }, { id: 'asc' }],
       take: SCAN_LIMIT,
     });
     return this.toCandidates(studioId, bookings, (b) => ({
@@ -219,7 +256,7 @@ export class JourneyScannersService {
     }), studio);
   }
 
-  private async firstAttended(studioId: string, studio: StudioInfo, now: Date, floor: Date): Promise<ScannedCandidate[]> {
+  private async firstAttended(studioId: string, studio: StudioInfo, now: Date, floor: Date, journeyId: string | undefined): Promise<ScannedCandidate[]> {
     const firsts = await this.prisma.$queryRaw<{ id: string; check_in_at: Date }[]>`
       SELECT f."id"::text AS id, f."check_in_at"
       FROM (
@@ -229,6 +266,11 @@ export class JourneyScannersService {
         ORDER BY b."member_id", b."check_in_at" ASC
       ) f
       WHERE f."check_in_at" >= ${floor} AND f."check_in_at" <= ${now}
+        AND NOT EXISTS (
+          SELECT 1 FROM "journey_enrollments" je
+          WHERE ${journeyId ?? null}::uuid IS NOT NULL AND je."journey_id" = ${journeyId ?? null}::uuid
+            AND je."trigger_ref" = f."id"::text)
+      ORDER BY f."check_in_at" DESC
       LIMIT ${SCAN_LIMIT}`;
     if (!firsts.length) return [];
     const bookings = await this.prisma.booking.findMany({
@@ -238,14 +280,28 @@ export class JourneyScannersService {
     return this.toCandidates(studioId, bookings, (b) => ({ ref: b.id, occurredAt: b.checkInAt ?? now, variables: {}, targetRef: b.id }), studio);
   }
 
-  private async churnHigh(studioId: string, now: Date, floor: Date): Promise<ScannedCandidate[]> {
+  private async churnHigh(studioId: string, now: Date, floor: Date, journeyId: string | undefined): Promise<ScannedCandidate[]> {
+    const month = now.toISOString().slice(0, 7);
+    const ref = `churn_high:${month}`;
     const snapshots = await this.prisma.memberRiskSnapshot.findMany({
-      where: { studioId, level: 'HIGH', computedAt: { gte: floor, lte: now }, member: { membership: { isPartnerGuest: false } } },
+      where: {
+        studioId,
+        level: 'HIGH',
+        computedAt: { gte: floor, lte: now },
+        member: {
+          membership: {
+            isPartnerGuest: false,
+            ...(journeyId
+              ? { OR: [{ contact: { is: null } }, { contact: { is: { journeyEnrollments: { none: { journeyId, triggerRef: ref } } } } }] }
+              : {}),
+          },
+        },
+      },
       select: { computedAt: true, member: { select: memberSelect } },
+      orderBy: [{ computedAt: 'desc' }, { id: 'asc' }],
       take: SCAN_LIMIT,
     });
-    const month = now.toISOString().slice(0, 7);
-    return this.toCandidates(studioId, snapshots, (s) => ({ ref: `churn_high:${month}`, occurredAt: s.computedAt, variables: {}, targetRef: `churn:${month}` }), {
+    return this.toCandidates(studioId, snapshots, (s) => ({ ref, occurredAt: s.computedAt, variables: {}, targetRef: `churn:${month}` }), {
       timezone: 'UTC',
       defaultLocale: 'tr',
     });

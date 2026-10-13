@@ -11,6 +11,8 @@ export class BffError extends Error {
     public status: number,
     /** Stable error code from the API body (e.g. "AI_NOT_CONFIGURED"), when it sends one. */
     public code: string | null = null,
+    /** Interpolation params of the error (e.g. the conflicting session date), when the API sends them. */
+    public params: Record<string, string | number> | null = null,
   ) {
     super(message);
   }
@@ -47,7 +49,8 @@ export async function bffFetch<T>(
   if (!res.ok) {
     const data = await res.json().catch(() => null);
     const code = data && typeof data.code === 'string' ? (data.code as string) : null;
-    throw new BffError((data && (data.message as string)) || clientT('common.error.requestFailed', { status: res.status }), res.status, code);
+    const params = data && data.params && typeof data.params === 'object' ? (data.params as Record<string, string | number>) : null;
+    throw new BffError((data && (data.message as string)) || clientT('common.error.requestFailed', { status: res.status }), res.status, code, params);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;

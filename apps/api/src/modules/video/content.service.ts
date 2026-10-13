@@ -148,8 +148,9 @@ export class ContentService {
       const { locked, reason, reasonKey } = this.access.videoLock(content, activePackageDefIds);
       return {
         ...dto,
-        // A locked card explains why but never reveals the playable source.
-        sourceUrl: locked ? null : dto.sourceUrl,
+        // A locked card explains why but never reveals the playable source;
+        // credit-priced content reveals it only through start() (or once charged).
+        sourceUrl: locked || (!!content.creditCost && content.creditCost > 0 && !view?.creditChargedAt) ? null : dto.sourceUrl,
         isLocked: locked,
         lockedReason: reason,
         lockedReasonKey: reasonKey,

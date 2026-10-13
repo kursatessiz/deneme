@@ -23,6 +23,7 @@ export const trMCommunity = {
   'mCommunity.deleteComment': 'Yorumu sil',
   'mCommunity.openVideo': 'Videoyu aç',
   'mCommunity.videoLocked': 'Bu video paketinize dahil değil.',
+  'mCommunity.videoCreditRequired': 'Bu video kredi gerektirir. Video kitaplığından başlatın.',
   'mCommunity.openAttachment': 'Dosyayı aç',
   'mCommunity.actionFailed': 'İşlem tamamlanamadı.',
   'mCommunity.loadMore': 'Daha fazla göster',

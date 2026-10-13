@@ -31,3 +31,20 @@ Yalnızca `main` üzerindeki en son sürüm düzeltme alır.
   giriş kurtarma yolu olarak açık kalır. PIN için ayrıca hesap kilidi vardır.
 - Uygulama loglarında telefon numaraları maskelenir; SMS içeriği ve kodlar loglanmaz
   (yalnızca yerel geliştirmede sahte SMS metni görünür).
+- Yenileme jetonu (refresh token) her verilişte rastgele bir `jti` taşır; veritabanında
+  jetonun tamamının SHA-256 özeti tutulur ve sabit zamanlı karşılaştırılır (bcrypt
+  yalnızca ilk 72 baytı okuduğu için kullanılmaz). Her yenilemede eski jeton geçersiz
+  olur. PIN değiştirildiğinde (veya davet kabulünde yeni PIN belirlendiğinde) kayıtlı
+  yenileme jetonu silinir; `PUT /auth/pin` çağırana yeni bir jeton çifti döner.
+- İstemciler (mobil uygulama, web BFF ve web middleware) oturumu yalnızca
+  `/auth/refresh` 401/403 döndüğünde kapatır; 429, 5xx veya ağ hatasında jetonlar
+  korunur ve hata gösterilir.
+- Hız sınırı sayaçları (giriş denemeleri, herkese açık API, embed, etkinlikler, check-in
+  ve diğerleri) Redis'te tek bir Lua betiğiyle artırılır ve süreleri aynı adımda atanır
+  (`incrementWithTtl`); süresiz kalmış bir sayaç bir sonraki istekte yeniden süre alır,
+  böylece kalıcı kilitlenme oluşmaz.
+- `INTEGRATION_ENCRYPTION_KEY` tanımlı değilse üretimde hiçbir kimlik bilgisi
+  kaydedilmez (`CredentialCipher.encrypt()` hata verir); düz metin zarfı (`plain:`)
+  yalnızca geliştirme/test içindir.
+- Web uygulamasında `next/image` kullanılmaz; `/_next/image` optimizasyon ucu
+  kapalıdır (`images.unoptimized: true`), açık bir görsel proxy'si olarak kullanılamaz.

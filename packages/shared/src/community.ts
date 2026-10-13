@@ -237,7 +237,12 @@ export interface CommunityFeedItemDTO {
   pinned: boolean;
   commentsEnabled: boolean;
   /** The video's own library rules still apply: a locked video never carries its source link. */
-  video: (CommunityVideoSummaryDTO & { isLocked: boolean; sourceUrl: string | null }) | null;
+  video: (CommunityVideoSummaryDTO & {
+    isLocked: boolean;
+    sourceUrl: string | null;
+    /** Credit-priced and not yet charged for this member: the source is only returned by the library start call. */
+    requiresCreditStart: boolean;
+  }) | null;
   attachmentUrl: string | null;
   attachmentName: string | null;
   authorName: string | null;

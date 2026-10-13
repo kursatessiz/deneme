@@ -67,7 +67,7 @@ Tümü mesajlaşma motorundan (`MessagingService.send`) ve yerleşik şablonlarl
 | `EVENT_REMINDER` | Her oturumdan 24 saat önce, onaylı kayıtlara (kalp atışı) | `event-reminder:<oturum>:<kayıt>` |
 | `EVENT_CANCELLED` | İşletme etkinliği iptal ettiğinde | `event-cancelled:<kayıt>` |
 
-Hatırlatma her oturum için bir kez gönderilir: oturum önce koşullu olarak `reminder_sent_at` ile sahiplenilir, eşzamanlı kalp atışları aynı oturumu atlar.
+Hatırlatma her oturum için bir kez gönderilir: kayıtlara gönderim bittikten sonra oturum `reminder_sent_at` ile işaretlenir. Döngü ortasında bir çökme oturumu işaretsiz bırakır ve sonraki kalp atışı kalan kayıtlarla devam eder; kayıt başına idempotency anahtarı (`event-reminder:<oturum>:<kayıt>`) kimseye ikinci mesaj gitmesini engeller.
 
 ## Zamanlayıcı kalp atışı
 

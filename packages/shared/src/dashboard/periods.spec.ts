@@ -1,4 +1,19 @@
-import { changeRatio, dashboardPeriodRange, enumerateZonedDays, memberGrowthRate, zonedDateKey, zonedMidnight, zonedStartOfWeek } from './periods';
+import { addZonedDays, changeRatio, dashboardPeriodRange, enumerateZonedDays, memberGrowthRate, zonedDateKey, zonedMidnight, zonedStartOfWeek } from './periods';
+
+describe('addZonedDays', () => {
+  it('keeps the local wall time across the autumn DST change in Berlin', () => {
+    // 2026-10-24 18:00 CEST (UTC+2); clocks go back on 2026-10-25.
+    const start = new Date('2026-10-24T16:00:00.000Z');
+    expect(addZonedDays(start, 7, 'Europe/Berlin').toISOString()).toBe('2026-10-31T17:00:00.000Z');
+    expect(addZonedDays(start, 0, 'Europe/Berlin').toISOString()).toBe(start.toISOString());
+  });
+
+  it('keeps the local wall time across the spring DST change and in zones without DST', () => {
+    const start = new Date('2026-03-22T17:00:00.000Z'); // 18:00 CET
+    expect(addZonedDays(start, 7, 'Europe/Berlin').toISOString()).toBe('2026-03-29T16:00:00.000Z');
+    expect(addZonedDays(start, 7, 'Europe/Istanbul').getTime() - start.getTime()).toBe(7 * 24 * 3600_000);
+  });
+});
 
 describe('zoned helpers', () => {
   it('finds local midnight in zones east and west of UTC', () => {

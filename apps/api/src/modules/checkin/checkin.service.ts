@@ -227,11 +227,9 @@ export class CheckInService {
       throw new ForbiddenException(apiError('apiErrors.checkin.qrBelongsAnotherBusiness'));
     }
 
-    const claimed = await this.nonces.claim(verified.payload.nonce);
-    if (!claimed) {
-      throw new ConflictException(apiError('apiErrors.checkin.qrCodeAlreadyUsedAskMember'));
-    }
-
+    // Replay protection: the nonce is claimed only when a booking is actually
+    // checked in (claimNonce below), so an ambiguous scan that returns the
+    // candidates to pick from can be completed by a second call with the same token.
     const membership = await this.prisma.membership.findFirst({
       where: { id: verified.payload.membershipId, studioId },
       include: { memberProfile: true, studio: { select: { isActive: true } } },
@@ -249,6 +247,7 @@ export class CheckInService {
       if (allowedBranchIds && booking.schedule.branchId && !allowedBranchIds.has(booking.schedule.branchId)) {
         throw new ForbiddenException(apiError('apiErrors.common.notPermissionBranch'));
       }
+      await this.claimNonce(verified.payload.nonce);
       const checked = await this.schedules.checkInForMember(studioId, booking.id, membership.memberProfile.id);
       return { resolved: true as const, bookingId: checked.id, status: checked.status, checkInAt: checked.checkInAt };
     }
@@ -281,7 +280,14 @@ export class CheckInService {
       };
     }
 
+    await this.claimNonce(verified.payload.nonce);
     const checked = await this.schedules.checkInForMember(studioId, candidates[0].id, membership.memberProfile.id);
     return { resolved: true as const, bookingId: checked.id, status: checked.status, checkInAt: checked.checkInAt };
+  }
+
+  private async claimNonce(nonce: string): Promise<void> {
+    if (!(await this.nonces.claim(nonce))) {
+      throw new ConflictException(apiError('apiErrors.checkin.qrCodeAlreadyUsedAskMember'));
+    }
   }
 }

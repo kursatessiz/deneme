@@ -28,6 +28,7 @@ Bu nedenle:
   summaries`, `health_sync_records`) kalıcı olarak silebilir; bu işlem
   denetlenir (`audit_logs`, `member_health.data_deleted`) ve HEALTH_DATA
   onayını da geri alır (bir sonraki açışta yeniden onay gerekir).
+- Üyenin işletmedeki tüm kişisel verilerinin silinmesi (sağlık satırları dahil) ayrı bir akıştır: `docs/KVKK_SILME.md`.
 - Cihazın kendi Sağlık uygulamasındaki veriler bu silme işleminden etkilenmez;
   üye onu Apple Health / Health Connect ayarlarından kendisi yönetir.
 

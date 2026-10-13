@@ -18,7 +18,9 @@ import { Input } from '@/components/ui/Input';
 import { StatTile } from '@/components/ui/StatTile';
 import { Table, Tbody, Td, Tr } from '@/components/ui/Table';
 import { PackageSaleDialog } from '@/components/members/PackageSaleDialog';
+import { MemberBookingDialog } from '@/components/members/MemberBookingDialog';
 import { LoyaltyPanel } from '@/components/loyalty/LoyaltyPanel';
+import { ErasurePanel } from '@/components/erasure/ErasurePanel';
 import { hasAnyPermission } from '@/lib/nav';
 import { bookingStatusLabel, packageStatusLabel, type MemberDetail } from '@/lib/members/types';
 
@@ -60,6 +62,7 @@ function MemberCard() {
   const [churn, setChurn] = useState<ChurnSummary | null>(null);
   const [achievement, setAchievement] = useState<AchievementSummary | null>(null);
   const [showSell, setShowSell] = useState(false);
+  const [showBook, setShowBook] = useState(false);
   const [freezeDays, setFreezeDays] = useState<Record<string, string>>({});
   const [busyPackageId, setBusyPackageId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -118,7 +121,7 @@ function MemberCard() {
   const activePackages = member.packages.filter((p) => p.status === 'ACTIVE' || p.status === 'FROZEN');
   const otherPackages = member.packages.filter((p) => p.status !== 'ACTIVE' && p.status !== 'FROZEN');
 
-  const fullName = `${member.firstName} ${member.lastName}`;
+  const fullName = member.erasedAt ? t('erasure.erasedMember') : `${member.firstName} ${member.lastName}`;
 
   return (
     <div className="grid gap-6">
@@ -139,13 +142,23 @@ function MemberCard() {
                     <h2 className="ui-title">{fullName}</h2>
                     <div className="flex flex-wrap gap-1.5">
                       {member.isPartnerGuest && <Badge tone="info">{t('members.partnerGuest')}</Badge>}
+                      {member.erasedAt && <Badge tone="neutral">{t('erasure.erasedBadge')}</Badge>}
                       {churn && <Badge tone={RISK_TONE[churn.level]}>{riskLabel(churn.level)}</Badge>}
                     </div>
                   </div>
                 </div>
-                <PermissionButton required={['packages.sell']} variant="secondary" mode="disable" onClick={() => setShowSell(true)} style={{ backgroundColor: 'var(--pui-bg)' }}>
-                  {t('members.card.sellPackage')}
-                </PermissionButton>
+                <div className="flex flex-wrap gap-2">
+                  {!member.erasedAt && (
+                    <>
+                      <PermissionButton required={['bookings.manage']} variant="secondary" onClick={() => setShowBook(true)} style={{ backgroundColor: 'var(--pui-bg)' }}>
+                        {t('staffBooking.bookForMember')}
+                      </PermissionButton>
+                      <PermissionButton required={['packages.sell']} variant="secondary" mode="disable" onClick={() => setShowSell(true)} style={{ backgroundColor: 'var(--pui-bg)' }}>
+                        {t('members.card.sellPackage')}
+                      </PermissionButton>
+                    </>
+                  )}
+                </div>
               </div>
 
               <dl className="grid grid-cols-2 gap-3">
@@ -310,6 +323,8 @@ function MemberCard() {
         <div className="grid gap-4">
           <LoyaltyPanel memberId={memberId} />
 
+          <ErasurePanel studioId={activeStudioId} memberId={memberId} erasedAt={member.erasedAt} onChanged={load} />
+
           {(member.bookingsCount ?? 0) >= 0 && (
             <StatTile
               label={t('members.card.attendanceStats')}
@@ -363,6 +378,22 @@ function MemberCard() {
           )}
         </div>
       </div>
+
+      {showBook && (
+        <Modal title={t('staffBooking.memberDialogTitle')} onClose={() => setShowBook(false)}>
+          <MemberBookingDialog
+            studioId={activeStudioId}
+            memberId={memberId}
+            memberName={fullName}
+            packages={member.packages}
+            onClose={() => setShowBook(false)}
+            onBooked={() => {
+              setShowBook(false);
+              load();
+            }}
+          />
+        </Modal>
+      )}
 
       {showSell && canSell && (
         <Modal title={t('members.card.sellPackage')} onClose={() => setShowSell(false)}>

@@ -172,6 +172,10 @@ services:
       API_INTERNAL_URL: http://api:4000
       # Shared secret of POST /api/revalidate, called by the API when a site's public content changes (docs/SEO.md "ISR").
       REVALIDATE_SECRET: ${REVALIDATE_SECRET:-}
+      # Universal links of the invite landing /j/<token>: /.well-known/apple-app-site-association and assetlinks.json (docs/MOBILE_APP.md); empty answers 404.
+      MOBILE_IOS_APP_IDS: ${MOBILE_IOS_APP_IDS:-}
+      MOBILE_ANDROID_PACKAGE: ${MOBILE_ANDROID_PACKAGE:-}
+      MOBILE_ANDROID_SHA256_CERT_FINGERPRINTS: ${MOBILE_ANDROID_SHA256_CERT_FINGERPRINTS:-}
       APP_RELEASE: ${RELEASE_TAG:-dev}
     networks: [web_net, internal_net]
     read_only: true

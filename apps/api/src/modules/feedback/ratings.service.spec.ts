@@ -154,6 +154,8 @@ describe('RatingsService', () => {
     const result = await service.myReceivedSummary(trainerTenant);
 
     expect(result.items[0].memberName).toBeNull();
+    expect(result.items[0].memberId).toBeNull();
+    expect(result.items[0].bookingId).toBeNull();
   });
 
   it('reveals the member identity when isAnonymousToTrainer is false', async () => {
@@ -163,6 +165,8 @@ describe('RatingsService', () => {
     const result = await service.myReceivedSummary(trainerTenant);
 
     expect(result.items[0].memberName).toBe('Ayse Yilmaz');
+    expect(result.items[0].memberId).toBe(ratingRow.memberId);
+    expect(result.items[0].bookingId).toBe(ratingRow.bookingId);
   });
 
   it('rejects a booking without an assigned trainer', async () => {

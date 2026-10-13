@@ -11,9 +11,9 @@
  * This is intentionally a stricter, separate policy from `publicAdsCsp` in
  * `middleware.ts`: the dashboard never loads third-party ad pixels, so it
  * gets no allowance for them. Dashboard fonts are self-hosted via
- * `@fontsource` (served from `self`) and images come from `next/image`
- * with `remotePatterns: [{ protocol: 'https', hostname: '**' }]` (tenant
- * logos, member/measurement photos on arbitrary https hosts), which is why
+ * `@fontsource` (served from `self`) and images are plain `<img>` tags
+ * (tenant logos, member/measurement photos on arbitrary https hosts; the
+ * `/_next/image` optimizer is off, see next.config.ts), which is why
  * `img-src` allows `https:` broadly while everything else stays locked to
  * `'self'`.
  */

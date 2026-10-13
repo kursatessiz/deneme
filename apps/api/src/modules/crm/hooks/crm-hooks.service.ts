@@ -130,6 +130,11 @@ export class CrmHooksService {
     });
   }
 
+  /** A payment was fully refunded: loyalty points it earned are taken back (never below zero). */
+  async onPaymentFullyRefunded(studioId: string, paymentId: string): Promise<void> {
+    await this.loyalty?.onPaymentRefunded(studioId, paymentId);
+  }
+
   /**
    * A payment reached COMPLETED. Subscription charges record
    * subscription_started (first charge) or subscription_renewed; any other

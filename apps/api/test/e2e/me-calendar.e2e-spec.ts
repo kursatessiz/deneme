@@ -229,6 +229,16 @@ describe('Me bookings, summary and calendar feed e2e', () => {
       expect(malformed.status).toBe(404);
     });
 
+    it('an inactive user feed returns 404 and works again once the user is active', async () => {
+      await prisma.user.update({ where: { id: memberUserId }, data: { isActive: false } });
+      try {
+        expect((await request(server).get(`/calendar/${rawToken}.ics`)).status).toBe(404);
+      } finally {
+        await prisma.user.update({ where: { id: memberUserId }, data: { isActive: true } });
+      }
+      expect((await request(server).get(`/calendar/${rawToken}.ics`)).status).toBe(200);
+    });
+
     it('DELETE /me/calendar-feed revokes the feed', async () => {
       const del = await request(server).delete('/me/calendar-feed').set('Authorization', `Bearer ${memberToken}`);
       expect(del.status).toBe(204);

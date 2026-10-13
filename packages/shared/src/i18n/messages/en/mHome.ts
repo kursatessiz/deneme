@@ -16,6 +16,7 @@ export const enMHome: Record<keyof typeof trMHome, string> = {
   'mHome.a11y.viewMyAchievements': 'View my achievements',
   'mHome.myAchievements': 'My achievements',
   'mHome.achievementsSubtitle': 'Your streak, badges and monthly goal',
+  'mHome.manageBooking': 'Manage or cancel',
   'mHome.upcomingBookings': 'My upcoming bookings',
   'mHome.noUpcomingBookings': 'You have no upcoming bookings.',
   'mHome.errors.calendarAddFailed': 'Could not add to calendar, try again.',

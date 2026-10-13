@@ -2,9 +2,9 @@ import { createElement, createContext, useCallback, useContext, useEffect, useMe
 import type { ReactElement, ReactNode } from 'react';
 
 import { MembershipStatus } from '@platform/shared';
-import type { MembershipDTO, SessionUserDTO } from '@platform/shared';
+import type { AcceptInviteInput, MembershipDTO, SessionUserDTO } from '@platform/shared';
 
-import { apiRequest } from './api';
+import { ApiError, apiRequest, resolveApiUrl } from './api';
 import { clearTokens, getAccessToken, setTokens } from './tokenStore';
 import { registerPushDevice, unregisterPushDevice } from './push';
 import { clearWidgetsForSignedOutState, refreshWidgets, updateWidgetBrand } from '../widgets';
@@ -32,7 +32,14 @@ interface SessionContextValue {
   setActiveStudioId: (studioId: string) => void;
   requestOtp: (phone: string) => Promise<void>;
   verifyOtp: (phone: string, code: string) => Promise<{ hasPin: boolean }>;
-  pinLogin: (phone: string, pin: string) => Promise<void>;
+  /**
+   * `authorize` (kiosk exit): checked before the new session is stored; when
+   * it refuses, the issued tokens are revoked, the current session on the
+   * device is left as it was and the result is false.
+   */
+  /** Accepts an invite (`/j/<token>`): verifies the code, sets the PIN and consents, then signs in with the issued tokens. */
+  acceptInvite: (token: string, body: AcceptInviteInput) => Promise<void>;
+  pinLogin: (phone: string, pin: string, authorize?: (user: SessionUserDTO) => boolean) => Promise<boolean>;
   setPin: (pin: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -69,8 +76,9 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactEle
       try {
         const me = await apiRequest<SessionUserDTO>('/auth/me');
         if (!cancelled) applyUser(me);
-      } catch {
-        await clearTokens();
+      } catch (error) {
+        // Only a rejected session ends it; offline or a server error at launch keeps the tokens for the next try.
+        if (error instanceof ApiError && (error.status === 401 || error.status === 403)) await clearTokens();
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -103,12 +111,29 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactEle
   );
 
   const pinLogin = useCallback(
-    async (phone: string, pin: string) => {
+    async (phone: string, pin: string, authorize?: (user: SessionUserDTO) => boolean) => {
       const result = await apiRequest<TokenLoginResponse>('/auth/pin/login', {
         method: 'POST',
         body: { phone, pin },
         auth: false,
       });
+      if (authorize && !authorize(result.user)) {
+        // Never stored: revoke the just-issued refresh token (best effort) and keep the current session.
+        await fetch(`${resolveApiUrl()}/auth/logout`, { method: 'POST', headers: { Authorization: `Bearer ${result.accessToken}` } }).catch(() => undefined);
+        return false;
+      }
+      await setTokens(result.accessToken, result.refreshToken);
+      applyUser(result.user);
+      await registerPushDevice();
+      refreshWidgets();
+      return true;
+    },
+    [applyUser],
+  );
+
+  const acceptInvite = useCallback(
+    async (token: string, body: AcceptInviteInput) => {
+      const result = await apiRequest<TokenLoginResponse>(`/invites/${encodeURIComponent(token)}/accept`, { method: 'POST', body, auth: false });
       await setTokens(result.accessToken, result.refreshToken);
       applyUser(result.user);
       await registerPushDevice();
@@ -118,7 +143,9 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactEle
   );
 
   const setPin = useCallback(async (pin: string) => {
-    await apiRequest<void>('/auth/pin', { method: 'PUT', body: { pin } });
+    // The PIN change revokes the previous refresh token; keep the fresh pair.
+    const tokens = await apiRequest<{ accessToken: string; refreshToken: string } | undefined>('/auth/pin', { method: 'PUT', body: { pin } });
+    if (tokens?.accessToken && tokens.refreshToken) await setTokens(tokens.accessToken, tokens.refreshToken);
     await registerPushDevice();
     refreshWidgets();
   }, []);
@@ -165,6 +192,7 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactEle
       setActiveStudioId,
       requestOtp,
       verifyOtp,
+      acceptInvite,
       pinLogin,
       setPin,
       signOut,
@@ -179,6 +207,7 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactEle
       setActiveStudioId,
       requestOtp,
       verifyOtp,
+      acceptInvite,
       pinLogin,
       setPin,
       signOut,

@@ -349,6 +349,43 @@ describe('Reports (e2e)', () => {
       }
     });
 
+    it('does not count gift card money twice: issuance is cash in, the spending payment only its non-gift-card part', async () => {
+      const MAY_FROM = '2025-05-01T00:00:00.000Z';
+      const MAY_TO = '2025-06-01T00:00:00.000Z';
+      // A gift card sold for 100 (cash in), later spent on a 300 package: 100 from the card, 200 in cash.
+      const issuance = await prisma.payment.create({
+        data: { studioId: ZEN, memberId: memberA, amount: '100.00', paymentMethod: 'CASH', paymentStatus: 'COMPLETED', paidAt: new Date('2025-05-05T08:00:00.000Z') },
+      });
+      const spending = await prisma.payment.create({
+        data: {
+          studioId: ZEN,
+          memberId: memberA,
+          amount: '300.00',
+          giftCardAmount: '100.00',
+          giftCardRefunded: '20.00',
+          refundedAmount: '50.00',
+          paymentMethod: 'CASH',
+          paymentStatus: 'COMPLETED',
+          paidAt: new Date('2025-05-10T08:00:00.000Z'),
+        },
+      });
+      paymentIds.push(issuance.id, spending.id);
+
+      const res = await as(ownerToken).get(`/reports/studio/${ZEN}/revenue?from=${MAY_FROM}&to=${MAY_TO}`);
+      expect(res.status).toBe(200);
+      expect(res.body.total).toBe('300.00');
+      expect(res.body.byMethod.find((m: any) => m.paymentMethod === 'CASH')).toEqual({ paymentMethod: 'CASH', amount: '300.00', paymentCount: 2 });
+      expect(res.body.byPeriod.map((p: any) => p.amount).sort()).toEqual(['100.00', '200.00']);
+      expect(res.body.byPackage.reduce((sum: number, r: any) => sum + Number(r.amount), 0)).toBe(300);
+      // The 20 restored to the gift card is not money paid back.
+      expect(res.body.refundTotal).toBe('30.00');
+      expect(res.body.netTotal).toBe('270.00');
+
+      const members = await as(ownerToken).get(`/reports/studio/${ZEN}/members?from=${MAY_FROM}&to=${MAY_TO}`);
+      expect(members.status).toBe(200);
+      expect(members.body.revenue).toBe('300.00');
+    });
+
     it('scoped to branch A excludes branch B payments', async () => {
       const res = await as(ownerToken).get(`/reports/studio/${ZEN}/revenue?from=${FROM}&to=${TO}&branchId=${branchA}`);
       expect(res.status).toBe(200);

@@ -45,6 +45,13 @@ jobs:
       tag: ${{ steps.plan.outputs.tag }}
       build: ${{ steps.plan.outputs.build }}
     steps:
+      # Production only: full history so the ancestry check below can run.
+      - if: inputs.environment == 'production'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
       - id: plan
         env:
           EVENT: ${{ github.event_name }}
@@ -79,6 +86,18 @@ jobs:
             echo "build=$build"
           } >> "$GITHUB_OUTPUT"
           echo "Target: \`$environment\`, image tag \`$tag\`, build: $build" >> "$GITHUB_STEP_SUMMARY"
+
+      # An image can be built from any branch on preprod; production only takes
+      # a commit that is part of main's history (this run is already on main).
+      - name: Check the production commit is on main
+        if: steps.plan.outputs.environment == 'production'
+        env:
+          TAG: ${{ steps.plan.outputs.tag }}
+          MAIN_SHA: ${{ github.sha }}
+        run: |
+          commit="${TAG#sha-}"
+          git cat-file -e "${commit}^{commit}" 2>/dev/null || { echo "::error::commit $commit is not in this repository"; exit 1; }
+          git merge-base --is-ancestor "$commit" "$MAIN_SHA" || { echo "::error::commit $commit is not an ancestor of main; production deploys main commits only"; exit 1; }
 
   ci:
     needs: plan
@@ -132,7 +151,7 @@ jobs:
           sbom: true
           tags: |
             ${{ steps.image.outputs.name }}:${{ needs.plan.outputs.tag }}
-            ${{ steps.image.outputs.name }}:main
+            ${{ github.ref == 'refs/heads/main' && format('{0}:main', steps.image.outputs.name) || '' }}
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,mode=max,scope=${{ matrix.app }}
 

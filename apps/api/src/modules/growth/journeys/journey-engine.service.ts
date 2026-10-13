@@ -34,6 +34,8 @@ const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 /** Steps one enrollment may advance in a single job (the graph is acyclic and at most 50 steps). */
 const MAX_STEPS_PER_RUN = 60;
+/** Per-tick time budget of processDue: no new enrollment is taken after it; leftovers wait for the next tick. */
+export const PROCESS_DUE_BUDGET_MS = 20_000;
 /** How long a worker holds an enrollment. */
 const CLAIM_MS = 5 * MINUTE_MS;
 /** Retry delay after an unexpected error inside a step. */
@@ -149,7 +151,7 @@ export class JourneyEngineService implements OnModuleInit {
       // A migrated journey keeps the old rule's reach; a new journey starts at activation.
       const floor = journey.legacyRuleId || !journey.activatedAt || journey.activatedAt < lookback ? lookback : journey.activatedAt;
       try {
-        const candidates = await this.scanners.scan(journey.studioId, trigger, now, floor);
+        const candidates = await this.scanners.scan(journey.studioId, trigger, now, floor, journey.id);
         scanned += candidates.length;
         for (const c of candidates) {
           const outcome = await this.enroll(journey, c.contactId, { ref: c.ref, occurredAt: c.occurredAt, variables: c.variables, legacy: c.legacy }, now);
@@ -224,7 +226,9 @@ export class JourneyEngineService implements OnModuleInit {
     });
     let advanced = 0;
     let completed = 0;
+    const startedAt = Date.now();
     for (const { id } of due) {
+      if (Date.now() - startedAt >= PROCESS_DUE_BUDGET_MS) break;
       const result = await this.processEnrollment(id, now);
       advanced += result.steps;
       if (result.finished) completed += 1;

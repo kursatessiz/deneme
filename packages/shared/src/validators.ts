@@ -82,6 +82,8 @@ export interface MemberDetailDTO {
   familyGroupId: string | null;
   notes: string | null;
   isPartnerGuest: boolean;
+  /** Set once the member's personal data was erased (KVKK/GDPR, docs/KVKK_SILME.md); names then read as the placeholder. */
+  erasedAt: string | null;
   packages: unknown[];
   bookings: unknown[];
   payments: unknown[];
@@ -235,6 +237,19 @@ export const BookSessionSchema = z.object({
   memberPackageId: z.string().uuid().optional(),
   /** Specific units picked by the member, e.g. "reformer 3". */
   resourceIds: z.array(z.string().uuid()).max(5).default([]),
+  /**
+   * Staff only: book even though the service's minimum repeat interval is not
+   * met (audited as booking.repeat_interval_override). The member
+   * self-service endpoint answers 403 when this is true.
+   */
+  overrideRepeatInterval: z.boolean().optional(),
+  /**
+   * Staff only: `false` books without charging any package (audited as
+   * booking.no_charge). When omitted the API charges the given memberPackageId
+   * or, without one, the member's soonest-expiring usable package. The member
+   * self-service endpoint answers 403 when this is false.
+   */
+  chargePackage: z.boolean().optional(),
 });
 export type BookSessionInput = z.infer<typeof BookSessionSchema>;
 
@@ -547,6 +562,12 @@ export const SellPackageSchema = z.object({
   giftCardCode: z.string().trim().min(8).max(40).optional(),
   /** Amount to draw from the gift card; omitted means as much as covers the sale, up to its balance. */
   giftCardAmount: z.number().positive().optional(),
+  /**
+   * Optional client-generated key for one sale attempt. Resubmitting the same
+   * key (double click, retry after a timeout) never charges twice: it is the
+   * provider idempotency key and a completed sale with it is returned as is.
+   */
+  idempotencyKey: z.string().trim().min(8).max(100).optional(),
 });
 export type SellPackageInput = z.infer<typeof SellPackageSchema>;
 

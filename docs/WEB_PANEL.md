@@ -23,15 +23,22 @@ BFF proxy kullanır:
 - Erişim ve yenileme jetonları yalnızca httpOnly çerezlerdedir
   (`pw_access`, `pw_refresh`; bkz. `apps/web/src/lib/bff/cookies.ts`).
   Tarayıcı JS'i bu jetonları hiçbir zaman görmez. `auth/login`,
-  `auth/otp/verify` ve `auth/pin/login` yanıtlarındaki `accessToken`/
-  `refreshToken` alanları BFF tarafından çerezlere yazılır ve yanıt
-  gövdesinden çıkarılır.
+  `auth/otp/verify`, `auth/pin/login` ve `PUT auth/pin` (PIN değişikliği
+  eski yenileme jetonunu iptal edip yeni bir çift döner) yanıtlarındaki
+  `accessToken`/`refreshToken` alanları BFF tarafından çerezlere yazılır ve
+  yanıt gövdesinden çıkarılır.
 - Aktif işletme (`pw_studio`) ve aktif şube (`pw_branch`) seçimleri sır
   değildir; düz (httpOnly olmayan) çerezlerdir, böylece istemci tarafı da
   okuyup `x-studio-id` başlığını gönderebilir.
 - 401 alan bir istek, `pw_refresh` çerezi varsa BFF içinde bir kez
-  `/auth/refresh` ile yenilenir ve orijinal istek yeni jetonla tekrarlanır;
-  yenileme de başarısız olursa oturum çerezleri temizlenir.
+  `/auth/refresh` ile yenilenir ve orijinal istek yeni jetonla tekrarlanır.
+  Oturum çerezleri yalnızca yenileme ucu 401/403 döndüğünde temizlenir; 429,
+  5xx veya API'ye ulaşılamaması durumunda çerezler korunur ve tarayıcı 429
+  ya da 503 alır (`common.error.sessionRefreshUnavailable`). Korunan bir
+  sayfaya erişim jetonu olmadan gelindiğinde middleware de aynı kuralı
+  uygular: yenileme reddedilirse giriş sayfasına yönlendirir ve yenileme
+  çerezini siler, geçici bir hatada çerezlere dokunmadan 503/429 döner
+  (`apps/web/src/lib/bff/refresh.ts`).
 - CSRF: her GET/HEAD/OPTIONS dışı çağrı, aynı origin'den gelen `Origin`
   başlığı ve özel `x-requested-with: platform-web` başlığı ister
   (`apps/web/src/lib/bff/csrf.ts`). Bu ikisi eksikse istek 403 ile reddedilir.
@@ -165,6 +172,7 @@ vardır; çıkış butonu menünün dışında, her zaman görünür kalır.
   W17 oyunlaştırma özeti (`GET /gamification/studio/:id/achievements`
   listesinden üyeye göre filtrelenir). `/members` listesine arama
   (`?search=`) ve ana şube filtresi eklendi, satırlar üye kartına bağlanır.
+- KVKK/GDPR silme (`docs/KVKK_SILME.md`): üye kartında "Kişisel veriler" bölümü (`components/erasure/ErasurePanel.tsx`, yalnızca `members.erase`): açık talebi onayla/reddet, yoksa "Kişisel verileri sil" (`useConfirm` onayı, `POST /studios/:id/members/:memberId/erasure`); silinmiş üyede "Verileri silindi" rozeti, paket satışı ve rezervasyon düğmeleri gizlenir. `/members/silme-talepleri` bekleyen talepler listesi (durum süzgeci, onayla, gerekçeli reddet); `/members` başlığında "Silme talepleri" bağlantısı.
 - Paket satışı: üye kartından `PackageSaleDialog.tsx`,
   `POST /payments/sell` ile fiyat, promosyon kodu, hediye kartı,
   nakit/kart/havale ödeme yöntemini gönderir; satış tamamlanınca W8'in
@@ -179,6 +187,87 @@ vardır; çıkış butonu menünün dışında, her zaman görünür kalır.
   seans oluşturmadaki gibi) ve `POST /members/packages/:packageId/unfreeze`
   (`packages.sell`, açık dondurma kaydını kapatır, `endDate`'i kullanılmayan
   dondurma süresi kadar kısaltır).
+
+### Paket dondurma, seans programı ve rezervasyon kuralları (düzeltmeler)
+
+- **Dondurma**: yalnızca `ACTIVE` paket dondurulabilir (`FROZEN`, `EXPIRED`,
+  `DEPLETED` reddedilir). Geçiş koşullu `updateMany` ile yapılır, çift
+  gönderim `endDate`'i iki kez uzatmaz. `freezeDaysAllowed` paketin ömrü
+  boyunca kümülatiftir: önceki dondurmalar (erken kaldırılanlar fiili
+  süreleriyle) `packageFreezeHistory` üzerinden toplanır. `frozenUntil`
+  geçen paketleri 15 dakikalık kalp atışı (`MembersService.releaseElapsedFreezes`)
+  `ACTIVE` durumuna ve `frozenUntil = null` değerine döndürür; `endDate`
+  dondurma başlarken zaten uzatılmıştır.
+- **Haftalık tekrar**: tekrarlanan seanslar şube (yoksa işletme) saat diliminde
+  aynı yerel saatte kurulur; yaz/kış saati değişiminde saat kaymaz
+  (`addZonedDays`, `packages/shared`).
+- **Çakışma kontrolü**: seans oluşturma, taşıma ve eğitmen ikamesi işletme
+  başına `pg_advisory_xact_lock` altında, çakışma kontrolü işlemin içinde
+  yapılır; eşzamanlı iki oluşturma aynı eğitmeni/odayı çift rezerve edemez
+  (biri `409` alır). Şema değişikliği yoktur.
+- **Seans taşıma**: `PATCH /schedules/:id` ile zaman değişince seansın
+  rezervasyonlarındaki yer/ekipman tutmaları (`BookingResource`) aynı
+  işlemde yeni saate taşınır; dışlama kısıtı ihlali `409` döner. Kapasite
+  artırılırsa bekleme listesi hemen doldurulur.
+- **Rezervasyon zamanı**: üye kendi rezervasyonunu başlamış bir seansa
+  yapamaz; personel (resepsiyon, `bookings.manage`) devam eden bir seansa
+  walk-in rezervasyon yapabilir ama bitmiş seansa yapamaz (geçmiş yoklama
+  düzeltmesi rezervasyon değil `attendance.manage` ile yapılır).
+- **Asgari tekrar aralığı**: hizmetin `minRepeatIntervalDays` değeri varsa
+  üyenin aynı hizmette `CONFIRMED`/`ATTENDED` bir rezervasyonu seans başlangıcının
+  her iki yanında N günden yakınsa rezervasyon reddedilir (bekleme listesinden
+  terfi de aynı kuralı geçer; terfi edemeyen kayıt gerekçesiyle `EXPIRED` olur).
+  `NO_SHOW` rezervasyonlar kurala **sayılmaz**; ancak aralıkta gelinmeyen bir seans varsa rezervasyon
+  başarılı olur ve yanıt `notices: [{ code: 'apiTexts.schedules.noShowInWindowNotice', message, params: { date } }]`
+  taşır (metin `Accept-Language` diliyle; boşsa `notices: []`). İstemci bunu engelleyici olmayan bir bilgi
+  olarak gösterir.
+- **Personel aşımı**: kural reddettiğinde `400` yanıtı `code: 'apiErrors.schedules.minRepeatIntervalNotElapsed'`
+  ve `params: { count, date }` taşır (`date`, çakışan seansın ISO başlangıcı). `bookings.manage` sahibi personel
+  `POST /schedules/book` gövdesine `overrideRepeatInterval: true` ekleyerek rezervasyonu yine de yapabilir;
+  bu durumda `AuditLog` satırı `booking.repeat_interval_override` yazılır (`entityId` yeni rezervasyon;
+  `metadata`: `serviceTypeId`, `memberId`, `scheduleId`, `conflictingBookingId`, `conflictingSessionStart`,
+  `minRepeatIntervalDays`). Üye (`POST /schedules/book/self`) bayrağı gönderirse `403`
+  (`apiErrors.schedules.repeatOverrideNotAllowed`) alır; bekleme listesi terfisi (sistem) kuralı aşamaz.
+  **Paket kuralı (tek sunucu kuralı)**: hizmetin `allowedEntitlementKinds` listesi doluysa ve istekte
+  `memberPackageId` yoksa API üyenin paketini kendisi seçer: `ACTIVE`, `endDate > şimdi`, dondurulmamış
+  (`frozenUntil` geçmiş veya boş), hizmeti kapsayan, izinli hak türünde ve yeterli birimli/kredili paket
+  (`CREDIT` türünde hizmetin kredi maliyeti, `TIME_UNLIMITED` için birim gerekmez). Önce süresi en yakın
+  dolan, eşitlikte en eski paket seçilir (`selectUsablePackage`, `packages/shared/src/package-selection.ts`).
+  Kullanılabilir paket yoksa `400 apiErrors.schedules.noUsablePackage`. Yalnızca personel (`bookings.manage`)
+  `chargePackage: false` ile hak düşmeden rezervasyon yapabilir (`AuditLog` `booking.no_charge`); üye
+  (`/schedules/book/self`) bu bayrağı gönderirse `403` (`apiErrors.schedules.noChargeNotAllowed`).
+  Yanıttaki `chargedPackage` (`memberPackageId`, `packageName`, `unitsCharged`, `remainingUnits`) hangi
+  paketin kullanıldığını gösterir; iptal iadesi rezervasyondaki `memberPackageId` üzerinden aynı pakete
+  yapılır. Paket aranmayan akışlar: CRM deneme seansı (`leads-compat`, yeni kişinin paketi yoktur),
+  ortak (partner) rezervasyonları ve misafirler (`unitsCharged: 0`), etkinlik biletleri (kendi kredi
+  mantığı). Bekleme listesi terfisi kayıtlı paketi, yoksa otomatik seçimi kullanır; kullanılabilir paket
+  yoksa kayıt `EXPIRED` olur.
+  **Web personel rezervasyonu**: `bookings.manage` sahibi personel iki yerden üye adına rezervasyon yapar;
+  ikisi de aynı `StaffBookingForm` bileşenini (`components/calendar/StaffBookingForm.tsx`) kullanır ve
+  `POST /schedules/book` çağırır.
+  - Takvim, seans paneli: "Üye ekle" (bitmemiş, iptal edilmemiş seans). Üye, üyeler sayfasındaki
+    `GET /members/studio/:id?search=` ucuyla aranır; üyenin paketlerinden seansın hizmetini kapsayan,
+    süresi dolmamış ve hakkı kalan olanlar listelenir (`GET /catalog/package-definitions/...` kapsamı;
+    `catalog.view` yoksa tüm kullanılabilir paketler sunulur ve API karar verir). Seçenekler: "Otomatik"
+    (varsayılan; `memberPackageId` gönderilmez, API üyenin kullanılabilir paketlerinden süresi en yakın
+    dolanı seçip hakkı düşer), tek tek paketler (seçilen `memberPackageId` gönderilir) ve "Paket kullanma
+    (hak düşülmez)" (`chargePackage: false` gönderilir). Kullanılabilir paket yoksa API `400
+    apiErrors.schedules.noUsablePackage` döner ve satır içinde gösterilir; personel hak düşmeden devam
+    etmek için "Paket kullanma" seçer. Seansın yer/ekipman seçimi `GET /schedules/:id/spots` ile
+    gelir (dolu ve bakımdaki yerler seçilemez); hizmet seçilebilir yer istiyorsa seçmeden gönderilirse API
+    hatayı döner ve satır içinde gösterilir.
+  - Üye kartı: "Rezervasyon yap" (`MemberBookingDialog`). Önümüzdeki 14 günde boş kontenjanı olan
+    seanslar listelenir; üyenin paketlerinin kapsadığı hizmetlere göre süzme kutusu vardır. Seçilen seans
+    için aynı form, üye sabit olarak açılır.
+  - Asgari tekrar aralığı: API `minRepeatIntervalNotElapsed` dönerse `useConfirm` ile tehlike tonlu onay
+    penceresi açılır (kural günü ve çakışan seans tarihi etkin dilde `Intl` ile yazılır); onaylanırsa istek
+    `overrideRepeatInterval: true` ile yinelenir (denetim kaydı API'de yazılır), vazgeçilirse rezervasyon
+    yapılmaz. `BffError` artık API'nin `params` alanını taşır.
+  - Yanıttaki `notices` (örn. aralıkta gelinmeyen seans) engelleyici olmayan bilgi bildirimi olarak gösterilir.
+  - Seans doluysa (`apiErrors.schedules.sessionFull`) hata gösterilir ve "Bekleme listesine ekle"
+    (`POST /schedules/waitlist`, `bookings.manage`) sunulur.
+  - Hizmet türü formu (katalog ayarları) bu işin kapsamı dışındadır. Mobil personel akışı `docs/MOBILE_APP.md`
+    içinde anlatılır. Testler: `apps/web/e2e/staff-booking.e2e.ts`, `staff-booking.spec.ts`.
 
 ## Finans, hakediş, raporlar, adaylar, riskli üyeler (W2.4)
 
@@ -435,7 +524,7 @@ için kart çıkarma, doğrulama ve düzeltme, gerçek ciro ve üye sayısı),
 
 ## Ayarlar (2.3)
 
-`apps/web/src/app/(app)/(dashboard)/ayarlar/` altında sekiz sayfa; hepsi
+`apps/web/src/app/(app)/(dashboard)/ayarlar/` altında birden çok sayfa; hepsi
 `PageGuard` ile korunur ve içindeki her aksiyon (buton, form bölümü)
 `useDashboardSession()`'dan okuduğu izinlere göre gizlenir. Nav'da tek bir
 "Ayarlar" girişi vardır (`lib/nav.ts`), görünürlüğü sekiz sayfanın izinlerinin
@@ -452,6 +541,10 @@ sadece bildirim kanalları bölümünü gösterir).
   atama; hepsi `roles.manage` + `studioId` kapsamı + audit log ile. İşletme
   sahibi rolü salt okunur ve her zaman tüm izinlere sahiptir (CLAUDE.md kural
   5); `member` anahtarı `MembersService` içinde sabit arandığından silinemez.
+  Sahip veya süper admin olmayan biri, kendisinde olmayan bir izni taşıyan
+  bir rolü ne atayabilir ne de o role davet oluşturabilir (`POST /invites`
+  rol atamasıyla aynı `assertCanGrant`/`assertNotLocked` kontrolünden geçer,
+  aksi halde `403`).
 - `ayarlar/gorunum/` -- işletme teması (`studio.settings.view`/`manage`):
   logo ve birincil renk (renk seçici + #RRGGBB alanı); `lib/settings/theme-preview.ts`
   `resolveTheme()`'i doğrudan kullanarak kaydedilmeden önce üye kartı, paket
@@ -461,6 +554,26 @@ sadece bildirim kanalları bölümünü gösterir).
   arayüzden kalktı.
 - `ayarlar/subeler/` -- şube CRUD, personelin şube erişimi, son 30 gün şube
   özeti (`branches.manage` / `reports.view`).
+- `ayarlar/hizmet-turleri/` -- **Hizmet türleri** (`catalog.view` ile görüntüleme,
+  `catalog.manage` ile düzenleme): liste (ad, süre, kapasite, gerekli ekipman,
+  aktif/pasif) ve bir diyalogda oluşturma/düzenleme formu. Form, API'nin kabul
+  ettiği her alanı içerir: ad, açıklama, süre, kapasite, **en az tekrar aralığı
+  (gün)**, ön koşul formu, iptal politikası, komisyon kuralı, sağlık uygulaması
+  etkinlik türü, izin verilen hak türleri, gerekli kaynak türleri (adetle),
+  nitelik zorunluluğu ve nitelikli eğitmenler (`schedule.view` varsa). Doğrulama
+  `CreateServiceTypeSchema` / `UpdateServiceTypeSchema` ile yapılır
+  (`lib/settings/service-type-form.ts`); kural mesajları `validation.*`
+  anahtarlarından çevrilir. Pasifleştirme `useConfirm` ile onaylanır; sonuçlar
+  `useToast` ile bildirilir. "En az tekrar aralığı" alanının yardım metni:
+  üye aynı hizmetten iki seans arasında en az bu kadar gün bırakmalıdır;
+  gelinmeyen (no-show) seanslar kurala sayılmaz; personel rezervasyon sırasında
+  kuralı onayla aşabilir. Seçim listeleri mevcut uç noktalardan gelir; komisyon
+  kuralı ve ölçüm formu için `catalog.view` izinli iki salt okunur arama ucu
+  eklendi (`GET catalog/commission-rules/studio/:id`, yalnızca id/ad/tür döner,
+  hakediş tutarı dönmez; `GET catalog/measurement-forms/studio/:id`). Bu ekranda
+  para değeri yoktur; iptal politikası ücretleri birim sayısıdır. Test:
+  `apps/web/e2e/service-types.e2e.ts`. Ayarlar kartlarına ve nav'ın Ayarlar
+  girişinin izin birleşimine (`catalog.view`, `catalog.manage`) eklendi.
 - `ayarlar/isletme/` -- yalnızca uç noktası var olan ayarlar bölüm bölüm:
   **bölge ve para birimi** (aşağıya bakın), iptal politikası
   (`catalog.manage`), check-in penceresi

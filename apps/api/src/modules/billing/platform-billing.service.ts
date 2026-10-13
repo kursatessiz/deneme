@@ -174,19 +174,24 @@ export class PlatformBillingService implements OnModuleInit {
     if (status === 'ACTIVE') throw new ConflictException(apiError('apiErrors.billing.accountAlreadyActive'));
     if (!canTransitionBillingStatus(status, 'ACTIVE')) throw new ConflictException(apiError('apiErrors.billing.accountCannotActivatedStatus'));
 
-    const pendingExists = await this.prisma.platformBillingPayment.findFirst({
-      where: { studioId, status: 'PENDING', createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) } },
-      select: { id: true },
-    });
-    if (pendingExists) throw new ConflictException(apiError('apiErrors.billing.pendingPaymentWaitComplete'));
-
     const periodMonths = 1;
     const listAmount = new Prisma.Decimal(price.priceMonthly).toFixed(2);
-    const balance = await this.creditBalance(studioId);
-    // Money credit only applies in the charge's own currency (never converted).
-    const applied = applyCredits({ amount: listAmount, currency, periodMonths }, balance);
 
-    const payment = await this.prisma.$transaction(async (tx) => {
+    // One activation at a time per studio: the lock serialises the pending-payment
+    // check, the credit balance read and the credit reservation, so two parallel
+    // clicks can neither both create a charge nor spend the same credit twice.
+    const { payment, applied } = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${'platform-billing-activate:' + studioId}))`);
+
+      const pendingExists = await tx.platformBillingPayment.findFirst({
+        where: { studioId, status: 'PENDING', createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) } },
+        select: { id: true },
+      });
+      if (pendingExists) throw new ConflictException(apiError('apiErrors.billing.pendingPaymentWaitComplete'));
+
+      const balance = await this.creditBalance(studioId, tx);
+      // Money credit only applies in the charge's own currency (never converted).
+      const applied = applyCredits({ amount: listAmount, currency, periodMonths }, balance);
       const created = await tx.platformBillingPayment.create({
         data: {
           studioId,
@@ -202,7 +207,7 @@ export class PlatformBillingService implements OnModuleInit {
         },
       });
       await this.reserveCredits(tx, studioId, created.id, applied.creditAmount, currency, applied.creditMonths);
-      return created;
+      return { payment: created, applied };
     });
 
     const payable = new Prisma.Decimal(applied.payable);
@@ -403,8 +408,8 @@ export class PlatformBillingService implements OnModuleInit {
   // Internals
   // ---------------------------------------------------------------------------
 
-  async creditBalance(studioId: string): Promise<CreditBalance> {
-    const rows = await this.prisma.platformCreditLedger.findMany({ where: { studioId }, select: { amount: true, currency: true, months: true } });
+  async creditBalance(studioId: string, db: Pick<Tx, 'platformCreditLedger'> = this.prisma): Promise<CreditBalance> {
+    const rows = await db.platformCreditLedger.findMany({ where: { studioId }, select: { amount: true, currency: true, months: true } });
     return creditBalanceOf(rows.map((r) => ({ amount: r.amount ? r.amount.toFixed(2) : null, currency: r.currency, months: r.months })));
   }
 

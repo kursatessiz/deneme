@@ -80,15 +80,25 @@ export class PartnersWebhookService {
       throw err;
     }
 
-    switch (payload.eventType) {
-      case 'RESERVATION_CREATED':
-        return this.reservations.createReservation(connection.studioId, connectionId, payload);
-      case 'RESERVATION_CANCELLED':
-        return this.reservations.cancelReservation(connection.studioId, connectionId, payload);
-      case 'CHECK_IN':
-        return this.reservations.recordCheckIn(connection.studioId, connectionId, payload);
-      default:
-        throw new BadRequestException(apiError('apiErrors.partners.unknownEventType'));
+    // The event row is the replay guard, so it must not outlive a failed
+    // dispatch: otherwise the partner's retry would be answered as already
+    // handled and the booking would be lost. On failure the row is removed again.
+    try {
+      switch (payload.eventType) {
+        case 'RESERVATION_CREATED':
+          return await this.reservations.createReservation(connection.studioId, connectionId, payload);
+        case 'RESERVATION_CANCELLED':
+          return await this.reservations.cancelReservation(connection.studioId, connectionId, payload);
+        case 'CHECK_IN':
+          return await this.reservations.recordCheckIn(connection.studioId, connectionId, payload);
+        default:
+          throw new BadRequestException(apiError('apiErrors.partners.unknownEventType'));
+      }
+    } catch (err) {
+      await this.prisma.partnerWebhookEvent
+        .deleteMany({ where: { connectionId, eventId: payload.eventId } })
+        .catch(() => undefined);
+      throw err;
     }
   }
 

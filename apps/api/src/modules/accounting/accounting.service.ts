@@ -1,3 +1,4 @@
+import { cashInOf } from '../payments/cash-in';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PaymentStatus, Prisma } from '@platform/database';
 import {
@@ -48,13 +49,22 @@ const PAYMENT_INCLUDE = {
 
 type PaymentRow = Prisma.PaymentGetPayload<{ include: typeof PAYMENT_INCLUDE }>;
 
-/** Reads `metadata.amount` of a `payments.refund` audit row; anything else is ignored rather than guessed. */
-function refundAmountOf(metadata: Prisma.JsonValue | null): string | null {
+/**
+ * Reads `metadata.amount` of a `payments.refund` audit row; anything else is
+ * ignored rather than guessed. The part restored to a gift card
+ * (`metadata.giftCardCredit`) is not money paid back, so it is left out, the
+ * same way the sale's gross leaves out the gift card part.
+ */
+export function refundAmountOf(metadata: Prisma.JsonValue | null): string | null {
   if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
   const amount = metadata.amount;
-  if (typeof amount === 'string' && /^\d+(\.\d+)?$/.test(amount)) return amount;
-  if (typeof amount === 'number' && Number.isFinite(amount) && amount > 0) return amount.toFixed(2);
-  return null;
+  let value: Prisma.Decimal | null = null;
+  if (typeof amount === 'string' && /^\d+(\.\d+)?$/.test(amount)) value = new Prisma.Decimal(amount);
+  else if (typeof amount === 'number' && Number.isFinite(amount) && amount > 0) value = new Prisma.Decimal(amount.toFixed(2));
+  if (!value) return null;
+  const credit = metadata.giftCardCredit;
+  if (typeof credit === 'string' && /^\d+(\.\d+)?$/.test(credit)) value = value.minus(credit);
+  return value.gt(0) ? value.toFixed(2) : null;
 }
 
 /**
@@ -224,7 +234,8 @@ export class AccountingService {
       else if (p.memberSubscription) description = p.memberSubscription.packageDefinition.name;
       // Payments carry no tax split of their own: the studio default rate
       // applies to the tax-inclusive amount, the same rule the e-invoice uses.
-      taxComponents = [{ taxRate: defaultTaxRate, gross: p.amount.toFixed(2) }];
+      // The gift card part is not new cash: it was counted when the card was sold.
+      taxComponents = [{ taxRate: defaultTaxRate, gross: cashInOf(p).toFixed(2) }];
     }
 
     return {
@@ -236,7 +247,7 @@ export class AccountingService {
       customerName,
       description,
       currency: p.currency,
-      gross: p.amount.toFixed(2),
+      gross: cashInOf(p).toFixed(2),
       paymentMethod: p.paymentMethod,
       providerReference: p.providerReference,
       taxComponents,

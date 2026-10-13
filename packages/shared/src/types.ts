@@ -1,4 +1,5 @@
 import type { ApiErrorKey } from './api-errors';
+import type { ApiTextKey } from './api-texts';
 import type { MembershipBillingSummary } from './billing';
 import {
   BookingStatus,
@@ -163,6 +164,44 @@ export interface ScheduleSpotsDTO {
   groups: SpotGroupDTO[];
 }
 
+/** Public preview of an invite (GET /invites/:token), shown by the web and mobile `/j/<token>` landings. */
+export interface InvitePreviewDTO {
+  studio: { name: string; logoUrl: string | null };
+  fullName: string;
+  phoneMasked: string;
+  roleName: string;
+  isPlatformInvite?: boolean;
+  expiresAt: string;
+  documents: { id: string; type: string; title: string; version: number; body: string }[];
+}
+
+/**
+ * The signed-in member's own standing in one session (GET /schedules/:scheduleId/self-status):
+ * their live booking with a dry-run of the cancellation policy, and their waitlist entry.
+ */
+export interface ScheduleSelfStatusDTO {
+  scheduleId: string;
+  /** The session has no free seat left. */
+  isFull: boolean;
+  booking: {
+    bookingId: string;
+    unitsCharged: number;
+    /** What cancelling right now would do under the business's cancellation policy. */
+    cancellation: {
+      isLate: boolean;
+      refundUnits: number;
+      penaltyUnits: number;
+      freeCancelHours: number;
+    };
+  } | null;
+  waitlist: {
+    waitlistId: string;
+    /** 1 is next in line. */
+    placeInLine: number;
+    status: 'WAITING' | 'OFFERED';
+  } | null;
+}
+
 export interface ServiceTypeDTO {
   id: string;
   name: string;
@@ -175,6 +214,24 @@ export interface ServiceTypeDTO {
   healthActivityType: HealthActivityType;
   requiredResourceTypes: { resourceTypeId: string; quantity: number }[];
   isActive: boolean;
+  prerequisiteFormId?: string | null;
+  cancellationPolicyId?: string | null;
+  commissionRuleId?: string | null;
+  /** Trainers holding a qualification for this service (catalog list only). */
+  qualifiedTrainers?: { trainerProfileId: string }[];
+}
+
+/** Lookup rows for the service type form (GET catalog/commission-rules/studio/:id, no payout values). */
+export interface CommissionRuleOptionDTO {
+  id: string;
+  name: string;
+  type: string;
+}
+
+/** Lookup rows for the service type form (GET catalog/measurement-forms/studio/:id). */
+export interface MeasurementFormOptionDTO {
+  id: string;
+  name: string;
 }
 
 export interface PackageDefinitionDTO {
@@ -248,6 +305,25 @@ export interface SessionScheduleSummaryDTO {
   /** W19: ONLINE/HYBRID sessions can be joined once the join window opens; the link itself is never listed here. */
   deliveryMode: 'IN_PERSON' | 'ONLINE' | 'HYBRID';
   onlineCapacity?: number | null;
+}
+
+/** Non-blocking information returned with a successful booking (e.g. a no-show inside the repeat window). */
+/** The package a booking was charged to, as the book endpoints return it (null when nothing was charged). */
+export interface BookingChargedPackageDTO {
+  memberPackageId: string;
+  packageName: string;
+  entitlementKind: `${EntitlementKind}`;
+  /** Units or credits this booking burned (0 for an unlimited package). */
+  unitsCharged: number;
+  /** Units or credits left after the booking; null for an unlimited package. */
+  remainingUnits: number | null;
+}
+
+export interface BookingNoticeDTO {
+  /** apiTexts key; `message` is that text in the request language. */
+  code: ApiTextKey;
+  message: string;
+  params?: Record<string, string | number>;
 }
 
 export interface BookingDTO {

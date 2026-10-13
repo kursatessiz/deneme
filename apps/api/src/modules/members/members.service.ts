@@ -4,7 +4,7 @@ import { WebhooksService } from '../webhooks/webhooks.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { CreateMemberInput, AssignPackageToMemberInput, FreezePackageInput, UnfreezePackageInput } from '@platform/shared';
 import type { MemberDetailDTO, SetHomeBranchInput } from '@platform/shared';
-import { assertBranchAccess } from '../branches/branch-access';
+import { assertBranchAccess, branchScope } from '../branches/branch-access';
 import { ReferralsService } from '../feedback/referrals.service';
 import { PlanLimitsService } from '../admin/plan-limits.service';
 import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
@@ -26,9 +26,15 @@ export class MembersService {
       where: {
         studioId: tenant.studioId,
         ...(homeBranchId ? { homeBranchId } : {}),
-        ...(search
-          ? {
-              membership: {
+        // Branch-restricted staff see members of their branches and studio-wide members only.
+        ...(tenant.branchIds !== null && !homeBranchId
+          ? { OR: [{ homeBranchId: { in: [...tenant.branchIds] } }, { homeBranchId: null }] }
+          : {}),
+        // Members whose personal data was erased (KVKK/GDPR) drop out of the list; their card stays reachable by id.
+        membership: {
+          erasedAt: null,
+          ...(search
+            ? {
                 user: {
                   OR: [
                     { firstName: { contains: search, mode: 'insensitive' } },
@@ -36,9 +42,9 @@ export class MembersService {
                     { phone: { contains: search } },
                   ],
                 },
-              },
-            }
-          : {}),
+              }
+            : {}),
+        },
       },
       include: {
         membership: { include: { user: true } },
@@ -58,6 +64,7 @@ export class MembersService {
   async setHomeBranch(tenant: TenantContext, memberId: string, dto: SetHomeBranchInput) {
     const member = await this.prisma.memberProfile.findFirst({ where: { id: memberId, studioId: tenant.studioId } });
     if (!member) throw new NotFoundException(apiError('apiErrors.common.memberNotFound'));
+    assertBranchAccess(tenant, member.homeBranchId);
     if (dto.branchId) {
       const branch = await this.prisma.branch.findFirst({
         where: { id: dto.branchId, studioId: tenant.studioId, isActive: true },
@@ -128,13 +135,14 @@ export class MembersService {
           orderBy: { createdAt: 'desc' },
           take: 20,
         },
-        payments: { orderBy: { paidAt: 'desc' } },
+        payments: { where: branchScope(tenant), orderBy: { paidAt: 'desc' } },
       },
     });
 
     if (!member) {
       throw new NotFoundException(apiError('apiErrors.common.memberNotFound'));
     }
+    assertBranchAccess(tenant, member.homeBranchId);
 
     return this.toDetail(member, tenant);
   }
@@ -248,6 +256,7 @@ export class MembersService {
     if (!member) {
       throw new NotFoundException(apiError('apiErrors.common.memberNotFound'));
     }
+    assertBranchAccess(tenant, member.homeBranchId);
 
     const startDate = dto.startDate ? new Date(dto.startDate) : new Date();
     const endDate = new Date(startDate.getTime() + pkgDef.validityDays * 24 * 60 * 60 * 1000);
@@ -298,18 +307,43 @@ export class MembersService {
     if (!memberPackage) {
       throw new NotFoundException(apiError('apiErrors.members.packageNotFound'));
     }
+    await this.assertPackageMemberBranch(tenant, memberPackage.memberId);
 
-    if (dto.days > memberPackage.packageDefinition.freezeDaysAllowed) {
-      throw new BadRequestException(
-        apiError('apiErrors.members.freezeDaysExceeded', { count: memberPackage.packageDefinition.freezeDaysAllowed }),
-      );
+    // Only a running package can be frozen (not FROZEN, EXPIRED, DEPLETED or CANCELLED).
+    if (memberPackage.status !== 'ACTIVE') {
+      throw new BadRequestException(apiError('apiErrors.members.packageNotFreezable'));
+    }
+
+    // The allowance is cumulative over the package's life: earlier freezes
+    // (shortened by an early unfreeze) count against it.
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const history = await this.prisma.packageFreezeHistory.findMany({
+      where: { memberPackageId: packageId },
+      select: { freezeStartDate: true, freezeEndDate: true },
+    });
+    const usedDays = history.reduce(
+      (sum, row) => sum + Math.max(0, Math.ceil((row.freezeEndDate.getTime() - row.freezeStartDate.getTime()) / DAY_MS)),
+      0,
+    );
+    const remainingDays = Math.max(0, memberPackage.packageDefinition.freezeDaysAllowed - usedDays);
+    if (dto.days > remainingDays) {
+      throw new BadRequestException(apiError('apiErrors.members.freezeDaysExceeded', { count: remainingDays }));
     }
 
     const now = new Date();
-    const freezeUntil = new Date(now.getTime() + dto.days * 24 * 60 * 60 * 1000);
-    const newEndDate = new Date(memberPackage.endDate.getTime() + dto.days * 24 * 60 * 60 * 1000);
+    const freezeUntil = new Date(now.getTime() + dto.days * DAY_MS);
+    const newEndDate = new Date(memberPackage.endDate.getTime() + dto.days * DAY_MS);
 
     return this.prisma.$transaction(async (tx) => {
+      // Conditional on still being ACTIVE with the endDate we read: a double
+      // submit cannot extend the package twice.
+      const flipped = await tx.memberPackage.updateMany({
+        where: { id: packageId, studioId, status: 'ACTIVE', endDate: memberPackage.endDate },
+        data: { status: 'FROZEN', frozenUntil: freezeUntil, endDate: newEndDate },
+      });
+      if (flipped.count === 0) {
+        throw new BadRequestException(apiError('apiErrors.members.packageNotFreezable'));
+      }
       await tx.packageFreezeHistory.create({
         data: {
           memberPackageId: packageId,
@@ -318,16 +352,21 @@ export class MembersService {
           reason: dto.reason,
         },
       });
-
-      return tx.memberPackage.update({
-        where: { id: packageId },
-        data: {
-          status: 'FROZEN',
-          frozenUntil: freezeUntil,
-          endDate: newEndDate,
-        },
-      });
+      return tx.memberPackage.findUniqueOrThrow({ where: { id: packageId } });
     });
+  }
+
+  /**
+   * Heartbeat step: a freeze whose frozenUntil has passed returns to ACTIVE
+   * (book() only accepts ACTIVE packages). endDate was already extended when
+   * the freeze started, so only status and frozenUntil change.
+   */
+  async releaseElapsedFreezes(now: Date = new Date()): Promise<{ released: number }> {
+    const result = await this.prisma.memberPackage.updateMany({
+      where: { status: 'FROZEN', frozenUntil: { lte: now } },
+      data: { status: 'ACTIVE', frozenUntil: null },
+    });
+    return { released: result.count };
   }
 
   /**
@@ -341,6 +380,7 @@ export class MembersService {
     if (!memberPackage) {
       throw new NotFoundException(apiError('apiErrors.members.packageNotFound'));
     }
+    await this.assertPackageMemberBranch(tenant, memberPackage.memberId);
     if (memberPackage.status !== 'FROZEN') {
       throw new BadRequestException(apiError('apiErrors.members.packageNotFrozen'));
     }
@@ -371,6 +411,16 @@ export class MembersService {
     });
   }
 
+  /** Branch-restricted staff may only act on packages of members in their branches (or studio-wide members). */
+  private async assertPackageMemberBranch(tenant: TenantContext, memberId: string): Promise<void> {
+    if (tenant.branchIds === null) return;
+    const member = await this.prisma.memberProfile.findFirst({
+      where: { id: memberId, studioId: tenant.studioId },
+      select: { homeBranchId: true },
+    });
+    assertBranchAccess(tenant, member?.homeBranchId);
+  }
+
   /** Shapes a member profile row into a response, masking contact/health fields by permission. */
   private toDetail(member: any, tenant: TenantContext): MemberDetailDTO {
     const user = member.membership?.user;
@@ -384,6 +434,7 @@ export class MembersService {
       familyGroupId: member.familyGroupId ?? null,
       notes: member.notes ?? null,
       isPartnerGuest: member.membership?.isPartnerGuest ?? false,
+      erasedAt: member.membership?.erasedAt ? new Date(member.membership.erasedAt).toISOString() : null,
       packages: member.packages,
       bookings: member.bookings,
       payments: member.payments,

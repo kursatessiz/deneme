@@ -1,4 +1,4 @@
-import { DunningService, DUNNING_RETRY_OFFSETS_DAYS } from './dunning.service';
+import { DunningService, DUNNING_CLAIM_LEASE_MS, DUNNING_RETRY_OFFSETS_DAYS } from './dunning.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PaymentProviderRegistry } from './providers/payment-provider.registry';
@@ -69,7 +69,7 @@ describe('DunningService', () => {
     expect(prisma.memberSubscription.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: 'sub-1', nextChargeAt: NOW } }),
     );
-    const updateCall = prisma.memberSubscription.updateMany.mock.calls[0][0];
+    const updateCall = prisma.memberSubscription.updateMany.mock.calls[1][0];
     expect(updateCall.data.status).toBe(MemberSubscriptionStatus.ACTIVE);
     expect(updateCall.data.currentPeriodStart).toEqual(NOW);
     expect(prisma.paymentAttempt.create).toHaveBeenCalledWith(
@@ -87,7 +87,7 @@ describe('DunningService', () => {
 
     expect(outcome.outcome).toBe('retry_scheduled');
     expect(outcome.nextChargeAt).toEqual(new Date(NOW.getTime() + DUNNING_RETRY_OFFSETS_DAYS[0] * DAY_MS));
-    const updateCall = prisma.memberSubscription.updateMany.mock.calls[0][0];
+    const updateCall = prisma.memberSubscription.updateMany.mock.calls[1][0];
     expect(updateCall.data.status).toBe(MemberSubscriptionStatus.PAST_DUE);
     const attemptCall = prisma.paymentAttempt.create.mock.calls[0][0];
     expect(attemptCall.data.attemptNumber).toBe(1);
@@ -126,7 +126,7 @@ describe('DunningService', () => {
     const [outcome] = await service.runDueRenewals(NOW);
 
     expect(outcome.outcome).toBe('cancelled');
-    const updateCall = prisma.memberSubscription.updateMany.mock.calls[0][0];
+    const updateCall = prisma.memberSubscription.updateMany.mock.calls[1][0];
     expect(updateCall.data.status).toBe(MemberSubscriptionStatus.CANCELLED);
     const attemptCall = prisma.paymentAttempt.create.mock.calls[0][0];
     expect(attemptCall.data.attemptNumber).toBe(4);
@@ -174,5 +174,77 @@ describe('DunningService', () => {
 
     expect(outcome.outcome).toBe('cancelled_at_period_end');
     expect(chargeStoredCard).not.toHaveBeenCalled();
+  });
+
+  describe('claim before charge', () => {
+    // A tiny stateful stand-in for the subscription row so the conditional
+    // updateMany behaves like the database (compare-and-set on nextChargeAt).
+    function useStatefulRow() {
+      const row = { id: 'sub-1', nextChargeAt: new Date(NOW) };
+      prisma.memberSubscription.findMany.mockImplementation(async () => (row.nextChargeAt <= NOW ? [{ ...baseSub, nextChargeAt: new Date(row.nextChargeAt) }] : []));
+      prisma.memberSubscription.updateMany.mockImplementation(async ({ where, data }: { where: { nextChargeAt: Date }; data: { nextChargeAt?: Date } }) => {
+        if (row.nextChargeAt.getTime() !== where.nextChargeAt.getTime()) return { count: 0 };
+        if (data.nextChargeAt) row.nextChargeAt = data.nextChargeAt;
+        return { count: 1 };
+      });
+      return row;
+    }
+
+    it('charges once when two runs race for the same due subscription', async () => {
+      useStatefulRow();
+      prisma.paymentAttempt.findMany.mockResolvedValue([]);
+      prisma.memberPackage.create.mockResolvedValue({ id: 'pkg-instance-1' });
+      prisma.payment.create.mockResolvedValue({ id: 'payment-1' });
+      chargeStoredCard.mockImplementation(async () => {
+        await new Promise((r) => setTimeout(r, 5));
+        return { success: true, providerReference: 'mock_chg_1' };
+      });
+
+      const [a, b] = await Promise.all([service.runDueRenewals(NOW), service.runDueRenewals(NOW)]);
+
+      expect(chargeStoredCard).toHaveBeenCalledTimes(1);
+      const outcomes = [...a, ...b].map((o) => o.outcome).sort();
+      expect(outcomes).toEqual(['renewed', 'skipped']);
+    });
+
+    it('claims the row with a lease before the card is charged', async () => {
+      const row = useStatefulRow();
+      prisma.paymentAttempt.findMany.mockResolvedValue([]);
+      prisma.memberPackage.create.mockResolvedValue({ id: 'pkg-instance-1' });
+      prisma.payment.create.mockResolvedValue({ id: 'payment-1' });
+      let leaseAtCharge: Date | null = null;
+      chargeStoredCard.mockImplementation(async () => {
+        leaseAtCharge = new Date(row.nextChargeAt);
+        return { success: true, providerReference: 'mock_chg_1' };
+      });
+
+      await service.runDueRenewals(NOW);
+
+      expect(leaseAtCharge).toEqual(new Date(NOW.getTime() + DUNNING_CLAIM_LEASE_MS));
+    });
+
+    it('uses a stable reference as idempotency key, independent of the run time', async () => {
+      useStatefulRow();
+      prisma.paymentAttempt.findMany.mockResolvedValue([]);
+      prisma.memberPackage.create.mockResolvedValue({ id: 'pkg-instance-1' });
+      prisma.payment.create.mockResolvedValue({ id: 'payment-1' });
+      chargeStoredCard.mockResolvedValue({ success: true, providerReference: 'mock_chg_1' });
+
+      await service.runDueRenewals(new Date(NOW.getTime() + 1000));
+
+      const expected = `dunning_sub-1_${NOW.getTime()}`;
+      expect(chargeStoredCard).toHaveBeenCalledWith(expect.objectContaining({ reference: expected, idempotencyKey: expected }));
+    });
+
+    it('releases the lease when the provider call throws, so the next run retries with the same key', async () => {
+      const row = useStatefulRow();
+      prisma.paymentAttempt.findMany.mockResolvedValue([]);
+      chargeStoredCard.mockRejectedValue(new Error('network down'));
+
+      const [outcome] = await service.runDueRenewals(NOW);
+
+      expect(outcome.outcome).toBe('skipped');
+      expect(row.nextChargeAt).toEqual(NOW);
+    });
   });
 });

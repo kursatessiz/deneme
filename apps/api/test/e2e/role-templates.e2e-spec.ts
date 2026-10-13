@@ -201,4 +201,53 @@ describe('Role templates (e2e)', () => {
       expect([403, 404]).toContain(res.status);
     });
   });
+
+  describe('invites stay within the inviter permissions', () => {
+    const invitePhone = `0538${Date.now().toString().slice(-7)}`;
+    let inviterRole: { id: string; key: string };
+    let strongerRole: { id: string; key: string };
+
+    beforeAll(async () => {
+      const suffix = Date.now().toString(36);
+      const inviter = await as(ownerToken)
+        .post('/role-templates')
+        .send({ studioId: ZEN, name: `Davet yetkilisi ${suffix}`, permissions: ['staff.manage', 'members.view'] });
+      const stronger = await as(ownerToken)
+        .post('/role-templates')
+        .send({ studioId: ZEN, name: `Rapor yetkilisi ${suffix}`, permissions: ['staff.manage', 'members.view', 'reports.view'] });
+      expect(inviter.status).toBe(201);
+      expect(stronger.status).toBe(201);
+      inviterRole = { id: inviter.body.id, key: inviter.body.key };
+      strongerRole = { id: stronger.body.id, key: stronger.body.key };
+      createdRoleIds.push(inviterRole.id, strongerRole.id);
+      const moved = await as(ownerToken).put(`/role-templates/staff/${trainerMembershipId}`).send({ roleTemplateId: inviterRole.id });
+      expect(moved.status).toBe(200);
+      trainerToken = await login(TRAINER_PHONE);
+    });
+
+    afterAll(async () => {
+      await prisma.inviteToken.deleteMany({ where: { roleTemplateId: { in: [inviterRole.id, strongerRole.id] } } });
+    });
+
+    it('a non-owner cannot invite into a role holding permissions it lacks', async () => {
+      const res = await as(trainerToken)
+        .post('/invites')
+        .send({ studioId: ZEN, fullName: 'Yetki Deneme', phone: invitePhone, roleKey: strongerRole.key, channel: 'SHOWN' });
+      expect(res.status).toBe(403);
+    });
+
+    it('a non-owner can invite into a role within its own permissions', async () => {
+      const res = await as(trainerToken)
+        .post('/invites')
+        .send({ studioId: ZEN, fullName: 'Yetki Deneme', phone: invitePhone, roleKey: inviterRole.key, channel: 'SHOWN' });
+      expect(res.status).toBe(201);
+    });
+
+    it('the owner can still invite into any staff role', async () => {
+      const res = await as(ownerToken)
+        .post('/invites')
+        .send({ studioId: ZEN, fullName: 'Yetki Deneme', phone: invitePhone, roleKey: strongerRole.key, channel: 'SHOWN' });
+      expect(res.status).toBe(201);
+    });
+  });
 });

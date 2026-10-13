@@ -145,6 +145,7 @@ describe('Messaging engine G1c (e2e)', () => {
       WHATSAPP_WEBHOOK_VERIFY_TOKEN: WA_VERIFY,
       TWILIO_AUTH_TOKEN: TWILIO_TOKEN,
       SMS_DLR_WEBHOOK_TOKEN: 'e2e-dlr-token-0123456789abcdef',
+      SES_SNS_TOPIC_ARNS: 'arn:aws:sns:eu-central-1:123456789012:ses',
     })) {
       envBackup[k] = process.env[k];
       process.env[k] = v;

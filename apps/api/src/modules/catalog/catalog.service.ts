@@ -204,6 +204,22 @@ export class CatalogService {
   // Service types
   // ---------------------------------------------------------------------
 
+  async listCommissionRuleOptions(tenant: TenantContext) {
+    return this.prisma.commissionRule.findMany({
+      where: { studioId: tenant.studioId },
+      select: { id: true, name: true, type: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async listMeasurementFormOptions(tenant: TenantContext) {
+    return this.prisma.measurementFormTemplate.findMany({
+      where: { isActive: true, OR: [{ studioId: tenant.studioId }, { studioId: null }] },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async listServiceTypes(tenant: TenantContext) {
     return this.prisma.serviceType.findMany({
       where: { studioId: tenant.studioId },

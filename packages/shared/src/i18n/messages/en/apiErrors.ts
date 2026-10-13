@@ -63,10 +63,12 @@ export const enApiErrors: Record<keyof typeof trApiErrors, string> = {
   'apiErrors.ai.translationJobNotFound': 'Translation job not found.',
 
   // apiKeys
+  'apiErrors.apiKeys.scopeBeyondOwnPermissions': 'You cannot create an API key with a scope beyond your own permissions',
   'apiErrors.apiKeys.apiKeyExpired': 'This API key has expired',
   'apiErrors.apiKeys.apiKeyNotFound': 'API key not found',
   'apiErrors.apiKeys.apiKeyRevoked': 'This API key has been revoked',
   'apiErrors.apiKeys.authorizationBearerApiKeyRequired': 'Authorization: Bearer <api key> is required',
+  'apiErrors.apiKeys.businessSuspended': "This API key's business is suspended",
   'apiErrors.apiKeys.invalidApiKey': 'Invalid API key',
   'apiErrors.apiKeys.invalidApiKeyFormat': 'Invalid API key format',
   'apiErrors.apiKeys.keyAlreadyRevoked': 'This key has already been revoked',
@@ -350,12 +352,18 @@ export const enApiErrors: Record<keyof typeof trApiErrors, string> = {
   'apiErrors.memberHealth.writingWorkoutsHealthNotEnabled': 'Writing workouts to health is not enabled',
 
   // members
+  'apiErrors.erasure.alreadyErased': 'This member\'s personal data has already been erased',
+  'apiErrors.erasure.alreadyOpen': 'There is already an open erasure request for this member',
+  'apiErrors.erasure.notDecidable': 'This request can no longer be approved or rejected',
+  'apiErrors.erasure.requestNotFound': 'Erasure request not found',
+  'apiErrors.erasure.staffNotErasable': 'Owner, staff and platform administrator accounts cannot be erased with this flow',
   'apiErrors.members.freezeDaysExceeded.one': 'This package can be frozen for at most {count} day.',
   'apiErrors.members.freezeDaysExceeded.other': 'This package can be frozen for at most {count} days.',
   'apiErrors.members.membershipPhoneNumberAlreadyExistsBusiness': 'A membership with this phone number already exists in this business',
   'apiErrors.members.noMemberProfileBusiness': 'You have no member profile in this business',
   'apiErrors.members.packageNotFound': 'Package not found',
   'apiErrors.members.packageNotFrozen': 'This package is not frozen',
+  'apiErrors.members.packageNotFreezable': 'This package cannot be frozen in its current state',
 
   // messaging
   'apiErrors.messaging.24HourWhatsappCustomerServiceWindow': 'The 24-hour WhatsApp customer service window has closed: only an approved template can be sent',
@@ -404,6 +412,8 @@ export const enApiErrors: Record<keyof typeof trApiErrors, string> = {
   'apiErrors.payments.canOnlyCancelOwnSubscription': 'You can only cancel your own subscription',
   'apiErrors.payments.canOnlyMakePurchasesYourself': 'You can only make purchases for yourself',
   'apiErrors.payments.cancelledSubscriptionCannotPaused': 'A cancelled subscription cannot be paused',
+  'apiErrors.payments.currencyMustMatchStudio': 'The currency must match the business currency ({currency})',
+  'apiErrors.payments.paymentMethodNotSupportedForSale': 'This payment method is not supported for package sales',
   'apiErrors.payments.cardDeclined': 'The card was declined',
   'apiErrors.payments.invalidWebhookSignature': 'Invalid webhook signature',
   'apiErrors.payments.iyzicoIntegrationNotImplementedYet': 'The iyzico integration is not implemented yet',
@@ -424,6 +434,10 @@ export const enApiErrors: Record<keyof typeof trApiErrors, string> = {
   'apiErrors.payments.stripeNotConfiguredPaymentsCannotAccepted': 'Stripe is not configured; payments cannot be accepted.',
   'apiErrors.payments.stripeNotConfiguredStripeSecretKey': 'Stripe is not configured: STRIPE_SECRET_KEY is required',
   'apiErrors.payments.subscriptionNotFound': 'Subscription not found',
+
+  // payouts
+  'apiErrors.payouts.accountAlreadyConnected': 'This payout provider account is already connected to another business',
+  'apiErrors.payouts.onlyOwnerCanChangeAccount': 'Only the business owner can change the payout provider account',
 
   // payroll
   'apiErrors.payroll.approvedPaidPayrollCannotChanged': 'An approved or paid payroll cannot be changed',
@@ -463,6 +477,7 @@ export const enApiErrors: Record<keyof typeof trApiErrors, string> = {
   'apiErrors.promotions.alreadyUsedCode': 'You have already used this code',
   'apiErrors.promotions.amountBelowCodeMinimum': 'The amount is below the minimum for this code',
   'apiErrors.promotions.cardAlreadyCancelled': 'The card has already been cancelled',
+  'apiErrors.promotions.cannotRefundCancelledCard': 'A cancelled gift card cannot receive a refund',
   'apiErrors.promotions.cardBalanceJustChanged': 'The card balance just changed, try again',
   'apiErrors.promotions.cardStatusJustChanged': 'The card status just changed, try again',
   'apiErrors.promotions.codeAlreadyUseBusiness': 'This code is already in use in this business',
@@ -517,6 +532,11 @@ export const enApiErrors: Record<keyof typeof trApiErrors, string> = {
   'apiErrors.schedules.canOnlyRemoveOwnWaitlistEntry': 'You can only remove your own waitlist entry',
   'apiErrors.schedules.cancelledSessionCannotUpdated': 'A cancelled session cannot be updated',
   'apiErrors.schedules.cannotJoinWaitlistSessionStarted': 'You cannot join the waitlist of a session that has started',
+  'apiErrors.schedules.sessionAlreadyStarted': 'You cannot book a session that has already started',
+  'apiErrors.schedules.sessionAlreadyEnded': 'You cannot book a session that has already ended',
+  'apiErrors.schedules.minRepeatIntervalNotElapsed.one': 'This service can be booked again at least {count} day after your other session.',
+  'apiErrors.schedules.minRepeatIntervalNotElapsed.other': 'This service can be booked again at least {count} days after your other session.',
+  'apiErrors.schedules.repeatOverrideNotAllowed': 'Only staff can override the minimum repeat interval.',
   'apiErrors.schedules.capacityBelowBookings': 'Capacity cannot go below the current number of bookings ({count})',
   'apiErrors.schedules.dateRangeCanMost31Days': 'The date range can be at most 31 days',
   'apiErrors.schedules.endTimeMustAfterStartTime': 'The end time must be after the start time',
@@ -527,7 +547,9 @@ export const enApiErrors: Record<keyof typeof trApiErrors, string> = {
   'apiErrors.schedules.memberAlreadyWaitlist': 'The member is already on the waitlist',
   'apiErrors.schedules.mustChooseSpotService': 'You must choose a spot for this service',
   'apiErrors.schedules.mustConfirmedBookingJoinSession': 'You must have a confirmed booking to join this session',
+  'apiErrors.schedules.noChargeNotAllowed': 'Only staff can book without charging a package.',
   'apiErrors.schedules.noShowCannotMarkedBeforeSession': 'A no-show cannot be marked before the session starts',
+  'apiErrors.schedules.noUsablePackage': 'The member has no usable package that covers this service. Assign a package first, or book as staff without charging a package.',
   'apiErrors.schedules.onlyConfirmedBookingsCanCancelled': 'Only confirmed bookings can be cancelled',
   'apiErrors.schedules.onlyConfirmedBookingsCanChecked': 'Only confirmed bookings can be checked in',
   'apiErrors.schedules.onlyConfirmedBookingsCanMarkedAs': 'Only confirmed bookings can be marked as no-show',

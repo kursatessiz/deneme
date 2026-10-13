@@ -116,24 +116,27 @@ export class StripePaymentProvider implements PaymentProviderAdapter {
     const successUrl = this.config.get<string>('STRIPE_CHECKOUT_SUCCESS_URL') ?? 'https://example.com/checkout/success';
     const cancelUrl = this.config.get<string>('STRIPE_CHECKOUT_CANCEL_URL') ?? 'https://example.com/checkout/cancel';
 
-    const session = await this.stripe.checkout.sessions.create({
-      mode: 'payment',
-      client_reference_id: params.reference,
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: params.currency.toLowerCase(),
-            unit_amount: toMinorUnits(params.amount, params.currency),
-            product_data: { name: params.description },
+    const session = await this.stripe.checkout.sessions.create(
+      {
+        mode: 'payment',
+        client_reference_id: params.reference,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: params.currency.toLowerCase(),
+              unit_amount: toMinorUnits(params.amount, params.currency),
+              product_data: { name: params.description },
+            },
           },
-        },
-      ],
-      metadata: { studioId: params.studioId, memberId: params.memberId, reference: params.reference },
-    });
+        ],
+        metadata: { studioId: params.studioId, memberId: params.memberId, reference: params.reference },
+      },
+      params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : undefined,
+    );
 
     return { providerReference: session.id, status: 'PENDING', checkoutUrl: session.url ?? undefined };
   }
@@ -150,16 +153,19 @@ export class StripePaymentProvider implements PaymentProviderAdapter {
     }
 
     try {
-      const intent = await this.stripe.paymentIntents.create({
-        amount: toMinorUnits(params.amount, params.currency),
-        currency: params.currency.toLowerCase(),
-        customer: customerId,
-        payment_method: paymentMethodId,
-        off_session: true,
-        confirm: true,
-        description: params.description,
-        metadata: { studioId: params.studioId, memberId: params.memberId, reference: params.reference },
-      });
+      const intent = await this.stripe.paymentIntents.create(
+        {
+          amount: toMinorUnits(params.amount, params.currency),
+          currency: params.currency.toLowerCase(),
+          customer: customerId,
+          payment_method: paymentMethodId,
+          off_session: true,
+          confirm: true,
+          description: params.description,
+          metadata: { studioId: params.studioId, memberId: params.memberId, reference: params.reference },
+        },
+        params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : undefined,
+      );
       if (intent.status === 'succeeded') {
         return { success: true, providerReference: intent.id };
       }
@@ -316,12 +322,19 @@ export class StripePaymentProvider implements PaymentProviderAdapter {
           valid: true,
           eventType: 'CHECKOUT_COMPLETED',
           providerReference: session.id,
-          amount: session.amount_total ? session.amount_total / 100 : undefined,
+          amount: session.amount_total ? stripeMinorToDecimal(session.amount_total, session.currency ?? '') : undefined,
+          currency: session.currency ? session.currency.toUpperCase() : undefined,
         };
       }
       case 'payment_intent.succeeded': {
         const intent = event.data.object as Stripe.PaymentIntent;
-        return { valid: true, eventType: 'CHARGE_SUCCEEDED', providerReference: intent.id, amount: intent.amount / 100 };
+        return {
+          valid: true,
+          eventType: 'CHARGE_SUCCEEDED',
+          providerReference: intent.id,
+          amount: stripeMinorToDecimal(intent.amount, intent.currency),
+          currency: intent.currency.toUpperCase(),
+        };
       }
       case 'payment_intent.payment_failed': {
         const intent = event.data.object as Stripe.PaymentIntent;

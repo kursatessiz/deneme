@@ -1,7 +1,9 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type { Request } from 'express';
 import { RedisService } from '../../redis/redis.service';
+import { incrementWithTtl } from '../../redis/increment-with-ttl';
 import { apiError } from '../../../common/api-error';
+import { clientIpKey, pruneExpiredCounters } from '../../../common/rate-limit';
 
 const WINDOW_SECONDS = 60;
 const MAX_REQUESTS = 5;
@@ -26,15 +28,14 @@ export class LeadsPublicRateLimitGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<Request>();
-    const ip = req.ip ?? 'unknown';
+    const ip = clientIpKey(req.ip);
 
     const client = this.redis.getClient();
     if (client) {
       try {
         if (client.status === 'wait') await client.connect();
         const key = `leads-public-rl:${ip}`;
-        const count = await client.incr(key);
-        if (count === 1) await client.expire(key, WINDOW_SECONDS);
+        const count = await incrementWithTtl(client, key, WINDOW_SECONDS);
         if (count > MAX_REQUESTS) {
           throw new HttpException(apiError('apiErrors.common.tooManyRequestsLater'), HttpStatus.TOO_MANY_REQUESTS);
         }
@@ -53,6 +54,7 @@ export class LeadsPublicRateLimitGuard implements CanActivate {
     const entry = this.memoryCounters.get(ip);
     if (!entry || entry.resetAt <= now) {
       this.memoryCounters.set(ip, { count: 1, resetAt: now + WINDOW_SECONDS * 1000 });
+      pruneExpiredCounters(this.memoryCounters, now);
       return true;
     }
     entry.count += 1;

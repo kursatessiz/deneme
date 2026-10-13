@@ -73,9 +73,9 @@ export class EventsJobsService {
     });
     let sent = 0;
     for (const occurrence of occurrences) {
-      // Claimed first: a concurrent heartbeat skips it; the idempotency key covers a crash mid-way.
-      const claimed = await this.prisma.eventOccurrence.updateMany({ where: { id: occurrence.id, reminderSentAt: null }, data: { reminderSentAt: now } });
-      if (claimed.count === 0) continue;
+      // The occurrence is marked AFTER its reminders went out: a crash mid-loop leaves it
+      // unmarked, so the next heartbeat resumes with the remaining registrants (the
+      // per-registration idempotency key stops anyone from getting a second message).
       const registrations = await this.prisma.eventRegistration.findMany({
         where: { studioId: occurrence.studioId, eventId: occurrence.eventId, status: 'CONFIRMED' },
         select: { id: true },
@@ -83,6 +83,7 @@ export class EventsJobsService {
       for (const r of registrations) {
         if (await this.seats.notify(r.id, EVENT_TEMPLATE_KEYS.reminder, `event-reminder:${occurrence.id}:${r.id}`, occurrence.startsAt)) sent++;
       }
+      await this.prisma.eventOccurrence.updateMany({ where: { id: occurrence.id, reminderSentAt: null }, data: { reminderSentAt: now } });
     }
     return sent;
   }

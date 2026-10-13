@@ -6,7 +6,7 @@ import { requestT } from '../../common/server-i18n';
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
-import { calculateTrainerCommission } from './commission-calculator';
+import { calculateTrainerCommission, netPaidForPackage } from './commission-calculator';
 import type { CommissionBookingInput, CommissionSessionInput } from './commission-calculator';
 import { apiError } from '../../common/api-error';
 
@@ -40,7 +40,14 @@ export class PayrollService {
         trainer: { include: { commissionRule: true, membership: { include: { user: true } } } },
         bookings: {
           where: { status: { in: [...ATTENDANCE_RELEVANT_STATUSES] } },
-          include: { memberPackage: { include: { packageDefinition: true } } },
+          include: {
+            memberPackage: {
+              include: {
+                packageDefinition: true,
+                payments: { select: { amount: true, refundedAmount: true, paymentStatus: true } },
+              },
+            },
+          },
         },
       },
     });
@@ -55,7 +62,7 @@ export class PayrollService {
         penaltyUnits: b.penaltyUnits,
         package: b.memberPackage
           ? {
-              price: b.memberPackage.packageDefinition.price,
+              paidAmount: netPaidForPackage(b.memberPackage.payments),
               entitlementKind: b.memberPackage.entitlementKind,
               totalUnits: b.memberPackage.totalUnits,
               validityDays: b.memberPackage.packageDefinition.validityDays,

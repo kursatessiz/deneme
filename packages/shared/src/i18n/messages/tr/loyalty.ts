@@ -104,6 +104,7 @@ export const trLoyalty = {
   'loyalty.reason.JOURNEY_AWARD': 'Otomatik akış',
   'loyalty.reason.REDEEM': 'Ödül kullanımı',
   'loyalty.reason.EXPIRED': 'Süresi doldu',
+  'loyalty.reason.REFUND_REVERSAL': 'İade nedeniyle geri alındı',
 
   'loyalty.error.LOYALTY_DISABLED': 'Sadakat programı kapalı.',
   'loyalty.error.LOYALTY_INSUFFICIENT_BALANCE': 'Puan bakiyesi yetersiz.',

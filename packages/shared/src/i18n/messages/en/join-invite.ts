@@ -16,4 +16,5 @@ export const enJoinInvite = {
   'joinInvite.submit': 'Accept invitation',
   'joinInvite.submitting': 'Sending...',
   'joinInvite.failed': 'The invitation could not be accepted.',
+  'joinInvite.goToLogin': 'Go to sign in',
 } as const satisfies Record<keyof typeof trJoinInvite, string>;

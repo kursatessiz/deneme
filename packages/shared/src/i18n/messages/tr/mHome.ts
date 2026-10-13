@@ -15,6 +15,7 @@ export const trMHome = {
   'mHome.a11y.viewMyAchievements': 'Başarılarımı gör',
   'mHome.myAchievements': 'Başarılarım',
   'mHome.achievementsSubtitle': 'Seri, rozetler ve aylık hedefiniz',
+  'mHome.manageBooking': 'Yönet veya iptal et',
   'mHome.upcomingBookings': 'Yaklaşan rezervasyonlarım',
   'mHome.noUpcomingBookings': 'Yaklaşan rezervasyonunuz yok.',
   'mHome.errors.calendarAddFailed': 'Takvime eklenemedi, tekrar deneyin.',

@@ -377,9 +377,16 @@ export class MessagingService {
     switch (channel) {
       case 'SMS': {
         const adapter = this.registry.resolveSms(countryOfPhone(msg.address) ?? studio?.countryCode ?? null, ctx.messaging.smsProvider);
-        const provider = adapter.isConfigured() ? adapter.key : 'MOCK';
+        const configured = adapter.isConfigured();
+        const provider = configured ? adapter.key : 'MOCK';
+        if (!configured && this.config.get<string>('NODE_ENV') === 'production') {
+          // Nothing can be delivered and nothing must be billed: refuse instead of simulating a send.
+          return { provider, skippedReason: { reason: ctx.reasonT('apiTexts.send.smsNotConfigured'), code: 'NOT_CONFIGURED' } };
+        }
         let reservation: { walletId: string; balanceAfter: number } | null = null;
-        if (input.studioId && input.billing !== 'EXEMPT') {
+        // SMS credits are only spent when a real provider actually sends (rule 8):
+        // an unconfigured adapter simulates the send (outside production) without billing.
+        if (configured && input.studioId && input.billing !== 'EXEMPT') {
           reservation = await this.reserveSmsCredit(input.studioId);
           if (!reservation) return { provider, skippedReason: { reason: ctx.reasonT('apiTexts.send.insufficientSmsCredit'), code: 'INSUFFICIENT_CREDIT' } };
         }
@@ -387,12 +394,21 @@ export class MessagingService {
           // Local development only: show the real text so codes can be used.
           this.logger.warn(`[MOCK SMS] ${msg.address}: ${msg.text}`);
         }
-        const result = await adapter.send({
-          phone: msg.address,
-          body: msg.text,
-          params: stringParams(msg.variables),
-          senderName: ctx.settings.smsSenderName,
-        });
+        let result: ChannelSendResult;
+        try {
+          result = await adapter.send({
+            phone: msg.address,
+            body: msg.text,
+            params: stringParams(msg.variables),
+            senderName: ctx.settings.smsSenderName,
+          });
+        } catch (err) {
+          // The provider threw: nothing was delivered, so the reserved credit goes back (rule 8).
+          if (reservation && input.studioId) {
+            await this.prisma.smsWallet.updateMany({ where: { studioId: input.studioId }, data: { balance: { increment: 1 } } });
+          }
+          throw err;
+        }
         if (reservation && input.studioId) {
           if (result.success) {
             await this.prisma.smsTransaction.create({

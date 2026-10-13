@@ -57,17 +57,16 @@ export class MfaService {
 
   /** Confirms the pending secret with a first code; returns recovery codes and an upgraded session. */
   async confirmEnrollment(userId: string, code: string, ip: string | null) {
-    await this.throttle.assertAllowed('mfa', userId, ip);
+    await this.throttle.reserveAttempt('mfa', userId, ip);
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (user.mfaEnabledAt) throw new ConflictException(apiError('apiErrors.auth.twoFactorAuthenticationAlreadyEnabled'));
     if (!user.totpSecretEncrypted) throw new BadRequestException(apiError('apiErrors.auth.startSetup'));
 
     const step = verifyTotp(this.cipher.decrypt(user.totpSecretEncrypted), code);
     if (step === null) {
-      await this.throttle.recordFailure('mfa', userId, ip);
       throw invalidCode();
     }
-    await this.throttle.recordSuccess('mfa', userId);
+    await this.throttle.recordSuccess('mfa', userId, ip);
 
     const now = new Date();
     const recoveryCodes = generateRecoveryCodes(MFA_RECOVERY_CODE_COUNT);
@@ -87,7 +86,7 @@ export class MfaService {
 
   /** The TOTP step: a current code or one unused recovery code. */
   async verify(userId: string, dto: MfaVerifyInput, ip: string | null) {
-    await this.throttle.assertAllowed('mfa', userId, ip);
+    await this.throttle.reserveAttempt('mfa', userId, ip);
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (!user.mfaEnabledAt || !user.totpSecretEncrypted) throw new BadRequestException(apiError('apiErrors.auth.twoFactorAuthenticationNotEnabled'));
 
@@ -112,10 +111,9 @@ export class MfaService {
       usedRecovery = ok;
     }
     if (!ok) {
-      await this.throttle.recordFailure('mfa', userId, ip);
       throw invalidCode();
     }
-    await this.throttle.recordSuccess('mfa', userId);
+    await this.throttle.recordSuccess('mfa', userId, ip);
     if (usedRecovery) {
       await this.prisma.auditLog.create({
         data: { studioId: null, userId, action: 'mfa.recovery_code_used', entityType: 'User', entityId: userId, metadata: {} as Prisma.InputJsonValue },
@@ -127,7 +125,7 @@ export class MfaService {
 
   /** New set of recovery codes; needs a current TOTP code. */
   async regenerateRecoveryCodes(userId: string, code: string, ip: string | null): Promise<{ recoveryCodes: string[] }> {
-    await this.throttle.assertAllowed('mfa', userId, ip);
+    await this.throttle.reserveAttempt('mfa', userId, ip);
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (!user.mfaEnabledAt || !user.totpSecretEncrypted) throw new BadRequestException(apiError('apiErrors.auth.twoFactorAuthenticationNotEnabled'));
     const step = verifyTotp(this.cipher.decrypt(user.totpSecretEncrypted), code);
@@ -139,10 +137,9 @@ export class MfaService {
             data: { totpLastUsedStep: step },
           });
     if (claimed.count !== 1) {
-      await this.throttle.recordFailure('mfa', userId, ip);
       throw invalidCode();
     }
-    await this.throttle.recordSuccess('mfa', userId);
+    await this.throttle.recordSuccess('mfa', userId, ip);
     const recoveryCodes = generateRecoveryCodes(MFA_RECOVERY_CODE_COUNT);
     await this.prisma.$transaction([
       this.prisma.userMfaRecoveryCode.deleteMany({ where: { userId } }),

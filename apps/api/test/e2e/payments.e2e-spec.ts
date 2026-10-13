@@ -295,6 +295,20 @@ describe('Payments (e2e)', () => {
       expect(third.body.paymentStatus).toBe('REFUNDED');
     });
 
+    it('a full refund ends the purchased package and keeps its bookings; a partial refund leaves it active', async () => {
+      const memberPackageId = memberPackageIds[memberPackageIds.length - 1];
+      await as(ownerToken).post(`/payments/${paymentId}/refund`, { amount: 100, reason: 'e2e kismi' });
+      expect((await prisma.memberPackage.findUniqueOrThrow({ where: { id: memberPackageId } })).status).toBe('ACTIVE');
+
+      const full = await as(ownerToken).post(`/payments/${paymentId}/refund`, { reason: 'e2e tam iade' });
+      expect(full.status).toBe(201);
+      const pkg = await prisma.memberPackage.findUniqueOrThrow({ where: { id: memberPackageId } });
+      expect(pkg.status).toBe('EXPIRED');
+      expect(pkg.endDate.getTime()).toBeLessThanOrEqual(Date.now());
+      const log = await prisma.auditLog.findFirst({ where: { studioId: ZEN, action: 'payments.refund.package_cancelled', entityId: memberPackageId } });
+      expect(log).not.toBeNull();
+    });
+
     it('a trainer cannot refund (needs finance.manage)', async () => {
       const res = await as(trainerToken).post(`/payments/${paymentId}/refund`, { amount: 100, reason: 'e2e' });
       expect(res.status).toBe(403);
@@ -406,6 +420,30 @@ describe('Payments (e2e)', () => {
       // Owner has members.contact.view, so the full name is shown, not the raw UUID.
       expect(row.memberDisplayName).toBe(`${otherUser.firstName} ${otherUser.lastName}`);
       expect(row.memberDisplayName).not.toBe(otherMemberId);
+    });
+  });
+
+  describe('stored card privacy', () => {
+    it('never returns the provider card token to the member', async () => {
+      const created = await as(memberToken).post('/payments/cards/self', {
+        providerCardToken: 'card_tok_secret_7777',
+        last4: '7777',
+        brand: 'VISA',
+        expMonth: 11,
+        expYear: 2032,
+      });
+      expect(created.status).toBe(201);
+      storedCardIds.push(created.body.id);
+      expect(JSON.stringify(created.body)).not.toContain('card_tok_secret_7777');
+      expect(created.body).not.toHaveProperty('providerCardToken');
+      expect(created.body).toMatchObject({ last4: '7777', brand: 'VISA', expMonth: 11, expYear: 2032 });
+
+      const list = await as(memberToken).get('/payments/cards/self');
+      expect(list.status).toBe(200);
+      const row = list.body.find((c: { id: string }) => c.id === created.body.id);
+      expect(row).toBeDefined();
+      expect(JSON.stringify(list.body)).not.toContain('card_tok_secret_7777');
+      for (const card of list.body) expect(card).not.toHaveProperty('providerCardToken');
     });
   });
 

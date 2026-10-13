@@ -214,6 +214,58 @@ describe('Sites: page engine (e2e)', () => {
       const askAfterDelete = await request(server).get('/public/domains/ask').query({ domain: 'e2e-test.example.com' });
       expect(askAfterDelete.status).toBe(404);
     });
+
+    describe('a domain held by another site', () => {
+      const squatted = `e2e-squat-${Date.now().toString(36)}.example.com`;
+      const verifiedElsewhere = `e2e-owned-${Date.now().toString(36)}.example.com`;
+      let otherSiteId: string;
+      let createdOtherSite = false;
+
+      beforeAll(async () => {
+        const flow = (await prisma.studio.findUniqueOrThrow({ where: { slug: 'flow-pilates-wellness' } })).id;
+        const existing = await prisma.site.findUnique({ where: { studioId: flow } });
+        if (existing) {
+          otherSiteId = existing.id;
+        } else {
+          otherSiteId = (await prisma.site.create({ data: { studioId: flow, kind: 'TENANT' } })).id;
+          createdOtherSite = true;
+        }
+      });
+
+      afterAll(async () => {
+        await prisma.siteDomain.deleteMany({ where: { domain: { in: [squatted, verifiedElsewhere] } } });
+        if (createdOtherSite) await prisma.site.delete({ where: { id: otherSiteId } });
+      });
+
+      it('an unverified claim of another site does not block the real owner: the row moves over with a fresh token', async () => {
+        const squat = await prisma.siteDomain.create({ data: { siteId: otherSiteId, domain: squatted, verificationToken: 'squatter-token' } });
+
+        const add = await as(ownerToken, ZEN).post(`/sites/studio/${ZEN}/domains`).send({ domain: squatted });
+        expect(add.status).toBe(201);
+        expect(add.body.status).toBe('PENDING');
+
+        const row = await prisma.siteDomain.findUniqueOrThrow({ where: { domain: squatted }, include: { site: { select: { studioId: true } } } });
+        expect(row.id).toBe(squat.id);
+        expect(row.site.studioId).toBe(ZEN);
+        expect(row.verificationToken).not.toBe('squatter-token');
+        expect(row.verifiedAt).toBeNull();
+      });
+
+      it('a domain verified by another site still answers 409', async () => {
+        await prisma.siteDomain.create({
+          data: { siteId: otherSiteId, domain: verifiedElsewhere, verificationToken: 'owner-token', status: 'VERIFIED', verifiedAt: new Date() },
+        });
+        const add = await as(ownerToken, ZEN).post(`/sites/studio/${ZEN}/domains`).send({ domain: verifiedElsewhere });
+        expect(add.status).toBe(409);
+        const row = await prisma.siteDomain.findUniqueOrThrow({ where: { domain: verifiedElsewhere } });
+        expect(row.siteId).toBe(otherSiteId);
+      });
+
+      it('adding a domain the site already has still answers 409', async () => {
+        const again = await as(ownerToken, ZEN).post(`/sites/studio/${ZEN}/domains`).send({ domain: squatted });
+        expect(again.status).toBe(409);
+      });
+    });
   });
 
   describe('public rendering', () => {

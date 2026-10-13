@@ -1,4 +1,5 @@
 import { Prisma } from '@platform/database';
+import { zonedDateKey } from '@platform/shared';
 
 /**
  * Pure quota math, isolated for unit testing: how many spots out of a
@@ -24,4 +25,13 @@ export function isAllocationClosed(isReleased: boolean, releaseAt: Date, now: Da
  */
 export function computeExpectedPayout(payoutRatePerVisit: string, visits: number): string {
   return new Prisma.Decimal(payoutRatePerVisit).mul(visits).toFixed(2);
+}
+
+/**
+ * Report month (`YYYY-MM`) of a partner visit: the month in which the SESSION
+ * takes place, evaluated in the studio's time zone (not the booking's
+ * creation time, and not UTC).
+ */
+export function partnerVisitMonthKey(sessionStart: Date, timeZone: string): string {
+  return zonedDateKey(sessionStart, timeZone).slice(0, 7);
 }

@@ -151,37 +151,24 @@ describe('Messaging (e2e)', () => {
       expect(denied.status).toBe(403);
     });
 
-    it('does not charge the wallet when it is empty, and charges exactly one credit on a successful send', async () => {
+    it('never charges the wallet when no SMS provider is configured (simulated send, no USAGE row)', async () => {
       // Force the SMS-only path so send() cannot silently succeed via mock WhatsApp.
       await prisma.studio.update({ where: { id: ZEN }, data: { notificationSettings: { order: ['SMS'], whatsappEnabled: false } } });
 
       // BOOKING_CHANGE defaults to sms: true, unlike BOOKING_REMINDER, so the
       // demo member (no stored override) actually reaches the channel logic.
-      await prisma.smsWallet.update({ where: { studioId: ZEN }, data: { balance: 0 } });
-      const emptyResult = await notifications.send({
-        studioId: ZEN,
-        userId: memberUserId,
-        category: 'BOOKING_CHANGE',
-        template: 'BOOKING_REMINDER',
-        params: { firstName: 'Test', serviceName: 'Reformer', startTime: '10:00' },
-      });
-      expect(emptyResult.success).toBe(false);
-      expect((await prisma.smsWallet.findUniqueOrThrow({ where: { studioId: ZEN } })).balance).toBe(0);
-
       await prisma.smsWallet.update({ where: { studioId: ZEN }, data: { balance: 3 } });
-      const okResult = await notifications.send({
+      const usageBefore = await prisma.smsTransaction.count({ where: { studioId: ZEN, type: 'USAGE' } });
+      const result = await notifications.send({
         studioId: ZEN,
         userId: memberUserId,
         category: 'BOOKING_CHANGE',
         template: 'BOOKING_REMINDER',
         params: { firstName: 'Test', serviceName: 'Reformer', startTime: '10:00' },
       });
-      expect(okResult).toMatchObject({ success: true, channel: 'SMS' });
-      expect((await prisma.smsWallet.findUniqueOrThrow({ where: { studioId: ZEN } })).balance).toBe(2);
-
-      const usage = await prisma.smsTransaction.findFirst({ where: { studioId: ZEN, type: 'USAGE' }, orderBy: { createdAt: 'desc' } });
-      expect(usage).not.toBeNull();
-      expect(usage!.amount).toBe(-1);
+      expect(result).toMatchObject({ success: true, channel: 'SMS' });
+      expect((await prisma.smsWallet.findUniqueOrThrow({ where: { studioId: ZEN } })).balance).toBe(3);
+      expect(await prisma.smsTransaction.count({ where: { studioId: ZEN, type: 'USAGE' } })).toBe(usageBefore);
     });
   });
 

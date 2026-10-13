@@ -12,6 +12,7 @@ import { getActiveLocale } from '../src/i18n/activeLocale';
 import { resolveOfflineLocale } from '../src/i18n/offlineTranslate';
 import { ApiError } from '../src/lib/api';
 import { kioskRequest } from '../src/lib/kioskApi';
+import { canExitKiosk } from '../src/lib/kioskExit';
 import { clearKioskSession, getKioskSession, setKioskSession } from '../src/lib/kioskStore';
 import type { KioskSession } from '../src/lib/kioskStore';
 import { useSession } from '../src/lib/session';
@@ -114,7 +115,11 @@ export default function KioskModeScreen() {
     try {
       const parsedPhone = PhoneSchema.safeParse(exitPhone);
       if (!parsedPhone.success) throw new Error(t('mKiosk.invalidPhone'));
-      await pinLogin(parsedPhone.data, exitPin);
+      const kioskStudioId = session?.studioId;
+      if (!kioskStudioId) throw new Error(t('mKiosk.exitFailed'));
+      // Only staff who may manage this studio's kiosk can unpair it; any other PIN leaves the kiosk running.
+      const allowed = await pinLogin(parsedPhone.data, exitPin, (user) => canExitKiosk(user, kioskStudioId));
+      if (!allowed) throw new Error(t('mKiosk.exitNotAllowed'));
       await clearKioskSession();
       router.replace('/(app)');
     } catch (err) {

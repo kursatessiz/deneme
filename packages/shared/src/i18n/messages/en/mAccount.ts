@@ -18,6 +18,7 @@ export const enMAccount: Record<keyof typeof trMAccount, string> = {
   'mAccount.menu.eventCheckIn': 'Event check-in',
   'mAccount.menu.referFriend': 'Refer a friend',
   'mAccount.menu.health': 'Health integration',
+  'mAccount.menu.privacy': 'Privacy and data erasure',
   'mAccount.menu.myCommission': 'My commission',
   'mAccount.menu.payroll': 'Payroll',
   'mAccount.menu.myInvoices': 'My invoices',

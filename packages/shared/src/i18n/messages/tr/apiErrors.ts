@@ -66,10 +66,12 @@ export const trApiErrors = {
   'apiErrors.ai.translationJobNotFound': 'Çeviri işi bulunamadı.',
 
   // apiKeys
+  'apiErrors.apiKeys.scopeBeyondOwnPermissions': 'Kendi yetkinizi aşan bir kapsam için API anahtarı oluşturamazsınız',
   'apiErrors.apiKeys.apiKeyExpired': 'Bu API anahtarının süresi dolmuştur',
   'apiErrors.apiKeys.apiKeyNotFound': 'API anahtarı bulunamadı',
   'apiErrors.apiKeys.apiKeyRevoked': 'Bu API anahtarı iptal edilmiştir',
   'apiErrors.apiKeys.authorizationBearerApiKeyRequired': 'Authorization: Bearer <api key> gereklidir',
+  'apiErrors.apiKeys.businessSuspended': 'Bu API anahtarının işletmesi askıya alınmıştır',
   'apiErrors.apiKeys.invalidApiKey': 'Geçersiz API anahtarı',
   'apiErrors.apiKeys.invalidApiKeyFormat': 'Geçersiz API anahtarı biçimi',
   'apiErrors.apiKeys.keyAlreadyRevoked': 'Bu anahtar zaten iptal edilmiş',
@@ -353,12 +355,18 @@ export const trApiErrors = {
   'apiErrors.memberHealth.writingWorkoutsHealthNotEnabled': 'Sağlığa antrenman yazma özelliği açık değil',
 
   // members
+  'apiErrors.erasure.alreadyErased': 'Bu üyenin kişisel verileri zaten silinmiş',
+  'apiErrors.erasure.alreadyOpen': 'Bu üye için açık bir silme talebi zaten var',
+  'apiErrors.erasure.notDecidable': 'Bu talep artık onaylanamaz veya reddedilemez',
+  'apiErrors.erasure.requestNotFound': 'Silme talebi bulunamadı',
+  'apiErrors.erasure.staffNotErasable': 'İşletme sahibi, personel ve platform yöneticisi hesaplarının verileri bu akışla silinemez',
   'apiErrors.members.freezeDaysExceeded.one': 'Bu paket en fazla {count} gün dondurulabilir.',
   'apiErrors.members.freezeDaysExceeded.other': 'Bu paket en fazla {count} gün dondurulabilir.',
   'apiErrors.members.membershipPhoneNumberAlreadyExistsBusiness': 'Bu telefon numarasına sahip bir üyelik bu işletmede zaten mevcut',
   'apiErrors.members.noMemberProfileBusiness': 'Bu işletmede üye profiliniz yok',
   'apiErrors.members.packageNotFound': 'Paket bulunamadı',
   'apiErrors.members.packageNotFrozen': 'Bu paket dondurulmuş durumda değil',
+  'apiErrors.members.packageNotFreezable': 'Bu paket mevcut durumunda dondurulamaz',
 
   // messaging
   'apiErrors.messaging.24HourWhatsappCustomerServiceWindow': 'WhatsApp 24 saatlik müşteri hizmetleri penceresi kapandı: yalnızca onaylı bir şablon gönderilebilir',
@@ -407,6 +415,8 @@ export const trApiErrors = {
   'apiErrors.payments.canOnlyCancelOwnSubscription': 'Yalnızca kendi aboneliğinizi iptal edebilirsiniz',
   'apiErrors.payments.canOnlyMakePurchasesYourself': 'Yalnızca kendi adınıza satın alma yapabilirsiniz',
   'apiErrors.payments.cancelledSubscriptionCannotPaused': 'İptal edilmiş abonelik durdurulamaz',
+  'apiErrors.payments.currencyMustMatchStudio': 'Para birimi işletmenin para birimiyle aynı olmalıdır ({currency})',
+  'apiErrors.payments.paymentMethodNotSupportedForSale': 'Bu ödeme yöntemi paket satışında desteklenmiyor',
   'apiErrors.payments.cardDeclined': 'Kart reddedildi',
   'apiErrors.payments.invalidWebhookSignature': 'Geçersiz webhook imzası',
   'apiErrors.payments.iyzicoIntegrationNotImplementedYet': 'iyzico entegrasyonu henüz uygulanmadı',
@@ -427,6 +437,10 @@ export const trApiErrors = {
   'apiErrors.payments.stripeNotConfiguredPaymentsCannotAccepted': 'Stripe yapılandırılmamış; ödeme alınamıyor.',
   'apiErrors.payments.stripeNotConfiguredStripeSecretKey': 'Stripe yapılandırılmamış: STRIPE_SECRET_KEY gereklidir',
   'apiErrors.payments.subscriptionNotFound': 'Abonelik bulunamadı',
+
+  // payouts
+  'apiErrors.payouts.accountAlreadyConnected': 'Bu ödeme sağlayıcı hesabı başka bir işletmeye bağlı',
+  'apiErrors.payouts.onlyOwnerCanChangeAccount': 'Ödeme sağlayıcı hesabını yalnızca işletme sahibi değiştirebilir',
 
   // payroll
   'apiErrors.payroll.approvedPaidPayrollCannotChanged': 'Onaylanmış veya ödenmiş bordro değiştirilemez',
@@ -466,6 +480,7 @@ export const trApiErrors = {
   'apiErrors.promotions.alreadyUsedCode': 'Bu kodu daha önce kullandınız',
   'apiErrors.promotions.amountBelowCodeMinimum': 'Tutar bu kod için minimum tutarın altında',
   'apiErrors.promotions.cardAlreadyCancelled': 'Kart zaten iptal edilmiş',
+  'apiErrors.promotions.cannotRefundCancelledCard': 'İptal edilmiş hediye kartına iade yapılamaz',
   'apiErrors.promotions.cardBalanceJustChanged': 'Kart bakiyesi az önce değişti, tekrar deneyin',
   'apiErrors.promotions.cardStatusJustChanged': 'Kart durumu az önce değişti, tekrar deneyin',
   'apiErrors.promotions.codeAlreadyUseBusiness': 'Bu kod bu işletmede zaten kullanımda',
@@ -520,6 +535,11 @@ export const trApiErrors = {
   'apiErrors.schedules.canOnlyRemoveOwnWaitlistEntry': 'Yalnızca kendi bekleme listesi kaydınızı silebilirsiniz',
   'apiErrors.schedules.cancelledSessionCannotUpdated': 'İptal edilmiş bir seans güncellenemez',
   'apiErrors.schedules.cannotJoinWaitlistSessionStarted': 'Başlamış bir seansın bekleme listesine girilemez',
+  'apiErrors.schedules.sessionAlreadyStarted': 'Başlamış bir seansa rezervasyon yapılamaz',
+  'apiErrors.schedules.sessionAlreadyEnded': 'Sona ermiş bir seansa rezervasyon yapılamaz',
+  'apiErrors.schedules.minRepeatIntervalNotElapsed.one': 'Bu hizmet için bir önceki seansınızdan en az {count} gün sonra yeniden rezervasyon yapabilirsiniz.',
+  'apiErrors.schedules.minRepeatIntervalNotElapsed.other': 'Bu hizmet için bir önceki seansınızdan en az {count} gün sonra yeniden rezervasyon yapabilirsiniz.',
+  'apiErrors.schedules.repeatOverrideNotAllowed': 'Asgari tekrar aralığı kuralını yalnızca personel aşabilir.',
   'apiErrors.schedules.capacityBelowBookings': 'Kapasite mevcut rezervasyon sayısının ({count}) altına düşürülemez',
   'apiErrors.schedules.dateRangeCanMost31Days': 'Tarih aralığı en fazla 31 gün olabilir',
   'apiErrors.schedules.endTimeMustAfterStartTime': 'Bitiş saati başlangıç saatinden sonra olmalıdır',
@@ -530,7 +550,9 @@ export const trApiErrors = {
   'apiErrors.schedules.memberAlreadyWaitlist': 'Üye zaten bekleme listesinde',
   'apiErrors.schedules.mustChooseSpotService': 'Bu hizmet için bir yer seçmelisiniz',
   'apiErrors.schedules.mustConfirmedBookingJoinSession': 'Bu seansa katılabilmek için onaylı bir rezervasyonunuz olmalıdır',
+  'apiErrors.schedules.noChargeNotAllowed': 'Hak düşmeden rezervasyonu yalnızca personel yapabilir.',
   'apiErrors.schedules.noShowCannotMarkedBeforeSession': 'Seans başlamadan gelmedi işaretlenemez',
+  'apiErrors.schedules.noUsablePackage': 'Üyenin bu hizmeti karşılayan kullanılabilir paketi yok. Önce paket tanımlayın veya personel olarak hak düşmeden rezervasyon yapın.',
   'apiErrors.schedules.onlyConfirmedBookingsCanCancelled': 'Yalnızca onaylı rezervasyonlar iptal edilebilir',
   'apiErrors.schedules.onlyConfirmedBookingsCanChecked': 'Yalnızca onaylı rezervasyonlar için giriş yapılabilir',
   'apiErrors.schedules.onlyConfirmedBookingsCanMarkedAs': 'Yalnızca onaylı rezervasyonlar gelmedi olarak işaretlenebilir',

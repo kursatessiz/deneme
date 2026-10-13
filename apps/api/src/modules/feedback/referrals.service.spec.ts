@@ -110,4 +110,48 @@ describe('ReferralsService', () => {
       );
     });
   });
+
+  describe('referrer without an unexpired package', () => {
+    const referral = { id: 'ref-1', studioId: STUDIO_ID, referrerMemberId: 'member-referrer', status: 'QUALIFIED' };
+
+    it('looks only for ACTIVE packages whose end date is still in the future', async () => {
+      prisma.studio.findUnique.mockResolvedValue({ referralRewardUnits: 2 });
+      prisma.referral.updateMany.mockResolvedValue({ count: 1 });
+      prisma.referral.findUniqueOrThrow.mockResolvedValue(referral);
+      prisma.memberPackage.findFirst.mockResolvedValue(null);
+
+      await (service as any).grantReward(STUDIO_ID, referral.id);
+
+      const where = prisma.memberPackage.findFirst.mock.calls[0][0].where;
+      expect(where.status).toBe('ACTIVE');
+      expect(where.endDate.gt).toBeInstanceOf(Date);
+    });
+
+    it('does not finish the reward (transaction aborted, no audit row) when no package can be credited', async () => {
+      prisma.studio.findUnique.mockResolvedValue({ referralRewardUnits: 2 });
+      prisma.referral.updateMany.mockResolvedValue({ count: 1 });
+      prisma.referral.findUniqueOrThrow.mockResolvedValue(referral);
+      prisma.memberPackage.findFirst.mockResolvedValue(null);
+      // Model the rollback: a callback that throws leaves the status untouched in the database.
+      prisma.$transaction = jest.fn(async (cb: any) => cb(prisma));
+
+      await expect((service as any).grantReward(STUDIO_ID, referral.id)).resolves.toBeUndefined();
+
+      expect(prisma.memberPackage.update).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+      // The transaction callback rejected, which is what makes the database roll the REWARDED update back.
+      await expect(prisma.$transaction.mock.results[0].value).rejects.toBeDefined();
+    });
+
+    it('still rewards a referral that carries no unit reward', async () => {
+      prisma.studio.findUnique.mockResolvedValue({ referralRewardUnits: 0 });
+      prisma.referral.updateMany.mockResolvedValue({ count: 1 });
+      prisma.referral.findUniqueOrThrow.mockResolvedValue(referral);
+
+      await (service as any).grantReward(STUDIO_ID, referral.id);
+
+      expect(prisma.referral.updateMany).toHaveBeenCalledTimes(1);
+      expect(prisma.memberPackage.findFirst).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -84,6 +84,7 @@ export class AdminBusinessTypesService {
       for (const name of defaults.serviceTypeNames ?? []) {
         const existing = await tx.serviceType.findFirst({ where: { studioId, name } });
         if (existing) continue;
+        // allowedEntitlementKinds stays empty on purpose: an empty list means every entitlement kind is allowed.
         await tx.serviceType.create({
           data: { studioId, name, durationMin: DEFAULT_SERVICE_DURATION_MIN, capacity: DEFAULT_SERVICE_CAPACITY },
         });

@@ -1,6 +1,7 @@
 import { Prisma } from '@platform/database';
 import {
   calculateTrainerCommission,
+  netPaidForPackage,
   type CommissionBookingInput,
   type CommissionPackageInput,
   type CommissionSessionInput,
@@ -9,11 +10,11 @@ import {
 const START = new Date('2025-02-03T10:00:00.000Z');
 
 function sessionCountPackage(price: number, totalUnits: number): CommissionPackageInput {
-  return { price, entitlementKind: 'SESSION_COUNT', totalUnits, validityDays: 60 };
+  return { paidAmount: price, entitlementKind: 'SESSION_COUNT', totalUnits, validityDays: 60 };
 }
 
 function timeUnlimitedPackage(price: number, validityDays: number): CommissionPackageInput {
-  return { price, entitlementKind: 'TIME_UNLIMITED', totalUnits: null, validityDays };
+  return { paidAmount: price, entitlementKind: 'TIME_UNLIMITED', totalUnits: null, validityDays };
 }
 
 function attended(pkg: CommissionPackageInput | null, unitsCharged = 1, bookingId = 'b1'): CommissionBookingInput {
@@ -61,7 +62,7 @@ describe('calculateTrainerCommission', () => {
   it('PERCENTAGE on a CREDIT package charges per unit consumed', () => {
     // 9000 / 20 = 450 per credit, 3 credits consumed, 40% => 540
     const rule = { id: 'r3', type: 'PERCENTAGE' as const, value: 40 };
-    const pkg: CommissionPackageInput = { price: 9000, entitlementKind: 'CREDIT', totalUnits: 20, validityDays: 90 };
+    const pkg: CommissionPackageInput = { paidAmount: 9000, entitlementKind: 'CREDIT', totalUnits: 20, validityDays: 90 };
     const result = calculateTrainerCommission([session({ trainerRule: rule, bookings: [attended(pkg, 3)] })]);
 
     expect(result.grossAmount.toFixed(2)).toBe('540.00');
@@ -162,7 +163,7 @@ describe('calculateTrainerCommission', () => {
   it('rounds the total half-up to 2 decimals only at the end, not per booking', () => {
     // Three bookings each contributing 0.005 exactly: summed first (0.015), then rounded once.
     const rule = { id: 'rhalf', type: 'PERCENTAGE' as const, value: 50 };
-    const pkg: CommissionPackageInput = { price: 0.01, entitlementKind: 'CREDIT', totalUnits: 100, validityDays: 30 };
+    const pkg: CommissionPackageInput = { paidAmount: 0.01, entitlementKind: 'CREDIT', totalUnits: 100, validityDays: 30 };
     // unit price = 0.0001, * 1 unit * 50% = 0.00005 per booking; 3 bookings => 0.00015, rounds to 0.00.
     const bookings = [attended(pkg, 1, 'b1'), attended(pkg, 1, 'b2'), attended(pkg, 1, 'b3')];
     const result = calculateTrainerCommission([session({ trainerRule: rule, bookings })]);
@@ -170,7 +171,7 @@ describe('calculateTrainerCommission', () => {
     expect(result.grossAmount.toFixed(2)).toBe('0.00');
 
     // A case that rounds up: 0.125 total -> 0.13 (half-up), not 0.12 (banker's/half-even).
-    const pkg2: CommissionPackageInput = { price: 2.5, entitlementKind: 'SESSION_COUNT', totalUnits: 10, validityDays: 30 };
+    const pkg2: CommissionPackageInput = { paidAmount: 2.5, entitlementKind: 'SESSION_COUNT', totalUnits: 10, validityDays: 30 };
     const rule2 = { id: 'rhalf2', type: 'PERCENTAGE' as const, value: 50 };
     // unit price = 0.25, * 1 unit * 50% = 0.125
     const result2 = calculateTrainerCommission([session({ trainerRule: rule2, bookings: [attended(pkg2)] })]);
@@ -199,5 +200,46 @@ describe('calculateTrainerCommission', () => {
     expect(result.grossAmount).toBeInstanceOf(Prisma.Decimal);
     expect(result.details[0].amount).toBeInstanceOf(Prisma.Decimal);
     expect(result.details[0].unitPrice).toBeInstanceOf(Prisma.Decimal);
+  });
+});
+
+describe('commission base is the amount actually paid', () => {
+  const rule = { id: 'rp', type: 'PERCENTAGE' as const, value: 50 };
+  const pay = (amount: number, refundedAmount = 0, paymentStatus: 'PENDING' | 'COMPLETED' | 'REFUNDED' | 'FAILED' = 'COMPLETED') => ({
+    amount,
+    refundedAmount,
+    paymentStatus,
+  });
+
+  function commissionFor(payments: ReturnType<typeof pay>[], totalUnits: number): string {
+    const pkg: CommissionPackageInput = { paidAmount: netPaidForPackage(payments), entitlementKind: 'SESSION_COUNT', totalUnits, validityDays: 60 };
+    return calculateTrainerCommission([session({ trainerRule: rule, bookings: [attended(pkg)] })]).grossAmount.toFixed(2);
+  }
+
+  it('discounted sale: list price 1000 sold for 800 pays commission on 800', () => {
+    // 800 / 10 = 80 per unit, 50% => 40 (list price would have given 50)
+    expect(commissionFor([pay(800)], 10)).toBe('40.00');
+  });
+
+  it('package given free (no payment) earns no percentage commission', () => {
+    expect(netPaidForPackage([]).toFixed(2)).toBe('0.00');
+    expect(commissionFor([], 10)).toBe('0.00');
+  });
+
+  it('promo bonus units are part of totalUnits, so the base never exceeds the cash paid', () => {
+    // 10 paid + 2 bonus units, 1000 paid => 1000 / 12 per unit; all 12 units consumed yield exactly the paid base
+    const pkg: CommissionPackageInput = { paidAmount: netPaidForPackage([pay(1000)]), entitlementKind: 'SESSION_COUNT', totalUnits: 12, validityDays: 60 };
+    const result = calculateTrainerCommission([session({ trainerRule: rule, bookings: [attended(pkg, 12)] })]);
+    expect(result.grossAmount.toFixed(2)).toBe('500.00');
+  });
+
+  it('refunds reduce the base; a fully refunded payment counts as zero', () => {
+    expect(netPaidForPackage([pay(1000, 250)]).toFixed(2)).toBe('750.00');
+    expect(commissionFor([pay(1000, 250)], 10)).toBe('37.50');
+    expect(netPaidForPackage([pay(1000, 1000, 'REFUNDED')]).toFixed(2)).toBe('0.00');
+  });
+
+  it('sums several payments and ignores pending and failed ones', () => {
+    expect(netPaidForPackage([pay(400), pay(600, 100), pay(300, 0, 'PENDING'), pay(200, 0, 'FAILED')]).toFixed(2)).toBe('900.00');
   });
 });

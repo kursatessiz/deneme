@@ -119,3 +119,102 @@ describe('PlatformBillingService.activate (G5c-1b billing currency)', () => {
     });
   });
 });
+
+describe('PlatformBillingService.activate (parallel clicks)', () => {
+  /**
+   * A small in-memory database: the credit ledger and billing payments are
+   * arrays, every call yields to the event loop so unserialised work would
+   * interleave, and pg_advisory_xact_lock is a real per-key mutex held until
+   * the transaction callback settles.
+   */
+  function parallelSetup() {
+    const ledger: { amount: Prisma.Decimal | null; currency: string | null; months: number | null; kind: string }[] = [
+      { kind: 'GRANT', amount: new Prisma.Decimal('1000.00'), currency: 'TRY', months: null },
+    ];
+    const payments: { id: string; studioId: string; status: string; createdAt: Date; creditAmount: string }[] = [];
+    const locks = new Map<string, Promise<void>>();
+    const tick = () => new Promise<void>((r) => setImmediate(r));
+    let seq = 0;
+
+    const makeTx = (held: { release?: () => void }) => ({
+      $executeRaw: async (query: { values: unknown[] }) => {
+        const key = String(query.values[0]);
+        while (locks.has(key)) await locks.get(key);
+        let release!: () => void;
+        locks.set(key, new Promise<void>((r) => (release = r)));
+        held.release = () => {
+          locks.delete(key);
+          release();
+        };
+      },
+      platformBillingPayment: {
+        findFirst: async () => {
+          await tick();
+          return payments.find((p) => p.status === 'PENDING') ? { id: 'pending' } : null;
+        },
+        create: async ({ data }: { data: { studioId: string; status: string; creditAmount: string } }) => {
+          await tick();
+          const row = { id: `pay-${++seq}`, studioId: data.studioId, status: data.status, createdAt: new Date(), creditAmount: data.creditAmount };
+          payments.push(row);
+          return row;
+        },
+      },
+      platformCreditLedger: {
+        findMany: async () => {
+          await tick();
+          return ledger.map((r) => ({ amount: r.amount, currency: r.currency, months: r.months }));
+        },
+        create: async ({ data }: { data: { kind: string; amount?: Prisma.Decimal; currency?: string; months?: number } }) => {
+          await tick();
+          ledger.push({ kind: data.kind, amount: data.amount ?? null, currency: data.currency ?? null, months: data.months ?? null });
+          return {};
+        },
+      },
+    });
+
+    const plan = { id: 'plan-1', key: 'pro', isActive: true, prices: [{ currency: 'TRY', priceMonthly: new Prisma.Decimal('3490') }] };
+    const checkout = jest.fn().mockResolvedValue({ providerReference: 'chk-1', status: 'PENDING', checkoutUrl: 'https://pay.example' });
+    const prisma = {
+      studio: { findUnique: jest.fn().mockResolvedValue({ id: STUDIO, billingStatus: 'RESTRICTED', isPlatform: false, countryCode: 'TR', billingCurrency: null }) },
+      plan: { findFirst: jest.fn().mockResolvedValue(plan) },
+      platformBillingPayment: { update: jest.fn().mockResolvedValue({}) },
+      platformCreditLedger: { findMany: jest.fn() },
+      $transaction: async (fn: (t: ReturnType<typeof makeTx>) => Promise<unknown>) => {
+        const held: { release?: () => void } = {};
+        try {
+          return await fn(makeTx(held));
+        } finally {
+          held.release?.();
+        }
+      },
+    };
+    const service = new PlatformBillingService(
+      prisma as unknown as PrismaService,
+      { default: { name: 'MOCK', createCheckout: checkout } } as unknown as PaymentProviderRegistry,
+      {} as PaymentWebhookRouter,
+      { recordStudioPaid: jest.fn() } as unknown as ConversionService,
+      { onReferredStudioActivated: jest.fn() } as unknown as StudioReferralsService,
+    );
+    jest.spyOn(service as unknown as { activationResult: () => Promise<unknown> }, 'activationResult').mockResolvedValue({ pending: true });
+    return { service, ledger, payments, prisma };
+  }
+
+  it('lets one of two parallel activations through and spends the credit once', async () => {
+    const { service, ledger, payments } = parallelSetup();
+    const tenant = { studioId: STUDIO } as TenantContext;
+    const dto = { planKey: 'pro', installmentCount: 1 };
+
+    const settled = await Promise.allSettled([service.activate(tenant, 'owner', dto), service.activate(tenant, 'owner', dto)]);
+
+    expect(settled.filter((s) => s.status === 'fulfilled')).toHaveLength(1);
+    const rejected = settled.find((s) => s.status === 'rejected') as PromiseRejectedResult;
+    expect(rejected.reason.response.code).toBe('apiErrors.billing.pendingPaymentWaitComplete');
+    expect(payments).toHaveLength(1);
+    const applied = ledger.filter((r) => r.kind === 'APPLIED');
+    expect(applied).toHaveLength(1);
+    expect(applied[0].amount?.toFixed(2)).toBe('-1000.00');
+    // The remaining balance never goes negative.
+    const balance = ledger.reduce((sum, r) => sum.plus(r.amount ?? 0), new Prisma.Decimal(0));
+    expect(balance.toFixed(2)).toBe('0.00');
+  });
+});

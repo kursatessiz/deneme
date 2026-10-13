@@ -1,7 +1,9 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/tenant-context';
 import { RedisService } from '../redis/redis.service';
+import { incrementWithTtl } from '../redis/increment-with-ttl';
 import { apiError } from '../../common/api-error';
+import { pruneExpiredCounters } from '../../common/rate-limit';
 
 const WINDOW_SECONDS = 60;
 /** Test-connection and manual spend-sync are cheap but call a real third party; a tight per-membership limit is enough to stop accidental hammering. */
@@ -29,8 +31,7 @@ export class AdsRateLimitGuard implements CanActivate {
     if (client) {
       try {
         if (client.status === 'wait') await client.connect();
-        const count = await client.incr(key);
-        if (count === 1) await client.expire(key, WINDOW_SECONDS);
+        const count = await incrementWithTtl(client, key, WINDOW_SECONDS);
         return count;
       } catch {
         // Redis unreachable mid-request: fall through to the in-memory bucket.
@@ -40,6 +41,7 @@ export class AdsRateLimitGuard implements CanActivate {
     const entry = this.memoryCounters.get(key);
     if (!entry || entry.resetAt <= now) {
       this.memoryCounters.set(key, { count: 1, resetAt: now + WINDOW_SECONDS * 1000 });
+      pruneExpiredCounters(this.memoryCounters, now);
       return 1;
     }
     entry.count += 1;

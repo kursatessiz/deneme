@@ -384,13 +384,14 @@ export class CampaignsService {
         approvedAudience = await this.approvals.verifyForSend(campaign, now);
         if (!approvedAudience) return totals;
       }
-      // Only one worker moves SCHEDULED -> SENDING and takes the audience snapshot.
-      const claimed = await this.prisma.campaign.updateMany({ where: { id, status: 'SCHEDULED' }, data: { status: 'SENDING', startedAt: now } });
-      if (claimed.count === 1) {
-        const contactIds = approvedAudience ?? (await this.segments.memberIds(campaign.studioId, campaign.segmentId, now));
-        await this.materialise(campaign, contactIds, now);
-        await this.prisma.campaign.update({ where: { id }, data: { audienceCount: contactIds.length } });
-      }
+      // The audience is written BEFORE the status flips: a crash in between leaves a
+      // SCHEDULED campaign that the next run snapshots again (createMany skips the
+      // existing rows), never a SENDING one with no recipients that would complete as SENT.
+      const contactIds = approvedAudience ?? (await this.segments.memberIds(campaign.studioId, campaign.segmentId, now));
+      await this.materialise(campaign, contactIds, now);
+      await this.prisma.campaign.updateMany({ where: { id, status: 'SCHEDULED' }, data: { audienceCount: contactIds.length } });
+      // Only one worker moves SCHEDULED -> SENDING.
+      await this.prisma.campaign.updateMany({ where: { id, status: 'SCHEDULED' }, data: { status: 'SENDING', startedAt: now } });
       campaign = await this.prisma.campaign.findUnique({ where: { id } });
       if (!campaign) return totals;
     }
@@ -424,13 +425,19 @@ export class CampaignsService {
       });
       if (!pending.length) break;
       for (const recipient of pending) {
-        capBlocked = caps?.blockedBy(campaign.channel) ?? null;
-        if (capBlocked) break;
-        const sent = await this.sendOne(campaign, recipient, now, variants);
-        if (sent) {
-          totals[sent.outcome] += 1;
-          if (sent.outcome === 'sent') caps?.consume(sent.channel);
+        // Check and hold the cap room in one synchronous step, release it when nothing was sent.
+        const held = caps ? caps.reserve(campaign.channel) : null;
+        if (caps && !held) {
+          capBlocked = caps.blockedBy(campaign.channel);
+          break;
         }
+        let sent: { outcome: 'sent' | 'skipped' | 'failed'; channel: string | null } | null = null;
+        try {
+          sent = await this.sendOne(campaign, recipient, now, variants);
+        } finally {
+          if (caps && held) caps.settle(held, sent?.outcome === 'sent' ? sent.channel : null);
+        }
+        if (sent) totals[sent.outcome] += 1;
       }
     }
     if (capBlocked) await this.deferForCap(campaign, capBlocked, abActive, now);

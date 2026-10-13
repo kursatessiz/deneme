@@ -4,7 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import type { LocalizedNotice } from '../notifications/notifications.service';
 import { PaymentProviderRegistry } from './providers/payment-provider.registry';
-import { MemberSubscriptionStatus, PaymentAttemptStatus, PaymentMethod, PaymentProvider, PaymentStatus } from '@platform/database';
+import { PROVIDER_PAYMENT_METHOD } from './provider-method';
+import { MemberSubscriptionStatus, PaymentAttemptStatus, PaymentStatus } from '@platform/database';
 import type { MemberSubscription, PackageDefinition, PaymentAttempt, StoredCard } from '@platform/database';
 
 /**
@@ -26,12 +27,11 @@ type SubscriptionWithRelations = MemberSubscription & {
   storedCard: StoredCard | null;
 };
 
-const CHARGE_PROVIDER_METHOD: Record<PaymentProvider, PaymentMethod> = {
-  [PaymentProvider.MOCK]: PaymentMethod.CREDIT_CARD_POS,
-  [PaymentProvider.IYZICO]: PaymentMethod.ONLINE_IYZICO,
-  [PaymentProvider.PAYTR]: PaymentMethod.ONLINE_PAYTR,
-  [PaymentProvider.STRIPE]: PaymentMethod.ONLINE_STRIPE,
-};
+/**
+ * How long a claimed subscription stays invisible to other runs while its
+ * charge is in flight. The claim moves nextChargeAt this far into the future.
+ */
+export const DUNNING_CLAIM_LEASE_MS = 15 * 60 * 1000;
 
 @Injectable()
 export class DunningService {
@@ -89,23 +89,49 @@ export class DunningService {
     const cycleAttempts = await this.currentCycleAttempts(sub.id);
     const attemptNumber = cycleAttempts.length + 1;
 
-    const studio = await this.prisma.studio.findUniqueOrThrow({ where: { id: sub.studioId }, select: { currency: true } });
-    const amount = Number(sub.packageDefinition.price);
-    const charge = await this.providers.get(sub.storedCard.provider).chargeStoredCard({
-      studioId: sub.studioId,
-      memberId: sub.memberId,
-      cardToken: sub.storedCard.providerCardToken,
-      amount,
-      currency: studio.currency,
-      installmentCount: sub.installmentCount,
-      description: `${sub.packageDefinition.name} yenileme`,
-      reference: `dunning_${sub.id}_${attemptNumber}_${now.getTime()}`,
+    // Claim the subscription BEFORE touching the card: a conditional update
+    // moves nextChargeAt forward as an in-flight lease. A concurrent run (cron,
+    // admin trigger, second worker) then no longer sees the row as due, or
+    // loses this race (count 0) and skips it.
+    const leaseUntil = new Date(now.getTime() + DUNNING_CLAIM_LEASE_MS);
+    const claimed = await this.prisma.memberSubscription.updateMany({
+      where: { id: sub.id, nextChargeAt: sub.nextChargeAt },
+      data: { nextChargeAt: leaseUntil },
     });
+    if (claimed.count === 0) return { subscriptionId: sub.id, outcome: 'skipped' };
+    const claimedSub: SubscriptionWithRelations = { ...sub, nextChargeAt: leaseUntil };
 
-    if (charge.success) {
-      return this.applySuccessfulRenewal(sub, amount, studio.currency, charge.providerReference, attemptNumber);
+    let charge;
+    try {
+      const studio = await this.prisma.studio.findUniqueOrThrow({ where: { id: sub.studioId }, select: { currency: true } });
+      const amount = Number(sub.packageDefinition.price);
+      // Stable per due-date reference, also used as the provider idempotency key,
+      // so a retry of the same due charge can never create a second one.
+      const reference = `dunning_${sub.id}_${sub.nextChargeAt.getTime()}`;
+      charge = await this.providers.get(sub.storedCard.provider).chargeStoredCard({
+        studioId: sub.studioId,
+        memberId: sub.memberId,
+        cardToken: sub.storedCard.providerCardToken,
+        amount,
+        currency: studio.currency,
+        installmentCount: sub.installmentCount,
+        description: `${sub.packageDefinition.name} yenileme`,
+        reference,
+        idempotencyKey: reference,
+      });
+      if (charge.success) {
+        return await this.applySuccessfulRenewal(claimedSub, amount, studio.currency, charge.providerReference, attemptNumber);
+      }
+    } catch (err) {
+      // Nothing was finalized: release the lease so the next run retries with
+      // the same reference (and therefore the same provider idempotency key).
+      await this.prisma.memberSubscription.updateMany({
+        where: { id: sub.id, nextChargeAt: leaseUntil },
+        data: { nextChargeAt: sub.nextChargeAt },
+      });
+      throw err;
     }
-    return this.applyFailedRenewal(sub, charge.failureCode, attemptNumber, cycleAttempts, now);
+    return this.applyFailedRenewal(claimedSub, charge.failureCode, attemptNumber, cycleAttempts, now);
   }
 
   /** Failed attempts since the subscription's last success, oldest last (findMany is desc). */
@@ -164,7 +190,7 @@ export class DunningService {
           storedCardId: sub.storedCardId,
           amount,
           currency,
-          paymentMethod: CHARGE_PROVIDER_METHOD[sub.storedCard!.provider],
+          paymentMethod: PROVIDER_PAYMENT_METHOD[sub.storedCard!.provider],
           paymentStatus: PaymentStatus.COMPLETED,
           provider: sub.storedCard!.provider,
           providerReference,

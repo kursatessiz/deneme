@@ -3,18 +3,14 @@ import { BookingStatus } from '@platform/database';
 import { parsePartnerConnectionConfig, type PartnerVisitsReportRow } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
-import { computeExpectedPayout } from './partner-quota';
-
-/** month key formatted YYYY-MM in the studio's own timezone-naive UTC date parts (matches other reports' convention). */
-function monthKey(date: Date): string {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
-}
+import { computeExpectedPayout, partnerVisitMonthKey } from './partner-quota';
 
 @Injectable()
 export class PartnerReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async visits(tenant: TenantContext, from?: Date, to?: Date): Promise<PartnerVisitsReportRow[]> {
+    const studio = await this.prisma.studio.findUniqueOrThrow({ where: { id: tenant.studioId }, select: { timezone: true } });
     const connections = await this.prisma.partnerConnection.findMany({ where: { studioId: tenant.studioId } });
     if (connections.length === 0) return [];
 
@@ -24,10 +20,10 @@ export class PartnerReportsService {
         partnerConnectionId: { in: connections.map((c) => c.id) },
         status: { in: [BookingStatus.ATTENDED, BookingStatus.NO_SHOW, BookingStatus.CONFIRMED] },
         ...(from || to
-          ? { createdAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }
+          ? { schedule: { startTime: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } }
           : {}),
       },
-      select: { partnerConnectionId: true, status: true, createdAt: true },
+      select: { partnerConnectionId: true, status: true, schedule: { select: { startTime: true } } },
     });
 
     type Bucket = { visits: number; noShows: number; payoutRate: string };
@@ -39,7 +35,7 @@ export class PartnerReportsService {
       if (!connectionId) continue;
       const connection = connectionById.get(connectionId);
       if (!connection) continue;
-      const key = `${connectionId}|${monthKey(booking.createdAt)}`;
+      const key = `${connectionId}|${partnerVisitMonthKey(booking.schedule.startTime, studio.timezone)}`;
       const config = parsePartnerConnectionConfig(connection.config);
       const bucket = buckets.get(key) ?? {
         visits: 0,

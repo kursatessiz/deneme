@@ -23,6 +23,8 @@ import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 import { PLATFORM_ACCESS_ERROR_CODES, isPlatformSystemRoleKey, isWriteRestricted } from '@platform/shared';
 import { PlatformAccessService } from '../platform-access/platform-access.service';
 import { billingRestrictedError } from '../auth/guards/billing-write.guard';
+import { assertCanGrant, assertNotLocked } from '../role-templates/role-templates.service';
+import { assertUnrestricted } from '../branches/branch-access';
 import { apiError, codedError } from '../../common/api-error';
 import { pickBundledLocale, requestedLocale, requestT, serverT } from '../../common/server-i18n';
 
@@ -62,6 +64,9 @@ export class InvitesService {
     if (!tenant.permissions.has(required)) {
       throw new ForbiddenException(apiError('apiErrors.invites.notPermissionCreateInvitationRole'));
     }
+    // A branch-restricted actor must not mint a staff account: a new staff
+    // membership has no branch rows, which means access to every branch.
+    if (dto.roleKey !== 'member') assertUnrestricted(tenant);
     // Restricted mode (G5c-1): staff invites stay available (staff.manage is
     // on the allow-list), new members do not.
     if (dto.roleKey === 'member' && !tenant.isSuperAdmin && isWriteRestricted(tenant.billingStatus)) {
@@ -79,6 +84,11 @@ export class InvitesService {
       where: { studioId_key: { studioId: tenant.studioId, key: dto.roleKey } },
     });
     if (!role || role.isOwner) throw new BadRequestException(apiError('apiErrors.common.roleNotFound'));
+    assertNotLocked(role);
+    // Same boundary as role assignment: a non-owner cannot invite into a
+    // role holding permissions the inviter does not hold.
+    const roleKeys = await this.prisma.roleTemplatePermission.findMany({ where: { roleTemplateId: role.id }, select: { permissionKey: true } });
+    assertCanGrant(tenant, roleKeys.map((k) => k.permissionKey));
 
     const existing = await this.prisma.membership.findFirst({
       where: { studioId: tenant.studioId, status: 'ACTIVE', user: { phone: dto.phone } },
@@ -222,6 +232,8 @@ export class InvitesService {
     }
 
     const existingUser = await this.prisma.user.findUnique({ where: { phone: invite.phone } });
+    // A globally deactivated account cannot be re-activated or granted a membership through an invite.
+    if (existingUser?.isActive === false) throw new ForbiddenException(apiError('apiErrors.auth.userNotFoundAccountDisabled'));
     if (!existingUser?.pinHash && !dto.pin) {
       throw new BadRequestException(apiError('apiErrors.invites.setPinSignApp'));
     }
@@ -238,10 +250,14 @@ export class InvitesService {
       });
       if (claimed.count !== 1) throw new GoneException(INVALID_INVITE);
 
+      // Re-check inside the transaction: the account may have been deactivated since the read above.
+      const inactive = await tx.user.findFirst({ where: { phone: invite.phone, isActive: false }, select: { id: true } });
+      if (inactive) throw new ForbiddenException(apiError('apiErrors.auth.userNotFoundAccountDisabled'));
+
       const user = await tx.user.upsert({
         where: { phone: invite.phone },
         create: { phone: invite.phone, firstName, lastName, pinHash, phoneVerifiedAt: now },
-        update: { phoneVerifiedAt: now, ...(pinHash ? { pinHash, failedPinAttempts: 0, pinLockedUntil: null } : {}) },
+        update: { phoneVerifiedAt: now, ...(pinHash ? { pinHash, failedPinAttempts: 0, pinLockedUntil: null, refreshTokenHash: null, prevRefreshTokenHash: null, refreshRotatedAt: null, sessionEpoch: { increment: 1 } } : {}) },
       });
 
       if (isPlatformInvite) {

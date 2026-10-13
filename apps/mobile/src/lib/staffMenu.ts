@@ -51,6 +51,8 @@ export function buildHesabimMenu(input: StaffMenuInput): MenuItem[] {
     items.push({ key: 'events', labelKey: 'mAccount.menu.events', route: '/(app)/hesabim/etkinlikler' });
     items.push({ key: 'refer-friend', labelKey: 'mAccount.menu.referFriend', route: '/(app)/hesabim/arkadasini-getir' });
     items.push({ key: 'health', labelKey: 'mAccount.menu.health', route: '/(app)/hesabim/saglik' });
+    // KVKK/GDPR: request erasure of the personal data held by this business (docs/KVKK_SILME.md).
+    items.push({ key: 'privacy', labelKey: 'mAccount.menu.privacy', route: '/(app)/hesabim/gizlilik' });
     items.push({ key: 'chat', labelKey: 'mAccount.menu.chat', route: '/(app)/hesabim/mesajlar' });
   }
 

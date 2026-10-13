@@ -607,6 +607,104 @@ describe('Promotions (e2e)', () => {
       expect(afterRefundCard.status).toBe('ACTIVE');
     });
 
+    it('a full refund of a gift-card sale cancels the card and its remaining balance', async () => {
+      const purchaser = await createMember('gift-purchaser-7');
+      const issue = await as(ownerToken).post('/promotions/gift-cards', {
+        studioId: ZEN,
+        memberId: purchaser.memberId,
+        initialAmount: 250,
+        currency: 'TRY',
+        paymentMethod: 'CASH',
+      });
+      createdGiftCardIds.push(issue.body.id);
+      createdPaymentIds.push(issue.body.payment.id);
+
+      const refund = await as(ownerToken).post(`/payments/${issue.body.payment.id}/refund`, { reason: 'e2e gift card sale refund' });
+      expect(refund.status).toBe(201);
+      const card = await prisma.giftCard.findUniqueOrThrow({ where: { id: issue.body.id } });
+      expect(card.status).toBe('CANCELLED');
+      expect(card.balance.toFixed(2)).toBe('0.00');
+      const log = await prisma.auditLog.findFirst({ where: { studioId: ZEN, action: 'payments.refund.gift_card_cancelled', entityId: issue.body.id } });
+      expect(log).not.toBeNull();
+    });
+
+    it('a partial refund of a gift-card sale leaves the card alone', async () => {
+      const purchaser = await createMember('gift-purchaser-8');
+      const issue = await as(ownerToken).post('/promotions/gift-cards', {
+        studioId: ZEN,
+        memberId: purchaser.memberId,
+        initialAmount: 250,
+        currency: 'TRY',
+        paymentMethod: 'CASH',
+      });
+      createdGiftCardIds.push(issue.body.id);
+      createdPaymentIds.push(issue.body.payment.id);
+
+      const refund = await as(ownerToken).post(`/payments/${issue.body.payment.id}/refund`, { amount: 50, reason: 'e2e partial' });
+      expect(refund.status).toBe(201);
+      const card = await prisma.giftCard.findUniqueOrThrow({ where: { id: issue.body.id } });
+      expect(card.status).toBe('ACTIVE');
+      expect(card.balance.toFixed(2)).toBe('250.00');
+    });
+
+    it('a refund never re-activates a cancelled gift card', async () => {
+      const purchaser = await createMember('gift-purchaser-9');
+      const spender = await createMember('gift-spender-9');
+      const issue = await as(ownerToken).post('/promotions/gift-cards', {
+        studioId: ZEN,
+        memberId: purchaser.memberId,
+        initialAmount: 400,
+        currency: 'TRY',
+        paymentMethod: 'CASH',
+      });
+      createdGiftCardIds.push(issue.body.id);
+      createdPaymentIds.push(issue.body.payment.id);
+      const sale = await as(ownerToken).post('/payments/sell', {
+        studioId: ZEN,
+        memberId: spender.memberId,
+        packageDefinitionId: sessionPackageId,
+        paymentMethod: 'CASH',
+        paidAmount: sessionPackagePrice,
+        currency: 'TRY',
+        giftCardCode: issue.body.code,
+        giftCardAmount: 400,
+      });
+      expect(sale.status).toBe(201);
+      trackSale(sale.body);
+      expect((await as(ownerToken).post(`/promotions/gift-cards/${issue.body.id}/cancel`)).status).toBe(201);
+
+      const refund = await as(ownerToken).post(`/payments/${sale.body.payment.id}/refund`, { reason: 'e2e cancelled card refund' });
+      expect(refund.status).toBe(409);
+      const card = await prisma.giftCard.findUniqueOrThrow({ where: { id: issue.body.id } });
+      expect(card.status).toBe('CANCELLED');
+      expect(card.balance.toFixed(2)).toBe('0.00');
+      const payment = await prisma.payment.findUniqueOrThrow({ where: { id: sale.body.payment.id } });
+      expect(payment.paymentStatus).toBe('COMPLETED');
+    });
+
+    it('lists the purchaser own gift cards without the code hash', async () => {
+      const purchaser = await createMember('gift-purchaser-10');
+      const issue = await as(ownerToken).post('/promotions/gift-cards', {
+        studioId: ZEN,
+        memberId: purchaser.memberId,
+        initialAmount: 75,
+        currency: 'TRY',
+        paymentMethod: 'CASH',
+      });
+      createdGiftCardIds.push(issue.body.id);
+      createdPaymentIds.push(issue.body.payment.id);
+
+      const mine = await as(purchaser.token).get('/promotions/gift-cards/mine');
+      expect(mine.status).toBe(200);
+      const row = mine.body.find((c: { id: string }) => c.id === issue.body.id);
+      expect(row).toMatchObject({ id: issue.body.id, last4: issue.body.last4, currency: 'TRY', status: 'ACTIVE' });
+      expect(row.balance).toBe('75');
+      for (const card of mine.body) {
+        expect(card).not.toHaveProperty('codeHash');
+        expect(card).not.toHaveProperty('updatedAt');
+      }
+    });
+
     it('audits a manual cancel', async () => {
       const purchaser = await createMember('gift-purchaser-6');
       const issue = await as(ownerToken).post('/promotions/gift-cards', {

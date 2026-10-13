@@ -11,10 +11,25 @@ import type {
   ConversionEventType,
 } from '@platform/shared';
 import { PrismaService } from '../../prisma/prisma.service';
-import { creditConversion, pickFirstTouch, pickLastTouch, touchSummary } from './attribution-models';
+import { creditConversion, touchSummary } from './attribution-models';
 import type { TouchSummary } from './attribution-models';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Only the columns touchSummary() reads. */
+const TOUCH_SELECT = {
+  id: true,
+  occurredAt: true,
+  utmSource: true,
+  utmMedium: true,
+  utmCampaign: true,
+  utmId: true,
+  pwCid: true,
+  pwAsid: true,
+  pwAdid: true,
+  adPlatform: true,
+  referrerHost: true,
+} satisfies Prisma.TouchpointSelect;
 
 /**
  * Which AdSpendDaily level a report grouping matches spend against.
@@ -82,14 +97,20 @@ export class AttributionService {
    * their previous value.
    */
   async refreshContactTouches(studioId: string, contactId: string, at = new Date()): Promise<void> {
-    const touches = await this.prisma.touchpoint.findMany({
+    // Two bounded queries instead of loading every touchpoint of the contact:
+    // first = earliest touch at or before `at`, last = latest touch inside the window.
+    const first = await this.prisma.touchpoint.findFirst({
       where: { studioId, contactId, occurredAt: { lte: at } },
-      orderBy: { occurredAt: 'asc' },
+      orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
+      select: TOUCH_SELECT,
     });
-    if (touches.length === 0) return;
+    if (!first) return;
     const windowDays = await this.windowDaysFor(studioId);
-    const first = pickFirstTouch(touches, at);
-    const last = pickLastTouch(touches, at, windowDays);
+    const last = await this.prisma.touchpoint.findFirst({
+      where: { studioId, contactId, occurredAt: { lte: at, gte: new Date(at.getTime() - windowDays * DAY_MS) } },
+      orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+      select: TOUCH_SELECT,
+    });
     const data: Prisma.ContactUncheckedUpdateManyInput = {
       ...(first ? { firstTouchpointId: first.id, ...summaryColumns('first', touchSummary(first)) } : {}),
       ...(last ? { lastTouchpointId: last.id, ...summaryColumns('last', touchSummary(last)) } : {}),

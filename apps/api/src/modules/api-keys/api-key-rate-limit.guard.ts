@@ -1,7 +1,9 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
+import { incrementWithTtl } from '../redis/increment-with-ttl';
 import type { ApiKeyAuthenticatedRequest } from './api-key-tenant-context';
 import { apiError } from '../../common/api-error';
+import { pruneExpiredCounters } from '../../common/rate-limit';
 
 const WINDOW_SECONDS = 60;
 const MAX_REQUESTS = 120;
@@ -27,8 +29,7 @@ export class ApiKeyRateLimitGuard implements CanActivate {
       try {
         if (client.status === 'wait') await client.connect();
         const key = `api-key-rl:${keyId}`;
-        const count = await client.incr(key);
-        if (count === 1) await client.expire(key, WINDOW_SECONDS);
+        const count = await incrementWithTtl(client, key, WINDOW_SECONDS);
         if (count > MAX_REQUESTS) {
           throw new HttpException(apiError('apiErrors.common.tooManyRequestsLater'), HttpStatus.TOO_MANY_REQUESTS);
         }
@@ -46,6 +47,7 @@ export class ApiKeyRateLimitGuard implements CanActivate {
     const entry = this.memoryCounters.get(keyId);
     if (!entry || entry.resetAt <= now) {
       this.memoryCounters.set(keyId, { count: 1, resetAt: now + WINDOW_SECONDS * 1000 });
+      pruneExpiredCounters(this.memoryCounters, now);
       return true;
     }
     entry.count += 1;

@@ -394,12 +394,13 @@ export class LeadsCompatService {
       referralCode: contact.referralCode ?? undefined,
     });
 
+    // A trial session for a brand-new lead has no package to charge by design.
     const booking = await this.schedules.bookSession(tenant, {
       studioId: tenant.studioId,
       scheduleId: dto.scheduleId,
       memberId: member.id as string,
       resourceIds: [],
-    });
+    }, null, { freeOfCharge: true });
 
     await this.linkMembership(contact.id, member.membershipId as string);
     const fresh = await this.prisma.contact.findUniqueOrThrow({ where: { id: contact.id } });

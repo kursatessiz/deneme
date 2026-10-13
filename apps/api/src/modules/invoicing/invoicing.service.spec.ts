@@ -1,6 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { EInvoiceMode, EInvoiceProvider, InvoiceStatus, PaymentStatus, Prisma } from '@platform/database';
-import { InvoicingService, splitVat } from './invoicing.service';
+import { InvoicingService, invoiceYear, splitVat } from './invoicing.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EInvoiceProviderRegistry } from './providers/einvoice-provider.registry';
 import type { TenantContext } from '../auth/tenant-context';
@@ -27,11 +27,29 @@ describe('splitVat', () => {
   });
 });
 
+describe('invoiceYear', () => {
+  const newYearEveUtc = new Date('2026-12-31T22:30:00.000Z');
+
+  it('uses the studio zone: past midnight in Istanbul it is already the next year', () => {
+    expect(invoiceYear(newYearEveUtc, 'Europe/Istanbul')).toBe(2027);
+  });
+
+  it('keeps the old year for a zone still before midnight', () => {
+    expect(invoiceYear(newYearEveUtc, 'UTC')).toBe(2026);
+    expect(invoiceYear(newYearEveUtc, 'America/New_York')).toBe(2026);
+  });
+
+  it('keeps the previous year just after UTC New Year for a zone west of Greenwich', () => {
+    expect(invoiceYear(new Date('2027-01-01T01:00:00.000Z'), 'America/Los_Angeles')).toBe(2026);
+  });
+});
+
 describe('InvoicingService - issueForPayment idempotency and number sequencing', () => {
   let service: InvoicingService;
   let prisma: any;
   let providers: any;
   let issue: jest.Mock;
+  let counterUpsert: jest.Mock;
 
   const tenant: TenantContext = {
     studioId: 'studio-1',
@@ -64,12 +82,18 @@ describe('InvoicingService - issueForPayment idempotency and number sequencing',
     memberId: 'member-1',
     amount: new Prisma.Decimal('1000.00'),
     currency: 'TRY',
+    studio: { defaultLocale: 'tr', timezone: 'Europe/Istanbul' },
     paymentStatus: PaymentStatus.COMPLETED,
     memberPackage: { packageDefinition: { name: '10 Seans' } },
     member: { membership: { user: { firstName: 'Ada', lastName: 'Yilmaz' } } },
   };
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   beforeEach(() => {
+    counterUpsert = jest.fn().mockResolvedValue({ studioId: 'studio-1', seriesPrefix: 'A', year: 2026, lastSequence: 1 });
     issue = jest.fn().mockResolvedValue({ success: true, providerUuid: 'uuid-1', providerStatus: 'ISSUED' });
     prisma = {
       payment: { findFirst: jest.fn().mockResolvedValue(basePayment) },
@@ -82,9 +106,7 @@ describe('InvoicingService - issueForPayment idempotency and number sequencing',
       billingProfile: { findUnique: jest.fn().mockResolvedValue(null) },
       $transaction: jest.fn(async (fn: any) =>
         fn({
-          invoiceCounter: {
-            upsert: jest.fn().mockResolvedValue({ studioId: 'studio-1', seriesPrefix: 'A', year: 2026, lastSequence: 1 }),
-          },
+          invoiceCounter: { upsert: counterUpsert },
           invoice: {
             create: jest.fn().mockImplementation(({ data }: any) => ({ id: 'invoice-1', ...data })),
           },
@@ -101,6 +123,18 @@ describe('InvoicingService - issueForPayment idempotency and number sequencing',
     expect(issue).toHaveBeenCalledTimes(1);
     expect(result.status).toBe(InvoiceStatus.ISSUED);
     expect(result.number).toBe('A2026000001');
+  });
+
+  it('draws the number from the studio-zone year around New Year (UTC still 2026, Istanbul already 2027)', async () => {
+    jest.useFakeTimers({ now: new Date('2026-12-31T22:30:00.000Z'), doNotFake: ['nextTick', 'setImmediate', 'setTimeout'] });
+    prisma.invoice.update.mockImplementation(({ data }: any) => ({ id: 'invoice-1', ...data }));
+    await service.issueForPayment('studio-1', 'payment-1');
+    expect(counterUpsert).toHaveBeenCalledWith(expect.objectContaining({ where: { studioId_seriesPrefix_year: { studioId: 'studio-1', seriesPrefix: 'A', year: 2027 } } }));
+
+    counterUpsert.mockClear();
+    prisma.payment.findFirst.mockResolvedValue({ ...basePayment, studio: { defaultLocale: 'tr', timezone: 'UTC' } });
+    await service.issueForPayment('studio-1', 'payment-1');
+    expect(counterUpsert).toHaveBeenCalledWith(expect.objectContaining({ where: { studioId_seriesPrefix_year: { studioId: 'studio-1', seriesPrefix: 'A', year: 2026 } } }));
   });
 
   it('is idempotent: an already-ISSUED invoice is returned without calling the provider again', async () => {

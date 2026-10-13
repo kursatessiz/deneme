@@ -137,6 +137,21 @@ export class CatalogController {
     return this.catalog.deactivateCancellationPolicy(tenant, id);
   }
 
+  // Lookups used by the service type form ---------------------------------------
+  // Read-only and trimmed to what a select needs (no payout values).
+
+  @Get('commission-rules/studio/:studioId')
+  @RequirePermission('catalog.view')
+  listCommissionRuleOptions(@Tenant() tenant: TenantContext) {
+    return this.catalog.listCommissionRuleOptions(tenant);
+  }
+
+  @Get('measurement-forms/studio/:studioId')
+  @RequirePermission('catalog.view')
+  listMeasurementFormOptions(@Tenant() tenant: TenantContext) {
+    return this.catalog.listMeasurementFormOptions(tenant);
+  }
+
   // Service types -------------------------------------------------------------
 
   @Get('service-types/studio/:studioId')

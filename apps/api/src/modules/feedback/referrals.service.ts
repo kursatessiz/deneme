@@ -24,6 +24,9 @@ type ReferralRow = Prisma.ReferralGetPayload<{
   };
 }>;
 
+/** Rolls the reward transaction back when the referrer has no active, unexpired package to credit. */
+class NoPackageToCredit extends Error {}
+
 @Injectable()
 export class ReferralsService {
   constructor(
@@ -194,6 +197,17 @@ export class ReferralsService {
     const studio = await this.prisma.studio.findUnique({ where: { id: studioId }, select: { referralRewardUnits: true } });
     const rewardUnits = studio?.referralRewardUnits ?? 0;
 
+    try {
+      await this.grantRewardTx(studioId, referralId, rewardUnits);
+    } catch (err) {
+      // No unexpired package to credit: the whole transition was rolled back, so the
+      // referral stays QUALIFIED and the next sweep retries once the referrer has one.
+      if (err instanceof NoPackageToCredit) return;
+      throw err;
+    }
+  }
+
+  private async grantRewardTx(studioId: string, referralId: string, rewardUnits: number): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       const transitioned = await tx.referral.updateMany({
         where: { id: referralId, studioId, status: PrismaReferralStatus.QUALIFIED },
@@ -212,7 +226,7 @@ export class ReferralsService {
       if (rewardUnits <= 0) return;
 
       const activePackage = await creditActivePackageUnits(tx, studioId, referral.referrerMemberId, rewardUnits);
-      if (!activePackage) return;
+      if (!activePackage) throw new NoPackageToCredit();
 
       await tx.auditLog.create({
         data: {

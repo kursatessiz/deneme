@@ -37,6 +37,19 @@ describe('CredentialCipher', () => {
     expect(cipher.decrypt(encoded)).toBe('dev-secret');
   });
 
+  it('refuses to store plaintext in production when no key is configured', () => {
+    const production = { get: (name: string) => (name === 'NODE_ENV' ? 'production' : undefined) } as unknown as ConfigService;
+    const cipher = new CredentialCipher(production);
+    expect(cipher.isConfigured).toBe(false);
+    expect(() => cipher.encrypt('real-secret')).toThrow('INTEGRATION_ENCRYPTION_KEY');
+  });
+
+  it('still encrypts in production when a key is configured', () => {
+    const production = { get: (name: string) => (name === 'NODE_ENV' ? 'production' : KEY) } as unknown as ConfigService;
+    const cipher = new CredentialCipher(production);
+    expect(cipher.decrypt(cipher.encrypt('real-secret'))).toBe('real-secret');
+  });
+
   it('detects tampering: flipping a byte breaks decryption', () => {
     const cipher = new CredentialCipher(configWith(KEY));
     const encoded = cipher.encrypt('tamper-me');

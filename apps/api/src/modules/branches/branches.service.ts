@@ -1,3 +1,4 @@
+import { cashInOf } from '../payments/cash-in';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@platform/database';
 import { resolvePermissions } from '@platform/shared';
@@ -278,7 +279,7 @@ export class BranchesService {
       this.prisma.payment.groupBy({
         by: ['branchId'],
         where: { studioId, paymentStatus: 'COMPLETED', paidAt: { gte: range.from, lt: range.to } },
-        _sum: { amount: true },
+        _sum: { amount: true, giftCardAmount: true },
       }),
       this.prisma.memberProfile.groupBy({
         by: ['homeBranchId'],
@@ -309,7 +310,7 @@ export class BranchesService {
       r.lateCancellations = Number(b.late_cancellations);
     }
     for (const p of payments) {
-      row(p.branchId).revenue = (p._sum.amount ?? new Prisma.Decimal(0)).toFixed(2);
+      row(p.branchId).revenue = cashInOf(p._sum).toFixed(2);
     }
     for (const h of homeMembers) {
       row(h.homeBranchId).homeMembers = h._count._all;

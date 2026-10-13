@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { LoginInput, MembershipDTO, SessionUserDTO, normalizePhone, resolvePermissions } from '@platform/shared';
 import { OtpPurpose } from '@platform/database';
 import { PrismaService } from '../prisma/prisma.service';
@@ -16,6 +17,8 @@ import { pickBundledLocale, requestedLocale, requestT, serverT } from '../../com
 export const PIN_MAX_FAILURES = 5;
 /** Refresh token lifetime of super admins and platform members (tenant users keep 30 days). */
 export const PLATFORM_REFRESH_TTL = '7d';
+/** A refresh token replaced less than this long ago may still arrive from a parallel request of the same client. */
+export const REFRESH_GRACE_MS = 60 * 1000;
 export const PIN_LOCK_MS = 15 * 60 * 1000;
 const INVALID_CODE = apiError('apiErrors.invites.codeInvalidExpired');
 const INVALID_PIN = apiError('apiErrors.auth.incorrectPhoneNumberPin');
@@ -24,6 +27,22 @@ const INVALID_CREDENTIALS = apiError('apiErrors.auth.incorrectEmailPhonePassword
 // Compared against when the user does not exist, so response time does not
 // reveal which phone numbers are registered.
 const DUMMY_HASH = bcrypt.hashSync('timing-equalizer', 10);
+
+/**
+ * SHA-256 hex of the whole refresh token. bcrypt only reads the first 72
+ * bytes, which are identical across one user's JWTs, so it cannot tell a
+ * rotated token from the current one.
+ */
+export function hashRefreshToken(token: string): string {
+  return createHash('sha256').update(token, 'utf8').digest('hex');
+}
+
+/** Constant-time comparison of a presented refresh token with the stored hash. */
+export function refreshTokenMatches(token: string, storedHash: string): boolean {
+  const presented = Buffer.from(hashRefreshToken(token), 'utf8');
+  const stored = Buffer.from(storedHash, 'utf8');
+  return presented.length === stored.length && timingSafeEqual(presented, stored);
+}
 
 @Injectable()
 export class AuthService {
@@ -67,13 +86,12 @@ export class AuthService {
   }
 
   async pinLogin(phone: string, pin: string, ip: string | null = null) {
-    await this.throttle.assertAllowed('pin', phone, ip);
+    await this.throttle.reserveAttempt('pin', phone, ip);
     const user = await this.prisma.user.findUnique({ where: { phone } });
     const now = new Date();
 
     if (!user || !user.pinHash || !user.isActive) {
       await bcrypt.compare(pin, DUMMY_HASH);
-      await this.throttle.recordFailure('pin', phone, ip);
       throw new UnauthorizedException(INVALID_PIN);
     }
 
@@ -102,21 +120,25 @@ export class AuthService {
           data: { failedPinAttempts: 0, pinLockedUntil: new Date(now.getTime() + PIN_LOCK_MS) },
         });
       }
-      await this.throttle.recordFailure('pin', phone, ip);
       throw new UnauthorizedException(INVALID_PIN);
     }
 
     await this.prisma.user.update({ where: { id: user.id }, data: { failedPinAttempts: 0, pinLockedUntil: null } });
-    await this.throttle.recordSuccess('pin', phone);
+    await this.throttle.recordSuccess('pin', phone, ip);
     const tokens = await this.issueTokens(user.id);
     return { ...tokens, user: await this.sessionUser(user.id) };
   }
 
+  /**
+   * Changing the PIN revokes the stored refresh token (any other session
+   * signs in again) and hands the caller a fresh pair for its own session.
+   */
   async setPin(userId: string, pin: string) {
     await this.prisma.user.update({
       where: { id: userId },
-      data: { pinHash: await bcrypt.hash(pin, 10), failedPinAttempts: 0, pinLockedUntil: null },
+      data: { pinHash: await bcrypt.hash(pin, 10), failedPinAttempts: 0, pinLockedUntil: null, refreshTokenHash: null, prevRefreshTokenHash: null, refreshRotatedAt: null, sessionEpoch: { increment: 1 } },
     });
+    return this.issueTokens(userId);
   }
 
   async login(dto: LoginInput, ip: string | null = null) {
@@ -124,7 +146,7 @@ export class AuthService {
     const email = dto.emailOrPhone.includes('@') ? dto.emailOrPhone.trim().toLowerCase() : null;
     // Throttle on the canonical form so "0532..." and "+90532..." share one budget.
     const identifier = phone ?? email ?? dto.emailOrPhone;
-    await this.throttle.assertAllowed('password', identifier, ip);
+    await this.throttle.reserveAttempt('password', identifier, ip);
 
     const user =
       phone || email
@@ -135,10 +157,9 @@ export class AuthService {
 
     const passwordOk = await bcrypt.compare(dto.password, user?.passwordHash ?? DUMMY_HASH);
     if (!user || !user.passwordHash || !passwordOk) {
-      await this.throttle.recordFailure('password', identifier, ip);
       throw new UnauthorizedException(INVALID_CREDENTIALS);
     }
-    await this.throttle.recordSuccess('password', identifier);
+    await this.throttle.recordSuccess('password', identifier, ip);
     if (!user.isActive) {
       throw new UnauthorizedException(apiError('apiErrors.auth.accountSuspended'));
     }
@@ -150,7 +171,7 @@ export class AuthService {
   async refreshToken(incomingRefreshToken: string) {
     if (!incomingRefreshToken) throw new UnauthorizedException(apiError('apiErrors.auth.invalidSession'));
 
-    let claims: { sub?: string; typ?: string };
+    let claims: { sub?: string; typ?: string; ep?: number };
     try {
       claims = this.jwtService.verify(incomingRefreshToken);
     } catch {
@@ -161,18 +182,34 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: claims.sub } });
     if (!user || !user.isActive || !user.refreshTokenHash) throw new UnauthorizedException(apiError('apiErrors.auth.invalidSession'));
 
-    const isTokenMatch = await bcrypt.compare(incomingRefreshToken, user.refreshTokenHash);
-    if (!isTokenMatch) throw new UnauthorizedException(apiError('apiErrors.auth.invalidRefreshToken'));
+    // A token from before the last revocation is simply stale.
+    if ((typeof claims.ep === 'number' ? claims.ep : 0) !== user.sessionEpoch) throw new UnauthorizedException(apiError('apiErrors.auth.invalidSession'));
+
+    if (!refreshTokenMatches(incomingRefreshToken, user.refreshTokenHash)) {
+      // The token the last rotation replaced, presented within the grace window, is a parallel
+      // refresh of the same client that lost the race: refuse this call, keep the winner's session.
+      const rotatedAgo = user.refreshRotatedAt ? Date.now() - user.refreshRotatedAt.getTime() : Infinity;
+      if (user.prevRefreshTokenHash && rotatedAgo <= REFRESH_GRACE_MS && refreshTokenMatches(incomingRefreshToken, user.prevRefreshTokenHash)) {
+        throw new UnauthorizedException(apiError('apiErrors.auth.invalidRefreshToken'));
+      }
+      // Validly signed but matching neither: a stale copy is in someone's hands, so every session
+      // of the user is revoked (epoch bump, stored hashes cleared).
+      await this.prisma.user.updateMany({
+        where: { id: user.id, sessionEpoch: user.sessionEpoch },
+        data: { sessionEpoch: { increment: 1 }, refreshTokenHash: null, prevRefreshTokenHash: null, refreshRotatedAt: null },
+      });
+      throw new UnauthorizedException(apiError('apiErrors.auth.invalidRefreshToken'));
+    }
 
     // Rotate: the presented refresh token cannot be used again. A session that
     // passed the TOTP step keeps it, unless 2FA was reset or re-enrolled since.
     const mfa = (claims as { mfa?: unknown }).mfa;
     const keepMfa = user.mfaEnabledAt !== null && mfa === user.mfaEnabledAt.getTime();
-    return this.issueTokens(user.id, keepMfa ? user.mfaEnabledAt : null);
+    return this.issueTokens(user.id, keepMfa ? user.mfaEnabledAt : null, user.refreshTokenHash);
   }
 
   async logout(userId: string) {
-    await this.prisma.user.update({ where: { id: userId }, data: { refreshTokenHash: null } });
+    await this.prisma.user.update({ where: { id: userId }, data: { refreshTokenHash: null, prevRefreshTokenHash: null, refreshRotatedAt: null, sessionEpoch: { increment: 1 } } });
   }
 
   /** The user plus every active or invited membership with resolved permissions. */
@@ -260,23 +297,35 @@ export class AuthService {
    * `mfaEnabledAt`: set only right after the TOTP step (MfaService); binds the
    * `mfa` claim to the current enrolment so a reset invalidates it.
    */
-  async issueTokens(userId: string, mfaEnabledAt: Date | null = null) {
+  async issueTokens(userId: string, mfaEnabledAt: Date | null = null, rotatedFromHash: string | null = null) {
     const mfa = mfaEnabledAt ? { mfa: mfaEnabledAt.getTime() } : {};
-    const accessToken = this.jwtService.sign({ sub: userId, typ: 'access', ...mfa }, { expiresIn: '1h' });
     // Platform-level accounts get a shorter refresh window (docs/PAZARLAMA_MODULU.md 6.3).
     const account = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { isSuperAdmin: true, platformMembership: { select: { status: true } } },
+      select: { isSuperAdmin: true, sessionEpoch: true, platformMembership: { select: { status: true } } },
     });
+    const ep = { ep: account?.sessionEpoch ?? 0 };
+    const accessToken = this.jwtService.sign({ sub: userId, typ: 'access', ...ep, ...mfa }, { expiresIn: '1h' });
     const isPlatformAccount = Boolean(account?.isSuperAdmin || account?.platformMembership?.status === 'ACTIVE');
     const refreshToken = this.jwtService.sign(
-      { sub: userId, typ: 'refresh', ...mfa },
+      // jti makes every refresh token unique, even two issued in the same second.
+      { sub: userId, typ: 'refresh', jti: randomUUID(), ...ep, ...mfa },
       { expiresIn: isPlatformAccount ? PLATFORM_REFRESH_TTL : '30d' },
     );
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { refreshTokenHash: await bcrypt.hash(refreshToken, 10) },
-    });
+    if (rotatedFromHash) {
+      // Rotation: only the request that still holds the current token may replace it, so two
+      // parallel refreshes cannot both succeed. The replaced hash is kept for the grace window.
+      const swapped = await this.prisma.user.updateMany({
+        where: { id: userId, refreshTokenHash: rotatedFromHash },
+        data: { refreshTokenHash: hashRefreshToken(refreshToken), prevRefreshTokenHash: rotatedFromHash, refreshRotatedAt: new Date() },
+      });
+      if (swapped.count === 0) throw new UnauthorizedException(apiError('apiErrors.auth.invalidRefreshToken'));
+    } else {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { refreshTokenHash: hashRefreshToken(refreshToken), prevRefreshTokenHash: null, refreshRotatedAt: null },
+      });
+    }
     return { accessToken, refreshToken };
   }
 }

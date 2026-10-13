@@ -26,8 +26,37 @@ export interface CommissionRuleInput {
 
 export type CommissionEntitlementKind = 'SESSION_COUNT' | 'TIME_UNLIMITED' | 'CREDIT';
 
+export interface CommissionPackagePaymentInput {
+  amount: string | number | Prisma.Decimal;
+  refundedAmount: string | number | Prisma.Decimal;
+  paymentStatus: 'PENDING' | 'COMPLETED' | 'REFUNDED' | 'FAILED';
+}
+
+/**
+ * Amount the member actually paid for a package: the sum over its payments
+ * of amount minus refunded amount. Only COMPLETED and REFUNDED payments count
+ * (PENDING money has not arrived, FAILED never did). The gift card part is
+ * included because Payment.amount already covers it. A package without any
+ * payment (assignPackage, referral or bonus credits, trials) is worth 0. The
+ * result is never negative.
+ */
+export function netPaidForPackage(payments: readonly CommissionPackagePaymentInput[]): Prisma.Decimal {
+  let net = new Prisma.Decimal(0);
+  for (const p of payments) {
+    if (p.paymentStatus !== 'COMPLETED' && p.paymentStatus !== 'REFUNDED') continue;
+    const remaining = new Prisma.Decimal(p.amount).minus(p.refundedAmount);
+    if (remaining.gt(0)) net = net.add(remaining);
+  }
+  return net;
+}
+
 export interface CommissionPackageInput {
-  price: string | number | Prisma.Decimal;
+  /**
+   * Amount actually paid for this member package (see netPaidForPackage), NOT
+   * the list price. Spread over totalUnits (which include promo bonus units,
+   * so the commission base across all units never exceeds the cash received).
+   */
+  paidAmount: string | number | Prisma.Decimal;
   entitlementKind: CommissionEntitlementKind;
   /** Sessions/credits for SESSION_COUNT/CREDIT; ignored (may be null) for TIME_UNLIMITED. */
   totalUnits: number | null;
@@ -100,12 +129,12 @@ function unitsConsumed(booking: CommissionBookingInput): number {
 }
 
 /**
- * Price of one package unit. TIME_UNLIMITED packages have no unit count, so
- * we prorate the price over the package's validity, one day standing in for
+ * Value of one package unit, based on the amount paid. TIME_UNLIMITED packages have no unit count, so
+ * we prorate the paid amount over the package's validity, one day standing in for
  * one unit (documented in docs/PAYROLL.md).
  */
 function unitPrice(pkg: CommissionPackageInput): Prisma.Decimal {
-  const price = new Prisma.Decimal(pkg.price);
+  const price = new Prisma.Decimal(pkg.paidAmount);
   if (pkg.entitlementKind === 'TIME_UNLIMITED') {
     return price.div(pkg.validityDays);
   }

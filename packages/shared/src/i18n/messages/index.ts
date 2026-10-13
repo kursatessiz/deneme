@@ -78,6 +78,7 @@ import { trMScreens } from './tr/mScreens';
 import { trMSession } from './tr/mSession';
 import { trMVideoContent } from './tr/mVideoContent';
 import { trMWalkIn } from './tr/mWalkIn';
+import { trStaffBooking } from './tr/staffBooking';
 import { trMWidgets } from './tr/mWidgets';
 import { trNav } from './tr/nav';
 import { trPackages } from './tr/packages';
@@ -90,6 +91,7 @@ import { trAccounting } from './tr/accounting';
 import { trScreens } from './tr/screens';
 import { trDashboard } from './tr/dashboard';
 import { trSettings } from './tr/settings';
+import { trServiceTypes } from './tr/serviceTypes';
 import { trSites } from './tr/sites';
 import { trArticles } from './tr/articles';
 import { trSeo } from './tr/seo';
@@ -103,6 +105,8 @@ import { trMMarketingApprovals } from './tr/mMarketingApprovals';
 import { trErrors } from './tr/errors';
 import { trAdminErrors } from './tr/admin-errors';
 import { trCommunity } from './tr/community';
+import { trErasure } from './tr/erasure';
+import { trMErasure } from './tr/mErasure';
 import { trMCommunity } from './tr/mCommunity';
 import { enApiErrors } from './en/apiErrors';
 import { enValidation } from './en/validation';
@@ -184,6 +188,7 @@ import { enMScreens } from './en/mScreens';
 import { enMSession } from './en/mSession';
 import { enMVideoContent } from './en/mVideoContent';
 import { enMWalkIn } from './en/mWalkIn';
+import { enStaffBooking } from './en/staffBooking';
 import { enMWidgets } from './en/mWidgets';
 import { enNav } from './en/nav';
 import { enPackages } from './en/packages';
@@ -196,6 +201,7 @@ import { enAccounting } from './en/accounting';
 import { enScreens } from './en/screens';
 import { enDashboard } from './en/dashboard';
 import { enSettings } from './en/settings';
+import { enServiceTypes } from './en/serviceTypes';
 import { enSites } from './en/sites';
 import { enArticles } from './en/articles';
 import { enSeo } from './en/seo';
@@ -209,6 +215,8 @@ import { enMMarketingApprovals } from './en/mMarketingApprovals';
 import { enErrors } from './en/errors';
 import { enAdminErrors } from './en/admin-errors';
 import { enCommunity } from './en/community';
+import { enErasure } from './en/erasure';
+import { enMErasure } from './en/mErasure';
 import { enMCommunity } from './en/mCommunity';
 import { trTwoFactor } from './tr/two-factor';
 import { enTwoFactor } from './en/two-factor';
@@ -346,6 +354,7 @@ export const TR_NAMESPACES = [
   trThemeDesign,
   trMVideoContent,
   trMWalkIn,
+  trStaffBooking,
   trMWidgets,
   trNav,
   trPackages,
@@ -358,6 +367,7 @@ export const TR_NAMESPACES = [
   trScreens,
   trDashboard,
   trSettings,
+  trServiceTypes,
   trSites,
   trArticles,
   trSeo,
@@ -371,6 +381,8 @@ export const TR_NAMESPACES = [
   trErrors,
   trAdminErrors,
   trCommunity,
+  trErasure,
+  trMErasure,
   trMCommunity,
   trTwoFactor,
   trAdminPlatformUsers,
@@ -476,6 +488,7 @@ export const EN_NAMESPACES = [
   enThemeDesign,
   enMVideoContent,
   enMWalkIn,
+  enStaffBooking,
   enMWidgets,
   enNav,
   enPackages,
@@ -488,6 +501,7 @@ export const EN_NAMESPACES = [
   enScreens,
   enDashboard,
   enSettings,
+  enServiceTypes,
   enSites,
   enArticles,
   enSeo,
@@ -501,6 +515,8 @@ export const EN_NAMESPACES = [
   enErrors,
   enAdminErrors,
   enCommunity,
+  enErasure,
+  enMErasure,
   enMCommunity,
   enTwoFactor,
   enAdminPlatformUsers,

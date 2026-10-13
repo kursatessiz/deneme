@@ -37,6 +37,7 @@ export const trApiTexts = {
 
   // Booking cancellation result (shown to the person who cancelled)
   'apiTexts.cancel.cancelled': 'Rezervasyon iptal edildi.',
+  'apiTexts.schedules.noShowInWindowNotice': 'Bu üyenin bu hizmette {date} tarihli gelmediği (no-show) bir seansı var; en az gün kuralında sayılmadı.',
   'apiTexts.cancel.cancelledRefunded': 'Rezervasyon iptal edildi, seans hakkı paketinize iade edildi.',
   'apiTexts.cancel.lateNoPenaltyRefunded': 'Geç iptal cezası uygulanmadı, seans hakkı paketinize iade edildi.',
   'apiTexts.cancel.lateCharged.hours': 'Seansa {hours} saatten az kaldığı için {penalty} birim geç iptal olarak düşüldü.',
@@ -98,6 +99,7 @@ export const trApiTexts = {
   'apiTexts.send.frequencyCap': 'Sıklık sınırı aşıldı (kişi başına ticari mesaj)',
   'apiTexts.send.failed': '{channel} gönderimi başarısız',
   'apiTexts.send.insufficientSmsCredit': 'Stüdyo SMS kredisi yetersiz',
+  'apiTexts.send.smsNotConfigured': 'SMS sağlayıcısı yapılandırılmamış, mesaj gönderilmedi',
   'apiTexts.send.trackingNotConfigured': 'Takip anahtarı (MESSAGING_TRACKING_SECRET) yapılandırılmamış',
   'apiTexts.send.studioAddressMissing': 'İşletme adresi tanımlı değil (ticari e-posta için zorunlu)',
   'apiTexts.send.noEmailSubject': 'E-posta konusu yok',

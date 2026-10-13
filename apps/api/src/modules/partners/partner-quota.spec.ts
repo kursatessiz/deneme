@@ -1,4 +1,4 @@
-import { computeExpectedPayout, computeReservedSpots, isAllocationClosed } from './partner-quota';
+import { computeExpectedPayout, computeReservedSpots, isAllocationClosed, partnerVisitMonthKey } from './partner-quota';
 
 describe('computeReservedSpots', () => {
   it('reserves the configured spots when capacity allows', () => {
@@ -43,5 +43,26 @@ describe('computeExpectedPayout', () => {
 
   it('avoids the classic 0.1 + 0.2 style floating point error over many visits', () => {
     expect(computeExpectedPayout('10.10', 37)).toBe('373.70');
+  });
+});
+
+describe('partnerVisitMonthKey', () => {
+  it('buckets by the session month: a 28 Jan booking for a 3 Feb session is February', () => {
+    // The booking creation date is irrelevant; only the session start is passed.
+    expect(partnerVisitMonthKey(new Date('2026-02-03T10:00:00Z'), 'Europe/Istanbul')).toBe('2026-02');
+  });
+
+  it('a session at 23:30 local on the last day of a month stays in that month (ahead of UTC)', () => {
+    // 23:30 Istanbul (UTC+3) on 31 Jan is 20:30Z the same day.
+    expect(partnerVisitMonthKey(new Date('2026-01-31T20:30:00Z'), 'Europe/Istanbul')).toBe('2026-01');
+  });
+
+  it('a session at 23:30 local on the last day of a month stays in that month (behind UTC)', () => {
+    // 23:30 Los Angeles (UTC-8) on 31 Jan is 07:30Z on 1 Feb: UTC would say February.
+    expect(partnerVisitMonthKey(new Date('2026-02-01T07:30:00Z'), 'America/Los_Angeles')).toBe('2026-01');
+  });
+
+  it('a session at 00:30 local on the first day belongs to the new month although UTC is still the old one', () => {
+    expect(partnerVisitMonthKey(new Date('2026-01-31T21:30:00Z'), 'Europe/Istanbul')).toBe('2026-02');
   });
 });

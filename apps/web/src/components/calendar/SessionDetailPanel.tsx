@@ -8,6 +8,8 @@ import { Badge } from '@/components/common/Badge';
 import { PermissionButton } from '@/components/common/PermissionButton';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
+import { Modal } from '@/components/common/Modal';
+import { StaffBookingForm } from '@/components/calendar/StaffBookingForm';
 import { hasAnyPermission } from '@/lib/nav';
 import { useDashboardSession } from '@/components/session/DashboardSessionProvider';
 import { useLocale, useT } from '@/components/i18n/I18nProvider';
@@ -41,6 +43,7 @@ export function SessionDetailPanel({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [substituteId, setSubstituteId] = useState('');
+  const [showAddMember, setShowAddMember] = useState(false);
   const { permissions, isOwner } = useDashboardSession();
   const canManageSchedule = hasAnyPermission(['schedule.manage'], permissions, isOwner);
   const locale = useLocale();
@@ -120,6 +123,11 @@ export function SessionDetailPanel({
 
         {!schedule.isCancelled && (
           <div className="flex flex-wrap gap-2">
+            {end.getTime() > Date.now() && (
+              <PermissionButton required={['bookings.manage']} variant="primary" onClick={() => setShowAddMember(true)}>
+                {t('staffBooking.addMember')}
+              </PermissionButton>
+            )}
             <PermissionButton required={['schedule.manage']} variant="secondary" onClick={onEdit}>
               {t('calendar.detail.edit')}
             </PermissionButton>
@@ -241,6 +249,20 @@ export function SessionDetailPanel({
           </p>
         )}
       </div>
+      {showAddMember && (
+        <Modal title={t('staffBooking.dialogTitle')} onClose={() => setShowAddMember(false)}>
+          <StaffBookingForm
+            studioId={studioId}
+            scheduleId={schedule.id}
+            serviceTypeId={schedule.serviceTypeId}
+            onClose={() => setShowAddMember(false)}
+            onBooked={() => {
+              setShowAddMember(false);
+              onChanged();
+            }}
+          />
+        </Modal>
+      )}
     </aside>
   );
 }

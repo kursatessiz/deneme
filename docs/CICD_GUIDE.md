@@ -107,9 +107,11 @@ için `collect.url` listesine eklenir. Seed'deki yayınlı bir sayfa kaldırıl�
 Job'lar:
 
 1. **`plan`**: hedef ortamı, tag'i ve build gerekip gerekmediğini belirler; kuralları
-   (production = tag zorunlu, yalnızca `main`, tag biçimi) burada uygular.
+   (production = tag zorunlu, yalnızca `main`, tag biçimi) burada uygular. Production için ayrıca
+   tag'in işaret ettiği commit'in `main`'in atası olduğunu `git merge-base --is-ancestor` ile doğrular.
 2. **`ci`**: `ci.yml`'i yeniden kullanılabilir workflow olarak çalıştırır (build yoksa atlanır).
-3. **`publish`**: `api` ve `web` image'larını build eder, `sha-<commit>` ve `main` etiketleriyle
+3. **`publish`**: `api` ve `web` image'larını build eder, `sha-<commit>` etiketiyle (`main` etiketi yalnızca
+   `refs/heads/main` üzerinden gelen build'lerde)
    `ghcr.io/<owner>/<repo>/api` ve `.../web` adreslerine push eder, SBOM ve build provenance
    attestation'ı ekler. Ortama özgü build argümanı yoktur.
 4. **`deploy`**: `plan`'ın seçtiği GitHub Environment'ında (`preprod` veya `production`) çalışır;
@@ -156,6 +158,7 @@ Tüm değişkenler `.env.example` içinde Zod şemalarıyla (`apps/api/src/confi
 | `IMAGE_REPO`, `GIT_REMOTE`, `WEB_DOMAIN`, `API_DOMAIN`, `ACME_EMAIL`, `POSTGRES_*`, `REDIS_PASSWORD`, `JWT_SECRET` | sahip (`/opt/app/.env`) | zorunlu |
 | `SITES_DOMAIN` | sahip, opsiyonel | işletme siteleri `<slug>.<SITES_DOMAIN>`; boşsa `WEB_DOMAIN` |
 | `REVALIDATE_SECRET` | sahip, opsiyonel | en az 16 karakter; `api` ve `web` konteynerlerine geçer; boşsa önbellek temizleme kapalı |
+| `MOBILE_IOS_APP_IDS`, `MOBILE_ANDROID_PACKAGE`, `MOBILE_ANDROID_SHA256_CERT_FINGERPRINTS` | sahip, opsiyonel | mobil uygulamanın `/j/<token>` davet bağlantılarını açması (evrensel bağlantılar); `web` konteynerine geçer; boşsa `/.well-known/apple-app-site-association` ve `assetlinks.json` 404 döner (`docs/MOBILE_APP.md`) |
 | `SITE_ENV` | sahip | `production` veya `preprod` (Caddy) |
 | `WEB_INTERNAL_URL` | compose | `http://web:3000`; API'nin `POST /api/revalidate` çağrısı için |
 | `API_INTERNAL_URL` | compose | `http://api:4000`; web sunucusunun API adresi |
@@ -530,7 +533,7 @@ Dört workflow `anthropics/claude-code-action`'ı çağırır. Bunların hepsi -
 
 | Workflow | Tetikleyici | Model | Ne yapar |
 | --- | --- | --- | --- |
-| `claude-triage.yml` | yeni bir issue açıldığında | Haiku | Issue'yu okur ve mevcut etiketlerden en fazla üç tanesini ekler. Yalnızca etiketleme araçları; yorum yapamaz veya kod yazamaz. |
+| `claude-triage.yml` | yeni bir issue açıldığında | Haiku | Issue'yu okur ve mevcut etiketlerden en fazla üç tanesini döndürür; etiketleri ajan değil, sonraki deterministik adım ekler. Ajanın yalnızca okuma araçları vardır; issue'yu düzenleyemez, yorum yapamaz veya kod yazamaz. |
 | `claude-ci-doctor.yml` | aynı repository'deki bir pull request'te CI başarısız olduğunda | Haiku | Başarısız run'ın loglarını okur ve PR'a bir kök neden yorumu gönderir. Kodu değiştiremez. |
 | `claude-review.yml` | PR açıldığında/yeniden açıldığında/review için hazır olduğunda | 80 değişen satır ve 5 dosyaya kadar olan diff'ler için Haiku, aksi halde Sonnet | Diff'i `CLAUDE.md`'ye göre inceler (tenant izolasyonu, güvenlik, doğruluk, emoji/kural ihlalleri) ve satır içi yorumlarla birlikte bir özet gönderir. |
 | `claude.yml` | write erişimine sahip bir kullanıcıdan gelen bir issue/PR yorumunda veya review'da `@claude` bahsi (mention) | Varsayılan olarak Sonnet; yorumda Opus için `/opus`, Haiku için `/haiku` | Genel amaçlı asistan: kodu düzenleyebilir, build/test/lint komutlarını çalıştırabilir ve PR açabilir. |
@@ -550,7 +553,7 @@ model Sonnet'tir; Opus hiçbir zaman otomatik olarak seçilmez ve yalnızca bir 
   açıkça hariç tutar ve PR kodunu veya artifact'lerini asla checkout etmez ya da çalıştırmaz;
   yalnızca logları okur ve bir yorum gönderirler.
 - `claude-triage.yml` herhangi bir kullanıcının onu tetiklemesine izin verir (public bir
-  repository'de herkes issue açabilir) ancak araçlarını issue okuma ve label ekleme ile
-  sınırlar - yorum yok, kod yok.
+  repository'de herkes issue açabilir) ancak ajanın araçlarını yalnızca issue okuma ve
+  etiket listeleme ile sınırlar; etiketleri sonraki adım yalnızca var olan etiketlerle ekler - yorum yok, kod yok.
 - Her workflow'un `allowedTools` listesi, sınırsız shell erişimi yerine ihtiyaç duyduğu belirli
-  komutlarla sınırlıdır (örneğin `gh label list`, `gh issue edit`, `pnpm turbo run`).
+  komutlarla sınırlıdır (örneğin `gh label list`, `gh issue view`, `pnpm turbo run`).

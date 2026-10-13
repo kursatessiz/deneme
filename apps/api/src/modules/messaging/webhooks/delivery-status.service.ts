@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { MessageTrackingEventType, NotificationLog, NotificationStatus, Prisma } from '@platform/database';
+import type { MessageTrackingEventType, NotificationChannel, NotificationLog, NotificationStatus, Prisma } from '@platform/database';
 import { PrismaService } from '../../prisma/prisma.service';
 import { OptOutService } from '../engine/opt-out.service';
 
@@ -7,6 +7,8 @@ export type DeliveryUpdateKind = 'DELIVERED' | 'READ' | 'FAILED' | 'BOUNCED' | '
 
 export interface DeliveryUpdate {
   providerMessageId: string;
+  /** When set, only logs of this channel are updated (SES events only ever concern EMAIL logs). */
+  channel?: NotificationChannel;
   kind: DeliveryUpdateKind;
   /** Hard (permanent) failure: the address is undeliverable and suppressed for COMMERCIAL. */
   permanent?: boolean;
@@ -36,7 +38,7 @@ export class DeliveryStatusService {
   ) {}
 
   async apply(update: DeliveryUpdate): Promise<number> {
-    const logs = await this.prisma.notificationLog.findMany({ where: { providerMessageId: update.providerMessageId } });
+    const logs = await this.prisma.notificationLog.findMany({ where: { providerMessageId: update.providerMessageId, ...(update.channel ? { channel: update.channel } : {}) } });
     for (const log of logs) await this.applyToLog(log, update);
     return logs.length;
   }

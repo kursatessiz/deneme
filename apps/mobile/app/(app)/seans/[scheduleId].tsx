@@ -1,9 +1,9 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { isWithinJoinWindow, onColor } from '@platform/shared';
-import type { JoinSessionResultDTO, MemberPackageDTO, ScheduleSpotsDTO, SpotDTO, SpotGroupDTO, SpotStatus } from '@platform/shared';
+import type { BookingChargedPackageDTO, BookingNoticeDTO, JoinSessionResultDTO, MemberPackageDTO, ScheduleSelfStatusDTO, ScheduleSpotsDTO, SpotDTO, SpotGroupDTO, SpotStatus } from '@platform/shared';
 
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
@@ -13,6 +13,9 @@ import { useSession } from '../../../src/lib/session';
 import { borderWidth, palette, radii, spacing, TOUCH_TARGET, typography, useTheme, useThemeColors, useThemeFonts } from '../../../src/theme';
 import type { Translate } from '@platform/shared';
 import { Text } from '../../../src/components/Text';
+import { openExternalUrl } from '../../../src/lib/externalLink';
+import { confirmAction, showNotice } from '../../../src/lib/notice';
+import { availableAction, cancelConfirmation } from '../../../src/lib/sessionSelfService';
 
 const SPOT_SIZE = 48;
 const SPOT_GAP = spacing[2];
@@ -187,15 +190,18 @@ export default function SeansDetailScreen() {
     capacity?: string;
     bookedCount?: string;
     deliveryMode?: string;
+    studioId?: string;
   }>();
   const scheduleId = params.scheduleId;
   const fonts = useThemeFonts();
   const colors = useThemeColors();
   const { locale } = useLocale();
   const t = useT();
-  const { activeMembership, refreshUser } = useSession();
-  const studioId = activeMembership?.studioId;
-  const memberId = activeMembership?.memberProfileId ?? null;
+  const { activeMembership, memberships, refreshUser } = useSession();
+  // A booking opened from the home list can belong to another business than the active one.
+  const membership = (params.studioId ? memberships.find((m) => m.studioId === params.studioId) : null) ?? activeMembership;
+  const studioId = membership?.studioId;
+  const memberId = membership?.memberProfileId ?? null;
 
   const [spotsData, setSpotsData] = useState<ScheduleSpotsDTO | null>(null);
   const [packages, setPackages] = useState<MemberPackageDTO[] | null>(null);
@@ -204,8 +210,12 @@ export default function SeansDetailScreen() {
   const [notice, setNotice] = useState<string | undefined>();
   const [isBooking, setIsBooking] = useState(false);
   const [booked, setBooked] = useState(false);
+  const [chargedPackage, setChargedPackage] = useState<BookingChargedPackageDTO | null>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | undefined>();
+  const [selfStatus, setSelfStatus] = useState<ScheduleSelfStatusDTO | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [isWaitlisting, setIsWaitlisting] = useState(false);
 
   const isOnline = params.deliveryMode === 'ONLINE' || params.deliveryMode === 'HYBRID';
   // Re-evaluated on every render so the button appears/disappears live as the clock crosses the window.
@@ -223,7 +233,7 @@ export default function SeansDetailScreen() {
         method: 'POST',
         studioId,
       });
-      await Linking.openURL(result.joinUrl);
+      await openExternalUrl(result.joinUrl);
     } catch (e) {
       setJoinError(e instanceof ApiError ? e.message : t('mSessionBooking.errors.joinLinkFailed'));
     } finally {
@@ -250,6 +260,19 @@ export default function SeansDetailScreen() {
     loadSpots();
   }, [loadSpots]);
 
+  const loadSelfStatus = useCallback(async () => {
+    if (!studioId || !scheduleId || !memberId) return;
+    try {
+      setSelfStatus(await apiRequest<ScheduleSelfStatusDTO>(`/schedules/${scheduleId}/self-status`, { studioId }));
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t('mSessionBooking.errors.statusLoadFailed'));
+    }
+  }, [scheduleId, studioId, memberId, t]);
+
+  useEffect(() => {
+    void loadSelfStatus();
+  }, [loadSelfStatus]);
+
   useEffect(() => {
     if (!studioId || !params.serviceTypeId) return;
     apiRequest<MemberPackageDTO[]>(`/members/self/packages?serviceTypeId=${params.serviceTypeId}`, { studioId })
@@ -259,7 +282,6 @@ export default function SeansDetailScreen() {
 
   const hasSpots = (spotsData?.groups.length ?? 0) > 0;
   const needsSpotSelection = hasSpots && !selectedSpotId;
-  const chosenPackage = packages?.[0] ?? null;
 
   const handleBook = async () => {
     if (!studioId || !memberId || !scheduleId) return;
@@ -267,18 +289,22 @@ export default function SeansDetailScreen() {
     setError(undefined);
     setNotice(undefined);
     try {
-      await apiRequest(`/schedules/book/self`, {
+      const created = await apiRequest<{ notices?: BookingNoticeDTO[]; chargedPackage?: BookingChargedPackageDTO | null }>(`/schedules/book/self`, {
         method: 'POST',
         studioId,
         body: {
           studioId,
           scheduleId,
           memberId,
-          memberPackageId: chosenPackage?.id,
           resourceIds: selectedSpotId ? [selectedSpotId] : [],
         },
       });
       setBooked(true);
+      await loadSelfStatus();
+      // The API picks the package (soonest-expiring usable one); show which one was charged.
+      setChargedPackage(created.chargedPackage ?? null);
+      // Non-blocking information from the API (e.g. a no-show inside the repeat window).
+      setNotice(created.notices?.[0]?.message);
       await refreshUser();
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
@@ -292,6 +318,97 @@ export default function SeansDetailScreen() {
       setIsBooking(false);
     }
   };
+
+  const runCancel = async (bookingId: string) => {
+    if (!studioId) return;
+    setIsCancelling(true);
+    setError(undefined);
+    try {
+      const result = await apiRequest<{ message?: string }>('/schedules/cancel/self', {
+        method: 'POST',
+        studioId,
+        body: { bookingId, cancelledBy: 'MEMBER' },
+      });
+      setBooked(false);
+      setChargedPackage(null);
+      setNotice(undefined);
+      await Promise.all([loadSelfStatus(), loadSpots(), refreshUser()]);
+      showNotice(t, t('mSessionBooking.cancel.doneTitle'), result.message);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t('mSessionBooking.errors.cancelFailed'));
+      await loadSelfStatus();
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const handleCancel = () => {
+    const booking = selfStatus?.booking;
+    if (!booking) return;
+    const { title, message } = cancelConfirmation(booking.cancellation, t);
+    confirmAction({
+      title,
+      message,
+      confirmLabel: t('mSessionBooking.cancel.confirmAction'),
+      cancelLabel: t('mSessionBooking.cancel.keep'),
+      destructive: true,
+      onConfirm: () => void runCancel(booking.bookingId),
+    });
+  };
+
+  const handleJoinWaitlist = async () => {
+    if (!studioId || !memberId || !scheduleId) return;
+    setIsWaitlisting(true);
+    setError(undefined);
+    try {
+      const entry = await apiRequest<{ placeInLine: number }>('/schedules/waitlist/self', {
+        method: 'POST',
+        studioId,
+        body: { studioId, scheduleId, memberId },
+      });
+      await loadSelfStatus();
+      showNotice(t, t('mSessionBooking.waitlist.joined', { position: entry.placeInLine }));
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t('mSessionBooking.errors.waitlistJoinFailed'));
+      await loadSelfStatus();
+    } finally {
+      setIsWaitlisting(false);
+    }
+  };
+
+  const runLeaveWaitlist = async (waitlistId: string) => {
+    if (!studioId) return;
+    setIsWaitlisting(true);
+    setError(undefined);
+    try {
+      await apiRequest('/schedules/waitlist/leave/self', { method: 'POST', studioId, body: { waitlistId } });
+      await loadSelfStatus();
+      showNotice(t, t('mSessionBooking.waitlist.left'));
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t('mSessionBooking.errors.waitlistLeaveFailed'));
+      await loadSelfStatus();
+    } finally {
+      setIsWaitlisting(false);
+    }
+  };
+
+  const handleLeaveWaitlist = () => {
+    const entry = selfStatus?.waitlist;
+    if (!entry) return;
+    confirmAction({
+      title: t('mSessionBooking.waitlist.leaveConfirmTitle'),
+      message: t('mSessionBooking.waitlist.leaveConfirmBody'),
+      confirmLabel: t('mSessionBooking.waitlist.leave'),
+      cancelLabel: t('mSessionBooking.cancel.keep'),
+      destructive: true,
+      onConfirm: () => void runLeaveWaitlist(entry.waitlistId),
+    });
+  };
+
+  // Until the status loads (or if it fails) booking stays available, as before.
+  const action = selfStatus ? availableAction(selfStatus) : 'BOOK';
+  const myBooking = selfStatus?.booking ?? null;
+  const myWaitlist = selfStatus?.waitlist ?? null;
 
   return (
     <ScreenContainer>
@@ -320,7 +437,7 @@ export default function SeansDetailScreen() {
 
       {!spotsData ? <ActivityIndicator style={styles.loader} /> : null}
 
-      {spotsData && hasSpots ? (
+      {spotsData && hasSpots && action === 'BOOK' && !booked ? (
         <View style={styles.spotsSection}>
           <Legend />
           {spotsData.groups.map((group) => (
@@ -334,11 +451,16 @@ export default function SeansDetailScreen() {
         </View>
       ) : null}
 
-      {chosenPackage ? (
+      {chargedPackage ? (
         <Text style={[styles.packageInfo, fonts.body, { color: colors.textSecondary }]}>
-          {t('mSessionBooking.packageToUse', { name: chosenPackage.packageDefinitionName })}
+          {chargedPackage.remainingUnits === null
+            ? t('mSessionBooking.packageUsed', { name: chargedPackage.packageName })
+            : t('mSessionBooking.packageUsedWithRemaining', {
+                name: chargedPackage.packageName,
+                remaining: chargedPackage.remainingUnits,
+              })}
         </Text>
-      ) : packages && packages.length === 0 ? (
+      ) : !booked && packages && packages.length === 0 ? (
         <Text style={[styles.packageInfo, fonts.body, { color: palette.warning }]}>{t('mSessionBooking.noActivePackage')}</Text>
       ) : null}
 
@@ -346,7 +468,30 @@ export default function SeansDetailScreen() {
       {notice ? <Text style={[styles.message, { color: palette.warning }]}>{notice}</Text> : null}
       {booked ? <Text style={[styles.message, { color: palette.success }]}>{t('mSessionBooking.bookingConfirmed')}</Text> : null}
 
-      {!booked ? (
+      {myBooking ? (
+        <>
+          {!booked ? <Text style={[styles.message, fonts.body, { color: colors.textSecondary }]}>{t('mSessionBooking.cancel.statusBooked')}</Text> : null}
+          <PrimaryButton label={t('mSessionBooking.cancel.button')} onPress={handleCancel} loading={isCancelling} variant="danger" />
+        </>
+      ) : null}
+
+      {myWaitlist ? (
+        <>
+          <Text style={[styles.message, fonts.bodyStrong, { color: colors.textPrimary }]}>
+            {myWaitlist.status === 'OFFERED' ? t('mSessionBooking.waitlist.offered') : t('mSessionBooking.waitlist.position', { position: myWaitlist.placeInLine })}
+          </Text>
+          <PrimaryButton label={t('mSessionBooking.waitlist.leave')} onPress={handleLeaveWaitlist} loading={isWaitlisting} variant="secondary" />
+        </>
+      ) : null}
+
+      {action === 'WAITLIST_JOIN' ? (
+        <>
+          <Text style={[styles.message, fonts.body, { color: colors.textSecondary }]}>{t('mSessionBooking.waitlist.full')}</Text>
+          <PrimaryButton label={t('mSessionBooking.waitlist.join')} onPress={handleJoinWaitlist} loading={isWaitlisting} disabled={!memberId} />
+        </>
+      ) : null}
+
+      {action === 'BOOK' && !booked ? (
         <PrimaryButton
           label={t('mSessionBooking.book')}
           onPress={handleBook}

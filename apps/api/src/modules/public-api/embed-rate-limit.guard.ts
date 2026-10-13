@@ -1,7 +1,10 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type { Request } from 'express';
 import { RedisService } from '../redis/redis.service';
+import { incrementWithTtl } from '../redis/increment-with-ttl';
 import { apiError } from '../../common/api-error';
+import { isInternalServerRequest } from '../../common/internal-request';
+import { clientIpKey, pruneExpiredCounters } from '../../common/rate-limit';
 
 const WINDOW_SECONDS = 60;
 const MAX_REQUESTS = 30;
@@ -19,15 +22,16 @@ export class EmbedRateLimitGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<Request>();
-    const ip = req.ip ?? 'unknown';
+    const ip = clientIpKey(req.ip);
+    // Server renders of the web container (no X-Forwarded-For, private peer) are not one visitor; never count them.
+    if (isInternalServerRequest(req)) return true;
 
     const client = this.redis.getClient();
     if (client) {
       try {
         if (client.status === 'wait') await client.connect();
         const key = `embed-public-rl:${ip}`;
-        const count = await client.incr(key);
-        if (count === 1) await client.expire(key, WINDOW_SECONDS);
+        const count = await incrementWithTtl(client, key, WINDOW_SECONDS);
         if (count > MAX_REQUESTS) {
           throw new HttpException(apiError('apiErrors.common.tooManyRequestsLater'), HttpStatus.TOO_MANY_REQUESTS);
         }
@@ -45,6 +49,7 @@ export class EmbedRateLimitGuard implements CanActivate {
     const entry = this.memoryCounters.get(ip);
     if (!entry || entry.resetAt <= now) {
       this.memoryCounters.set(ip, { count: 1, resetAt: now + WINDOW_SECONDS * 1000 });
+      pruneExpiredCounters(this.memoryCounters, now);
       return true;
     }
     entry.count += 1;

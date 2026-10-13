@@ -33,6 +33,7 @@ Ortak çekirdek: Seans + kapasiteli Kaynak + Hak (seans/süre/kredi) + Eğitmen 
 - QR ile üye kaydı: sahip mobilde ad + telefon girer, QR anında oluşur, ekranda gösterilir veya WhatsApp/SMS ile gönderilir; üye okutur, OTP + PIN + KVKK onayı ile aktifleşir. Token 72 saat geçerli.
 - QR ayrıca check-in için kullanılır.
 - Tasarım: ürünün tek görsel dili Perfect UI kitidir (T1, `docs/TASARIM.md`); tasarım token'ları `packages/shared/src/design` altında; gradyan yalnızca üye kartı ve paket kartında; jenerik "AI dashboard" görünümünden kaçınılır. Yetkili referanslar `docs/design-refs/` altında (`perfectui-overview.png`).
+- Bordro ve banka ödemeleri (payroll.*, payouts.*) yalnızca şube kısıtı olmayan üyeliğe açıktır; Stripe bağlı hesap kimliği sağlayıcı başına tek işletmeye bağlanır ve yalnızca sahip değiştirebilir (denetim kaydı ile). Bkz. `docs/BANKA_ODEMELERI.md`, `docs/PAYROLL.md`.
 - Build sunucuda değil CI'da; sunucu (Ubuntu 24.04, 6 GB / 4 vCPU / 60 GB) yalnızca image çeker.
 
 ## 4. Mevcut kod durumu (30 Eylül 2026)
@@ -126,6 +127,7 @@ Dependabot npm major sürümlerini önermez; bunlar kod değişikliği gerektire
 - 5.3 e-Arşiv fatura (sonraki faz)
 
 ### 6. Canlıya alma
+- Yayın öncesi kontrol listesi: bkz. bölüm 6e
 - 6.1 `deploy/scripts/server-init.sh` ile sunucu kurulumu, ilk dağıtım, yedek doğrulama
 - 6.2 Gerçek Netgsm/İleti Merkezi ve WhatsApp Cloud API hesapları ile test
 
@@ -256,6 +258,32 @@ Kalan küçük işler (her biri ayrı PR):
 
 Diğer açık SEO işleri `docs/SEO.md` bölüm 18'dedir (GA4, kiracıya özel simge, özel alan adına kalıcı yönlendirme, zamanlanmış yayın).
 
+### 6e. Yayın öncesi kontrol listesi
+
+Bilinçli olarak ertelenmiş geliştirme ve özellikler ("şimdi yapılmayacak"); yayından önce her madde gözden geçirilip yapılır veya kabul edilmiş risk olarak işaretlenir. Alan adı yayını için ayrı liste: `docs/SEO.md` bölüm 17.
+
+- [ ] Webhook gönderim kuyruğunun kapasitesi: şu an 15 dakikada 50 gönderim ve her gönderim ayrı kuyruk işi değil; yoğun kiracıda teslimat gecikir. `apps/api/src/modules/webhooks/webhook-dispatcher.service.ts`
+- [ ] Özel alan adlı işletme siteleri için host çözümleme önbelleği: her istek API'ye gidiyor, API yükü ve gecikme artar. `apps/web/src/middleware.ts`
+- [ ] Takvim sorgusuna tarih aralığı ve satır sınırı: sınırsız sorgu büyük kiracıda yavaşlar. `apps/api/src/modules/schedules/schedules.service.ts` `getSchedules`
+- [ ] Kullanılmayan 24 dışa aktarımın (export) temizlenmesi (yaklaşık 100-150 satır): ölü kod bakım yükü getirir.
+- [x] Mobil davet bağlantısı: `/j/<token>` evrensel bağlantı ve uygulama içi rota (`apps/mobile/app/j/[token].tsx`) yapıldı; yalnızca sahibin değişkenleri girip yeni mağaza derlemesi alması kaldı (aşağıdaki altyapı listesi, `docs/MOBILE_APP.md` "Evrensel bağlantılar").
+- [ ] İşletme planları için otomatik yenileme motoru (ACTIVE -> PAST_DUE -> RESTRICTED): şu an elle yönetiliyor. `docs/DENEME_VE_ETKINLESTIRME.md` bölüm 7
+- [ ] iyzico ve PayTR sağlayıcılarının tamamlanması: şu an iskelet, webhook doğrulaması her zaman geçersiz döner; Türkiye'de canlı tahsilat yapılamaz. `apps/api/src/modules/payments/providers/iyzico-payment.provider.ts`, `paytr-payment.provider.ts`
+- [ ] Partner webhook imzasının ham gövde üzerinden doğrulanması: ilk gerçek partner bağlanmadan önce yapılmalı. `apps/api/src/modules/partners/partners-webhook.controller.ts`, `docs/PARTNERS.md`
+- [ ] PIN kilidinin telefon + IP bazında ayrılması: başkasının PIN girişini kilitleme (hesap kilitleme saldırısı) riski. `apps/api/src/modules/auth/auth.service.ts` (`pinLockedUntil`)
+- [ ] e-Arşiv faturada hediye kartıyla ödenen kısmın KDV zamanlaması muhasebeciyle netleştirilmeli (hediye kartı satışında mı, kullanımında mı). `docs/INVOICING.md`
+- [ ] SMS sağlayıcısı yapılandırılmadan üretimde OTP ve davet SMS'i gönderilmez; giriş ve onboarding çalışmaz. Süper admin sağlayıcı ayarı ve `docs/MESAJLASMA.md`
+- [ ] Üretimde `SES_SNS_TOPIC_ARNS` ortam değişkeni (SES olay konusunun ARN'si, virgülle birden fazla olabilir) mutlaka ayarlanmalı: boşsa SES webhook'u her mesajı 403 ile reddeder, bounce ve şikâyet olayları işlenmez, bastırma listesi güncellenmez. `docs/MESAJLASMA.md` bölüm 10, `deploy/docker-compose.prod.yml`
+
+### 6f. KVKK/GDPR kişisel veri silme (anonimleştirme)
+
+Yapıldı (migration `20261104000100_data_erasure`: `memberships.erased_at` ve `data_erasure_requests` tablosu, sahip rollerine `members.erase`; yalnızca genişletme). Sahip kararları: kişisel veri anonimleştirilir, `Payment`, fatura, rezervasyon ve muhasebe satırları yasal saklama için kalır ama kişiyi tanımlamaz; üye mobilde ister (Hesabım > Gizlilik), `members.erase` izinli personel web panelinde onaylar veya reddeder (üye kartı ve `/members/silme-talepleri`), onaylananı zamanlayıcı kalp atışının `erasure` adımı işler, 30 gün işlem görmeyen talep otomatik işlenir; işletme üye kartından doğrudan da başlatabilir. Silme stüdyo başınadır: başka üyeliği olan kişide silinen üyelik anonim bir `User` satırına taşınır, gerçek hesap ve diğer üyelikler değişmez; başka üyeliği kalmayan kişide global `User` yerinde anonimleştirilir ve girişi kapanır.
+
+- Ayrıntı ve tablo/alan dökümü (neyin silindiği, neyin bilerek korunduğu): `docs/KVKK_SILME.md`.
+- Kod: `apps/api/src/modules/erasure` (`ErasureAnonymizerService`, `ErasureRequestsService`, `ErasureJobsService`, iki denetleyici); web `components/erasure/ErasurePanel.tsx` ve `members/silme-talepleri`; mobil `hesabim/gizlilik.tsx`; ortak sözleşme `packages/shared/src/erasure.ts`.
+- Üyeye karar bildirimi (`ERASURE_REQUEST_APPROVED`, `ERASURE_REQUEST_REJECTED`) mesajlaşma motorundan gider; tamamlanma bildirimi yoktur (iletişim bilgisi o anda silinir).
+- Sahibin karar vermesi gerekenler: (1) fatura `buyer_snapshot` alıcı bilgisi VUK saklama istisnası gereği olduğu gibi korunur (saklama süresi sonunda anonimleştirme kapsam dışı), (2) `message_suppressions` adreslerinin korunması, (3) ödeme sağlayıcıda kart jetonunun silinmesi bu sürümde yok, (4) yedeklerden geri yüklemede silinmiş üyeliklerin yeniden anonimleştirilmesi.
+
 ## 7. Sahibin sağlayacağı girdiler ve kararlar
 
 Kod tarafında bekleyen iş kalmadı; aşağıdakiler sahibin hesabını, kararını veya sırrını gerektirir. Sır ve anahtarlar repoya değil, GitHub Environments'a veya süper admin paneline girilir.
@@ -269,6 +297,7 @@ Altyapı (`docs/CICD_GUIDE.md` 3 ve 5b, `docs/UBUNTU_24_04_SETUP.md`)
 - Üretim ve ön üretim sunucuları, DNS, GHCR erişimi, yedek nesne depolama kovası.
 - GitHub Environments sırları ve değişkenleri (`SSH_*`, `DATABASE_URL`, `JWT_SECRET`, `INTEGRATION_ENCRYPTION_KEY`, `PUBLIC_API_URL`, `SOURCEMAP_UPLOAD_TOKEN` ve dokümandaki tam liste); `CLAUDE_AGENTS_ENABLED` ve Anthropic anahtarı (ajan workflow'ları için).
 - Mobil: Apple ve Google geliştirici hesapları, bundle kimliği, EAS sırrı ve mobil kaynak haritası yüklemesinin CI otomasyonu.
+- Mobil evrensel bağlantılar: `MOBILE_IOS_APP_IDS` (TEAMID.bundle.id), `MOBILE_ANDROID_PACKAGE` ve `MOBILE_ANDROID_SHA256_CERT_FINGERPRINTS` (`/opt/app/.env`, `web` konteyneri) ile EAS ortamında `EXPO_PUBLIC_WEB_DOMAIN`; ardından yeni mağaza derlemesi (`docs/MOBILE_APP.md`).
 
 Sağlayıcı hesapları ve başvurular
 - Ödeme: Stripe, iyzico, PayTR (sandbox ve canlı anahtarlar); e-fatura entegratörü seçimi ve kimlik bilgileri.

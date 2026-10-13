@@ -292,7 +292,7 @@ describe('API e2e', () => {
       const res = await request(server)
         .post('/schedules/book')
         .set('Authorization', `Bearer ${ownerToken}`)
-        .send({ studioId: ZEN, scheduleId: bookedScheduleId, memberId });
+        .send({ studioId: ZEN, scheduleId: bookedScheduleId, memberId, chargePackage: false });
       expect(res.status).toBe(409);
     });
   });
@@ -346,7 +346,13 @@ describe('API e2e', () => {
       scheduleB = b.id;
       createdScheduleIds.push(scheduleA, scheduleB);
 
-      const members = await prisma.memberProfile.findMany({ where: { studioId: ZEN }, take: 2 });
+      // Members with no other EMS booking, so the service's minimum repeat
+      // interval cannot answer before the equipment conflict this block tests.
+      const members = await prisma.memberProfile.findMany({
+        where: { studioId: ZEN, bookings: { none: { schedule: { serviceTypeId: emsServiceTypeId } } } },
+        orderBy: { id: 'asc' },
+        take: 2,
+      });
       if (members.length < 2) throw new Error('seed data missing at least two members for Zen');
       member1 = members[0].id;
       member2 = members[1].id;
@@ -360,7 +366,7 @@ describe('API e2e', () => {
       const res = await request(server)
         .post('/schedules/book')
         .set('Authorization', `Bearer ${ownerToken}`)
-        .send({ studioId: ZEN, scheduleId: scheduleA, memberId: member1, resourceIds: [emsResourceId] });
+        .send({ studioId: ZEN, scheduleId: scheduleA, memberId: member1, resourceIds: [emsResourceId], chargePackage: false });
       expect([200, 201]).toContain(res.status);
       createdBookingIds.push(res.body.id);
     });
@@ -369,7 +375,7 @@ describe('API e2e', () => {
       const res = await request(server)
         .post('/schedules/book')
         .set('Authorization', `Bearer ${ownerToken}`)
-        .send({ studioId: ZEN, scheduleId: scheduleB, memberId: member2, resourceIds: [emsResourceId] });
+        .send({ studioId: ZEN, scheduleId: scheduleB, memberId: member2, resourceIds: [emsResourceId], chargePackage: false });
       expect(res.status).toBe(409);
     });
 

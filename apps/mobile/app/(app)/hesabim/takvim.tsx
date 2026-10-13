@@ -1,6 +1,5 @@
 import type { CalendarFeedCreatedDTO } from '@platform/shared';
 import * as Clipboard from 'expo-clipboard';
-import * as Linking from 'expo-linking';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
@@ -10,6 +9,7 @@ import { useT } from '../../../src/i18n';
 import { ApiError, apiRequest } from '../../../src/lib/api';
 import { borderWidth, palette, radii, spacing, typography, useThemeColors } from '../../../src/theme';
 import { Text } from '../../../src/components/Text';
+import { openExternalUrl } from '../../../src/lib/externalLink';
 
 /**
  * "Takvim aboneliği": creates the personal ICS feed (GET /calendar/:token.ics)
@@ -59,7 +59,11 @@ export default function TakvimScreen() {
 
   const openInCalendarApp = useCallback(async () => {
     if (!feed) return;
-    await Linking.openURL(feed.webcalUrl);
+    try {
+      await openExternalUrl(feed.webcalUrl, ['webcal:']);
+    } catch {
+      setError(t('mCalendarFeed.errors.openFailed'));
+    }
   }, [feed]);
 
   return (
