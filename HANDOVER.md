@@ -37,6 +37,8 @@ Ortak çekirdek: Seans + kapasiteli Kaynak + Hak (seans/süre/kredi) + Eğitmen 
 - Build sunucuda değil CI'da; sunucu (Ubuntu 24.04, 6 GB / 4 vCPU / 60 GB) yalnızca image çeker.
 - Ticari gönderimler PASSIVE üyeliklere gitmeye devam eder (geri kazanma kampanyaları); izin ve abonelikten çıkma kontrolleri her ticari gönderimde uygulanır.
 - Touchpoint ve ziyaretçi kayıtları 13 ay saklanır (`TOUCHPOINT_RETENTION_MONTHS`); süresi dolanlar günlük kalp atışı adımıyla silinir, kişi üzerindeki atıf özeti kalır (`docs/CRM_VE_ATIF.md`).
+- Kişiye bağlı ziyaretçiler de son görülmeden 13 ay sonra silinir; kişi satırı ve atıf özeti korunur (`docs/CRM_VE_ATIF.md`, `docs/KVKK_SILME.md`).
+- Özel alan adı bildirimleri: ilk başarısız yeniden doğrulamada uyarı, devre dışı kalınca bildirim; alıcılar sahip ve `site.manage` izinli personel, kanallar e-posta ve uygulama içi, işlemsel (`docs/SAYFA_MOTORU.md`).
 
 ## 4. Mevcut kod durumu (30 Eylül 2026)
 

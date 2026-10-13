@@ -7,6 +7,7 @@ import { CompanyInfoService } from './company-info.service';
 import { PublicSitesService } from './public-sites.service';
 import { DnsVerificationService } from './dns.service';
 import { DomainRecheckService } from './domain-recheck.service';
+import { DomainNoticeService } from './domain-notice.service';
 import { SitesTenantController } from './sites-tenant.controller';
 import { CompanyInfoController } from './company-info.controller';
 import { PublicSitesController } from './public-sites.controller';
@@ -39,6 +40,7 @@ const redisConfigured = Boolean(process.env.REDIS_URL);
     PublicSitesService,
     DnsVerificationService,
     DomainRecheckService,
+    DomainNoticeService,
     SitesPublicRateLimitGuard,
     SitesFeedRateLimitGuard,
     ArticlesService,

@@ -36,3 +36,6 @@ export function isValidDomain(domain: string): boolean {
  * (docs/SAYFA_MOTORU.md section 7). The tenant restores it with the normal verify action.
  */
 export const DOMAIN_RECHECK_FAILURE_LIMIT = 3;
+/** Template keys of the owner and staff notices around the daily re-check (message-templates.ts). */
+export const DOMAIN_VERIFY_WARNING_TEMPLATE_KEY = 'DOMAIN_VERIFY_WARNING';
+export const DOMAIN_DEACTIVATED_TEMPLATE_KEY = 'DOMAIN_DEACTIVATED';

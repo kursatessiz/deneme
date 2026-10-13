@@ -102,7 +102,7 @@ Herkese açık bir `identify` ucu **yoktur**: tanımlama yalnızca sunucu taraf�
 Ham takip verisi 13 ay saklanır (sahip kararı; `TOUCHPOINT_RETENTION_MONTHS` sabiti `packages/shared/src/crm.ts` içindedir, ortam değişkeni yoktur). Kalp atışının `trackingRetention` adımı (`TrackingRetentionService`, günde bir kez) şunları siler:
 
 - `occurred_at` değeri 13 aydan eski olan `touchpoints` satırları.
-- Son görülme (`last_seen_at`) zamanı 13 aydan eski olan ve bir kişiye bağlı olmayan (`contact_id` boş) `visitors` satırları. Kişiye bağlı ziyaretçi satırı silinmez; eski temas noktaları yine de silinir.
+- Son görülme (`last_seen_at`) zamanı 13 aydan eski olan `visitors` satırları; kişiye bağlı olanlar da dahildir (sahip kararı). `visitors` tablosuna işaret eden tek yabancı anahtar `touchpoints` (CASCADE, zaten silinmiş satırlar) olup `visitors.contact_id` ters yöndedir (`ON DELETE SET NULL`); ziyaretçi silinince kişi satırı ve atıf özeti etkilenmez.
 
 `touchpoints` tablosuna işaret eden tüm yabancı anahtarlar `ON DELETE SET NULL` olduğundan (`contacts.first_touchpoint_id`, `contacts.last_touchpoint_id`, `conversion_events.attributed_touchpoint_id`, `studio_referrals.touchpoint_id`) hiçbir kayıt silinmez, yalnızca referans boşalır. Kişi üzerindeki atıf özeti (ilk/son kaynak, ortam, kampanya, reklam kimlikleri) kişi satırına kopyalı olduğu için olduğu gibi kalır; temas noktası kalmadığında özet yenilemesi mevcut değerleri değiştirmez.
 

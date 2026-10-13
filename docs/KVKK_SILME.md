@@ -82,7 +82,7 @@ Yalnızca düz üyeler silinir. İşletme sahibi, izni olan (personel) roller, e
 - `notification_logs` satırlarının kendisi (tür, kanal, durum, zaman damgaları) ve `message_tracking_events`: teslimat istatistiği ve SMS kredi mutabakatı.
 - `message_suppressions`: abonelikten çıkma/bastırma listesi. Kişinin ticari ileti almama tercihi, adres bilindiği sürece korunabilir; bu nedenle adres (telefon veya e-posta) bu listede kalır. Yasal gerekçe (itiraza saygı, İYS) için hukuki görüşle teyit edilmelidir.
 - `consents` satırları (belge sürümü ve kabul zamanı): rıza kanıtı; kimlik bilgileri (`ip`, `device`) silinir.
-- `touchpoints` ve `visitors` (ham ziyaret takibi) bu silmeden bağımsız olarak 13 ay sonra otomatik silinir (`docs/CRM_VE_ATIF.md`, Saklama süresi).
+- `touchpoints` ve `visitors` (ham ziyaret takibi; kişiye bağlı ziyaretçiler dahil) bu silmeden bağımsız olarak 13 ay sonra otomatik silinir (`docs/CRM_VE_ATIF.md`, Saklama süresi).
 - `conversion_events` ve atıf özetleri (kaynak, ortam, kampanya adı): kişi artık anonimdir, toplu raporlama sürer.
 - `trial_redemptions`, `promo_redemptions`, `redemption_counters`: kötüye kullanım önleme sayaçları; anonim kimliğe bağlanır (başka üyeliği olan kişide) veya anonimleşmiş kullanıcıda kalır.
 - `data_erasure_requests`: talebin kendisi (hesap verebilirlik). `decision_note` personelin gerekçesidir, kişisel veri içermemelidir; `summary` yalnızca tablo bazlı sayılardır.

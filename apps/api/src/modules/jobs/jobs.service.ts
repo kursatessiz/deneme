@@ -45,7 +45,7 @@ export interface SchedulerRunResult {
   packageFreezes: { released: number };
   /** KVKK/GDPR: approved erasure requests and the ones past their 30 day deadline executed (docs/KVKK_SILME.md). */
   erasure: ErasureHeartbeatResult;
-  /** Daily purge of touchpoints and anonymous visitors older than TOUCHPOINT_RETENTION_MONTHS (docs/CRM_VE_ATIF.md). */
+  /** Daily purge of touchpoints and visitors (including contact-linked ones) older than TOUCHPOINT_RETENTION_MONTHS (docs/CRM_VE_ATIF.md). */
   trackingRetention: TrackingRetentionResult;
   /** Daily DNS re-check of VERIFIED custom domains; repeated failures deactivate the domain (docs/SAYFA_MOTORU.md). */
   domainRecheck: DomainRecheckResult;

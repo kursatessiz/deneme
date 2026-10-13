@@ -36,7 +36,7 @@ describe('TrackingRetentionService', () => {
     const [, cutoff, limit] = executeRaw.mock.calls[0] as [unknown, Date, number];
     expect(cutoff.toISOString()).toBe('2025-09-13T08:00:00.000Z');
     expect(limit).toBe(RETENTION_BATCH_SIZE);
-    expect(String((executeRaw.mock.calls[1] as [string[]])[0].join('?'))).toContain('contact_id IS NULL');
+    expect(String((executeRaw.mock.calls[1] as [string[]])[0].join('?'))).not.toContain('contact_id');
   });
 
   it('caps the statements per table and keeps going on the next heartbeat', async () => {
