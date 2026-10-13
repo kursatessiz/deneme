@@ -26,11 +26,12 @@ export function retentionCutoff(now: Date, months: number = TOUCHPOINT_RETENTION
 
 /**
  * Daily heartbeat step: deletes touchpoints older than TOUCHPOINT_RETENTION_MONTHS
- * and anonymous visitors (no contact) not seen for that long. Every FK to
- * touchpoints is ON DELETE SET NULL (contacts first/last touchpoint, conversion
+ * and visitors (anonymous or linked to a contact) not seen for that long. Every FK
+ * to touchpoints is ON DELETE SET NULL (contacts first/last touchpoint, conversion
  * attribution, studio referrals), so the attribution summary columns copied onto
- * the contact stay intact. Visitors linked to a contact are kept; their old
- * touchpoints are removed by the first pass. docs/CRM_VE_ATIF.md.
+ * the contact stay intact. The only FK to visitors is touchpoints (cascade) and
+ * visitors.contact_id points the other way (SET NULL), so deleting a linked
+ * visitor never touches the Contact row. docs/CRM_VE_ATIF.md.
  */
 @Injectable()
 export class TrackingRetentionService {
@@ -55,7 +56,7 @@ export class TrackingRetentionService {
       () => this.prisma.$executeRaw`
         DELETE FROM visitors WHERE (studio_id, id) IN (
           SELECT studio_id, id FROM visitors
-          WHERE last_seen_at < ${cutoff} AND contact_id IS NULL
+          WHERE last_seen_at < ${cutoff}
           LIMIT ${RETENTION_BATCH_SIZE}
         )`,
     );

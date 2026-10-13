@@ -8,8 +8,8 @@ import { TrackingRetentionService } from '../../src/modules/crm/tracking/trackin
 /**
  * Touchpoint and visitor retention (docs/CRM_VE_ATIF.md): rows older than 13
  * months go, recent ones stay, the contact attribution summary survives the
- * ON DELETE SET NULL of its first/last touchpoint references, and a visitor
- * linked to a contact is kept.
+ * ON DELETE SET NULL of its first/last touchpoint references, and an old
+ * visitor linked to a contact is deleted too while the contact row is kept.
  */
 describe('Tracking retention (e2e)', () => {
   let app: INestApplication;
@@ -43,7 +43,7 @@ describe('Tracking retention (e2e)', () => {
       data: { studioId, visitorId, sessionId: randomUUID(), occurredAt, landingPath: '/e2e-retention', utmSource: 'retention-src', contactId: contactId ?? null },
     });
 
-  it('deletes old rows, keeps recent and linked ones, and keeps the contact summary', async () => {
+  it('deletes old rows, keeps recent ones, deletes old linked visitors, and keeps the contact summary', async () => {
     const contact = await prisma.contact.create({
       data: { studioId, firstName: 'E2E retention', firstSource: 'retention-src', lastSource: 'retention-src' },
     });
@@ -51,12 +51,14 @@ describe('Tracking retention (e2e)', () => {
     const anon = randomUUID();
     const linked = randomUUID();
     const fresh = randomUUID();
-    visitorIds.push(anon, linked, fresh);
+    const freshLinked = randomUUID();
+    visitorIds.push(anon, linked, fresh, freshLinked);
     await prisma.visitor.createMany({
       data: [
         { id: anon, studioId, firstSeenAt: old, lastSeenAt: old },
         { id: linked, studioId, firstSeenAt: old, lastSeenAt: old, contactId: contact.id },
         { id: fresh, studioId, firstSeenAt: old, lastSeenAt: recent },
+        { id: freshLinked, studioId, firstSeenAt: old, lastSeenAt: recent, contactId: contact.id },
       ],
     });
     const oldAnon = await touch(anon, old);
@@ -71,10 +73,12 @@ describe('Tracking retention (e2e)', () => {
     expect(await prisma.touchpoint.findUnique({ where: { id: oldLinked.id } })).toBeNull();
     expect(await prisma.touchpoint.findUnique({ where: { id: recentFresh.id } })).not.toBeNull();
     expect(await prisma.visitor.findUnique({ where: { studioId_id: { studioId, id: anon } } })).toBeNull();
-    expect(await prisma.visitor.findUnique({ where: { studioId_id: { studioId, id: linked } } })).not.toBeNull();
+    expect(await prisma.visitor.findUnique({ where: { studioId_id: { studioId, id: linked } } })).toBeNull();
+    expect(await prisma.visitor.findUnique({ where: { studioId_id: { studioId, id: freshLinked } } })).not.toBeNull();
     expect(await prisma.visitor.findUnique({ where: { studioId_id: { studioId, id: fresh } } })).not.toBeNull();
 
     const after = await prisma.contact.findUniqueOrThrow({ where: { id: contact.id } });
+    expect(after.firstName).toBe('E2E retention');
     expect(after.firstTouchpointId).toBeNull();
     expect(after.lastTouchpointId).toBeNull();
     expect(after.firstSource).toBe('retention-src');
