@@ -435,6 +435,10 @@ export const enApiErrors: Record<keyof typeof trApiErrors, string> = {
   'apiErrors.payments.stripeNotConfiguredStripeSecretKey': 'Stripe is not configured: STRIPE_SECRET_KEY is required',
   'apiErrors.payments.subscriptionNotFound': 'Subscription not found',
 
+  // payouts
+  'apiErrors.payouts.accountAlreadyConnected': 'This payout provider account is already connected to another business',
+  'apiErrors.payouts.onlyOwnerCanChangeAccount': 'Only the business owner can change the payout provider account',
+
   // payroll
   'apiErrors.payroll.approvedPaidPayrollCannotChanged': 'An approved or paid payroll cannot be changed',
   'apiErrors.payroll.approvedPayrollOverlappingPeriodAlreadyExists': 'An approved payroll overlapping this period already exists',

@@ -438,6 +438,10 @@ export const trApiErrors = {
   'apiErrors.payments.stripeNotConfiguredStripeSecretKey': 'Stripe yapılandırılmamış: STRIPE_SECRET_KEY gereklidir',
   'apiErrors.payments.subscriptionNotFound': 'Abonelik bulunamadı',
 
+  // payouts
+  'apiErrors.payouts.accountAlreadyConnected': 'Bu ödeme sağlayıcı hesabı başka bir işletmeye bağlı',
+  'apiErrors.payouts.onlyOwnerCanChangeAccount': 'Ödeme sağlayıcı hesabını yalnızca işletme sahibi değiştirebilir',
+
   // payroll
   'apiErrors.payroll.approvedPaidPayrollCannotChanged': 'Onaylanmış veya ödenmiş bordro değiştirilemez',
   'apiErrors.payroll.approvedPayrollOverlappingPeriodAlreadyExists': 'Bu dönemle çakışan onaylanmış bir bordro zaten var',

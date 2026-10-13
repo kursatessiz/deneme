@@ -57,6 +57,53 @@ describe('ContentService', () => {
     service = new ContentService(prisma, new CommunityAccessService(prisma));
   });
 
+  describe('listForMember (credit-priced source gate)', () => {
+    const withSource = { ...baseContent, sourceUrl: 'https://video.example.com/x', provider: 'EXTERNAL_URL' };
+
+    function arrange(content: Record<string, unknown>, views: unknown[]) {
+      prisma.videoContent.findMany.mockResolvedValue([content]);
+      prisma.memberPackage.findMany.mockResolvedValue([]);
+      prisma.videoView.findMany.mockResolvedValue(views);
+    }
+    const query = { page: 1, pageSize: 20 } as never;
+
+    it('hides the source of credit-priced content that was never charged', async () => {
+      arrange(withSource, []);
+      const [item] = await service.listForMember(tenant, query);
+      expect(item.isLocked).toBe(false);
+      expect(item.sourceUrl).toBeNull();
+    });
+
+    it('hides the source when a view exists but the credit was not charged', async () => {
+      arrange(withSource, [{ videoContentId: CONTENT_ID, creditChargedAt: null }]);
+      const [item] = await service.listForMember(tenant, query);
+      expect(item.sourceUrl).toBeNull();
+    });
+
+    it('returns the source once the credit was charged', async () => {
+      arrange(withSource, [{ videoContentId: CONTENT_ID, creditChargedAt: new Date() }]);
+      const [item] = await service.listForMember(tenant, query);
+      expect(item.sourceUrl).toBe('https://video.example.com/x');
+      expect(item.isCreditCharged).toBe(true);
+    });
+
+    it('returns the source of free content', async () => {
+      arrange({ ...withSource, creditCost: null }, []);
+      const [item] = await service.listForMember(tenant, query);
+      expect(item.sourceUrl).toBe('https://video.example.com/x');
+    });
+  });
+
+  describe('start (returns source)', () => {
+    it('returns the source url of the charged content', async () => {
+      prisma.videoContent.findFirst.mockResolvedValue({ ...baseContent, sourceUrl: 'https://video.example.com/x', provider: 'EXTERNAL_URL' });
+      prisma.memberPackage.findMany.mockResolvedValue([]);
+      prisma.videoView.create.mockResolvedValue({ id: 'view-1', creditChargedAt: new Date() });
+      const result = await service.start(tenant, CONTENT_ID);
+      expect(result.content.sourceUrl).toBe('https://video.example.com/x');
+    });
+  });
+
   describe('start (credit charge idempotency)', () => {
     it('charges the package exactly once on the first call', async () => {
       prisma.videoContent.findFirst.mockResolvedValue(baseContent);

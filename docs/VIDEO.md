@@ -89,6 +89,11 @@ isteğe bağlı video kütüphanesinin davranışını ve API'sini anlatır. Kod
   3. Bu iki koşullu güncelleme sayesinde **eşzamanlı iki istek altında tahsilat tam olarak bir
      kez** gerçekleşir (bkz. `apps/api/test/e2e/video.e2e-spec.ts`, "charges exactly once under
      two parallel start requests").
+- Kredi bedelli (`creditCost > 0`) içeriğin oynatılabilir `sourceUrl` değeri, üye için
+  `VideoView.creditChargedAt` dolu olana kadar hiçbir okuma yolunda (üye kitaplık listesi,
+  topluluk akışı) dönmez; kaynak yalnızca `start` yanıtında (tahsilattan sonra) veya tahsilat
+  yapıldıktan sonra okuma yollarında görünür. Topluluk akışında bu durum `requiresCreditStart`
+  ile işaretlenir. Personel/önizleme yolları değişmez.
 - `POST /video/content/self/:contentId/progress` yalnızca kaldığı yeri/tamamlanma durumunu
   günceller; tahsilat mantığına dokunmaz.
 

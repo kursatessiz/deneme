@@ -168,7 +168,7 @@ export default function ToplulukScreen() {
           {post.video ? (
             post.video.isLocked || !post.video.sourceUrl ? (
               <Text style={[styles.meta, fonts.body, { color: c.textMuted }]}>
-                {post.video.title} - {t('mCommunity.videoLocked')}
+                {post.video.title} - {post.video.requiresCreditStart ? t('mCommunity.videoCreditRequired') : t('mCommunity.videoLocked')}
               </Text>
             ) : (
               <PrimaryButton label={t('mCommunity.openVideo')} variant="secondary" onPress={() => openLink(post.video?.sourceUrl ?? null)} />

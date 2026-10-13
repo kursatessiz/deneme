@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { PaymentProvider, Prisma } from '@platform/database';
 import { PAYOUT_PROVIDERS } from '@platform/shared';
 import type { PayoutConnectionDTO, PayoutProvider, PayoutSyncResultDTO } from '@platform/shared';
@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PaymentProviderRegistry } from '../payments/providers/payment-provider.registry';
 import { PayoutNotConfiguredError } from '../payments/providers/payment-provider.interface';
 import type { PaymentProviderAdapter, ProviderPayout, ProviderPayoutItem } from '../payments/providers/payment-provider.interface';
+import { apiError } from '../../common/api-error';
 import { PayoutReconcileService } from './payout-reconcile.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -73,12 +74,38 @@ export class PayoutSyncService {
     });
   }
 
-  async setAccount(studioId: string, provider: PayoutProvider, providerAccountId: string | null): Promise<PayoutConnectionDTO> {
-    await this.prisma.payoutConnection.upsert({
-      where: { studioId_provider: { studioId, provider } },
-      create: { studioId, provider, providerAccountId },
-      update: { providerAccountId, lastError: null },
-    });
+  async setAccount(studioId: string, provider: PayoutProvider, providerAccountId: string | null, actorUserId: string): Promise<PayoutConnectionDTO> {
+    // The partial unique index (provider, provider_account_id) is the guarantee;
+    // the pre-check only gives the common case a clean 409 without a failed statement.
+    if (providerAccountId) {
+      const taken = await this.prisma.payoutConnection.findFirst({ where: { provider, providerAccountId, NOT: { studioId } }, select: { id: true } });
+      if (taken) throw new ConflictException(apiError('apiErrors.payouts.accountAlreadyConnected'));
+    }
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const before = await tx.payoutConnection.findUnique({ where: { studioId_provider: { studioId, provider } }, select: { providerAccountId: true } });
+        await tx.payoutConnection.upsert({
+          where: { studioId_provider: { studioId, provider } },
+          create: { studioId, provider, providerAccountId },
+          update: { providerAccountId, lastError: null },
+        });
+        await tx.auditLog.create({
+          data: {
+            studioId,
+            userId: actorUserId,
+            action: providerAccountId ? 'payouts.account.set' : 'payouts.account.clear',
+            entityType: 'PayoutConnection',
+            entityId: studioId,
+            metadata: { provider, previousAccountId: before?.providerAccountId ?? null, accountId: providerAccountId },
+          },
+        });
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException(apiError('apiErrors.payouts.accountAlreadyConnected'));
+      }
+      throw error;
+    }
     const all = await this.connections(studioId);
     return all.find((c) => c.provider === provider) as PayoutConnectionDTO;
   }

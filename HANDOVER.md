@@ -33,6 +33,7 @@ Ortak çekirdek: Seans + kapasiteli Kaynak + Hak (seans/süre/kredi) + Eğitmen 
 - QR ile üye kaydı: sahip mobilde ad + telefon girer, QR anında oluşur, ekranda gösterilir veya WhatsApp/SMS ile gönderilir; üye okutur, OTP + PIN + KVKK onayı ile aktifleşir. Token 72 saat geçerli.
 - QR ayrıca check-in için kullanılır.
 - Tasarım: ürünün tek görsel dili Perfect UI kitidir (T1, `docs/TASARIM.md`); tasarım token'ları `packages/shared/src/design` altında; gradyan yalnızca üye kartı ve paket kartında; jenerik "AI dashboard" görünümünden kaçınılır. Yetkili referanslar `docs/design-refs/` altında (`perfectui-overview.png`).
+- Bordro ve banka ödemeleri (payroll.*, payouts.*) yalnızca şube kısıtı olmayan üyeliğe açıktır; Stripe bağlı hesap kimliği sağlayıcı başına tek işletmeye bağlanır ve yalnızca sahip değiştirebilir (denetim kaydı ile). Bkz. `docs/BANKA_ODEMELERI.md`, `docs/PAYROLL.md`.
 - Build sunucuda değil CI'da; sunucu (Ubuntu 24.04, 6 GB / 4 vCPU / 60 GB) yalnızca image çeker.
 
 ## 4. Mevcut kod durumu (30 Eylül 2026)

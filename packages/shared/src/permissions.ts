@@ -48,6 +48,8 @@ export const PERMISSIONS = {
   'finance.manage': 'Ödeme ve gider kaydetme',
   'commissions.view.own': 'Kendi hakedişini görüntüleme',
   'commissions.view.all': 'Tüm hakedişleri görüntüleme',
+  // Payroll (with commissions.view.all on the run endpoints) and payouts need an
+  // unrestricted (all-branch) membership; branch-restricted staff get 403.
   'payroll.manage': 'Hakediş bordrosu oluşturma, düzeltme, onaylama ve ödenmiş işaretleme',
 
   'notifications.manage': 'Bildirim şablonları ve SMS kredisi',
@@ -122,6 +124,8 @@ export const PERMISSIONS = {
   // G5d-2: bank payouts and reconciliation. Owner only by default: they carry
   // the studio's provider settlements. Viewing, exporting and reading the
   // items is `payouts.view`; sync, manual match and account settings are `payouts.manage`.
+  // Both require an unrestricted (all-branch) membership; the provider account
+  // may only be changed by the studio owner.
   'payouts.view': 'Banka ödemelerini (sağlayıcı hakedişleri) ve mutabakat durumunu görüntüleme, dışa aktarma',
   'payouts.manage': 'Banka ödemelerini eşitleme, tahsilatlarla elle eşleştirme ve sağlayıcı hesabı ayarı',
   // G5c-1: the platform subscription itself (activation, plan choice, the

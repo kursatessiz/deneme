@@ -159,3 +159,7 @@ Taban yol: `/payroll/studio/:studioId`.
 
 UTF-8 BOM ile başlar, `;` ayraçlıdır, başlık satırı:
 `Eğitmen;Seans;Katılımcı;Brüt;Düzeltme;Net`.
+
+## Şube kısıtı
+
+Sahip kararı: bordro uçlarının tamamı (çalıştırma oluşturma, liste, detay, düzeltme, onay, ödendi işaretleme, CSV) yalnızca şube kısıtı olmayan üyeliğe açıktır; şubeyle kısıtlı personel `payroll.manage` veya `commissions.view.all` izni olsa bile `403` alır. Eğitmenin kendi satırları (`me/lines`) etkilenmez. Test: `apps/api/test/e2e/payroll-payouts-branch-restricted.e2e-spec.ts`.
