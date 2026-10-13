@@ -17,6 +17,8 @@ import {
   HeroBlockSchema,
   SAFE_HREF_PATTERN,
   siteCacheTag,
+  siteHostCacheTag,
+  DOMAIN_RECHECK_FAILURE_LIMIT,
   isSiteCacheTag,
   pickCanonicalHost,
 } from './index';
@@ -228,6 +230,13 @@ describe('sites/cache tags and canonical host', () => {
     expect(isSiteCacheTag('site:zen-studio')).toBe(true);
     expect(isSiteCacheTag('site:../etc')).toBe(false);
     expect(isSiteCacheTag('other:zen')).toBe(false);
+  });
+
+  it('tags the host lookup of a custom domain and allows purging it', () => {
+    expect(siteHostCacheTag('Studio.Example.com:443')).toBe('site-host:studio.example.com');
+    expect(isSiteCacheTag(siteHostCacheTag('studio.example.com'))).toBe(true);
+    expect(isSiteCacheTag('site-host:a b')).toBe(false);
+    expect(DOMAIN_RECHECK_FAILURE_LIMIT).toBe(3);
   });
 
   it('keeps tenants apart: two studios never share a tag', () => {

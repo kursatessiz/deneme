@@ -1,5 +1,5 @@
 import { apiInternalBaseUrl } from '@/lib/server-env';
-import { SITE_REVALIDATE_SECONDS, siteCacheTag } from '@platform/shared';
+import { SITE_REVALIDATE_SECONDS, siteCacheTag, siteHostCacheTag } from '@platform/shared';
 import type { ArticleSitemapEntry, PublicPageDTO, PublicSiteSettingsDTO, SitemapPageEntry, SitemapResponseDTO } from '@platform/shared';
 import { originForHost, siteOrigin } from './origin';
 
@@ -88,7 +88,7 @@ export async function resolveHost(host: string, apiBaseUrl: string): Promise<Res
 /** Node runtime variant of resolveHost: cached like the other page-engine reads, so metadata and render share one lookup. */
 async function resolveHostCached(host: string): Promise<ResolvedHost | null> {
   try {
-    const res = await fetch(`${apiInternalBaseUrl()}/public/sites/resolve?host=${encodeURIComponent(host)}`, { next: { revalidate: PAGE_REVALIDATE_SECONDS } });
+    const res = await fetch(`${apiInternalBaseUrl()}/public/sites/resolve?host=${encodeURIComponent(host)}`, { next: { revalidate: PAGE_REVALIDATE_SECONDS, tags: [siteHostCacheTag(host)] } });
     if (!res.ok) return null;
     return (await res.json()) as ResolvedHost;
   } catch {

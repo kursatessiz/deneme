@@ -4152,6 +4152,10 @@ model SiteDomain {
   status            DomainVerificationStatus  @default(PENDING)
   verificationToken String                    @map("verification_token") @db.VarChar(64)
   verifiedAt        DateTime?                 @map("verified_at")
+  /// Daily re-verification of a VERIFIED domain (docs/SAYFA_MOTORU.md section 7).
+  lastCheckedAt       DateTime?               @map("last_checked_at")
+  lastFailureAt       DateTime?               @map("last_failure_at")
+  consecutiveFailures Int                     @default(0) @map("consecutive_failures")
   createdAt         DateTime                  @default(now()) @map("created_at")
   updatedAt         DateTime                  @updatedAt @map("updated_at")
 
