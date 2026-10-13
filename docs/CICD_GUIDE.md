@@ -469,7 +469,9 @@ Apple kimlikleriyle değiştirilmelidir.
   CodeQL. Pull request'lerde, `main`'e push'larda ve haftalık olarak çalışır.
 - **`security.yml`**: pull request'lerde dependency review (high severity'de başarısız olur,
   GPL/AGPL/SSPL gibi copyleft lisansları reddeder), TruffleHog secret scanning ve `zizmor`
-  GitHub Actions workflow denetimi.
+  GitHub Actions workflow denetimi. Tek istisna TruffleHog Action'ının kendisidir (AGPL-3.0):
+  yalnızca CI içinde tarayıcı olarak çalışır, imajlara girmez ve dağıtılmaz, bu yüzden
+  lisansı ürüne yükümlülük getirmez (sahip kararı). Diğer her bağımlılık için yasak sürer.
 - **`scorecard.yml`**: OpenSSF Scorecard, `main`'e push'larda ve haftalık olarak yayınlanır.
 
 Tüm üçüncü taraf action'lar, değişken (floating) tag'lere değil commit SHA'larına sabitlenmiştir.

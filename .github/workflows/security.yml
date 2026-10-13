@@ -34,6 +34,10 @@ jobs:
           fail-on-severity: high
           comment-summary-in-pr: on-failure
           deny-licenses: AGPL-1.0-or-later, AGPL-3.0-only, AGPL-3.0-or-later, GPL-2.0-only, GPL-2.0-or-later, GPL-3.0-only, GPL-3.0-or-later, SSPL-1.0
+          # TruffleHog (AGPL-3.0) only runs inside CI as the secret scanner and is never
+          # shipped in an image or distributed, so its license places no obligation on the
+          # product. The deny list above still applies to every other dependency.
+          allow-dependencies-licenses: pkg:githubactions/trufflesecurity/trufflehog
 
   secrets:
     name: Secret scan
@@ -44,7 +48,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: trufflesecurity/trufflehog@4dd8831c5f12599465d4d45c3c447b4018a34c85 # v3.97.9
+      - uses: trufflesecurity/trufflehog@0186870afd2c4a90def791d80260923ba583d076 # v3.98.0
         with:
           # .env.example files are templates with placeholder credentials;
           # real values live only in the untracked .env on the server.
