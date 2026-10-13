@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { universalLinkEnvProblems } from './universal-links';
 
 /**
  * Server-only environment. Never imported from a client component: Next.js
@@ -15,11 +16,22 @@ const ServerEnvSchema = z.object({
    * "ISR"). Unset disables the endpoint (503): pages then refresh by their 300 second window alone.
    */
   REVALIDATE_SECRET: z.string().min(16, 'REVALIDATE_SECRET must be at least 16 characters').optional(),
+  /** Universal links for the invite landing /j/<token> (docs/MOBILE_APP.md); unset keeps the association files at 404. */
+  MOBILE_IOS_APP_IDS: z.string().optional(),
+  MOBILE_ANDROID_PACKAGE: z.string().optional(),
+  MOBILE_ANDROID_SHA256_CERT_FINGERPRINTS: z.string().optional(),
   /** Release of this build (deploy passes RELEASE_TAG, e.g. sha-<commit>); tags error reports. */
   APP_RELEASE: z
     .string()
     .regex(/^[A-Za-z0-9._-]{1,64}$/)
     .default('dev'),
+}).superRefine((env, ctx) => {
+  const problems = universalLinkEnvProblems({
+    iosAppIds: env.MOBILE_IOS_APP_IDS,
+    androidPackage: env.MOBILE_ANDROID_PACKAGE,
+    androidFingerprints: env.MOBILE_ANDROID_SHA256_CERT_FINGERPRINTS,
+  });
+  for (const message of problems) ctx.addIssue({ code: z.ZodIssueCode.custom, message });
 });
 
 export type ServerEnv = z.infer<typeof ServerEnvSchema>;
@@ -36,6 +48,9 @@ export function getServerEnv(): ServerEnv {
     REVALIDATE_SECRET: process.env.REVALIDATE_SECRET || undefined,
     NODE_ENV: process.env.NODE_ENV,
     APP_RELEASE: process.env.APP_RELEASE || undefined,
+    MOBILE_IOS_APP_IDS: process.env.MOBILE_IOS_APP_IDS || undefined,
+    MOBILE_ANDROID_PACKAGE: process.env.MOBILE_ANDROID_PACKAGE || undefined,
+    MOBILE_ANDROID_SHA256_CERT_FINGERPRINTS: process.env.MOBILE_ANDROID_SHA256_CERT_FINGERPRINTS || undefined,
   });
   if (!result.success) {
     const details = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');

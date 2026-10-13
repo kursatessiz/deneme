@@ -85,6 +85,59 @@ izin yoksa "Bu ekrana erişim yetkiniz yok" mesajı gösterilir. API bağımsız
 `@RequirePermission`/`@SelfService` ile yetkiyi zorunlu kılmaya devam eder; mobildeki koruma yalnızca
 kullanıcı deneyimi içindir.
 
+## Üye self-servis: iptal ve bekleme listesi
+
+Üyenin seans ekranı (`app/(app)/seans/[scheduleId].tsx`) ve ana sayfadaki "Yaklaşan rezervasyonlarım" kartları
+(`Yönet veya iptal et` düğmesi aynı ekranı açar) üyenin kendi durumunu `GET /schedules/:scheduleId/self-status`
+(`@SelfService`, yanıt `ScheduleSelfStatusDTO`) ile alır:
+
+- **Rezervasyon iptali**: seansta CONFIRMED rezervasyonu varsa "Rezervasyonu iptal et" görünür. Onay penceresi,
+  işletmenin iptal politikasının kuru çalıştırmasını (`evaluateCancellation`, durum değiştirmez) gösterir: ücretsiz
+  (erken) iptal ve iade edilecek hak, ya da geç iptal ve kesilecek/iade edilecek hak. Yanıt gelmezse genel bir onay
+  metni kullanılır. Onay `POST /schedules/cancel/self` çağırır (üye cezayı kaldıramaz); sonuç metni API'nin
+  yerelleştirilmiş `message` alanıdır. Metin seçimi `apps/mobile/src/lib/sessionSelfService.ts`
+  (`cancelConfirmation`, birim testli).
+- **Bekleme listesi**: seans doluysa ve üye listede değilse "Bekleme listesine katıl"
+  (`POST /schedules/waitlist/self`); listedeyse sırası ("Bekleme listesindeki sıranız: N") ve "Bekleme listesinden çık"
+  (`POST /schedules/waitlist/leave/self`) görünür. Sıra, `WAITING` kayıtlar arasından sunucuda hesaplanır.
+- API değişikliği: yeni `self-status` ucu ve `UpcomingBookingDTO.scheduleId` alanı (ikisi de eklemedir). Hata
+  metinleri `apiError`/`ApiError.message`, ekran metinleri `mSessionBooking.cancel.*`, `mSessionBooking.waitlist.*` ve
+  `mHome.manageBooking` anahtarlarıdır.
+
+## Evrensel bağlantılar (davet `/j/<token>`)
+
+Davet bağlantısı (`https://<WEB_DOMAIN>/j/<token>`) uygulama kuruluysa doğrudan uygulamada açılır; kurulu değilse
+web sayfası (`apps/web/src/app/(app)/j/[token]`) yedek olarak çalışmaya devam eder.
+
+**Web (ilişkilendirme dosyaları)**: `/.well-known/apple-app-site-association` (uzantısız, `application/json`, yönlendirme
+yok) ve `/.well-known/assetlinks.json`, ortam değişkenlerinden üretilir (`apps/web/src/lib/universal-links.ts`);
+yalnızca `/j/*` yolu talep edilir. Değişkenler `lib/server-env.ts` içinde Zod ile doğrulanır, bozuk değer sunucuyu
+başlatmaz; hiçbiri doluysa karşılığı 404 döner:
+
+| Değişken | Anlamı |
+| --- | --- |
+| `MOBILE_IOS_APP_IDS` | virgülle ayrılmış `TEAMID.bundle.id` listesi (preprod için `...member.preprod` kimliğini de ekleyin) |
+| `MOBILE_ANDROID_PACKAGE` | Android paket adı (`com.platform.member`) |
+| `MOBILE_ANDROID_SHA256_CERT_FINGERPRINTS` | virgülle ayrılmış SHA-256 imza parmak izleri (`AA:BB:...`); paket adıyla birlikte doldurulur |
+
+Değerler `/opt/app/.env` dosyasına yazılır, `deploy/docker-compose.prod.yml` `web` konteynerine geçirir
+(`.env.example` içinde belgelidir). Middleware bu yolları değiştirmez ve CSP'si JSON yanıtını engellemez.
+
+**Mobil (derleme zamanı)**: `app.config.ts`, EAS ortamındaki `EXPO_PUBLIC_WEB_DOMAIN` (dağıtımın `WEB_DOMAIN`
+değeri, şemasız alan adı) doluysa `ios.associatedDomains = ['applinks:<alan adı>']` ve `autoVerify` açık
+`android.intentFilters` (`https://<alan adı>/j/*`) ekler (`src/lib/universalLinks.ts`, birim testli). Boşsa yalnızca
+`platform://` şeması kalır. Bu ortam değişkeni API adresi gibi `eas env:create` ile tanımlanır.
+
+**Uygulama içi kabul**: `app/j/[token].tsx`, web sayfasının yaptığı akışı aynı uç noktalarla yürütür:
+`GET /invites/:token` (önizleme), `POST /invites/:token/otp`, `POST /invites/:token/accept`. Gövde API'nin kullandığı
+`AcceptInviteSchema` ile doğrulanır (`src/lib/inviteLink.ts`: kod, isteğe bağlı 6 haneli PIN, gösterilen tüm
+belge sürümlerinin kimlikleri, `device`). Dönen token'lar normal girişteki gibi saklanır (`SessionProvider.acceptInvite`)
+ve uygulama ana ekrana geçer. Bulunamayan, süresi dolmuş veya kullanılmış davet için API aynı yanıtı verdiği
+için web sayfasındaki gibi tek bir "davet geçersiz" durumu gösterilir. Metinler `joinInvite.*` anahtarlarıdır.
+
+**Sahibin yapması gerekenler**: Apple Team ID ve Play imza parmak izini sağlamak, yukarıdaki dört değişkeni (üç sunucu,
+bir EAS) doldurmak ve yeni bir mağaza derlemesi almak (ilişkilendirme alanları yalnızca yeni derlemede etkinleşir).
+
 ## Eğitmen akışı ("Programım")
 
 `hesabim/programim`: gün/hafta seçici, `GET /schedules/studio/:studioId?trainerId=<benim>` ile kendi
@@ -342,6 +395,7 @@ ve `production` (Android App Bundle) profilleri. Hiçbir gizli bilgi commit edil
   sağlanmalıdır.
 - Bundle identifier / package adı `app.json`'dan okunur (`com.platform.member`, hem iOS hem Android);
   değiştirilecekse tek yerden güncellenir.
+- `EXPO_PUBLIC_WEB_DOMAIN`: evrensel bağlantılar için dağıtımın `WEB_DOMAIN` değeri (şemasız); bkz. "Evrensel bağlantılar".
 - `EXPO_PUBLIC_API_URL`: her profil için `eas.json`'da yer tutucu bir URL var (`api-staging`/`api`);
   gerçek ortam adresleriyle güncellenmeli.
 
