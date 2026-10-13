@@ -23,7 +23,7 @@ describe('InvitesService', () => {
     membership: { findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn(), create: jest.fn() },
     inviteToken: { updateMany: jest.fn(), create: jest.fn(), findUnique: jest.fn() },
     documentVersion: { findMany: jest.fn() },
-    user: { findUnique: jest.fn(), upsert: jest.fn() },
+    user: { findUnique: jest.fn(), findFirst: jest.fn(async () => null), upsert: jest.fn() },
     memberProfile: { upsert: jest.fn() },
     trainerProfile: { upsert: jest.fn() },
     consent: { createMany: jest.fn() },
@@ -240,6 +240,18 @@ describe('InvitesService', () => {
           '1.2.3.4',
         ),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('refuses a globally inactive user before any write (403) and keeps the invite unused', async () => {
+      mockUsableInvite();
+      mockOtp.verify.mockResolvedValueOnce(true);
+      mockPrisma.user.findUnique.mockResolvedValueOnce({ id: 'user-1', pinHash: 'already-set', isActive: false });
+
+      await expect(
+        service.accept(VALID_TOKEN, { code: '482915', acceptedDocumentVersionIds: ['doc-kvkk', 'doc-contract'] } as any, '1.2.3.4'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.inviteToken.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.user.upsert).not.toHaveBeenCalled();
     });
 
     it('a second concurrent claim of the same invite -> 410 Gone', async () => {
