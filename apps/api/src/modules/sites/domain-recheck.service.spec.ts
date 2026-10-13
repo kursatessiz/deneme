@@ -3,9 +3,10 @@ import { DOMAIN_RECHECK_BATCH, DOMAIN_RECHECK_INTERVAL_MS, DomainRecheckService 
 import type { PrismaService } from '../prisma/prisma.service';
 import type { DnsVerificationService } from './dns.service';
 import type { SiteCacheService } from './site-cache.service';
+import type { DomainNoticeService } from './domain-notice.service';
 
 const now = new Date('2026-10-13T08:00:00Z');
-const row = (id: string, domain: string) => ({ id, domain, verificationToken: `tok-${id}`, site: { studioId: `studio-${id}` } });
+const row = (id: string, domain: string) => ({ id, domain, verificationToken: `tok-${id}`, site: { studioId: `studio-${id}`, studio: { isPlatform: false } } });
 
 function build(rows: ReturnType<typeof row>[], verify: jest.Mock, failureCount = 1) {
   const prisma = {
@@ -16,12 +17,14 @@ function build(rows: ReturnType<typeof row>[], verify: jest.Mock, failureCount =
     },
   };
   const siteCache = { purgeDomain: jest.fn().mockResolvedValue(undefined) };
+  const notices = { warnFirstFailure: jest.fn().mockResolvedValue(2), notifyDeactivated: jest.fn().mockResolvedValue(2) };
   const service = new DomainRecheckService(
     prisma as unknown as PrismaService,
     { verify } as unknown as DnsVerificationService,
     siteCache as unknown as SiteCacheService,
+    notices as unknown as DomainNoticeService,
   );
-  return { service, prisma, siteCache };
+  return { service, prisma, siteCache, notices };
 }
 
 describe('DomainRecheckService', () => {
@@ -56,6 +59,47 @@ describe('DomainRecheckService', () => {
     expect(await service.run(now)).toEqual({ checked: 1, failed: 1, deactivated: 1 });
     expect(prisma.siteDomain.updateMany).toHaveBeenCalledWith({ where: { id: '1', status: 'VERIFIED' }, data: { status: 'FAILED', verifiedAt: null } });
     expect(siteCache.purgeDomain).toHaveBeenCalledWith('a.example.com', 'studio-1');
+  });
+
+  it('sends the warning on the first failure only, with the days left, and no deactivation notice', async () => {
+    const { service, notices } = build([row('1', 'a.example.com')], jest.fn().mockResolvedValue(false), 1);
+    await service.run(now);
+    expect(notices.warnFirstFailure).toHaveBeenCalledTimes(1);
+    expect(notices.warnFirstFailure).toHaveBeenCalledWith(
+      { domainId: '1', domain: 'a.example.com', studioId: 'studio-1', isPlatformStudio: false, eventAt: now },
+      DOMAIN_RECHECK_FAILURE_LIMIT - 1,
+      expect.any(String),
+    );
+    expect(notices.notifyDeactivated).not.toHaveBeenCalled();
+  });
+
+  it('sends no warning on the second failure', async () => {
+    const { service, notices } = build([row('1', 'a.example.com')], jest.fn().mockResolvedValue(false), 2);
+    await service.run(now);
+    expect(notices.warnFirstFailure).not.toHaveBeenCalled();
+    expect(notices.notifyDeactivated).not.toHaveBeenCalled();
+  });
+
+  it('sends the deactivation notice once when the domain flips to FAILED', async () => {
+    const { service, notices } = build([row('1', 'a.example.com')], jest.fn().mockResolvedValue(false), DOMAIN_RECHECK_FAILURE_LIMIT);
+    await service.run(now);
+    expect(notices.notifyDeactivated).toHaveBeenCalledTimes(1);
+    expect(notices.notifyDeactivated).toHaveBeenCalledWith(expect.objectContaining({ domainId: '1', domain: 'a.example.com', studioId: 'studio-1' }));
+    expect(notices.warnFirstFailure).not.toHaveBeenCalled();
+  });
+
+  it('sends no deactivation notice when another worker already flipped the domain', async () => {
+    const { service, prisma, notices } = build([row('1', 'a.example.com')], jest.fn().mockResolvedValue(false), DOMAIN_RECHECK_FAILURE_LIMIT);
+    prisma.siteDomain.updateMany.mockResolvedValue({ count: 0 });
+    await service.run(now);
+    expect(notices.notifyDeactivated).not.toHaveBeenCalled();
+  });
+
+  it('sends no notice on success', async () => {
+    const { service, notices } = build([row('1', 'a.example.com')], jest.fn().mockResolvedValue(true));
+    await service.run(now);
+    expect(notices.warnFirstFailure).not.toHaveBeenCalled();
+    expect(notices.notifyDeactivated).not.toHaveBeenCalled();
   });
 
   it('treats a lookup that throws or hangs as a failure and keeps going with the next domain', async () => {

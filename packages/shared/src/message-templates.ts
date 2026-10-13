@@ -168,6 +168,24 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplateDefinition[] = [
     emailButton: { labelKey: 'msgTpl.BACKUP_STALE.cta', urlVariable: 'link' },
   },
   /**
+   * Custom domain re-check notices (docs/SAYFA_MOTORU.md): operational e-mail and in-app notices to the
+   * studio owner and staff who manage the site. TRANSACTIONAL, never sent as SMS.
+   */
+  {
+    key: 'DOMAIN_VERIFY_WARNING',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'domain', 'days', 'cnameTarget', 'link'],
+    whatsappName: 'domain_verify_warning',
+    emailButton: { labelKey: 'msgTpl.DOMAIN_NOTICE.cta', urlVariable: 'link' },
+  },
+  {
+    key: 'DOMAIN_DEACTIVATED',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'domain', 'link'],
+    whatsappName: 'domain_deactivated',
+    emailButton: { labelKey: 'msgTpl.DOMAIN_NOTICE.cta', urlVariable: 'link' },
+  },
+  /**
    * M3b marketing approvals (docs/PAZARLAMA_MODULU.md 6.1): e-mail and
    * in-app notices to super admins (new request) and to the requester
    * (decision). Operational, so TRANSACTIONAL.

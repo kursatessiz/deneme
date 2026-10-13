@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { DOMAIN_RECHECK_FAILURE_LIMIT } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { DnsVerificationService } from './dns.service';
+import { DomainNoticeService } from './domain-notice.service';
 import { SiteCacheService } from './site-cache.service';
 import { platformCnameTarget } from './sites.service';
 
@@ -33,6 +34,7 @@ export class DomainRecheckService {
     private readonly prisma: PrismaService,
     private readonly dns: DnsVerificationService,
     private readonly siteCache: SiteCacheService,
+    private readonly notices: DomainNoticeService,
   ) {}
 
   async run(now: Date): Promise<DomainRecheckResult> {
@@ -43,7 +45,7 @@ export class DomainRecheckService {
       },
       orderBy: [{ lastCheckedAt: { sort: 'asc', nulls: 'first' } }, { id: 'asc' }],
       take: DOMAIN_RECHECK_BATCH,
-      select: { id: true, domain: true, verificationToken: true, site: { select: { studioId: true } } },
+      select: { id: true, domain: true, verificationToken: true, site: { select: { studioId: true, studio: { select: { isPlatform: true } } } } },
     });
     const result: DomainRecheckResult = { checked: 0, failed: 0, deactivated: 0 };
     for (const row of due) {
@@ -64,12 +66,18 @@ export class DomainRecheckService {
         data: { lastCheckedAt: now, lastFailureAt: now, consecutiveFailures: { increment: 1 } },
         select: { consecutiveFailures: true },
       });
-      if (updated.consecutiveFailures < DOMAIN_RECHECK_FAILURE_LIMIT) continue;
+      const target = { domainId: row.id, domain: row.domain, studioId: row.site.studioId, isPlatformStudio: row.site.studio.isPlatform, eventAt: now };
+      if (updated.consecutiveFailures < DOMAIN_RECHECK_FAILURE_LIMIT) {
+        // The 0 -> 1 transition happens once per streak (a success resets the counter), so the warning goes out once.
+        if (updated.consecutiveFailures === 1) await this.notices.warnFirstFailure(target, DOMAIN_RECHECK_FAILURE_LIMIT - 1, platformCnameTarget());
+        continue;
+      }
       const flipped = await this.prisma.siteDomain.updateMany({ where: { id: row.id, status: 'VERIFIED' }, data: { status: 'FAILED', verifiedAt: null } });
       if (flipped.count === 0) continue;
       result.deactivated += 1;
       this.logger.warn(`Custom domain ${row.domain} deactivated after ${updated.consecutiveFailures} failed daily checks`);
       await this.siteCache.purgeDomain(row.domain, row.site.studioId);
+      await this.notices.notifyDeactivated(target);
     }
     return result;
   }
