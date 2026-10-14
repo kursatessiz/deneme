@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
-    "@expo/ui": "~57.0.21",
+    "@expo/ui": "~57.0.22",
     "@kingstinct/react-native-healthkit": "^16.0.0",
     "@platform/shared": "workspace:*",
     "@react-native-async-storage/async-storage": "2.2.0",
