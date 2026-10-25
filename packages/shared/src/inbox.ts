@@ -38,7 +38,7 @@ export const InboxReplySchema = z
   .object({
     body: z.string().trim().min(1).max(4000).optional(),
     templateKey: z.string().trim().regex(/^[A-Z][A-Z0-9_]{1,59}$/).optional(),
-    variables: z.record(z.string().max(500)).default({}),
+    variables: z.record(z.string(), z.string().max(500)).default({}),
   })
   .strict()
   .refine((v) => Boolean(v.body) !== Boolean(v.templateKey), {
@@ -48,7 +48,7 @@ export const InboxReplySchema = z
 export type InboxReplyInput = z.infer<typeof InboxReplySchema>;
 
 /** A staff membership id, `me` (the caller) or null to unassign. */
-export const AssignConversationSchema = z.object({ membershipId: z.union([z.string().uuid(), z.literal('me')]).nullable() }).strict();
+export const AssignConversationSchema = z.object({ membershipId: z.union([z.string().guid(), z.literal('me')]).nullable() }).strict();
 export type AssignConversationInput = z.infer<typeof AssignConversationSchema>;
 
 export const UpdateConversationStatusSchema = z.object({ status: z.enum(CONVERSATION_STATUSES) }).strict();

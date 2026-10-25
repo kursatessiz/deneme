@@ -72,7 +72,7 @@ export const NOTIFICATION_CATEGORY_KEYS = Object.keys(NOTIFICATION_CATEGORIES) a
 const ChannelTogglesSchema = z.object({ push: z.boolean(), sms: z.boolean() }).strict();
 
 export const NotificationPreferencesSchema = z
-  .record(z.enum(NOTIFICATION_CATEGORY_KEYS as [NotificationCategory, ...NotificationCategory[]]), ChannelTogglesSchema)
+  .partialRecord(z.enum(NOTIFICATION_CATEGORY_KEYS as [NotificationCategory, ...NotificationCategory[]]), ChannelTogglesSchema)
   .refine((v) => Object.keys(v).length > 0, vmsg('validation.leastOneCategorySent'));
 
 /** PUT body: any subset of categories; missing ones keep their value. */

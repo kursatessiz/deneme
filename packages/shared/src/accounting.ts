@@ -38,7 +38,7 @@ export const AccountingExportQuerySchema = z
   .object({
     from: z.coerce.date().optional(),
     to: z.coerce.date().optional(),
-    branchId: z.string().uuid().optional(),
+    branchId: z.string().guid().optional(),
     kind: z.enum(ACCOUNTING_KINDS).default('sales'),
     format: z.enum(ACCOUNTING_FORMATS).default('xlsx'),
     delimiter: DelimiterSchema,

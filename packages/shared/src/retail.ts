@@ -346,7 +346,7 @@ export type UpdateProductCategoryInput = z.infer<typeof UpdateProductCategorySch
 
 const ProductFields = {
   name: z.string().trim().min(1, 'Ad giriniz').max(120),
-  categoryId: z.string().uuid().nullable().optional(),
+  categoryId: z.string().guid().nullable().optional(),
   sku: OptionalText(60),
   barcode: z
     .string()
@@ -379,10 +379,10 @@ export type UpdateProductInput = z.infer<typeof UpdateProductSchema>;
 export const ListProductsQuerySchema = z.object({
   search: z.string().trim().max(120).optional(),
   barcode: z.string().trim().max(64).optional(),
-  categoryId: z.string().uuid().optional(),
+  categoryId: z.string().guid().optional(),
   active: z.enum(['true', 'false', 'all']).default('all'),
   /** Stock is reported for this branch only; omitted reports every accessible branch. */
-  branchId: z.string().uuid().optional(),
+  branchId: z.string().guid().optional(),
 });
 export type ListProductsQuery = z.infer<typeof ListProductsQuerySchema>;
 
@@ -390,8 +390,8 @@ const Quantity = z.number().int().min(1).max(RETAIL_MAX_QUANTITY);
 
 export const ReceiveStockSchema = z
   .object({
-    productId: z.string().uuid(),
-    branchId: z.string().uuid(),
+    productId: z.string().guid(),
+    branchId: z.string().guid(),
     quantity: Quantity,
     unitCost: MoneyStringSchema.optional(),
     reason: z.string().trim().max(200).optional(),
@@ -402,8 +402,8 @@ export type ReceiveStockInput = z.infer<typeof ReceiveStockSchema>;
 
 export const AdjustStockSchema = z
   .object({
-    productId: z.string().uuid(),
-    branchId: z.string().uuid(),
+    productId: z.string().guid(),
+    branchId: z.string().guid(),
     /** Signed change, e.g. -2 for two broken bottles. */
     delta: z.number().int().min(-RETAIL_MAX_QUANTITY).max(RETAIL_MAX_QUANTITY).refine((v) => v !== 0, vmsg('validation.changeZero')).optional(),
     /** Stock count: the quantity found on the shelf. */
@@ -419,9 +419,9 @@ export type AdjustStockInput = z.infer<typeof AdjustStockSchema>;
 
 export const TransferStockSchema = z
   .object({
-    productId: z.string().uuid(),
-    fromBranchId: z.string().uuid(),
-    toBranchId: z.string().uuid(),
+    productId: z.string().guid(),
+    fromBranchId: z.string().guid(),
+    toBranchId: z.string().guid(),
     quantity: Quantity,
     reason: z.string().trim().max(200).optional(),
   })
@@ -434,8 +434,8 @@ const Paging = {
 };
 
 export const StockMovementsQuerySchema = z.object({
-  productId: z.string().uuid().optional(),
-  branchId: z.string().uuid().optional(),
+  productId: z.string().guid().optional(),
+  branchId: z.string().guid().optional(),
   type: z.enum(STOCK_MOVEMENT_TYPES).optional(),
   ...Paging,
 });
@@ -443,16 +443,16 @@ export type StockMovementsQuery = z.infer<typeof StockMovementsQuerySchema>;
 
 export const CheckoutSchema = z
   .object({
-    branchId: z.string().uuid(),
+    branchId: z.string().guid(),
     /** Member buying (optional): links a payment record, promo codes and loyalty points. */
-    memberId: z.string().uuid().optional(),
+    memberId: z.string().guid().optional(),
     /** CRM contact of a walk-in customer (optional). */
-    contactId: z.string().uuid().optional(),
+    contactId: z.string().guid().optional(),
     lines: z
       .array(
         z
           .object({
-            productId: z.string().uuid(),
+            productId: z.string().guid(),
             quantity: Quantity,
             /** Staff discount for the whole line. */
             discount: MoneyStringSchema.optional(),
@@ -473,9 +473,9 @@ export type CheckoutInput = z.infer<typeof CheckoutSchema>;
 export const SalesQuerySchema = z.object({
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
-  branchId: z.string().uuid().optional(),
+  branchId: z.string().guid().optional(),
   status: z.enum(SALE_STATUSES).optional(),
-  memberId: z.string().uuid().optional(),
+  memberId: z.string().guid().optional(),
   receipt: z.string().trim().max(30).optional(),
   ...Paging,
 });
@@ -488,7 +488,7 @@ export const RefundSaleSchema = z
       .array(
         z
           .object({
-            saleLineId: z.string().uuid(),
+            saleLineId: z.string().guid(),
             quantity: Quantity,
             /** Put the units back on the shelf (RETURN movement). False for damaged goods. */
             restock: z.boolean().default(true),

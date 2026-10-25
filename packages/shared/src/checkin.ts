@@ -11,7 +11,7 @@ import { vmsg } from './validation-key';
 // ---------------------------------------------------------------------------
 
 export const CreateCheckInPointSchema = z.object({
-  branchId: z.string().uuid(),
+  branchId: z.string().guid(),
   name: z.string().trim().min(2, vmsg('validation.pointNameLeast2Characters')).max(100),
 });
 export type CreateCheckInPointInput = z.infer<typeof CreateCheckInPointSchema>;
@@ -38,13 +38,13 @@ export const DynamicQrTokenSchema = z.string().trim().min(20, vmsg('validation.i
 export const StaffCheckInMemberQrSchema = z.object({
   token: DynamicQrTokenSchema,
   /** Disambiguates when the member has more than one checkin-eligible booking today. */
-  scheduleId: z.string().uuid().optional(),
+  scheduleId: z.string().guid().optional(),
 });
 export type StaffCheckInMemberQrInput = z.infer<typeof StaffCheckInMemberQrSchema>;
 
 export const KioskCheckInSchema = z.object({
   token: DynamicQrTokenSchema,
-  scheduleId: z.string().uuid().optional(),
+  scheduleId: z.string().guid().optional(),
 });
 export type KioskCheckInInput = z.infer<typeof KioskCheckInSchema>;
 
@@ -53,7 +53,7 @@ export type KioskCheckInInput = z.infer<typeof KioskCheckInSchema>;
 // ---------------------------------------------------------------------------
 
 export const CreateKioskDeviceSchema = z.object({
-  branchId: z.string().uuid(),
+  branchId: z.string().guid(),
   name: z.string().trim().min(2, vmsg('validation.deviceNameLeast2Characters')).max(100),
 });
 export type CreateKioskDeviceInput = z.infer<typeof CreateKioskDeviceSchema>;

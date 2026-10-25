@@ -100,7 +100,7 @@ export const MessagingSettingsSchema = z
     /** The tenant's own inbound SMS number (Twilio "To"), for inbound routing. */
     inboundSmsNumber: E164.nullable().optional(),
     /** Sender id registration status per SMS provider (M4c, set by the platform owner). */
-    smsSenderRegistrations: z.record(z.enum(SMS_PROVIDER_KEYS), SmsSenderRegistrationSchema).optional(),
+    smsSenderRegistrations: z.partialRecord(z.enum(SMS_PROVIDER_KEYS), SmsSenderRegistrationSchema).optional(),
     /** Twilio 10DLC brand and campaign status (M4c, set by the platform owner). */
     twilio10dlc: Twilio10dlcSchema.optional(),
   })

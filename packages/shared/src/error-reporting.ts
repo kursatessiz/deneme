@@ -139,7 +139,7 @@ export type Breadcrumb = z.infer<typeof BreadcrumbSchema>;
  * unknown keys (a spoofed studioId) are stripped by the parser.
  */
 export const ClientErrorEventSchema = z.object({
-  eventId: z.string().uuid(),
+  eventId: z.string().guid(),
   source: z.enum(CLIENT_ERROR_SOURCES),
   severity: z.enum(ERROR_SEVERITIES).default('error'),
   release: ReleaseSchema,
@@ -189,7 +189,7 @@ export const ErrorGroupListQuerySchema = z.object({
   source: z.enum(ERROR_SOURCES).optional(),
   status: z.enum(ERROR_GROUP_STATUSES).optional(),
   release: z.string().max(64).optional(),
-  studioId: z.string().uuid().optional(),
+  studioId: z.string().guid().optional(),
   /** An 8-character error code, or text matched against the title. */
   q: z.string().trim().max(100).optional(),
   page: z.coerce.number().int().min(1).max(1000).default(1),

@@ -147,7 +147,7 @@ export interface ChurnSummaryDTO {
 
 export const ChurnListQuerySchema = z.object({
   level: z.enum(CHURN_RISK_LEVELS).optional(),
-  branchId: z.string().uuid().optional(),
+  branchId: z.string().guid().optional(),
   includeSnoozed: z.coerce.boolean().default(false),
   search: z.string().trim().max(150).optional(),
   page: z.coerce.number().int().min(1).default(1),

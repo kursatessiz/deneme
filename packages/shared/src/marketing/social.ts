@@ -262,16 +262,16 @@ const Locale = z
 
 export const CreateSocialPostSchema = z
   .object({
-    connectionId: z.string().uuid(),
+    connectionId: z.string().guid(),
     locale: Locale,
     text: z.string().trim().min(1, 'Metin giriniz').max(10_000),
     mediaUrls: z.array(HttpsUrl).max(10).default([]),
     link: HttpsUrl.nullable().optional(),
     scheduledAt: z.string().datetime().nullable().optional(),
     /** Provenance only: the AI studio draft the text came from. */
-    aiDraftId: z.string().uuid().nullable().optional(),
+    aiDraftId: z.string().guid().nullable().optional(),
     /** The calendar item this post fulfils; it flips to SENT when the post is published. */
-    calendarItemId: z.string().uuid().nullable().optional(),
+    calendarItemId: z.string().guid().nullable().optional(),
   })
   .strict();
 export type CreateSocialPostInput = z.infer<typeof CreateSocialPostSchema>;
@@ -285,8 +285,8 @@ export type ScheduleSocialPostInput = z.infer<typeof ScheduleSocialPostSchema>;
 export const SocialPostsQuerySchema = z
   .object({
     status: z.enum(SOCIAL_POST_STATUSES).optional(),
-    connectionId: z.string().uuid().optional(),
-    calendarItemId: z.string().uuid().optional(),
+    connectionId: z.string().guid().optional(),
+    calendarItemId: z.string().guid().optional(),
     limit: z.coerce.number().int().min(1).max(200).default(100),
   })
   .strict();

@@ -119,7 +119,7 @@ export const SourcemapUploadSchema = z
     /** Bundle path as the client reports it in stack frames (e.g. _next/static/chunks/app-1a2b.js). */
     path: z.string().min(1).max(SOURCEMAP_LIMITS.pathLength * 2),
     /** The source map v3 JSON, as text or as an object. */
-    map: z.union([z.string().min(2), z.record(z.unknown())]),
+    map: z.union([z.string().min(2), z.record(z.string(), z.unknown())]),
   })
   .strict();
 export type SourcemapUpload = z.infer<typeof SourcemapUploadSchema>;

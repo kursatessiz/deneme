@@ -12,7 +12,7 @@ import { vmsg } from '../validation-key';
  */
 export const DashboardLayoutItemSchema = z
   .object({
-    id: z.string().uuid(),
+    id: z.string().guid(),
     widget: DashboardWidgetKeySchema,
     x: z.number().int().min(0).max(DASHBOARD_GRID.columns - 1),
     y: z.number().int().min(0).max(DASHBOARD_GRID.maxY),

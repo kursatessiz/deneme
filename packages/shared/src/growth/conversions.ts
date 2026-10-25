@@ -47,7 +47,7 @@ export const ConversionEventSchema = z
     eventId: z.string().min(8).max(100),
     type: z.enum(CONVERSION_EVENT_TYPES),
     occurredAt: z.string().datetime(),
-    contactId: z.string().uuid(),
+    contactId: z.string().guid(),
     value: z
       .object({
         amount: z.string().regex(/^\d{1,12}(\.\d{1,4})?$/),

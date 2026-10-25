@@ -288,7 +288,7 @@ export const DashboardHealthSchema = z
           .array(
             z
               .object({
-                id: z.string().uuid(),
+                id: z.string().guid(),
                 platform: z.string(),
                 label: z.string(),
                 status: z.string(),

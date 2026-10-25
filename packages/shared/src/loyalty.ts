@@ -99,11 +99,11 @@ const CurrencySchema = z.string().regex(/^[A-Z]{3}$/, vmsg('validation.invalidCu
 export const LoyaltyRuleConditionsSchema = z
   .object({
     /** ATTENDANCE: only these service types (empty or missing = all). */
-    serviceTypeIds: z.array(z.string().uuid()).max(100).optional(),
+    serviceTypeIds: z.array(z.string().guid()).max(100).optional(),
     /** PURCHASE_AMOUNT: only payments for these package definitions (empty or missing = all). */
-    packageDefinitionIds: z.array(z.string().uuid()).max(100).optional(),
+    packageDefinitionIds: z.array(z.string().guid()).max(100).optional(),
     /** BADGE: only these badge definitions (empty or missing = every badge). */
-    badgeDefinitionIds: z.array(z.string().uuid()).max(100).optional(),
+    badgeDefinitionIds: z.array(z.string().guid()).max(100).optional(),
   })
   .strict();
 export type LoyaltyRuleConditions = z.infer<typeof LoyaltyRuleConditionsSchema>;
@@ -239,7 +239,7 @@ export const LoyaltyAdjustSchema = z
       .refine((n) => n !== 0, vmsg('validation.pointsZero')),
     note: z.string().trim().min(1, vmsg('validation.enterDescription')).max(300),
     /** A MANUAL preset rule, for reporting. */
-    ruleId: z.string().uuid().optional(),
+    ruleId: z.string().guid().optional(),
     /** Client-generated key: a retried request never adjusts twice. */
     idempotencyKey: z.string().trim().min(8).max(80).optional(),
   })
@@ -248,7 +248,7 @@ export type LoyaltyAdjustInput = z.infer<typeof LoyaltyAdjustSchema>;
 
 export const LoyaltyRedeemSchema = z
   .object({
-    rewardId: z.string().uuid(),
+    rewardId: z.string().guid(),
     idempotencyKey: z.string().trim().min(8).max(80).optional(),
   })
   .strict();

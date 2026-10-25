@@ -79,7 +79,7 @@ export const CreateArticleSchema = z
   .object({
     authorName: z.string().trim().min(1).max(120),
     coverImageUrl: HttpsUrl.optional().nullable().transform((v) => v ?? null),
-    tagIds: z.array(z.string().uuid()).max(20).default([]),
+    tagIds: z.array(z.string().guid()).max(20).default([]),
     locales: LocalesArray,
   })
   .strict();
@@ -90,7 +90,7 @@ export const UpdateArticleSchema = z
   .object({
     authorName: z.string().trim().min(1).max(120).optional(),
     coverImageUrl: HttpsUrl.optional().nullable(),
-    tagIds: z.array(z.string().uuid()).max(20).optional(),
+    tagIds: z.array(z.string().guid()).max(20).optional(),
     locales: LocalesArray.optional(),
   })
   .strict();

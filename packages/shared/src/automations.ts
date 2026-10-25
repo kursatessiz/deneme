@@ -154,7 +154,7 @@ export type ToggleAutomationRuleInput = z.infer<typeof ToggleAutomationRuleSchem
 
 export const AutomationRunHistoryQuerySchema = z
   .object({
-    ruleId: z.string().uuid().optional(),
+    ruleId: z.string().guid().optional(),
     status: z.enum(['SENT', 'SKIPPED', 'FAILED']).optional(),
     take: z.coerce.number().int().min(1).max(200).default(50),
     skip: z.coerce.number().int().min(0).default(0),

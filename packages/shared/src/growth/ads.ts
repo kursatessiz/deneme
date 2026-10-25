@@ -75,7 +75,7 @@ export type TikTokCredentials = z.infer<typeof TikTokCredentialsSchema>;
 export type AdConnectionCredentials = MetaCredentials | GoogleCredentials | TikTokCredentials;
 
 /** Maps ConversionEventType -> the platform's own conversion action id, where the platform needs one. */
-export const ConversionActionMapSchema = z.record(z.enum(CONVERSION_EVENT_TYPES), z.string().trim().min(1).max(200));
+export const ConversionActionMapSchema = z.partialRecord(z.enum(CONVERSION_EVENT_TYPES), z.string().trim().min(1).max(200));
 export type ConversionActionMap = z.infer<typeof ConversionActionMapSchema>;
 
 const credentialsByPlatform = (platform: AdConnectionPlatform) => {
