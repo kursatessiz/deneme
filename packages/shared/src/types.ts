@@ -1,7 +1,7 @@
 import type { ApiErrorKey } from './api-errors';
 import type { ApiTextKey } from './api-texts';
 import type { MembershipBillingSummary } from './billing';
-import type { UsagePeriodStatusDTO } from './usage-periods';
+import type { UsagePeriodStatusDTO, UsageRule } from './usage-periods';
 import {
   BookingStatus,
   CommissionType,
@@ -247,6 +247,8 @@ export interface PackageDefinitionDTO {
   isTransferable: boolean;
   services: { serviceTypeId: string; unitCost: number }[];
   isActive: boolean;
+  /** Usage periods: the rule new sales copy onto the member package; null or absent when the definition has none. */
+  usageRule?: UsageRule | null;
 }
 
 export interface MemberPackageDTO {
