@@ -19,6 +19,7 @@ import { StatTile } from '@/components/ui/StatTile';
 import { Table, Tbody, Td, Tr } from '@/components/ui/Table';
 import { PackageSaleDialog } from '@/components/members/PackageSaleDialog';
 import { MemberBookingDialog } from '@/components/members/MemberBookingDialog';
+import { UsagePeriodStatus } from '@/components/usage-periods/UsagePeriodStatus';
 import { LoyaltyPanel } from '@/components/loyalty/LoyaltyPanel';
 import { ErasurePanel } from '@/components/erasure/ErasurePanel';
 import { hasAnyPermission } from '@/lib/nav';
@@ -220,6 +221,14 @@ function MemberCard() {
                         <span>{t('members.card.endDate', { date: new Date(pkg.endDate).toLocaleDateString(locale) })}</span>
                         {pkg.frozenUntil && <span>{t('members.card.frozenUntil', { date: new Date(pkg.frozenUntil).toLocaleDateString(locale) })}</span>}
                       </div>
+                      <UsagePeriodStatus
+                        studioId={activeStudioId}
+                        memberPackageId={pkg.id}
+                        entitlementKind={pkg.entitlementKind}
+                        packageEnd={pkg.endDate}
+                        usagePeriods={pkg.usagePeriods}
+                        expiredUnits={pkg.expiredUnits}
+                      />
                       <div className="flex flex-wrap items-center gap-2">
                         <PermissionButton
                           required={['packages.sell']}

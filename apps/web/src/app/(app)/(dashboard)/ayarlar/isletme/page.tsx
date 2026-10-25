@@ -26,6 +26,7 @@ import { Select } from '@/components/ui/Select';
 import { FieldGroup } from '@/components/ui/FieldGroup';
 import { Button } from '@/components/ui/Button';
 import { List, ListItem } from '@/components/ui/List';
+import { UsagePeriodsSwitchCard } from '@/components/usage-periods/UsagePeriodsSwitchCard';
 
 interface CancellationPolicyRow {
   id: string;
@@ -511,6 +512,7 @@ function BusinessSettings() {
     <div className="grid gap-6">
       <SettingsHeader title={t('settings.business.title')} description={t('settings.business.description')} />
       {canCatalog && <CancellationPolicySection />}
+      {canStudio && <UsagePeriodsSwitchCard />}
       {canStudio && <RegionSection />}
       {canStudio && <LocaleSection />}
       {canStudio && <CheckInWindowSection />}
