@@ -39,6 +39,10 @@ Ortak çekirdek: Seans + kapasiteli Kaynak + Hak (seans/süre/kredi) + Eğitmen 
 - Touchpoint ve ziyaretçi kayıtları 13 ay saklanır (`TOUCHPOINT_RETENTION_MONTHS`); süresi dolanlar günlük kalp atışı adımıyla silinir, kişi üzerindeki atıf özeti kalır (`docs/CRM_VE_ATIF.md`).
 - Kişiye bağlı ziyaretçiler de son görülmeden 13 ay sonra silinir; kişi satırı ve atıf özeti korunur (`docs/CRM_VE_ATIF.md`, `docs/KVKK_SILME.md`).
 - Özel alan adı bildirimleri: ilk başarısız yeniden doğrulamada uyarı, devre dışı kalınca bildirim; alıcılar sahip ve `site.manage` izinli personel, kanallar e-posta ve uygulama içi, işlemsel (`docs/SAYFA_MOTORU.md`).
+- Dönemlik hak kotası (kullanım dönemleri, `docs/KULLANIM_DONEMLERI.md`): katmanlı kota (ay ve/veya hafta, ayrıca gün; her katmanın kendi kotası ve "kullanılmayan yanar" veya "yalnızca üst sınır" seçimi; ay hesabı `CALENDAR` ya da sabit 30/31 gün).
+- Kullanım dönemleri stüdyo şalteri ile açılıp kapanır; yalnızca işletme sahibi değiştirir (`studio.settings.manage` olsa bile personel 403 alır); kapalıyken tüm kurallar, satılmış paketlerinki dahil, çalışma anında yok sayılır (kota, yakım, hatırlatma yok). Kural paket tanımında durur.
+- Kural yalnızca yeni satış ve yenilemede `member_packages.usage_rule` alanına anlık kopyalanır; önceki paketler özgün koşullarını korur, tanım kuralının sonradan değişmesi onları etkilemez.
+- Yakılacak hak için üyeye dönem bitmeden `reminderDaysBefore` gün önce (varsayılan 3, kural başına 0-14, 0 = kapalı) işlemsel hatırlatma gider: IN_APP ve PUSH, SMS yok, dönem/paket/katman başına bir kez.
 
 ## 4. Mevcut kod durumu (30 Eylül 2026)
 
