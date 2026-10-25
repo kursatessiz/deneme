@@ -165,6 +165,7 @@ bileşeniyle hızlı giriş/gelmedi. Kısayollar: W17'nin mevcut "Üye QR tarama
   /members/:memberId/studio/:studioId`).
 - Aktif paketler: `PackageCard` (`packageCard` gradyan slotu), dondur/dondurmayı kaldır (`POST
   /members/packages/:packageId/{freeze,unfreeze}`, `packages.sell`).
+- Kullanım dönemleri (`docs/KULLANIM_DONEMLERI.md`): `PackageCard` her katman için "Bu ay: 5/8 kullanıldı" satırı, yanar/üst sınır rozeti ve yakın yanma ipucu gösterir; üye aynı kartları Hesabım > Ödemelerim > Paketlerim bölümünde görür.
 - Rezervasyon geçmişi, notlar.
 - W12 risk rozeti ve ilk üç neden (`GET /churn/studio/:studioId/members/:memberId`).
 - `isPartnerGuest` etiketi.

@@ -178,6 +178,7 @@ vardır; çıkış butonu menünün dışında, her zaman görünür kalır.
   nakit/kart/havale ödeme yöntemini gönderir; satış tamamlanınca W8'in
   otomatik kestiği faturayı bulmak için `GET /invoices?from=<bugün>`
   sorgusu `paymentId` ile eşleştirilir (yalnızca `finance.view` varsa).
+- Kullanım dönemleri (`docs/KULLANIM_DONEMLERI.md`): `/ayarlar/isletme` şalter kartı (yalnızca sahip değiştirir), `/packages` paket başına kural düzenleyici, üye kartında dönem durumu ve yanma geçmişi.
 - `/attendance` -- resepsiyon için bugünün seanslarında tek dokunuşla giriş
   listesi (`PATCH /schedules/check-in/:bookingId`); takvim panelinden de
   bir düğmeyle açılır.
