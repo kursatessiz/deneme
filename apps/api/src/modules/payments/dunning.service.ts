@@ -1,6 +1,7 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { UsagePeriodsService } from '../usage-periods/usage-periods.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import type { LocalizedNotice } from '../notifications/notifications.service';
 import { PaymentProviderRegistry } from './providers/payment-provider.registry';
@@ -42,6 +43,7 @@ export class DunningService {
     private notifications: NotificationsService,
     private providers: PaymentProviderRegistry,
     @Optional() private crm?: CrmHooksService,
+    @Optional() private usagePeriods?: UsagePeriodsService,
   ) {}
 
   /**
@@ -178,6 +180,8 @@ export class DunningService {
           status: 'ACTIVE',
           startDate: newStart,
           endDate: newEnd,
+          // A renewal is a new sale: the definition's current rule is snapshotted again (only with the switch on).
+          usageRule: await this.usagePeriods?.snapshotFor(tx, sub.studioId, sub.packageDefinition),
         },
       });
 

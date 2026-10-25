@@ -78,6 +78,13 @@ export class MembersController {
     return this.membersService.assignPackage(tenant, body);
   }
 
+  /** Usage periods: the burn history of a member package. */
+  @Get('packages/:packageId/unit-expiries')
+  @RequirePermission('members.view')
+  async listUnitExpiries(@Param('packageId', ParseUUIDPipe) packageId: string, @Tenant() tenant: TenantContext) {
+    return this.membersService.listUnitExpiries(packageId, tenant);
+  }
+
   @Post('packages/:packageId/freeze')
   @RequirePermission('packages.sell')
   async freezePackage(

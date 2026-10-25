@@ -153,7 +153,7 @@ export class EventRegistrationsService {
     if (useCredits) {
       if (!memberId) throw eventError('EVENT_CREDITS_NOT_ACCEPTED');
       if (!ticket.creditServiceTypeId || !ticket.creditUnits) throw eventError('EVENT_CREDITS_NOT_ACCEPTED');
-      const resolved = await this.seats.resolveCreditPackage(this.prisma, studioId, memberId, ticket, input.memberPackageId);
+      const resolved = await this.seats.resolveCreditPackage(this.prisma, studioId, memberId, ticket, input.memberPackageId, event.startsAt);
       if (!resolved) throw eventError('EVENT_NO_CREDITS');
       creditPackageId = resolved.memberPackage.id;
     }
@@ -187,8 +187,8 @@ export class EventRegistrationsService {
         } else {
           if (!(await this.seats.claimTicket(tx, studioId, ticket.id))) throw eventError('EVENT_TICKET_SOLD_OUT');
           if (creditPackageId && memberId) {
-            const resolved = await this.seats.resolveCreditPackage(tx, studioId, memberId, ticket, creditPackageId);
-            if (!resolved || !(await this.seats.chargeCredits(tx, studioId, resolved.memberPackage.id, resolved.units))) {
+            const resolved = await this.seats.resolveCreditPackage(tx, studioId, memberId, ticket, creditPackageId, event.startsAt);
+            if (!resolved || !(await this.seats.chargeCredits(tx, studioId, resolved.memberPackage.id, resolved.units, event.startsAt))) {
               throw eventError('EVENT_NO_CREDITS');
             }
             unitsCharged = resolved.units;

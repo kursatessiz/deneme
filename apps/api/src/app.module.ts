@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { StudiosModule } from './modules/studios/studios.module';
+import { UsagePeriodsModule } from './modules/usage-periods/usage-periods.module';
 import { MembersModule } from './modules/members/members.module';
 import { SchedulesModule } from './modules/schedules/schedules.module';
 import { TrainersModule } from './modules/trainers/trainers.module';
@@ -75,6 +76,7 @@ import { PlatformMarketingModule } from './modules/platform-marketing/platform-m
     PlanLimitsModule,
     AuthModule,
     StudiosModule,
+    UsagePeriodsModule,
     MembersModule,
     SchedulesModule,
     TrainersModule,

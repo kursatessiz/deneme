@@ -1,6 +1,6 @@
 import { JobsService } from './jobs.service';
 
-/** Builds a JobsService whose 28 step services are stubs; every step rejects unless overridden, so the fallbacks are exercised. */
+/** Builds a JobsService whose 29 step services are stubs; every step rejects unless overridden, so the fallbacks are exercised. */
 function build(overrides: Record<string, Record<string, jest.Mock>> = {}) {
   const errors = { capture: jest.fn() };
   const stub = (name: string, method: string) => {
@@ -37,6 +37,7 @@ function build(overrides: Record<string, Record<string, jest.Mock>> = {}) {
     stub('erasure', 'run'),
     stub('trackingRetention', 'run'),
     stub('domainRecheck', 'run'),
+    stub('usagePeriods', 'run'),
     errors,
   ];
   const service = Reflect.construct(JobsService, args) as JobsService;

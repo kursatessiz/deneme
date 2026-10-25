@@ -1,9 +1,9 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { CatalogService } from './catalog.service';
 import { StudioScoped, RequirePermission } from '../auth/decorators/require-permission.decorator';
-import { Tenant } from '../auth/decorators/current-user.decorator';
+import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import { ZodBody } from '../../common/zod-body.pipe';
-import type { TenantContext } from '../auth/tenant-context';
+import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import {
   CreateResourceTypeSchema,
   CreateResourceTypeInput,
@@ -25,6 +25,8 @@ import {
   ServiceTypeQualificationInput,
   DeactivateCatalogItemSchema,
   DeactivateCatalogItemInput,
+  SetPackageUsageRuleSchema,
+  SetPackageUsageRuleInput,
 } from '@platform/shared';
 
 @Controller('catalog')
@@ -215,5 +217,20 @@ export class CatalogController {
   @RequirePermission('catalog.view')
   listPackageDefinitions(@Tenant() tenant: TenantContext) {
     return this.catalog.listPackageDefinitions(tenant);
+  }
+
+  /**
+   * Usage periods: sets or clears (null) the rule of a package definition. It only reaches packages sold or
+   * renewed afterwards, and only while the studio switch is on (docs/KULLANIM_DONEMLERI.md).
+   */
+  @Patch('package-definitions/:id/usage-rule')
+  @RequirePermission('catalog.manage')
+  setPackageUsageRule(
+    @Param('id') id: string,
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodBody(SetPackageUsageRuleSchema) body: SetPackageUsageRuleInput,
+  ) {
+    return this.catalog.setPackageUsageRule(tenant, user.id, id, body.usageRule);
   }
 }

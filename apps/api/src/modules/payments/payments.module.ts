@@ -5,6 +5,7 @@ import { PromotionsModule } from '../promotions/promotions.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
 import { CrmCoreModule } from '../crm/crm-core.module';
 import { EventsCoreModule } from '../events/events-core.module';
+import { UsagePeriodsCoreModule } from '../usage-periods/usage-periods-core.module';
 import { PaymentsController } from './payments.controller';
 import { PaymentsWebhookController } from './payments-webhook.controller';
 import { DunningController } from './dunning.controller';
@@ -18,7 +19,7 @@ import { PaymentProviderRegistry } from './providers/payment-provider.registry';
 import { PaymentWebhookRouter } from './payment-webhook-router';
 
 @Module({
-  imports: [AuthModule, InvoicingModule, PromotionsModule, WebhooksModule, CrmCoreModule, EventsCoreModule],
+  imports: [AuthModule, InvoicingModule, PromotionsModule, WebhooksModule, CrmCoreModule, EventsCoreModule, UsagePeriodsCoreModule],
   controllers: [PaymentsController, PaymentsWebhookController, DunningController],
   providers: [
     PaymentsService,
