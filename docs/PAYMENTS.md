@@ -47,6 +47,8 @@ Zod, `PAYMENT_PROVIDER` seçilen sağlayıcının kimlik bilgileri eksikse süre
 - **PayTR**: Mağaza (merchant) ID, Merchant Key, Merchant Salt, webhook URL'sinin PayTR panelinde tanımlanması: `https://<api-domain>/payments/webhook/paytr`.
 - Her iki sağlayıcı için de gerçek HTTP entegrasyonu bu sürümde uygulanmamıştır (bkz. kod içi TODO'lar); canlıya alınmadan önce bir takip PR'ında tamamlanmalıdır.
 
+Paketlerde dönemlik hak kotası (aylık/haftalık kota, kullanılmayan hakkın yanması, üye hatırlatması) için bkz. `docs/KULLANIM_DONEMLERI.md`; kural satış ve yenilemede `member_packages.usage_rule` alanına kopyalanır.
+
 ## Üye faturalandırma modeli
 
 - `Payment` — tek seferlik bir tahsilat (nakit, kart, havale/EFT, online). `PENDING` durumu yalnızca havale/EFT ve tamamlanmamış online checkout içindir.

@@ -232,4 +232,7 @@ export const trApiTexts = {
   'apiTexts.csv.views': 'İzlenme',
   'apiTexts.csv.completions': 'Tamamlanma',
   'apiTexts.csv.uniqueViewers': 'Tekil İzleyici',
+  'apiTexts.usagePeriod.unit.MONTH': 'aylık',
+  'apiTexts.usagePeriod.unit.WEEK': 'haftalık',
+  'apiTexts.usagePeriod.unit.DAYS': 'dönemlik',
 } as const satisfies Record<string, string>;

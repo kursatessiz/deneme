@@ -11,6 +11,8 @@ export interface PackageCandidate {
   remainingUnits: number | null;
   /** Units or credits one session of the service costs; null when the package does not cover the service. */
   unitCost: number | null;
+  /** Usage periods: true when a tier's quota for the session's period cannot take this booking (see usage-periods.ts). */
+  periodQuotaReached?: boolean;
 }
 
 /** Why the first usable-package check failed, or null when the package can pay. */
@@ -18,13 +20,14 @@ export function packageUnusableReason(
   pkg: PackageCandidate,
   allowedKinds: readonly (EntitlementKind | `${EntitlementKind}`)[],
   now: Date,
-): 'inactive' | 'expired' | 'frozen' | 'notCovered' | 'kindNotAllowed' | 'noUnits' | null {
+): 'inactive' | 'expired' | 'frozen' | 'notCovered' | 'kindNotAllowed' | 'noUnits' | 'periodQuota' | null {
   if (pkg.status !== 'ACTIVE') return 'inactive';
   if (new Date(pkg.endDate).getTime() <= now.getTime()) return 'expired';
   if (pkg.frozenUntil && new Date(pkg.frozenUntil).getTime() > now.getTime()) return 'frozen';
   if (pkg.unitCost === null) return 'notCovered';
   if (allowedKinds.length > 0 && !allowedKinds.includes(pkg.entitlementKind)) return 'kindNotAllowed';
   if (pkg.entitlementKind !== 'TIME_UNLIMITED' && (pkg.remainingUnits ?? 0) < pkg.unitCost) return 'noUnits';
+  if (pkg.periodQuotaReached) return 'periodQuota';
   return null;
 }
 

@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { UsagePeriodsService } from '../usage-periods/usage-periods.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { CreateMemberInput, AssignPackageToMemberInput, FreezePackageInput, UnfreezePackageInput } from '@platform/shared';
-import type { MemberDetailDTO, SetHomeBranchInput } from '@platform/shared';
+import type { MemberDetailDTO, PackageUnitExpiryDTO, SetHomeBranchInput } from '@platform/shared';
 import { assertBranchAccess, branchScope } from '../branches/branch-access';
 import { ReferralsService } from '../feedback/referrals.service';
 import { PlanLimitsService } from '../admin/plan-limits.service';
@@ -18,6 +19,7 @@ export class MembersService {
     private webhooks: WebhooksService,
     private planLimits: PlanLimitsService,
     @Optional() private crm?: CrmHooksService,
+    @Optional() private usagePeriods?: UsagePeriodsService,
   ) {}
 
   async findAll(tenant: TenantContext, search?: string, homeBranchId?: string) {
@@ -99,7 +101,10 @@ export class MembersService {
       include: { packageDefinition: true },
       orderBy: { endDate: 'asc' },
     });
-    return packages.map((p) => ({
+    const decorated = this.usagePeriods
+      ? await this.usagePeriods.decorate(this.prisma, tenant.studioId, packages)
+      : packages.map((p) => ({ ...p, usagePeriods: null, expiredUnits: 0 }));
+    return decorated.map((p) => ({
       id: p.id,
       memberId: p.memberId,
       packageDefinitionId: p.packageDefinitionId,
@@ -112,6 +117,8 @@ export class MembersService {
       startDate: p.startDate,
       endDate: p.endDate,
       frozenUntil: p.frozenUntil,
+      usagePeriods: p.usagePeriods,
+      expiredUnits: p.expiredUnits,
     }));
   }
 
@@ -144,7 +151,31 @@ export class MembersService {
     }
     assertBranchAccess(tenant, member.homeBranchId);
 
+    // Usage periods: the staff card shows the current period of each tier and the burn total.
+    if (this.usagePeriods) {
+      member.packages = (await this.usagePeriods.decorate(this.prisma, tenant.studioId, member.packages)) as typeof member.packages;
+    }
     return this.toDetail(member, tenant);
+  }
+
+  /** Burn history of one member package (usage periods), newest period first. */
+  async listUnitExpiries(packageId: string, tenant: TenantContext): Promise<PackageUnitExpiryDTO[]> {
+    const memberPackage = await this.prisma.memberPackage.findFirst({ where: { id: packageId, studioId: tenant.studioId }, select: { id: true, memberId: true } });
+    if (!memberPackage) throw new NotFoundException(apiError('apiErrors.members.packageNotFound'));
+    await this.assertPackageMemberBranch(tenant, memberPackage.memberId);
+    const rows = await this.prisma.packageUnitExpiry.findMany({
+      where: { studioId: tenant.studioId, memberPackageId: packageId },
+      orderBy: [{ periodEnd: 'desc' }, { tierUnit: 'asc' }],
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      memberPackageId: r.memberPackageId,
+      tierUnit: r.tierUnit as PackageUnitExpiryDTO['tierUnit'],
+      periodStart: r.periodStart.toISOString(),
+      periodEnd: r.periodEnd.toISOString(),
+      units: r.units,
+      createdAt: r.createdAt.toISOString(),
+    }));
   }
 
   private async createMemberTx(tenant: TenantContext, dto: CreateMemberInput) {
@@ -274,6 +305,8 @@ export class MembersService {
           status: 'ACTIVE',
           startDate,
           endDate,
+          // Usage periods: the rule is snapshotted now (only with the studio switch on); later edits of the definition never reach this package.
+          usageRule: await this.usagePeriods?.snapshotFor(tx, studioId, pkgDef),
         },
       });
 

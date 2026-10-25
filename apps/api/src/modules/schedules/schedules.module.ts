@@ -5,12 +5,13 @@ import { AuthModule } from '../auth/auth.module';
 import { GamificationModule } from '../gamification/gamification.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
 import { CrmCoreModule } from '../crm/crm-core.module';
+import { UsagePeriodsCoreModule } from '../usage-periods/usage-periods-core.module';
 import { VideoMeetingService } from '../video/providers/video-meeting.service';
 import { ManualMeetingAdapter } from '../video/providers/manual-meeting.adapter';
 import { JitsiMeetingAdapter } from '../video/providers/jitsi-meeting.adapter';
 
 @Module({
-  imports: [AuthModule, GamificationModule, WebhooksModule, CrmCoreModule],
+  imports: [AuthModule, GamificationModule, WebhooksModule, CrmCoreModule, UsagePeriodsCoreModule],
   controllers: [SchedulesController],
   providers: [SchedulesService, VideoMeetingService, ManualMeetingAdapter, JitsiMeetingAdapter],
   exports: [SchedulesService],

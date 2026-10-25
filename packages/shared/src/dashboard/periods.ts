@@ -7,7 +7,7 @@ import type { DashboardPeriod } from './widgets';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-interface ZonedParts {
+export interface ZonedParts {
   year: number;
   month: number;
   day: number;
@@ -16,7 +16,7 @@ interface ZonedParts {
   second: number;
 }
 
-function safeZone(timeZone: string): string {
+export function safeZone(timeZone: string): string {
   try {
     new Intl.DateTimeFormat('en-US', { timeZone });
     return timeZone;
@@ -27,7 +27,7 @@ function safeZone(timeZone: string): string {
 
 const formatterCache = new Map<string, Intl.DateTimeFormat>();
 
-function partsInZone(date: Date, timeZone: string): ZonedParts {
+export function partsInZone(date: Date, timeZone: string): ZonedParts {
   let formatter = formatterCache.get(timeZone);
   if (!formatter) {
     formatter = new Intl.DateTimeFormat('en-US', {
@@ -50,7 +50,7 @@ function partsInZone(date: Date, timeZone: string): ZonedParts {
 }
 
 /** Offset of the zone from UTC at `date`, in ms (positive east of Greenwich). */
-function zoneOffsetMs(date: Date, timeZone: string): number {
+export function zoneOffsetMs(date: Date, timeZone: string): number {
   const p = partsInZone(date, timeZone);
   const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
   return asUtc - (date.getTime() - date.getUTCMilliseconds());
