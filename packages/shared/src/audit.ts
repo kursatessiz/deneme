@@ -14,7 +14,7 @@ export const AUDIT_METADATA_SUMMARY_MAX = 200;
 
 export const AuditLogQuerySchema = z
   .object({
-    userId: z.string().uuid().optional(),
+    userId: z.string().guid().optional(),
     /** Action key; matches the action itself or every action that starts with it followed by a dot ("marketing.approval" matches "marketing.approval.approved"). */
     action: z.string().trim().min(1).max(60).optional(),
     from: z.string().datetime().optional(),

@@ -45,10 +45,10 @@ export const CreateVideoContentSchema = z
     provider: z.nativeEnum(VideoContentProvider).default(VideoContentProvider.EXTERNAL_URL),
     sourceUrl: HttpsUrlSchema.optional(),
     thumbnailUrl: HttpsUrlSchema.optional(),
-    serviceTypeId: z.string().uuid().optional(),
-    trainerProfileId: z.string().uuid().optional(),
+    serviceTypeId: z.string().guid().optional(),
+    trainerProfileId: z.string().guid().optional(),
     visibility: z.nativeEnum(VideoContentVisibility).default(VideoContentVisibility.ALL_MEMBERS),
-    packageDefinitionIds: z.array(z.string().uuid()).max(50).default([]),
+    packageDefinitionIds: z.array(z.string().guid()).max(50).default([]),
     creditCost: z.number().int().positive().optional(),
   })
   .refine((v) => v.provider !== VideoContentProvider.EXTERNAL_URL || !!v.sourceUrl, {
@@ -70,7 +70,7 @@ export type UpdateVideoContentInput = z.infer<typeof UpdateVideoContentSchema>;
 
 export const ListVideoContentQuerySchema = z
   .object({
-    serviceTypeId: z.string().uuid().optional(),
+    serviceTypeId: z.string().guid().optional(),
     publishedOnly: z.coerce.boolean().default(false),
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
@@ -81,7 +81,7 @@ export type ListVideoContentQueryInput = z.infer<typeof ListVideoContentQuerySch
 export const StartWatchingSchema = z
   .object({
     /** Required only when the content has a creditCost and was never charged before. */
-    memberPackageId: z.string().uuid().optional(),
+    memberPackageId: z.string().guid().optional(),
   })
   .strict();
 export type StartWatchingInput = z.infer<typeof StartWatchingSchema>;

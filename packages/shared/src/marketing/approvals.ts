@@ -288,7 +288,7 @@ export interface RequestApprovalResultDTO {
 export const ApprovalListQuerySchema = z
   .object({
     status: z.enum(APPROVAL_STATUSES).optional(),
-    targetId: z.string().uuid().optional(),
+    targetId: z.string().guid().optional(),
     limit: z.coerce.number().int().min(1).max(200).default(100),
   })
   .strict();

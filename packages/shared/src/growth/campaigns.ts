@@ -39,7 +39,7 @@ const SendTimeLocalSchema = z.string().regex(LOCAL_TIME_PATTERN, vmsg('validatio
 export const CreateCampaignSchema = z
   .object({
     name: z.string().trim().min(1, 'Ad giriniz').max(120),
-    segmentId: z.string().uuid(),
+    segmentId: z.string().guid(),
     /** Omitted: the tenant's channel order. */
     channel: z.enum(MESSAGE_CHANNELS_V2).optional(),
     templateKey: TemplateKeySchema,
@@ -56,7 +56,7 @@ export type CreateCampaignInput = z.infer<typeof CreateCampaignSchema>;
 export const UpdateCampaignSchema = z
   .object({
     name: z.string().trim().min(1).max(120).optional(),
-    segmentId: z.string().uuid().optional(),
+    segmentId: z.string().guid().optional(),
     channel: z.enum(MESSAGE_CHANNELS_V2).nullable().optional(),
     templateKey: TemplateKeySchema.optional(),
     /** M3c: null removes the test and its variants; a value needs `variants` (or the stored ones). */

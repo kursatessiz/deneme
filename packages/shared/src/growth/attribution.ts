@@ -34,8 +34,8 @@ function paramsObject<K extends string>(keys: readonly K[]) {
 /** What the site sends to POST /track/touchpoint on the first request of a session. */
 export const TouchpointInputSchema = z
   .object({
-    visitorId: z.string().uuid(),
-    sessionId: z.string().uuid(),
+    visitorId: z.string().guid(),
+    sessionId: z.string().guid(),
     landingUrl: z.string().url().max(2000),
     referrer: z.string().max(2000).optional(),
     utm: paramsObject(UTM_PARAMS),

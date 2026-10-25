@@ -142,8 +142,8 @@ export const SetFeatureFlagSchema = z
   .object({
     key: z.string().trim().min(1).max(80),
     scope: z.nativeEnum(FeatureFlagScope),
-    businessTypeTemplateId: z.string().uuid().optional(),
-    studioId: z.string().uuid().optional(),
+    businessTypeTemplateId: z.string().guid().optional(),
+    studioId: z.string().guid().optional(),
     enabled: z.boolean(),
   })
   .superRefine((value, ctx) => {
@@ -210,7 +210,7 @@ export type UpsertSmsPackageInput = z.infer<typeof UpsertSmsPackageSchema>;
  */
 export const AdminUpsertMessageTemplateSchema = z
   .object({
-    studioId: z.string().uuid().nullable().default(null),
+    studioId: z.string().guid().nullable().default(null),
     key: z.string().trim().min(1).max(60),
     channel: z.nativeEnum(NotificationChannel),
     locale: z.string().trim().min(2).max(5).default('tr'),
@@ -235,7 +235,7 @@ export const AdminUpsertMessageTemplateSchema = z
 export type AdminUpsertMessageTemplateInput = z.infer<typeof AdminUpsertMessageTemplateSchema>;
 
 export const PublishDocumentVersionSchema = z.object({
-  studioId: z.string().uuid().nullable().default(null),
+  studioId: z.string().guid().nullable().default(null),
   type: z.nativeEnum(DocumentType),
   title: z.string().trim().min(1).max(160),
   body: z.string().trim().min(1),

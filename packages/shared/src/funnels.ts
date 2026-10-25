@@ -85,7 +85,7 @@ export type UpdateFunnelInput = z.infer<typeof UpdateFunnelSchema>;
 export const FunnelReportQuerySchema = z.object({
   breakdown: z.enum(FUNNEL_BREAKDOWNS).optional(),
   compare: z.enum(['previous']).optional(),
-  branchId: z.string().uuid().optional(),
+  branchId: z.string().guid().optional(),
 });
 export type FunnelReportQuery = z.infer<typeof FunnelReportQuerySchema>;
 

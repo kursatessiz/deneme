@@ -29,8 +29,8 @@ const decimalString = z
  */
 export const PartnerConnectionConfigSchema = z
   .object({
-    serviceTypeIds: z.array(z.string().uuid()).default([]),
-    branchIds: z.array(z.string().uuid()).default([]),
+    serviceTypeIds: z.array(z.string().guid()).default([]),
+    branchIds: z.array(z.string().guid()).default([]),
     spotsPerSession: z.number().int().min(1).max(100).default(1),
     payoutRatePerVisit: decimalString.default('0.00'),
     releaseHoursBeforeStart: z.number().int().min(0).max(168).default(24),
@@ -105,7 +105,7 @@ export const PartnerWebhookPayloadSchema = z
     timestamp: z.string().datetime(),
     externalReservationId: z.string().trim().min(1).max(120),
     scheduleExternalId: z.string().trim().min(1).max(120).optional(),
-    scheduleId: z.string().uuid().optional(),
+    scheduleId: z.string().guid().optional(),
     guest: z
       .object({
         phone: z.string().trim().max(20).optional(),

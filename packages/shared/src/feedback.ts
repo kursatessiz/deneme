@@ -28,9 +28,9 @@ export type RateBookingInput = z.infer<typeof RateBookingSchema>;
 
 export const ListRatingsQuerySchema = z
   .object({
-    trainerProfileId: z.string().uuid().optional(),
-    serviceTypeId: z.string().uuid().optional(),
-    branchId: z.string().uuid().optional(),
+    trainerProfileId: z.string().guid().optional(),
+    serviceTypeId: z.string().guid().optional(),
+    branchId: z.string().guid().optional(),
     from: z.string().datetime().optional(),
     to: z.string().datetime().optional(),
     page: z.coerce.number().int().min(1).default(1),
@@ -185,7 +185,7 @@ export type VoidReferralInput = z.infer<typeof VoidReferralSchema>;
 export const ListReferralsQuerySchema = z
   .object({
     status: z.nativeEnum(ReferralStatus).optional(),
-    memberId: z.string().uuid().optional(),
+    memberId: z.string().guid().optional(),
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
   })

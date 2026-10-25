@@ -61,14 +61,14 @@ export type CommunityErrorCode = (typeof COMMUNITY_ERROR_CODES)[number];
 // Input schemas
 // ---------------------------------------------------------------------------
 
-const TierIdsSchema = z.array(z.string().uuid()).max(COMMUNITY_MAX_TIERS_PER_POST);
+const TierIdsSchema = z.array(z.string().guid()).max(COMMUNITY_MAX_TIERS_PER_POST);
 
 const PostFieldsSchema = z.object({
   type: z.enum(COMMUNITY_POST_TYPES),
   title: z.string().trim().min(1).max(COMMUNITY_TITLE_MAX),
   body: z.string().max(COMMUNITY_BODY_MAX),
   /** Required for VIDEO posts: a video library item of the same studio. */
-  videoContentId: z.string().uuid().nullable(),
+  videoContentId: z.string().guid().nullable(),
   /** Required for FILE posts: an https link (there is no upload storage yet, see docs/TOPLULUK.md). */
   attachmentUrl: HttpsUrlSchema.pipe(z.string().max(2000)).nullable(),
   attachmentName: z.string().trim().max(200).nullable(),
@@ -146,7 +146,7 @@ export type CreateCommunityCommentInput = z.infer<typeof CreateCommunityCommentS
 export const AccessTierRuleInputSchema = z
   .object({
     kind: z.enum(ACCESS_TIER_RULE_KINDS),
-    packageDefinitionId: z.string().uuid().nullable().default(null),
+    packageDefinitionId: z.string().guid().nullable().default(null),
   })
   .strict()
   .refine((r) => (r.kind === 'PACKAGE_DEFINITION') === (r.packageDefinitionId !== null), {

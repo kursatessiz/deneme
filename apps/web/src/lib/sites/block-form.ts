@@ -80,27 +80,28 @@ export interface FieldError {
   params?: Record<string, string | number>;
 }
 
-export function pathKey(path: DataPath): string {
+export function pathKey(path: readonly PropertyKey[]): string {
   return path.join('.');
 }
 
 /** Maps one Zod issue to a translated message key; the schema's own (Turkish or English) text is never shown. */
-export function describeIssue(issue: z.ZodIssue): FieldError {
+export function describeIssue(issue: z.core.$ZodIssue): FieldError {
   switch (issue.code) {
     case 'invalid_type':
-      return issue.received === 'undefined' ? { key: 'sites.editor.blocks.error.required' } : { key: 'sites.editor.blocks.error.invalid' };
+      // `input` is only present when the schema was parsed with `reportInput`.
+      return issue.input === undefined ? { key: 'sites.editor.blocks.error.required' } : { key: 'sites.editor.blocks.error.invalid' };
     case 'too_small':
-      if (issue.type === 'array') return { key: 'sites.editor.blocks.error.tooFew', params: { min: Number(issue.minimum) } };
-      return issue.minimum === 1 ? { key: 'sites.editor.blocks.error.required' } : { key: 'sites.editor.blocks.error.tooShort', params: { min: Number(issue.minimum) } };
+      if (issue.origin === 'array') return { key: 'sites.editor.blocks.error.tooFew', params: { min: Number(issue.minimum) } };
+      return Number(issue.minimum) === 1 ? { key: 'sites.editor.blocks.error.required' } : { key: 'sites.editor.blocks.error.tooShort', params: { min: Number(issue.minimum) } };
     case 'too_big':
-      return issue.type === 'array' ? { key: 'sites.editor.blocks.error.tooMany', params: { max: Number(issue.maximum) } } : { key: 'sites.editor.blocks.error.tooLong', params: { max: Number(issue.maximum) } };
-    case 'invalid_string': {
-      if (issue.validation === 'url') return { key: 'sites.editor.blocks.error.invalidUrl' };
+      return issue.origin === 'array' ? { key: 'sites.editor.blocks.error.tooMany', params: { max: Number(issue.maximum) } } : { key: 'sites.editor.blocks.error.tooLong', params: { max: Number(issue.maximum) } };
+    case 'invalid_format': {
+      if (issue.format === 'url') return { key: 'sites.editor.blocks.error.invalidUrl' };
       // The regex checks are the https-only image rule and the safe link rule; the field name tells which.
       const last = issue.path[issue.path.length - 1];
       return { key: typeof last === 'string' && /Href$/.test(last) ? 'sites.editor.blocks.error.invalidHref' : 'sites.editor.blocks.error.httpsOnly' };
     }
-    case 'invalid_enum_value':
+    case 'invalid_value':
       return { key: 'sites.editor.blocks.error.invalid' };
     default:
       return { key: 'sites.editor.blocks.error.invalid' };
@@ -109,7 +110,7 @@ export function describeIssue(issue: z.ZodIssue): FieldError {
 
 /** The first error of every invalid path, keyed by `pathKey`; an empty object when the data is valid. */
 export function blockErrors(type: BlockType, data: unknown): Record<string, FieldError> {
-  const result = BLOCK_SCHEMAS[type].safeParse(data);
+  const result = BLOCK_SCHEMAS[type].safeParse(data, { reportInput: true });
   if (result.success) return {};
   const errors: Record<string, FieldError> = {};
   for (const issue of result.error.issues) {

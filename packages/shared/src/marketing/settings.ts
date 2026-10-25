@@ -92,7 +92,7 @@ export const UpdateMarketingSettingsSchema = z
     mqlRule: SegmentGroupSchema.nullable().optional(),
     sqlRule: SegmentGroupSchema.nullable().optional(),
     weeklySummaryEnabled: z.boolean().optional(),
-    weeklySummaryRecipients: z.array(z.string().uuid()).max(20).optional(),
+    weeklySummaryRecipients: z.array(z.string().guid()).max(20).optional(),
     approvalTtlHours: z.number().int().min(1).max(24 * 30).optional(),
     doubleOptInRegions: DoubleOptInRegionsSchema.optional(),
     trMerchantExemptionEnabled: z.boolean().optional(),
