@@ -76,7 +76,7 @@ Aynı günlük adımda: yakan bir katmanın mevcut dönemi `reminderDaysBefore` 
 
 ## DTO ve uç noktalar
 
-- `MemberPackageDTO.usagePeriods`: her katmanın mevcut dönemi (`unit`, `length`, `periodStart`, `periodEnd` (paket bitişine kırpılmış), `quota`, `used` (yakılanlar dahil), `remaining`, `expireUnused`); kural etkin değilse `null`. `MemberPackageDTO.expiredUnits`: yakım geçmişinin toplamı. Üye kendi paket listesinde (`GET /members/self/packages`) ve personel üye kartında (`GET /members/:memberId/studio/:studioId`) görür.
+- `MemberPackageDTO.usagePeriods`: her katmanın mevcut dönemi (`unit`, `length`, `periodStart`, `periodEnd` (paket bitişine kırpılmış), `timeZone` (işletmenin IANA saat dilimi), `quota`, `used` (yakılanlar dahil), `remaining`, `expireUnused`); kural etkin değilse `null`. `MemberPackageDTO.expiredUnits`: yakım geçmişinin toplamı. Üye kendi paket listesinde (`GET /members/self/packages`) ve personel üye kartında (`GET /members/:memberId/studio/:studioId`) görür.
 - `GET /members/packages/:packageId/unit-expiries` (`members.view`): paketin yakım geçmişi.
 
 ## Veri modeli
@@ -85,7 +85,7 @@ Bkz. `docs/DATABASE_ERD.md`: `studios.usage_periods_enabled`, `package_definitio
 
 ## Ekranlar
 
-Metinler `usagePeriods` ad alanındadır (tr ve en); özet cümleleri ve dönem satırları `packages/shared/src/usage-periods-labels.ts` içinde üretilir, web ve mobil aynı yardımcıyı kullanır. Miktar adları iş türü kelime dağarcığından değil, hak türünden gelir (seans, kredi, giriş). Tarihler etkin dile göre `Intl` ile biçimlenir.
+Metinler `usagePeriods` ad alanındadır (tr ve en); özet cümleleri ve dönem satırları `packages/shared/src/usage-periods-labels.ts` içinde üretilir, web ve mobil aynı yardımcıyı kullanır. Miktar adları iş türü kelime dağarcığından değil, hak türünden gelir (seans, kredi, giriş). Tarihler etkin dile göre ve işletmenin saat diliminde (`UsagePeriodStatusDTO.timeZone`, API hata iletisiyle aynı) `Intl` ile biçimlenir.
 
 - **Web, işletme ayarları** (`/ayarlar/isletme`, `components/usage-periods/UsagePeriodsSwitchCard.tsx`): "Kullanım dönemleri" şalter kartı. `studio.settings.view` olan herkes görür; yalnızca sahip değiştirebilir, diğerleri şalteri kapalı (devre dışı) ve açıklama notuyla görür. Karttan paket tanımlarına bağlantı vardır.
 - **Web, paket tanımları** (`/packages`, `components/usage-periods/UsageRuleEditor.tsx`): her tanımın altında kural özeti ve düzenleyici (`catalog.manage`). En fazla 2 katman; katman başına birim (Ay, Hafta, Gün), uzunluk, ay hesabı (takvim ayı, sabit 30, sabit 31), kota (etiketi hak türüne göre), "Kullanılmayan haklar dönem sonunda yansın" (sınırsız pakette kapalı ve devre dışı) ve hatırlatma günü (0-14). Canlı özet cümlesi yazılırken güncellenir; doğrulama paylaşılan `UsageRuleSchema` ile istemcide yapılır (`lib/usage-periods/rule-form.ts`), sunucu hataları mevcut hata eşlemesiyle gösterilir. Şalter kapalıyken kuralın yok sayıldığı notu görünür. Kural yalnızca yeni satış ve yenilemelere uygulanır.

@@ -360,6 +360,8 @@ export interface UsagePeriodStatusDTO {
   used: number;
   remaining: number;
   expireUnused: boolean;
+  /** IANA time zone of the studio: screens format the period dates in it, whatever the device zone is. */
+  timeZone: string;
 }
 
 /** Owner-only studio switch (PUT studios/:studioId/usage-periods). */

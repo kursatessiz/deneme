@@ -79,7 +79,7 @@ export function UsagePeriodStatus({ studioId, memberPackageId, entitlementKind, 
             <ul className="grid gap-0.5">
               {history.map((row) => (
                 <li key={row.id} style={{ opacity: 0.85 }}>
-                  {describeUnitExpiry(t, row, { locale, now, entitlementKind })}
+                  {describeUnitExpiry(t, row, { locale, now, entitlementKind, timeZone: usagePeriods[0].timeZone })}
                 </li>
               ))}
             </ul>

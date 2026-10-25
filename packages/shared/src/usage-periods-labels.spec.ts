@@ -57,6 +57,7 @@ describe('describeUsagePeriods', () => {
     used: 5,
     remaining: 3,
     expireUnused: true,
+    timeZone: 'UTC',
   };
   const week: UsagePeriodStatusDTO = { ...month, unit: 'WEEK', periodEnd: '2026-11-09T09:00:00Z', quota: 2, used: 2, remaining: 0, expireUnused: false };
 
@@ -92,6 +93,25 @@ describe('describeUsagePeriods', () => {
   it('uses the generic period name for multi-unit tiers', () => {
     const lines = describeUsagePeriods(tr, [{ ...month, length: 2 }], { locale: 'tr', now, entitlementKind: 'SESSION_COUNT' });
     expect(lines[0].text.startsWith('Bu dönem: ')).toBe(true);
+  });
+});
+
+describe('studio time zone', () => {
+  const now = new Date('2026-11-05T10:00:00Z');
+  const month: UsagePeriodStatusDTO = {
+    unit: 'MONTH', length: 1, periodStart: '2026-10-12T21:30:00Z', periodEnd: '2026-11-12T21:30:00Z',
+    quota: 8, used: 5, remaining: 3, expireUnused: true, timeZone: 'Europe/Istanbul',
+  };
+  it('formats the period end in the studio zone, not the device zone', () => {
+    // 21:30Z is already 13 November in Istanbul (UTC+3) but still 12 November in UTC.
+    const istanbul = describeUsagePeriods(tr, [month], { locale: 'tr', now, entitlementKind: 'SESSION_COUNT' });
+    expect(istanbul[0].text).toBe('Bu ay: 5/8 kullanıldı. Yenilenme: 13 Kasım');
+    const utc = describeUsagePeriods(tr, [{ ...month, timeZone: 'UTC' }], { locale: 'tr', now, entitlementKind: 'SESSION_COUNT' });
+    expect(utc[0].text).toBe('Bu ay: 5/8 kullanıldı. Yenilenme: 12 Kasım');
+  });
+  it('formats burn history rows in the given zone', () => {
+    const row = { tierUnit: 'MONTH' as const, periodStart: '2026-09-12T21:30:00Z', periodEnd: '2026-10-12T21:30:00Z', units: 3 };
+    expect(describeUnitExpiry(tr, row, { locale: 'tr', now, entitlementKind: 'SESSION_COUNT', timeZone: 'Europe/Istanbul' })).toBe('Aylık, 13 Eylül - 13 Ekim: 3 seans yandı');
   });
 });
 

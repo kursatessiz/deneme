@@ -75,6 +75,7 @@ export interface UsageLineOptions {
   entitlementKind: string;
   /** Package end date (ISO): a period clipped to it is labelled "Package ends" instead of "Renews". */
   packageEnd?: string | null;
+  /** Overrides the studio zone carried by each period (normally leave unset). */
   timeZone?: string;
 }
 
@@ -83,7 +84,8 @@ export function describeUsagePeriods(t: Translate, periods: readonly UsagePeriod
   return sortTiersFinerFirst(periods).map((p) => {
     const periodName = p.length === 1 ? t(`usagePeriods.status.current.${p.unit}`) : t('usagePeriods.status.current.MULTI');
     const endsWithPackage = options.packageEnd ? new Date(p.periodEnd).getTime() >= new Date(options.packageEnd).getTime() : false;
-    const date = formatUsageDate(p.periodEnd, options.locale, options.now, options.timeZone);
+    const zone = options.timeZone ?? p.timeZone;
+    const date = formatUsageDate(p.periodEnd, options.locale, options.now, zone);
     const text = t(endsWithPackage ? 'usagePeriods.status.lineEnd' : 'usagePeriods.status.line', {
       period: periodName,
       used: p.used,

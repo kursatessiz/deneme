@@ -16,6 +16,7 @@ const month: UsagePeriodStatusDTO = {
   used: 5,
   remaining: 3,
   expireUnused: true,
+  timeZone: 'UTC',
 };
 const week: UsagePeriodStatusDTO = { ...month, unit: 'WEEK', periodEnd: '2026-11-09T09:00:00Z', quota: 2, used: 1, remaining: 1, expireUnused: false };
 const pkg = { entitlementKind: EntitlementKind.SESSION_COUNT, endDate: '2027-01-12T09:00:00Z' };
@@ -46,5 +47,13 @@ describe('packageUsageLines', () => {
     const lines = packageUsageLines({ ...pkg, endDate: month.periodEnd, usagePeriods: [month] }, tr, 'tr', now);
     expect(lines[0].text).toBe('Bu ay: 5/8 kullanıldı. Paket bitişi: 12 Kasım');
     expect(lines[0].hint).toBeNull();
+  });
+});
+
+describe('studio time zone', () => {
+  it('shows the renewal date in the studio zone even when the device zone differs', () => {
+    const late = { ...month, periodEnd: '2026-11-12T21:30:00Z', timeZone: 'Europe/Istanbul' };
+    expect(packageUsageLines({ ...pkg, usagePeriods: [late] }, tr, 'tr', now)[0].text).toBe('Bu ay: 5/8 kullanıldı. Yenilenme: 13 Kasım');
+    expect(packageUsageLines({ ...pkg, usagePeriods: [{ ...late, timeZone: 'UTC' }] }, tr, 'tr', now)[0].text).toBe('Bu ay: 5/8 kullanıldı. Yenilenme: 12 Kasım');
   });
 });
