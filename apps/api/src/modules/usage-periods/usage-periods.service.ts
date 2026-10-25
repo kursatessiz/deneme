@@ -30,6 +30,8 @@ export interface UsagePackageRef {
 export interface UsageStudioContext {
   enabled: boolean;
   timeZone: string;
+  /** When the switch was last turned on; periods that ended before it are never burned (nothing was enforced then). */
+  enabledSince?: Date | null;
 }
 
 export interface TierCheck {
@@ -53,8 +55,8 @@ export class UsagePeriodsService {
   // ---------------------------------------------------------------------------
 
   async context(db: Db, studioId: string): Promise<UsageStudioContext> {
-    const studio = await db.studio.findUnique({ where: { id: studioId }, select: { usagePeriodsEnabled: true, timezone: true } });
-    return { enabled: studio?.usagePeriodsEnabled ?? false, timeZone: studio?.timezone ?? 'UTC' };
+    const studio = await db.studio.findUnique({ where: { id: studioId }, select: { usagePeriodsEnabled: true, usagePeriodsEnabledAt: true, timezone: true } });
+    return { enabled: studio?.usagePeriodsEnabled ?? false, timeZone: studio?.timezone ?? 'UTC', enabledSince: studio?.usagePeriodsEnabledAt ?? null };
   }
 
   async getSetting(studioId: string): Promise<{ enabled: boolean }> {
@@ -66,7 +68,10 @@ export class UsagePeriodsService {
     if (!tenant.isOwner) throw new ForbiddenException(apiError('apiErrors.studios.onlyOwnerCanChangeUsagePeriods'));
     return this.prisma.$transaction(async (tx) => {
       const before = await tx.studio.findUniqueOrThrow({ where: { id: tenant.studioId }, select: { usagePeriodsEnabled: true } });
-      await tx.studio.update({ where: { id: tenant.studioId }, data: { usagePeriodsEnabled: enabled } });
+      await tx.studio.update({
+        where: { id: tenant.studioId },
+        data: { usagePeriodsEnabled: enabled, ...(enabled && !before.usagePeriodsEnabled ? { usagePeriodsEnabledAt: new Date() } : {}) },
+      });
       await tx.auditLog.create({
         data: {
           studioId: tenant.studioId,

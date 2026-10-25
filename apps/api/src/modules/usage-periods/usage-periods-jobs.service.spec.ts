@@ -54,7 +54,7 @@ function build(seed: Seed = {}) {
   });
   const prisma = {
     studio: {
-      findMany: jest.fn().mockResolvedValue(seed.enabled === false ? [] : [{ id: STUDIO, timezone: 'UTC' }]),
+      findMany: jest.fn().mockResolvedValue(seed.enabled === false ? [] : [{ id: STUDIO, timezone: 'UTC', usagePeriodsEnabledAt: null }]),
       findUnique: jest.fn().mockResolvedValue({ usagePeriodsEnabled: seed.enabled ?? true, timezone: 'UTC', defaultLocale: 'tr' }),
     },
     memberPackage: {
@@ -199,6 +199,13 @@ describe('UsagePeriodsJobsService burn', () => {
     await jobs.burnPackage('pkg-1', STUDIO, ctx, new Date('2026-12-01T00:00:00Z'));
     // Only the period ending 2026-10-01 fits before the end date; the one ending 2026-11-01 does not.
     expect(expiries.map((e) => e.periodEnd.toISOString())).toEqual(['2026-10-01T10:00:00.000Z']);
+  });
+
+  it('does not burn periods that ended before the switch was last turned on', async () => {
+    const { jobs, expiries } = build();
+    const since = new Date('2026-10-15T00:00:00Z'); // the September period (ends Oct 1) ended while the switch was off
+    await jobs.burnPackage('pkg-1', STUDIO, { ...ctx, enabledSince: since }, new Date('2026-11-05T00:00:00Z'));
+    expect(expiries.map((e) => e.periodEnd.toISOString())).toEqual(['2026-11-01T10:00:00.000Z']);
   });
 
   it('takes the package row lock before counting', async () => {

@@ -54,7 +54,7 @@ export class UsagePeriodsJobsService {
   async run(now: Date): Promise<UsagePeriodsJobResult> {
     if (this.lastCompletedAt !== null && now.getTime() - this.lastCompletedAt < USAGE_JOB_INTERVAL_MS) return { ...EMPTY };
     const result: UsagePeriodsJobResult = { ...EMPTY, ran: true };
-    const studios = await this.prisma.studio.findMany({ where: { usagePeriodsEnabled: true }, select: { id: true, timezone: true } });
+    const studios = await this.prisma.studio.findMany({ where: { usagePeriodsEnabled: true }, select: { id: true, timezone: true, usagePeriodsEnabledAt: true } });
     const studioById = new Map(studios.map((s) => [s.id, s]));
     if (studios.length === 0) {
       this.lastCompletedAt = now.getTime();
@@ -89,7 +89,7 @@ export class UsagePeriodsJobsService {
       for (const row of rows) {
         const studio = studioById.get(row.studioId);
         if (!studio) continue;
-        const ctx: UsageStudioContext = { enabled: true, timeZone: studio.timezone };
+        const ctx: UsageStudioContext = { enabled: true, timeZone: studio.timezone, enabledSince: studio.usagePeriodsEnabledAt };
         result.packagesChecked += 1;
         try {
           const burned = await this.burnPackage(row.id, row.studioId, ctx, now);
@@ -147,7 +147,9 @@ export class UsagePeriodsJobsService {
       let unitsBurned = 0;
 
       for (const tier of sortTiersFinerFirst(rule.tiers).filter((t) => t.expireUnused)) {
-        const ended = periodsEnded(pkg.startDate, tier, freezes, now, { timeZone: ctx.timeZone, notAfter: pkg.endDate });
+        // Periods that ended while the switch was off are not burned retroactively.
+        const since = ctx.enabledSince?.getTime() ?? Number.NEGATIVE_INFINITY;
+        const ended = periodsEnded(pkg.startDate, tier, freezes, now, { timeZone: ctx.timeZone, notAfter: pkg.endDate }).filter((p) => p.end.getTime() > since);
         if (ended.length === 0) continue;
         const known = await tx.packageUnitExpiry.findMany({
           where: { memberPackageId: pkg.id, studioId, tierUnit: tier.unit },

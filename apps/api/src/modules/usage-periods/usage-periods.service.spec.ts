@@ -84,7 +84,7 @@ describe('UsagePeriodsService owner switch', () => {
     prisma.studio.findUnique.mockResolvedValue({ usagePeriodsEnabled: false, timezone: 'UTC' });
     (prisma.studio as unknown as { findUniqueOrThrow: jest.Mock }).findUniqueOrThrow = jest.fn().mockResolvedValue({ usagePeriodsEnabled: false });
     await expect(service.setEnabled(tenant(true), 'user-1', true)).resolves.toEqual({ enabled: true });
-    expect(prisma.studio.update).toHaveBeenCalledWith({ where: { id: 'studio-1' }, data: { usagePeriodsEnabled: true } });
+    expect(prisma.studio.update).toHaveBeenCalledWith({ where: { id: 'studio-1' }, data: { usagePeriodsEnabled: true, usagePeriodsEnabledAt: expect.any(Date) } });
     expect(prisma.auditLog.create.mock.calls[0][0].data).toMatchObject({ studioId: 'studio-1', userId: 'user-1', action: 'studio.usagePeriods.enable' });
   });
 

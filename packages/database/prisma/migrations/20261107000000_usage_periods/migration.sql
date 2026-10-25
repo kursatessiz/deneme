@@ -1,5 +1,6 @@
 -- Usage periods (docs/KULLANIM_DONEMLERI.md). Expand-only: new nullable and defaulted columns plus one new table.
 ALTER TABLE "studios" ADD COLUMN "usage_periods_enabled" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "studios" ADD COLUMN "usage_periods_enabled_at" TIMESTAMP(3);
 ALTER TABLE "package_definitions" ADD COLUMN "usage_rule" JSONB;
 ALTER TABLE "member_packages" ADD COLUMN "usage_rule" JSONB;
 
