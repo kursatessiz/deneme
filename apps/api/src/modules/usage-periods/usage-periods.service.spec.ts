@@ -212,8 +212,8 @@ describe('UsagePeriodsService quota', () => {
     const ctx = await service.context(prisma as unknown as PrismaService, 'studio-1');
     const status = await service.statusFor(prisma as unknown as PrismaService, ctx, pkg({ endDate: new Date('2026-10-20T00:00:00Z') }), new Date('2026-10-09T12:00:00Z'));
     expect(status).toEqual([
-      { unit: 'WEEK', length: 1, periodStart: '2026-10-08T10:00:00.000Z', periodEnd: '2026-10-15T10:00:00.000Z', quota: 1, used: 1, remaining: 0, expireUnused: false },
-      { unit: 'MONTH', length: 1, periodStart: '2026-10-01T10:00:00.000Z', periodEnd: '2026-10-20T00:00:00.000Z', quota: 2, used: 1, remaining: 1, expireUnused: true },
+      { unit: 'WEEK', length: 1, periodStart: '2026-10-08T10:00:00.000Z', periodEnd: '2026-10-15T10:00:00.000Z', quota: 1, used: 1, remaining: 0, expireUnused: false, timeZone: 'UTC' },
+      { unit: 'MONTH', length: 1, periodStart: '2026-10-01T10:00:00.000Z', periodEnd: '2026-10-20T00:00:00.000Z', quota: 2, used: 1, remaining: 1, expireUnused: true, timeZone: 'UTC' },
     ]);
   });
 });

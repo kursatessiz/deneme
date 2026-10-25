@@ -17,6 +17,7 @@ export const trMPayments = {
   'mPayments.giftCardCodePlaceholder': 'ORN AB3XY7Q92KLM4T6P',
   'mPayments.showBalance': 'Bakiyeyi göster',
   'mPayments.renewPackage': 'Paketimi yenile',
+  'mPayments.myPackages': 'Paketlerim',
   'mPayments.promoCodeLabel': 'Promosyon kodu (opsiyonel)',
   'mPayments.promoCodePlaceholder': 'ORN HOSGELDIN10',
   'mPayments.giftCardCodeOptionalLabel': 'Hediye kartı kodu (opsiyonel)',

@@ -271,6 +271,7 @@ export class UsagePeriodsService {
       used: consumed,
       remaining: Math.max(0, tier.quota - consumed),
       expireUnused: tier.expireUnused,
+      timeZone: ctx.timeZone,
     }));
   }
 

@@ -2,7 +2,7 @@
 
 İşletme sahibinin açıp kapatabildiği bir özelliktir: bir paketin hakları dönemlere (ay, hafta veya gün sayısı) bölünür. Her dönemin kendi kotası vardır ve dönem içinde kullanılmayan hak ya yanar ya da yalnızca kullanım üst sınırı olarak kalır. Örnek: 8 seanslık bir üyeliğin haftada en fazla 2 seansla, ayda 8 hak olarak kullanılması.
 
-Kod: `packages/shared/src/usage-periods.ts` (kural şeması ve saf dönem hesabı), `apps/api/src/modules/usage-periods/` (servis, kontrolcü, günlük iş), uygulama noktaları `schedules.service.ts` ve `events/event-seats.service.ts`. Bu belge arka uç kapsamını anlatır; web ve mobil ekranlar sonraki PR'dadır.
+Kod: `packages/shared/src/usage-periods.ts` (kural şeması ve saf dönem hesabı), `apps/api/src/modules/usage-periods/` (servis, kontrolcü, günlük iş), uygulama noktaları `schedules.service.ts` ve `events/event-seats.service.ts`. Ekranlar (web paneli ve mobil uygulama) "Ekranlar" bölümünde anlatılır; ortak metin üretimi `packages/shared/src/usage-periods-labels.ts` içindedir.
 
 ## Kavramlar
 
@@ -76,9 +76,19 @@ Aynı günlük adımda: yakan bir katmanın mevcut dönemi `reminderDaysBefore` 
 
 ## DTO ve uç noktalar
 
-- `MemberPackageDTO.usagePeriods`: her katmanın mevcut dönemi (`unit`, `length`, `periodStart`, `periodEnd` (paket bitişine kırpılmış), `quota`, `used` (yakılanlar dahil), `remaining`, `expireUnused`); kural etkin değilse `null`. `MemberPackageDTO.expiredUnits`: yakım geçmişinin toplamı. Üye kendi paket listesinde (`GET /members/self/packages`) ve personel üye kartında (`GET /members/:memberId/studio/:studioId`) görür.
+- `MemberPackageDTO.usagePeriods`: her katmanın mevcut dönemi (`unit`, `length`, `periodStart`, `periodEnd` (paket bitişine kırpılmış), `timeZone` (işletmenin IANA saat dilimi), `quota`, `used` (yakılanlar dahil), `remaining`, `expireUnused`); kural etkin değilse `null`. `MemberPackageDTO.expiredUnits`: yakım geçmişinin toplamı. Üye kendi paket listesinde (`GET /members/self/packages`) ve personel üye kartında (`GET /members/:memberId/studio/:studioId`) görür.
 - `GET /members/packages/:packageId/unit-expiries` (`members.view`): paketin yakım geçmişi.
 
 ## Veri modeli
 
 Bkz. `docs/DATABASE_ERD.md`: `studios.usage_periods_enabled`, `package_definitions.usage_rule`, `member_packages.usage_rule`, `package_unit_expiries`. Migration `20261107000000_usage_periods` yalnızca genişletir (ileri yönlü).
+
+## Ekranlar
+
+Metinler `usagePeriods` ad alanındadır (tr ve en); özet cümleleri ve dönem satırları `packages/shared/src/usage-periods-labels.ts` içinde üretilir, web ve mobil aynı yardımcıyı kullanır. Miktar adları iş türü kelime dağarcığından değil, hak türünden gelir (seans, kredi, giriş). Tarihler etkin dile göre ve işletmenin saat diliminde (`UsagePeriodStatusDTO.timeZone`, API hata iletisiyle aynı) `Intl` ile biçimlenir.
+
+- **Web, işletme ayarları** (`/ayarlar/isletme`, `components/usage-periods/UsagePeriodsSwitchCard.tsx`): "Kullanım dönemleri" şalter kartı. `studio.settings.view` olan herkes görür; yalnızca sahip değiştirebilir, diğerleri şalteri kapalı (devre dışı) ve açıklama notuyla görür. Karttan paket tanımlarına bağlantı vardır.
+- **Web, paket tanımları** (`/packages`, `components/usage-periods/UsageRuleEditor.tsx`): her tanımın altında kural özeti ve düzenleyici (`catalog.manage`). En fazla 2 katman; katman başına birim (Ay, Hafta, Gün), uzunluk, ay hesabı (takvim ayı, sabit 30, sabit 31), kota (etiketi hak türüne göre), "Kullanılmayan haklar dönem sonunda yansın" (sınırsız pakette kapalı ve devre dışı) ve hatırlatma günü (0-14). Canlı özet cümlesi yazılırken güncellenir; doğrulama paylaşılan `UsageRuleSchema` ile istemcide yapılır (`lib/usage-periods/rule-form.ts`), sunucu hataları mevcut hata eşlemesiyle gösterilir. Şalter kapalıyken kuralın yok sayıldığı notu görünür. Kural yalnızca yeni satış ve yenilemelere uygulanır.
+- **Web, üye kartı** (`/members/[memberId]`, `UsagePeriodStatus.tsx`): kuralı etkin her paket kartında katman başına mevcut dönem (kullanılan/kota, yenilenme tarihi, "Yanar" veya "Üst sınır" rozeti), yakılacak hak yaklaşıyorsa (7 gün) uyarı satırı, toplam yanan hak ve `GET /members/packages/:id/unit-expiries` ile yüklenen yanma geçmişi açılır listesi.
+- **Mobil**: `PackageCard` aynı satırları gösterir ("Bu ay: 5/8 kullanıldı. Yenilenme: 12 Kasım", rozet, yakın yanma ipucu, toplam yanan hak). Üye kendi paketlerini Hesabım > Ödemelerim ekranındaki "Paketlerim" bölümünde, personel üye kartında görür (`src/lib/usagePeriodLines.ts`).
+- **Kota dolu hatası**: `apiErrors.schedules.periodQuotaReached` web (BFF çevirisi, `BffError.message`) ve mobilde (`ApiError.message`) rezervasyon formlarında mevcut hata alanında çevrilmiş olarak görünür.

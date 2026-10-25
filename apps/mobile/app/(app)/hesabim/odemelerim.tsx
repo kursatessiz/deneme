@@ -3,6 +3,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import type { ApiErrorKey, GiftCardBalanceDTO, GiftCardDTO, MemberPackageDTO, MemberSubscriptionDTO, PaymentDTO } from '@platform/shared';
 
+import { PackageCard } from '../../../src/components/PackageCard';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ScreenContainer } from '../../../src/components/ScreenContainer';
 import { TextField } from '../../../src/components/TextField';
@@ -297,6 +298,17 @@ export default function OdemelerimScreen() {
         ) : null}
         {checkError ? <Text style={[styles.cardLine, fonts.body, { color: palette.danger }]}>{checkError}</Text> : null}
       </View>
+
+      {myPackages && myPackages.some((p) => p.status === 'ACTIVE' || p.status === 'FROZEN') ? (
+        <>
+          <Text style={[styles.section, fonts.bodyStrong, { color: c.textSecondary }]}>{t('mPayments.myPackages')}</Text>
+          {myPackages
+            .filter((p) => p.status === 'ACTIVE' || p.status === 'FROZEN')
+            .map((p) => (
+              <PackageCard key={p.id} pkg={p} />
+            ))}
+        </>
+      ) : null}
 
       {myPackages && myPackages.length > 0 && selectedPackageDefinitionId ? (
         <>

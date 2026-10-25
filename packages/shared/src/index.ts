@@ -56,3 +56,4 @@ export * from './validation-key';
 export * from './validation-messages';
 export * from './package-selection';
 export * from './usage-periods';
+export * from './usage-periods-labels';
