@@ -630,4 +630,7 @@ export const trApiErrors = {
   'apiErrors.webhooks.webhookAddressHostCouldNotResolved': 'Webhook adresinin sunucusu çözümlenemedi',
   'apiErrors.webhooks.webhookAddressMustStartHttps': 'Webhook adresi https:// ile başlamalıdır',
   'apiErrors.webhooks.webhookEndpointNotFound': 'Webhook uç noktası bulunamadı',
+  'apiErrors.schedules.periodQuotaReached': 'Bu paketin {period} hakkı doldu; {date} tarihinde yenilenir.',
+  'apiErrors.studios.onlyOwnerCanChangeUsagePeriods': 'Dönemlik hak kotası ayarını yalnızca işletme sahibi değiştirebilir',
+  'apiErrors.catalog.usageRuleInvalidForPackageKind': 'Süreye dayalı sınırsız paketlerde kullanılmayan hak yakılamaz; yalnızca üst sınır konabilir',
 } as const;

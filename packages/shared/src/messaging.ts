@@ -63,6 +63,7 @@ export const MESSAGE_TEMPLATE_KEYS = [
   'BOOKING_CANCELLED_BY_STUDIO',
   'WAITLIST_PROMOTED',
   'PACKAGE_EXPIRING',
+  'USAGE_PERIOD_EXPIRY_REMINDER',
   'PAYMENT_FAILED',
   'OTP',
   // W10: automated marketing and lifecycle flows (see automations.ts)

@@ -103,4 +103,6 @@ export const trMsgTpl = {
   'msgTpl.ERROR_OWNER_NOTICE.subject': 'İşletmenizde bir hata görüldü',
   'msgTpl.ERROR_OWNER_NOTICE.text': 'Merhaba {firstName}, {studioName} kullanıcılarını etkileyen bir hata görüldü ve ekibimize iletildi. Destekle iletişime geçerseniz şu hata kodunu paylaşabilirsiniz: {code}. Ayrıntıları Ayarlar bölümündeki Hata raporları sayfasında görebilirsiniz.',
   'msgTpl.ERROR_OWNER_NOTICE.cta': 'Hata raporlarını aç',
+  'msgTpl.USAGE_PERIOD_EXPIRY_REMINDER.subject': 'Dönem hakkınız sona eriyor',
+  'msgTpl.USAGE_PERIOD_EXPIRY_REMINDER.text': 'Merhaba {firstName}, {packageName} paketinizde bu dönem kullanılmayan {units} hakkınız {periodEnd} tarihinde sona erecek.',
 } as const satisfies Record<string, string>;
