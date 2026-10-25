@@ -262,12 +262,12 @@ export interface PlatformAccessSettingsDTO {
 export const PlatformInviteSchema = z.object({
   fullName: z.string().trim().min(3).max(120),
   phone: PhoneSchema,
-  roleTemplateId: z.string().uuid(),
+  roleTemplateId: z.string().guid(),
   channel: z.enum(['SHOWN', 'SMS', 'WHATSAPP']).default('SHOWN'),
 });
 export type PlatformInviteInput = z.infer<typeof PlatformInviteSchema>;
 
-export const ChangePlatformRoleSchema = z.object({ roleTemplateId: z.string().uuid() });
+export const ChangePlatformRoleSchema = z.object({ roleTemplateId: z.string().guid() });
 export type ChangePlatformRoleInput = z.infer<typeof ChangePlatformRoleSchema>;
 
 export const PlatformAccessSettingsSchema = z.object({ require2faForPlatformRoles: z.boolean() });

@@ -188,8 +188,8 @@ export const EventOccurrenceInputSchema = z
   .object({
     startsAt: IsoDate,
     endsAt: IsoDate,
-    resourceId: z.string().uuid().nullable().optional(),
-    trainerId: z.string().uuid().nullable().optional(),
+    resourceId: z.string().guid().nullable().optional(),
+    trainerId: z.string().guid().nullable().optional(),
   })
   .strict()
   .refine((o) => new Date(o.startsAt) < new Date(o.endsAt), { message: vmsg('validation.endAfterStart'), path: ['endsAt'] });
@@ -198,7 +198,7 @@ export type EventOccurrenceInput = z.infer<typeof EventOccurrenceInputSchema>;
 const EventBase = {
   title: z.string().trim().min(1, vmsg('validation.enterTitle')).max(160),
   description: z.string().trim().max(5000).nullable().optional(),
-  branchId: z.string().uuid().nullable().optional(),
+  branchId: z.string().guid().nullable().optional(),
   capacity: z.number().int().min(1).max(EVENT_MAX_CAPACITY),
   waitlistEnabled: z.boolean().default(false),
   visibility: z.enum(EVENT_VISIBILITIES).default('MEMBERS_ONLY'),
@@ -252,7 +252,7 @@ const TicketBase = {
   /** One person may hold several registrations of this ticket (e.g. a parent booking for two children). */
   allowMultiple: z.boolean().default(false),
   /** Members may pay with package units of a package covering this service type instead of money. */
-  creditServiceTypeId: z.string().uuid().nullable().optional(),
+  creditServiceTypeId: z.string().guid().nullable().optional(),
   creditUnits: z.number().int().min(1).max(1000).nullable().optional(),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().min(0).max(1000).default(0),
@@ -297,13 +297,13 @@ export type CancelEventInput = z.infer<typeof CancelEventSchema>;
 /** Staff registering a member or an existing CRM contact. */
 export const StaffRegisterSchema = z
   .object({
-    ticketTypeId: z.string().uuid(),
-    memberId: z.string().uuid().optional(),
-    contactId: z.string().uuid().optional(),
+    ticketTypeId: z.string().guid(),
+    memberId: z.string().guid().optional(),
+    contactId: z.string().guid().optional(),
     /** Money collected now at the desk; omitted leaves a paid ticket PENDING_PAYMENT. */
     paymentMethod: z.enum(EVENT_DESK_PAYMENT_METHODS).optional(),
     /** Pay with this member package's units (ticket must accept credits). */
-    memberPackageId: z.string().uuid().optional(),
+    memberPackageId: z.string().guid().optional(),
     notes: z.string().trim().max(500).optional(),
   })
   .strict()
@@ -313,9 +313,9 @@ export type StaffRegisterInput = z.infer<typeof StaffRegisterSchema>;
 /** A member registering themselves. */
 export const MemberRegisterSchema = z
   .object({
-    ticketTypeId: z.string().uuid(),
+    ticketTypeId: z.string().guid(),
     /** Pay with package units: this package, or with `useCredits` the member's package that ends first. */
-    memberPackageId: z.string().uuid().optional(),
+    memberPackageId: z.string().guid().optional(),
     useCredits: z.boolean().default(false),
     installmentCount: z.number().int().min(1).max(12).default(1),
   })
@@ -324,13 +324,13 @@ export type MemberRegisterInput = z.infer<typeof MemberRegisterSchema>;
 
 /** A guest registering on the public page. */
 export const PublicEventRegisterSchema = z.object({
-  ticketTypeId: z.string().uuid(),
+  ticketTypeId: z.string().guid(),
   firstName: z.string().trim().min(1, 'Ad giriniz').max(60),
   lastName: z.string().trim().max(60).default(''),
   phone: PhoneSchema,
   email: z.string().trim().email(vmsg('validation.invalidEmailFormat')).max(120).optional().or(z.literal('')),
   /** Explicit agreement to be contacted about this registration. */
-  consent: z.literal(true, { errorMap: () => ({ message: 'Onay gereklidir' }) }),
+  consent: z.literal(true, { error: () => 'Onay gereklidir' }),
   /** Honeypot: real visitors never fill it in; a filled one is dropped silently. */
   website: z.string().max(500).optional().default(''),
 });

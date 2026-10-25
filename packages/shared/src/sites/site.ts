@@ -86,7 +86,7 @@ export const UpsertBlockSchema = z.object({
 });
 export type UpsertBlockInput = z.infer<typeof UpsertBlockSchema>;
 
-export const ReorderBlocksSchema = z.object({ blockIds: z.array(z.string().uuid()).min(1) });
+export const ReorderBlocksSchema = z.object({ blockIds: z.array(z.string().guid()).min(1) });
 export type ReorderBlocksInput = z.infer<typeof ReorderBlocksSchema>;
 
 // ---------------------------------------------------------------------------

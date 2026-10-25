@@ -77,7 +77,7 @@ export const JourneyTriggerSchema = z.discriminatedUnion('kind', [
       remainingUnitsAtMost: z.number().int().min(0).max(1000).optional(),
     })
     .strict(),
-  z.object({ kind: z.literal('segment_entered'), segmentId: z.string().uuid() }).strict(),
+  z.object({ kind: z.literal('segment_entered'), segmentId: z.string().guid() }).strict(),
 ]);
 export type JourneyTrigger = z.infer<typeof JourneyTriggerSchema>;
 
@@ -99,7 +99,7 @@ export const JourneyStepSchema = z.discriminatedUnion('type', [
       /** Falls back along the tenant's channel order when the channel is unavailable. */
       allowFallback: z.boolean().default(true),
       /** Exactly one of templateId (one tenant/global row) or templateKey (resolved per channel and locale). */
-      templateId: z.string().uuid().optional(),
+      templateId: z.string().guid().optional(),
       templateKey: z.string().regex(/^[A-Z][A-Z0-9_]{1,59}$/).optional(),
       purpose: z.enum(['TRANSACTIONAL', 'COMMERCIAL']),
       /** Legacy notification category: the member's own push/SMS toggles still apply (migrated rules). */
@@ -129,7 +129,7 @@ export const JourneyStepSchema = z.discriminatedUnion('type', [
       type: z.literal('create_task'),
       titleKey: z.string().max(200),
       assignTo: z.enum(['CONTACT_OWNER', 'ROLE', 'USER']),
-      assigneeId: z.string().uuid().optional(),
+      assigneeId: z.string().guid().optional(),
       dueInMinutes: z.number().int().min(0).max(60 * 24 * 30),
       next: stepId.nullable(),
     })

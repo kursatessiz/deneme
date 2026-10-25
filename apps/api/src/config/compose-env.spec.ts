@@ -78,7 +78,7 @@ describe('docker-compose.prod.yml environment (D1)', () => {
   const web = serviceEnvironment('web');
 
   it('passes every API env schema key and every direct process.env read, or lists it as intentionally not passed', () => {
-    const schemaKeys = Object.keys(EnvSchema.innerType().shape);
+    const schemaKeys = Object.keys(EnvSchema.shape);
     const missing = uncovered([...schemaKeys, ...directEnvReads(join(REPO_ROOT, 'apps', 'api', 'src'))], api, API_INTENTIONALLY_NOT_PASSED);
     // Add the key to the api service (`KEY: ${KEY:-}`) and to .env.example,
     // or to API_INTENTIONALLY_NOT_PASSED with the reason.

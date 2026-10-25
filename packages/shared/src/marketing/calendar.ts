@@ -27,9 +27,9 @@ export const CreateContentItemSchema = z
     channel: z.enum(CALENDAR_CHANNELS),
     scheduledDate: DateOnly,
     status: z.enum(CALENDAR_STATUSES).default('PLANNED'),
-    draftId: z.string().uuid().nullable().optional(),
-    campaignId: z.string().uuid().nullable().optional(),
-    ownerUserId: z.string().uuid().nullable().optional(),
+    draftId: z.string().guid().nullable().optional(),
+    campaignId: z.string().guid().nullable().optional(),
+    ownerUserId: z.string().guid().nullable().optional(),
     notes: z.string().trim().max(2_000).nullable().optional(),
   })
   .strict();

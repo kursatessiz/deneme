@@ -151,7 +151,7 @@ export const UpdateNotificationSettingsSchema = NotificationSettingsSchema;
 
 export const TopUpSmsWalletSchema = z
   .object({
-    studioId: z.string().uuid(),
+    studioId: z.string().guid(),
     credits: z.number().int().refine((v) => v !== 0, vmsg('validation.creditAmountZero')),
     note: z.string().trim().max(200).optional(),
   })

@@ -159,7 +159,7 @@ export function followMergeChain(startId: string, mergedIntoOf: (id: string) => 
   return null;
 }
 
-export const ErrorGroupMergeSchema = z.object({ targetId: z.string().uuid() }).strict();
+export const ErrorGroupMergeSchema = z.object({ targetId: z.string().guid() }).strict();
 export type ErrorGroupMergeInput = z.infer<typeof ErrorGroupMergeSchema>;
 
 // ---------------------------------------------------------------------------
@@ -391,7 +391,7 @@ export interface ErrorAlertDTO {
 export const ErrorAlertListQuerySchema = z.object({
   kind: z.enum(ERROR_ALERT_KINDS).optional(),
   acknowledged: z.enum(['true', 'false']).optional(),
-  groupId: z.string().uuid().optional(),
+  groupId: z.string().guid().optional(),
   page: z.coerce.number().int().min(1).max(1000).default(1),
 });
 export type ErrorAlertListQuery = z.infer<typeof ErrorAlertListQuerySchema>;

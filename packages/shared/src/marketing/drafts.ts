@@ -215,7 +215,7 @@ export const AbTestSetupSchema = z
     testSharePercent: z.number().int().min(5).max(50).default(20),
     metric: z.enum(AB_TEST_METRICS).default('CLICK'),
     waitHours: z.number().int().min(1).max(168).default(24),
-    variantIds: z.array(z.string().uuid()).min(2).max(MAX_VARIANTS),
+    variantIds: z.array(z.string().guid()).min(2).max(MAX_VARIANTS),
   })
   .strict();
 export type AbTestSetupInput = z.infer<typeof AbTestSetupSchema>;
@@ -230,8 +230,8 @@ export function abSetupToCampaignAbTest(setup: Pick<AbTestSetupInput, 'testShare
 
 export const ExportToCampaignSchema = z
   .object({
-    variantId: z.string().uuid(),
-    segmentId: z.string().uuid(),
+    variantId: z.string().guid(),
+    segmentId: z.string().guid(),
     name: z.string().trim().min(1).max(120).optional(),
     /** Omitted: the stored A/B setup of the draft (when enabled) becomes the campaign's test; false exports the single variant only. */
     withAbTest: z.boolean().optional(),

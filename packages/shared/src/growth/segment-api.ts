@@ -82,8 +82,8 @@ export type SegmentPreviewInput = z.infer<typeof SegmentPreviewSchema>;
 
 export const SegmentMembersSchema = z
   .object({
-    add: z.array(z.string().uuid()).max(500).default([]),
-    remove: z.array(z.string().uuid()).max(500).default([]),
+    add: z.array(z.string().guid()).max(500).default([]),
+    remove: z.array(z.string().guid()).max(500).default([]),
   })
   .strict();
 export type SegmentMembersInput = z.infer<typeof SegmentMembersSchema>;

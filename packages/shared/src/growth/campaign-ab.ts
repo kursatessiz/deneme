@@ -62,7 +62,7 @@ export const CampaignVariantInputSchema = z
     templateKey: CampaignTemplateKeySchema.nullable().optional(),
     overrides: CampaignVariantOverridesSchema.nullable().optional(),
     /** Provenance: the AI studio draft this variant came from. */
-    aiDraftId: z.string().uuid().nullable().optional(),
+    aiDraftId: z.string().guid().nullable().optional(),
   })
   .strict();
 export type CampaignVariantInput = z.infer<typeof CampaignVariantInputSchema>;

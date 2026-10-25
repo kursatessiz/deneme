@@ -108,7 +108,7 @@ export interface HealthDailySummaryDTO {
 
 export const CreateHealthSyncRecordSchema = z
   .object({
-    bookingId: z.string().uuid(),
+    bookingId: z.string().guid(),
     platform: z.nativeEnum(HealthPlatform),
   })
   .strict();

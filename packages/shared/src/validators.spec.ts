@@ -41,7 +41,7 @@ describe('Shared Zod Validators', () => {
       const result = LoginSchema.safeParse(input);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(validationBaseMessage(result.error.errors[0].message)).toContain('en az 6 karakter');
+        expect(validationBaseMessage(result.error.issues[0].message)).toContain('en az 6 karakter');
       }
     });
   });
