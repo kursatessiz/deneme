@@ -55,28 +55,29 @@ export interface BlockFormSpec {
 const TEXTAREA_MIN_MAX_LENGTH = 201;
 
 interface Unwrapped {
-  inner: z.ZodTypeAny;
+  inner: z.ZodType;
   optional: boolean;
   defaultValue?: unknown;
 }
 
-function typeNameOf(schema: z.ZodTypeAny): string {
-  return (schema._def as { typeName: string }).typeName;
+/** Zod 4 schema kind tag ("string", "optional", "pipe", ...). */
+function typeNameOf(schema: z.ZodType): string {
+  return schema._zod.def.type;
 }
 
-/** Strips optional, nullable, default and refinement wrappers; whether any of them makes the value optional. */
-function unwrap(schema: z.ZodTypeAny): Unwrapped {
+/** Strips optional, nullable, default and pipe (transform) wrappers; whether any of them makes the value optional. */
+function unwrap(schema: z.ZodType): Unwrapped {
   let current = schema;
   let optional = false;
   let defaultValue: unknown;
   for (let depth = 0; depth < 8; depth += 1) {
     const name = typeNameOf(current);
-    if (name === 'ZodDefault' && defaultValue === undefined) defaultValue = (current._def as { defaultValue: () => unknown }).defaultValue();
-    if (name === 'ZodOptional' || name === 'ZodNullable' || name === 'ZodDefault') {
+    if (name === 'default' && defaultValue === undefined) defaultValue = (current as z.ZodDefault).def.defaultValue;
+    if (name === 'optional' || name === 'nullable' || name === 'default') {
       optional = true;
-      current = (current._def as { innerType: z.ZodTypeAny }).innerType;
-    } else if (name === 'ZodEffects') {
-      current = (current._def as { schema: z.ZodTypeAny }).schema;
+      current = (current as z.ZodOptional).unwrap() as z.ZodType;
+    } else if (name === 'pipe') {
+      current = (current as z.ZodPipe).in as z.ZodType;
     } else {
       break;
     }
@@ -84,65 +85,55 @@ function unwrap(schema: z.ZodTypeAny): Unwrapped {
   return { inner: current, optional, defaultValue };
 }
 
-interface StringCheck {
-  kind: string;
-  value?: number;
-  regex?: RegExp;
-}
-
 function stringField(key: string, schema: z.ZodString, optional: boolean): BlockFormField {
-  const checks = (schema._def as { checks: StringCheck[] }).checks;
-  const max = checks.find((c) => c.kind === 'max')?.value;
+  const max = schema.maxLength ?? undefined;
+  const checks = (schema._zod.def.checks ?? []).map((c) => c._zod.def as { check: string; format?: string; pattern?: RegExp });
   let kind: BlockFormFieldKind = max !== undefined && max >= TEXTAREA_MIN_MAX_LENGTH ? 'textarea' : 'text';
-  if (checks.some((c) => c.kind === 'url')) kind = 'url';
-  else if (checks.some((c) => c.kind === 'regex' && c.regex === SAFE_HREF_PATTERN)) kind = 'href';
+  if (checks.some((c) => c.check === 'string_format' && c.format === 'url')) kind = 'url';
+  else if (checks.some((c) => c.check === 'string_format' && c.format === 'regex' && c.pattern === SAFE_HREF_PATTERN)) kind = 'href';
   return { key, kind, required: !optional, ...(max !== undefined ? { maxLength: max } : {}) };
 }
 
-interface ArrayBounds {
-  minLength?: { value: number } | null;
-  maxLength?: { value: number } | null;
-  type: z.ZodTypeAny;
-}
-
-function arrayField(key: string, schema: z.ZodTypeAny, optional: boolean): BlockFormField {
-  const def = schema._def as ArrayBounds;
+function arrayField(key: string, schema: z.ZodArray, optional: boolean): BlockFormField {
+  const checks = (schema._zod.def.checks ?? []).map((c) => c._zod.def as { check: string; minimum?: number; maximum?: number });
+  const min = checks.find((c) => c.check === 'min_length')?.minimum;
+  const max = checks.find((c) => c.check === 'max_length')?.maximum;
   const bounds = {
-    ...(def.minLength ? { minItems: def.minLength.value } : {}),
-    ...(def.maxLength ? { maxItems: def.maxLength.value } : {}),
+    ...(min !== undefined ? { minItems: min } : {}),
+    ...(max !== undefined ? { maxItems: max } : {}),
   };
-  const element = unwrap(def.type).inner;
+  const element = unwrap(schema.element as z.ZodType).inner;
   const elementName = typeNameOf(element);
-  if (elementName === 'ZodString') return { key, kind: 'string_list', required: !optional, ...bounds };
-  if (elementName === 'ZodEnum') return { key, kind: 'choice_list', required: !optional, choices: (element._def as { values: readonly string[] }).values, ...bounds };
-  if (elementName === 'ZodObject') return { key, kind: 'repeatable', required: !optional, itemFields: objectFields(element as z.ZodObject<z.ZodRawShape>), ...bounds };
+  if (elementName === 'string') return { key, kind: 'string_list', required: !optional, ...bounds };
+  if (elementName === 'enum') return { key, kind: 'choice_list', required: !optional, choices: (element as z.ZodEnum).options as readonly string[], ...bounds };
+  if (elementName === 'object') return { key, kind: 'repeatable', required: !optional, itemFields: objectFields(element as z.ZodObject<z.ZodRawShape>), ...bounds };
   return { key, kind: 'unsupported', required: !optional };
 }
 
-function fieldOf(key: string, schema: z.ZodTypeAny): BlockFormField {
+function fieldOf(key: string, schema: z.ZodType): BlockFormField {
   const { inner, optional, defaultValue } = unwrap(schema);
   switch (typeNameOf(inner)) {
-    case 'ZodString':
+    case 'string':
       return stringField(key, inner as z.ZodString, optional);
-    case 'ZodBoolean':
+    case 'boolean':
       return { key, kind: 'boolean', required: !optional, ...(typeof defaultValue === 'boolean' ? { defaultValue } : {}) };
-    case 'ZodArray':
-      return { ...arrayField(key, inner, optional), ...(Array.isArray(defaultValue) ? { defaultValue: defaultValue as string[] } : {}) };
+    case 'array':
+      return { ...arrayField(key, inner as z.ZodArray, optional), ...(Array.isArray(defaultValue) ? { defaultValue: defaultValue as string[] } : {}) };
     default:
       return { key, kind: 'unsupported', required: !optional };
   }
 }
 
 function objectFields(schema: z.ZodObject<z.ZodRawShape>): BlockFormField[] {
-  return Object.entries(schema.shape).map(([key, value]) => fieldOf(key, value));
+  return Object.entries(schema.shape).map(([key, value]) => fieldOf(key, value as z.ZodType));
 }
 
 /** The form fields of one block type, derived from its schema in `BLOCK_SCHEMAS`. */
 export function deriveBlockFormSpec(type: BlockType): BlockFormSpec {
   const shape = (BLOCK_SCHEMAS[type] as unknown as z.ZodObject<z.ZodRawShape>).shape;
-  const config = unwrap(shape.config).inner as z.ZodObject<z.ZodRawShape>;
-  const text = unwrap(shape.text).inner;
-  const textValue = unwrap((text._def as { valueType: z.ZodTypeAny }).valueType).inner as z.ZodObject<z.ZodRawShape>;
+  const config = unwrap(shape.config as z.ZodType).inner as z.ZodObject<z.ZodRawShape>;
+  const text = unwrap(shape.text as z.ZodType).inner as z.ZodRecord;
+  const textValue = unwrap(text.valueType as z.ZodType).inner as z.ZodObject<z.ZodRawShape>;
   return { type, config: objectFields(config), text: objectFields(textValue) };
 }
 

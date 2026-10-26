@@ -5,9 +5,10 @@ import { AuthModule } from '../auth/auth.module';
 import { FeedbackModule } from '../feedback/feedback.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
 import { CrmCoreModule } from '../crm/crm-core.module';
+import { UsagePeriodsCoreModule } from '../usage-periods/usage-periods-core.module';
 
 @Module({
-  imports: [AuthModule, FeedbackModule, WebhooksModule, CrmCoreModule],
+  imports: [AuthModule, FeedbackModule, WebhooksModule, CrmCoreModule, UsagePeriodsCoreModule],
   controllers: [MembersController],
   providers: [MembersService],
   exports: [MembersService],

@@ -124,8 +124,8 @@ const ContactFieldsSchema = z.object({
   lifecycleStage: z.enum(LIFECYCLE_STAGES).optional(),
   /** Pipeline stage key; omitted keeps the contact out of the pipeline. */
   pipelineStageKey: z.string().trim().min(1).max(40).optional(),
-  ownerMembershipId: z.string().uuid().optional(),
-  branchId: z.string().uuid().optional(),
+  ownerMembershipId: z.string().guid().optional(),
+  branchId: z.string().guid().optional(),
   tags: z.array(TagSchema).max(50).optional(),
   customFields: ContactCustomFieldsSchema.optional(),
   sourceChannel: z.string().trim().max(30).optional(),
@@ -143,8 +143,8 @@ export type CreateContactInput = z.infer<typeof CreateContactSchema>;
 
 export const UpdateContactSchema = ContactFieldsSchema.partial()
   .extend({
-    ownerMembershipId: z.string().uuid().nullable().optional(),
-    branchId: z.string().uuid().nullable().optional(),
+    ownerMembershipId: z.string().guid().nullable().optional(),
+    branchId: z.string().guid().nullable().optional(),
     pipelineStageKey: z.string().trim().min(1).max(40).nullable().optional(),
     lostReason: z.string().trim().max(500).optional(),
     nextFollowUpAt: z.string().datetime().nullable().optional(),
@@ -155,8 +155,8 @@ export type UpdateContactInput = z.infer<typeof UpdateContactSchema>;
 const ContactFilterShape = {
   stage: z.string().trim().min(1).max(40).optional(),
   lifecycleStage: z.enum(LIFECYCLE_STAGES).optional(),
-  ownerMembershipId: z.string().uuid().optional(),
-  branchId: z.string().uuid().optional(),
+  ownerMembershipId: z.string().guid().optional(),
+  branchId: z.string().guid().optional(),
   tag: z.string().trim().max(60).optional(),
   /** Matches the first or last attribution source, or the manual channel. */
   source: z.string().trim().max(250).optional(),
@@ -182,9 +182,9 @@ export type ContactExportQuery = z.infer<typeof ContactExportQuerySchema>;
 export const MergeContactsSchema = z
   .object({
     /** The contact that remains. */
-    survivorId: z.string().uuid(),
+    survivorId: z.string().guid(),
     /** The contact folded into the survivor and hidden afterwards. */
-    mergedId: z.string().uuid(),
+    mergedId: z.string().guid(),
   })
   .strict()
   .refine((v) => v.survivorId !== v.mergedId, { message: vmsg('validation.contactMergedWithItself'), path: ['mergedId'] });
@@ -306,7 +306,7 @@ export const CreateContactTaskSchema = z
     title: z.string().trim().min(1, vmsg('validation.enterTitle')).max(200),
     notes: z.string().trim().max(2000).optional(),
     dueAt: z.string().datetime().optional(),
-    assigneeMembershipId: z.string().uuid().optional(),
+    assigneeMembershipId: z.string().guid().optional(),
   })
   .strict();
 export type CreateContactTaskInput = z.infer<typeof CreateContactTaskSchema>;
@@ -316,7 +316,7 @@ export const UpdateContactTaskSchema = z
     title: z.string().trim().min(1).max(200).optional(),
     notes: z.string().trim().max(2000).nullable().optional(),
     dueAt: z.string().datetime().nullable().optional(),
-    assigneeMembershipId: z.string().uuid().nullable().optional(),
+    assigneeMembershipId: z.string().guid().nullable().optional(),
     status: z.enum(CONTACT_TASK_STATUSES).optional(),
   })
   .strict();
@@ -325,7 +325,7 @@ export type UpdateContactTaskInput = z.infer<typeof UpdateContactTaskSchema>;
 export const ContactTaskListQuerySchema = z
   .object({
     status: z.enum(CONTACT_TASK_STATUSES).optional(),
-    assigneeMembershipId: z.string().uuid().optional(),
+    assigneeMembershipId: z.string().guid().optional(),
     overdue: z
       .enum(['true', 'false'])
       .optional()

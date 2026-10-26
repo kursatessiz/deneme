@@ -75,7 +75,7 @@ export const ListPayoutsQuerySchema = z
   .refine((q) => !q.from || !q.to || q.from <= q.to, { message: vmsg('validation.startDateAfterEndDate'), path: ['from'] });
 export type ListPayoutsQuery = z.infer<typeof ListPayoutsQuerySchema>;
 
-export const MatchPayoutItemSchema = z.object({ paymentId: z.string().uuid() }).strict();
+export const MatchPayoutItemSchema = z.object({ paymentId: z.string().guid() }).strict();
 export type MatchPayoutItemInput = z.infer<typeof MatchPayoutItemSchema>;
 
 /** Provider account ids (Stripe `acct_...`) are short tokens; a character class checked in linear time. */

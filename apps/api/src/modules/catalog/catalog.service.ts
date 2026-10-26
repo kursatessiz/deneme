@@ -12,7 +12,9 @@ import type {
   CreateServiceTypeInput,
   UpdateServiceTypeInput,
   ServiceTypeQualificationInput,
+  UsageRule,
 } from '@platform/shared';
+import { usageRuleKindIssue } from '@platform/shared';
 import { apiError } from '../../common/api-error';
 
 @Injectable()
@@ -353,6 +355,33 @@ export class CatalogService {
       where: { studioId: tenant.studioId, isActive: true },
       include: { services: { include: { serviceType: { select: { id: true, name: true } } } } },
       orderBy: { name: 'asc' },
+    });
+  }
+
+  /** Usage periods: stores (or clears) the rule; sold packages keep the snapshot they were sold with. */
+  async setPackageUsageRule(tenant: TenantContext, userId: string, id: string, rule: UsageRule | null) {
+    const definition = await this.prisma.packageDefinition.findFirst({ where: { id, studioId: tenant.studioId } });
+    if (!definition) throw new NotFoundException(apiError('apiErrors.common.packageDefinitionNotFound'));
+    if (rule && usageRuleKindIssue(rule, definition.entitlementKind)) {
+      throw new BadRequestException(apiError('apiErrors.catalog.usageRuleInvalidForPackageKind'));
+    }
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.packageDefinition.update({
+        where: { id },
+        data: { usageRule: rule ? (rule as unknown as Prisma.InputJsonValue) : Prisma.DbNull },
+        include: { services: { include: { serviceType: { select: { id: true, name: true } } } } },
+      });
+      await tx.auditLog.create({
+        data: {
+          studioId: tenant.studioId,
+          userId,
+          action: 'packageDefinition.usageRule.set',
+          entityType: 'PackageDefinition',
+          entityId: id,
+          metadata: { cleared: rule === null, rule: rule ? (rule as unknown as Prisma.InputJsonValue) : null },
+        },
+      });
+      return updated;
     });
   }
 

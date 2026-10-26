@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { EventSeatsService } from './event-seats.service';
+import { UsagePeriodsCoreModule } from '../usage-periods/usage-periods-core.module';
 
 /**
  * Event seat accounting and notices without controllers or module
@@ -9,6 +10,7 @@ import { EventSeatsService } from './event-seats.service';
  * LoyaltyCoreModule and CrmCoreModule).
  */
 @Module({
+  imports: [UsagePeriodsCoreModule],
   providers: [EventSeatsService],
   exports: [EventSeatsService],
 })

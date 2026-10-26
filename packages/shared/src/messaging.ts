@@ -63,6 +63,7 @@ export const MESSAGE_TEMPLATE_KEYS = [
   'BOOKING_CANCELLED_BY_STUDIO',
   'WAITLIST_PROMOTED',
   'PACKAGE_EXPIRING',
+  'USAGE_PERIOD_EXPIRY_REMINDER',
   'PAYMENT_FAILED',
   'OTP',
   // W10: automated marketing and lifecycle flows (see automations.ts)
@@ -151,7 +152,7 @@ export const UpdateNotificationSettingsSchema = NotificationSettingsSchema;
 
 export const TopUpSmsWalletSchema = z
   .object({
-    studioId: z.string().uuid(),
+    studioId: z.string().guid(),
     credits: z.number().int().refine((v) => v !== 0, vmsg('validation.creditAmountZero')),
     note: z.string().trim().max(200).optional(),
   })

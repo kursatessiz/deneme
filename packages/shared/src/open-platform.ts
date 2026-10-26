@@ -292,7 +292,7 @@ export function webhookBackoffSeconds(attempt: number): number {
 
 export const PublicListSchedulesQuerySchema = z
   .object({
-    branchId: z.string().uuid().optional(),
+    branchId: z.string().guid().optional(),
     from: z.string().datetime(),
     to: z.string().datetime(),
   })
@@ -304,23 +304,23 @@ export const PublicListSchedulesQuerySchema = z
 export type PublicListSchedulesQuery = z.infer<typeof PublicListSchedulesQuerySchema>;
 
 export const PublicListBookingsQuerySchema = z.object({
-  branchId: z.string().uuid().optional(),
-  scheduleId: z.string().uuid().optional(),
+  branchId: z.string().guid().optional(),
+  scheduleId: z.string().guid().optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
 export type PublicListBookingsQuery = z.infer<typeof PublicListBookingsQuerySchema>;
 
 export const PublicCreateBookingSchema = z.object({
-  scheduleId: z.string().uuid(),
+  scheduleId: z.string().guid(),
   memberPhone: z.string().min(8),
-  memberPackageId: z.string().uuid().optional(),
-  resourceIds: z.array(z.string().uuid()).max(5).default([]),
+  memberPackageId: z.string().guid().optional(),
+  resourceIds: z.array(z.string().guid()).max(5).default([]),
 });
 export type PublicCreateBookingInput = z.infer<typeof PublicCreateBookingSchema>;
 
 export const PublicCancelBookingSchema = z.object({
-  bookingId: z.string().uuid(),
+  bookingId: z.string().guid(),
   reason: z.string().max(500).optional(),
 });
 export type PublicCancelBookingInput = z.infer<typeof PublicCancelBookingSchema>;

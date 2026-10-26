@@ -265,8 +265,8 @@ export const OAuthStartTargetSchema = z.discriminatedUnion('kind', [
       displayName: z.string().trim().min(1).max(160).optional(),
     })
     .strict(),
-  z.object({ kind: z.literal('RECONNECT_AD_CONNECTION'), connectionId: z.string().uuid() }).strict(),
-  z.object({ kind: z.literal('RECONNECT_SOCIAL_CONNECTION'), connectionId: z.string().uuid() }).strict(),
+  z.object({ kind: z.literal('RECONNECT_AD_CONNECTION'), connectionId: z.string().guid() }).strict(),
+  z.object({ kind: z.literal('RECONNECT_SOCIAL_CONNECTION'), connectionId: z.string().guid() }).strict(),
 ]);
 export type OAuthStartTarget = z.infer<typeof OAuthStartTargetSchema>;
 

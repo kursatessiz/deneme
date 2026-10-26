@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { EntitlementKind, onGradient } from '@platform/shared';
+import { EntitlementKind, onGradient, usageQuotaNoun } from '@platform/shared';
 import type { MemberPackageDTO } from '@platform/shared';
 
 import { GradientSurface } from './GradientSurface';
@@ -9,6 +9,8 @@ import { useLocale, useT } from '../i18n';
 import { radii, spacing, typography, useTheme, useThemeFonts } from '../theme';
 import type { Translate } from '@platform/shared';
 import { Text } from './Text';
+import { withAlpha } from './tones';
+import { packageUsageLines } from '../lib/usagePeriodLines';
 
 function entitlementLabel(pkg: MemberPackageDTO, t: Translate): string {
   if (pkg.entitlementKind === EntitlementKind.TIME_UNLIMITED) return t('mPackageCard.unlimitedDuration');
@@ -36,6 +38,7 @@ export function PackageCard({ pkg }: { pkg: MemberPackageDTO }) {
   const t = useT();
   const STATUS_LABEL = statusLabels(t);
   const textColor = onGradient(theme.gradient);
+  const usageLines = packageUsageLines(pkg, t, locale);
 
   return (
     <GradientSurface slot="packageCard" style={[styles.card, { borderRadius: radii.md }]}>
@@ -43,6 +46,27 @@ export function PackageCard({ pkg }: { pkg: MemberPackageDTO }) {
         {pkg.packageDefinitionName}
       </Text>
       <Text style={[styles.entitlement, fonts.body, { color: textColor }]}>{entitlementLabel(pkg, t)}</Text>
+      {usageLines.map((line) => (
+        <View key={line.unit} style={styles.usageLine}>
+          <View style={styles.usageRow}>
+            <Text style={[styles.usageText, fonts.body, { color: textColor }]}>{line.text}</Text>
+            <View
+              style={[
+                styles.usageBadge,
+                { borderColor: textColor, borderRadius: radii.full, backgroundColor: line.burns ? withAlpha(textColor, 0.2) : 'transparent' },
+              ]}
+            >
+              <Text style={[styles.usageBadgeText, fonts.bodyMedium, { color: textColor }]}>{line.badge}</Text>
+            </View>
+          </View>
+          {line.hint ? <Text style={[styles.usageText, fonts.bodyStrong, { color: textColor }]}>{line.hint}</Text> : null}
+        </View>
+      ))}
+      {usageLines.length > 0 && (pkg.expiredUnits ?? 0) > 0 ? (
+        <Text style={[styles.usageText, fonts.body, { color: textColor }]}>
+          {t('usagePeriods.expired.total', { units: usageQuotaNoun(t, pkg.entitlementKind, pkg.expiredUnits ?? 0) })}
+        </Text>
+      ) : null}
       <View style={styles.footer}>
         <Text style={[styles.status, fonts.body, { color: textColor }]}>{STATUS_LABEL[pkg.status] ?? pkg.status}</Text>
         <Text style={[styles.status, fonts.body, { color: textColor }]}>
@@ -68,4 +92,9 @@ const styles = StyleSheet.create({
   entitlement: { fontSize: typography.size.sm },
   footer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing[2] },
   status: { fontSize: typography.size.xs },
+  usageLine: { gap: spacing[1] },
+  usageRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing[2] },
+  usageText: { fontSize: typography.size.xs },
+  usageBadge: { borderWidth: 1, paddingHorizontal: spacing[2], paddingVertical: spacing[1] / 2 },
+  usageBadgeText: { fontSize: typography.size.xs },
 });

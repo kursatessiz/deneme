@@ -1,9 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { Prisma } from '@platform/database';
 import type { EventRegistration, EventTicketType, MemberPackage } from '@platform/database';
 import { EVENT_DESK_HOLD_HOURS, EVENT_TEMPLATE_KEYS, paymentDueAt } from '@platform/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { MessagingService } from '../messaging/engine/messaging.service';
+import { UsagePeriodsService } from '../usage-periods/usage-periods.service';
+import { hasApiErrorCode } from '../../common/api-error';
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | PrismaService;
@@ -34,6 +36,7 @@ export class EventSeatsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly messaging: MessagingService,
+    @Optional() private readonly usagePeriods?: UsagePeriodsService,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -84,6 +87,7 @@ export class EventSeatsService {
     memberId: string,
     ticket: Pick<EventTicketType, 'creditServiceTypeId' | 'creditUnits'>,
     memberPackageId?: string | null,
+    startsAt?: Date | null,
   ): Promise<{ memberPackage: MemberPackage; units: number } | null> {
     if (!ticket.creditServiceTypeId || !ticket.creditUnits) return null;
     const now = new Date();
@@ -98,15 +102,26 @@ export class EventSeatsService {
       },
       orderBy: { endDate: 'asc' },
     });
+    const usageCtx = startsAt && !memberPackageId && this.usagePeriods ? await this.usagePeriods.context(db, studioId) : null;
     for (const pkg of candidates) {
       const units = pkg.entitlementKind === 'TIME_UNLIMITED' ? 0 : ticket.creditUnits;
-      if (units === 0 || (pkg.remainingUnits ?? 0) >= units) return { memberPackage: pkg, units };
+      if (units === 0 || (pkg.remainingUnits ?? 0) >= units) {
+        // Without a named package, one whose usage period quota is used up is passed over for the next one.
+        if (usageCtx && startsAt && units > 0 && (await this.usagePeriods?.isQuotaReached(db, usageCtx, pkg, startsAt, units))) continue;
+        return { memberPackage: pkg, units };
+      }
     }
     return null;
   }
 
-  async chargeCredits(tx: Tx, studioId: string, memberPackageId: string, units: number): Promise<boolean> {
+  /**
+   * Charges credits to a package. `startsAt` (the event start) enables the usage period quota check: with an
+   * active rule it throws apiErrors.schedules.periodQuotaReached when the package's quota for the period of
+   * that date cannot take the credits (row-locked in this transaction).
+   */
+  async chargeCredits(tx: Tx, studioId: string, memberPackageId: string, units: number, startsAt?: Date | null): Promise<boolean> {
     if (units <= 0) return true;
+    if (startsAt) await this.usagePeriods?.assertWithinQuota(tx, studioId, memberPackageId, startsAt, units);
     const charged = await tx.memberPackage.updateMany({
       where: { id: memberPackageId, studioId, status: 'ACTIVE', remainingUnits: { gte: units } },
       data: { usedUnits: { increment: units }, remainingUnits: { decrement: units } },
@@ -223,8 +238,15 @@ export class EventSeatsService {
         let unitsCharged = 0;
         let memberPackageId: string | null = null;
         if (next.memberId && next.memberPackageId) {
-          const resolved = await this.resolveCreditPackage(tx, studioId, next.memberId, next.ticketType, next.memberPackageId);
-          if (!resolved || !(await this.chargeCredits(tx, studioId, resolved.memberPackage.id, resolved.units))) {
+          const resolved = await this.resolveCreditPackage(tx, studioId, next.memberId, next.ticketType, next.memberPackageId, event.startsAt);
+          // A usage period quota that is used up skips this registration like missing credits do.
+          const charged = resolved
+            ? await this.chargeCredits(tx, studioId, resolved.memberPackage.id, resolved.units, event.startsAt).catch((err: unknown) => {
+                if (hasApiErrorCode(err, 'apiErrors.schedules.periodQuotaReached')) return false;
+                throw err;
+              })
+            : false;
+          if (!resolved || !charged) {
             await this.releaseTicket(tx, studioId, next.ticketTypeId);
             return fail('EVENT_NO_CREDITS');
           }

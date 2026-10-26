@@ -71,7 +71,7 @@ Ayrıntılı işleyiş her modülün kendi dokümanındadır (aşağıdaki liste
 
 ## Yerel geliştirme
 
-Gereksinimler: Node.js 22, pnpm ve yerel Postgres ile Redis için Docker.
+Gereksinimler: Node.js 22.23.4 (22 LTS, `.nvmrc`), pnpm 10 (`packageManager` alanı, corepack) ve yerel Postgres ile Redis için Docker.
 
 ```bash
 # 1. Bağımlılıkları kur

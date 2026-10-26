@@ -14,12 +14,12 @@ import type { DashboardPeriod, DashboardWidgetKey } from './widgets';
  */
 export const DashboardDataRequestSchema = z
   .object({
-    branchId: z.string().uuid().optional(),
+    branchId: z.string().guid().optional(),
     widgets: z
       .array(
         z
           .object({
-            id: z.string().uuid(),
+            id: z.string().guid(),
             widget: DashboardWidgetKeySchema,
             settings: DashboardWidgetSettingsSchema.optional(),
           })

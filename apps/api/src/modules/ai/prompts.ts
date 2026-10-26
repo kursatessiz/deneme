@@ -106,7 +106,7 @@ export function translationUserMessage(units: readonly TranslationUnit[]): strin
   return `Translate these items.\n${TRANSLATION_ITEMS_OPEN}\n${JSON.stringify(translationRequestItems(units))}\n${TRANSLATION_ITEMS_CLOSE}`;
 }
 
-const FormsSchema = z.record(z.enum(PLURAL_CATEGORIES), z.string());
+const FormsSchema = z.partialRecord(z.enum(PLURAL_CATEGORIES), z.string());
 const TranslationOutputSchema = z.object({
   translations: z.array(
     z.object({

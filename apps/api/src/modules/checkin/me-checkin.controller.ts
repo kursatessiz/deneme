@@ -8,7 +8,7 @@ import type { AuthUser } from '../auth/tenant-context';
 import { CheckInService } from './checkin.service';
 import { CheckInScanRateLimitGuard } from './checkin-rate-limit.guard';
 
-const IssueMemberQrBodySchema = z.object({ studioId: z.string().uuid() });
+const IssueMemberQrBodySchema = z.object({ studioId: z.string().guid() });
 
 /** The signed-in member's own check-in actions. Not studio-scoped by header:
  * the static scan resolves the studio from the QR token, and the dynamic QR

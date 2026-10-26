@@ -16,6 +16,7 @@ import type { PushMessage } from '../notifications/push.service';
 import { GamificationService } from '../gamification/gamification.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { VideoMeetingService } from '../video/providers/video-meeting.service';
+import { UsagePeriodsService } from '../usage-periods/usage-periods.service';
 import type { TenantContext } from '../auth/tenant-context';
 import type {
   CreateScheduleInput,
@@ -31,7 +32,7 @@ import type {
   UpdateSessionMeetingInput,
   JoinSessionResultDTO,
 } from '@platform/shared';
-import { addZonedDays, isWithinJoinWindow, selectUsablePackage } from '@platform/shared';
+import { addZonedDays, isWithinJoinWindow, packageUnusableReason, selectUsablePackage } from '@platform/shared';
 import { Prisma, SessionDeliveryMode } from '@platform/database';
 import type { Booking, BookingStatus, CancellationPolicy, MemberPackage } from '@platform/database';
 import { evaluateCancellation, evaluateNoShow, FALLBACK_POLICY, PolicyTerms } from './cancellation-policy';
@@ -61,6 +62,7 @@ export class SchedulesService {
     private webhooks: WebhooksService,
     private videoMeeting: VideoMeetingService,
     @Optional() private crm?: CrmHooksService,
+    @Optional() private usagePeriods?: UsagePeriodsService,
   ) {}
 
   async getSchedules(
@@ -761,11 +763,16 @@ export class SchedulesService {
     const { memberPackage, unitCost } = skipCharge
       ? { memberPackage: null, unitCost: 0 }
       : dto.memberPackageId
-        ? await this.resolvePackage(studioId, dto.memberId, dto.memberPackageId, schedule.serviceTypeId)
-        : await this.autoSelectPackage(studioId, dto.memberId, schedule.serviceTypeId, schedule.serviceType.allowedEntitlementKinds);
+        ? await this.resolvePackage(studioId, dto.memberId, dto.memberPackageId, schedule.serviceTypeId, schedule)
+        : await this.autoSelectPackage(studioId, dto.memberId, schedule.serviceTypeId, schedule.serviceType.allowedEntitlementKinds, schedule);
     const chargedPackageId = memberPackage?.id;
 
     const booking = await this.prisma.$transaction(async (tx) => {
+      // Usage periods: the quota check runs under a row lock on the package, in the same transaction as
+      // the decrement below, so two parallel bookings cannot both pass it (no-op without an active rule).
+      if (memberPackage) {
+        await this.usagePeriods?.assertWithinQuota(tx, studioId, memberPackage.id, schedule.startTime, unitCost, dto.scheduleId);
+      }
       if (memberPackage && memberPackage.entitlementKind !== 'TIME_UNLIMITED' && unitCost > 0) {
         // Atomic conditional decrement: concurrent bookings on the same package
         // cannot spend the same units twice.
@@ -895,18 +902,34 @@ export class SchedulesService {
     memberId: string,
     serviceTypeId: string,
     allowedKinds: MemberPackage['entitlementKind'][],
+    session: { id: string; startTime: Date },
   ): Promise<{ memberPackage: MemberPackage; unitCost: number }> {
     const now = new Date();
     const packages = await this.prisma.memberPackage.findMany({
       where: { studioId, memberId, status: 'ACTIVE', endDate: { gt: now } },
       include: { packageDefinition: { include: { services: { where: { serviceTypeId } } } } },
     });
-    const candidates = packages.map((p) => ({
-      ...p,
-      unitCost: p.packageDefinition.services[0]?.unitCost ?? null,
-    }));
+    // Usage periods: a package whose period quota cannot take this session is unusable for it, so
+    // another package of the member can be picked.
+    const ctx = this.usagePeriods ? await this.usagePeriods.context(this.prisma, studioId) : null;
+    const candidates = await Promise.all(
+      packages.map(async (p) => {
+        const unitCost = p.packageDefinition.services[0]?.unitCost ?? null;
+        const periodQuotaReached =
+          ctx && this.usagePeriods && unitCost !== null ? await this.usagePeriods.isQuotaReached(this.prisma, ctx, p, session.startTime, unitCost, session.id) : false;
+        return { ...p, unitCost, periodQuotaReached };
+      }),
+    );
     const picked = selectUsablePackage(candidates, allowedKinds, now);
     if (!picked || picked.unitCost === null) {
+      // Everything else about the member's packages would work: say which quota is the obstacle.
+      const blocked = candidates
+        .filter((c) => packageUnusableReason(c, allowedKinds, now) === 'periodQuota')
+        .sort((a, b) => a.endDate.getTime() - b.endDate.getTime())[0];
+      if (blocked && ctx && this.usagePeriods && blocked.unitCost !== null) {
+        const blocking = await this.usagePeriods.findBlocking(this.prisma, ctx, blocked, session.startTime, blocked.unitCost, session.id);
+        if (blocking) throw this.usagePeriods.quotaError(blocking, ctx.timeZone);
+      }
       throw new BadRequestException(apiError('apiErrors.schedules.noUsablePackage'));
     }
     return { memberPackage: picked, unitCost: picked.unitCost };
@@ -951,6 +974,7 @@ export class SchedulesService {
     memberId: string,
     memberPackageId: string,
     serviceTypeId: string,
+    session: { id: string; startTime: Date },
   ): Promise<{ memberPackage: MemberPackage; unitCost: number }> {
     const memberPackage = await this.prisma.memberPackage.findFirst({
       where: { id: memberPackageId, studioId },
@@ -980,6 +1004,11 @@ export class SchedulesService {
 
     if (memberPackage.entitlementKind !== 'TIME_UNLIMITED' && (memberPackage.remainingUnits ?? 0) < unitCost) {
       throw new BadRequestException(apiError('apiErrors.schedules.packageNoSessionsCreditsLeft'));
+    }
+    if (this.usagePeriods) {
+      const ctx = await this.usagePeriods.context(this.prisma, studioId);
+      const blocking = await this.usagePeriods.findBlocking(this.prisma, ctx, memberPackage, session.startTime, unitCost, session.id);
+      if (blocking) throw this.usagePeriods.quotaError(blocking, ctx.timeZone);
     }
     return { memberPackage, unitCost };
   }
@@ -1425,7 +1454,7 @@ export class SchedulesService {
     // Validates ownership, status and coverage now so the member learns about
     // a problem at join time, not when a seat opens.
     if (dto.memberPackageId) {
-      await this.resolvePackage(studioId, dto.memberId, dto.memberPackageId, schedule.serviceTypeId);
+      await this.resolvePackage(studioId, dto.memberId, dto.memberPackageId, schedule.serviceTypeId, schedule);
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -1515,13 +1544,15 @@ export class SchedulesService {
    */
   async promoteFromWaitlist(studioId: string, scheduleId: string): Promise<number> {
     let promoted = 0;
+    // Entries whose package quota for this session's period is used up: skipped, but they stay on the waitlist.
+    const skippedForQuota: string[] = [];
     for (let attempt = 0; attempt < MAX_PROMOTION_ATTEMPTS; attempt++) {
       const schedule = await this.prisma.sessionSchedule.findFirst({ where: { id: scheduleId, studioId } });
       if (!schedule || schedule.isCancelled || schedule.startTime <= new Date()) break;
       if (schedule.bookedCount >= schedule.capacity) break;
 
       const next = await this.prisma.waitlist.findFirst({
-        where: { studioId, scheduleId, status: 'WAITING' },
+        where: { studioId, scheduleId, status: 'WAITING', ...(skippedForQuota.length > 0 ? { id: { notIn: skippedForQuota } } : {}) },
         orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
       });
       if (!next) break;
@@ -1556,6 +1587,15 @@ export class SchedulesService {
             data: { status: 'WAITING', offeredAt: null },
           });
           break;
+        }
+        if (hasApiErrorCode(err, 'apiErrors.schedules.periodQuotaReached')) {
+          this.logger.log(`Waitlist entry ${next.id} skipped: usage period quota reached`);
+          await this.prisma.waitlist.updateMany({
+            where: { id: next.id, status: 'OFFERED' },
+            data: { status: 'WAITING', offeredAt: null },
+          });
+          skippedForQuota.push(next.id);
+          continue;
         }
         // Stored for staff in the business language; the member's notification is written in their own.
         const reasonIn = (t: ServerT) => (err instanceof HttpException ? errorMessageIn(err, t) : t('apiTexts.notify.unexpectedError'));
