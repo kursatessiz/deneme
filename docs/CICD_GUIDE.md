@@ -240,6 +240,12 @@ Veritabanı migration'ları yalnızca ileri yönlüdür (expand/contract). Bir r
 asla geri almaz - şema değişiklikleri en az bir deploy döngüsü boyunca önceki release ile geriye
 dönük uyumlu kalmalıdır.
 
+### Redis lisans notu
+
+Redis 7.4 ve sonrası RSALv2/SSPLv1 lisanslıdır (OSI onaylı değildir). Redis'i bu platformun dahili
+arka plan servisi olarak kendi sunucumuzda çalıştırmak serbesttir; Redis'in kendisini üçüncü kişilere
+hizmet olarak sunmak serbest değildir.
+
 ## 5. `nightly-deploy.sh` - opsiyonel pull tabanlı alternatif
 
 `release.yml` içindeki SSH tabanlı `deploy` job'una bir alternatif; GitHub Actions'tan push

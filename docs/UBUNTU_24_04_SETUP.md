@@ -174,3 +174,5 @@ sorumluluğundadır. Sahip kontrol listesi:
 - [ ] Dependabot `docker-compose` PR'ları (altyapı image'ları) haftalık incelenir ve birleştirilir;
   birleşen sürüm bir sonraki release ile sunucuya iner.
 - [ ] Yedeklerin çalıştığını ve geri yüklenebildiğini periyodik doğrulayın (`docs/YEDEKLER.md`).
+- [ ] Redis lisansı: 7.4 ve sonrası RSALv2/SSPLv1'dir (OSI onaylı değil). Dahili arka plan servisi olarak
+  kendi sunucumuzda çalıştırmak serbesttir; Redis'in kendisini hizmet olarak sunmak serbest değildir.
