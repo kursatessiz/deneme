@@ -85,6 +85,7 @@ erDiagram
 
     MemberPackage ||--o{ Booking : debits
     MemberPackage ||--o{ PackageFreezeHistory : freezes
+    MemberPackage ||--o{ PackageUnitExpiry : burns
     MemberPackage ||--o{ PackageTransfer : transfers
 
     SessionSchedule ||--o{ Booking : has
@@ -221,6 +222,9 @@ erDiagram
 | `package_definition_services` | Bir paketin kapsadığı hizmetler ve birim maliyetler | (package_definition_id, service_type_id) bileşik anahtar |
 | `member_packages` | Aktif üye paketi örneği: bakiye takibi, dondurmalar | (studio_id, member_id, status) index; remaining_units >= 0 veya null |
 | `package_freeze_history` | Dondurma dönemleri: başlangıç, bitiş, sebep | member_package_id index |
+| `package_unit_expiries` | Kullanım dönemleri: günlük işin değerlendirdiği her katman dönemi için bir satır (`tier_unit` MONTH/WEEK/DAYS, `period_start`, `period_end`, yakılan `units`; 0 birimli dönem de yazılır); yakım geçmişi ve idempotency anahtarı (`docs/KULLANIM_DONEMLERI.md`, `20261107000000_usage_periods`) | (member_package_id, tier_unit, period_start) benzersiz; (studio_id, member_package_id) index; paket silinince cascade |
+| `package_definitions.usage_rule`, `member_packages.usage_rule` | JSON `UsageRule` (`packages/shared/src/usage-periods.ts`): tanımdaki kural ve satış/yenileme anındaki anlık kopya; null = kural yok | `Json?`; paylaşılan Zod şemasıyla doğrulanır |
+| `studios.usage_periods_enabled`, `studios.usage_periods_enabled_at` | Kullanım dönemleri şalteri; yalnızca sahip değiştirir, kapalıyken tüm kurallar yok sayılır; `_at` şalterin en son açıldığı an (bundan önce biten dönemler yakılmaz) | `Boolean` varsayılan `false`; `_at` boş olabilir |
 | `package_transfers` | Üyeler arasında transfer edilen birimler (aile paketleri) | (studio_id, created_at) index |
 | `family_groups` | Paylaşımlı/aile paketleri için gruplar | studio_id index |
 

@@ -99,4 +99,6 @@ export const enMsgTpl = {
   'msgTpl.ERROR_OWNER_NOTICE.subject': 'An error was seen in your business',
   'msgTpl.ERROR_OWNER_NOTICE.text': 'Hi {firstName}, an error affecting users of {studioName} was seen and has been passed to our team. If you contact support, share this error code: {code}. You can see the details on the Error reports page in Settings.',
   'msgTpl.ERROR_OWNER_NOTICE.cta': 'Open error reports',
+  'msgTpl.USAGE_PERIOD_EXPIRY_REMINDER.subject': 'Your period allowance is about to expire',
+  'msgTpl.USAGE_PERIOD_EXPIRY_REMINDER.text': 'Hi {firstName}, the {units} unused rights in your {packageName} package for this period will expire on {periodEnd}.',
 } as const satisfies Record<keyof typeof trMsgTpl, string>;

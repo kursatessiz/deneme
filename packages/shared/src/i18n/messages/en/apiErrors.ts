@@ -627,4 +627,7 @@ export const enApiErrors: Record<keyof typeof trApiErrors, string> = {
   'apiErrors.webhooks.webhookAddressHostCouldNotResolved': 'The webhook address host could not be resolved',
   'apiErrors.webhooks.webhookAddressMustStartHttps': 'The webhook address must start with https://',
   'apiErrors.webhooks.webhookEndpointNotFound': 'Webhook endpoint not found',
+  'apiErrors.schedules.periodQuotaReached': 'The {period} allowance of this package is used up; it renews on {date}.',
+  'apiErrors.studios.onlyOwnerCanChangeUsagePeriods': 'Only the business owner can change the usage period setting',
+  'apiErrors.catalog.usageRuleInvalidForPackageKind': 'Unused rights cannot burn on time-based unlimited packages; only a cap can be set',
 };

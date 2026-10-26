@@ -18,6 +18,8 @@ fi
 
 log "Rolling back to ${TARGET}"
 use_release "${TARGET}"
+# Only api and web are pulled and recreated: rollback never touches the
+# infra images (postgres, redis, caddy), so the database image is not downgraded.
 if ! compose pull api web; then
   log "Registry unreachable; rolling back with the images already on this host"
 fi

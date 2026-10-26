@@ -82,6 +82,7 @@ import { trStaffBooking } from './tr/staffBooking';
 import { trMWidgets } from './tr/mWidgets';
 import { trNav } from './tr/nav';
 import { trPackages } from './tr/packages';
+import { trUsagePeriods } from './tr/usagePeriods';
 import { trReports } from './tr/reports';
 import { trFunnels } from './tr/funnels';
 import { trPayouts } from './tr/payouts';
@@ -192,6 +193,7 @@ import { enStaffBooking } from './en/staffBooking';
 import { enMWidgets } from './en/mWidgets';
 import { enNav } from './en/nav';
 import { enPackages } from './en/packages';
+import { enUsagePeriods } from './en/usagePeriods';
 import { enReports } from './en/reports';
 import { enFunnels } from './en/funnels';
 import { enPayouts } from './en/payouts';
@@ -358,6 +360,7 @@ export const TR_NAMESPACES = [
   trMWidgets,
   trNav,
   trPackages,
+  trUsagePeriods,
   trReports,
   trFunnels,
   trPayouts,
@@ -492,6 +495,7 @@ export const EN_NAMESPACES = [
   enMWidgets,
   enNav,
   enPackages,
+  enUsagePeriods,
   enReports,
   enFunnels,
   enPayouts,

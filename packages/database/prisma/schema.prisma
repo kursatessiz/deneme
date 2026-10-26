@@ -599,6 +599,11 @@ model Studio {
   churnWeights           Json?    @map("churn_weights")
   /// Streaks, milestones, badges and monthly goals (W16). On by default.
   gamificationEnabled    Boolean  @default(true) @map("gamification_enabled")
+  /// Usage periods (docs/KULLANIM_DONEMLERI.md): the owner-only switch. When false every package usage rule is
+  /// ignored at runtime (no quota, no burn, no reminder), including on packages sold earlier.
+  usagePeriodsEnabled    Boolean  @default(false) @map("usage_periods_enabled")
+  /// When the switch was last turned on; the burn job never burns a period that ended before it.
+  usagePeriodsEnabledAt  DateTime? @map("usage_periods_enabled_at")
   /// Optional allow-list of origins that may frame /embed/<slug>; empty means any origin (frame-ancestors *).
   embedAllowedOrigins    String[] @default([]) @map("embed_allowed_origins")
   /// Language new users of this studio see until they pick their own (Language.code).
@@ -637,6 +642,7 @@ model Studio {
   subscriptions         Subscription[]
   featureFlags          FeatureFlag[]
   branches              Branch[]
+  packageUnitExpiries   PackageUnitExpiry[]
   memberships           Membership[]
   roleTemplates         RoleTemplate[]
   inviteTokens          InviteToken[]
@@ -1450,6 +1456,8 @@ model PackageDefinition {
   /// W9: a trial offer. Limited to trialLimitPerUser purchases per global user at this studio.
   isTrial           Boolean         @default(false) @map("is_trial")
   trialLimitPerUser Int             @default(1) @map("trial_limit_per_user")
+  /// Usage periods: UsageRule (packages/shared/src/usage-periods.ts), copied onto MemberPackage at sale time. Null = none.
+  usageRule         Json?           @map("usage_rule")
   createdAt         DateTime        @default(now()) @map("created_at")
 
   studio           Studio                     @relation(fields: [studioId], references: [id], onDelete: Cascade)
@@ -1491,6 +1499,9 @@ model MemberPackage {
   startDate           DateTime        @default(now()) @map("start_date")
   endDate             DateTime        @map("end_date")
   frozenUntil         DateTime?       @map("frozen_until")
+  /// Usage periods: snapshot of the definition's rule at sale or renewal (only when the studio switch was on). Later
+  /// edits of the definition never change it.
+  usageRule           Json?           @map("usage_rule")
   createdAt           DateTime        @default(now()) @map("created_at")
   updatedAt           DateTime        @updatedAt @map("updated_at")
 
@@ -1498,6 +1509,7 @@ model MemberPackage {
   member            MemberProfile          @relation(fields: [memberId], references: [id], onDelete: Cascade)
   packageDefinition PackageDefinition      @relation(fields: [packageDefinitionId], references: [id])
   freezeHistories   PackageFreezeHistory[]
+  unitExpiries      PackageUnitExpiry[]
   transfers         PackageTransfer[]
   bookings          Booking[]
   payments          Payment[]
@@ -1521,6 +1533,27 @@ model PackageFreezeHistory {
 
   @@index([memberPackageId])
   @@map("package_freeze_history")
+}
+
+/// One row per tier period the burn job evaluated for a package (units may be 0): the unique key makes the job
+/// idempotent and the rows are the burn history shown to staff.
+model PackageUnitExpiry {
+  id              String   @id @default(uuid()) @db.Uuid
+  studioId        String   @map("studio_id") @db.Uuid
+  memberPackageId String   @map("member_package_id") @db.Uuid
+  /// MONTH | WEEK | DAYS (UsageTierUnit in @platform/shared).
+  tierUnit        String   @map("tier_unit") @db.VarChar(10)
+  periodStart     DateTime @map("period_start")
+  periodEnd       DateTime @map("period_end")
+  units           Int
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  studio        Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  memberPackage MemberPackage @relation(fields: [memberPackageId], references: [id], onDelete: Cascade)
+
+  @@unique([memberPackageId, tierUnit, periodStart])
+  @@index([studioId, memberPackageId])
+  @@map("package_unit_expiries")
 }
 
 model PackageTransfer {

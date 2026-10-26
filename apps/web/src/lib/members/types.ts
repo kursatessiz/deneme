@@ -1,4 +1,4 @@
-import type { MemberDetailDTO, Translate } from '@platform/shared';
+import type { MemberDetailDTO, Translate, UsagePeriodStatusDTO } from '@platform/shared';
 
 export interface MemberPackageRow {
   id: string;
@@ -12,6 +12,10 @@ export interface MemberPackageRow {
   startDate: string;
   endDate: string;
   frozenUntil: string | null;
+  /** Usage periods: current period of each tier, null when the studio switch is off or the package has no rule. */
+  usagePeriods?: UsagePeriodStatusDTO[] | null;
+  /** Total units burned by usage periods so far. */
+  expiredUnits?: number;
 }
 
 export interface MemberBookingRow {

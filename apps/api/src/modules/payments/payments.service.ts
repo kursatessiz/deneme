@@ -10,6 +10,7 @@ import {
 import { randomUUID } from 'crypto';
 import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { UsagePeriodsService } from '../usage-periods/usage-periods.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { InvoicingService } from '../invoicing/invoicing.service';
 import { PaymentProviderRegistry } from './providers/payment-provider.registry';
@@ -87,6 +88,7 @@ export class PaymentsService {
     @Optional() private crm?: CrmHooksService,
     @Optional() private eventSeats?: EventSeatsService,
     @Optional() private webhookRouter?: PaymentWebhookRouter,
+    @Optional() private usagePeriods?: UsagePeriodsService,
   ) {}
 
   /**
@@ -642,6 +644,7 @@ export class PaymentsService {
         status: 'ACTIVE',
         startDate,
         endDate,
+        usageRule: await this.usagePeriods?.snapshotFor(tx, studioId, pkgDef),
       },
     });
   }

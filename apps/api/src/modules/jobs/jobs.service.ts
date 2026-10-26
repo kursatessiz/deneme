@@ -19,6 +19,7 @@ import { SmsProviderBalanceService, SmsProviderBalanceResult } from '../notifica
 import { CrmHooksService } from '../crm/hooks/crm-hooks.service';
 import { DomainRecheckService, type DomainRecheckResult } from '../sites/domain-recheck.service';
 import { TrackingRetentionService, type TrackingRetentionResult } from '../crm/tracking/tracking-retention.service';
+import { UsagePeriodsJobsService, type UsagePeriodsJobResult } from '../usage-periods/usage-periods-jobs.service';
 import { ConversionDeliveryDispatcherService, DispatchOutcome as ConversionDispatchOutcome } from '../ads/delivery/conversion-delivery-dispatcher.service';
 import { AdSpendSyncService, SpendSyncOutcome } from '../ads/spend-sync/ad-spend-sync.service';
 import { LeadAdsService, DueResult as LeadAdsResult } from '../lead-ads/lead-ads.service';
@@ -49,6 +50,8 @@ export interface SchedulerRunResult {
   trackingRetention: TrackingRetentionResult;
   /** Daily DNS re-check of VERIFIED custom domains; repeated failures deactivate the domain (docs/SAYFA_MOTORU.md). */
   domainRecheck: DomainRecheckResult;
+  /** Daily burn of unused usage-period quota and the member reminder before it (docs/KULLANIM_DONEMLERI.md). */
+  usagePeriods: UsagePeriodsJobResult;
   ratingPrompts: { prompted: number };
   referrals: { evaluated: number };
   webhooks: DispatchOutcome;
@@ -131,6 +134,7 @@ export class JobsService {
     private readonly erasure: ErasureJobsService,
     private readonly trackingRetention: TrackingRetentionService,
     private readonly domainRecheck: DomainRecheckService,
+    private readonly usagePeriods: UsagePeriodsJobsService,
     @Optional() private readonly errors?: ErrorCaptureService,
     @Optional() @InjectQueue(SCHEDULER_QUEUE) private readonly queue?: Queue,
   ) {}
@@ -189,6 +193,14 @@ export class JobsService {
       ran: false,
     });
     const domainRecheck = await this.step('domainRecheck', () => this.domainRecheck.run(now), { checked: 0, failed: 0, deactivated: 0 });
+    const usagePeriods = await this.step('usagePeriods', () => this.usagePeriods.run(now), {
+      ran: false,
+      packagesChecked: 0,
+      periodsRecorded: 0,
+      unitsBurned: 0,
+      packagesDepleted: 0,
+      remindersSent: 0,
+    });
     const ratingPrompts = await this.step('ratingPrompts', () => this.ratingPrompts.promptRecentAttendees(now), { prompted: 0 });
     const referrals = await this.step('referrals', () => this.referrals.recomputeOpen(), { evaluated: 0 });
     const webhooks = await this.step('webhooks', () => this.webhookDispatcher.dispatchDue(now), {
@@ -299,6 +311,7 @@ export class JobsService {
         `erasure ${erasure.executed} executed/${erasure.autoProcessed} auto/${erasure.failed} failed, ` +
         `tracking retention ${trackingRetention.touchpointsDeleted} touchpoint(s)/${trackingRetention.visitorsDeleted} visitor(s) purged, ` +
         `domain recheck ${domainRecheck.checked} checked/${domainRecheck.failed} failed/${domainRecheck.deactivated} deactivated, ` +
+        `usage periods ${usagePeriods.periodsRecorded} period(s)/${usagePeriods.unitsBurned} unit(s) burned/${usagePeriods.remindersSent} reminder(s), ` +
         `failed steps ${this.failedSteps.length ? this.failedSteps.join(',') : 'none'}`,
     );
 
@@ -313,6 +326,7 @@ export class JobsService {
       erasure,
       trackingRetention,
       domainRecheck,
+      usagePeriods,
       ratingPrompts,
       referrals,
       webhooks,

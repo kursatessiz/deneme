@@ -47,7 +47,11 @@ if compose ps --status running --services 2>/dev/null | grep -qx postgres; then
 fi
 
 use_release "${TAG}"
-compose pull api web
+# Infra images are pinned (tag@digest) in the compose file, so a version bump
+# shipped in a release must be pulled here. A pull failure aborts before
+# anything changes. `up` below recreates postgres/redis/caddy only when their
+# image changed; a Postgres restart is covered by the backup taken above.
+compose pull api web postgres redis caddy
 
 # Wait for the healthchecks: on an empty volume Postgres needs a few seconds
 # to initialise and the migration below would otherwise race it.

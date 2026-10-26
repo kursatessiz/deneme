@@ -18,6 +18,7 @@ export const enMPayments: Record<keyof typeof trMPayments, string> = {
   'mPayments.giftCardCodePlaceholder': 'E.G. AB3XY7Q92KLM4T6P',
   'mPayments.showBalance': 'Show balance',
   'mPayments.renewPackage': 'Renew my package',
+  'mPayments.myPackages': 'My packages',
   'mPayments.promoCodeLabel': 'Promo code (optional)',
   'mPayments.promoCodePlaceholder': 'E.G. WELCOME10',
   'mPayments.giftCardCodeOptionalLabel': 'Gift card code (optional)',

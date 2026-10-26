@@ -130,7 +130,7 @@ Hata kodları (`BACKUP_ERROR_CODES`, panel `adminBackups.error.*` ile çevirir):
    API böylece dosyaları listeleyebilir ama yedek dosyalarının kendisi `0600 root` kaldığı için
    şifresiz dökümü okuyamaz. Sunucuda 1000 numaralı grup genellikle ilk kullanıcıya aittir (o
    kullanıcı zaten docker grubunda olduğundan yeni bir erişim açılmaz).
-4. API imajı `postgresql16-client` içerir; sürüm, compose'daki `postgres:16-alpine` ile aynı ana
+4. API imajı `postgresql16-client` içerir; sürüm, compose'daki `postgres:16.x-alpine` ile aynı ana
    sürümdür. Postgres ana sürümü yükseltilirse `deploy/docker/api.Dockerfile` da güncellenmelidir.
 5. Panelde **Zamanlama ve saklama** bölümünü kontrol edin ve bir kez **Şimdi yedek al** deyin.
    Bitince yedek listede "Panel / Uzak depo / Doğrulandı / Korunuyor" olarak görünmelidir.

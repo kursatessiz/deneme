@@ -213,4 +213,7 @@ export const enApiTexts: Record<keyof typeof trApiTexts, string> = {
   'apiTexts.csv.views': 'Views',
   'apiTexts.csv.completions': 'Completions',
   'apiTexts.csv.uniqueViewers': 'Unique viewers',
+  'apiTexts.usagePeriod.unit.MONTH': 'monthly',
+  'apiTexts.usagePeriod.unit.WEEK': 'weekly',
+  'apiTexts.usagePeriod.unit.DAYS': 'period',
 };

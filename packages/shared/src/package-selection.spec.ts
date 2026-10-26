@@ -1,4 +1,4 @@
-import { selectUsablePackage, type PackageCandidate } from './package-selection';
+import { packageUnusableReason, selectUsablePackage, type PackageCandidate } from './package-selection';
 
 const NOW = new Date('2026-06-01T10:00:00Z');
 const day = (n: number) => new Date(NOW.getTime() + n * 86_400_000);
@@ -72,5 +72,26 @@ describe('selectUsablePackage', () => {
 
   it('does not filter by kind when the service lists none', () => {
     expect(selectUsablePackage([pkg({ id: 'x' })], [], NOW)?.id).toBe('x');
+  });
+});
+
+describe('usage period quota in package selection', () => {
+  it('skips a package whose period quota is reached and picks another one', () => {
+    const picked = selectUsablePackage(
+      [pkg({ id: 'full', endDate: day(5), periodQuotaReached: true }), pkg({ id: 'other', endDate: day(40) })],
+      KINDS,
+      NOW,
+    );
+    expect(picked?.id).toBe('other');
+  });
+
+  it('reports periodQuota as the reason and returns null when it is the only package', () => {
+    expect(packageUnusableReason(pkg({ id: 'full', periodQuotaReached: true }), KINDS, NOW)).toBe('periodQuota');
+    expect(selectUsablePackage([pkg({ id: 'full', periodQuotaReached: true })], KINDS, NOW)).toBeNull();
+  });
+
+  it('applies to unlimited packages too (visit caps)', () => {
+    const unlimited = pkg({ id: 'u', entitlementKind: 'TIME_UNLIMITED', remainingUnits: null, periodQuotaReached: true });
+    expect(packageUnusableReason(unlimited, KINDS, NOW)).toBe('periodQuota');
   });
 });

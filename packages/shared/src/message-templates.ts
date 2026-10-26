@@ -37,6 +37,12 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplateDefinition[] = [
   { key: 'BOOKING_CANCELLED_BY_STUDIO', purpose: 'TRANSACTIONAL', variables: ['firstName', 'serviceName', 'startTime'], whatsappName: 'booking_cancelled' },
   { key: 'WAITLIST_PROMOTED', purpose: 'TRANSACTIONAL', variables: ['firstName', 'serviceName'], whatsappName: 'waitlist_promoted' },
   {
+    key: 'USAGE_PERIOD_EXPIRY_REMINDER',
+    purpose: 'TRANSACTIONAL',
+    variables: ['firstName', 'packageName', 'units', 'periodEnd'],
+    whatsappName: 'usage_period_expiry_reminder',
+  },
+  {
     key: 'PACKAGE_EXPIRING',
     purpose: 'TRANSACTIONAL',
     variables: ['firstName', 'packageName', 'remainingUnits', 'expiryDate'],
