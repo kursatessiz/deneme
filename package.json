@@ -26,7 +26,7 @@
     "turbo": "^2.11.6",
     "typescript": "^5.9.3"
   },
-  "packageManager": "pnpm@9.15.4",
+  "packageManager": "pnpm@10.34.9",
   "engines": {
     "node": ">=22.23.4"
   },
@@ -51,6 +51,16 @@
         "GHSA-86w9-cpqp-85rv",
         "GHSA-vfj7-8cjw-p6xm"
       ]
-    }
+    },
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "bcrypt",
+      "msgpackr-extract",
+      "prisma"
+    ],
+    "ignoredBuiltDependencies": [
+      "@scarf/scarf"
+    ]
   }
 }

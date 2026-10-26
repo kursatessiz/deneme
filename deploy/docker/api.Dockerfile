@@ -9,7 +9,7 @@
 # node:22.23.4-alpine (Node.js security release 2026-10-20), multi-arch index digest as of 2026-10-26 (Dependabot docker bumps it)
 FROM node:22.23.4-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
-RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+RUN corepack enable && corepack prepare pnpm@10.34.9 --activate
 WORKDIR /app
 
 FROM base AS builder
@@ -24,9 +24,10 @@ COPY packages/database packages/database
 COPY apps/api apps/api
 RUN pnpm --filter @platform/api... run build
 
-# Self-contained production tree: prod dependencies only, workspace packages
+# Self-contained production tree (--legacy: pnpm 10 otherwise needs
+# inject-workspace-packages): prod dependencies only, workspace packages
 # copied in, Prisma client generated against the copied schema.
-RUN pnpm --filter @platform/api deploy --prod /out \
+RUN pnpm --filter @platform/api deploy --legacy --prod /out \
  && cd /out/node_modules/@platform/database \
  && ./node_modules/.bin/prisma generate --schema prisma/schema.prisma
 

@@ -4,7 +4,7 @@
 # node:22.23.4-alpine (Node.js security release 2026-10-20), multi-arch index digest as of 2026-10-26 (Dependabot docker bumps it)
 FROM node:22.23.4-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
-RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+RUN corepack enable && corepack prepare pnpm@10.34.9 --activate
 WORKDIR /app
 
 FROM base AS builder
