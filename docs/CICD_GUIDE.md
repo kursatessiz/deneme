@@ -197,7 +197,15 @@ branches and tags: Selected branches -> `main`**. `preprod` için onay gerekmez.
 
 1. İki deploy'un aynı anda çalışmaması için bir flock kilidi alır.
 2. Eğer zaten çalışan bir `postgres` konteyneri varsa önce `backup.sh`'ı çalıştırır.
-3. Verilen tag için `api` ve `web` image'larını çeker (asla build etmez).
+3. Verilen tag için `api` ve `web` image'larını, ayrıca sabitlenmiş altyapı image'larını (`postgres`,
+   `redis`, `caddy`) çeker (asla build etmez). Çekme hatası, hiçbir şey değişmeden deploy'u iptal eder.
+   Altyapı image'ları compose dosyasında `etiket@digest` ile sabitlenir ve yalnızca release'lerle
+   güncellenir: sürüm yükseltmesi bir PR ile compose dosyasına girer (Dependabot `docker-compose`
+   girdisi haftalık PR açar), bir sonraki deploy'da çekilir ve adım 4/5'teki `up` yalnızca image'ı
+   değişen konteyneri yeniden oluşturur. Postgres yeniden başlatması, adım 2'deki yedekle
+   karşılanır. `rollback.sh` yalnızca `api` ve `web` çeker ve yeniden oluşturur; veritabanı
+   image'ını asla geri almaz (Postgres veri dizini sürüm geçişlerine duyarlıdır, altyapı bir
+   release ile ileri sürülür).
 4. `postgres` ve `redis`'i başlatır ve healthcheck'lerinin geçmesini bekler
    (`compose up -d --wait`; boş bir volume'da Postgres'in ilk açılışıyla migration yarışmaz),
    ardından tek seferlik bir `api` konteyneri içinde `prisma migrate deploy` ve

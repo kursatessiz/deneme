@@ -7,7 +7,7 @@ name: app
 
 services:
   caddy:
-    image: caddy:2-alpine
+    image: caddy:2.11.7-alpine@sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f
     restart: unless-stopped
     ports:
       - "80:80"
@@ -187,7 +187,7 @@ services:
         limits: { memory: 768M, cpus: '1.0' }
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.15-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-app}
@@ -216,7 +216,7 @@ services:
         limits: { memory: 1G, cpus: '1.5' }
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.11-alpine@sha256:57e4255cc971b1c8d6f8a6ca283ac01bc3ecdd914273ef6bfaede87aaecd6541
     restart: unless-stopped
     environment:
       REDISCLI_AUTH: ${REDIS_PASSWORD:?REDIS_PASSWORD required}

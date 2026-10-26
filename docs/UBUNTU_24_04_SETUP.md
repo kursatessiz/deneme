@@ -156,3 +156,21 @@ e-posta ile uyarır. Sunucu tarafında `server-init.sh`, yedek (fallback) olarak
 `pg_dump` çıktısını gzip ile `/opt/app/backups/` içine koyar, 14 günden eski dump'ları siler ve
 `BACKUP_S3_BUCKET` tanımlıysa şifreli bir kopyayı uzak depoya yükler. Elle ayrı bir crontab
 satırı eklemeyin. Kurulum, ortam değişkenleri ve geri yükleme: `docs/YEDEKLER.md`.
+
+## 7. Altyapı image'ları ve sunucu (host) bakımı
+
+Depo yalnızca konteyner image'larını güncelleyebilir; sunucunun işletim sistemini güncelleyemez.
+`postgres`, `redis` ve `caddy` image'ları `deploy/docker-compose.prod.yml` içinde `etiket@digest`
+ile sabitlenir ve release'lerle güncellenir (`deploy.sh` bunları çeker, yalnızca image'ı değişen
+konteyner yeniden oluşturulur; bkz. `docs/CICD_GUIDE.md` bölüm 4). Sunucunun kendisi sahibin
+sorumluluğundadır. Sahip kontrol listesi:
+
+- [ ] `unattended-upgrades` kurulu ve etkin (`systemctl status unattended-upgrades`); güvenlik
+  güncellemeleri otomatik uygulanır. Çekirdek güncellemesinden sonra gerekirse planlı yeniden
+  başlatma yapın (`/var/run/reboot-required` dosyasını izleyin).
+- [ ] Docker Engine ve Compose eklentisi Docker'ın apt deposundan güncel tutulur (`apt list --upgradable`
+  çıktısını en az ayda bir kontrol edin); Docker güncellemesinden sonra `docker compose ps` ile tüm
+  servislerin sağlıklı olduğunu doğrulayın.
+- [ ] Dependabot `docker-compose` PR'ları (altyapı image'ları) haftalık incelenir ve birleştirilir;
+  birleşen sürüm bir sonraki release ile sunucuya iner.
+- [ ] Yedeklerin çalıştığını ve geri yüklenebildiğini periyodik doğrulayın (`docs/YEDEKLER.md`).

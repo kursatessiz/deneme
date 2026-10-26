@@ -56,6 +56,21 @@ updates:
     commit-message:
       prefix: build(docker)
 
+  # Pinned infra images (postgres, redis, caddy) in the compose files. Postgres
+  # stays on major 16 (a major needs a dump/restore migration) and Redis on 7.x
+  # (7.4+ licence note in docs/CICD_GUIDE.md).
+  - package-ecosystem: docker-compose
+    directories: [/deploy]
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: postgres
+        update-types: [version-update:semver-major]
+      - dependency-name: redis
+        update-types: [version-update:semver-major]
+    commit-message:
+      prefix: build(docker)
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

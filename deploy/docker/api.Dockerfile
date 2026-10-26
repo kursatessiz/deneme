@@ -2,7 +2,7 @@
 # Multi-stage image for the NestJS API.
 # The only OS package is the PostgreSQL 16 client (pg_dump) for backups made
 # from the super admin panel (docs/YEDEKLER.md); its major version matches
-# the postgres:16-alpine server in docker-compose.prod.yml. busybox wget
+# the postgres:16.x-alpine server in docker-compose.prod.yml. busybox wget
 # covers the healthcheck and compose `init: true` provides PID 1 signal
 # handling.
 
