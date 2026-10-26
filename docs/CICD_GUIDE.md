@@ -197,7 +197,15 @@ branches and tags: Selected branches -> `main`**. `preprod` için onay gerekmez.
 
 1. İki deploy'un aynı anda çalışmaması için bir flock kilidi alır.
 2. Eğer zaten çalışan bir `postgres` konteyneri varsa önce `backup.sh`'ı çalıştırır.
-3. Verilen tag için `api` ve `web` image'larını çeker (asla build etmez).
+3. Verilen tag için `api` ve `web` image'larını, ayrıca sabitlenmiş altyapı image'larını (`postgres`,
+   `redis`, `caddy`) çeker (asla build etmez). Çekme hatası, hiçbir şey değişmeden deploy'u iptal eder.
+   Altyapı image'ları compose dosyasında `etiket@digest` ile sabitlenir ve yalnızca release'lerle
+   güncellenir: sürüm yükseltmesi bir PR ile compose dosyasına girer (Dependabot `docker-compose`
+   girdisi haftalık PR açar), bir sonraki deploy'da çekilir ve adım 4/5'teki `up` yalnızca image'ı
+   değişen konteyneri yeniden oluşturur. Postgres yeniden başlatması, adım 2'deki yedekle
+   karşılanır. `rollback.sh` yalnızca `api` ve `web` çeker ve yeniden oluşturur; veritabanı
+   image'ını asla geri almaz (Postgres veri dizini sürüm geçişlerine duyarlıdır, altyapı bir
+   release ile ileri sürülür).
 4. `postgres` ve `redis`'i başlatır ve healthcheck'lerinin geçmesini bekler
    (`compose up -d --wait`; boş bir volume'da Postgres'in ilk açılışıyla migration yarışmaz),
    ardından tek seferlik bir `api` konteyneri içinde `prisma migrate deploy` ve
@@ -231,6 +239,12 @@ kontrol edin.
 Veritabanı migration'ları yalnızca ileri yönlüdür (expand/contract). Bir rollback bir migration'ı
 asla geri almaz - şema değişiklikleri en az bir deploy döngüsü boyunca önceki release ile geriye
 dönük uyumlu kalmalıdır.
+
+### Redis lisans notu
+
+Redis 7.4 ve sonrası RSALv2/SSPLv1 lisanslıdır (OSI onaylı değildir). Redis'i bu platformun dahili
+arka plan servisi olarak kendi sunucumuzda çalıştırmak serbesttir; Redis'in kendisini üçüncü kişilere
+hizmet olarak sunmak serbest değildir.
 
 ## 5. `nightly-deploy.sh` - opsiyonel pull tabanlı alternatif
 
@@ -518,14 +532,24 @@ gizlenemez. 7 günlük bir bekleme süresi (major'lar için 14 gün), bundan dah
 çünkü kötü niyetli çoğu yayın birkaç gün içinde tespit edilip geri çekilir. `docker`
 (`deploy/docker` için) ve `github-actions` ekosistemleri de haftalık olarak kapsanır.
 
-Docker taban imajları (`deploy/docker/*.Dockerfile`) `node:22-alpine@sha256:<digest>` biçiminde
-digest ile sabitlenir (OpenSSF Scorecard Pinned-Dependencies). Digest, çok mimarili manifest
+Docker taban imajları (`deploy/docker/*.Dockerfile`) `node:<tam sürüm>-alpine@sha256:<digest>` biçiminde
+(şu an `node:22.23.4-alpine`) açık etiket ve digest ile sabitlenir (OpenSSF Scorecard Pinned-Dependencies). Digest, çok mimarili manifest
 listesinin özetidir; Dependabot `docker` girdisi etiketi ve digest'i birlikte günceller. Elle
-güncellemek için: Docker Hub'dan `node:22-alpine` için `docker-content-digest` başlığını okuyun
-(`https://registry-1.docker.io/v2/library/node/manifests/22-alpine`, `Accept` başlığında OCI index
+güncellemek için: Docker Hub'dan `node:<tam sürüm>-alpine` için `docker-content-digest` başlığını okuyun
+(`https://registry-1.docker.io/v2/library/node/manifests/<tam sürüm>-alpine`, `Accept` başlığında OCI index
 ve manifest list türleriyle), ardından her `FROM` satırındaki digest'i ve üstündeki tarih
-yorumunu değiştirin. pnpm, `corepack prepare pnpm@<sürüm> --activate` ile kurulur; sürüm kökteki
-`package.json` `packageManager` alanıyla aynı kalmalıdır.
+yorumunu değiştirin. Node.js sürümü tek yerden değil dört yerde tutulur ve birlikte güncellenir:
+imajlar, kök `.nvmrc` (CI `setup-node` `node-version-file` ile okur), kök `package.json` `engines.node` ve
+`apps/mobile/eas.json` içindeki her build profilinin `node` alanı.
+
+pnpm, `corepack prepare pnpm@<sürüm> --activate` ile kurulur; sürüm kökteki `package.json`
+`packageManager` alanıyla aynı kalmalıdır (şu an pnpm 10.34.9; CI'daki `pnpm/action-setup` bu alanı okur).
+pnpm 10 bağımlılıkların yaşam döngüsü script'lerini varsayılan olarak çalıştırmaz: kökteki
+`pnpm.onlyBuiltDependencies` yalnızca install script'i gereken paketleri listeler (`@prisma/client`,
+`@prisma/engines`, `prisma`, `bcrypt`, `msgpackr-extract`); `@scarf/scarf` bilinçli olarak
+`pnpm.ignoredBuiltDependencies` içindedir. Yeni bir paket "Ignored build scripts" uyarısı verirse
+gerekçesiyle bu listelerden birine eklenir. API imajı `pnpm deploy --legacy` kullanır (pnpm 10,
+`inject-workspace-packages` olmadan `--legacy` ister).
 
 ## 7. Agentic workflow'lar
 
