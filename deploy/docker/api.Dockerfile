@@ -14,6 +14,8 @@ WORKDIR /app
 
 FROM base AS builder
 COPY pnpm-lock.yaml package.json pnpm-workspace.yaml turbo.json ./
+# pnpm.patchedDependencies (package.json) are read at install time.
+COPY patches patches
 COPY packages/shared/package.json packages/shared/
 COPY packages/database/package.json packages/database/
 COPY apps/api/package.json apps/api/

@@ -9,6 +9,8 @@ WORKDIR /app
 
 FROM base AS builder
 COPY pnpm-lock.yaml package.json pnpm-workspace.yaml turbo.json ./
+# pnpm.patchedDependencies (package.json) are read at install time.
+COPY patches patches
 COPY packages/shared/package.json packages/shared/
 COPY apps/web/package.json apps/web/
 RUN pnpm install --frozen-lockfile --filter @platform/web...
