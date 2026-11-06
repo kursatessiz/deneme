@@ -1,14 +1,16 @@
 # syntax=docker/dockerfile:1
 # Multi-stage image for the Next.js app (standalone output).
 
-# node:22.23.4-alpine (Node.js security release 2026-10-20), multi-arch index digest as of 2026-10-26 (Dependabot docker bumps it)
-FROM node:22.23.4-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS base
+# node:22.23.4-alpine (Node.js security release 2026-10-20), multi-arch index digest as of 2026-11-06 (Dependabot docker bumps it)
+FROM node:22.23.4-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
 RUN corepack enable && corepack prepare pnpm@10.34.9 --activate
 WORKDIR /app
 
 FROM base AS builder
 COPY pnpm-lock.yaml package.json pnpm-workspace.yaml turbo.json ./
+# pnpm.patchedDependencies (package.json) are read at install time.
+COPY patches patches
 COPY packages/shared/package.json packages/shared/
 COPY apps/web/package.json apps/web/
 RUN pnpm install --frozen-lockfile --filter @platform/web...
@@ -29,8 +31,8 @@ RUN mkdir -p /sourcemaps \
 FROM scratch AS web-sourcemaps
 COPY --from=builder /sourcemaps/ /sourcemaps/
 
-# node:22.23.4-alpine (Node.js security release 2026-10-20), multi-arch index digest as of 2026-10-26 (Dependabot docker bumps it)
-FROM node:22.23.4-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS runner
+# node:22.23.4-alpine (Node.js security release 2026-10-20), multi-arch index digest as of 2026-11-06 (Dependabot docker bumps it)
+FROM node:22.23.4-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS runner
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 \
     NODE_OPTIONS=--max-old-space-size=512
 WORKDIR /app
