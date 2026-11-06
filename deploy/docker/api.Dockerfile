@@ -29,7 +29,9 @@ RUN pnpm --filter @platform/api... run build
 # Self-contained production tree (--legacy: pnpm 10 otherwise needs
 # inject-workspace-packages): prod dependencies only, workspace packages
 # copied in, Prisma client generated against the copied schema.
-RUN pnpm --filter @platform/api deploy --legacy --prod /out \
+# allow-unused-patches: the root patchedDependencies also patch mobile-only
+# packages (query-string), which are not in the API's dependency graph.
+RUN pnpm --filter @platform/api deploy --legacy --prod --config.allow-unused-patches=true /out \
  && cd /out/node_modules/@platform/database \
  && ./node_modules/.bin/prisma generate --schema prisma/schema.prisma
 
