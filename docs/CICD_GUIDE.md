@@ -483,9 +483,13 @@ Apple kimlikleriyle değiştirilmelidir.
   CodeQL. Pull request'lerde, `main`'e push'larda ve haftalık olarak çalışır.
 - **`security.yml`**: pull request'lerde dependency review (high severity'de başarısız olur,
   GPL/AGPL/SSPL gibi copyleft lisansları reddeder), TruffleHog secret scanning ve `zizmor`
-  GitHub Actions workflow denetimi. Tek istisna TruffleHog Action'ının kendisidir (AGPL-3.0):
-  yalnızca CI içinde tarayıcı olarak çalışır, imajlara girmez ve dağıtılmaz, bu yüzden
-  lisansı ürüne yükümlülük getirmez (sahip kararı). Diğer her bağımlılık için yasak sürer.
+  GitHub Actions workflow denetimi. İki dar istisna vardır (ikisi de sahip kararı); diğer her
+  bağımlılık için yasak sürer:
+  - TruffleHog Action'ının kendisi (AGPL-3.0): yalnızca CI içinde tarayıcı olarak çalışır,
+    imajlara girmez ve dağıtılmaz, bu yüzden lisansı ürüne yükümlülük getirmez.
+  - `node-forge`: çift lisanslıdır, `(BSD-3-Clause OR GPL-2.0)`. BSD-3-Clause koşullarıyla
+    kullanılır; paketi yalnızca Expo CLI geliştirme aracı getirir. Dependency review bu `OR`
+    ifadesini GPL içerdiği için reddettiğinden paket adıyla istisnaya alındı.
 - **`scorecard.yml`**: OpenSSF Scorecard, `main`'e push'larda ve haftalık olarak yayınlanır.
 
 Tüm üçüncü taraf action'lar, değişken (floating) tag'lere değil commit SHA'larına sabitlenmiştir.
