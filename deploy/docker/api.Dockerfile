@@ -6,8 +6,8 @@
 # covers the healthcheck and compose `init: true` provides PID 1 signal
 # handling.
 
-# node:22.23.4-alpine (Node.js security release 2026-10-20), multi-arch index digest as of 2026-10-26 (Dependabot docker bumps it)
-FROM node:22.23.4-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS base
+# node:22.23.4-alpine (Node.js security release 2026-10-20), multi-arch index digest as of 2026-11-06 (Dependabot docker bumps it)
+FROM node:22.23.4-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
 RUN corepack enable && corepack prepare pnpm@10.34.9 --activate
 WORKDIR /app
@@ -31,8 +31,8 @@ RUN pnpm --filter @platform/api deploy --legacy --prod /out \
  && cd /out/node_modules/@platform/database \
  && ./node_modules/.bin/prisma generate --schema prisma/schema.prisma
 
-# node:22.23.4-alpine (Node.js security release 2026-10-20), multi-arch index digest as of 2026-10-26 (Dependabot docker bumps it)
-FROM node:22.23.4-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS runner
+# node:22.23.4-alpine (Node.js security release 2026-10-20), multi-arch index digest as of 2026-11-06 (Dependabot docker bumps it)
+FROM node:22.23.4-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS runner
 ENV NODE_ENV=production PORT=4000 NODE_OPTIONS=--max-old-space-size=512
 RUN apk add --no-cache postgresql16-client
 WORKDIR /app

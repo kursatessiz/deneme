@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16.15-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+    image: postgres:16.15-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
     container_name: app_dev_postgres
     restart: always
     environment:
@@ -13,7 +13,7 @@ services:
       - dev_postgres_data:/var/lib/postgresql/data
 
   redis:
-    image: redis:7.4.11-alpine@sha256:57e4255cc971b1c8d6f8a6ca283ac01bc3ecdd914273ef6bfaede87aaecd6541
+    image: redis:7.4.12-alpine@sha256:c5d34a98396a4775e223c74e929162c35c5a2182901ba26b50ade939941ce14b
     container_name: app_dev_redis
     restart: always
     command: redis-server --requirepass dev_redis_pass
