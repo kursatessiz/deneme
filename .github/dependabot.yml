@@ -41,6 +41,11 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+      # Dependabot security updates (enabled in the repository settings) open
+      # one grouped PR for every open npm advisory fix instead of one PR each.
+      security:
+        applies-to: security-updates
+        patterns: ['*']
     commit-message:
       prefix: build(deps)
 

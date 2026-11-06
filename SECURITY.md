@@ -18,13 +18,18 @@ Yalnızca `main` üzerindeki en son sürüm düzeltme alır.
 ## Mevcut önlemler
 
 - Dependabot ile 7 günlük bekleme süresiyle bağımlılık güncellemeleri; major sürümler ayrı PR'lar olarak
+- Dependabot güvenlik güncellemeleri açık: bir açık yayımlandığında haftalık taramayı beklemeden
+  düzeltme PR'ı açılır; npm güvenlik düzeltmeleri tek bir PR'da gruplanır
+- GitHub gizli bilgi taraması ve push protection açık: gizli bilgi içeren bir push GitHub'a
+  ulaşmadan reddedilir
 - Her PR'da `pnpm audit` (high ve üzeri), bağımlılık incelemesi ve lisans kontrolleri
   - Yaması olmayan, yalnızca geliştirme araçlarını etkileyen uyarılar `pnpm.auditConfig.ignoreGhsas` ile gerekçeli olarak geçici geçilir (liste ve gerekçeler: `docs/CICD_GUIDE.md`)
 - TypeScript ve GitHub Actions için CodeQL (security-extended)
 - Gizli bilgi taraması (TruffleHog) ve workflow denetimi (zizmor, actionlint)
 - OpenSSF Scorecard
 - Build kaynak doğrulaması (provenance attestation) ve SBOM'lara sahip, salt okunur
-  bir dosya sisteminde root olmayan bir kullanıcı olarak çalışan container imajları
+  bir dosya sisteminde root olmayan bir kullanıcı olarak çalışan container imajları;
+  attestation her deploy'dan önce doğrulanır, doğrulanamayan image sunucuya gönderilmez
 - Şifre ve PIN ile girişte kaba kuvvet koruması: yalnızca başarısız denemeler sayılır;
   hesap tanımlayıcısı (normalize telefon veya e-posta) başına 15 dakikada 10, IP başına
   50 başarısız denemeden sonra 429 döner. Başarılı giriş sayacı sıfırlar; SMS kodu ile

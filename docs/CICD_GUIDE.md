@@ -118,8 +118,12 @@ Job'lar:
    secret'lar ve değişkenler o ortamdan okunur. İlk adım ortamın açık olduğunu doğrular
    (`DEPLOY_ENABLED == 'true'`, aksi halde bir uyarıyla atlanır) ve `DEPLOY_ENVIRONMENT`
    değişkeninin ortam adıyla aynı olduğunu kontrol eder (aynı isimli repository seviyesindeki bir
-   secret'ın job'u yanlış sunucuya yöneltmesine karşı koruma). Ardından
-   `deploy/docker-compose.prod.yml`, `deploy/caddy/Caddyfile` ve `deploy/scripts/*.sh`
+   secret'ın job'u yanlış sunucuya yöneltmesine karşı koruma). Sunucuya dokunmadan önce
+   `api` ve `web` image'larının build provenance attestation'ını `gh attestation verify` ile
+   doğrular: image bu repository'nin `release.yml` workflow'unda, GitHub'ın barındırdığı bir
+   runner'da build edilmiş olmalıdır (`--signer-workflow`, `--deny-self-hosted-runners`).
+   Doğrulanamayan bir image (attestation'ı olmayan eski bir etiket dahil) deploy edilmez.
+   Ardından `deploy/docker-compose.prod.yml`, `deploy/caddy/Caddyfile` ve `deploy/scripts/*.sh`
    dosyalarını sunucuda `/opt/app` içine senkronize eder ve `deploy.sh <tag>` çalıştırır.
 
 `publish` ayrıca `web` için kaynak haritalarını yayınlar (`ghcr.io/<owner>/<repo>/web-sourcemaps:sha-<commit>`

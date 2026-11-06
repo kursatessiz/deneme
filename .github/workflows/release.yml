@@ -208,7 +208,8 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-      packages: read # pull the source map image
+      packages: read     # pull the source map image and the attested image manifests
+      attestations: read # verify the images' build provenance before deploying
     # Secrets and variables below resolve from this environment. Required
     # reviewers and a main-only branch rule belong on `production`.
     environment:
@@ -239,6 +240,26 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # Only images built by this workflow on a GitHub-hosted runner from this
+      # repository may reach a server: verify the signed build provenance of
+      # both images for this tag before anything changes there.
+      - name: Verify image provenance
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.plan.outputs.tag }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          [[ "$TAG" =~ ^[A-Za-z0-9._-]{1,128}$ ]] || { echo "invalid tag"; exit 2; }
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          for app in api web; do
+            gh attestation verify "oci://ghcr.io/${REPO,,}/${app}:${TAG}" \
+              --repo "$REPO" \
+              --signer-workflow "${REPO}/.github/workflows/release.yml" \
+              --deny-self-hosted-runners
+          done
 
       - name: Configure SSH
         if: steps.gate.outputs.enabled == 'true'
